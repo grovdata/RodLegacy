@@ -6,8 +6,8 @@ meta:
 seq:
   - id: num_sprites
     type: u2
-  #- id: crap
-  #  size: 2 + num_assets * 30
+  - id: crap
+    size: 2 + num_sprites * 28
   - id: sprites
     type: sprite_descriptor
     repeat: expr

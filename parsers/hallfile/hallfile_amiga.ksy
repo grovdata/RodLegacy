@@ -7,12 +7,12 @@ types:
   hall_record:
     seq:
       - id: name
-        type: str
-        encoding: ascii
+        #type: str
+        #encoding: ascii
         size: 16
-        process: xor(0x80)
+        # process: xor(0x80) only works with integers :/
       - id: score
-        type: b7
+        size: 7
         process: xor(0x80)
 seq:
   - id: num_entries
