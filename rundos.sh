@@ -1,1 +1,1 @@
-dosbox-staging dos/SR1/SR.EXE
+dosbox-staging -output=texturepp dos/SR1/SR.EXE
