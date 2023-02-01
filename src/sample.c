@@ -46,13 +46,14 @@ int main(void)
     }
 
     // res scaling
-    SDL_RenderSetLogicalSize(rend, 320, 240);
+    SDL_RenderSetLogicalSize(rend, 320, 200);
 
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
     // load the image into memory using SDL_image library function
-    SDL_Surface* surface = IMG_Load("../data/dat1/Sprite000.bmp");
+    SDL_Surface* surface = IMG_Load("../data/rip/title.png");
 
     if (!surface)
     {
