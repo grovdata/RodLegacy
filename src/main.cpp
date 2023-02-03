@@ -3,11 +3,14 @@
 #include <SDL.h>
 #include <SDL_timer.h>
 #include <SDL_image.h>
+#include <SDL_mixer.h>
 
 #include "driver.hpp"
 
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
+
+#define TUNE "../data/snd/sr1_ost.ogg"
 
 // speed in pixels/second
 #define SPEED (300)
@@ -15,7 +18,7 @@
 int main(void)
 {
     // attempt to initialize graphics and timer system
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
         return 1;
     }
@@ -29,6 +32,15 @@ int main(void)
         SDL_Quit();
 	    return 1;
     }
+
+    // Initialize SDL2_mixer
+    if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
+        printf("SDL2_mixer could not be initialized!\n"
+               "SDL_Error: %s\n", SDL_GetError());
+        return 0;
+    }
+    Mix_Music *music = Mix_LoadMUS(TUNE);
+    Mix_PlayMusic(music, 1);
 
     // create a renderer, which sets up the graphics hardware
     Uint32 render_flags = SDL_RENDERER_ACCELERATED;
@@ -102,11 +114,13 @@ int main(void)
     }
 
     printf("Whadda loser!\n");
-    printf("drivers %s", drivers[0].name.c_str());
+
 
     // clean up resources before exiting
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(win);
+    Mix_FreeMusic(music);
+    Mix_CloseAudio();
     SDL_Quit();
 }
