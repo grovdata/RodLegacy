@@ -1,16 +1,16 @@
 # A simple Makefile for compiling small SDL projects
 
 # set the compiler
-CC := clang
+CC := clang++
 
 # set the compiler flags
-CFLAGS := `sdl2-config --libs --cflags` -ggdb3 -O0 --std=c99 -Wall -lSDL2_image -lm
+CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lm
 
 # add header files here
-HDRS :=
+HDRS := driver.hpp
 
 # add source files here
-SRCS := sample.c
+SRCS := main.cpp
 
 # generate names of object files
 OBJS := $(SRCS:.c=.o)
@@ -24,10 +24,6 @@ all: $(EXEC)
 # recipe for building the final executable
 $(EXEC): $(OBJS) $(HDRS) Makefile
 	$(CC) -o $@ $(OBJS) $(CFLAGS)
-
-# recipe for building object files
-#$(OBJS): $(@:.o=.c) $(HDRS) Makefile
-#	$(CC) -o $@ $(@:.o=.c) -c $(CFLAGS)
 
 # recipe to clean the workspace
 clean:

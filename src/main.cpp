@@ -1,12 +1,10 @@
-/**
- * hello7_mouse.c - the sprite follows the cursor, or is chased if you click
- */
-
 #include <stdio.h>
 #include <math.h>
 #include <SDL.h>
 #include <SDL_timer.h>
 #include <SDL_image.h>
+
+#include "driver.hpp"
 
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
@@ -17,8 +15,7 @@
 int main(void)
 {
     // attempt to initialize graphics and timer system
-    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) != 0)
-    {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
         return 1;
     }
@@ -27,8 +24,7 @@ int main(void)
                                        SDL_WINDOWPOS_CENTERED,
                                        SDL_WINDOWPOS_CENTERED,
                                        WINDOW_WIDTH, WINDOW_HEIGHT,0);
-    if (!win)
-    {
+    if (!win) {
         printf("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
 	    return 1;
@@ -37,8 +33,7 @@ int main(void)
     // create a renderer, which sets up the graphics hardware
     Uint32 render_flags = SDL_RENDERER_ACCELERATED;
     SDL_Renderer* rend = SDL_CreateRenderer(win, -1, render_flags);
-    if (!rend)
-    {
+    if (!rend) {
       printf("error creating renderer: %s\n", SDL_GetError());
       SDL_DestroyWindow(win);
       SDL_Quit();
@@ -55,8 +50,7 @@ int main(void)
     // load the image into memory using SDL_image library function
     SDL_Surface* surface = IMG_Load("../data/rip/title.png");
 
-    if (!surface)
-    {
+    if (!surface) {
         printf("error creating surface\n");
         SDL_DestroyRenderer(rend);
         SDL_DestroyWindow(win);
@@ -67,8 +61,7 @@ int main(void)
     // load the image data into the graphics hardware's memory
     SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
     SDL_FreeSurface(surface);
-    if (!tex)
-    {
+    if (!tex) {
         printf("error creating texture: %s\n", SDL_GetError());
         SDL_DestroyRenderer(rend);
         SDL_DestroyWindow(win);
@@ -88,18 +81,14 @@ int main(void)
     int close_requested = 0;
 
     // animation loop
-    while (!close_requested)
-    {
+    while (!close_requested) {
         // process events
         SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            if (event.type == SDL_QUIT)
-            {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
                 close_requested = 1;
             }
         }
-
 
         // clear the window
         SDL_RenderClear(rend);
@@ -113,6 +102,7 @@ int main(void)
     }
 
     printf("Whadda loser!\n");
+    printf("drivers %s", drivers[0].name.c_str());
 
     // clean up resources before exiting
     SDL_DestroyTexture(tex);

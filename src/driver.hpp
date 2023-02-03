@@ -8,3 +8,6 @@ struct Driver {
     int stringOffsetName;
 };
 
+const Driver drivers[] = {
+    {"Foo", 0, 0, 0}
+};
