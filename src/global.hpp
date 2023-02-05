@@ -9,6 +9,8 @@ using namespace std;
 #include <SDL_image.h>
 #include <SDL_mixer.h>
 
+#include "SFont.h"
+
 extern SDL_Renderer *renderer;
 
 #endif

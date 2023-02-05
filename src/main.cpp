@@ -33,6 +33,16 @@ int main(void)
 	    return 1;
     }
 
+    // Font
+
+    SFont_Font* Font;
+    Font = SFont_InitFont(IMG_Load("../data/24P_Copperplate_Blue.png"));
+    SDL_Surface *screen = SDL_CreateRGBSurface(0, 320, 200, 32,
+						0x00FF0000,
+						0x0000FF00,
+						0x000000FF,
+						0xFF000000);
+
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
         printf("SDL2_mixer could not be initialized!\n"
@@ -115,6 +125,10 @@ int main(void)
 
         // draw the image to the window
         SDL_RenderCopy(renderer, tex, NULL, &dest);
+
+        SFont_Write(screen, Font, 0,0,"Welcome to SFontTest1!");
+        SDL_Texture* sfontTex = SDL_CreateTextureFromSurface(renderer, screen);
+        SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
 
         mouse.draw();
 
