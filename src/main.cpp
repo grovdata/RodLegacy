@@ -10,7 +10,12 @@
 // speed in pixels/second
 #define SPEED (300)
 
-SDL_Renderer *renderer;
+SDL_Window* win = SDL_CreateWindow("OpenRod",
+                                    SDL_WINDOWPOS_CENTERED,
+                                    SDL_WINDOWPOS_CENTERED,
+                                    WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+
+SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 Mouse mouse;
 
 int main(void)
@@ -21,10 +26,7 @@ int main(void)
         return 1;
     }
 
-    SDL_Window* win = SDL_CreateWindow("OpenRod",
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SDL_WINDOWPOS_CENTERED,
-                                       WINDOW_WIDTH, WINDOW_HEIGHT,0);
+
     if (!win) {
         printf("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -40,9 +42,6 @@ int main(void)
     Mix_Music *music = Mix_LoadMUS(TUNE);
     Mix_PlayMusic(music, 1);
 
-    // Create a renderer, which sets up the graphics hardware
-    Uint32 render_flags = SDL_RENDERER_ACCELERATED;
-    renderer = SDL_CreateRenderer(win, -1, render_flags);
     if (!renderer) {
       printf("error creating renderer: %s\n", SDL_GetError());
       SDL_DestroyWindow(win);

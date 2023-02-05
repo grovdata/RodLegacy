@@ -13,16 +13,15 @@ class Mouse {
     private:
         SDL_Texture *cursorTexture;
         SDL_Rect rect;
-        SDL_Rect point;
+        SDL_Rect logicalRect;
     public:
 
         Mouse() {
             cursorTexture = IMG_LoadTexture(renderer, "../data/pointer1.png");
-            cout << "tex " << cursorTexture << endl;
             rect.w = 16;
             rect.h = 12;
-            point.w = 1;
-            point.h = 1;
+            logicalRect.w = 16;
+            logicalRect.h = 12;
             SDL_ShowCursor(false);
         }
 
@@ -32,16 +31,16 @@ class Mouse {
 
         void update() {
             SDL_GetMouseState(&rect.x, &rect.y);
-            point.x = rect.x;
-            point.y = rect.y;
 
-            // cout << "mouse x: " << rect.x << endl;
-            // cout << "mouse y: " << rect.y << endl;
-
+            // We must convert coordinates into logical ones since gfx is scaled
+            float logicalX, logicalY;
+            SDL_RenderWindowToLogical(renderer, rect.x, rect.y, &logicalX, &logicalY);
+            logicalRect.x = (int)logicalX;
+            logicalRect.y = (int)logicalY;
         }
 
         void draw() {
-            SDL_RenderCopy(renderer, cursorTexture, NULL, &rect);
+            SDL_RenderCopy(renderer, cursorTexture, NULL, &logicalRect);
         }
 };
 
