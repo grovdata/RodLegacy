@@ -16,7 +16,7 @@ SRCS := main.cpp
 OBJS := $(SRCS:.c=.o)
 
 # name of executable
-EXEC := game
+EXEC := main
 
 # default recipe
 all: $(EXEC)
@@ -27,6 +27,6 @@ $(EXEC): $(OBJS) $(HDRS) Makefile
 
 # recipe to clean the workspace
 clean:
-	rm -f $(EXEC) $(OBJS)
+	rm -rf *.o *.dSYM
 
 .PHONY: all clean

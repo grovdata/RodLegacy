@@ -1,11 +1,6 @@
-#include <stdio.h>
-#include <math.h>
-#include <SDL.h>
-#include <SDL_timer.h>
-#include <SDL_image.h>
-#include <SDL_mixer.h>
-
+#include "global.hpp"
 #include "driver.hpp"
+#include "mouse.hpp"
 
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
@@ -15,9 +10,12 @@
 // speed in pixels/second
 #define SPEED (300)
 
+SDL_Renderer *renderer;
+Mouse mouse;
+
 int main(void)
 {
-    // attempt to initialize graphics and timer system
+    // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
         return 1;
@@ -42,40 +40,41 @@ int main(void)
     Mix_Music *music = Mix_LoadMUS(TUNE);
     Mix_PlayMusic(music, 1);
 
-    // create a renderer, which sets up the graphics hardware
+    // Create a renderer, which sets up the graphics hardware
     Uint32 render_flags = SDL_RENDERER_ACCELERATED;
-    SDL_Renderer* rend = SDL_CreateRenderer(win, -1, render_flags);
-    if (!rend) {
+    renderer = SDL_CreateRenderer(win, -1, render_flags);
+    if (!renderer) {
       printf("error creating renderer: %s\n", SDL_GetError());
       SDL_DestroyWindow(win);
       SDL_Quit();
       return 1;
     }
 
-    // res scaling
-    SDL_RenderSetLogicalSize(rend, 320, 200);
+    // Res scaling
+    SDL_RenderSetLogicalSize(renderer, 320, 200);
 
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-    // load the image into memory using SDL_image library function
+    // Load the image into memory using SDL_image library function
     SDL_Surface* surface = IMG_Load("../data/rip/title.png");
 
     if (!surface) {
         printf("error creating surface\n");
-        SDL_DestroyRenderer(rend);
+        SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
     }
 
+
     // load the image data into the graphics hardware's memory
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
     if (!tex) {
         printf("error creating texture: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(rend);
+        SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
@@ -94,20 +93,33 @@ int main(void)
 
     // animation loop
     while (!close_requested) {
+        mouse.update();
+
         // process events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                close_requested = 1;
+
+            switch (event.type) {
+                case SDL_QUIT:
+                    close_requested = 1;
+                    break;
+                // case SDL_MouseMotionEvent:
+                //     break;
+                default:
+                    break;
             }
+
         }
 
         // clear the window
-        SDL_RenderClear(rend);
+        SDL_RenderClear(renderer);
 
         // draw the image to the window
-        SDL_RenderCopy(rend, tex, NULL, &dest);
-        SDL_RenderPresent(rend);
+        SDL_RenderCopy(renderer, tex, NULL, &dest);
+
+        mouse.draw();
+
+        SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
         SDL_Delay(1000/60);
@@ -118,7 +130,7 @@ int main(void)
 
     // clean up resources before exiting
     SDL_DestroyTexture(tex);
-    SDL_DestroyRenderer(rend);
+    SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     Mix_FreeMusic(music);
     Mix_CloseAudio();
