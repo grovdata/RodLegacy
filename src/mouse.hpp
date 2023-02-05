@@ -18,6 +18,7 @@ class Mouse {
 
         Mouse() {
             cursorTexture = IMG_LoadTexture(renderer, "../data/pointer1.png");
+            cout << "tex " << cursorTexture << endl;
             rect.w = 16;
             rect.h = 12;
             point.w = 1;
@@ -34,7 +35,9 @@ class Mouse {
             point.x = rect.x;
             point.y = rect.y;
 
-            cout << "mouse" << point.x << endl;
+            // cout << "mouse x: " << rect.x << endl;
+            // cout << "mouse y: " << rect.y << endl;
+
         }
 
         void draw() {

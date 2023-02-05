@@ -7,7 +7,7 @@ CC := clang++
 CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm
 
 # add header files here
-HDRS := driver.hpp
+HDRS := global.hpp mouse.hpp driver.hpp
 
 # add source files here
 SRCS := main.cpp
