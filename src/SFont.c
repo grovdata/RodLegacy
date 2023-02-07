@@ -93,6 +93,7 @@ SFont_Font* SFont_InitFont(SDL_Surface* Surface)
     printf("font maxpos %d\n", Font->MaxPos);
 
     pixel = GetPixel(Surface, 0, Surface->h-1);
+    printf ("pixel %d\n", pixel);
     SDL_UnlockSurface(Surface);
     SDL_SetColorKey(Surface, 0, pixel);
 
@@ -136,7 +137,7 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
 			      - Font->CharPos[charoffset-1])/2;
 
 	SDL_BlitSurface(Font->Surface, &srcrect, Surface, &dstrect);
-
+    printf("%c %d\n", *c, x);
 	x += Font->CharPos[charoffset+1] - Font->CharPos[charoffset];
     }
 }

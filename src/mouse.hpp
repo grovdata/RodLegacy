@@ -17,7 +17,7 @@ class Mouse {
     public:
 
         Mouse() {
-            cursorTexture = IMG_LoadTexture(renderer, "../data/pointer1.png");
+            cursorTexture = IMG_LoadTexture(renderer, "../data/pointer2.png");
             rect.w = 16;
             rect.h = 12;
             logicalRect.w = 16;

@@ -5,6 +5,7 @@
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
 
+#define FONT "../data/sr_font3.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
 
 // speed in pixels/second
@@ -16,6 +17,7 @@ SDL_Window* win = SDL_CreateWindow("OpenRod",
                                     WINDOW_WIDTH, WINDOW_HEIGHT, 0);
 
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+
 Mouse mouse;
 
 int main(void)
@@ -33,10 +35,13 @@ int main(void)
 	    return 1;
     }
 
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+
     // Font
 
     SFont_Font* Font;
-    Font = SFont_InitFont(IMG_Load("../data/sr_font3.png"));
+    Font = SFont_InitFont(IMG_Load(FONT));
     SDL_Surface *fontSurface = SDL_CreateRGBSurface(0, 320, 200, 32,
 						0x00FF0000,
 						0x0000FF00,
@@ -66,7 +71,7 @@ int main(void)
 
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
 
     // Load the image into memory using SDL_image library function
     SDL_Surface* surface = IMG_Load("../data/rip/title.png");
@@ -126,9 +131,16 @@ int main(void)
         SDL_RenderClear(renderer);
 
         // draw the image to the window
-        SDL_RenderCopy(renderer, tex, NULL, &dest);
+        //SDL_RenderCopy(renderer, tex, NULL, &dest);
 
-        SFont_Write(fontSurface, Font, 140,140, "A C I D");
+        SFont_Write(fontSurface, Font, 0,0, "!\"#$%&'()*+,-./012345");
+        SFont_Write(fontSurface, Font, 0,10, "6789:;<=>?@ABCDEFGHIJ");
+        SFont_Write(fontSurface, Font, 0,20, "KLMNOPQRSTUVWXYZ[\\]");
+        SFont_Write(fontSurface, Font, 0,30, "abcdefghijk");
+        SFont_Write(fontSurface, Font, 0,40, "jklmnopqrstu");
+
+
+         //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_Texture* sfontTex = SDL_CreateTextureFromSurface(renderer, fontSurface);
         SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
