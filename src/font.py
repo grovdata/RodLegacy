@@ -9,7 +9,7 @@ pink = (255, 0, 255, 255)
 prefix = "../data/font"
 
 chars = '!\"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
-chars_pinbottom = 'fgjpqy'
+chars_pinbottom = 'fgjpqy!.'
 chars_count = len(chars)
 
 total_w = (chars_count * letter_w) + (spacing_w * (chars_count - 1))
@@ -40,10 +40,9 @@ def change_img_color(img: Image, color = (255, 255, 255, 255)):
     return new_image
 
 for i, c in enumerate(chars):
-    #print(x)
     asciival = ord(c)
 
-    if asciival > 32 and asciival < 48:
+    if (asciival > 32 and asciival < 48) or (asciival > 57 and asciival < 65):
         letter_dir = 'symbols'
     elif asciival > 47 and asciival < 58:
         letter_dir = 'digits'
@@ -53,9 +52,6 @@ for i, c in enumerate(chars):
         letter_dir = 'lowercase'
 
     path = f'{prefix}/{letter_dir}/{c}.png'
-    #print (path)
-
-    #x = (i + 1) * letter_w
 
     image.putpixel((x,0), pink)
     x += 2

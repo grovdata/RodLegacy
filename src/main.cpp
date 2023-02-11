@@ -135,7 +135,7 @@ int main(void)
         SFont_Write(fontSurface, Font, 0,0, "0123456789");
         SFont_Write(fontSurface, Font, 0,10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
         SFont_Write(fontSurface, Font, 0,30, "abcdefghijklmnopqrstuvwxyz");
-        SFont_Write(fontSurface, Font, 0,40, "!\"#$,");
+        SFont_Write(fontSurface, Font, 0,40, "!\"#$,.?");
 
          //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
