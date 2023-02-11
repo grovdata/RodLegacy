@@ -5,7 +5,7 @@
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
 
-#define FONT "../data/sr_font3.png"
+#define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
 
 // speed in pixels/second
@@ -28,7 +28,6 @@ int main(void)
         return 1;
     }
 
-
     if (!win) {
         printf("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -48,7 +47,7 @@ int main(void)
 						0x000000FF,
 						0xFF000000);
 
-    printf("widht of A: %d\n", SFont_TextWidth(Font, "A"));
+    SFont_DumpFont(Font);
 
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -130,15 +129,13 @@ int main(void)
         // clear the window
         SDL_RenderClear(renderer);
 
-        // draw the image to the window
-        //SDL_RenderCopy(renderer, tex, NULL, &dest);
+        // Draw Title
+        SDL_RenderCopy(renderer, tex, NULL, &dest);
 
-        SFont_Write(fontSurface, Font, 0,0, "!\"#$%&'()*+,-./012345");
-        SFont_Write(fontSurface, Font, 0,10, "6789:;<=>?@ABCDEFGHIJ");
-        SFont_Write(fontSurface, Font, 0,20, "KLMNOPQRSTUVWXYZ[\\]");
-        SFont_Write(fontSurface, Font, 0,30, "abcdefghijk");
-        SFont_Write(fontSurface, Font, 0,40, "jklmnopqrstu");
-
+        SFont_Write(fontSurface, Font, 0,0, "0123456789");
+        SFont_Write(fontSurface, Font, 0,10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        SFont_Write(fontSurface, Font, 0,30, "abcdefghijklmnopqrstuvwxyz");
+        SFont_Write(fontSurface, Font, 0,40, "!\"#$,");
 
          //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
