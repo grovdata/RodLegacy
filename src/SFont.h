@@ -4,28 +4,28 @@
     License: GPL or LGPL (at your choice)
     WWW: http://www.linux-games.com/sfont/
 
-    This program is free software; you can redistribute it and/or modify        
-    it under the terms of the GNU General Public License as published by        
-    the Free Software Foundation; either version 2 of the License, or           
-    (at your option) any later version.                                         
-                                                                                
-    This program is distributed in the hope that it will be useful,       
-    but WITHOUT ANY WARRANTY; without even the implied warranty of              
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               
-    GNU General Public License for more details.                
-                                                                               
-    You should have received a copy of the GNU General Public License           
-    along with this program; if not, write to the Free Software                 
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA   
-                                                                                
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
     Karl Bartel
-    Cecilienstr. 14                                                    
+    Cecilienstr. 14
     12307 Berlin
     GERMANY
-    karlb@gmx.net                                                      
-*/                                                                            
+    karlb@gmx.net
+*/
 
-/************************************************************************ 
+/************************************************************************
 *    SFONT - SDL Font Library by Karl Bartel <karl@karl.berlin>         *
 *                                                                       *
 *  All functions are explained below. For further information, take a   *
@@ -38,17 +38,17 @@
 
 #include <SDL.h>
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 /*
-** Delcare one variable of this type for each font you are using.
+** Declare one variable of this type for each font you are using.
 ** To load the fonts, load the font image into YourFont->Surface
 ** and call InitFont( YourFont );
 */
 typedef struct {
-	SDL_Surface *Surface;	
+	SDL_Surface *Surface;
 	int CharPos[512];
 	int MaxPos;
 } SFont_Font;
@@ -67,9 +67,12 @@ SFont_Font* SFont_InitFont (SDL_Surface *Font);
 */
 void SFont_FreeFont(SFont_Font* Font);
 
+/* Font debug */
+void SFont_DumpFont(SFont_Font* Font);
+
 /*
 ** Blits a string to a surface
-** Destination: the suface you want to blit to
+** Destination: the surface you want to blit to
 ** text: a string containing the text you want to blit.
 */
 void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font, int x, int y,

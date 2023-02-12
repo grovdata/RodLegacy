@@ -80,20 +80,18 @@ SFont_Font* SFont_InitFont(SDL_Surface* Surface)
 
     pink = SDL_MapRGB(Surface->format, 255, 0, 255);
     while (x < Surface->w) {
-	if (GetPixel(Surface, x, 0) == pink) {
-    	    Font->CharPos[i++]=x;
-    	    while((x < Surface->w) && (GetPixel(Surface, x, 0)== pink))
-		x++;
-	    Font->CharPos[i++]=x;
-	}
-	x++;
+        if (GetPixel(Surface, x, 0) == pink) {
+            Font->CharPos[i++]=x;
+            while((x < Surface->w) && (GetPixel(Surface, x, 0)== pink))
+                x++;
+            Font->CharPos[i++]=x;
+        } else {
+        x++;
+        }
     }
+    printf("Number of chars: %d\n", i);
     Font->MaxPos = x-1;
-
-    printf("font maxpos %d\n", Font->MaxPos);
-
     pixel = GetPixel(Surface, 0, Surface->h-1);
-    printf ("pixel %d\n", pixel);
     SDL_UnlockSurface(Surface);
     SDL_SetColorKey(Surface, 0, pixel);
 
@@ -106,11 +104,22 @@ void SFont_FreeFont(SFont_Font* FontInfo)
     free(FontInfo);
 }
 
+void SFont_DumpFont(SFont_Font* Font)
+{
+    const char* chars = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    for (int i = 0; i < strlen(chars); i++) {
+        char c = chars[i];
+        int size = SFont_TextWidth(Font, &c);
+
+        printf("%c %d\n", chars[i], size);
+    }
+}
+
 void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
 		 int x, int y, const char *text)
 {
     const char* c;
-    int charoffset;
+    int charoffset, previous;
     SDL_Rect srcrect, dstrect;
 
     if(text == NULL)
@@ -122,23 +131,25 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
     srcrect.h = dstrect.h = Font->Surface->h - 1;
 
     for(c = text; *c != '\0' && x <= Surface->w ; c++) {
-	charoffset = ((int) (*c - 33)) * 2 + 1;
-	/* skip spaces and nonprintable characters */
-	if (*c == ' ' || charoffset < 0 || charoffset > Font->MaxPos) {
-	    x += Font->CharPos[2]-Font->CharPos[1];
-	    continue;
-	}
+        charoffset = ((int) (*c - 33)) * 2 + 1;
+        /* skip spaces and nonprintable characters */
+        if (*c == ' ' || charoffset < 0 || charoffset > Font->MaxPos) {
+            x += Font->CharPos[2]-Font->CharPos[1];
+            continue;
+        }
 
-	srcrect.w = dstrect.w =
-	    (Font->CharPos[charoffset+2] + Font->CharPos[charoffset+1])/2 -
-	    (Font->CharPos[charoffset] + Font->CharPos[charoffset-1])/2;
-	srcrect.x = (Font->CharPos[charoffset]+Font->CharPos[charoffset-1])/2;
-	dstrect.x = x - (float)(Font->CharPos[charoffset]
-			      - Font->CharPos[charoffset-1])/2;
+        srcrect.w = dstrect.w =
+            (Font->CharPos[charoffset+2] + Font->CharPos[charoffset+1])/2 -
+            (Font->CharPos[charoffset] + Font->CharPos[charoffset-1])/2;
+        srcrect.x = (Font->CharPos[charoffset]+Font->CharPos[charoffset-1])/2;
+        dstrect.x = x - (float)(Font->CharPos[charoffset]
+                    - Font->CharPos[charoffset-1])/2;
 
-	SDL_BlitSurface(Font->Surface, &srcrect, Surface, &dstrect);
-    printf("%c %d\n", *c, x);
-	x += Font->CharPos[charoffset+1] - Font->CharPos[charoffset];
+        SDL_BlitSurface(Font->Surface, &srcrect, Surface, &dstrect);
+        // printf("src: %s %d %d %d %d\n", c, srcrect.x, srcrect.y, srcrect.w, srcrect.h);
+        // printf("dst: %s %d %d %d %d\n", c, dstrect.x, dstrect.y, dstrect.w, dstrect.h);
+        previous = x;
+        x += Font->CharPos[charoffset+1] - Font->CharPos[charoffset];
     }
 }
 
