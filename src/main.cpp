@@ -1,6 +1,7 @@
 #include "global.hpp"
 #include "driver.hpp"
 #include "mouse.hpp"
+#include "ui/button.hpp"
 
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
@@ -18,7 +19,10 @@ SDL_Window* win = SDL_CreateWindow("OpenRod",
 
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
+SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
+
 Mouse mouse;
+Button *testButton;
 
 int main(void)
 {
@@ -39,15 +43,16 @@ int main(void)
 
     // Font
 
-    SFont_Font* Font;
-    Font = SFont_InitFont(IMG_Load(FONT));
+
+
     SDL_Surface *fontSurface = SDL_CreateRGBSurface(0, 320, 200, 32,
 						0x00FF0000,
 						0x0000FF00,
 						0x000000FF,
 						0xFF000000);
 
-    SFont_DumpFont(Font);
+    //SFont_DumpFont(Font);
+    testButton = new Button("Whadda loser!", 100, 100, 82, cButtonStandardHeight);
 
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -132,15 +137,22 @@ int main(void)
         // Draw Title
         SDL_RenderCopy(renderer, tex, NULL, &dest);
 
-        SFont_Write(fontSurface, Font, 0,0, "0123456789");
-        SFont_Write(fontSurface, Font, 0,10, "Whadda loser!");
-        SFont_Write(fontSurface, Font, 0,30, "abcdefghijklmnopqrstuvwxyz");
-        SFont_Write(fontSurface, Font, 0,40, "!\"#$,.?");
+        SFont_Write(fontSurface, font, 0,0, "0123456789");
+        SFont_Write(fontSurface, font, 0,10, "Whadda loser!");
+        SFont_Write(fontSurface, font, 0,30, "abcdefghijklmnopqrstuvwxyz");
+        SFont_Write(fontSurface, font, 0,40, "!\"#$,.?");
 
          //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_Texture* sfontTex = SDL_CreateTextureFromSurface(renderer, fontSurface);
         SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
+
+
+        SDL_Rect *buttonRect = testButton->GetRect();
+        SDL_Rect buttonDest = { 100, 100, buttonRect->w, buttonRect->h };
+
+        SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, &buttonDest );
+
 
         mouse.draw();
 

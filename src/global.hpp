@@ -12,5 +12,6 @@ using namespace std;
 #include "SFont.h"
 
 extern SDL_Renderer *renderer;
+extern SFont_Font *font;
 
 #endif

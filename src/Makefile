@@ -7,10 +7,10 @@ CC := clang++
 CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm
 
 # add header files here
-HDRS := global.hpp mouse.hpp driver.hpp SFont.h
+HDRS := global.hpp mouse.hpp driver.hpp SFont.h ui/button.hpp
 
 # add source files here
-SRCS := main.cpp SFont.c
+SRCS := main.cpp SFont.c ui/button.cpp
 
 # generate names of object files
 OBJS := $(SRCS:.c=.o)
