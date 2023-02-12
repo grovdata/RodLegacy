@@ -35,4 +35,5 @@ __pycache__
 
 *.o
 src/game
+src/main
 src/*.dSYM

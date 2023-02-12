@@ -133,7 +133,7 @@ int main(void)
         SDL_RenderCopy(renderer, tex, NULL, &dest);
 
         SFont_Write(fontSurface, Font, 0,0, "0123456789");
-        SFont_Write(fontSurface, Font, 0,10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        SFont_Write(fontSurface, Font, 0,10, "Whadda loser!");
         SFont_Write(fontSurface, Font, 0,30, "abcdefghijklmnopqrstuvwxyz");
         SFont_Write(fontSurface, Font, 0,40, "!\"#$,.?");
 
