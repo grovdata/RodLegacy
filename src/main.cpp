@@ -149,9 +149,9 @@ int main(void)
 
 
         SDL_Rect *buttonRect = testButton->GetRect();
-        SDL_Rect buttonDest = { 100, 100, buttonRect->w, buttonRect->h };
 
-        SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, &buttonDest );
+
+        SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, buttonRect );
 
 
         mouse.draw();

@@ -13,7 +13,7 @@ class Button {
         SDL_Texture *m_Texture;
         SDL_Rect m_Rect;
     public:
-        Button(char* text, int offsetX, int offsetY, int width, int height);
+        Button(std::string text, int offsetX, int offsetY, int width, int height);
         ~Button();
 
         SDL_Texture *GetTexture();
