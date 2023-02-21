@@ -4,7 +4,7 @@
 CC := clang++
 
 # set the compiler flags
-CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm
+CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++17
 
 # add header files here
 HDRS := global.hpp mouse.hpp driver.hpp SFont.h ui/button.hpp

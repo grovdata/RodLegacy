@@ -8,6 +8,7 @@
 
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
+#define BACKGROUND "../data/rip/garage.png"
 
 // speed in pixels/second
 #define SPEED (300)
@@ -22,10 +23,9 @@ SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 
 Mouse mouse;
-Button *testButton;
+Button *testButton, *testButton2;
 
-int main(void)
-{
+int main(void) {
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
@@ -52,7 +52,8 @@ int main(void)
 						0xFF000000);
 
     //SFont_DumpFont(Font);
-    testButton = new Button("Whadda loser!", 100, 100, 82, cButtonStandardHeight);
+    testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
+    testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
 
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -78,7 +79,7 @@ int main(void)
 
 
     // Load the image into memory using SDL_image library function
-    SDL_Surface* surface = IMG_Load("../data/rip/title.png");
+    SDL_Surface* surface = IMG_Load(BACKGROUND);
 
     if (!surface) {
         printf("error creating surface\n");
@@ -149,10 +150,10 @@ int main(void)
 
 
         SDL_Rect *buttonRect = testButton->GetRect();
-
+        SDL_Rect *buttonRect2 = testButton2->GetRect();
 
         SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, buttonRect );
-
+        SDL_RenderCopy(renderer, testButton2->GetTexture() , NULL, buttonRect2 );
 
         mouse.draw();
 
