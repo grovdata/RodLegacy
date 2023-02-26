@@ -16,8 +16,6 @@ enum MousePointer {
     PointerRag       = 3
 };
 
-
-
 class Mouse {
     private:
         SDL_Texture *cursorTexture;

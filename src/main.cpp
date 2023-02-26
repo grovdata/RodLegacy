@@ -134,7 +134,7 @@ int main(void) {
         SDL_RenderClear(renderer);
 
         // Draw Title
-        SDL_RenderCopy(renderer, garage->GetTexture(), NULL, &dest);
+        garage->Draw();
 
         // SFont_Write(fontSurface, font, 0,0, "0123456789");
         // SFont_Write(fontSurface, font, 0,10, "Whadda loser!");
@@ -144,14 +144,15 @@ int main(void) {
          //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         
-        //SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
+        
 
 
-        SDL_Rect *buttonRect = testButton->GetRect();
-        SDL_Rect *buttonRect2 = testButton2->GetRect();
+        // SDL_Rect *buttonRect = testButton->GetRect();
+        // SDL_Rect *buttonRect2 = testButton2->GetRect();
 
-        SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, buttonRect );
-        SDL_RenderCopy(renderer, testButton2->GetTexture() , NULL, buttonRect2 );
+        // SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, buttonRect );
+        // SDL_RenderCopy(renderer, testButton2->GetTexture() , NULL, buttonRect2 );
+
 
         mouse.draw();
 
