@@ -1,7 +1,9 @@
-#include "global.hpp"
-#include "driver.hpp"
-#include "mouse.hpp"
-#include "ui/button.hpp"
+#include "global.h"
+#include "driver.h"
+#include "garage.h"
+#include "mouse.h"
+#include "ui/button.h"
+#include "ui/zone.h"
 
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
@@ -24,6 +26,7 @@ SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 
 Mouse mouse;
 Button *testButton, *testButton2;
+Garage *garage;
 
 int main(void) {
     // Attempt to initialize graphics and timer system
@@ -43,13 +46,6 @@ int main(void) {
 
     // Font
 
-
-
-    SDL_Surface *fontSurface = SDL_CreateRGBSurface(0, 320, 200, 32,
-						0x00FF0000,
-						0x0000FF00,
-						0x000000FF,
-						0xFF000000);
 
     //SFont_DumpFont(Font);
     testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
@@ -77,35 +73,36 @@ int main(void) {
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
+    garage = new Garage();
 
-    // Load the image into memory using SDL_image library function
-    SDL_Surface* surface = IMG_Load(BACKGROUND);
+    // // Load the image into memory using SDL_image library function
+    // SDL_Surface* surface = IMG_Load(BACKGROUND);
 
-    if (!surface) {
-        printf("error creating surface\n");
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 1;
-    }
+    // if (!surface) {
+    //     printf("error creating surface\n");
+    //     SDL_DestroyRenderer(renderer);
+    //     SDL_DestroyWindow(win);
+    //     SDL_Quit();
+    //     return 1;
+    // }
 
 
-    // load the image data into the graphics hardware's memory
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    if (!tex) {
-        printf("error creating texture: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 1;
-    }
+    // // load the image data into the graphics hardware's memory
+    // SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
+    // SDL_FreeSurface(surface);
+    // if (!tex) {
+    //     printf("error creating texture: %s\n", SDL_GetError());
+    //     SDL_DestroyRenderer(renderer);
+    //     SDL_DestroyWindow(win);
+    //     SDL_Quit();
+    //     return 1;
+    // }
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
 
     // get and scale the dimensions of texture
-    SDL_QueryTexture(tex, NULL, NULL, &dest.w, &dest.h);
+    SDL_QueryTexture(garage->GetTexture(), NULL, NULL, &dest.w, &dest.h);
     dest.x = 0;
     dest.y = 0;
 
@@ -119,6 +116,7 @@ int main(void) {
         // process events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            garage->PushEvent(&event);
 
             switch (event.type) {
                 case SDL_QUIT:
@@ -136,17 +134,17 @@ int main(void) {
         SDL_RenderClear(renderer);
 
         // Draw Title
-        SDL_RenderCopy(renderer, tex, NULL, &dest);
+        SDL_RenderCopy(renderer, garage->GetTexture(), NULL, &dest);
 
-        SFont_Write(fontSurface, font, 0,0, "0123456789");
-        SFont_Write(fontSurface, font, 0,10, "Whadda loser!");
-        SFont_Write(fontSurface, font, 0,30, "abcdefghijklmnopqrstuvwxyz");
-        SFont_Write(fontSurface, font, 0,40, "!\"#$,.?");
+        // SFont_Write(fontSurface, font, 0,0, "0123456789");
+        // SFont_Write(fontSurface, font, 0,10, "Whadda loser!");
+        // SFont_Write(fontSurface, font, 0,30, "abcdefghijklmnopqrstuvwxyz");
+        // SFont_Write(fontSurface, font, 0,40, "!\"#$,.?");
 
          //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
         //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_Texture* sfontTex = SDL_CreateTextureFromSurface(renderer, fontSurface);
-        SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
+        
+        //SDL_RenderCopy(renderer, sfontTex, NULL, &dest);
 
 
         SDL_Rect *buttonRect = testButton->GetRect();
@@ -165,9 +163,10 @@ int main(void) {
 
     printf("Whadda loser!\n");
 
+    delete garage;
 
     // clean up resources before exiting
-    SDL_DestroyTexture(tex);
+    // SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     Mix_FreeMusic(music);

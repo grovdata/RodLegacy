@@ -1,9 +1,11 @@
-#include "button.hpp"
+#include "button.h"
 
 #define COL_GREEN 0, 100, 110
 #define COL_WHITE 255, 255, 255
 
 Button::Button(std::string text, int offsetX, int offsetY, int width, int height) {
+    //SDL_Rect rect = { offsetX, offsetY, width, height };
+    //Zone::Zone(text, &rect);
     m_Surface = SDL_CreateRGBSurface(0, width, height, 32,
                                         0x00FF0000,
                                         0x0000FF00,

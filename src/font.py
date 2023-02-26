@@ -54,7 +54,7 @@ for i, c in enumerate(chars):
     path = f'{prefix}/{letter_dir}/{c}.png'
 
     image.putpixel((x,0), pink)
-    x += 2
+    x += 1
 
     if os.path.exists(path):
         glyph = Image.open(path)

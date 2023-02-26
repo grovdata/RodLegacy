@@ -3,6 +3,7 @@
 #include <iostream>
 #include <tuple>
 #include <string>
+#include <vector>
 #include <stdio.h>
 #include <math.h>
 #include <SDL.h>
@@ -13,6 +14,8 @@
 using namespace std;
 
 #include "SFont.h"
+#include "ui/zone.h"
+#include "ui/button.h"
 
 extern SDL_Renderer *renderer;
 extern SFont_Font *font;
