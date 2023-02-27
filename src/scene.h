@@ -9,6 +9,7 @@ class Scene {
 		void SetStatusBar(char *text) {
 			SFont_Write(m_FontSurface, font, 161, 200-9, text);
 			m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
+			SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
 		}
 
 		void ClearStatusBar() {
@@ -18,7 +19,7 @@ class Scene {
 
 		void CheckMouseHover(int x, int y) {
 			for (int i = 0; i < m_zones.size(); i++) {
-				Zone zone = m_zones.at(i);				
+				Zone zone = m_zones.at(i);
 				if (zone.IsInsideZone(x, y)) {
 					//printf("bingo %d %d %s\n", x, y, zone.GetText());
 					ClearStatusBar();
@@ -78,7 +79,7 @@ class Scene {
 		void PushEvent(SDL_Event *event) {
 			switch (event->type) {
 			case SDL_MOUSEMOTION: {
-				CheckMouseHover(event->motion.x, event->motion.y);					
+				CheckMouseHover(event->motion.x, event->motion.y);
 				break;
 			}
 			default:
