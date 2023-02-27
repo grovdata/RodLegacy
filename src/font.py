@@ -42,7 +42,7 @@ def change_img_color(img: Image, color = (255, 255, 255, 255)):
 for i, c in enumerate(chars):
     asciival = ord(c)
 
-    if (asciival > 32 and asciival < 48) or (asciival > 57 and asciival < 65):
+    if (asciival > 31 and asciival < 48) or (asciival > 57 and asciival < 65):
         letter_dir = 'symbols'
     elif asciival > 47 and asciival < 58:
         letter_dir = 'digits'
