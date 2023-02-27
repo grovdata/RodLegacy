@@ -11,6 +11,7 @@
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
 #define BACKGROUND "../data/rip/garage.png"
+#define ICON "../data/rip/icon.png"
 
 // speed in pixels/second
 #define SPEED (300)
@@ -26,12 +27,13 @@ SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 
 Mouse mouse;
 Button *testButton, *testButton2;
-Garage *garage;
+Scene *currentScene;
 
 int main(void) {
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
+        SDL_Quit();
         return 1;
     }
 
@@ -41,15 +43,16 @@ int main(void) {
 	    return 1;
     }
 
+    SDL_Surface* icon = IMG_Load(ICON);
+	if (icon == NULL) {
+		printf("Could not load icon");
+	} else {
+		SDL_SetWindowIcon(win, icon);
+	}
+
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
 
-    // Font
-
-
-    //SFont_DumpFont(Font);
-    testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
-    testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
 
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -73,54 +76,26 @@ int main(void) {
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    garage = new Garage();
-
-    // // Load the image into memory using SDL_image library function
-    // SDL_Surface* surface = IMG_Load(BACKGROUND);
-
-    // if (!surface) {
-    //     printf("error creating surface\n");
-    //     SDL_DestroyRenderer(renderer);
-    //     SDL_DestroyWindow(win);
-    //     SDL_Quit();
-    //     return 1;
-    // }
-
-
-    // // load the image data into the graphics hardware's memory
-    // SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    // SDL_FreeSurface(surface);
-    // if (!tex) {
-    //     printf("error creating texture: %s\n", SDL_GetError());
-    //     SDL_DestroyRenderer(renderer);
-    //     SDL_DestroyWindow(win);
-    //     SDL_Quit();
-    //     return 1;
-    // }
+    currentScene = new Garage();
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
 
     // get and scale the dimensions of texture
-    SDL_QueryTexture(garage->GetTexture(), NULL, NULL, &dest.w, &dest.h);
+    SDL_QueryTexture(currentScene->GetTexture(), NULL, NULL, &dest.w, &dest.h);
     dest.x = 0;
     dest.y = 0;
 
-    // set to 1 when window close button is pressed
-    int close_requested = 0;
+    bool close_requested = false;
 
-    // animation loop
     while (!close_requested) {
-
-
-        // process events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            garage->PushEvent(&event);
+            currentScene->PushEvent(&event);
 
             switch (event.type) {
                 case SDL_QUIT:
-                    close_requested = 1;
+                    close_requested = true;
                     break;
                 case SDL_MOUSEMOTION:
                 case SDL_MOUSEBUTTONUP:
@@ -133,7 +108,7 @@ int main(void) {
         }
 
         SDL_RenderClear(renderer);
-        garage->Draw();
+        currentScene->Draw();
         mouse.Draw();
         SDL_RenderPresent(renderer);
 
@@ -143,10 +118,8 @@ int main(void) {
 
     printf("Whadda loser!\n");
 
-    delete garage;
+    delete currentScene;
 
-    // clean up resources before exiting
-    // SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     Mix_FreeMusic(music);
