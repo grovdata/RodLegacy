@@ -47,7 +47,6 @@ class Garage: public Scene {
 			SDL_Rect streetRect = {0, 42, 40, 62};
 			Zone street(strdup("Hit the street"), &streetRect);
 
-
 			m_zones.push_back(bottle);
 			m_zones.push_back(newsPaper);
 			m_zones.push_back(changeTires);
@@ -61,7 +60,6 @@ class Garage: public Scene {
 			m_zones.push_back(menu);
 			m_zones.push_back(cars);
 			m_zones.push_back(street);
-			
 
 		}
 };
