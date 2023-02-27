@@ -111,7 +111,7 @@ int main(void) {
 
     // animation loop
     while (!close_requested) {
-        mouse.update();
+
 
         // process events
         SDL_Event event;
@@ -122,40 +122,19 @@ int main(void) {
                 case SDL_QUIT:
                     close_requested = 1;
                     break;
-                // case SDL_MouseMotionEvent:
-                //     break;
+                case SDL_MOUSEMOTION:
+                case SDL_MOUSEBUTTONUP:
+                    mouse.Update(&event);
+                    break;
                 default:
                     break;
             }
 
         }
 
-        // clear the window
         SDL_RenderClear(renderer);
-
-        // Draw Title
         garage->Draw();
-
-        // SFont_Write(fontSurface, font, 0,0, "0123456789");
-        // SFont_Write(fontSurface, font, 0,10, "Whadda loser!");
-        // SFont_Write(fontSurface, font, 0,30, "abcdefghijklmnopqrstuvwxyz");
-        // SFont_Write(fontSurface, font, 0,40, "!\"#$,.?");
-
-         //a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~");
-        //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        
-        
-
-
-        // SDL_Rect *buttonRect = testButton->GetRect();
-        // SDL_Rect *buttonRect2 = testButton2->GetRect();
-
-        // SDL_RenderCopy(renderer, testButton->GetTexture() , NULL, buttonRect );
-        // SDL_RenderCopy(renderer, testButton2->GetTexture() , NULL, buttonRect2 );
-
-
-        mouse.draw();
-
+        mouse.Draw();
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
