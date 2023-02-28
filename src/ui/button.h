@@ -6,7 +6,8 @@
 
 const int cButtonStandardHeight = 19;
 const int cButtonStandardTextOffsetY = 5;
-
+// testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
+    // testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
 
 class Button {
     private:

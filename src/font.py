@@ -9,7 +9,7 @@ pink = (255, 0, 255, 255)
 prefix = "../data/font"
 
 chars = '!\"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
-chars_pinbottom = 'fgjpqy!.'
+chars_pinbottom = 'fgjpqy!.:'
 chars_count = len(chars)
 
 total_w = (chars_count * letter_w) + (spacing_w * (chars_count - 1))
@@ -41,17 +41,7 @@ def change_img_color(img: Image, color = (255, 255, 255, 255)):
 
 for i, c in enumerate(chars):
     asciival = ord(c)
-
-    if (asciival > 31 and asciival < 48) or (asciival > 57 and asciival < 65):
-        letter_dir = 'symbols'
-    elif asciival > 47 and asciival < 58:
-        letter_dir = 'digits'
-    elif asciival > 64 and asciival < 91:
-        letter_dir = 'uppercase'
-    elif asciival > 96 and asciival < 123:
-        letter_dir = 'lowercase'
-
-    path = f'{prefix}/{letter_dir}/{c}.png'
+    path = os.path.join(f'{prefix}', f'{asciival}.png')
 
     image.putpixel((x,0), pink)
     x += 1
@@ -60,7 +50,7 @@ for i, c in enumerate(chars):
         glyph = Image.open(path)
         #glyph = change_img_color(glyph)
         w, h = glyph.size
-        if letter_dir == 'lowercase':
+        if asciival > 96 and asciival < 123:
             if c in chars_pinbottom:
                 offset = (x, letter_h - h)
             else:
@@ -73,6 +63,6 @@ for i, c in enumerate(chars):
        x += 1
     image.putpixel((x,0), pink)
 
-image.save(os.path.join(prefix,'font.png'))
+image.save(os.path.join(prefix, 'font.png'))
 image.show()
 

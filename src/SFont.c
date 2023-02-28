@@ -133,6 +133,11 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
     for(c = text; *c != '\0' && x <= Surface->w ; c++) {
         charoffset = ((int) (*c - 33)) * 2 + 1;
         /* skip spaces and nonprintable characters */
+        if (*c == ' ') {
+            x += 7;
+            continue;
+        }        
+
         if (*c == ' ' || charoffset < 0 || charoffset > Font->MaxPos) {
             x += Font->CharPos[2]-Font->CharPos[1];
             continue;
