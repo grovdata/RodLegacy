@@ -10,7 +10,7 @@
 
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
-#define BACKGROUND "../data/rip/garage.png"
+#define BACKGROUND "../data/rip/garage2.png"
 #define ICON "../data/rip/icon.png"
 
 // speed in pixels/second
@@ -52,7 +52,6 @@ int main(void) {
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
-
 
     // Initialize SDL2_mixer
     if(Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -113,7 +112,7 @@ int main(void) {
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
-        SDL_Delay(1000/60);
+        SDL_Delay(1000/120);
     }
 
     printf("Whadda loser!\n");

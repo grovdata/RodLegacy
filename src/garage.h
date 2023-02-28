@@ -21,7 +21,7 @@ class Garage: public Scene {
 			Zone newPaintJob(strdup("New paint job - $20"), &newPaintJobRect);
 
 			SDL_Rect gasRect = {288, 161, 23, 26};
-			Zone gas(strdup("Wanna gas ?"), &gasRect);
+			Zone gas(strdup("Wanna tank ?"), &gasRect);
 
 			SDL_Rect carInfoRect = {290, 107, 27, 14};
 			Zone carInfo(strdup("Car info"), &carInfoRect);

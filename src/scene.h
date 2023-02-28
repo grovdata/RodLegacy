@@ -7,7 +7,10 @@ class Scene {
 	private:
 
 		void SetStatusBar(char *text) {
-			SFont_Write(m_FontSurface, font, 161, 200-9, text);
+			char bankroll[30];
+			snprintf(bankroll, 30, "Bankroll: $%d", 123);
+			SFont_Write(m_FontSurface, font, 2, 200-9, bankroll);
+			SFont_Write(m_FontSurface, font, 160, 200-9, text);
 			m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
 			SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
 		}
