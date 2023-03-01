@@ -16,8 +16,9 @@ class Scene {
 		}
 
 		void ClearStatusBar() {
-			SDL_FillRect(m_FontSurface, &m_statusBarRect, 0);
+			SDL_FillRect(m_FontSurface, &m_statusBarMiddleRect, 0);
 			m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
+			SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
 		}
 
 		void CheckMouseHover(int x, int y) {
@@ -37,7 +38,7 @@ class Scene {
 	protected:
 		SDL_Surface *m_Surface, *m_FontSurface;
 		SDL_Texture *m_Texture, *m_FontTexture;
-		SDL_Rect m_backgroundRect, m_statusBarRect;
+		SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
 		string m_backgroundName;
 		vector<Zone> m_zones;
@@ -61,6 +62,9 @@ class Scene {
 			m_statusBarRect.y = 200-9;
 			m_statusBarRect.w = 320;
 			m_statusBarRect.h = 9;
+
+			m_statusBarMiddleRect = m_statusBarRect;
+			m_statusBarMiddleRect.x = 160;
 		}
 
 		~Scene() {

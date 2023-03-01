@@ -1,6 +1,6 @@
 meta:
   id: sr_libp_amiga
-  title: Street Rod lib.p Amiga
+  title: Street Rod 'lib.p' Amiga
   endian: be
 
 seq:
@@ -17,7 +17,7 @@ seq:
 
 
 
-# (short width, short height, short sizeDecoded, byte type, byte[] directory, byte alwaysZero, int offset, short sizeEncoded)
+# (short width, short height, short sizeDecoded, byte type, byte[] dictionary, byte alwaysZero, int offset, short sizeEncoded)
 types:
   sprite_descriptor:
     seq:
@@ -30,8 +30,12 @@ types:
       - id: type
         type: u1
         doc: "Varies from 0 up to 100+"
-      - id: directory
-        size: 16
+      seq:
+        - id: dictionary
+          type: str
+          encoding: ascii
+          size: 16
+          terminator: 0
       - id: zero
         type: u1
         doc: "Enum 0-11"

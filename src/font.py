@@ -9,7 +9,7 @@ pink = (255, 0, 255, 255)
 prefix = "../data/font"
 
 chars = '!\"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
-chars_pinbottom = 'fgjpqy!.:'
+chars_pinbottom = 'fgjpqy!.0123456789:'
 chars_count = len(chars)
 
 total_w = (chars_count * letter_w) + (spacing_w * (chars_count - 1))

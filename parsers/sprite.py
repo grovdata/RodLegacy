@@ -12,7 +12,7 @@ for s in lib.sprites:
     zeros.add(s.zero)
     types.add(s.type)
 
-    #print(f'total size: {size_all}, types: {types} zeros: {zeros}')
+    print(f'total size: {size_all}, types: {types} zeros: {zeros}')
 
 RLE_COUNT = [ 1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8 ]
 RLE_VALUE = bytes([0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00 ])
@@ -34,7 +34,7 @@ for sprite in lib.sprites:
     height = sprite.height
     depth = 5 # ?? guess
     bitmap = [[0 for i in range(int(width * height))] for j in range(depth)]
-    print (bitmap)
+    #print (bitmap)
     pos = 0
 
     while(pos < (width * height * depth)):
@@ -65,4 +65,4 @@ for sprite in lib.sprites:
             bitmap[int(pos / width)][pos % width] = b
             pos += 1
 
-print (bitmap)
+#print (bitmap)

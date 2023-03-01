@@ -60,7 +60,6 @@ class Garage: public Scene {
 			m_zones.push_back(menu);
 			m_zones.push_back(cars);
 			m_zones.push_back(street);
-
 		}
 };
 
