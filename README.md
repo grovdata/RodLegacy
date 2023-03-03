@@ -49,3 +49,46 @@ Watch: w 2 0xC364A0 1 r
 00C0CE4E 2c6c 9088                MOVEA.L (A4, -$6f78) == $00c36fa0,A6
 00C0CE52 4eae ffca                JSR (A6, -$0036) == $00c01de8
 00C0CE56 4cdf 4800                MOVEM.L (A7)+,A3/A6
+
+# lib.p format
+
+This file contains images for the game.
+Big endian.
+
+## numBitmaps
+
+uint16: Number of bitmap entries in file
+
+## Bitmap records
+
+The following record repeats `numBitmaps` times.
+
+### width
+Type: uint16
+Image width
+
+### height
+Type: uint16
+Image height
+
+### bitmapType
+Type: uint8
+Unknown but probably an enum to indicate bit depth or other info about bitmap.
+Some bitmaps in DOS version are mask images, this is likely indicated in this bitfield.
+
+### unknown
+Type: uint8
+Unknown, seems always zero.
+
+### rleDictionary
+Type: uint8[16]
+Dictionary used for RLE unpacking of bitmap data.
+
+### offset
+Type: uint32
+Offset for the data portion for this bitmap.
+Calculate data start something like: `2 + (numBitmaps * sizeof(Bitmap)) + offset`.
+
+### sizeEncoded
+Type: uint16
+Size of the bitmap data in packed state (RLE compression).
