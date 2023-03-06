@@ -1,5 +1,4 @@
-#ifndef GARAGE_H
-#define GARAGE_H
+#pragma once
 
 #include "global.h"
 #include "scene.h"
@@ -63,4 +62,3 @@ class Garage: public Scene {
 		}
 };
 
-#endif

@@ -1,5 +1,4 @@
-#ifndef BUTTON_HPP
-#define BUTTON_HPP
+#pragma once
 
 #include "../global.h"
 #include "zone.h"
@@ -22,5 +21,3 @@ class Button {
         SDL_Rect* GetRect();
 
 };
-
-#endif

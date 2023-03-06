@@ -1,5 +1,4 @@
-#ifndef ZONE_H
-#define ZONE_H
+#pragma once
 
 #include "../global.h"
 
@@ -30,4 +29,3 @@ class Zone {
 
 };
 
-#endif

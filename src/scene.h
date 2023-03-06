@@ -1,5 +1,4 @@
-#ifndef SCENE_HPP
-#define SCENE_HPP
+#pragma once
 
 #include "global.h"
 
@@ -94,5 +93,3 @@ class Scene {
 			}
 		}
 };
-
-#endif

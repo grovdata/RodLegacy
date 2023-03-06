@@ -1,5 +1,4 @@
-#ifndef DINER_H
-#define DINER_H
+#pragma once
 
 #include "global.h"
 #include "scene.h"
@@ -11,5 +10,3 @@ class Diner: public Scene {
 
 		}
 };
-
-#endif

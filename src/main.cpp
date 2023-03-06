@@ -5,6 +5,8 @@
 #include "ui/button.h"
 #include "ui/zone.h"
 
+
+
 #define WINDOW_WIDTH (640)
 #define WINDOW_HEIGHT (400)
 
@@ -29,7 +31,19 @@ Mouse mouse;
 Button *testButton, *testButton2;
 Scene *currentScene;
 
+// TODO: Move this somewhere else
+BitmapParser b;
 int main(void) {
+    // TODO: Move this somewhere else
+    vector<LibBitmapEntry_t> result = b.Parse(strdup("../amiga/SR_disk2/lib.p"));
+    LibBitmapEntry_t first = result.at(0);
+    uint8_t databuf[first.sizePacked];
+	b.GetData(strdup("../amiga/SR_disk2/lib.p"), databuf, &first, result.size());
+    SDL_Surface *bmpsurface = SDL_CreateRGBSurface(0, first.width, first.width, 8, 0, 0, 0, 0);
+    b.Unpack(&first, databuf, bmpsurface);
+    //b.Parse(strdup("../amiga/SR_disk2/lib.p"));
+
+
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
@@ -109,6 +123,14 @@ int main(void) {
         SDL_RenderClear(renderer);
         currentScene->Draw();
         mouse.Draw();
+
+        SDL_PixelFormat f = SDL_GetWindowPixelFormat();
+        SDL_Surface* convertedSurface = SDL_ConvertSurface(bmpsurface, &f, 0);
+
+        SDL_Texture *temp = SDL_CreateTextureFromSurface(renderer, convertedSurface);
+        SDL_Rect r = {0,0,first.width, first.height};
+        SDL_RenderCopy(renderer, temp, NULL, &r);
+
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second

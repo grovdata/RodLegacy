@@ -1,5 +1,4 @@
-#ifndef GLOBAL_HPP
-#define GLOBAL_HPP
+#pragma once
 #include <iostream>
 #include <tuple>
 #include <string>
@@ -16,8 +15,8 @@ using namespace std;
 #include "SFont.h"
 #include "ui/zone.h"
 #include "ui/button.h"
+#include "parsers/libp.h"
 
 extern SDL_Renderer *renderer;
 extern SFont_Font *font;
 
-#endif
