@@ -163,53 +163,53 @@ class BitmapParser {
 		}
 
 
-		#define PAL_MONITOR_ID  0x00021000
-		#define LORES_KEY       0x00000000
+		// #define PAL_MONITOR_ID  0x00021000
+		// #define LORES_KEY       0x00000000
 
-		typedef struct Color
-		{
-			UBYTE r, g, b;
-		}
-		Color;
+		// typedef struct Color
+		// {
+		// 	UBYTE r, g, b;
+		// }
+		// Color;
 
-		struct
-		{
-			ULONG width;
-			ULONG height;
-			UWORD bitplaneDepth;
-			ULONG viewportMode;
+		// struct
+		// {
+		// 	ULONG width;
+		// 	ULONG height;
+		// 	UWORD bitplaneDepth;
+		// 	ULONG viewportMode;
 
-			Color color[32];
-			UBYTE *bitplanes[6];
-		}
-		viewport;
+		// 	Color color[32];
+		// 	UBYTE *bitplanes[6];
+		// }
+		// viewport;
 
-		uint16_t palette[] = {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x0810};
-		amiVideo_Screen screen;
-		amiVideo_initScreen(&screen, 320, 200, 5, 4, PAL_MONITOR_ID & LORES_KEY);
-		amiVideo_setBitplanePaletteColors(&palette, color, 32);
-		amiVideo_setScreenBitplanePointers(&screen, &bitmap);
-
-
+		// uint16_t palette[] = {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x0810};
 		// amiVideo_Screen screen;
-		// amiVideo_initScreen(&screen, 320, 200, 5, 4, 0);
+		// amiVideo_initScreen(&screen, 320, 200, 5, 4, PAL_MONITOR_ID & LORES_KEY);
 		// amiVideo_setBitplanePaletteColors(&palette, color, 32);
+		// amiVideo_setScreenBitplanePointers(&screen, &bitmap);
 
-		printf("Total image data size : %d\n" , bitmapEntry->width *height);
 
-		amiVideo_convertBitplaneColorsToChunkyFormat(palette);
+		// // amiVideo_Screen screen;
+		// // amiVideo_initScreen(&screen, 320, 200, 5, 4, 0);
+		// // amiVideo_setBitplanePaletteColors(&palette, color, 32);
 
-		surface =  SDL_CreateRGBSurface(0, screen.width, screen.height, 24, 0, 0, 0, 0);
-		amiVideo_setScreenUncorrectedRGBPixelsPointer(&screen, surface->pixels, surface->pitch, true, surface->format->Rshift, surface->format->Gshift, surface->format->Bshift, surface->format->Ashift);
-		if(SDL_MUSTLOCK(surface) && SDL_LockSurface(surface) != 0)
-		{
-			fprintf(stderr, "Cannot lock the surface!\n");
-			return;
-		}
-		amiVideo_convertScreenBitplanesToRGBPixels(&screen);
+		// printf("Total image data size : %d\n" , bitmapEntry->width *height);
 
-		if(SDL_MUSTLOCK(surface))
-			SDL_UnlockSurface(surface);
+		// amiVideo_convertBitplaneColorsToChunkyFormat(palette);
+
+		// surface =  SDL_CreateRGBSurface(0, screen.width, screen.height, 24, 0, 0, 0, 0);
+		// amiVideo_setScreenUncorrectedRGBPixelsPointer(&screen, surface->pixels, surface->pitch, true, surface->format->Rshift, surface->format->Gshift, surface->format->Bshift, surface->format->Ashift);
+		// if(SDL_MUSTLOCK(surface) && SDL_LockSurface(surface) != 0)
+		// {
+		// 	fprintf(stderr, "Cannot lock the surface!\n");
+		// 	return;
+		// }
+		// amiVideo_convertScreenBitplanesToRGBPixels(&screen);
+
+		// if(SDL_MUSTLOCK(surface))
+		// 	SDL_UnlockSurface(surface);
 
 		// construct 256-colors image
 		// int width2 = bitmapEntry->width;
