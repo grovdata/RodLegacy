@@ -191,9 +191,9 @@ int main(void) {
         //SDL_PixelFormat f = SDL_GetWindowPixelFormat();
         // SDL_Surface* convertedSurface = SDL_ConvertSurface(bmpsurface, &f, 0);
 
-        SDL_Texture *temp = SDL_CreateTextureFromSurface(renderer, convertedSurface);
-        SDL_Rect r = {0,0,first.width, first.height};
-        SDL_RenderCopy(renderer, temp, NULL, &r);
+        // SDL_Texture *temp = SDL_CreateTextureFromSurface(renderer, convertedSurface);
+        // SDL_Rect r = {0,0,first.width, first.height};
+        // SDL_RenderCopy(renderer, temp, NULL, &r);
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second

@@ -50,6 +50,15 @@ class BitmapParser {
 			printf("sizePacked %d\n", entry->sizePacked);
 		}
 
+		void printBitplanes( uint8_t * buf, size_t size) {
+
+
+			 for (int i = 0; i < size; i++) {
+
+			 }
+
+		}
+
     public:
 
 	vector<LibBitmapEntry_t> Parse(char *filename) {
@@ -118,7 +127,7 @@ class BitmapParser {
 		int width = bitmapEntry->width / 8;
 		int height = bitmapEntry->height;
 
-		int depth = 5;
+		int depth = 4;
 
 		uint8_t bitmap[bitmapEntry->height * 5][bitmapEntry->height];
 		//byte[][] bitmap = new byte[height * depth][width];
@@ -212,27 +221,38 @@ class BitmapParser {
 		// 	SDL_UnlockSurface(surface);
 
 		// construct 256-colors image
-		// int width2 = bitmapEntry->width;
-		// uint8_t bitmap2[height][width2];
+		int width2 = bitmapEntry->width;
+		uint8_t bitmap2[height][width2];
 
-		// for (int h = 0; h < height; h++) {
-		// 	for (int w = 0; w < width; w++) {
-		// 		for (int i = 0; i < 8; i++) {
-		// 			// uint8_t to binary conversion
-		// 			// uint8_t 255 in bitmap becomes uint8_t 1,1,1,1,1,1,1,1 in bitmap2
-		// 			bitmap2[h][w * 8 + (7 - i)] = (uint8_t) ((bitmap[h][w] & 1 << i) >> i);
+		for (int h = 0; h < height; h++) {
+			for (int w = 0; w < width; w++) {
+				for (int i = 0; i < 8; i++) {
+					// uint8_t to binary conversion
+					// uint8_t 255 in bitmap becomes uint8_t 1,1,1,1,1,1,1,1 in bitmap2
+					bitmap2[h][w * 8 + (7 - i)] = (uint8_t) ((bitmap[h][w] & 1 << i) >> i);
 
-		// 			if (depth == 5) {
-		// 				bitmap2[h][w * 8 + (7 - i)] |= (uint8_t) (
-		// 						(bitmap[h + height][w] & 1 << i) >> i << 1      | // 255 -> 2,2,2,2,2,2,2,2
-		// 						(bitmap[h + height * 2][w] & 1 << i) >> i << 2  |  // 255 -> 4,4,4,4,4,4,4,4
-		// 						(bitmap[h + height * 3][w] & 1 << i) >> i << 3  | // 255 -> 8,8,8,8,8,8,8,8
-        //                         (bitmap[h + height * 3][w] & 1 << i) >> i << 4  | // 255 -> 8,8,8,8,8,8,8,8
-		// 						(bitmap[h + height * 3][w] & 1 << i) >> i << 5) ; // 255 -> 8,8,8,8,8,8,8,8
-		// 			}
-		// 		}
-		// 	}
-		// }
+					if (depth == 4) {
+						bitmap2[h][w * 8 + (7 - i)] |= (uint8_t) (
+								(bitmap[h + height][w] & 1 << i) >> i << 1      | // 255 -> 2,2,2,2,2,2,2,2
+								(bitmap[h + height * 2][w] & 1 << i) >> i << 2  |  // 255 -> 4,4,4,4,4,4,4,4
+								(bitmap[h + height * 3][w] & 1 << i) >> i << 3  | // 255 -> 8,8,8,8,8,8,8,8
+                                (bitmap[h + height * 3][w] & 1 << i) >> i << 4);//  | // 255 -> 8,8,8,8,8,8,8,8
+								// (bitmap[h + height * 3][w] & 1 << i) >> i << 5) ; // 255 -> 8,8,8,8,8,8,8,8
+					}
+				}
+			}
+		}
+
+		FILE *dump = fopen("/home/user/kod/privat/openrod/src/rawdump.dat", "wb");
+		printf("Image info: %dx%d\n", bitmapEntry->width,bitmapEntry->height);
+		for (int h = 0; h < height; h++) {
+			for (int w = 0; w < width; w++) {
+				uint8_t b = bitmap2[h][w];
+				int wrote = fwrite(&b, 1, 1, dump);
+				printf("writing %c %d\n",b,wrote);
+			}
+		}
+		fclose(dump);
 
 		//printf("bitmap2 %s\n",bitmap2);
 
