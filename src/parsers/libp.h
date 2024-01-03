@@ -45,7 +45,7 @@ enum AmigaLibAsset {
 	RACING_SIGN_PLAY_BLOCKOUT = 44,
 	RACING_RACING_TACHOMETER = 45,
 	//
-	RACING_SIGN_PLAY_BLOCKOUT = 47,
+	RACING_GEARBOX = 47,
 	//
 	RACING_RACING_DICE1 = 73,
 	RACING_RACING_DICE2 = 74,
@@ -71,10 +71,8 @@ enum AmigaLibAsset {
 	//
 	GUS_GAS_SCREEN = 340,
 	GUS_GAS_MASK = 341,
-
-
-
-
+	//
+	GARAGE_SCREEN = 365,
 };
 
 // An entry representing a packed bitmap
