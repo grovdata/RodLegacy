@@ -1,6 +1,7 @@
 #include "global.h"
 #include "driver.h"
 #include "garage.h"
+#include "diner.h"
 #include "mouse.h"
 #include "game.h"
 #include "ui/button.h"
@@ -98,12 +99,12 @@ Scene *currentScene;
 BitmapParser b;
 int main(void) {
     // TODO: Move this somewhere else
-    vector<LibBitmapEntry_t> result = b.Parse(strdup("../amiga/SR_disk2/lib.p"));
-    LibBitmapEntry_t first = result.at(0);
-    uint8_t databuf[first.sizePacked];
-	b.GetData(strdup("../amiga/SR_disk2/lib.p"), databuf, &first, result.size());
-    SDL_Surface *bmpsurface = SDL_CreateRGBSurface(0, first.width, first.width, 8, 0, 0, 0, 0);
-    b.Unpack(&first, databuf, bmpsurface);
+    // vector<LibBitmapEntry_t> result = b.Parse(strdup("../amiga/SR_disk2/lib.p"));
+    // LibBitmapEntry_t first = result.at(0);
+    // uint8_t databuf[first.sizePacked];
+	// b.GetData(strdup("../amiga/SR_disk2/lib.p"), databuf, &first, result.size());
+    // SDL_Surface *bmpsurface = SDL_CreateRGBSurface(0, first.width, first.width, 8, 0, 0, 0, 0);
+    // b.Unpack(&first, databuf, bmpsurface);
     //b.Parse(strdup("../amiga/SR_disk2/lib.p"));
 
 
@@ -152,7 +153,8 @@ int main(void) {
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    currentScene = new Garage(&game);
+    //currentScene = new Garage(&game);
+    currentScene = new Diner(&game);
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
@@ -187,9 +189,9 @@ int main(void) {
         currentScene->Draw();
         mouse.Draw();
 
-        #include "planetest.c"
-        SDL_Surface* convertedSurface;
-        planetest(convertedSurface);
+        // #include "planetest.c"
+        // SDL_Surface* convertedSurface;
+        // planetest(convertedSurface);
 
         //SDL_PixelFormat f = SDL_GetWindowPixelFormat();
         // SDL_Surface* convertedSurface = SDL_ConvertSurface(bmpsurface, &f, 0);

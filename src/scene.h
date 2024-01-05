@@ -24,7 +24,6 @@ class Scene {
 			for (int i = 0; i < m_zones.size(); i++) {
 				Zone zone = m_zones.at(i);
 				if (zone.IsInsideZone(x, y)) {
-					//printf("bingo %d %d %s\n", x, y, zone.GetText());
 					ClearStatusBar();
 					SetStatusBar(zone.GetText());
 					return;
