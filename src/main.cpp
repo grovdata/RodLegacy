@@ -93,7 +93,11 @@ SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 Game game;
 Mouse mouse;
 Button *testButton, *testButton2;
+
+// Scenes
 Scene *currentScene;
+Garage garage(&game);
+Diner diner(&game);
 
 // TODO: Move this somewhere else
 BitmapParser b;
@@ -154,7 +158,8 @@ int main(void) {
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
     //currentScene = new Garage(&game);
-    currentScene = new Diner(&game);
+    
+    currentScene = &diner;
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
@@ -175,11 +180,18 @@ int main(void) {
                 case SDL_QUIT:
                     close_requested = true;
                     break;
+                case SDL_KEYUP:
+                    if (event.key.keysym.sym == SDLK_g) {
+                        currentScene = &garage;
+                    } else if (event.key.keysym.sym == SDLK_d) {
+                        currentScene = &diner;
+                    }
+                    break;
                 case SDL_MOUSEMOTION:
                 case SDL_MOUSEBUTTONUP:
                     mouse.Update(&event);
                     break;
-                default:
+                default:                    
                     break;
             }
 

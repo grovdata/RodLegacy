@@ -1,4 +1,4 @@
-## Development notes
+Street Rod Legacy is a reimplementation of the classic Street Rod game for modern systems.
 
 ### MacOS
 

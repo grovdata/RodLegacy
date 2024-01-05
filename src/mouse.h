@@ -3,12 +3,6 @@
 
 #include "global.h"
 
-// TODO: Enum for all cursor types
-// Hand
-// Wrench
-// Fuelpump
-// Rag
-
 enum MousePointer {
     PointerWrench    = 0,
     PointerHand      = 1,

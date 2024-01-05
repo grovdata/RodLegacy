@@ -7,6 +7,7 @@ class Game {
     private:
         int m_bankroll;
 
+
 	public:
 		Game() : m_bankroll(750)  {
 
