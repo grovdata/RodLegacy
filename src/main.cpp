@@ -2,6 +2,7 @@
 #include "driver.h"
 #include "garage.h"
 #include "mouse.h"
+#include "game.h"
 #include "ui/button.h"
 #include "ui/zone.h"
 
@@ -74,19 +75,21 @@ void planetest(SDL_Surface *surface)
 #define TUNE "../data/snd/sr1_ost.ogg"
 #define BACKGROUND "../data/rip/garage2.png"
 #define ICON "../data/rip/icon.png"
+#define APP_TITLE "Street Rod Legacy"
 
 // speed in pixels/second
 #define SPEED (300)
 
-SDL_Window* win = SDL_CreateWindow("OpenRod",
-                                    SDL_WINDOWPOS_CENTERED,
-                                    SDL_WINDOWPOS_CENTERED,
-                                    WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+SDL_Window* win = SDL_CreateWindow(APP_TITLE,
+                                   SDL_WINDOWPOS_CENTERED,
+                                   SDL_WINDOWPOS_CENTERED,
+                                   WINDOW_WIDTH, WINDOW_HEIGHT, 0);
 
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
 SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 
+Game game;
 Mouse mouse;
 Button *testButton, *testButton2;
 Scene *currentScene;
@@ -149,7 +152,7 @@ int main(void) {
     // Force integer scaling
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    currentScene = new Garage();
+    currentScene = new Garage(&game);
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;

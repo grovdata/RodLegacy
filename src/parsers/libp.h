@@ -315,13 +315,13 @@ class BitmapParser {
 			}
 		}
 
-		FILE *dump = fopen("/home/user/kod/privat/openrod/src/rawdump.dat", "wb");
+		FILE *dump = fopen("/home/user/Code/openrod/src/rawdump.dat", "wb");
 		printf("Image info: %dx%d\n", bitmapEntry->width,bitmapEntry->height);
 		for (int h = 0; h < height; h++) {
 			for (int w = 0; w < width; w++) {
 				uint8_t b = bitmap2[h][w];
 				int wrote = fwrite(&b, 1, 1, dump);
-				printf("writing %c %d\n",b,wrote);
+				//printf("writing %c %d\n",b,wrote);
 			}
 		}
 		fclose(dump);

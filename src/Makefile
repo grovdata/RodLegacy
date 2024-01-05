@@ -1,13 +1,13 @@
 # A simple Makefile for compiling small SDL projects
 
 # set the compiler
-CC := clang++
+CC := g++
 
 # set the compiler flags
 CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++17
 
 # add header files here
-HDRS := global.h mouse.h driver.h scene.h garage.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
+HDRS := global.h mouse.h driver.h scene.h garage.h game.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
 		include/libamivideo/amivideotypes.h include/libamivideo/viewportmode.h include/libamivideo/palette.h include/libamivideo/screen.h
 
 # add source files here

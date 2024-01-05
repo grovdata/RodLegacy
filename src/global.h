@@ -12,6 +12,7 @@
 
 using namespace std;
 
+#include "game.h"
 #include "SFont.h"
 #include "ui/zone.h"
 #include "ui/button.h"
