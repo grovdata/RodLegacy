@@ -69,8 +69,10 @@ void planetest(SDL_Surface *surface)
 
 
 
-#define WINDOW_WIDTH (640)
-#define WINDOW_HEIGHT (400)
+// #define WINDOW_WIDTH (640)
+// #define WINDOW_HEIGHT (400)
+#define WINDOW_WIDTH (1280)
+#define WINDOW_HEIGHT (800)
 
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
@@ -219,7 +221,7 @@ int main(void) {
 
     printf("Whadda loser!\n");
 
-    delete currentScene;
+    //delete currentScene;
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);

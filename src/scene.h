@@ -21,7 +21,7 @@ class Scene {
 		}
 
 		void CheckMouseHover(int x, int y) {
-			for (int i = 0; i < m_zones.size(); i++) {
+			for (size_t i = 0; i < m_zones.size(); i++) {
 				Zone zone = m_zones.at(i);
 				if (zone.IsInsideZone(x, y)) {
 					ClearStatusBar();
