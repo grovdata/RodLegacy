@@ -60,5 +60,10 @@ class Garage: public Scene {
 			m_zones.push_back(cars);
 			m_zones.push_back(street);
 		}
+
+		SDL_Point GetCarOrigin() {
+			SDL_Point p = { 35, 82 };
+			return p;
+		}
 };
 

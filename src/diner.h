@@ -20,4 +20,9 @@ class Diner: public Scene {
 			m_zones.push_back(opponent);
 			m_zones.push_back(garage);
 		}
+
+		SDL_Point GetCarOrigin() {
+			SDL_Point p = { 60, 95 };
+			return p;
+		}
 };

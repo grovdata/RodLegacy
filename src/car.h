@@ -27,7 +27,7 @@ class Car {
 
     /*
         Car positions
-         Garage: 0, 82
+         Garage: 42, 82
          Diner : 
          Gas station:
     */
@@ -73,9 +73,9 @@ class Car {
             SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
 		}
 
-        void Move(int x, int y) {
-            m_rect.x = x;
-            m_rect.y = y;
+        void Move(SDL_Point p) {
+            m_rect.x = p.x;
+            m_rect.y = p.y;
         }
 
         void MoveLeft() {

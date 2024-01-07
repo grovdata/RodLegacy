@@ -175,7 +175,7 @@ int main(void) {
     model.width = 232;
     model.height = 69;
     Car car(model);
-    car.Move();
+    car.Move(currentScene->GetCarOrigin());
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
@@ -212,9 +212,11 @@ int main(void) {
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
                             currentScene = &garage;
+                            car.Move(currentScene->GetCarOrigin());
                             break;
                         case SDLK_d:
                             currentScene = &diner;
+                            car.Move(currentScene->GetCarOrigin());
                             break;
                         case SDLK_ESCAPE:
                             close_requested = true;
@@ -258,7 +260,7 @@ int main(void) {
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
-        SDL_Delay(1000/120);
+        SDL_Delay(1000/240);
     }
 
     printf("Whadda loser!\n");

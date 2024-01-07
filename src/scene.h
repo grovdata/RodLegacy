@@ -78,6 +78,10 @@ class Scene {
 			return m_Texture;
 		}
 
+		virtual SDL_Point GetCarOrigin() {
+			return {0,0};
+		}
+
 		void Draw() {
 			SDL_RenderCopy(renderer, m_Texture, NULL, &m_backgroundRect);
 			SDL_RenderCopy(renderer, m_FontTexture, NULL, &m_backgroundRect);
