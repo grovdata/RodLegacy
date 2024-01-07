@@ -1,15 +1,15 @@
 #pragma once
 
 #include "global.h"
-
-typedef enum CarVendor {
+extern SDL_Renderer *renderer;
+enum CarVendor {
     CHRYSLER,
     FORD,
     GM
 };
 
-typedef enum CarModel {
-    Vendor vendor;
+struct CarModel {
+    CarVendor vendor;
     std::string name;
     std::string filename;
     int year;
@@ -17,7 +17,7 @@ typedef enum CarModel {
     int width, height;
 };
 
-typedef enum CarWheelType {
+enum CarWheelType {
     STOCK,
     BRAND,
     RACING
@@ -25,16 +25,23 @@ typedef enum CarWheelType {
 
 class Car {
 
+    /*
+        Car positions
+         Garage: 0, 82
+         Diner : 
+         Gas station:
+    */
+
     private:
         bool m_frontBumperChopped;
         bool m_backBumperChopped;
         bool m_roofChopped;
         int m_tuning;
         
-        CarModel m_model;
+        CarModel m_model;              
         CarWheelType m_tires;
         SDL_Surface *m_Surface;
-		SDL_Texture *m_Texture;
+        SDL_Texture *m_Texture;
         SDL_Rect m_rect;
 
 	public:
@@ -43,10 +50,7 @@ class Car {
             m_backBumperChopped(false),
             m_roofChopped(false),
             m_model(model),
-            m_tires(STOCK),
-            m_width(width),
-            m_height(height)
-            
+            m_tires(STOCK)
         {            
 			m_Surface = IMG_Load(model.filename.c_str());
 			m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
@@ -56,10 +60,8 @@ class Car {
 			m_rect.h = model.height;
 		}
 
-		~Scene() {
-			SDL_FreeSurface(m_FontSurface);
-    		SDL_DestroyTexture(m_FontTexture);
-    		SDL_FreeSurface(m_Surface);
+		~Car() {
+	 		SDL_FreeSurface(m_Surface);
     		SDL_DestroyTexture(m_Texture);
 		}
 
@@ -68,8 +70,19 @@ class Car {
 		}
 
 		void Draw() {
-			SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
-			
+            SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
 		}
 
+        void Move(int x, int y) {
+            m_rect.x = x;
+            m_rect.y = y;
+        }
+
+        void MoveLeft() {
+            m_rect.x--;          
+        }
+
+        void MoveRight() {
+            m_rect.x++;          
+        }
 };

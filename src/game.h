@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.h"
+#include "car.h"
 
 class Game {
 

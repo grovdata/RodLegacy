@@ -4,6 +4,7 @@
 #include "diner.h"
 #include "mouse.h"
 #include "game.h"
+#include "car.h"
 #include "ui/button.h"
 #include "ui/zone.h"
 
@@ -101,6 +102,8 @@ Scene *currentScene;
 Garage garage(&game);
 Diner diner(&game);
 
+
+
 // TODO: Move this somewhere else
 BitmapParser b;
 int main(void) {
@@ -160,8 +163,19 @@ int main(void) {
     //SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
     //currentScene = new Garage(&game);
-    
     currentScene = &diner;
+    
+    //temp
+    CarModel model;
+    model.vendor = GM;
+    model.name = "Chevy Bolt";
+    model.filename = "../data/rip/car1.gif";
+    model.year = 1964;
+    model.baseSpeed = 98;
+    model.width = 232;
+    model.height = 69;
+    Car car(model);
+    car.Move();
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
@@ -182,12 +196,39 @@ int main(void) {
                 case SDL_QUIT:
                     close_requested = true;
                     break;
+                case SDL_KEYDOWN:
+                    switch (event.key.keysym.sym) {
+                        case SDLK_LEFT:
+                            car.MoveLeft();
+                            break;
+                        case SDLK_RIGHT:
+                            car.MoveRight();
+                            break;
+                        default:
+                            break;
+                    }                     
+                    break;
                 case SDL_KEYUP:
-                    if (event.key.keysym.sym == SDLK_g) {
-                        currentScene = &garage;
-                    } else if (event.key.keysym.sym == SDLK_d) {
-                        currentScene = &diner;
-                    }
+                    switch (event.key.keysym.sym) {
+                        case SDLK_g:
+                            currentScene = &garage;
+                            break;
+                        case SDLK_d:
+                            currentScene = &diner;
+                            break;
+                        case SDLK_ESCAPE:
+                            close_requested = true;
+                            break;
+                        case SDLK_LEFT:
+                            car.MoveLeft();
+                            break;
+                        case SDLK_RIGHT:
+                            car.MoveRight();
+                            break;
+
+                        default:
+                            break;
+                    }                     
                     break;
                 case SDL_MOUSEMOTION:
                 case SDL_MOUSEBUTTONUP:
@@ -201,6 +242,7 @@ int main(void) {
 
         SDL_RenderClear(renderer);
         currentScene->Draw();
+        car.Draw();
         mouse.Draw();
 
         // #include "planetest.c"
