@@ -85,6 +85,12 @@ class Mouse {
         void Draw() {
             SDL_RenderCopy(renderer, cursorTexture, NULL, &rect);
         }
+
+        void SetPointerType(MousePointer type) {
+            pointerType = type;
+            unload();
+            load();
+        }
 };
 
 #endif

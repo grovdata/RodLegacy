@@ -218,6 +218,9 @@ int main(void) {
                             currentScene = &diner;
                             car.Move(currentScene->GetCarOrigin());
                             break;
+                        case SDLK_p:
+                            mouse.SetPointerType(PointerFuelPump);
+                            break;                            
                         case SDLK_ESCAPE:
                             close_requested = true;
                             break;
