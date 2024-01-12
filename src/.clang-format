@@ -1,0 +1,5 @@
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 200
+AllowShortFunctionsOnASingleLine: false
+IndentWidth: 4

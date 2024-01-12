@@ -2,11 +2,7 @@
 
 #include "global.h"
 extern SDL_Renderer *renderer;
-enum CarVendor {
-    CHRYSLER,
-    FORD,
-    GM
-};
+enum CarVendor { CHRYSLER, FORD, GM };
 
 struct CarModel {
     CarVendor vendor;
@@ -17,72 +13,61 @@ struct CarModel {
     int width, height;
 };
 
-enum CarWheelType {
-    STOCK,
-    BRAND,
-    RACING
-};
+enum CarWheelType { STOCK, BRAND, RACING };
 
 class Car {
-
     /*
         Car positions
          Garage: 42, 82
-         Diner : 
+         Diner :
          Gas station:
     */
 
-    private:
-        bool m_frontBumperChopped;
-        bool m_backBumperChopped;
-        bool m_roofChopped;
-        int m_tuning;
-        
-        CarModel m_model;              
-        CarWheelType m_tires;
-        SDL_Surface *m_Surface;
-        SDL_Texture *m_Texture;
-        SDL_Rect m_rect;
+   private:
+    bool m_frontBumperChopped;
+    bool m_backBumperChopped;
+    bool m_roofChopped;
+    int m_tuning;
 
-	public:
-		Car(CarModel model) : 
-            m_frontBumperChopped(false),            
-            m_backBumperChopped(false),
-            m_roofChopped(false),
-            m_model(model),
-            m_tires(STOCK)
-        {            
-			m_Surface = IMG_Load(model.filename.c_str());
-			m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
-			m_rect.x = 0;
-			m_rect.y = 0;
-			m_rect.w = model.width;
-			m_rect.h = model.height;
-		}
+    CarModel m_model;
+    CarWheelType m_tires;
+    SDL_Surface *m_Surface;
+    SDL_Texture *m_Texture;
+    SDL_Rect m_rect;
 
-		~Car() {
-	 		SDL_FreeSurface(m_Surface);
-    		SDL_DestroyTexture(m_Texture);
-		}
+   public:
+    Car(CarModel model) : m_frontBumperChopped(false), m_backBumperChopped(false), m_roofChopped(false), m_model(model), m_tires(STOCK) {
+        m_Surface = IMG_Load(model.filename.c_str());
+        m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
+        m_rect.x = 0;
+        m_rect.y = 0;
+        m_rect.w = model.width;
+        m_rect.h = model.height;
+    }
 
-		SDL_Texture *GetTexture() {
-			return m_Texture;
-		}
+    ~Car() {
+        SDL_FreeSurface(m_Surface);
+        SDL_DestroyTexture(m_Texture);
+    }
 
-		void Draw() {
-            SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
-		}
+    SDL_Texture *GetTexture() {
+        return m_Texture;
+    }
 
-        void Move(SDL_Point p) {
-            m_rect.x = p.x;
-            m_rect.y = p.y;
-        }
+    void Draw() {
+        SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
+    }
 
-        void MoveLeft() {
-            m_rect.x--;          
-        }
+    void Move(SDL_Point p) {
+        m_rect.x = p.x;
+        m_rect.y = p.y;
+    }
 
-        void MoveRight() {
-            m_rect.x++;          
-        }
+    void MoveLeft() {
+        m_rect.x -= 3;
+    }
+
+    void MoveRight() {
+        m_rect.x += 3;
+    }
 };

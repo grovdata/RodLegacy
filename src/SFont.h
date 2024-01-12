@@ -26,13 +26,13 @@
 */
 
 /************************************************************************
-*    SFONT - SDL Font Library by Karl Bartel <karl@karl.berlin>         *
-*                                                                       *
-*  All functions are explained below. For further information, take a   *
-*  look at the example files, the links at the SFont web site, or       *
-*  contact me, if you problem isn' addressed anywhere.                  *
-*                                                                       *
-************************************************************************/
+ *    SFONT - SDL Font Library by Karl Bartel <karl@karl.berlin>         *
+ *                                                                       *
+ *  All functions are explained below. For further information, take a   *
+ *  look at the example files, the links at the SFont web site, or       *
+ *  contact me, if you problem isn' addressed anywhere.                  *
+ *                                                                       *
+ ************************************************************************/
 #ifndef SFONT_H
 #define SFONT_H
 
@@ -48,9 +48,9 @@ extern "C" {
 ** and call InitFont( YourFont );
 */
 typedef struct {
-	SDL_Surface *Surface;
-	int CharPos[512];
-	int MaxPos;
+    SDL_Surface *Surface;
+    int CharPos[512];
+    int MaxPos;
 } SFont_Font;
 
 /*
@@ -58,34 +58,32 @@ typedef struct {
 ** Font: this contains the suface with the font.
 **       The Surface must be loaded before calling this function
 */
-SFont_Font* SFont_InitFont (SDL_Surface *Font);
+SFont_Font *SFont_InitFont(SDL_Surface *Font);
 
 /*
 ** Frees the font
 ** Font: The font to free
 **       The font must be loaded before using this function.
 */
-void SFont_FreeFont(SFont_Font* Font);
+void SFont_FreeFont(SFont_Font *Font);
 
 /* Font debug */
-void SFont_DumpFont(SFont_Font* Font);
+void SFont_DumpFont(SFont_Font *Font);
 
 /*
 ** Blits a string to a surface
 ** Destination: the surface you want to blit to
 ** text: a string containing the text you want to blit.
 */
-void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font, int x, int y,
-				 const char *text);
+void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font, int x, int y, const char *text);
 
 /* Returns the width of "text" in pixels */
-int SFont_TextWidth(const SFont_Font* Font, const char *text);
+int SFont_TextWidth(const SFont_Font *Font, const char *text);
 /* Returns the height of "text" in pixels (which is always equal to Font->Surface->h) */
-int SFont_TextHeight(const SFont_Font* Font);
+int SFont_TextHeight(const SFont_Font *Font);
 
 /* Blits a string to Surface with centered x position */
-void SFont_WriteCenter(SDL_Surface *Surface, const SFont_Font* Font, int y,
-					   const char *text);
+void SFont_WriteCenter(SDL_Surface *Surface, const SFont_Font *Font, int y, const char *text);
 
 #ifdef __cplusplus
 }
