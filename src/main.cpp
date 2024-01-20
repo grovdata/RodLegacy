@@ -27,12 +27,10 @@
 #define SPEED (300)
 
 SDL_Window *win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
-
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-
 SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
-
 SDL_Joystick *controller = NULL;
+Uint64 startTime = SDL_GetTicks();
 
 Game game;
 Mouse mouse;
@@ -41,6 +39,7 @@ Mouse mouse;
 Scene *currentScene;
 Garage garage(&game);
 Diner diner(&game);
+
 
 // TODO: Move this somewhere else
 BitmapParser b;
@@ -200,6 +199,7 @@ int main(void) {
         currentScene->Draw();
         car.Draw();
         mouse.Draw();
+        game.Update(SDL_GetTicks() - startTime);
 
         // #include "planetest.c"
         // SDL_Surface* convertedSurface;

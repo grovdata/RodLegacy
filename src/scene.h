@@ -1,7 +1,7 @@
 #pragma once
 
-#include "global.h"
 #include "driver.h"
+#include "global.h"
 
 class Scene {
    private:
