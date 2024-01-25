@@ -30,7 +30,7 @@ SDL_Window *win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOW
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
 SDL_Joystick *controller = NULL;
-Uint64 startTime = SDL_GetTicks();
+Uint64 startTime = SDL_GetTicks64();
 
 Game game;
 Mouse mouse;
@@ -199,7 +199,7 @@ int main(void) {
         currentScene->Draw();
         car.Draw();
         mouse.Draw();
-        game.Update(SDL_GetTicks() - startTime);
+        game.Update(SDL_GetTicks64() - startTime);
 
         // #include "planetest.c"
         // SDL_Surface* convertedSurface;
