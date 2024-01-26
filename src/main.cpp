@@ -7,6 +7,7 @@
 #include "mouse.h"
 #include "ui/button.h"
 #include "ui/zone.h"
+#include "state.h"
 
 #define WIDTH 32
 #define HEIGHT 20
@@ -36,7 +37,6 @@ Game game;
 Mouse mouse;
 
 // Scenes
-Scene *currentScene;
 Garage garage(&game);
 Diner diner(&game);
 
@@ -111,7 +111,9 @@ int main(void) {
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
     // currentScene = new Garage(&game);
-    currentScene = &diner;
+
+    state.SetCurrentScene(&diner);
+
 
     // temp
     CarModel model;
@@ -123,13 +125,13 @@ int main(void) {
     model.width = 232;
     model.height = 69;
     Car car(model);
-    car.Move(currentScene->GetCarIdlePosition());
+    car.Move(state.GetCurrentScene()->GetCarIdlePosition());
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
 
     // get and scale the dimensions of texture
-    SDL_QueryTexture(currentScene->GetTexture(), NULL, NULL, &dest.w, &dest.h);
+    SDL_QueryTexture(state.GetCurrentScene()->GetTexture(), NULL, NULL, &dest.w, &dest.h);
     dest.x = 0;
     dest.y = 0;
 
@@ -138,7 +140,7 @@ int main(void) {
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            currentScene->PushEvent(&event);
+            state.GetCurrentScene()->PushEvent(&event);
 
             switch (event.type) {
                 case SDL_QUIT:
@@ -159,12 +161,12 @@ int main(void) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            currentScene = &garage;
-                            car.Move(currentScene->GetCarIdlePosition());
+                            state.SetCurrentScene(&garage);
+                            car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_d:
-                            currentScene = &diner;
-                            car.Move(currentScene->GetCarIdlePosition());
+                            state.SetCurrentScene(&diner);
+                            car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_p:
                             mouse.SetPointerType(PointerFuelPump);
@@ -196,7 +198,7 @@ int main(void) {
         }
 
         SDL_RenderClear(renderer);
-        currentScene->Draw();
+        state.GetCurrentScene()->Draw();
         car.Draw();
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);

@@ -9,6 +9,7 @@
 #include "driver.h"
 #include "global.h"
 #include "utils.h"
+#include "state.h"
 
 class Game {
    private:
