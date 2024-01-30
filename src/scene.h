@@ -74,7 +74,7 @@ class Scene {
         return m_Texture;
     }
 
-    void Draw() {
+    virtual void Draw() {
         SDL_RenderCopy(renderer, m_Texture, NULL, &m_backgroundRect);
         SDL_RenderCopy(renderer, m_FontTexture, NULL, &m_backgroundRect);
     }

@@ -12,5 +12,13 @@ void State::SetCurrentScene(Scene *scene) {
     currentScene = scene;
 }
 
+void State::SetElapsedTime(Uint64 elapsedTime) {
+    elapsedTime = elapsedTime;
+}
+
+Uint64 State::GetElapsedTime() {
+    return elapsedTime;
+}
+
 // Global object
 State state;

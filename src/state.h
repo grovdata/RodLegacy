@@ -1,6 +1,7 @@
 #pragma once
 #include <set>
 #include <string>
+#include <SDL.h>
 
 class Driver;
 class Scene;
@@ -12,11 +13,15 @@ private:
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
     Scene *currentScene;
+    Uint64 elapsedTime;
 
 public:
     State();
     Scene* GetCurrentScene();
     void SetCurrentScene(Scene *scene);
+
+    void SetElapsedTime(Uint64 elapsedTime);
+    Uint64 GetElapsedTime();
 };
 
 extern State state;

@@ -8,11 +8,12 @@ class Spritesheet {
     ~Spritesheet();
 
     void SelectSprite(int x, int y);
-    void DrawSprite(SDL_Surface *window_surface, SDL_Rect *position);
+    void DrawSprite(SDL_Rect *position);
 
    private:
     SDL_Rect m_clip;
-    SDL_Surface *m_spritesheet_image;
+    SDL_Texture *texture;
+    SDL_Surface *surface;
 
     int m_start_x;
     int m_start_y;

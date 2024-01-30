@@ -202,6 +202,7 @@ int main(void) {
         car.Draw();
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);
+        state.SetElapsedTime(SDL_GetTicks64() - startTime);
 
         // #include "planetest.c"
         // SDL_Surface* convertedSurface;
