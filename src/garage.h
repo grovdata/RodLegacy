@@ -5,7 +5,7 @@
 
 class Garage : public Scene {
    public:
-    Garage(Game *game) : Scene(game, "../data/rip/garage_bar.png") {
+    Garage() : Scene("../data/rip/garage_bar.png") {
         SDL_Rect bottleRect = {7, 161, 8, 24};
         Zone bottle(strdup("Wanna drink ?"), &bottleRect);
 

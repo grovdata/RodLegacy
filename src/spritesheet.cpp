@@ -19,7 +19,7 @@ Spritesheet::~Spritesheet() {
 void Spritesheet::SelectSprite(int x, int y) {
     m_clip.x = x * m_clip.w;
     m_clip.y = y * m_clip.h;
-    //printf("rect %d %d %d %d %d %d\n",surface->w ,surface->h, m_clip.x, m_clip.y, m_clip.w, m_clip.y);
+    printf("rect %d %d %d %d\n", m_clip.x, m_clip.y, m_clip.w, m_clip.y);
     //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, rect.w, rect.h);
     //SDL_UpdateTexture(texture, NULL, surface->pixels + m_clip.x + m_clip.y * surface->pitch, surface->pitch);
 }

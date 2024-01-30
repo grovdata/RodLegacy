@@ -11,7 +11,7 @@ HDRS := global.h state.h mouse.h driver.h scene.h garage.h game.h car.h spritesh
 		include/libamivideo/amivideotypes.h include/libamivideo/viewportmode.h include/libamivideo/palette.h include/libamivideo/screen.h
 
 # add source files here
-SRCS := main.cpp state.cpp SFont.c spritesheet.cpp ui/button.cpp \
+SRCS := main.cpp state.cpp SFont.c diner.cpp spritesheet.cpp ui/button.cpp \
 		include/libamivideo/viewportmode.c include/libamivideo/palette.c include/libamivideo/screen.c
 
 # generate names of object files

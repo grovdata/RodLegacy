@@ -37,8 +37,8 @@ Game game;
 Mouse mouse;
 
 // Scenes
-Garage garage(&game);
-Diner diner(&game);
+Garage garage;
+Diner diner;
 
 
 // TODO: Move this somewhere else
@@ -112,7 +112,7 @@ int main(void) {
 
     // currentScene = new Garage(&game);
 
-    state.SetCurrentScene(&diner);
+    state.SetCurrentScene((Scene*)&diner);
 
 
     // temp
@@ -161,11 +161,11 @@ int main(void) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            state.SetCurrentScene(&garage);
+                            state.SetCurrentScene((Scene*)&garage);
                             car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_d:
-                            state.SetCurrentScene(&diner);
+                            state.SetCurrentScene((Scene*)&diner);
                             car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_p:

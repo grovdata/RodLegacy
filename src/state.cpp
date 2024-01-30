@@ -4,6 +4,10 @@ State::State() : bankroll(750) {
     allDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
 }
 
+int State::GetBankroll() {
+    return bankroll;
+}
+
 Scene* State::GetCurrentScene() {
     return currentScene;
 }

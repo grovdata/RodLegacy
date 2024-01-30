@@ -17,11 +17,15 @@ private:
 
 public:
     State();
+
+    int GetBankroll();
+
     Scene* GetCurrentScene();
     void SetCurrentScene(Scene *scene);
 
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
-};
 
+
+};
 extern State state;

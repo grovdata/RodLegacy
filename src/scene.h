@@ -2,12 +2,13 @@
 
 #include "driver.h"
 #include "global.h"
+#include "state.h"
 
 class Scene {
    private:
     void SetStatusBar(char *text) {
         char bankroll[30];
-        snprintf(bankroll, 30, "Bankroll: $%d", m_Game->GetBankroll());
+        snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
         SFont_Write(m_FontSurface, font, 2, 200 - 9, bankroll);
         SFont_Write(m_FontSurface, font, 160, 200 - 9, text);
         m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
@@ -44,8 +45,7 @@ class Scene {
     vector<Button> m_buttons;
 
    public:
-    Scene(Game *game, string backgroundName) {
-        m_Game = game;
+    Scene(string backgroundName) {
         m_Surface = IMG_Load(backgroundName.c_str());
         m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
         m_FontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
