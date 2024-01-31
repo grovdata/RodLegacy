@@ -31,43 +31,25 @@ class Car {
 
     CarModel m_model;
     CarWheelType m_tires;
-    SDL_Surface *m_Surface;
-    SDL_Texture *m_Texture;
-    SDL_Rect m_rect;
+
+    SDL_Surface *bodySurface;
+    SDL_Texture *bodyTexture;
+    SDL_Rect bodyRect;
+
+    SDL_Surface *driverSurface;
+    SDL_Texture *driverTexture;
+    SDL_Rect driverRect;
+
+    SDL_Point gasCapLocation;
+
+    void UpdateTextures();
 
    public:
-    Car(CarModel model) : m_frontBumperChopped(false), m_backBumperChopped(false), m_roofChopped(false), m_model(model), m_tires(STOCK) {
-        m_Surface = IMG_Load(model.filename.c_str());
-        m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
-        m_rect.x = 0;
-        m_rect.y = 0;
-        m_rect.w = model.width;
-        m_rect.h = model.height;
-    }
-
-    ~Car() {
-        SDL_FreeSurface(m_Surface);
-        SDL_DestroyTexture(m_Texture);
-    }
-
-    SDL_Texture *GetTexture() {
-        return m_Texture;
-    }
-
-    void Draw() {
-        SDL_RenderCopy(renderer, m_Texture, NULL, &m_rect);
-    }
-
-    void Move(SDL_Point p) {
-        m_rect.x = p.x;
-        m_rect.y = p.y;
-    }
-
-    void MoveLeft() {
-        m_rect.x -= 3;
-    }
-
-    void MoveRight() {
-        m_rect.x += 3;
-    }
+    Car(CarModel model);
+    ~Car();
+    SDL_Texture *GetTexture();
+    void Draw();
+    void Move(SDL_Point p);
+    void MoveLeft();
+    void MoveRight();
 };

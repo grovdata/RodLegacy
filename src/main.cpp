@@ -112,7 +112,7 @@ int main(void) {
 
     // currentScene = new Garage(&game);
 
-    state.SetCurrentScene((Scene*)&diner);
+    state.SetCurrentScene(&diner);
 
 
     // temp
@@ -161,11 +161,11 @@ int main(void) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            state.SetCurrentScene((Scene*)&garage);
+                            state.SetCurrentScene(&garage);
                             car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_d:
-                            state.SetCurrentScene((Scene*)&diner);
+                            state.SetCurrentScene(&diner);
                             car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_p:
