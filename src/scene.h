@@ -79,6 +79,8 @@ class Scene {
         SDL_RenderCopy(renderer, m_FontTexture, NULL, &m_backgroundRect);
     }
 
+    virtual void DrawMaskAfterCar() {}
+
     void PushEvent(SDL_Event *event) {
         switch (event->type) {
             case SDL_MOUSEMOTION: {

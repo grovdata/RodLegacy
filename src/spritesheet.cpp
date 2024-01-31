@@ -5,16 +5,12 @@ Spritesheet::Spritesheet(char const *path, int rows, int columns) {
     this->columns = columns;
 
     surface = IMG_Load(path);
+
     texture = SDL_CreateTextureFromSurface(renderer, surface);
-    printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
     clipRect.w = surface->w / columns;
     clipRect.h = surface->h / rows;
-    printf("Spritesheet cell width: %d height:%d \n", clipRect.w, clipRect.h);
-   //  m_clip.w = 192;
-    // m_clip.h = 124;
-
-    // TODO Don't hardcode sheet
-    //m_clip = {0,0, 38, 60};
+    // printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
+    // printf("Spritesheet cell width: %d height:%d \n", clipRect.w, clipRect.h);
 }
 
 Spritesheet::~Spritesheet() {

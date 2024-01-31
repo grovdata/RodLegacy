@@ -10,7 +10,11 @@ void Diner::CycleGuy() {
     //printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
-Diner::Diner() : Scene("../data/rip/diner2.png") {
+Diner::Diner() : Scene("../data/rip/diner3.png") {
+    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 55, 32, 0, 0, 0, 0);
+    SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
+
     SDL_Rect orderRect = {132, 53, 27, 9};
     Zone order(strdup("Order"), &orderRect);
 
@@ -32,6 +36,11 @@ Diner::Diner() : Scene("../data/rip/diner2.png") {
     t = SDL_GetTicks64();
 }
 
+Diner::~Diner() {
+    SDL_FreeSurface(roadMaskSurface);
+    SDL_DestroyTexture(roadMaskTexture);
+}
+
 SDL_Point Diner::GetCarIdlePosition() {
     SDL_Point p = {60, 95};
     return p;
@@ -48,4 +57,9 @@ void Diner::Draw() {
 
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->DrawSprite(&guyRect);
+
+}
+
+void Diner::DrawMaskAfterCar() {
+     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
 }
