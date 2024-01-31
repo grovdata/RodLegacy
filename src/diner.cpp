@@ -7,7 +7,7 @@ void Diner::CycleGuy() {
     } else {
         guySpriteX += 1;
     }
-    printf("Guy %d %d\n", guySpriteX, guySpriteY);
+    //printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
 Diner::Diner() : Scene("../data/rip/diner2.png") {
@@ -24,7 +24,7 @@ Diner::Diner() : Scene("../data/rip/diner2.png") {
     m_zones.push_back(opponent);
     m_zones.push_back(garage);
 
-    phonebookGuy = new Spritesheet("../data/rip/lib_p_315.gif", 5, 2);
+    phonebookGuy = new Spritesheet("../data/rip/lib_p_315.gif", 2, 5);
 
     guySpriteX = 0;
     guySpriteY = 0;

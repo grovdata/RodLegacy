@@ -3,7 +3,7 @@
 #include "global.h"
 #include "state.h"
 #include "scene.h"
-#include "spritesheet.h"
+
 
 class Diner: public Scene {
    private:

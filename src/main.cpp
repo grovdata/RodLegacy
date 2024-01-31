@@ -1,4 +1,3 @@
-#include "car.h"
 #include "diner.h"
 #include "driver.h"
 #include "game.h"
@@ -20,7 +19,7 @@
 
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
-#define BACKGROUND "../data/rip/garage2.png"
+
 #define ICON "../data/rip/icon.png"
 #define APP_TITLE "Street Rod Legacy"
 
@@ -86,7 +85,7 @@ int main(void) {
         return 0;
     }
     Mix_Music *music = Mix_LoadMUS(TUNE);
-    Mix_PlayMusic(music, 1);
+    //Mix_PlayMusic(music, 1);
 
     // Gamepad / joystick
     if (SDL_NumJoysticks() > 0) {

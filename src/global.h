@@ -18,6 +18,7 @@ using namespace std;
 #include "parsers/libp.h"
 #include "ui/button.h"
 #include "ui/zone.h"
+#include "spritesheet.h"
 
 extern SDL_Renderer *renderer;
 extern SFont_Font *font;

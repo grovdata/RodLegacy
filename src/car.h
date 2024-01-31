@@ -1,6 +1,8 @@
 #pragma once
 
 #include "global.h"
+
+class Spritesheet;
 extern SDL_Renderer *renderer;
 enum CarVendor { CHRYSLER, FORD, GM };
 
@@ -24,23 +26,40 @@ class Car {
     */
 
    private:
-    bool m_frontBumperChopped;
-    bool m_backBumperChopped;
-    bool m_roofChopped;
+    bool isFrontBumperChopped;
+    bool isBackBumperChopped;
+    bool isRoofChopped;
+    bool isMoving;
+
     int m_tuning;
 
     CarModel m_model;
     CarWheelType m_tires;
 
+    // Body
     SDL_Surface *bodySurface;
     SDL_Texture *bodyTexture;
     SDL_Rect bodyRect;
 
+    // Driver
     SDL_Surface *driverSurface;
     SDL_Texture *driverTexture;
     SDL_Rect driverRect;
 
+    // Wheels
+    Spritesheet *rearWheel;
+    Spritesheet *frontWheel;
+
+
+    SDL_Rect rearWheelRect;
+    SDL_Rect frontWheelRect;
+
+    // Gas cap
     SDL_Point gasCapLocation;
+
+    // Hood scoop
+
+    Uint64 t;
 
     void UpdateTextures();
 
