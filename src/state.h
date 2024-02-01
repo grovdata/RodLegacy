@@ -11,15 +11,15 @@ class Car;
 class State {
 private:
     int bankroll;
-    int dragRacesCompleted;
-    int roadRacesCompleted;
+    [[maybe_unused]] int dragRacesCompleted;
+    [[maybe_unused]] int roadRacesCompleted;
 
     std::set<std::string> allDriverNames;
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
 
     std::vector<Car *> carRoster;
-    Car *currentCar;
+    [[maybe_unused]] Car *currentCar;
 
     Scene *currentScene;
     Uint64 elapsedTime;

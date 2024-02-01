@@ -1,6 +1,6 @@
 #include "car.h"
 
-Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(false), isRoofChopped(false), model(model), m_tires(STOCK) {
+Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(false), isRoofChopped(false), model(model), tires(STOCK) {
     this->model = model;
 
     bodySurface = IMG_Load("../data/mods/saab92.png");

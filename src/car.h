@@ -30,15 +30,15 @@ class Car {
     */
 
    private:
-    bool isFrontBumperChopped;
-    bool isBackBumperChopped;
-    bool isRoofChopped;
-    bool isMoving;
+    [[maybe_unused]] bool isFrontBumperChopped;
+    [[maybe_unused]] bool isBackBumperChopped;
+    [[maybe_unused]] bool isRoofChopped;
+    [[maybe_unused]] bool isMoving;
 
-    int m_tuning;
+    int tuning;
 
     CarModel model;
-    CarWheelType m_tires;
+    CarWheelType tires;
 
     // Body
     SDL_Surface *bodySurface;
