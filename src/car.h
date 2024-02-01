@@ -35,10 +35,10 @@ class Car {
     [[maybe_unused]] bool isRoofChopped;
     [[maybe_unused]] bool isMoving;
 
-    int tuning;
+    [[maybe_unused]] int tuning;
 
     CarModel model;
-    CarWheelType tires;
+    [[maybe_unused]] CarWheelType tires;
 
     // Body
     SDL_Surface *bodySurface;
