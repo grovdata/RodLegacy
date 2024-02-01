@@ -12,7 +12,7 @@ void Diner::CycleGuy() {
     //printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
-Diner::Diner() : Scene("../data/rip/diner3.png") {
+Diner::Diner() : Scene("../data/res/diner3.png") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 55, 32, 0, 0, 0, 0);
     SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
@@ -30,7 +30,7 @@ Diner::Diner() : Scene("../data/rip/diner3.png") {
     m_zones.push_back(opponent);
     m_zones.push_back(garage);
 
-    phonebookGuy = new Spritesheet("../data/rip/lib_p_315.gif", 2, 5);
+    phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
 
     guySpriteX = 0;
     guySpriteY = 0;

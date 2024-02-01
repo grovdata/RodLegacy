@@ -9,10 +9,10 @@ class Zone {
     public:
         Zone(char *text, SDL_Rect *rect) {
         	text = text;
-        	rect.x = rect->x;
-        	rect.y = rect->y;
-        	rect.w = rect->w;
-        	rect.h = rect->h;
+        	this->rect.x = rect->x;
+        	this->rect.y = rect->y;
+        	this->rect.w = rect->w;
+        	this->rect.h = rect->h;
         }
         ~Zone() {
 

@@ -20,7 +20,7 @@
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
 
-#define ICON "../data/rip/icon.png"
+#define ICON "../data/res/icon.png"
 #define APP_TITLE "Street Rod Legacy"
 
 // speed in pixels/second
@@ -118,7 +118,7 @@ int main(void) {
     // CarModel model;
     // model.vendor = GM;
     // model.name = "Chevy";
-    // model.filename = "../data/rip/car1.gif";
+    // model.filename = "../data/res/car1.gif";
     // model.year = 1964;
     // model.baseSpeed = 98;
     // model.width = 232;

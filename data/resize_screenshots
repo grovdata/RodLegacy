@@ -1,8 +1,0 @@
-#!/bin/bash
-
-for f in `find . -name 'sr_amiga_screenshot*.png'`
-do
-    NEW_FILE="${f}_resized.png"
-    convert -scale 50% ${f} ${NEW_FILE}
-    convert ${NEW_FILE} -crop 320x200+0+0 ${NEW_FILE}
-done;
