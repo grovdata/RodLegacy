@@ -31,6 +31,7 @@ Diner::Diner() : Scene("../data/res/diner3.png") {
     m_zones.push_back(garage);
 
     phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
+    waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
 
     guySpriteX = 0;
     guySpriteY = 0;
@@ -94,6 +95,6 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;
-    printf("Carx cary %d %d\n",carX,carY);
-
+    //printf("Carx cary %d %d\n",carX,carY);
+    return 0;
 }

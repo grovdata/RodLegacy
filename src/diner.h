@@ -15,7 +15,6 @@ class Diner: public Scene {
     SDL_Rect roadMaskSrcRect = {0, 155, 320, 200-155};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 200-155};
 
-    bool guyIdle;
     int guySpriteX;
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
@@ -27,9 +26,6 @@ class Diner: public Scene {
     static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
     void CycleGuy();
-
-
-
 
     public:
         Diner();

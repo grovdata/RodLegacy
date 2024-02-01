@@ -4,7 +4,7 @@
 #include <string>
 #include <SDL.h>
 
-class Driver;
+struct Driver;
 class Scene;
 class Car;
 

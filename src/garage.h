@@ -60,9 +60,8 @@ class Garage : public Scene {
         m_zones.push_back(street);
     }
 
-    SDL_Point GetCarIdlePosition() {
-        SDL_Point p = {35, 82};
-        return p;
+    SDL_Point GetCarIdlePosition() override {
+        return {35, 82};
     }
 
     SDL_Point GetCarOffscreenPosition() override {

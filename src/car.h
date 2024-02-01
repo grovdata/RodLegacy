@@ -16,6 +16,7 @@ struct CarModel {
     int driverX, driverY;
     int rearWheelX, rearWheelY;
     int frontWheelX, frontWheelY;
+    int gasCapX, gasCapY;
 };
 
 enum CarWheelType { STOCK, BRAND, RACING };

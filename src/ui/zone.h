@@ -8,7 +8,7 @@ class Zone {
        	SDL_Rect rect;
     public:
         Zone(char *text, SDL_Rect *rect) {
-        	text = text;
+        	this->text = text;
         	this->rect.x = rect->x;
         	this->rect.y = rect->y;
         	this->rect.w = rect->w;

@@ -119,7 +119,7 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
 		 int x, int y, const char *text)
 {
     const char* c;
-    int charoffset, previous;
+    int charoffset;
     SDL_Rect srcrect, dstrect;
 
     if(text == NULL)
@@ -136,7 +136,7 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
         if (*c == ' ') {
             x += 7;
             continue;
-        }        
+        }
 
         if (*c == ' ' || charoffset < 0 || charoffset > Font->MaxPos) {
             x += Font->CharPos[2]-Font->CharPos[1];
@@ -153,7 +153,6 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
         SDL_BlitSurface(Font->Surface, &srcrect, Surface, &dstrect);
         // printf("src: %s %d %d %d %d\n", c, srcrect.x, srcrect.y, srcrect.w, srcrect.h);
         // printf("dst: %s %d %d %d %d\n", c, dstrect.x, dstrect.y, dstrect.w, dstrect.h);
-        previous = x;
         x += Font->CharPos[charoffset+1] - Font->CharPos[charoffset];
     }
 }

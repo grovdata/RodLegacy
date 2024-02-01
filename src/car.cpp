@@ -11,13 +11,15 @@ Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(fals
     bodyRect.w = model.width;
     bodyRect.h = model.height;
 
-
     driverSurface = IMG_Load("../data/res/lib_p_346.gif");
     driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
     driverRect.x = bodyRect.x + model.driverX;
     driverRect.y = bodyRect.y + model.driverY;
     driverRect.w = 24;
     driverRect.h = 17;
+
+    gasCapLocation.x = model.gasCapX;
+    gasCapLocation.y = model.gasCapY;
 
     rearWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);
     frontWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);

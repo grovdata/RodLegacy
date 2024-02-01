@@ -17,9 +17,6 @@ class Spritesheet {
     SDL_Texture *texture;
     SDL_Surface *surface;
 
-    int m_start_x;
-    int m_start_y;
-
     int rows;
     int columns;
     int currentX;
