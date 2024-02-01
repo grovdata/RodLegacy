@@ -1,17 +1,26 @@
 #pragma once
 #include <set>
+#include <vector>
 #include <string>
 #include <SDL.h>
 
 class Driver;
 class Scene;
+class Car;
 
 class State {
 private:
     int bankroll;
+    int dragRacesCompleted;
+    int roadRacesCompleted;
+
     std::set<std::string> allDriverNames;
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
+
+    std::vector<Car *> carRoster;
+    Car *currentCar;
+
     Scene *currentScene;
     Uint64 elapsedTime;
 

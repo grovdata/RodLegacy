@@ -1,22 +1,18 @@
 #pragma once
 
 #include <ctime>
-#include <vector>
-#include <set>
 #include <random>
+#include <set>
+#include <vector>
 
 #include "car.h"
 #include "driver.h"
 #include "global.h"
-#include "utils.h"
 #include "state.h"
+#include "utils.h"
 
 class Game {
    private:
-    int m_bankroll;
-
-
-
     set<std::string> m_allDriverNames;
     set<Driver *> m_allDrivers;
     set<Driver *> m_knownDrivers;
@@ -26,12 +22,8 @@ class Game {
     }
 
    public:
-    Game() : m_bankroll(750) {
+    Game() {
         std::srand(static_cast<unsigned>(std::time(nullptr)));
-    }
-
-    int GetBankroll() {
-        return m_bankroll;
     }
 
     std::string GetRandomDriver() {
@@ -39,6 +31,5 @@ class Game {
     }
 
     void Update(Uint64 elapsedTime) {
-
     }
 };

@@ -22,13 +22,26 @@ class Diner: public Scene {
 
     Uint64 t;
 
-    private:
-        void CycleGuy();
+
+    SDL_TimerID opponentCarTimerID;
+    static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+
+    void CycleGuy();
+
+
+
 
     public:
         Diner();
         ~Diner();
         SDL_Point GetCarIdlePosition() override;
+        SDL_Point GetCarOffscreenPosition() override;
+
         void Draw() override;
         void DrawMaskAfterCar() override;
+
+        virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
+    // CRAP
+    int carx, cary;
+    SDL_Point CarPos();
 };

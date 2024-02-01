@@ -64,4 +64,8 @@ class Garage : public Scene {
         SDL_Point p = {35, 82};
         return p;
     }
+
+    SDL_Point GetCarOffscreenPosition() override {
+        return {-320, 82};
+    }
 };

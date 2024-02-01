@@ -13,6 +13,9 @@ struct CarModel {
     int year;
     int baseSpeed;
     int width, height;
+    int driverX, driverY;
+    int rearWheelX, rearWheelY;
+    int frontWheelX, frontWheelY;
 };
 
 enum CarWheelType { STOCK, BRAND, RACING };
@@ -33,7 +36,7 @@ class Car {
 
     int m_tuning;
 
-    CarModel m_model;
+    CarModel model;
     CarWheelType m_tires;
 
     // Body

@@ -115,14 +115,31 @@ int main(void) {
 
 
     // temp
+    // CarModel model;
+    // model.vendor = GM;
+    // model.name = "Chevy";
+    // model.filename = "../data/rip/car1.gif";
+    // model.year = 1964;
+    // model.baseSpeed = 98;
+    // model.width = 232;
+    // model.height = 69;
+
     CarModel model;
     model.vendor = GM;
-    model.name = "Chevy Bolt";
-    model.filename = "../data/rip/car1.gif";
-    model.year = 1964;
+    model.name = "Saab 92";
+    model.filename = "../data/mods/saab92.png";
+    model.year = 1948;
     model.baseSpeed = 98;
-    model.width = 232;
-    model.height = 69;
+    model.width = 140;
+    model.height = 51;
+    model.rearWheelX = 15;
+    model.rearWheelY = 23;
+    model.frontWheelX = 102;
+    model.frontWheelY = 23;
+    model.driverX = 66;
+    model.driverY = 2;
+
+
     Car car(model);
     car.Move(state.GetCurrentScene()->GetCarIdlePosition());
 
@@ -165,7 +182,8 @@ int main(void) {
                             break;
                         case SDLK_d:
                             state.SetCurrentScene(&diner);
-                            car.Move(state.GetCurrentScene()->GetCarIdlePosition());
+                            car.Move(state.GetCurrentScene()->GetCarOffscreenPosition());
+                            diner.StartAnimateCar(&car, nullptr, false);
                             break;
                         case SDLK_p:
                             mouse.SetPointerType(PointerFuelPump);
@@ -198,8 +216,10 @@ int main(void) {
 
         SDL_RenderClear(renderer);
         state.GetCurrentScene()->Draw();
+        car.Move(diner.CarPos());
         car.Draw();
         state.GetCurrentScene()->DrawMaskAfterCar();
+
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);
         state.SetElapsedTime(SDL_GetTicks64() - startTime);

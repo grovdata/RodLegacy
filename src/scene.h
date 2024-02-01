@@ -96,6 +96,14 @@ class Scene {
         return {0, 0};
     }
 
-    void AnimateCar(Car *car, Driver *driver) {
+    virtual SDL_Point GetCarOffscreenPosition() {
+        return {-320, 0};
+    }
+
+
+    /// @brief Make a car pull into the scene
+    /// @param car
+    /// @param driver
+    virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
     }
 };

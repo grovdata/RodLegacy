@@ -1,7 +1,10 @@
 #include "car.h"
 
-Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(false), isRoofChopped(false), m_model(model), m_tires(STOCK) {
-    bodySurface = IMG_Load(model.filename.c_str());
+Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(false), isRoofChopped(false), model(model), m_tires(STOCK) {
+    this->model = model;
+
+    bodySurface = IMG_Load("../data/mods/saab92.png");
+    //bodySurface = IMG_Load(model.filename.c_str());
     bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
     bodyRect.x = 0;
     bodyRect.y = 0;
@@ -12,8 +15,8 @@ Car::Car(CarModel model) : isFrontBumperChopped(false), isBackBumperChopped(fals
     driverSurface = IMG_Load("../data/rip/lib_p_346.gif");
     driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
     // TODO: Get driver position/dimension
-    driverRect.x = bodyRect.x + 102;
-    driverRect.y = bodyRect.y + 17;
+    driverRect.x = bodyRect.x + model.driverX;
+    driverRect.y = bodyRect.y + model.driverY;
     driverRect.w = 24;
     driverRect.h = 17;
 
@@ -68,10 +71,9 @@ void Car::MoveRight() {
 }
 
 void Car::UpdateTextures() {
-    // TODO: Get driver position/dimension
-    driverRect.x = bodyRect.x + 102;
-    driverRect.y = bodyRect.y + 3;
+    driverRect.x = bodyRect.x + model.driverX;
+    driverRect.y = bodyRect.y + model.driverY;
 
-    rearWheelRect = { bodyRect.x + 30, bodyRect.y + 38, 31, 31};
-    frontWheelRect = { bodyRect.x + 180, bodyRect.y + 38, 31, 31};
+    rearWheelRect = { bodyRect.x + model.rearWheelX, bodyRect.y + model.rearWheelY, 31, 31};
+    frontWheelRect = { bodyRect.x + model.frontWheelX, bodyRect.y + model.frontWheelY, 31, 31};
 }

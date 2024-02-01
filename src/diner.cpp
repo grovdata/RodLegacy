@@ -1,5 +1,7 @@
 #include "diner.h"
 
+double carAnimationTime = 0;
+
 void Diner::CycleGuy() {
     if (guySpriteX == 4) {
         guySpriteX = 0;
@@ -39,11 +41,15 @@ Diner::Diner() : Scene("../data/rip/diner3.png") {
 Diner::~Diner() {
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
+    SDL_RemoveTimer(opponentCarTimerID);
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
-    SDL_Point p = {60, 95};
-    return p;
+    return {60, 95};
+}
+
+SDL_Point Diner::GetCarOffscreenPosition() {
+    return {-320, 95};
 }
 
 void Diner::Draw() {
@@ -53,6 +59,8 @@ void Diner::Draw() {
 
     if (elapsed % 400 == 0) {
         CycleGuy();
+        // Fix spritesheet code
+        //phonebookGuy->CycleNextSprite();
     }
 
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
@@ -62,4 +70,30 @@ void Diner::Draw() {
 
 void Diner::DrawMaskAfterCar() {
      SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+}
+
+void Diner::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+    // From announcing the driver with text, it should take approx. 8 seconds to
+    // drive the car to a halt.
+    opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
+}
+
+SDL_Point Diner::CarPos() {
+    return {carx, cary};
+}
+
+Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
+    Diner* diner = static_cast<Diner*>(param);
+
+    carAnimationTime += interval / 1000.0;
+
+    // Ease-out function (you can experiment with different easing functions)
+    double easedValue = (1 - pow(2, -10 * carAnimationTime / 2.0));
+    int carX = static_cast<int>((easedValue * (320 + 50)) - 320);  // Scale to cover the range -320 to 100
+    // int carX = (int)(easedValue * 100);
+    int carY = 100;
+    diner->carx = carX;
+    diner->cary = carY;
+    printf("Carx cary %d %d\n",carX,carY);
+
 }
