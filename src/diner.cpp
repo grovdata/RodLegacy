@@ -1,5 +1,6 @@
 #include "diner.h"
 #include "state.h"
+#include "cardata.h"
 
 double carAnimationTime = 0;
 
@@ -74,7 +75,10 @@ void Diner::Draw() {
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->DrawSprite(&guyRect);
 
-    // SetStatusBar("hej");
+    if (elapsed > 2000) {
+
+        // StartAnimateCar()
+    }
 }
 
 void Diner::DrawMaskAfterCar() {

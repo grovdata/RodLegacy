@@ -51,6 +51,3 @@ Uint64 State::GetElapsedTime() {
 
 // Global object
 State state;
-Garage garage;
-Diner diner;
-GasStation gasStation;

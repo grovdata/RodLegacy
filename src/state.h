@@ -1,17 +1,16 @@
 #pragma once
 #include "global.h"
 #include "scene.h"
+#include "car.h"
+#include "cardata.h"
+#include "diner.h"
+#include "garage.h"
+#include "gas_station.h"
 
 #include <set>
 #include <vector>
 #include <string>
 #include <SDL.h>
-
-// struct Driver;
-class Car;
-class Diner;
-class Garage;
-class GasStation;
 
 class State {
 private:
@@ -29,6 +28,11 @@ private:
 
     Scene *currentScene;
     Uint64 elapsedTime;
+
+    CarData carData;
+    Garage garage;
+    Diner diner;
+    GasStation gasStation;
 
 public:
     State();
@@ -48,6 +52,3 @@ public:
 };
 
 extern State state;
-extern Garage garage;
-extern Diner diner;
-extern GasStation gasStation;
