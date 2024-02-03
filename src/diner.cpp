@@ -12,7 +12,7 @@ void Diner::CycleGuy() {
     //printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
-Diner::Diner() : Scene("../data/res/diner3.png") {
+Diner::Diner() : Scene("../data/res/diner3.gif") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 55, 32, 0, 0, 0, 0);
     SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
@@ -67,6 +67,7 @@ void Diner::Draw() {
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->DrawSprite(&guyRect);
 
+    // SetStatusBar("hej");
 }
 
 void Diner::DrawMaskAfterCar() {
@@ -95,6 +96,6 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;
-    //printf("Carx cary %d %d\n",carX,carY);
-    return 0;
+    // printf("Carx cary %d %d\n",carX,carY);
+    return interval;
 }
