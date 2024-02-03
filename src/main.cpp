@@ -101,7 +101,7 @@ int main(void) {
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    // currentScene = new Garage(&game);
+    state.MoveToScene(SCENE_GARAGE);
 
     // state.SetCurrentScene(&diner);
 
@@ -137,10 +137,10 @@ int main(void) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            // state.SetCurrentScene(&garage);
+                            state.MoveToScene(SCENE_GARAGE);
                             break;
                         case SDLK_d:
-                            // state.SetCurrentScene(&diner);
+                            state.MoveToScene(SCENE_DINER);
                             break;
                         case SDLK_p:
                             mouse.SetPointerType(PointerFuelPump);

@@ -1,4 +1,5 @@
 #include "diner.h"
+#include "state.h"
 
 double carAnimationTime = 0;
 
@@ -54,7 +55,9 @@ SDL_Point Diner::GetCarOffscreenPosition() {
 }
 
 void Diner::Action(ZoneId zone) {
-
+    if (zone == ZONE_DINER_GOTO_GARAGE) {
+        state.MoveToScene(SCENE_GARAGE);
+    }
 }
 
 void Diner::Draw() {

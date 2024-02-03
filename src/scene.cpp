@@ -69,8 +69,9 @@ void Scene::DrawMaskAfterCar() {
 }
 
 void Scene::PushEvent(SDL_Event *event) {
-    if (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
-        CheckMouseHover(event->motion.x, event->motion.y);
+    ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
+    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+        Action(z);
     }
 }
 

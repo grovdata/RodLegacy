@@ -26,6 +26,19 @@ void State::SetCurrentScene(Scene *scene) {
     this->currentScene = scene;
 }
 
+void State::MoveToScene(GameScene scene) {
+    switch (scene) {
+        case SCENE_DINER:
+            this->currentScene = &diner;
+            break;
+        case SCENE_GARAGE:
+            this->currentScene = &garage;
+            break;
+        case SCENE_GAS_STATION:
+            break;
+    }
+}
+
 void State::SetElapsedTime(Uint64 elapsedTime) {
     this->elapsedTime = elapsedTime;
 }

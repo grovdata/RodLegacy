@@ -1,4 +1,5 @@
 #include "garage.h"
+#include "state.h"
 
 Garage::Garage() : Scene("../data/res/garage_bar.png") {
     SDL_Rect bottleRect = {7, 161, 8, 24};
@@ -61,4 +62,10 @@ SDL_Point Garage::GetCarIdlePosition() {
 
 SDL_Point Garage::GetCarOffscreenPosition() {
     return {-320, 82};
+}
+
+void Garage::Action(ZoneId zone) {
+    if (zone == ZONE_GARAGE_GOTO_DINER) {
+        state.MoveToScene(SCENE_DINER);
+    }
 }

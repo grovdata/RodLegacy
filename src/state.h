@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include "scene.h"
 
 #include <set>
 #include <vector>
@@ -10,7 +11,7 @@
 class Car;
 class Diner;
 class Garage;
-class Scene;
+
 
 class State {
 private:
@@ -37,6 +38,8 @@ public:
 
     Scene* GetCurrentScene();
     void SetCurrentScene(Scene *scene);
+
+    void MoveToScene(GameScene scene);
 
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
