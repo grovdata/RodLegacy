@@ -1,6 +1,7 @@
 #include "state.h"
 #include "diner.h"
 #include "garage.h"
+#include "gas_station.h"
 
 
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
@@ -35,6 +36,7 @@ void State::MoveToScene(GameScene scene) {
             this->currentScene = &garage;
             break;
         case SCENE_GAS_STATION:
+            this->currentScene = &gasStation;
             break;
     }
 }
@@ -51,3 +53,4 @@ Uint64 State::GetElapsedTime() {
 State state;
 Garage garage;
 Diner diner;
+GasStation gasStation;

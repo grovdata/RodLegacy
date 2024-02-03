@@ -67,5 +67,7 @@ SDL_Point Garage::GetCarOffscreenPosition() {
 void Garage::Action(ZoneId zone) {
     if (zone == ZONE_GARAGE_GOTO_DINER) {
         state.MoveToScene(SCENE_DINER);
+    } else if (zone == ZONE_GARAGE_GAS_CAN) {
+        state.MoveToScene(SCENE_GAS_STATION);
     }
 }

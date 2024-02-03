@@ -11,7 +11,7 @@
 class Car;
 class Diner;
 class Garage;
-
+class GasStation;
 
 class State {
 private:
@@ -50,3 +50,4 @@ public:
 extern State state;
 extern Garage garage;
 extern Diner diner;
+extern GasStation gasStation;
