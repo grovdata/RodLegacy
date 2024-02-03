@@ -1,4 +1,5 @@
 #include "cardata.h"
+#include "utils.h"
 
 CarData::CarData() {
     CarModel chev2dr;
@@ -9,7 +10,7 @@ CarData::CarData() {
     chev2dr.baseSpeed = 98;
     chev2dr.width = 232;
     chev2dr.height = 69;
-    allCarModels.push_back(chev2dr);
+    allCarModels.insert(chev2dr);
 
     CarModel saab92;
     saab92.vendor = GM;
@@ -25,10 +26,14 @@ CarData::CarData() {
     saab92.frontWheelY = 23;
     saab92.driverX = 66;
     saab92.driverY = 2;
-    allCarModels.push_back(saab92);
+    allCarModels.insert(saab92);
 
 }
 
 CarData::~CarData() {
 
+}
+
+CarModel CarData::GetRandomModel() {
+    return getRandomElement(allCarModels);
 }

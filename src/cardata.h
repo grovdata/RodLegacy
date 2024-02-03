@@ -1,16 +1,16 @@
 #pragma once
-#include <vector>
+#include <set>
 #include "car.h"
-
-struct CarModel;
 
 class CarData {
     private:
-        vector<CarModel> allCarModels;
+        std::set<CarModel> allCarModels;
 
     public:
         CarData();
         ~CarData();
+
+        CarModel GetRandomModel();
 
 };
 

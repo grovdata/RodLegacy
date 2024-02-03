@@ -9,7 +9,7 @@ void Diner::CycleGuy() {
     } else {
         guySpriteX += 1;
     }
-    //printf("Guy %d %d\n", guySpriteX, guySpriteY);
+    // printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
 Diner::Diner() : Scene("../data/res/diner3.gif") {
@@ -18,13 +18,13 @@ Diner::Diner() : Scene("../data/res/diner3.gif") {
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
 
     SDL_Rect orderRect = {132, 53, 27, 9};
-    Zone order(strdup("Order"), &orderRect);
+    Zone order(ZONE_DINER_ORDER, strdup("Order"), &orderRect);
 
     SDL_Rect opponentRect = {194, 65, 29, 59};
-    Zone opponent(strdup("Look for opponent"), &opponentRect);
+    Zone opponent(ZONE_DINER_CALL, strdup("Look for opponent"), &opponentRect);
 
     SDL_Rect garageRect = {0, 154, 320, 34};
-    Zone garage(strdup("Back to the garage"), &garageRect);
+    Zone garage(ZONE_DINER_GOTO_GARAGE, strdup("Back to the garage"), &garageRect);
 
     m_zones.push_back(order);
     m_zones.push_back(opponent);
@@ -53,6 +53,10 @@ SDL_Point Diner::GetCarOffscreenPosition() {
     return {-320, 95};
 }
 
+void Diner::Action(ZoneId zone) {
+
+}
+
 void Diner::Draw() {
     Scene::Draw();
 
@@ -61,7 +65,7 @@ void Diner::Draw() {
     if (elapsed % 400 == 0) {
         CycleGuy();
         // Fix spritesheet code
-        //phonebookGuy->CycleNextSprite();
+        // phonebookGuy->CycleNextSprite();
     }
 
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
@@ -71,10 +75,10 @@ void Diner::Draw() {
 }
 
 void Diner::DrawMaskAfterCar() {
-     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+    SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
 }
 
-void Diner::StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) {
+void Diner::StartAnimateCar(CarModel* car, Driver* driver, bool keepDriving) {
     // From announcing the driver with text, it should take approx. 8 seconds to
     // drive the car to a halt.
     opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS

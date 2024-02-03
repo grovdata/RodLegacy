@@ -1,12 +1,10 @@
-#include "diner.h"
-#include "driver.h"
-#include "game.h"
-#include "garage.h"
 #include "global.h"
 #include "mouse.h"
-#include "ui/button.h"
-#include "ui/zone.h"
+#include "game.h"
+#include "parsers/libp.h"
 #include "state.h"
+#include "scene.h"
+
 
 #define WIDTH 32
 #define HEIGHT 20
@@ -34,14 +32,8 @@ Uint64 startTime = SDL_GetTicks64();
 
 Game game;
 Mouse mouse;
-
-// Scenes
-Garage garage;
-Diner diner;
-
-
-// TODO: Move this somewhere else
 BitmapParser b;
+
 int main(void) {
     // TODO: Move this somewhere else
     // vector<LibBitmapEntry_t> result =
@@ -111,7 +103,7 @@ int main(void) {
 
     // currentScene = new Garage(&game);
 
-    state.SetCurrentScene(&diner);
+    // state.SetCurrentScene(&diner);
 
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
@@ -145,10 +137,10 @@ int main(void) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            state.SetCurrentScene(&garage);
+                            // state.SetCurrentScene(&garage);
                             break;
                         case SDLK_d:
-                            state.SetCurrentScene(&diner);
+                            // state.SetCurrentScene(&diner);
                             break;
                         case SDLK_p:
                             mouse.SetPointerType(PointerFuelPump);

@@ -5,17 +5,14 @@
 #include <set>
 #include <vector>
 
-#include "car.h"
-#include "driver.h"
 #include "global.h"
-#include "state.h"
 #include "utils.h"
 
 class Game {
    private:
-    set<std::string> m_allDriverNames;
-    set<Driver *> m_allDrivers;
-    set<Driver *> m_knownDrivers;
+    std::set<std::string> m_allDriverNames;
+    std::set<Driver *> m_allDrivers;
+    std::set<Driver *> m_knownDrivers;
 
     void LoadDrivers() {
         m_allDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};

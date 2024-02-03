@@ -1,12 +1,16 @@
 #pragma once
+#include "global.h"
+
 #include <set>
 #include <vector>
 #include <string>
 #include <SDL.h>
 
-struct Driver;
-class Scene;
+// struct Driver;
 class Car;
+class Diner;
+class Garage;
+class Scene;
 
 class State {
 private:
@@ -21,11 +25,13 @@ private:
     std::vector<Car *> carRoster;
     [[maybe_unused]] Car *currentCar;
 
+
     Scene *currentScene;
     Uint64 elapsedTime;
 
 public:
     State();
+    ~State();
 
     int GetBankroll();
 
@@ -37,4 +43,7 @@ public:
 
 
 };
+
 extern State state;
+extern Garage garage;
+extern Diner diner;

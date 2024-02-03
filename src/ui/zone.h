@@ -2,12 +2,36 @@
 
 #include "../global.h"
 
+typedef enum {
+    ZONE_NULL = 0,
+    ZONE_GARAGE_NEWSPAPER,
+    ZONE_GARAGE_TIRES,
+    ZONE_GARAGE_DRINK,
+    ZONE_GARAGE_PAINT_JOB,
+    ZONE_GARAGE_GAS_CAN,
+    ZONE_GARAGE_CAR_INFO,
+    ZONE_GARAGE_CALENDAR,
+    ZONE_GARAGE_MUSIC,
+    ZONE_GARAGE_STICKERS,
+    ZONE_GARAGE_SELL_PARTS,
+    ZONE_GARAGE_MENU,
+    ZONE_GARAGE_CAR_LIST,
+    ZONE_GARAGE_GOTO_DINER,
+    ZONE_DINER_CALL,
+    ZONE_DINER_GOTO_GARAGE,
+    ZONE_DINER_ORDER,
+    ZONE_DINER_CHALLENGE_OPPONENT,
+    ZONE_DINER_POP_HOOD,
+} ZoneId;
+
 class Zone {
     private:
+        ZoneId id;
        	char *text;
        	SDL_Rect rect;
     public:
-        Zone(char *text, SDL_Rect *rect) {
+        Zone(ZoneId id, char *text, SDL_Rect *rect) {
+            this->id = id;
         	this->text = text;
         	this->rect.x = rect->x;
         	this->rect.y = rect->y;
@@ -25,6 +49,10 @@ class Zone {
 
         char* GetText() {
         	return text;
+        }
+
+        ZoneId GetId() {
+            return id;
         }
 
 };

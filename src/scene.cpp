@@ -1,6 +1,8 @@
 #include "scene.h"
+#include "state.h"
+#include "ui/zone.h"
 
-Scene::Scene(string backgroundName) {
+Scene::Scene(std::string backgroundName) {
     m_Surface = IMG_Load(backgroundName.c_str());
     m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
     m_FontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -40,17 +42,18 @@ void Scene::ClearStatusBar() {
     SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
 }
 
-void Scene::CheckMouseHover(int x, int y) {
+ZoneId Scene::CheckMouseHover(int x, int y) {
     for (size_t i = 0; i < m_zones.size(); i++) {
         Zone zone = m_zones.at(i);
         if (zone.IsInsideZone(x, y)) {
             ClearStatusBar();
             SetStatusBar(zone.GetText());
-            return;
+            return zone.GetId();
         }
     }
     // If no hover, clear bar
     ClearStatusBar();
+    return ZONE_NULL;
 }
 
 SDL_Texture *Scene::GetTexture() {
@@ -66,14 +69,13 @@ void Scene::DrawMaskAfterCar() {
 }
 
 void Scene::PushEvent(SDL_Event *event) {
-    switch (event->type) {
-        case SDL_MOUSEMOTION: {
-            CheckMouseHover(event->motion.x, event->motion.y);
-            break;
-        }
-        default:
-            break;
+    if (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+        CheckMouseHover(event->motion.x, event->motion.y);
     }
+}
+
+void Scene::Action(ZoneId zone) {
+    printf("Zone was selected: %d \n", zone);
 }
 
 SDL_Point Scene::GetCarIdlePosition() {

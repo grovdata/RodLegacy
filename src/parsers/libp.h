@@ -133,8 +133,8 @@ class BitmapParser {
 
     public:
 
-	vector<LibBitmapEntry_t> Parse(char *filename) {
-		vector<LibBitmapEntry_t> result;
+	std::vector<LibBitmapEntry_t> Parse(char *filename) {
+		std::vector<LibBitmapEntry_t> result;
 		FILE *fp = fopen(filename, "rb");
 		if (fp == NULL) {
 			fputs ("File error", stderr);

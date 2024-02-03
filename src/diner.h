@@ -1,13 +1,12 @@
 #pragma once
 
-#include "global.h"
-#include "state.h"
 #include "scene.h"
+#include "spritesheet.h"
 
 
 class Diner: public Scene {
    private:
-    Car *currentCar;
+    //Car *currentCar;
 
     Spritesheet *phonebookGuy;
     Spritesheet *waitress;
@@ -34,6 +33,8 @@ class Diner: public Scene {
         ~Diner();
         SDL_Point GetCarIdlePosition() override;
         SDL_Point GetCarOffscreenPosition() override;
+
+        void Action(ZoneId zone) override;
 
         void Draw() override;
         void DrawMaskAfterCar() override;

@@ -1,6 +1,7 @@
 #pragma once
-#include "car.h"
 #include "global.h"
+#include "car.h"
+#include "spritesheet.h"
 
 class CarBitmap {
    private:

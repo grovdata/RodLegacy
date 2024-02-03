@@ -3,6 +3,8 @@
 
 #include "global.h"
 
+extern SDL_Renderer *renderer;
+
 enum MousePointer { PointerWrench = 0, PointerHand = 1, PointerFuelPump = 2, PointerRag = 3 };
 
 class Mouse {
@@ -11,20 +13,20 @@ class Mouse {
     SDL_Rect rect;
     MousePointer pointerType = PointerHand;
 
-    std::tuple<string, int, int> GetPointer() {
-        std::tuple<string, int, int> result;
+    std::tuple<std::string, int, int> GetPointer() {
+        std::tuple<std::string, int, int> result;
         switch (pointerType) {
             case PointerWrench:
-                result = make_tuple("../data/pointers/pointer1.png", 16, 16);
+                result = std::make_tuple("../data/pointers/pointer1.png", 16, 16);
                 break;
             case PointerHand:
-                result = make_tuple("../data/pointers/pointer2.png", 16, 12);
+                result = std::make_tuple("../data/pointers/pointer2.png", 16, 12);
                 break;
             case PointerFuelPump:
-                result = make_tuple("../data/pointers/pointer3.png", 11, 16);
+                result = std::make_tuple("../data/pointers/pointer3.png", 11, 16);
                 break;
             case PointerRag:
-                result = make_tuple("../data/pointers/pointer4.png", 16, 14);
+                result = std::make_tuple("../data/pointers/pointer4.png", 16, 14);
                 break;
         }
         return result;
@@ -45,14 +47,14 @@ class Mouse {
     }
 
     void load() {
-        std::tuple<string, int, int> pointerMap = GetPointer();
+        std::tuple<std::string, int, int> pointerMap = GetPointer();
 
-        cursorTexture = IMG_LoadTexture(renderer, get<0>(pointerMap).c_str());
+        cursorTexture = IMG_LoadTexture(renderer, std::get<0>(pointerMap).c_str());
         if (cursorTexture == nullptr) {
             printf("Error loading mouse cursor\n");
         }
-        rect.w = get<1>(pointerMap);
-        rect.h = get<2>(pointerMap);
+        rect.w = std::get<1>(pointerMap);
+        rect.h = std::get<2>(pointerMap);
     }
 
     void Update(SDL_Event *event) {

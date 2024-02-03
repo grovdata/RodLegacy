@@ -4,20 +4,6 @@
 
 class Spritesheet;
 extern SDL_Renderer *renderer;
-enum CarVendor { CHRYSLER, FORD, GM };
-
-struct CarModel {
-    CarVendor vendor;
-    std::string name;
-    std::string filename;
-    int year;
-    int baseSpeed;
-    int width, height;
-    int driverX, driverY;
-    int rearWheelX, rearWheelY;
-    int frontWheelX, frontWheelY;
-    int gasCapX, gasCapY;
-};
 
 enum CarWheelType { STOCK, BRAND, RACING };
 

@@ -1,27 +1,36 @@
 #pragma once
 
-#include "driver.h"
 #include "global.h"
-#include "state.h"
+#include "ui/zone.h"
+#include "ui/button.h"
+
+typedef enum {
+    SCENE_GARAGE,
+    SCENE_DINER,
+    SCENE_GAS_STATION
+} GameScene;
+
 
 class Scene {
    private:
-    void CheckMouseHover(int x, int y);
+    ZoneId CheckMouseHover(int x, int y);
 
    protected:
     SDL_Surface *m_Surface, *m_FontSurface;
     SDL_Texture *m_Texture, *m_FontTexture;
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
-    string m_backgroundName;
-    vector<Zone> m_zones;
-    vector<Button> m_buttons;
+    std::string m_backgroundName;
+    std::vector<Zone> m_zones;
+    std::vector<Button> m_buttons;
 
 
    public:
-    Scene(string backgroundName);
+    Scene(std::string backgroundName);
     ~Scene();
     SDL_Texture *GetTexture();
+
+    virtual void Action(ZoneId zone);
     virtual void Draw();
     virtual void DrawMaskAfterCar();
     virtual void PushEvent(SDL_Event *event);

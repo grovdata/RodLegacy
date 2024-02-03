@@ -1,7 +1,17 @@
 #include "state.h"
+#include "diner.h"
+#include "garage.h"
+
 
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
+    // this->garage = new Garage();
+    // this->diner = new Diner();
     this->allDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
+}
+
+State::~State() {
+    // delete garage;
+    // delete diner;
 }
 
 int State::GetBankroll() {
@@ -26,3 +36,5 @@ Uint64 State::GetElapsedTime() {
 
 // Global object
 State state;
+Garage garage;
+Diner diner;
