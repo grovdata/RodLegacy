@@ -87,5 +87,5 @@ SDL_Point Scene::GetCarOffscreenPosition() {
 /// @brief Make a car pull into the scene
 /// @param car
 /// @param driver
-void Scene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+void Scene::StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) {
 }

@@ -7,13 +7,15 @@
 
 class Diner: public Scene {
    private:
+    Car *currentCar;
+
     Spritesheet *phonebookGuy;
     Spritesheet *waitress;
 
     SDL_Surface *roadMaskSurface;
     SDL_Texture *roadMaskTexture;
-    SDL_Rect roadMaskSrcRect = {0, 155, 320, 200-155};
-    SDL_Rect roadMaskDestRect = {0, 0, 320, 200-155};
+    SDL_Rect roadMaskSrcRect = {0, 200-45, 320, 20}; //200-45-11};
+    SDL_Rect roadMaskDestRect = {0, 0, 320, 200-45-11};
 
     int guySpriteX;
     int guySpriteY;
@@ -36,7 +38,7 @@ class Diner: public Scene {
         void Draw() override;
         void DrawMaskAfterCar() override;
 
-        virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
+        void StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) override;
     // CRAP
     int carx, cary;
     SDL_Point CarPos();

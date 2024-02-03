@@ -8,11 +8,11 @@ CC := llvm-g++
 CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++17
 
 # add header files here
-HDRS := global.h state.h mouse.h driver.h scene.h garage.h game.h car.h spritesheet.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
+HDRS := global.h state.h mouse.h driver.h scene.h garage.h game.h car.h carbitmap.h spritesheet.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
 		include/libamivideo/amivideotypes.h include/libamivideo/viewportmode.h include/libamivideo/palette.h include/libamivideo/screen.h
 
 # add source files here
-SRCS := main.cpp state.cpp SFont.c spritesheet.cpp scene.cpp car.cpp diner.cpp ui/button.cpp \
+SRCS := main.cpp state.cpp SFont.c spritesheet.cpp scene.cpp car.cpp carbitmap.cpp diner.cpp ui/button.cpp \
 		include/libamivideo/viewportmode.c include/libamivideo/palette.c include/libamivideo/screen.c
 
 # generate names of object files

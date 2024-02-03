@@ -28,51 +28,19 @@ class Car {
          Diner :
          Gas station:
     */
+    private:
+        [[maybe_unused]] bool isFrontBumperChopped;
+        [[maybe_unused]] bool isBackBumperChopped;
+        [[maybe_unused]] bool isRoofChopped;
+        [[maybe_unused]] bool isMoving;
+        [[maybe_unused]] int tuning;
+        [[maybe_unused]] CarWheelType tires;
+        CarModel model;
 
-   private:
-    [[maybe_unused]] bool isFrontBumperChopped;
-    [[maybe_unused]] bool isBackBumperChopped;
-    [[maybe_unused]] bool isRoofChopped;
-    [[maybe_unused]] bool isMoving;
-
-    [[maybe_unused]] int tuning;
-
-    CarModel model;
-    [[maybe_unused]] CarWheelType tires;
-
-    // Body
-    SDL_Surface *bodySurface;
-    SDL_Texture *bodyTexture;
-    SDL_Rect bodyRect;
-
-    // Driver
-    SDL_Surface *driverSurface;
-    SDL_Texture *driverTexture;
-    SDL_Rect driverRect;
-
-    // Wheels
-    Spritesheet *rearWheel;
-    Spritesheet *frontWheel;
+    public:
+        Car(CarModel model);
+        ~Car();
 
 
-    SDL_Rect rearWheelRect;
-    SDL_Rect frontWheelRect;
-
-    // Gas cap
-    SDL_Point gasCapLocation;
-
-    // Hood scoop
-
-    Uint64 t;
-
-    void UpdateTextures();
-
-   public:
-    Car(CarModel model);
-    ~Car();
-    SDL_Texture *GetTexture();
-    void Draw();
-    void Move(SDL_Point p);
-    void MoveLeft();
-    void MoveRight();
+        CarModel GetModel();
 };

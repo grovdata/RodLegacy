@@ -113,36 +113,6 @@ int main(void) {
 
     state.SetCurrentScene(&diner);
 
-
-    // temp
-    // CarModel model;
-    // model.vendor = GM;
-    // model.name = "Chevy";
-    // model.filename = "../data/res/car1.gif";
-    // model.year = 1964;
-    // model.baseSpeed = 98;
-    // model.width = 232;
-    // model.height = 69;
-
-    CarModel model;
-    model.vendor = GM;
-    model.name = "Saab 92";
-    model.filename = "../data/mods/saab92.png";
-    model.year = 1948;
-    model.baseSpeed = 98;
-    model.width = 140;
-    model.height = 51;
-    model.rearWheelX = 15;
-    model.rearWheelY = 23;
-    model.frontWheelX = 102;
-    model.frontWheelY = 23;
-    model.driverX = 66;
-    model.driverY = 2;
-
-
-    Car car(model);
-    car.Move(state.GetCurrentScene()->GetCarIdlePosition());
-
     // struct to hold the position and size of the sprite
     SDL_Rect dest;
 
@@ -165,10 +135,8 @@ int main(void) {
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
                         case SDLK_LEFT:
-                            car.MoveLeft();
                             break;
                         case SDLK_RIGHT:
-                            car.MoveRight();
                             break;
                         default:
                             break;
@@ -178,12 +146,9 @@ int main(void) {
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
                             state.SetCurrentScene(&garage);
-                            car.Move(state.GetCurrentScene()->GetCarIdlePosition());
                             break;
                         case SDLK_d:
                             state.SetCurrentScene(&diner);
-                            car.Move(state.GetCurrentScene()->GetCarOffscreenPosition());
-                            diner.StartAnimateCar(&car, nullptr, false);
                             break;
                         case SDLK_p:
                             mouse.SetPointerType(PointerFuelPump);
@@ -192,10 +157,8 @@ int main(void) {
                             close_requested = true;
                             break;
                         case SDLK_LEFT:
-                            car.MoveLeft();
                             break;
                         case SDLK_RIGHT:
-                            car.MoveRight();
                             break;
 
                         default:
@@ -216,10 +179,7 @@ int main(void) {
 
         SDL_RenderClear(renderer);
         state.GetCurrentScene()->Draw();
-        car.Move(diner.CarPos());
-        car.Draw();
         state.GetCurrentScene()->DrawMaskAfterCar();
-
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);
         state.SetElapsedTime(SDL_GetTicks64() - startTime);

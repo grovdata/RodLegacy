@@ -6,8 +6,6 @@
 
 class Scene {
    private:
-    void SetStatusBar(char *text);
-    void ClearStatusBar();
     void CheckMouseHover(int x, int y);
 
    protected:
@@ -18,6 +16,7 @@ class Scene {
     string m_backgroundName;
     vector<Zone> m_zones;
     vector<Button> m_buttons;
+
 
    public:
     Scene(string backgroundName);
@@ -31,5 +30,8 @@ class Scene {
     /// @brief Make a car pull into the scene
     /// @param car
     /// @param driver
-    virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
+    virtual void StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving);
+
+    void SetStatusBar(char *text);
+    void ClearStatusBar();
 };

@@ -74,7 +74,7 @@ void Diner::DrawMaskAfterCar() {
      SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
 }
 
-void Diner::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+void Diner::StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) {
     // From announcing the driver with text, it should take approx. 8 seconds to
     // drive the car to a halt.
     opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
@@ -86,16 +86,21 @@ SDL_Point Diner::CarPos() {
 
 Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     Diner* diner = static_cast<Diner*>(param);
-
     carAnimationTime += interval / 1000.0;
-
+    const double duration = 2.0;
     // Ease-out function (you can experiment with different easing functions)
-    double easedValue = (1 - pow(2, -10 * carAnimationTime / 2.0));
+    double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
+    // printf("easedvalue %f\n",easedValue);
     int carX = static_cast<int>((easedValue * (320 + 50)) - 320);  // Scale to cover the range -320 to 100
     // int carX = (int)(easedValue * 100);
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;
+
+    if (easedValue >= 0.992) {
+        // printf("stop\n");
+        return 0;
+    }
     // printf("Carx cary %d %d\n",carX,carY);
     return interval;
 }
