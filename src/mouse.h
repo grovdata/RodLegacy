@@ -15,16 +15,16 @@ class Mouse {
         std::tuple<string, int, int> result;
         switch (pointerType) {
             case PointerWrench:
-                result = make_tuple("../data/pointer1.png", 16, 16);
+                result = make_tuple("../data/pointers/pointer1.png", 16, 16);
                 break;
             case PointerHand:
-                result = make_tuple("../data/pointer2.png", 16, 12);
+                result = make_tuple("../data/pointers/pointer2.png", 16, 12);
                 break;
             case PointerFuelPump:
-                result = make_tuple("../data/pointer3.png", 11, 16);
+                result = make_tuple("../data/pointers/pointer3.png", 11, 16);
                 break;
             case PointerRag:
-                result = make_tuple("../data/pointer4.png", 16, 14);
+                result = make_tuple("../data/pointers/pointer4.png", 16, 14);
                 break;
         }
         return result;
@@ -48,6 +48,9 @@ class Mouse {
         std::tuple<string, int, int> pointerMap = GetPointer();
 
         cursorTexture = IMG_LoadTexture(renderer, get<0>(pointerMap).c_str());
+        if (cursorTexture == nullptr) {
+            printf("Error loading mouse cursor\n");
+        }
         rect.w = get<1>(pointerMap);
         rect.h = get<2>(pointerMap);
     }
