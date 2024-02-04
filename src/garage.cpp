@@ -54,6 +54,8 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     m_zones.push_back(menu);
     m_zones.push_back(cars);
     m_zones.push_back(street);
+
+    StartAnimateCar(state.GetCurrentCar(), nullptr, false);
 }
 
 SDL_Point Garage::GetCarIdlePosition() {

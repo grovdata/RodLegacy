@@ -11,6 +11,7 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
 
     // TODO
     CarModel chevy = carData.GetModel(CAR_MODEL_GM_CHEVROLET_2DR);
+    carData.PrintModel(chevy);
     Car *chevyCar = new Car(chevy);
     this->currentCar = chevyCar;
 }
@@ -45,6 +46,10 @@ void State::MoveToScene(GameScene scene) {
             this->currentScene = &gasStation;
             break;
     }
+}
+
+Car* State::GetCurrentCar() {
+    return this->currentCar;
 }
 
 void State::SetElapsedTime(Uint64 elapsedTime) {

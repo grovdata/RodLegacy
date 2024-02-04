@@ -11,7 +11,7 @@ class CarData {
         ~CarData();
 
         CarModel GetModel(CarModelId modelId);
+        void PrintModel(CarModel model);
         CarModel GetRandomModel();
-
 };
 

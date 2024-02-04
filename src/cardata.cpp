@@ -11,6 +11,16 @@ CarData::CarData() {
     chev2dr.baseSpeed = 98;
     chev2dr.width = 232;
     chev2dr.height = 69;
+    chev2dr.rearWheelX = 30;
+    chev2dr.rearWheelY = 38;
+    chev2dr.gasCapX = 75;
+    chev2dr.gasCapY = 36;
+    chev2dr.frontWheelX = 178;
+    chev2dr.frontWheelY = 39;
+    chev2dr.driverX = 106;
+    chev2dr.driverY = 7;
+
+    printf("woop %s \n", chev2dr.filename.c_str());
     allCarModels.insert(chev2dr);
 
     CarModel saab92;
@@ -38,13 +48,29 @@ CarData::~CarData() {
 
 CarModel CarData::GetModel(CarModelId carModel) {
     for (auto m: allCarModels) {
+        printf("Model %s\n", m.name.c_str());
         if (m.id == carModel) {
+            printf("found model %d\n",m.id);
             return m;
         }
     }
     // Not sure about this
     return CarModel();
 }
+
+void CarData::PrintModel(CarModel model) {
+    printf("Car ID: %d\n", model.id);
+    printf("Vendor: %d\n", model.vendor);
+    printf("Name: %s\n", model.name.c_str());
+    printf("Filename: %s\n", model.filename.c_str());
+    printf("Year: %d\n", model.year);
+    printf("Base Speed: %d\n", model.baseSpeed);
+    printf("Width: %d, Height: %d\n", model.width, model.height);
+    printf("Driver Position: (%d, %d)\n", model.driverX, model.driverY);
+    printf("Rear Wheel Position: (%d, %d)\n", model.rearWheelX, model.rearWheelY);
+    printf("Front Wheel Position: (%d, %d)\n", model.frontWheelX, model.frontWheelY);
+    printf("Gas Cap Position: (%d, %d)\n", model.gasCapX, model.gasCapY);
+};
 
 CarModel CarData::GetRandomModel() {
     return getRandomElement(allCarModels);

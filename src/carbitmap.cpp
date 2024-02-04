@@ -5,6 +5,7 @@ CarBitmap::CarBitmap(Car *car) {
 
     CarModel model = car->GetModel();
 
+    printf("surface %s\n",model.filename.c_str());
     bodySurface = IMG_Load(model.filename.c_str());
     bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
     bodyRect.x = 0;
@@ -13,11 +14,11 @@ CarBitmap::CarBitmap(Car *car) {
     bodyRect.h = model.height;
 
     // driverSurface = IMG_Load("../data/res/lib_p_346.gif");
-    driverSurface = IMG_Load("../data/mods/eddie.png");
+    driverSurface = IMG_Load("../data/mods/mario.png");
     driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
     driverRect.x = bodyRect.x + model.driverX;
     driverRect.y = bodyRect.y + model.driverY;
-    driverRect.w = 24;
+    driverRect.w = 17;
     driverRect.h = 17;
 
     gasCapLocation.x = model.gasCapX;

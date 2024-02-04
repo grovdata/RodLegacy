@@ -2,7 +2,7 @@
 
 #include "scene.h"
 #include "spritesheet.h"
-
+#include "carbitmap.h"
 
 class Diner: public Scene {
    private:
@@ -16,11 +16,14 @@ class Diner: public Scene {
     SDL_Rect roadMaskSrcRect = {0, 200-45, 320, 20}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 200-45-11};
 
+    CarBitmap *carBitmap;
+
     int guySpriteX;
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
 
     Uint64 t;
+
 
 
     SDL_TimerID opponentCarTimerID;
@@ -39,9 +42,10 @@ class Diner: public Scene {
         void Draw() override;
         void DrawMaskAfterCar() override;
 
-        void StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) override;
+        void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
 
         // CRAP
+        bool animatingCar = false;
         int carx, cary;
         SDL_Point CarPos();
 };

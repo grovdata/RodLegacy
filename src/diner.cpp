@@ -4,16 +4,6 @@
 
 double carAnimationTime = 0;
 
-void Diner::CycleGuy() {
-    if (guySpriteX == 4) {
-        guySpriteX = 0;
-        guySpriteY = (guySpriteY == 1) ? 0 : 1;
-    } else {
-        guySpriteX += 1;
-    }
-    // printf("Guy %d %d\n", guySpriteX, guySpriteY);
-}
-
 Diner::Diner() : Scene("../data/res/diner3.gif") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 55, 32, 0, 0, 0, 0);
     SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
@@ -47,6 +37,16 @@ Diner::~Diner() {
     SDL_RemoveTimer(opponentCarTimerID);
 }
 
+void Diner::CycleGuy() {
+    if (guySpriteX == 4) {
+        guySpriteX = 0;
+        guySpriteY = (guySpriteY == 1) ? 0 : 1;
+    } else {
+        guySpriteX += 1;
+    }
+    // printf("Guy %d %d\n", guySpriteX, guySpriteY);
+}
+
 SDL_Point Diner::GetCarIdlePosition() {
     return {60, 95};
 }
@@ -75,20 +75,35 @@ void Diner::Draw() {
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->DrawSprite(&guyRect);
 
-    if (elapsed > 2000) {
-
-        // StartAnimateCar()
+    if (elapsed > 2000 && !animatingCar) {
+        // printf("start animate\n");
+        StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+        animatingCar = true;
     }
+    if (carBitmap != nullptr) {
+        // printf("Move %d %d\n",carx,cary);
+        SDL_Point p;
+        p.x = carx; p.y = cary;
+        carBitmap->Move(p);
+        carBitmap->Draw();
+    }
+
 }
 
 void Diner::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
 }
 
-void Diner::StartAnimateCar(CarModel* car, Driver* driver, bool keepDriving) {
+void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
+    if (animatingCar && carBitmap) return;
     // From announcing the driver with text, it should take approx. 8 seconds to
     // drive the car to a halt.
-    opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
+    Car *carToAnimate = state.GetCurrentCar();
+    if (carToAnimate != nullptr) {
+        printf("create new car \n");
+        carBitmap = new CarBitmap(carToAnimate);
+        opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
+    }
 }
 
 SDL_Point Diner::CarPos() {
@@ -110,6 +125,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
 
     if (easedValue >= 0.992) {
         // printf("stop\n");
+        diner->animatingCar = false;
         return 0;
     }
     // printf("Carx cary %d %d\n",carX,carY);

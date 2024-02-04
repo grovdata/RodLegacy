@@ -23,7 +23,7 @@ private:
     std::set<Driver *> knownDrivers;
 
     std::vector<Car *> carRoster;
-    [[maybe_unused]] Car *currentCar;
+    Car *currentCar;
 
 
     Scene *currentScene;
@@ -48,6 +48,7 @@ public:
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
 
+    Car* GetCurrentCar();
 
 };
 

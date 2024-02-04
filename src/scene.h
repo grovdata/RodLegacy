@@ -10,6 +10,7 @@ typedef enum {
     SCENE_GAS_STATION
 } GameScene;
 
+class Car;
 
 class Scene {
    private:
@@ -39,7 +40,7 @@ class Scene {
     /// @brief Make a car pull into the scene
     /// @param car
     /// @param driver
-    virtual void StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving);
+    virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
 
     void SetStatusBar(char *text);
     void ClearStatusBar();
