@@ -3,6 +3,7 @@
 
 CarData::CarData() {
     CarModel chev2dr;
+    chev2dr.id = CAR_MODEL_GM_CHEVROLET_2DR;
     chev2dr.vendor = GM;
     chev2dr.name = "Chevrolet 2-dr coupe";
     chev2dr.filename = "../data/res/car1.gif";
@@ -13,6 +14,7 @@ CarData::CarData() {
     allCarModels.insert(chev2dr);
 
     CarModel saab92;
+    chev2dr.id = CAR_MODEL_MOD_SAAB_92;
     saab92.vendor = GM;
     saab92.name = "Saab 92";
     saab92.filename = "../data/mods/saab92.png";
@@ -32,6 +34,16 @@ CarData::CarData() {
 
 CarData::~CarData() {
 
+}
+
+CarModel CarData::GetModel(CarModelId carModel) {
+    for (auto m: allCarModels) {
+        if (m.id == carModel) {
+            return m;
+        }
+    }
+    // Not sure about this
+    return CarModel();
 }
 
 CarModel CarData::GetRandomModel() {

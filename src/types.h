@@ -3,7 +3,13 @@
 
 enum CarVendor { CHRYSLER, FORD, GM };
 
+enum CarModelId {
+    CAR_MODEL_GM_CHEVROLET_2DR,
+    CAR_MODEL_MOD_SAAB_92
+};
+
 struct CarModel {
+    CarModelId id;
     CarVendor vendor;
     std::string name;
     std::string filename;

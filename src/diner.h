@@ -40,7 +40,8 @@ class Diner: public Scene {
         void DrawMaskAfterCar() override;
 
         void StartAnimateCar(CarModel *car, Driver *driver, bool keepDriving) override;
-    // CRAP
-    int carx, cary;
-    SDL_Point CarPos();
+
+        // CRAP
+        int carx, cary;
+        SDL_Point CarPos();
 };

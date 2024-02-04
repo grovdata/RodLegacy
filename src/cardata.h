@@ -10,6 +10,7 @@ class CarData {
         CarData();
         ~CarData();
 
+        CarModel GetModel(CarModelId modelId);
         CarModel GetRandomModel();
 
 };
