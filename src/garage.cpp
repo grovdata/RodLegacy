@@ -78,16 +78,17 @@ void Garage::UpdateSign() {
 }
 
 void Garage::Action(ZoneId zone) {
+    if (sceneTransition != SCENE_SOLID) {
+        return;
+    }
+
     if (zone == ZONE_GARAGE_GOTO_DINER) {
+        sceneTransitioningTo = SCENE_DINER;
         FadeOut();
     } else if (zone == ZONE_GARAGE_GAS_CAN) {
-        state.MoveToScene(SCENE_GAS_STATION);
+        sceneTransitioningTo = SCENE_GAS_STATION;
+        FadeOut();
     }
-}
-
-void Garage::OnFadeComplete() {
-    printf("OnFadeComplete\n");
-    state.MoveToScene(SCENE_DINER);
 }
 
 void Garage::Draw() {

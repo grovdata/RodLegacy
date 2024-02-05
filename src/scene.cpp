@@ -99,39 +99,39 @@ void Scene::Action(ZoneId zone) {
     printf("Zone was selected: %d \n", zone);
 }
 
-
 void Scene::FadeIn() {
-    if (sceneTransition == SCENE_FADE_OUT) {
-        printf("fadein\n");
-        fadeTimerID = SDL_AddTimer(4, FadeCallback, this);
-        sceneTransition = SCENE_FADE_IN;
-    }
+    SDL_RemoveTimer(fadeTimerID);
+    SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_TRANSPARENT);
+    printf("fadein\n");
+    fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
+    sceneTransition = SCENE_FADE_IN;
 }
 
 void Scene::FadeOut() {
-    if (sceneTransition == SCENE_SOLID) {
-        printf("fadeout\n");
-        fadeTimerID = SDL_AddTimer(4, FadeCallback, this);
-        sceneTransition = SCENE_FADE_OUT;
-    }
+    SDL_RemoveTimer(fadeTimerID);
+    SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
+    printf("fadeout\n");
+    fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
+    sceneTransition = SCENE_FADE_OUT;
 }
 
 Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
     Scene* scene = static_cast<Scene*>(param);
     Uint8 alpha;
     SDL_GetTextureAlphaMod(scene->m_Texture, &alpha);
-    printf("alpha %d\n",alpha);
-    int rate = 2;
+    // printf("alpha %d\n",alpha);
+    int rate = 1;
+    int retval = interval;
 
     if (scene->sceneTransition == SCENE_FADE_IN) {
-        if (alpha >= SDL_ALPHA_OPAQUE) {
+        if (alpha >= SDL_ALPHA_OPAQUE - rate) {
             scene->sceneTransition = SCENE_SOLID;
             scene->OnFadeComplete();
             return 0;
         }
         alpha += rate;
     } else if (scene->sceneTransition == SCENE_FADE_OUT) {
-        if (alpha <= SDL_ALPHA_TRANSPARENT) {
+        if (alpha <= SDL_ALPHA_TRANSPARENT + rate) {
             scene->OnFadeComplete();
             return 0;
         }
@@ -139,11 +139,19 @@ Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
     }
 
     SDL_SetTextureAlphaMod(scene->m_Texture, alpha);
-    return interval;
+    return retval;
 }
 
 void Scene::OnFadeComplete() {
-
+    if (sceneTransition == SCENE_FADE_OUT) {
+        sceneTransition = SCENE_BLACK;
+        state.MoveToScene(sceneTransitioningTo);
+        // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_TRANSPARENT);
+    } else if (sceneTransition == SCENE_FADE_IN) {
+        sceneTransition = SCENE_SOLID;
+        // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
+    }
+    printf("fade status %d\n", sceneTransition);
 }
 
 /// @brief Make a car pull into the scene

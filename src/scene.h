@@ -11,6 +11,7 @@ typedef enum {
 } GameScene;
 
 typedef enum {
+    SCENE_BLACK,
     SCENE_SOLID,
     SCENE_FADE_OUT,
     SCENE_FADE_IN
@@ -26,6 +27,7 @@ class Scene {
 
    protected:
     SceneTransition sceneTransition;
+    GameScene sceneTransitioningTo;
 
     SDL_Surface *m_Surface, *m_FontSurface;
     SDL_Texture *m_Texture, *m_FontTexture;
@@ -43,6 +45,7 @@ class Scene {
 
     void FadeOut();
     void FadeIn();
+    void PrepareFadeIn();
     virtual void OnFadeComplete();
 
     virtual void Action(ZoneId zone);

@@ -46,7 +46,8 @@ void State::MoveToScene(GameScene scene) {
             this->currentScene = &gasStation;
             break;
     }
-    // this->currentScene->FadeIn();
+
+    this->currentScene->FadeIn();
 }
 
 Car* State::GetCurrentCar() {
