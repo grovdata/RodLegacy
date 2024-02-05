@@ -3,8 +3,10 @@
 #include "ui/zone.h"
 
 Scene::Scene(std::string backgroundName) {
+    sceneTransition = SCENE_SOLID;
     m_Surface = IMG_Load(backgroundName.c_str());
     m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
+    SDL_SetTextureBlendMode(m_Texture, SDL_BLENDMODE_BLEND);
     m_FontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     m_backgroundRect.x = 0;
     m_backgroundRect.y = 0;
@@ -25,6 +27,14 @@ Scene::~Scene() {
     SDL_DestroyTexture(m_FontTexture);
     SDL_FreeSurface(m_Surface);
     SDL_DestroyTexture(m_Texture);
+}
+
+SDL_Point Scene::GetCarIdlePosition() {
+    return {0, 0};
+}
+
+SDL_Point Scene::GetCarOffscreenPosition() {
+    return {0, 0};
 }
 
 void Scene::SetStatusBar(char *text) {
@@ -89,12 +99,51 @@ void Scene::Action(ZoneId zone) {
     printf("Zone was selected: %d \n", zone);
 }
 
-SDL_Point Scene::GetCarIdlePosition() {
-    return {0, 0};
+
+void Scene::FadeIn() {
+    if (sceneTransition == SCENE_FADE_OUT) {
+        printf("fadein\n");
+        fadeTimerID = SDL_AddTimer(4, FadeCallback, this);
+        sceneTransition = SCENE_FADE_IN;
+    }
 }
 
-SDL_Point Scene::GetCarOffscreenPosition() {
-    return {-320, 0};
+void Scene::FadeOut() {
+    if (sceneTransition == SCENE_SOLID) {
+        printf("fadeout\n");
+        fadeTimerID = SDL_AddTimer(4, FadeCallback, this);
+        sceneTransition = SCENE_FADE_OUT;
+    }
+}
+
+Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
+    Scene* scene = static_cast<Scene*>(param);
+    Uint8 alpha;
+    SDL_GetTextureAlphaMod(scene->m_Texture, &alpha);
+    printf("alpha %d\n",alpha);
+    int rate = 2;
+
+    if (scene->sceneTransition == SCENE_FADE_IN) {
+        if (alpha >= SDL_ALPHA_OPAQUE) {
+            scene->sceneTransition = SCENE_SOLID;
+            scene->OnFadeComplete();
+            return 0;
+        }
+        alpha += rate;
+    } else if (scene->sceneTransition == SCENE_FADE_OUT) {
+        if (alpha <= SDL_ALPHA_TRANSPARENT) {
+            scene->OnFadeComplete();
+            return 0;
+        }
+        alpha -= rate;
+    }
+
+    SDL_SetTextureAlphaMod(scene->m_Texture, alpha);
+    return interval;
+}
+
+void Scene::OnFadeComplete() {
+
 }
 
 /// @brief Make a car pull into the scene

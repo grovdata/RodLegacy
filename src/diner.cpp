@@ -61,12 +61,14 @@ SDL_Point Diner::GetCarOffscreenPosition() {
 
 void Diner::Action(ZoneId zone) {
     if (zone == ZONE_DINER_GOTO_GARAGE) {
-        state.MoveToScene(SCENE_GARAGE);
+        FadeOut();
     }
 }
 
 void Diner::Draw() {
     Scene::Draw();
+
+
 
     Uint64 elapsed = SDL_GetTicks64() - t;
 
@@ -147,4 +149,8 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     }
     // printf("Carx cary %d %d\n",carX,carY);
     return interval;
+}
+
+void Diner::OnFadeComplete() {
+    state.MoveToScene(SCENE_GARAGE);
 }

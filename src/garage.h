@@ -18,4 +18,5 @@ class Garage : public Scene {
 
     void Action(ZoneId zone) override;
     void Draw() override;
+    void OnFadeComplete() override;
 };

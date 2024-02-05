@@ -43,6 +43,8 @@ class Diner: public Scene {
 
         void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
 
+        void OnFadeComplete() override;
+
         // CRAP
         bool animatingCar = false;
         int carx, cary;

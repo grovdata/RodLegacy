@@ -10,13 +10,23 @@ typedef enum {
     SCENE_GAS_STATION
 } GameScene;
 
+typedef enum {
+    SCENE_SOLID,
+    SCENE_FADE_OUT,
+    SCENE_FADE_IN
+} SceneTransition;
+
 class Car;
 
 class Scene {
    private:
     ZoneId CheckMouseHover(int x, int y);
+    static Uint32 FadeCallback(Uint32 interval, void* param);
+    SDL_TimerID fadeTimerID;
 
    protected:
+    SceneTransition sceneTransition;
+
     SDL_Surface *m_Surface, *m_FontSurface;
     SDL_Texture *m_Texture, *m_FontTexture;
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
@@ -30,6 +40,10 @@ class Scene {
     Scene(std::string backgroundName);
     ~Scene();
     SDL_Texture *GetTexture();
+
+    void FadeOut();
+    void FadeIn();
+    virtual void OnFadeComplete();
 
     virtual void Action(ZoneId zone);
     virtual void Draw();

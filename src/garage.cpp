@@ -58,8 +58,6 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     signSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, false);
-
-
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -81,10 +79,15 @@ void Garage::UpdateSign() {
 
 void Garage::Action(ZoneId zone) {
     if (zone == ZONE_GARAGE_GOTO_DINER) {
-        state.MoveToScene(SCENE_DINER);
+        FadeOut();
     } else if (zone == ZONE_GARAGE_GAS_CAN) {
         state.MoveToScene(SCENE_GAS_STATION);
     }
+}
+
+void Garage::OnFadeComplete() {
+    printf("OnFadeComplete\n");
+    state.MoveToScene(SCENE_DINER);
 }
 
 void Garage::Draw() {
