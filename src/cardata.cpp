@@ -15,12 +15,10 @@ CarData::CarData() {
     chev2dr.rearWheelY = 38;
     chev2dr.gasCapX = 75;
     chev2dr.gasCapY = 36;
-    chev2dr.frontWheelX = 178;
-    chev2dr.frontWheelY = 39;
-    chev2dr.driverX = 106;
+    chev2dr.frontWheelX = 180;
+    chev2dr.frontWheelY = 38;
+    chev2dr.driverX = 104;
     chev2dr.driverY = 7;
-
-    printf("woop %s \n", chev2dr.filename.c_str());
     allCarModels.insert(chev2dr);
 
     CarModel saab92;

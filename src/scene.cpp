@@ -56,6 +56,16 @@ ZoneId Scene::CheckMouseHover(int x, int y) {
     return ZONE_NULL;
 }
 
+void Scene::SetZoneText(ZoneId id, char* text) {
+   for (size_t i = 0; i < m_zones.size(); i++) {
+        Zone zone = m_zones.at(i);
+        if (zone.GetId() == id) {
+            zone.SetText(text);
+            return;
+        }
+    }
+}
+
 SDL_Texture *Scene::GetTexture() {
     return m_Texture;
 }

@@ -5,7 +5,7 @@
 double carAnimationTime = 0;
 
 Diner::Diner() : Scene("../data/res/diner3.gif") {
-    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 55, 32, 0, 0, 0, 0);
+    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
 
@@ -15,12 +15,16 @@ Diner::Diner() : Scene("../data/res/diner3.gif") {
     SDL_Rect opponentRect = {194, 65, 29, 59};
     Zone opponent(ZONE_DINER_CALL, strdup("Look for opponent"), &opponentRect);
 
-    SDL_Rect garageRect = {0, 154, 320, 34};
+    SDL_Rect garageRect = {0, 170, 320, 30};
     Zone garage(ZONE_DINER_GOTO_GARAGE, strdup("Back to the garage"), &garageRect);
+
+    SDL_Rect backgroundRect = {0, 0, 320, 169};
+    Zone backgroundZone(ZONE_DINER_BACKGROUND, strdup(""), &backgroundRect);
 
     m_zones.push_back(order);
     m_zones.push_back(opponent);
     m_zones.push_back(garage);
+    m_zones.push_back(backgroundZone);
 
     phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
     waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
@@ -94,12 +98,25 @@ void Diner::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
 }
 
+// void Diner::SetStatusBar(char *text) {
+//     char statusText[70];
+//     snprintf(statusText, 30, "Bankroll: $%d", state.GetBankroll());
+//     SFont_Write(m_FontSurface, font, 2, 200 - 9, statusText);
+//     SFont_Write(m_FontSurface, font, 160, 200 - 9, text);
+//     m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
+//     SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
+// }
+
 void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     if (animatingCar && carBitmap) return;
     // From announcing the driver with text, it should take approx. 8 seconds to
     // drive the car to a halt.
     Car *carToAnimate = state.GetCurrentCar();
-    if (carToAnimate != nullptr) {
+    CarModel model = carToAnimate->GetModel();
+    SetStatusBar(strdup(model.name.c_str()));
+    SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
+
+    if (carToAnimate != nullptr && carBitmap == nullptr) {
         printf("create new car \n");
         carBitmap = new CarBitmap(carToAnimate);
         opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS

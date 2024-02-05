@@ -20,6 +20,7 @@ typedef enum {
     ZONE_DINER_CALL,
     ZONE_DINER_GOTO_GARAGE,
     ZONE_DINER_ORDER,
+    ZONE_DINER_BACKGROUND,
     ZONE_DINER_CHALLENGE_OPPONENT,
     ZONE_DINER_POP_HOOD,
 } ZoneId;
@@ -49,6 +50,10 @@ class Zone {
 
         char* GetText() {
         	return text;
+        }
+
+        void SetText(char *text) {
+            this->text = text;
         }
 
         ZoneId GetId() {

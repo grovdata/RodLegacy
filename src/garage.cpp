@@ -55,7 +55,11 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     m_zones.push_back(cars);
     m_zones.push_back(street);
 
+    signSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+
     StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+
+
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -66,10 +70,26 @@ SDL_Point Garage::GetCarOffscreenPosition() {
     return {-320, 82};
 }
 
+void Garage::UpdateSign() {
+    char text[50];
+    CarModel m = state.GetCurrentCar()->GetModel();
+    snprintf(text, 50, "%d %s.", m.year, m.name.c_str());
+    SFont_Write(signSurface, font, 85, 45, text);
+    signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
+    SDL_SetTextureColorMod(signTexture, 0, 0, 0);
+}
+
 void Garage::Action(ZoneId zone) {
     if (zone == ZONE_GARAGE_GOTO_DINER) {
         state.MoveToScene(SCENE_DINER);
     } else if (zone == ZONE_GARAGE_GAS_CAN) {
         state.MoveToScene(SCENE_GAS_STATION);
     }
+}
+
+void Garage::Draw() {
+    Scene::Draw();
+
+    UpdateSign();
+    SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 }

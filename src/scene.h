@@ -42,6 +42,8 @@ class Scene {
     /// @param driver
     virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
 
-    void SetStatusBar(char *text);
+    virtual void SetStatusBar(char *text);
     void ClearStatusBar();
+
+    void SetZoneText(ZoneId id, char* text);
 };
