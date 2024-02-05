@@ -29,13 +29,14 @@ class Scene {
     SceneTransition sceneTransition;
     GameScene sceneTransitioningTo;
 
-    SDL_Surface *m_Surface, *m_FontSurface;
-    SDL_Texture *m_Texture, *m_FontTexture;
+    SDL_Surface *surface, *fontSurface, *fadeSurface;
+    SDL_Texture *texture, *fontTexture, *fadeTexture;
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
     std::string m_backgroundName;
     std::vector<Zone> m_zones;
     std::vector<Button> m_buttons;
+    std::vector<SDL_Texture*> textures;
 
 
    public:

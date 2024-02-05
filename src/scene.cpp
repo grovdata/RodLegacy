@@ -4,14 +4,20 @@
 
 Scene::Scene(std::string backgroundName) {
     sceneTransition = SCENE_SOLID;
-    m_Surface = IMG_Load(backgroundName.c_str());
-    m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
-    SDL_SetTextureBlendMode(m_Texture, SDL_BLENDMODE_BLEND);
-    m_FontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    surface = IMG_Load(backgroundName.c_str());
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    textures.push_back(texture);
+    fontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     m_backgroundRect.x = 0;
     m_backgroundRect.y = 0;
     m_backgroundRect.w = 320;
     m_backgroundRect.h = 200;
+
+    fadeSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    SDL_FillRect(fadeSurface, &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
+    fadeTexture = SDL_CreateTextureFromSurface(renderer, fadeSurface);
+    SDL_SetTextureBlendMode(fadeTexture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
 
     m_statusBarRect.x = 0;
     m_statusBarRect.y = 200 - 9;
@@ -23,10 +29,12 @@ Scene::Scene(std::string backgroundName) {
 }
 
 Scene::~Scene() {
-    SDL_FreeSurface(m_FontSurface);
-    SDL_DestroyTexture(m_FontTexture);
-    SDL_FreeSurface(m_Surface);
-    SDL_DestroyTexture(m_Texture);
+    SDL_FreeSurface(fontSurface);
+    SDL_DestroyTexture(fontTexture);
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(fadeSurface);
+    SDL_DestroyTexture(fadeTexture);
 }
 
 SDL_Point Scene::GetCarIdlePosition() {
@@ -40,16 +48,16 @@ SDL_Point Scene::GetCarOffscreenPosition() {
 void Scene::SetStatusBar(char *text) {
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(m_FontSurface, font, 2, 200 - 9, bankroll);
-    SFont_Write(m_FontSurface, font, 160, 200 - 9, text);
-    m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
-    SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
+    SFont_Write(fontSurface, font, 2, 200 - 9, bankroll);
+    SFont_Write(fontSurface, font, 160, 200 - 9, text);
+    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+    SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 }
 
 void Scene::ClearStatusBar() {
-    SDL_FillRect(m_FontSurface, &m_statusBarMiddleRect, 0);
-    m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
-    SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
+    SDL_FillRect(fontSurface, &m_statusBarMiddleRect, 0);
+    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+    SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 }
 
 ZoneId Scene::CheckMouseHover(int x, int y) {
@@ -77,15 +85,16 @@ void Scene::SetZoneText(ZoneId id, char* text) {
 }
 
 SDL_Texture *Scene::GetTexture() {
-    return m_Texture;
+    return texture;
 }
 
 void Scene::Draw() {
-    SDL_RenderCopy(renderer, m_Texture, NULL, &m_backgroundRect);
-    SDL_RenderCopy(renderer, m_FontTexture, NULL, &m_backgroundRect);
+    SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
+    SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);
 }
 
 void Scene::DrawMaskAfterCar() {
+    SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
 }
 
 void Scene::PushEvent(SDL_Event *event) {
@@ -101,7 +110,7 @@ void Scene::Action(ZoneId zone) {
 
 void Scene::FadeIn() {
     SDL_RemoveTimer(fadeTimerID);
-    SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_TRANSPARENT);
+    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
     printf("fadein\n");
     fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_IN;
@@ -109,7 +118,7 @@ void Scene::FadeIn() {
 
 void Scene::FadeOut() {
     SDL_RemoveTimer(fadeTimerID);
-    SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
+    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_TRANSPARENT);
     printf("fadeout\n");
     fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_OUT;
@@ -118,27 +127,27 @@ void Scene::FadeOut() {
 Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
     Scene* scene = static_cast<Scene*>(param);
     Uint8 alpha;
-    SDL_GetTextureAlphaMod(scene->m_Texture, &alpha);
-    // printf("alpha %d\n",alpha);
+    SDL_GetTextureAlphaMod(scene->fadeTexture, &alpha);
+    printf("alpha %d\n",alpha);
     int rate = 1;
     int retval = interval;
 
     if (scene->sceneTransition == SCENE_FADE_IN) {
-        if (alpha >= SDL_ALPHA_OPAQUE - rate) {
+        if (alpha <= SDL_ALPHA_TRANSPARENT + rate) {
             scene->sceneTransition = SCENE_SOLID;
             scene->OnFadeComplete();
             return 0;
         }
-        alpha += rate;
+        alpha -= rate;
     } else if (scene->sceneTransition == SCENE_FADE_OUT) {
-        if (alpha <= SDL_ALPHA_TRANSPARENT + rate) {
+        if (alpha >= SDL_ALPHA_TRANSPARENT - rate) {
             scene->OnFadeComplete();
             return 0;
         }
-        alpha -= rate;
+        alpha += rate;
     }
 
-    SDL_SetTextureAlphaMod(scene->m_Texture, alpha);
+    SDL_SetTextureAlphaMod(scene->fadeTexture, alpha);
     return retval;
 }
 

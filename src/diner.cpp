@@ -6,8 +6,10 @@ double carAnimationTime = 0;
 
 Diner::Diner() : Scene("../data/res/diner3.gif") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
-    SDL_BlitSurface(m_Surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+    SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
+    SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_BLEND);
+    textures.push_back(roadMaskTexture);
 
     SDL_Rect orderRect = {132, 53, 27, 9};
     Zone order(ZONE_DINER_ORDER, strdup("Order"), &orderRect);
@@ -28,6 +30,8 @@ Diner::Diner() : Scene("../data/res/diner3.gif") {
 
     phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
     waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
+    textures.push_back(phonebookGuy->GetTexture());
+    textures.push_back(waitress->GetTexture());
 
     guySpriteX = 0;
     guySpriteY = 0;
@@ -97,20 +101,20 @@ void Diner::Draw() {
         carBitmap->Move(p);
         carBitmap->Draw();
     }
-
 }
 
 void Diner::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+    Scene::DrawMaskAfterCar();
 }
 
 // void Diner::SetStatusBar(char *text) {
 //     char statusText[70];
 //     snprintf(statusText, 30, "Bankroll: $%d", state.GetBankroll());
-//     SFont_Write(m_FontSurface, font, 2, 200 - 9, statusText);
-//     SFont_Write(m_FontSurface, font, 160, 200 - 9, text);
-//     m_FontTexture = SDL_CreateTextureFromSurface(renderer, m_FontSurface);
-//     SDL_SetTextureColorMod(m_FontTexture, 119, 102, 17);
+//     SFont_Write(fontSurface, font, 2, 200 - 9, statusText);
+//     SFont_Write(fontSurface, font, 160, 200 - 9, text);
+//     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+//     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 // }
 
 void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {

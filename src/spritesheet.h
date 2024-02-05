@@ -12,6 +12,8 @@ class Spritesheet {
     void CycleNextSprite();
     void DrawSprite(SDL_Rect *position);
 
+    SDL_Texture* GetTexture();
+
    private:
     SDL_Rect clipRect;
     SDL_Texture *texture;

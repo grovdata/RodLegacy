@@ -7,6 +7,8 @@ Spritesheet::Spritesheet(char const *path, int rows, int columns) {
     surface = IMG_Load(path);
 
     texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
     clipRect.w = surface->w / columns;
     clipRect.h = surface->h / rows;
     // printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
@@ -49,4 +51,8 @@ void Spritesheet::UpdateSprite() {
 
 void Spritesheet::DrawSprite(SDL_Rect *position) {
     SDL_RenderCopy(renderer, texture, &clipRect, position);
+}
+
+SDL_Texture *Spritesheet::GetTexture() {
+    return texture;
 }
