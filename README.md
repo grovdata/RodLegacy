@@ -1,7 +1,13 @@
+# Street Rod Legacy
+
 Street Rod Legacy is a reimplementation of the classic Street Rod game for modern systems.
 
-Add more info
+# Credits
 
-### MacOS
+StreetRod Legacy use these libraries:
 
-Add app bundle: https://tmewett.com/making-macos-bundle-info-plist/
+ - [SDL2](https://github.com/libsdl-org/SDL)
+ - [SDL2_image](https://github.com/libsdl-org/SDL_image)
+ - [SDL2_mixer](https://github.com/libsdl-org/SDL_mixer)
+ - [mINI](https://github.com/metayeti/mINI)
+ - [SFont](https://github.com/karlb/sfont)
