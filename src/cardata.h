@@ -13,7 +13,7 @@ class CarData {
         /// @brief Finds a model in car data array
         /// @param modelId
         /// @return a car model
-        CarModel GetModel(CarModelId modelId);
+        CarModel GetModel(char* modelId);
 
         void PrintModel(CarModel model);
         void ReadCarsFromFile(char *filename);

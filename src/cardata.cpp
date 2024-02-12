@@ -14,11 +14,11 @@ CarData::~CarData() {
 
 }
 
-CarModel CarData::GetModel(CarModelId carModel) {
+CarModel CarData::GetModel(char* carModel) {
     for (auto m: allCarModels) {
-        printf("Model %s\n", m.name.c_str());
-        if (m.id == carModel) {
-            printf("found model %d\n",m.id);
+        bool equals = strcmp(m.id.c_str(), carModel);
+        if (equals == 0) {
+            printf("Found model %s\n", carModel);
             return m;
         }
     }
@@ -31,7 +31,7 @@ void CarData::ReadCarsFromFile(char *filename) {
     const auto table = toml::find<std::vector<toml::table>>(data, "cars");
     for (auto car : table) {
         CarModel newModel;
-        // newModel.id = CAR_MODEL_GM_CHEVROLET_2DR;
+        newModel.id = car["id"].as_string();
         newModel.vendor = CarVendor(car["year"].as_integer());
         newModel.year = car["year"].as_integer();
         newModel.name = car["name"].as_string();
@@ -47,15 +47,17 @@ void CarData::ReadCarsFromFile(char *filename) {
         newModel.frontWheelY = car["frontWheelY"].as_integer();
         newModel.driverX = car["driverX"].as_integer();
         newModel.driverY = car["driverY"].as_integer();
+        newModel.index = car["index"].as_integer();
         PrintModel(newModel);
         allCarModels.insert(newModel);
     }
 }
 
 void CarData::PrintModel(CarModel model) {
-    printf("Car ID: %d\n", model.id);
+    printf("Car ID: %s\n", model.id.c_str());
     printf("Vendor: %d\n", model.vendor);
     printf("Name: %s\n", model.name.c_str());
+    printf("Index: %d\n", model.index);
     printf("Filename: %s\n", model.filename.c_str());
     printf("Year: %d\n", model.year);
     printf("Base Speed: %d\n", model.baseSpeed);

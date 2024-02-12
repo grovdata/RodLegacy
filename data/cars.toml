@@ -5,6 +5,8 @@
 #    CUSTOM = 3
 
 [[cars]]
+id = "chevy2dr"
+index = 0
 vendor = 2
 name = "Chevrolet 2-dr coupe"
 filename = "../data/res/car1.gif"
@@ -22,6 +24,8 @@ driverX = 104
 driverY = 7
 
 [[cars]]
+id = "vette56"
+index = 1
 vendor = 2
 name = "Corvette"
 filename = "../data/res/corvette.gif"

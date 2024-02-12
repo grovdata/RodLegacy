@@ -8,13 +8,8 @@ enum CarVendor {
     CUSTOM = 3
 };
 
-enum CarModelId {
-    CAR_MODEL_GM_CHEVROLET_2DR,
-    CAR_MODEL_MOD_SAAB_92
-};
-
 struct CarModel {
-    CarModelId id;
+    std::string id;
     CarVendor vendor;
     std::string name;
     std::string filename;
@@ -25,6 +20,7 @@ struct CarModel {
     int rearWheelX, rearWheelY;
     int frontWheelX, frontWheelY;
     int gasCapX, gasCapY;
+    int index;
 };
 
 bool operator<(const CarModel &a, const CarModel &b);
