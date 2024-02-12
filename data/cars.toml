@@ -1,0 +1,39 @@
+# Vendor values
+#    CHRYSLER = 0,
+#    FORD = 1,
+#    GM = 2,
+#    CUSTOM = 3
+
+[[cars]]
+vendor = 2
+name = "Chevrolet 2-dr coupe"
+filename = "../data/res/car1.gif"
+year = 1940
+baseSpeed = 98
+width = 232
+height = 69
+rearWheelX = 30
+rearWheelY = 38
+gasCapX = 75
+gasCapY = 36
+frontWheelX = 180
+frontWheelY = 38
+driverX = 104
+driverY = 7
+
+[[cars]]
+vendor = 2
+name = "Corvette"
+filename = "../data/res/corvette.gif"
+year = 1956
+baseSpeed = 98
+width = 232
+height = 69
+rearWheelX = 30
+rearWheelY = 38
+gasCapX = 75
+gasCapY = 36
+frontWheelX = 180
+frontWheelY = 38
+driverX = 104
+driverY = 7

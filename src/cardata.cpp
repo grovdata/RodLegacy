@@ -1,42 +1,12 @@
+#define TOML_HEADER_ONLY 0
+
 #include "cardata.h"
 #include "utils.h"
+#include "include/toml.hpp"
+#include <iostream>
+#include <fstream>
 
 CarData::CarData() {
-    CarModel chev2dr;
-    chev2dr.id = CAR_MODEL_GM_CHEVROLET_2DR;
-    chev2dr.vendor = GM;
-    chev2dr.name = "Chevrolet 2-dr coupe";
-    chev2dr.filename = "../data/res/car1.gif";
-    chev2dr.year = 1940;
-    chev2dr.baseSpeed = 98;
-    chev2dr.width = 232;
-    chev2dr.height = 69;
-    chev2dr.rearWheelX = 30;
-    chev2dr.rearWheelY = 38;
-    chev2dr.gasCapX = 75;
-    chev2dr.gasCapY = 36;
-    chev2dr.frontWheelX = 180;
-    chev2dr.frontWheelY = 38;
-    chev2dr.driverX = 104;
-    chev2dr.driverY = 7;
-    allCarModels.insert(chev2dr);
-
-    CarModel saab92;
-    chev2dr.id = CAR_MODEL_MOD_SAAB_92;
-    saab92.vendor = GM;
-    saab92.name = "Saab 92";
-    saab92.filename = "../data/mods/saab92.png";
-    saab92.year = 1948;
-    saab92.baseSpeed = 98;
-    saab92.width = 140;
-    saab92.height = 51;
-    saab92.rearWheelX = 15;
-    saab92.rearWheelY = 23;
-    saab92.frontWheelX = 102;
-    saab92.frontWheelY = 23;
-    saab92.driverX = 66;
-    saab92.driverY = 2;
-    allCarModels.insert(saab92);
 
 }
 
@@ -54,6 +24,32 @@ CarModel CarData::GetModel(CarModelId carModel) {
     }
     // Not sure about this
     return CarModel();
+}
+
+void CarData::ReadCarsFromFile(char *filename) {
+    const auto data = toml::parse(filename);
+    const auto table = toml::find<std::vector<toml::table>>(data, "cars");
+    for (auto car : table) {
+        CarModel newModel;
+        // newModel.id = CAR_MODEL_GM_CHEVROLET_2DR;
+        newModel.vendor = CarVendor(car["year"].as_integer());
+        newModel.year = car["year"].as_integer();
+        newModel.name = car["name"].as_string();
+        newModel.filename = car["filename"].as_string();
+        newModel.baseSpeed = car["baseSpeed"].as_integer();
+        newModel.width = car["width"].as_integer();
+        newModel.height = car["height"].as_integer();
+        newModel.rearWheelX = car["rearWheelX"].as_integer();
+        newModel.rearWheelY = car["rearWheelY"].as_integer();
+        newModel.gasCapX = car["gasCapX"].as_integer();
+        newModel.gasCapY = car["gasCapY"].as_integer();
+        newModel.frontWheelX = car["frontWheelX"].as_integer();
+        newModel.frontWheelY = car["frontWheelY"].as_integer();
+        newModel.driverX = car["driverX"].as_integer();
+        newModel.driverY = car["driverY"].as_integer();
+        PrintModel(newModel);
+        allCarModels.insert(newModel);
+    }
 }
 
 void CarData::PrintModel(CarModel model) {

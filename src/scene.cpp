@@ -128,7 +128,7 @@ Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
     Scene* scene = static_cast<Scene*>(param);
     Uint8 alpha;
     SDL_GetTextureAlphaMod(scene->fadeTexture, &alpha);
-    printf("alpha %d\n",alpha);
+    // printf("alpha %d\n",alpha);
     int rate = 1;
     int retval = interval;
 

@@ -1,7 +1,12 @@
 #pragma once
 #include <string>
 
-enum CarVendor { CHRYSLER, FORD, GM };
+enum CarVendor {
+    CHRYSLER = 0,
+    FORD = 1,
+    GM = 2,
+    CUSTOM = 3
+};
 
 enum CarModelId {
     CAR_MODEL_GM_CHEVROLET_2DR,
