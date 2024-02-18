@@ -5,15 +5,10 @@
 #include "state.h"
 #include "scene.h"
 
-
-#define WIDTH 32
-#define HEIGHT 20
 #define BITPLANE_DEPTH 4
 
-// #define WINDOW_WIDTH (640)
-// #define WINDOW_HEIGHT (400)
-#define WINDOW_WIDTH (1280)
-#define WINDOW_HEIGHT (800)
+#define WINDOW_WIDTH (GAME_WIDTH * 4)
+#define WINDOW_HEIGHT (GAME_HEIGHT * 4)
 
 #define FONT "../data/font/font.png"
 #define TUNE "../data/snd/sr1_ost.ogg"
@@ -96,7 +91,7 @@ int main(void) {
     }
 
     // Res scaling
-    SDL_RenderSetLogicalSize(renderer, 320, 200);
+    SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
 
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);

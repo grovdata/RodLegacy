@@ -1,5 +1,8 @@
 #pragma once
 
+#define GAME_WIDTH 320
+#define GAME_HEIGHT 200
+
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
