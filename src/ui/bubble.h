@@ -1,26 +1,24 @@
 #pragma once
 
 #include "../global.h"
+#include "../bitmap.h"
 #include "zone.h"
 
-const int cButtonStandardHeight = 19;
-const int cButtonStandardTextOffsetY = 5;
-// testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
-    // testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
+// TODO: More flexible speech bubbles with 9-patch?
 
+typedef enum {
+    BUBBLE_LEFT,
+    BUBBLE_RIGHT,
+    BUBBLE_RIGHT_TWO_LINES
+} BubbleStyle;
 
-
-
-class Bubble {
-    private:
-        SDL_Surface *m_Surface;
-        SDL_Texture *m_Texture;
-        SDL_Rect m_Rect;
+class Bubble: public Bitmap {
     public:
-        Bubble(std::string text);
+        Bubble(std::string text, BubbleStyle style);
         ~Bubble();
 
         SDL_Texture *GetTexture();
         SDL_Rect* GetRect();
 
+        void Draw();
 };

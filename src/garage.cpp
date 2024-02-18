@@ -55,6 +55,8 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     m_zones.push_back(cars);
     m_zones.push_back(street);
 
+    Bubble bubbleDrink("Don't drink and drive, bub!", BUBBLE_LEFT);
+
     signSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, false);

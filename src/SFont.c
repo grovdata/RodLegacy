@@ -107,7 +107,7 @@ void SFont_FreeFont(SFont_Font* FontInfo)
 void SFont_DumpFont(SFont_Font* Font)
 {
     const char* chars = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
-    for (int i = 0; i < strlen(chars); i++) {
+    for (size_t i = 0; i < strlen(chars); i++) {
         char c = chars[i];
         int size = SFont_TextWidth(Font, &c);
 

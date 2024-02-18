@@ -15,8 +15,8 @@
 class State {
 private:
     int bankroll;
-    [[maybe_unused]] int dragRacesCompleted;
-    [[maybe_unused]] int roadRacesCompleted;
+    int dragRacesCompleted;
+    int roadRacesCompleted;
 
     std::set<std::string> allDriverNames;
     std::set<Driver *> allDrivers;
