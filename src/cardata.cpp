@@ -2,9 +2,10 @@
 
 #include "cardata.h"
 #include "utils.h"
-#include "include/toml.hpp"
 #include <iostream>
 #include <fstream>
+
+using namespace std;
 
 CarData::CarData() {
 
@@ -26,31 +27,66 @@ CarModel CarData::GetModel(char* carModel) {
     return CarModel();
 }
 
-void CarData::ReadCarsFromFile(char *filename) {
-    const auto data = toml::parse(filename);
-    const auto table = toml::find<std::vector<toml::table>>(data, "cars");
-    for (auto car : table) {
-        CarModel newModel;
-        newModel.id = car["id"].as_string();
-        newModel.vendor = CarVendor(car["year"].as_integer());
-        newModel.year = car["year"].as_integer();
-        newModel.name = car["name"].as_string();
-        newModel.filename = car["filename"].as_string();
-        newModel.baseSpeed = car["baseSpeed"].as_integer();
-        newModel.width = car["width"].as_integer();
-        newModel.height = car["height"].as_integer();
-        newModel.rearWheelX = car["rearWheelX"].as_integer();
-        newModel.rearWheelY = car["rearWheelY"].as_integer();
-        newModel.gasCapX = car["gasCapX"].as_integer();
-        newModel.gasCapY = car["gasCapY"].as_integer();
-        newModel.frontWheelX = car["frontWheelX"].as_integer();
-        newModel.frontWheelY = car["frontWheelY"].as_integer();
-        newModel.driverX = car["driverX"].as_integer();
-        newModel.driverY = car["driverY"].as_integer();
-        newModel.index = car["index"].as_integer();
-        PrintModel(newModel);
-        allCarModels.insert(newModel);
+bool CarData::CarIsValid(toml::table *table) {
+    vector<string> mandatoryKeys = {"id", "index", "vendor", "name", "year", "baseSpeed", "width", "height", "rearWheelX", "rearWheelY", "gasCapX", "gasCapY", "frontWheelX", "frontWheelY", "driverX", "driverY"};
+
+    for (const auto& key : mandatoryKeys) {
+        if (table->find(key) == table->end()) {
+            // Key not found
+            return false;
+        }
     }
+    // All keys found
+    return true;
+}
+
+bool CarData::MapContainsKey(toml::table *table, const char *key) {
+    auto search = table->find(key);
+    return search != table->end();
+}
+
+void CarData::ReadCarsFromFile(char *filename) {
+    try {
+        const auto data = toml::parse(filename);
+        const auto table = toml::find<vector<toml::table>>(data, "cars");
+        for (auto car : table) {
+            if (!CarIsValid(&car)) {
+                if (MapContainsKey(&car, "id")) {
+                    string id = car["id"].as_string();
+                    printf("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
+                } else {
+                    printf("Car section incomplete, proceeding to the next one\n");
+                }
+                continue;
+            }
+
+            CarModel newModel;
+            newModel.id = car["id"].as_string();
+            newModel.vendor = CarVendor(car["year"].as_integer());
+            newModel.year = car["year"].as_integer();
+            newModel.name = car["name"].as_string();
+            if (MapContainsKey(&car, "filename")) {
+                newModel.filename = car["filename"].as_string();
+            }
+            newModel.baseSpeed = car["baseSpeed"].as_integer();
+            newModel.width = car["width"].as_integer();
+            newModel.height = car["height"].as_integer();
+            newModel.rearWheelX = car["rearWheelX"].as_integer();
+            newModel.rearWheelY = car["rearWheelY"].as_integer();
+            newModel.gasCapX = car["gasCapX"].as_integer();
+            newModel.gasCapY = car["gasCapY"].as_integer();
+            newModel.frontWheelX = car["frontWheelX"].as_integer();
+            newModel.frontWheelY = car["frontWheelY"].as_integer();
+            newModel.driverX = car["driverX"].as_integer();
+            newModel.driverY = car["driverY"].as_integer();
+            newModel.index = car["index"].as_integer();
+            PrintModel(newModel);
+            allCarModels.insert(newModel);
+        }
+    } catch (const toml::type_error &e) {
+        cout << e.what() << endl;
+    }
+
 }
 
 void CarData::PrintModel(CarModel model) {

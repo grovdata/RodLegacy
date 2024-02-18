@@ -41,3 +41,20 @@ frontWheelX = 180
 frontWheelY = 38
 driverX = 104
 driverY = 7
+
+[[cars]]
+id = "ford32"
+index = 214
+vendor = 1
+name = "Ford Deuce Coupe"
+year = 1932
+width = 192
+height = 68
+rearWheelX = 18
+rearWheelY = 37
+frontWheelX = 151
+frontWheelY = 37
+gasCapX = 53
+gasCapY = 29
+driverX = 84
+driverY = 6

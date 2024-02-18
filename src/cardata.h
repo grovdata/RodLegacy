@@ -1,10 +1,14 @@
 #pragma once
 #include <set>
 #include "car.h"
+#include "include/toml.hpp"
 
 class CarData {
     private:
         std::set<CarModel> allCarModels;
+
+        bool CarIsValid(toml::table *table);
+        bool MapContainsKey(toml::table *table, const char *key);
 
     public:
         CarData();
