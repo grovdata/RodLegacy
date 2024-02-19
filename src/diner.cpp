@@ -23,10 +23,10 @@ Diner::Diner() : Scene("../data/res/diner3.gif") {
     SDL_Rect backgroundRect = {0, 0, 320, 169};
     Zone backgroundZone(ZONE_DINER_BACKGROUND, strdup(""), &backgroundRect);
 
-    m_zones.push_back(order);
-    m_zones.push_back(opponent);
-    m_zones.push_back(garage);
-    m_zones.push_back(backgroundZone);
+    zones.push_back(order);
+    zones.push_back(opponent);
+    zones.push_back(garage);
+    zones.push_back(backgroundZone);
 
     phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
     waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
@@ -43,6 +43,10 @@ Diner::~Diner() {
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
     SDL_RemoveTimer(opponentCarTimerID);
+}
+
+MousePointer Diner::GetPointerType() {
+    return PointerHand;
 }
 
 void Diner::CycleGuy() {

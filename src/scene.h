@@ -3,6 +3,7 @@
 #include "global.h"
 #include "ui/zone.h"
 #include "ui/button.h"
+#include "mouse.h"
 
 typedef enum {
     SCENE_GARAGE,
@@ -34,15 +35,16 @@ class Scene {
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
     std::string m_backgroundName;
-    std::vector<Zone> m_zones;
-    std::vector<Button> m_buttons;
+    std::vector<Zone> zones;
+    std::vector<Button> buttons;
     std::vector<SDL_Texture*> textures;
-
 
    public:
     Scene(std::string backgroundName);
     ~Scene();
     SDL_Texture *GetTexture();
+
+    virtual MousePointer GetPointerType();
 
     void FadeOut();
     void FadeIn();

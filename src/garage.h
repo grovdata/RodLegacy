@@ -2,6 +2,7 @@
 
 #include "global.h"
 #include "scene.h"
+#include "mouse.h"
 #include "ui/zone.h"
 #include "ui/bubble.h"
 
@@ -20,4 +21,6 @@ class Garage : public Scene {
 
     void Action(ZoneId zone) override;
     void Draw() override;
+
+    MousePointer GetPointerType() override;
 };

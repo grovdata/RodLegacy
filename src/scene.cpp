@@ -37,6 +37,10 @@ Scene::~Scene() {
     SDL_DestroyTexture(fadeTexture);
 }
 
+MousePointer Scene::GetPointerType() {
+    return PointerHand;
+}
+
 SDL_Point Scene::GetCarIdlePosition() {
     return {0, 0};
 }
@@ -61,8 +65,8 @@ void Scene::ClearStatusBar() {
 }
 
 ZoneId Scene::CheckMouseHover(int x, int y) {
-    for (size_t i = 0; i < m_zones.size(); i++) {
-        Zone zone = m_zones.at(i);
+    for (size_t i = 0; i < zones.size(); i++) {
+        Zone zone = zones.at(i);
         if (zone.IsInsideZone(x, y)) {
             ClearStatusBar();
             SetStatusBar(zone.GetText());
@@ -75,8 +79,8 @@ ZoneId Scene::CheckMouseHover(int x, int y) {
 }
 
 void Scene::SetZoneText(ZoneId id, char* text) {
-   for (size_t i = 0; i < m_zones.size(); i++) {
-        Zone zone = m_zones.at(i);
+   for (size_t i = 0; i < zones.size(); i++) {
+        Zone zone = zones.at(i);
         if (zone.GetId() == id) {
             zone.SetText(text);
             return;
@@ -111,7 +115,6 @@ void Scene::Action(ZoneId zone) {
 void Scene::FadeIn() {
     SDL_RemoveTimer(fadeTimerID);
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
-    printf("fadein\n");
     fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_IN;
 }
@@ -160,7 +163,6 @@ void Scene::OnFadeComplete() {
         sceneTransition = SCENE_SOLID;
         // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
     }
-    printf("fade status %d\n", sceneTransition);
 }
 
 /// @brief Make a car pull into the scene

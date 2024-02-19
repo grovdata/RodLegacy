@@ -137,9 +137,6 @@ int main(void) {
                         case SDLK_d:
                             state.MoveToScene(SCENE_DINER);
                             break;
-                        case SDLK_p:
-                            mouse.SetPointerType(PointerFuelPump);
-                            break;
                         case SDLK_ESCAPE:
                             close_requested = true;
                             break;

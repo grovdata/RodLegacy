@@ -4,7 +4,11 @@
 GasStation::GasStation() : Scene("../data/res/lib_p_340.gif") {
     // SDL_Rect bottleRect = {7, 161, 8, 24};
     // Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
-    // m_zones.push_back(bottle);
+    // zones.push_back(bottle);
+}
+
+MousePointer GasStation::GetPointerType() {
+    return PointerHand;
 }
 
 SDL_Point GasStation::GetCarIdlePosition() {

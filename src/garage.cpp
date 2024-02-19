@@ -41,27 +41,31 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     SDL_Rect streetRect = {0, 42, 40, 62};
     Zone street(ZONE_GARAGE_GOTO_DINER, strdup("Hit the street"), &streetRect);
 
-    m_zones.push_back(bottle);
-    m_zones.push_back(newsPaper);
-    m_zones.push_back(changeTires);
-    m_zones.push_back(newPaintJob);
-    m_zones.push_back(gas);
-    m_zones.push_back(carInfo);
-    m_zones.push_back(calendar);
-    m_zones.push_back(radio);
-    m_zones.push_back(stickers);
-    m_zones.push_back(parts);
-    m_zones.push_back(menu);
-    m_zones.push_back(cars);
-    m_zones.push_back(street);
+    zones.push_back(bottle);
+    zones.push_back(newsPaper);
+    zones.push_back(changeTires);
+    zones.push_back(newPaintJob);
+    zones.push_back(gas);
+    zones.push_back(carInfo);
+    zones.push_back(calendar);
+    zones.push_back(radio);
+    zones.push_back(stickers);
+    zones.push_back(parts);
+    zones.push_back(menu);
+    zones.push_back(cars);
+    zones.push_back(street);
 
-    Bubble *bubbleDrink = new Bubble("Don't drink and drive, bub!", BUBBLE_RIGHT, 62, 21);
+    Bubble *bubbleDrink = new Bubble("Don't drink and drive, bub!", BUBBLE_RIGHT, 79, 30);
     bubbleDrink->SetVisible(false);
     bubbles.push_back(bubbleDrink);
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+}
+
+MousePointer Garage::GetPointerType() {
+    return PointerWrench;
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
