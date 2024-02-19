@@ -13,8 +13,14 @@ typedef enum {
 } BubbleStyle;
 
 class Bubble: public Bitmap {
+    private:
+        SDL_Surface *fontSurface;
+        SDL_Texture *fontTexture;
+        SDL_Rect fontRect;
+
+        void UpdateText(std::string text, int xPos, int yPos);
     public:
-        Bubble(std::string text, BubbleStyle style);
+        Bubble(std::string text, BubbleStyle style, int xPos, int yPos);
         ~Bubble();
 
         SDL_Texture *GetTexture();

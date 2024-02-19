@@ -55,9 +55,11 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     m_zones.push_back(cars);
     m_zones.push_back(street);
 
-    Bubble bubbleDrink("Don't drink and drive, bub!", BUBBLE_LEFT);
+    Bubble *bubbleDrink = new Bubble("Don't drink and drive, bub!", BUBBLE_RIGHT, 62, 21);
+    bubbleDrink->SetVisible(false);
+    bubbles.push_back(bubbleDrink);
 
-    signSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, false);
 }
@@ -84,12 +86,22 @@ void Garage::Action(ZoneId zone) {
         return;
     }
 
-    if (zone == ZONE_GARAGE_GOTO_DINER) {
+    switch (zone)
+    {
+    case ZONE_GARAGE_GOTO_DINER:
         sceneTransitioningTo = SCENE_DINER;
         FadeOut();
-    } else if (zone == ZONE_GARAGE_GAS_CAN) {
+        break;
+    case ZONE_GARAGE_GAS_CAN:
         sceneTransitioningTo = SCENE_GAS_STATION;
         FadeOut();
+        break;
+    case ZONE_GARAGE_DRINK:
+        bubbles[0]->SetVisible(true);
+        break;
+
+    default:
+        break;
     }
 }
 
@@ -98,4 +110,8 @@ void Garage::Draw() {
 
     UpdateSign();
     SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
+
+    for (auto b : bubbles) {
+        b->Draw();
+    }
 }
