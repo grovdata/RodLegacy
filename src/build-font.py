@@ -10,7 +10,7 @@ prefix = "../data/font"
 
 chars = '!\"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 ords = [ord(c) for c in chars]
-chars_pinbottom = 'fgjpqy!.,0123456789:'
+chars_pinbottom = 'fgjpqy!.,:'
 chars_count = len(chars)
 
 total_w = (chars_count * letter_w) + (spacing_w * (chars_count - 1))
