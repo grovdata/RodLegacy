@@ -9,7 +9,8 @@ pink = (255, 0, 255, 255)
 prefix = "../data/font"
 
 chars = '!\"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
-chars_pinbottom = 'fgjpqy!.0123456789:'
+ords = [ord(c) for c in chars]
+chars_pinbottom = 'fgjpqy!.,0123456789:'
 chars_count = len(chars)
 
 total_w = (chars_count * letter_w) + (spacing_w * (chars_count - 1))
@@ -50,8 +51,9 @@ for i, c in enumerate(chars):
         glyph = Image.open(path)
         #glyph = change_img_color(glyph)
         w, h = glyph.size
-        if asciival > 96 and asciival < 123:
+        if asciival in ords:
             if c in chars_pinbottom:
+                print (f'bottom {c}')
                 offset = (x, letter_h - h)
             else:
                 offset = (x, letter_h - h - 1)
