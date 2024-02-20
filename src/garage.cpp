@@ -55,9 +55,12 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     zones.push_back(cars);
     zones.push_back(street);
 
-    Bubble *bubbleDrink = new Bubble("Don't drink and drive, bub!", BUBBLE_RIGHT, 79, 30);
+    Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_RIGHT, 79, 30, true);
     bubbleDrink->SetVisible(false);
     bubbles.push_back(bubbleDrink);
+    Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_RIGHT, 79, 30, true);
+    partsBubble->SetVisible(false);
+    bubbles.push_back(partsBubble);
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
@@ -102,6 +105,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_DRINK:
         bubbles[0]->SetVisible(true);
+        break;
+    case ZONE_GARAGE_SELL_PARTS:
+        bubbles[1]->SetVisible(true);
         break;
 
     default:

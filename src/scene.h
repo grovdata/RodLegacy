@@ -3,6 +3,7 @@
 #include "global.h"
 #include "ui/zone.h"
 #include "ui/button.h"
+#include "ui/bubble.h"
 #include "mouse.h"
 
 typedef enum {
@@ -38,6 +39,7 @@ class Scene {
     std::vector<Zone> zones;
     std::vector<Button> buttons;
     std::vector<SDL_Texture*> textures;
+    std::vector<Bubble*> bubbles;
 
    public:
     Scene(std::string backgroundName);

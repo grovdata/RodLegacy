@@ -22,8 +22,6 @@ class Diner: public Scene {
 
     Uint64 t;
 
-
-
     SDL_TimerID opponentCarTimerID;
     static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 

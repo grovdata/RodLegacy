@@ -28,6 +28,10 @@ Diner::Diner() : Scene("../data/res/diner3.gif") {
     zones.push_back(garage);
     zones.push_back(backgroundZone);
 
+    Bubble *guyBubble = new Bubble("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
+    guyBubble->SetVisible(false);
+    bubbles.push_back(guyBubble);
+
     phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
     waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
     textures.push_back(phonebookGuy->GetTexture());
@@ -75,6 +79,8 @@ void Diner::Action(ZoneId zone) {
     if (zone == ZONE_DINER_GOTO_GARAGE) {
         sceneTransitioningTo = SCENE_GARAGE;
         FadeOut();
+    } else if (zone == ZONE_DINER_CALL) {
+        bubbles[0]->SetVisible(true);
     }
 }
 
@@ -104,6 +110,9 @@ void Diner::Draw() {
         p.x = carx; p.y = cary;
         carBitmap->Move(p);
         carBitmap->Draw();
+    }
+    for (auto b : bubbles) {
+        b->Draw();
     }
 }
 

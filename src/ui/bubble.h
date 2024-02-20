@@ -6,6 +6,8 @@
 
 // TODO: More flexible speech bubbles with 9-patch?
 
+using namespace std;
+
 typedef enum {
     BUBBLE_LEFT,
     BUBBLE_RIGHT,
@@ -18,9 +20,13 @@ class Bubble: public Bitmap {
         SDL_Texture *fontTexture;
         SDL_Rect fontRect;
 
-        void UpdateText(std::string text, int xPos, int yPos);
+        void UpdateText(string text, int xPos, int yPos);
+
+        SDL_TimerID timerID;
+        static Uint32 AnimationTimerCallback(Uint32 interval, void* param);
+
     public:
-        Bubble(std::string text, BubbleStyle style, int xPos, int yPos);
+        Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss);
         ~Bubble();
 
         SDL_Texture *GetTexture();

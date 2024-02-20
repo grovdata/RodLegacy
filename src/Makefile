@@ -5,7 +5,7 @@ CC := g++
 #CC := llvm-g++
 
 # set the compiler flags
-CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++17
+CFLAGS := `sdl2-config --cflags --libs` -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
 
 # add header files here
 HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h carbitmap.h cardata.h spritesheet.h SFont.h ui/button.h ui/zone.h parsers/libp.h \

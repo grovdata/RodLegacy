@@ -1,8 +1,6 @@
 #include "bubble.h"
 
-using namespace std;
-
-Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos) {
+Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
     string filename = "";
     switch (style) {
         case BUBBLE_LEFT:
@@ -26,11 +24,15 @@ Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos) {
     fontSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     UpdateText(text, xPos, yPos);
+
+    if (autoDismiss)
+        timerID = SDL_AddTimer(5000, AnimationTimerCallback, this);
 }
 
 Bubble::~Bubble() {
     // Free font surface
     Bitmap::~Bitmap();
+    SDL_RemoveTimer(timerID);
 }
 
 void Bubble::Draw() {
@@ -51,4 +53,10 @@ void Bubble::UpdateText(std::string text, int xPos, int yPos) {
     fontRect.y = rect.y + 6;
     fontRect.w = fontSurface->w;
     fontRect.h = fontSurface->h;
+}
+
+Uint32 Bubble::AnimationTimerCallback(Uint32 interval, void* param) {
+    Bubble* bubble = static_cast<Bubble*>(param);
+    bubble->SetVisible(false);
+    return interval;
 }
