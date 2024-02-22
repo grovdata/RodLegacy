@@ -8,7 +8,7 @@
 
 class Garage : public Scene {
    private:
-    std::vector<Bubble*> bubbles;
+
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     void UpdateSign();

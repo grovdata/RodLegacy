@@ -61,6 +61,10 @@ Garage::Garage() : Scene("../data/res/garage_bar.png") {
     Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_RIGHT, 79, 30, true);
     partsBubble->SetVisible(false);
     bubbles.push_back(partsBubble);
+    Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_RIGHT, 79, 30, true);
+    tiresBubble->SetVisible(false);
+    bubbles.push_back(tiresBubble);
+
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
@@ -109,7 +113,9 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_SELL_PARTS:
         bubbles[1]->SetVisible(true);
         break;
-
+    case ZONE_GARAGE_TIRES:
+        bubbles[2]->SetVisible(true);
+        break;
     default:
         break;
     }
