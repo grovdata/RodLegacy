@@ -1,7 +1,7 @@
 #include "garage.h"
 #include "state.h"
 
-Garage::Garage() : Scene("../data/res/garage_bar.png") {
+Garage::Garage() : CarScene("../data/res/garage_bar.png") {
     SDL_Rect bottleRect = {7, 161, 8, 24};
     Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
 

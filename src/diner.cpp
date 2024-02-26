@@ -4,7 +4,7 @@
 
 double carAnimationTime = 0;
 
-Diner::Diner() : Scene("../data/res/diner3.gif") {
+Diner::Diner() : CarScene("../data/res/diner3.gif") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
@@ -118,7 +118,7 @@ void Diner::Draw() {
 
 void Diner::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
-    Scene::DrawMaskAfterCar();
+    CarScene::DrawMaskAfterCar();
 }
 
 // void Diner::SetStatusBar(char *text) {

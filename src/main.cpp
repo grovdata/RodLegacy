@@ -163,7 +163,7 @@ int main(void) {
 
         SDL_RenderClear(renderer);
         state.GetCurrentScene()->Draw();
-        state.GetCurrentScene()->DrawMaskAfterCar();
+        ((CarScene*)state.GetCurrentScene())->DrawMaskAfterCar();
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);
         state.SetElapsedTime(SDL_GetTicks64() - startTime);

@@ -1,7 +1,7 @@
 #include "gas_station.h"
 #include "state.h"
 
-GasStation::GasStation() : Scene("../data/res/lib_p_340.gif") {
+GasStation::GasStation() : CarScene("../data/res/lib_p_340.gif") {
     // SDL_Rect bottleRect = {7, 161, 8, 24};
     // Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
     // zones.push_back(bottle);

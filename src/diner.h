@@ -4,7 +4,7 @@
 #include "spritesheet.h"
 #include "carbitmap.h"
 
-class Diner: public Scene {
+class Diner: public CarScene {
    private:
     Spritesheet *phonebookGuy;
     Spritesheet *waitress;

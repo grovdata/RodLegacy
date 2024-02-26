@@ -6,7 +6,7 @@
 #include "ui/zone.h"
 #include "ui/bubble.h"
 
-class Garage : public Scene {
+class Garage : public CarScene {
    private:
 
     SDL_Surface *signSurface;

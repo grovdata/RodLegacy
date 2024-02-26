@@ -41,14 +41,6 @@ MousePointer Scene::GetPointerType() {
     return PointerHand;
 }
 
-SDL_Point Scene::GetCarIdlePosition() {
-    return {0, 0};
-}
-
-SDL_Point Scene::GetCarOffscreenPosition() {
-    return {0, 0};
-}
-
 void Scene::SetStatusBar(char *text) {
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
@@ -97,10 +89,6 @@ void Scene::Draw() {
     SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);
 }
 
-void Scene::DrawMaskAfterCar() {
-    SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
-}
-
 void Scene::PushEvent(SDL_Event *event) {
     ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
@@ -122,7 +110,6 @@ void Scene::FadeIn() {
 void Scene::FadeOut() {
     SDL_RemoveTimer(fadeTimerID);
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_TRANSPARENT);
-    printf("fadeout\n");
     fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_OUT;
 }
@@ -165,9 +152,25 @@ void Scene::OnFadeComplete() {
     }
 }
 
+CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
+
+}
+
 /// @brief Make a car pull into the scene
 /// @param car
 /// @param driver
 
-void Scene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+void CarScene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+}
+
+SDL_Point CarScene::GetCarIdlePosition() {
+    return {0, 0};
+}
+
+SDL_Point CarScene::GetCarOffscreenPosition() {
+    return {0, 0};
+}
+
+void CarScene::DrawMaskAfterCar() {
+    SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
 }

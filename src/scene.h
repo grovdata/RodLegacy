@@ -6,6 +6,8 @@
 #include "ui/bubble.h"
 #include "mouse.h"
 
+using namespace std;
+
 typedef enum {
     SCENE_GARAGE,
     SCENE_DINER,
@@ -35,14 +37,14 @@ class Scene {
     SDL_Texture *texture, *fontTexture, *fadeTexture;
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
-    std::string m_backgroundName;
-    std::vector<Zone> zones;
-    std::vector<Button> buttons;
-    std::vector<SDL_Texture*> textures;
-    std::vector<Bubble*> bubbles;
+    string m_backgroundName;
+    vector<Zone> zones;
+    vector<Button> buttons;
+    vector<SDL_Texture*> textures;
+    vector<Bubble*> bubbles;
 
    public:
-    Scene(std::string backgroundName);
+    Scene(string backgroundName);
     ~Scene();
     SDL_Texture *GetTexture();
 
@@ -55,17 +57,19 @@ class Scene {
 
     virtual void Action(ZoneId zone);
     virtual void Draw();
-    virtual void DrawMaskAfterCar();
     virtual void PushEvent(SDL_Event *event);
-    virtual SDL_Point GetCarIdlePosition();
-    virtual SDL_Point GetCarOffscreenPosition();
-    /// @brief Make a car pull into the scene
-    /// @param car
-    /// @param driver
-    virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
 
     virtual void SetStatusBar(char *text);
     void ClearStatusBar();
 
     void SetZoneText(ZoneId id, char* text);
+};
+
+class CarScene: public Scene {
+    public:
+        CarScene(std::string backgroundName);
+        virtual void DrawMaskAfterCar();
+        virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
+        virtual SDL_Point GetCarIdlePosition();
+        virtual SDL_Point GetCarOffscreenPosition();
 };

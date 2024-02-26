@@ -18,7 +18,7 @@
 #include "types.h"
 #include "driver.h"
 #include "SFont.h"
-
+#include "utils.h"
 
 extern SDL_Renderer *renderer;
 extern SFont_Font *font;

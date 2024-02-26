@@ -4,7 +4,7 @@
 #include "scene.h"
 #include "ui/zone.h"
 
-class GasStation : public Scene {
+class GasStation : public CarScene {
    public:
     GasStation();
 
