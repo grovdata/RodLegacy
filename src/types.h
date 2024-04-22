@@ -20,6 +20,7 @@ struct CarModel {
     int rearWheelX, rearWheelY;
     int frontWheelX, frontWheelY;
     int gasCapX, gasCapY;
+    int hoodScoopX, hoodScoopY;
     int index;
 };
 

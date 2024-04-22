@@ -1,6 +1,7 @@
 #pragma once
 #include "global.h"
 #include "car.h"
+#include "bitmap.h"
 #include "spritesheet.h"
 
 class CarBitmap {
@@ -25,9 +26,8 @@ class CarBitmap {
     SDL_Rect frontWheelRect;
 
     // Gas cap
-    SDL_Point gasCapLocation;
-
-    // Hood scoop
+    Bitmap gasCap;
+    Bitmap hoodScoop;
 
     Uint64 t;
 

@@ -75,6 +75,8 @@ void CarData::ReadCarsFromFile(char *filename) {
             newModel.rearWheelY = car["rearWheelY"].as_integer();
             newModel.gasCapX = car["gasCapX"].as_integer();
             newModel.gasCapY = car["gasCapY"].as_integer();
+            newModel.hoodScoopX = car["hoodScoopX"].as_integer();
+            newModel.hoodScoopY = car["hoodScoopY"].as_integer();
             newModel.frontWheelX = car["frontWheelX"].as_integer();
             newModel.frontWheelY = car["frontWheelY"].as_integer();
             newModel.driverX = car["driverX"].as_integer();

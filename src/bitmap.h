@@ -13,6 +13,8 @@ class Bitmap {
         Bitmap();
         ~Bitmap();
         void LoadBitmap(std::string filename);
+
+        void SetPosition(int x, int y);
         void SetVisible(bool visible);
 
         void Draw();

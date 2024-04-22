@@ -20,6 +20,8 @@ gasCapX = 75
 gasCapY = 36
 frontWheelX = 180
 frontWheelY = 38
+hoodScoopX = 170
+hoodScoopY = 10
 driverX = 104
 driverY = 7
 
@@ -39,6 +41,8 @@ gasCapX = 75
 gasCapY = 36
 frontWheelX = 180
 frontWheelY = 38
+hoodScoopX = 170
+hoodScoopY = 10
 driverX = 104
 driverY = 7
 
@@ -56,5 +60,7 @@ frontWheelX = 151
 frontWheelY = 37
 gasCapX = 53
 gasCapY = 29
+hoodScoopX = 170
+hoodScoopY = 10
 driverX = 84
 driverY = 6

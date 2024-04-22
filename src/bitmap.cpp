@@ -12,6 +12,11 @@ Bitmap::~Bitmap() {
     }
 }
 
+void Bitmap::SetPosition(int x, int y) {
+    this->rect.x = x;
+    this->rect.y = y;
+}
+
 void Bitmap::SetVisible(bool visible) {
     this->isVisible = visible;
 }
@@ -19,7 +24,7 @@ void Bitmap::SetVisible(bool visible) {
 void Bitmap::LoadBitmap(std::string filename) {
     surface = IMG_Load(strdup(filename.c_str()));
     if (surface == NULL) {
-        SDL_Log("Bitmap::LoadBitmap error, could not load surface\n");
+        SDL_Log("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
         return;
     } else {
         SDL_LogDebug(0, "Loaded bitmap %s, size %d x %d\n", filename.c_str(), surface->w, surface->h);

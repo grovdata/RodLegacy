@@ -7,21 +7,21 @@ Scene::Scene(std::string backgroundName) {
     surface = IMG_Load(backgroundName.c_str());
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     textures.push_back(texture);
-    fontSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    fontSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     m_backgroundRect.x = 0;
     m_backgroundRect.y = 0;
-    m_backgroundRect.w = 320;
-    m_backgroundRect.h = 200;
+    m_backgroundRect.w = GAME_WIDTH;
+    m_backgroundRect.h = GAME_HEIGHT;
 
-    fadeSurface = SDL_CreateRGBSurface(0, 320, 200, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    fadeSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     SDL_FillRect(fadeSurface, &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
     fadeTexture = SDL_CreateTextureFromSurface(renderer, fadeSurface);
     SDL_SetTextureBlendMode(fadeTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
 
     m_statusBarRect.x = 0;
-    m_statusBarRect.y = 200 - 9;
-    m_statusBarRect.w = 320;
+    m_statusBarRect.y = GAME_HEIGHT - 9;
+    m_statusBarRect.w = GAME_WIDTH;
     m_statusBarRect.h = 9;
 
     m_statusBarMiddleRect = m_statusBarRect;
@@ -44,8 +44,8 @@ MousePointer Scene::GetPointerType() {
 void Scene::SetStatusBar(char *text) {
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(fontSurface, font, 2, 200 - 9, bankroll);
-    SFont_Write(fontSurface, font, 160, 200 - 9, text);
+    SFont_Write(fontSurface, font, 2, GAME_HEIGHT - 9, bankroll);
+    SFont_Write(fontSurface, font, 160, GAME_HEIGHT - 9, text);
     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 }

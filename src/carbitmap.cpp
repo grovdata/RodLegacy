@@ -5,6 +5,12 @@ CarBitmap::CarBitmap(Car *car) {
     CarModel model = car->GetModel();
 
     bodySurface = IMG_Load(model.filename.c_str());
+
+    Uint32 topLeftPixelColor = *(Uint32*)bodySurface->pixels;
+    if (SDL_SetColorKey(bodySurface, SDL_TRUE, topLeftPixelColor) != 0) {
+        //...
+    }
+
     bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
     bodyRect.x = 0;
     bodyRect.y = 0;
@@ -18,8 +24,13 @@ CarBitmap::CarBitmap(Car *car) {
     driverRect.w = driverSurface->w;
     driverRect.h = driverSurface->h;
 
-    gasCapLocation.x = model.gasCapX;
-    gasCapLocation.y = model.gasCapY;
+    gasCap.LoadBitmap("../data/res/lib_p_308.gif");
+    gasCap.SetPosition(model.width + model.gasCapX, model.height + model.gasCapY);
+    gasCap.SetVisible(true);
+
+    hoodScoop.LoadBitmap("../data/res/lib_p_310.gif");
+    hoodScoop.SetPosition(model.width + model.hoodScoopX, model.height + model.hoodScoopY);
+    hoodScoop.SetVisible(true);
 
     rearWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);
     frontWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);
@@ -49,10 +60,14 @@ void CarBitmap::Draw() {
         frontWheel->CycleNextSprite();
     }
 
+
     SDL_RenderCopy(renderer, driverTexture, NULL, &driverRect);
     rearWheel->DrawSprite(&rearWheelRect);
     rearWheel->DrawSprite(&frontWheelRect);
     SDL_RenderCopy(renderer, bodyTexture, NULL, &bodyRect);
+
+    gasCap.Draw();
+    hoodScoop.Draw();
 }
 
 void CarBitmap::Move(SDL_Point p) {

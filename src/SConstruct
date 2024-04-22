@@ -1,0 +1,1 @@
+Program('StreetRodLegacy', Glob('*.cpp'))
