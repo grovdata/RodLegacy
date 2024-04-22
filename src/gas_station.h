@@ -14,4 +14,10 @@ class GasStation : public CarScene {
     SDL_Point GetCarOffscreenPosition() override;
 
     void Action(ZoneId zone) override;
+    void Draw() override;
+
+    void StartAnimateCar(Car* car, Driver* driver, bool keepDriving) override;
+
+    static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+
 };

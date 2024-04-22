@@ -23,8 +23,9 @@ class Driving: public Scene {
         void Action(ZoneId zone) override;
         void Draw() override;
 
-        // CRAP
+        // Used by animation callback
         bool animatingCar = false;
         int carx, cary;
-        SDL_Point CarPos();
+
+        void GasStation::StartAnimateCar(Car* car, Driver* driver, bool keepDriving);
 };

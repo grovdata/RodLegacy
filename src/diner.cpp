@@ -2,7 +2,7 @@
 #include "state.h"
 #include "cardata.h"
 
-double carAnimationTime = 0;
+double carAnimationTimeDiner = 0;
 
 Diner::Diner() : CarScene("../data/res/diner3.gif") {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
@@ -46,7 +46,7 @@ Diner::Diner() : CarScene("../data/res/diner3.gif") {
 Diner::~Diner() {
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
-    SDL_RemoveTimer(opponentCarTimerID);
+    SDL_RemoveTimer(carTimerID);
 }
 
 MousePointer Diner::GetPointerType() {
@@ -142,20 +142,16 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     if (carToAnimate != nullptr && carBitmap == nullptr) {
         printf("create new car \n");
         carBitmap = new CarBitmap(carToAnimate);
-        opponentCarTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
+        carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
     }
-}
-
-SDL_Point Diner::CarPos() {
-    return {carx, cary};
 }
 
 Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     Diner* diner = static_cast<Diner*>(param);
-    carAnimationTime += interval / 1000.0;
+    carAnimationTimeDiner += interval / 1000.0;
     const double duration = 2.0;
     // Ease-out function (you can experiment with different easing functions)
-    double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
+    double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
     // printf("easedvalue %f\n",easedValue);
     int carX = static_cast<int>((easedValue * (320 + 50)) - 320);  // Scale to cover the range -320 to 100
     // int carX = (int)(easedValue * 100);

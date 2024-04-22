@@ -5,6 +5,7 @@
 #include "ui/button.h"
 #include "ui/bubble.h"
 #include "mouse.h"
+#include "carbitmap.h"
 
 using namespace std;
 
@@ -72,4 +73,12 @@ class CarScene: public Scene {
         virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
         virtual SDL_Point GetCarIdlePosition();
         virtual SDL_Point GetCarOffscreenPosition();
+
+        CarBitmap *carBitmap;
+
+        // Used by animation callback
+        Uint64 t = 0;
+        bool animatingCar = false;
+        int carx, cary;
+        SDL_TimerID carTimerID;
 };

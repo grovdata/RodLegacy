@@ -14,16 +14,13 @@ class Diner: public CarScene {
     SDL_Rect roadMaskSrcRect = {0, 155, 320, 10}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
 
-    CarBitmap *carBitmap;
-
     int guySpriteX;
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
 
     Uint64 t;
 
-    SDL_TimerID opponentCarTimerID;
-    static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+
 
     void CycleGuy();
 
@@ -44,8 +41,9 @@ class Diner: public CarScene {
 
         void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
 
-        // CRAP
+        // Used by animation callback
         bool animatingCar = false;
         int carx, cary;
-        SDL_Point CarPos();
+
+        static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 };
