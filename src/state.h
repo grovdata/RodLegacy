@@ -4,6 +4,7 @@
 #include "car.h"
 #include "cardata.h"
 #include "diner.h"
+#include "driving.h"
 #include "garage.h"
 #include "gas_station.h"
 
@@ -33,6 +34,7 @@ private:
     Garage garage;
     Diner diner;
     GasStation gasStation;
+    Driving driving;
 
 public:
     State();

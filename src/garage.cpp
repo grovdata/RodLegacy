@@ -100,7 +100,7 @@ void Garage::Action(ZoneId zone) {
     switch (zone)
     {
     case ZONE_GARAGE_GOTO_DINER:
-        sceneTransitioningTo = SCENE_DINER;
+        sceneTransitioningTo = SCENE_CRUISING;
         FadeOut();
         break;
     case ZONE_GARAGE_GAS_CAN:

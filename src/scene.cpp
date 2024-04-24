@@ -4,7 +4,15 @@
 
 Scene::Scene(std::string backgroundName) {
     sceneTransition = SCENE_SOLID;
-    surface = IMG_Load(backgroundName.c_str());
+    if (backgroundName == "") {
+        // surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
+        //                                 0x00FF0000,
+        //                                 0x0000FF00,
+        //                                 0x000000FF,
+        //                                 0xFF000000);
+    } else {
+        surface = IMG_Load(backgroundName.c_str());
+    }
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     textures.push_back(texture);
     fontSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);

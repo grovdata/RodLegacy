@@ -9,23 +9,15 @@ class Driving: public Scene {
 
     Bitmap *dashboard;
 
-    static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
-
     public:
         Driving();
         ~Driving();
 
-        MousePointer GetPointerType() override;
+        // MousePointer GetPointerType() override;
 
-        SDL_Point GetCarIdlePosition() override;
-        SDL_Point GetCarOffscreenPosition() override;
+        // SDL_Point GetCarIdlePosition() override;
+        // SDL_Point GetCarOffscreenPosition() override;
 
-        void Action(ZoneId zone) override;
+        // void Action(ZoneId zone) override;
         void Draw() override;
-
-        // Used by animation callback
-        bool animatingCar = false;
-        int carx, cary;
-
-        void GasStation::StartAnimateCar(Car* car, Driver* driver, bool keepDriving);
 };

@@ -25,7 +25,7 @@ CarBitmap::CarBitmap(Car *car) {
     driverRect.h = driverSurface->h;
 
     gasCap.LoadBitmap("../data/res/lib_p_308.gif");
-    gasCap.SetPosition(model.width + model.gasCapX, model.height + model.gasCapY);
+
     gasCap.SetVisible(true);
 
     hoodScoop.LoadBitmap("../data/res/lib_p_310.gif");
@@ -93,4 +93,6 @@ void CarBitmap::UpdateTextures() {
 
     rearWheelRect = { bodyRect.x + model.rearWheelX, bodyRect.y + model.rearWheelY, 31, 31};
     frontWheelRect = { bodyRect.x + model.frontWheelX, bodyRect.y + model.frontWheelY, 31, 31};
+
+    gasCap.SetPosition(bodyRect.x + model.gasCapX, bodyRect.y + model.gasCapY);
 }

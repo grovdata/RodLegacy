@@ -12,7 +12,9 @@ using namespace std;
 typedef enum {
     SCENE_GARAGE,
     SCENE_DINER,
-    SCENE_GAS_STATION
+    SCENE_GAS_STATION,
+    SCENE_CRUISING,
+    SCENE_DRIVING
 } GameScene;
 
 typedef enum {

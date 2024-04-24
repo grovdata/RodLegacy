@@ -45,6 +45,10 @@ void State::MoveToScene(GameScene scene) {
         case SCENE_GAS_STATION:
             this->currentScene = &gasStation;
             break;
+        case SCENE_CRUISING:
+        case SCENE_DRIVING:
+            this->currentScene = &driving;
+            break;
     }
 
     this->currentScene->FadeIn();
