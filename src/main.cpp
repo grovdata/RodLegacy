@@ -162,8 +162,18 @@ int main(void) {
         }
 
         SDL_RenderClear(renderer);
-        state.GetCurrentScene()->Draw();
-        ((CarScene*)state.GetCurrentScene())->DrawMaskAfterCar();
+        
+        Scene *scene = state.GetCurrentScene();
+        
+        
+        scene->Draw();
+        
+        // This is hacky, we can do better
+        GameScene gameScene = state.GetCurrentGameScene();
+        if (gameScene != SCENE_DRIVING && gameScene != SCENE_CRUISING) {
+            ((CarScene*)scene)->DrawMaskAfterCar();
+        }
+        
         mouse.Draw();
         game.Update(SDL_GetTicks64() - startTime);
         state.SetElapsedTime(SDL_GetTicks64() - startTime);

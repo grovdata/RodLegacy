@@ -27,7 +27,9 @@ private:
     Car *currentCar;
 
 
+    GameScene currentGameScene;
     Scene *currentScene;
+        
     Uint64 elapsedTime;
 
     CarData carData;
@@ -42,6 +44,7 @@ public:
 
     int GetBankroll();
 
+    GameScene GetCurrentGameScene();
     Scene* GetCurrentScene();
     void SetCurrentScene(Scene *scene);
 

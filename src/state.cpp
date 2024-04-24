@@ -26,6 +26,10 @@ int State::GetBankroll() {
     return bankroll;
 }
 
+GameScene State::GetCurrentGameScene() {
+    return currentGameScene;
+}
+
 Scene* State::GetCurrentScene() {
     return currentScene;
 }
@@ -35,6 +39,7 @@ void State::SetCurrentScene(Scene *scene) {
 }
 
 void State::MoveToScene(GameScene scene) {
+    currentGameScene = scene;
     switch (scene) {
         case SCENE_DINER:
             this->currentScene = &diner;
