@@ -28,9 +28,9 @@ Scene::Scene(std::string backgroundName) {
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
 
     m_statusBarRect.x = 0;
-    m_statusBarRect.y = GAME_HEIGHT - 9;
+    m_statusBarRect.y = GAME_HEIGHT - GAME_STATUSBAR_HEIGHT;
     m_statusBarRect.w = GAME_WIDTH;
-    m_statusBarRect.h = 9;
+    m_statusBarRect.h = GAME_STATUSBAR_HEIGHT;
 
     m_statusBarMiddleRect = m_statusBarRect;
     m_statusBarMiddleRect.x = 160;
@@ -52,8 +52,8 @@ MousePointer Scene::GetPointerType() {
 void Scene::SetStatusBar(char *text) {
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(fontSurface, font, 2, GAME_HEIGHT - 9, bankroll);
-    SFont_Write(fontSurface, font, 160, GAME_HEIGHT - 9, text);
+    SFont_Write(fontSurface, font, 2, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, bankroll);
+    SFont_Write(fontSurface, font, 160, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, text);
     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 }

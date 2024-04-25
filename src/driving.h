@@ -4,11 +4,15 @@
 #include "bitmap.h"
 #include "spritesheet.h"
 
+#include <vector>
+
+using namespace std;
+
 class Driving: public Scene {
    private:
 
-    Bitmap *dashboard;
-
+    vector<Bitmap*> interior;
+    
     public:
         Driving();
         ~Driving();

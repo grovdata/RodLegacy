@@ -12,9 +12,26 @@ Bitmap::~Bitmap() {
     }
 }
 
+SDL_Rect Bitmap::GetPosition() {
+    return this->rect;
+}
+
 void Bitmap::SetPosition(int x, int y) {
     this->rect.x = x;
     this->rect.y = y;
+}
+
+void Bitmap::Align(BitmapAlign b, bool allowStatusBar) {
+    int offset = allowStatusBar ? GAME_STATUSBAR_HEIGHT : 0;
+    if (b == BitmapAlignTop) {
+        this->rect.y = 0 + offset;
+    } else {
+        this->rect.y = GAME_HEIGHT - this->rect.h - offset;
+    }
+}
+
+void Bitmap::AlignAbove(Bitmap *dest) {
+    this->rect.y = dest->GetPosition().y - this->rect.h;
 }
 
 void Bitmap::SetVisible(bool visible) {
@@ -23,6 +40,7 @@ void Bitmap::SetVisible(bool visible) {
 
 void Bitmap::LoadBitmap(std::string filename) {
     surface = IMG_Load(strdup(filename.c_str()));
+    SDL_SetColorKey(surface, 0, SDL_MapRGB(surface->format, 0, 0, 0));
     if (surface == NULL) {
         SDL_Log("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
         return;
