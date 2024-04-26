@@ -1,4 +1,5 @@
 #include "driving.h"
+#include "state.h"
 
 Driving::Driving() : Scene("") {
     Bitmap *dashboard;
@@ -45,17 +46,33 @@ Driving::Driving() : Scene("") {
     interior.push_back(pillar);
     interior.push_back(hood);
     interior.push_back(dashboard);
+    
+    racing = new Racing();
 }
 
 Driving::~Driving() {
     for (auto b : interior) {
         delete b;
     }
+    
+    delete racing;
 }
 
 void Driving::Draw() {
     Scene::Draw();
+    
+    SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
+    
     for (auto b : interior) {
         b->Draw();
     }
+    
+    
+}
+
+void Driving::PushEvent(SDL_Event *event) {
+    Scene::PushEvent(event);
+    Uint64 et = state.GetElapsedTime();
+    racing->Draw(et, event);
+    roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
 }

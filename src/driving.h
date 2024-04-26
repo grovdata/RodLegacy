@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "bitmap.h"
 #include "spritesheet.h"
+#include "racing.cpp"
 
 #include <vector>
 
@@ -10,9 +11,13 @@ using namespace std;
 
 class Driving: public Scene {
    private:
-
-    vector<Bitmap*> interior;
     
+    vector<Bitmap*> interior;
+    Racing *racing;
+    
+    SDL_Rect roadRect = {0, 0, GAME_WIDTH, GAME_RACING_HEIGHT};
+    SDL_Texture *roadTexture;
+
     public:
         Driving();
         ~Driving();
@@ -23,5 +28,7 @@ class Driving: public Scene {
         // SDL_Point GetCarOffscreenPosition() override;
 
         // void Action(ZoneId zone) override;
+        
         void Draw() override;
+        void PushEvent(SDL_Event *event) override;
 };

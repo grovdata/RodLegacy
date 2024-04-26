@@ -2,6 +2,7 @@
 
 #define GAME_WIDTH 320
 #define GAME_HEIGHT 200
+#define GAME_RACING_HEIGHT 120
 #define GAME_STATUSBAR_HEIGHT 9
 
 #include <SDL.h>
