@@ -8,12 +8,12 @@ SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
 CFLAGS := $(SDL_CONF) -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
 
 # add header files here
-HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h carbitmap.h cardata.h driving.h spritesheet.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
+HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h carbitmap.h cardata.h driving.h racing.h spritesheet.h SFont.h ui/button.h ui/zone.h parsers/libp.h \
 		ui/bubble.h include/toml.hpp include/libamivideo/amivideotypes.h include/libamivideo/viewportmode.h include/libamivideo/palette.h  \
 		include/libamivideo/screen.h
 
 # add source files here
-SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp garage.cpp gas_station.cpp ui/button.cpp \
+SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp racing.cpp garage.cpp gas_station.cpp ui/button.cpp \
 		ui/bubble.cpp include/libamivideo/viewportmode.c include/libamivideo/palette.c include/libamivideo/screen.c
 
 # generate names of object files

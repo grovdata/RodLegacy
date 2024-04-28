@@ -40,7 +40,7 @@ void Bitmap::SetVisible(bool visible) {
 
 void Bitmap::LoadBitmap(std::string filename) {
     surface = IMG_Load(strdup(filename.c_str()));
-    SDL_SetColorKey(surface, 0, SDL_MapRGB(surface->format, 0, 0, 0));
+    //SDL_SetColorKey(surface, 0, SDL_MapRGB(surface->format, 0, 0, 0));
     if (surface == NULL) {
         SDL_Log("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
         return;

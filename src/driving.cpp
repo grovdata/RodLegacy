@@ -46,7 +46,7 @@ Driving::Driving() : Scene("") {
     interior.push_back(pillar);
     interior.push_back(hood);
     interior.push_back(dashboard);
-    
+
     racing = new Racing();
 }
 
@@ -54,25 +54,29 @@ Driving::~Driving() {
     for (auto b : interior) {
         delete b;
     }
-    
+
     delete racing;
 }
 
 void Driving::Draw() {
     Scene::Draw();
     
+    Uint64 et = state.GetElapsedTime() / 10000.0;
+    racing->Draw(et, lastEvent);
+    lastEvent = NULL;
+    roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
+
     SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
-    
+
     for (auto b : interior) {
         b->Draw();
     }
-    
-    
 }
 
 void Driving::PushEvent(SDL_Event *event) {
     Scene::PushEvent(event);
-    Uint64 et = state.GetElapsedTime();
-    racing->Draw(et, event);
-    roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
+    if (event->type == SDL_KEYDOWN) {
+        lastEvent = event;
+    }
+    
 }
