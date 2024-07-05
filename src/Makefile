@@ -3,7 +3,12 @@
 # set the compiler
 CC := g++
 #CC := llvm-g++
-SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
+
+# macOS
+#SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
+
+# Linux
+SDL_CONF := `sdl2-config --cflags --libs`
 # set the compiler flags
 CFLAGS := $(SDL_CONF) -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
 

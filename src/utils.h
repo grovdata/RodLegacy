@@ -1,6 +1,7 @@
 #pragma once
 #include <set>
 #include <random>
+#include <memory>
 
 template <typename T>
 T getRandomElement(const std::set<T>& inputSet) {
