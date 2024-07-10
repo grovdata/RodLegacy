@@ -2,6 +2,7 @@
 
 #include <tuple>
 #include <vector>
+#include <fstream>
 
 //#include "../include/libamivideo/amivideotypes.h"
 //#include "../include/libamivideo/screen.h"
@@ -114,20 +115,28 @@ struct LibBitmapEntry_t {
 const int COUNT[] = {1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8};
 const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00};
 
+std::vector<std::pair<int, uint8_t>> RLE = {
+	{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0},
+	{2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},
+	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff},
+	{8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}
+};
+
 class BitmapParser {
    private:
-    int8_t readUint8(uint8_t *result, FILE *f);
-    int8_t readUint16BigEndian(uint16_t *result, FILE *f);
-    int8_t readUint32BigEndian(uint32_t *result, FILE *f);
-    void printEntry(int number, LibBitmapEntry_t *entry);
-    void printBitplanes(uint8_t *buf, size_t size);
+    uint8_t readUint8(std::ifstream& file);
+	uint16_t readUint16BigEndian(std::ifstream& file);
+    uint32_t readUint32BigEndian(std::ifstream& file);
+
+    void PrintEntry(int number, LibBitmapEntry_t entry);
+    void PrintBitplanes(const std::vector<uint8_t>& data);
 
    public:
-    std::vector<LibBitmapEntry_t> GetEntries(char *filename);
 
-    bool GetPackedData(char *filename, uint8_t *buf, LibBitmapEntry_t *bitmapEntry, int totalEntriesCount);
+	std::vector<LibBitmapEntry_t> GetEntries(const string& filename);
+
+    vector<uint8_t> GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t> UnpackData(const vector<pair<int, uint8_t>> &rle, const LibBitmapEntry_t &sprite, const vector<uint8_t> &data);
-    // vector<SDL_Surface *> ReadAllImages(char *filename);
-    // SDL_Surface *ReadImage(char *filename, LibBitmapEntry_t entry, int index);
-    void OldUnpack(LibBitmapEntry_t *bitmapEntry, uint8_t *data, SDL_Surface *surface);
+    vector<uint8_t> ReadImage(const string& filename, LibBitmapEntry_t entry, int index);
+    vector<pair<LibBitmapEntry_t, vector<uint8_t>>> ReadAllImages(const string& filename);
 };
