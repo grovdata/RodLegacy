@@ -6,9 +6,12 @@ CarBitmap::CarBitmap(Car *car) {
 
     bodySurface = IMG_Load(model.filename.c_str());
 
-    Uint32 topLeftPixelColor = *(Uint32*)bodySurface->pixels;
+    // Get the top-left pixel's color
+    Uint32 topLeftPixelColor = ((Uint32*)bodySurface->pixels)[0];
+
+    SDL_Log("debugpix %d", topLeftPixelColor);
     if (SDL_SetColorKey(bodySurface, SDL_TRUE, topLeftPixelColor) != 0) {
-        //...
+        SDL_LogDebug(0, "SDL_SetColorKey error %s", SDL_GetError());
     }
 
     bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
@@ -26,7 +29,7 @@ CarBitmap::CarBitmap(Car *car) {
 
     gasCap.LoadBitmap("../data/res/lib_p_308.gif");
 
-    gasCap.SetVisible(true);
+    gasCap.SetVisible(false);
 
     hoodScoop.LoadBitmap("../data/res/lib_p_310.gif");
     hoodScoop.SetPosition(model.width + model.hoodScoopX, model.height + model.hoodScoopY);

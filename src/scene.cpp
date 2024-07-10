@@ -4,14 +4,16 @@
 
 Scene::Scene(std::string backgroundName) {
     sceneTransition = SCENE_SOLID;
+    surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
+                                    0x00FF0000,
+                                    0x0000FF00,
+                                    0x000000FF,
+                                    0xFF000000);
     if (backgroundName == "") {
-        // surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
-        //                                 0x00FF0000,
-        //                                 0x0000FF00,
-        //                                 0x000000FF,
-        //                                 0xFF000000);
     } else {
-        surface = IMG_Load(backgroundName.c_str());
+        SDL_Surface *img = IMG_Load(backgroundName.c_str());
+        SDL_Rect destRect = {0, 0, img->w, img->h};
+        SDL_BlitSurface(img, nullptr, surface, &destRect);
     }
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     textures.push_back(texture);
@@ -163,10 +165,6 @@ void Scene::OnFadeComplete() {
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 
 }
-
-/// @brief Make a car pull into the scene
-/// @param car
-/// @param driver
 
 void CarScene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
 }
