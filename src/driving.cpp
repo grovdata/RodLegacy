@@ -39,8 +39,6 @@ Driving::Driving() : Scene("") {
     mirror->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     mirror->SetVisible(true);
 
-
-
     // Order is important for rendering
     interior.push_back(roof);
     interior.push_back(pillar);
@@ -48,6 +46,8 @@ Driving::Driving() : Scene("") {
     interior.push_back(dashboard);
 
     racing = new Racing();
+
+    timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
 }
 
 Driving::~Driving() {
@@ -56,14 +56,13 @@ Driving::~Driving() {
     }
 
     delete racing;
+
+    SDL_RemoveTimer(timerID);
 }
 
 void Driving::Draw() {
     Scene::Draw();
     
-    Uint64 et = state.GetElapsedTime() / 10000.0;
-    racing->Draw(et, lastEvent);
-    lastEvent = NULL;
     roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
 
     SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
@@ -75,8 +74,12 @@ void Driving::Draw() {
 
 void Driving::PushEvent(SDL_Event *event) {
     Scene::PushEvent(event);
-    if (event->type == SDL_KEYDOWN) {
-        lastEvent = event;
-    }
-    
+    lastEvent = event;
+}
+
+Uint32 Driving::AnimationTimerCallback(Uint32 interval, void* param) {
+    Driving* d = static_cast<Driving*>(param);
+    d->racing->Draw(state.GetElapsedTime() / 1000.0f, d->lastEvent);
+    //d->lastEvent = NULL;
+    return interval;
 }

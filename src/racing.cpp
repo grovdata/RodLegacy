@@ -52,10 +52,10 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 
 	bool goLeft = false;
 	bool goRight = false;
-	bool accelerate = true;
+	bool accelerate = false;
 
-	if (event != NULL) {
-		goLeft  = event->key.keysym.sym == SDLK_LEFT;
+    if (event != NULL && (event->type == SDL_KEYDOWN)) {
+        goLeft  = event->key.keysym.sym == SDLK_LEFT;
 		goRight = event->key.keysym.sym == SDLK_RIGHT;
 		accelerate = event->key.keysym.sym == SDLK_UP;
 	}
@@ -140,7 +140,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		return;
 	}
 
-	SDL_Log("Time: %.2f Distance: %f Section: %d\n", fElapsedTime, fDistance, nTrackSection);
+	SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
 
 	// Draw Track - Each row is split into grass, clip-board and track
 	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++) {

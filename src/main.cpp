@@ -110,6 +110,8 @@ int main(void) {
 
     bool close_requested = false;
 
+    Uint64 timeDelta = 0;
+    
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -175,8 +177,11 @@ int main(void) {
         }
         
         mouse.Draw();
-        game.Update(SDL_GetTicks64() - startTime);
-        state.SetElapsedTime(SDL_GetTicks64() - startTime);
+        
+        timeDelta = SDL_GetTicks64() - timeDelta;
+        
+        game.Update(timeDelta);
+        state.SetElapsedTime(timeDelta);
 
         // #include "planetest.c"
         // SDL_Surface* convertedSurface;

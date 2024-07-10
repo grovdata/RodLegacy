@@ -19,6 +19,11 @@ class Driving: public Scene {
     SDL_Rect roadRect = {0, 14, GAME_WIDTH, GAME_RACING_HEIGHT};
     SDL_Texture *roadTexture;
 
+    SDL_TimerID timerID;
+
+
+    static Uint32 AnimationTimerCallback(Uint32 interval, void* param);
+
     public:
         Driving();
         ~Driving();
@@ -32,4 +37,6 @@ class Driving: public Scene {
 
         void Draw() override;
         void PushEvent(SDL_Event *event) override;
+
+
 };
