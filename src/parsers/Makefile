@@ -4,7 +4,7 @@ CFLAGS := $(SDL_CONF) -ggdb3 -O3 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
 
 
 HDRS := libp.h
-SRCS := libp.cpp
+SRCS := libp.cpp test.cpp
 
 # generate names of object files
 OBJS := $(SRCS:.c=.o)

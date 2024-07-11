@@ -1,7 +1,9 @@
 #include "libp.h"
 #include <fstream>
 #include <iostream>
+
 using namespace std;
+
 
 uint16_t BitmapParser::readUint16BigEndian(std::ifstream& file) {
     uint8_t bytes[2];
@@ -35,7 +37,7 @@ void BitmapParser::PrintEntry(int number, LibBitmapEntry_t entry) {
     printf("sizePacked %d\n", entry.sizePacked);
 }
 
-void BitmapParser::PrintBitplanes(const std::vector<uint8_t>& data) {
+void BitmapParser::PrintBitplanes(const std::vector<uint16_t>& data) {
     const int bytesPerColumn = 4;
     const int maxColumns = 8;
 
@@ -177,8 +179,8 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
     return flat_bp;
 }
 
-vector<uint8_t> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const vector<uint16_t>& palette) {
-    vector<uint8_t> chunkyData(entry.width * entry.height);
+vector<Color> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const Palette& palette) {
+    vector<Color> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
 
@@ -195,6 +197,7 @@ vector<uint8_t> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBit
                     }
                 }
 
+                // cout << "chunky pixel [" << x << "," << y << "]: " << get<0>(palette[value])  << endl;
                 int pixel_index = (y * entry.width) + (x + i);
                 chunkyData[pixel_index] = palette[value];
             }
@@ -202,9 +205,51 @@ vector<uint8_t> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBit
     }
 
     cout << "chunky data " << chunkyData.size()  << endl;
-    PrintBitplanes(chunkyData);
+    //PrintBitplanes(chunkyData);
 
     return chunkyData;
+}
+
+// Converts 12bit palette to RGB and adds EHB colors
+Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette) {
+    Palette rval;
+
+    // Add RGB colors from the palette
+    for (int i = 0; i < palette.size(); i++) {
+        rval.push_back(GetRGBFromRGB4(palette[i]));
+    }
+
+    // Add EHB colors
+    for (int i = 0; i < palette.size(); i++) {
+        Color color = rval[i];
+        uint8_t r = get<0>(color);
+        uint8_t g = get<1>(color);
+        uint8_t b = get<2>(color);
+        rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
+    }
+
+    // Print the palette colors
+    for (int i = 0; i < rval.size(); i++) {
+        Color color = rval[i];
+        uint8_t r = get<0>(color);
+        uint8_t g = get<1>(color);
+        uint8_t b = get<2>(color);
+        cout << "Palette " << i << ": " << static_cast<int>(r) << "," << static_cast<int>(g) << "," << static_cast<int>(b) << endl;
+    }
+
+    return rval;
+}
+
+Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
+    uint8_t r = (rgb4 & 0xF00) >> 8;
+    uint8_t g = (rgb4 & 0x0F0) >> 4;
+    uint8_t b = (rgb4 & 0x00F);
+
+    r = r << 4;
+    g = g << 4;
+    b = b << 4;
+
+    return make_tuple(r, g, b);
 }
 
 vector<pair<LibBitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
@@ -222,18 +267,9 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t
     vector<uint8_t> data = UnpackData(RLE, entry, packedData);
     if (expectedSize != data.size()) {
         cout << "Expected size: " << expectedSize << " actual size: " << data.size() << endl;
-        PrintBitplanes(data);
+        //PrintBitplanes(data);
         throw runtime_error("Size mismatch reading bitmap");
     }
     return data;
 }
 
-int main() {
-    string examplefile = "../../../streetrod-bins/amiga/SR_disk2/lib.p";
-    BitmapParser p;
-    pair<int, vector<LibBitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
-    LibBitmapEntry_t b = entries.second[0];
-    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, 0, entries.first);
-    vector<uint8_t> chunkyData = p.PlanarToChunky(data, b, PAL);
-    // p.PrintBitplanes(data);
-}
