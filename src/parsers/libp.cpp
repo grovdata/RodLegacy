@@ -5,13 +5,13 @@
 using namespace std;
 
 
-uint16_t BitmapParser::readUint16BigEndian(std::ifstream& file) {
+uint16_t BitmapParser::ReadUint16BigEndian(std::ifstream& file) {
     uint8_t bytes[2];
     file.read(reinterpret_cast<char*>(bytes), 2);
     return (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
 }
 
-uint32_t BitmapParser::readUint32BigEndian(std::ifstream& file) {
+uint32_t BitmapParser::ReadUint32BigEndian(std::ifstream& file) {
     uint8_t bytes[4];
     file.read(reinterpret_cast<char*>(bytes), 4);
     return (static_cast<uint32_t>(bytes[0]) << 24) |
@@ -20,13 +20,13 @@ uint32_t BitmapParser::readUint32BigEndian(std::ifstream& file) {
            bytes[3];
 }
 
-uint8_t BitmapParser::readUint8(std::ifstream& file) {
+uint8_t BitmapParser::ReadUint8(std::ifstream& file) {
     uint8_t byte;
     file.read(reinterpret_cast<char*>(&byte), 1);
     return byte;
 }
 
-void BitmapParser::PrintEntry(int number, LibBitmapEntry_t entry) {
+void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
     printf("---------\n");
     printf("bitmap %d\n", number);
     printf("width %d\n", entry.width);
@@ -62,35 +62,35 @@ void BitmapParser::PrintBitplanes(const std::vector<uint16_t>& data) {
     }
 }
 
-pair<int, vector<LibBitmapEntry_t>> BitmapParser::GetEntries(const string& filename) {
-    vector<LibBitmapEntry_t> result;
+pair<int, vector<BitmapEntry_t>> BitmapParser::GetEntries(const string& filename) {
+    vector<BitmapEntry_t> result;
     ifstream file(filename, ios::binary);
     if (!file) {
         cerr << "File error: Unable to open file " << filename << endl;
-        return pair<int, vector<LibBitmapEntry_t>>(0, result);
+        return pair<int, vector<BitmapEntry_t>>(0, result);
     }
 
-    uint16_t totalEntriesCount = readUint16BigEndian(file);
+    uint16_t totalEntriesCount = ReadUint16BigEndian(file);
     cout << "Number of bitmap entries in " << filename << ": " << totalEntriesCount << endl;
 
     for (int i = 0; i < totalEntriesCount; ++i) {
-        LibBitmapEntry_t newEntry = {};
-        newEntry.width = readUint16BigEndian(file);
-        newEntry.height = readUint16BigEndian(file);
-        newEntry.depth = readUint8(file);
-        newEntry.unknown1 = readUint8(file);
+        BitmapEntry_t newEntry = {};
+        newEntry.width = ReadUint16BigEndian(file);
+        newEntry.height = ReadUint16BigEndian(file);
+        newEntry.depth = ReadUint8(file);
+        newEntry.unknown1 = ReadUint8(file);
         file.read(reinterpret_cast<char*>(newEntry.rleDictionary), sizeof(newEntry.rleDictionary));
-        newEntry.offset = readUint32BigEndian(file);
-        newEntry.sizePacked = readUint16BigEndian(file);
+        newEntry.offset = ReadUint32BigEndian(file);
+        newEntry.sizePacked = ReadUint16BigEndian(file);
 
-        PrintEntry(i, newEntry);
+        PrintBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
 
-    return pair<int, vector<LibBitmapEntry_t>>(totalEntriesCount, result);
+    return pair<int, vector<BitmapEntry_t>>(totalEntriesCount, result);
 }
 
-vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount) {
+vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
     ifstream file(filename, ios::binary);
     if (!file.is_open()) {
         throw runtime_error("File error: Unable to open file");
@@ -100,9 +100,9 @@ vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const L
     int fileSize = file.tellg();
     file.seekg(0, ios::beg);
 
-    int fileOffset = 2 + (sizeof(LibBitmapEntry_t) * totalEntriesCount) + bitmapEntry.offset;
+    int fileOffset = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount) + bitmapEntry.offset;
     cout << "entries " << totalEntriesCount << endl;
-    cout << "sizeof " << sizeof(LibBitmapEntry_t) << endl;
+    cout << "sizeof " << sizeof(BitmapEntry_t) << endl;
     cout << "Offset for bitmap " << bitmapEntry.offset << " in file " << fileOffset << endl;
 
     if (fileOffset >= fileSize) {
@@ -120,7 +120,7 @@ vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const L
     return buf;
 }
 
-vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, const LibBitmapEntry_t &sprite, const vector<uint8_t> &data) {
+vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data) {
     int p = 0;
     int width = sprite.width / 8;
     int height = sprite.height;
@@ -179,7 +179,7 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
     return flat_bp;
 }
 
-vector<Color> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const Palette& palette) {
+vector<Color> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette) {
     vector<Color> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
@@ -252,14 +252,23 @@ Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
     return make_tuple(r, g, b);
 }
 
-vector<pair<LibBitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
-    vector<pair<LibBitmapEntry_t, vector<uint8_t>>> result;
-    pair<int, vector<LibBitmapEntry_t>> entries = GetEntries(filename);
+vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
+    vector<pair<BitmapEntry_t, vector<uint8_t>>> result;
+    pair<int, vector<BitmapEntry_t>> entries = GetEntries(filename);
+
+    // for (int i = 0; i < entries.second.size(); i++) {
+    //     auto b = entries.second[i];
+    //     vector<uint8_t> imgData = ReadImage(filename, b, i, entries.first);
+    //     result.push_back(make_pair(b, imgData));
+    // }
+    // Palette pal = p.PreparePalette(PAL1);
+    // vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
 
     return result;
 }
 
-vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t entry, int index, int totalEntriesCount) {
+
+vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
     int expectedSize = (entry.width * entry.height * entry.depth) / 8;
     vector<uint8_t> packedData = GetPackedData(filename, entry, totalEntriesCount);
     // cout << "packed data " << packedData.size()  << endl;

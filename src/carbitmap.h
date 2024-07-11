@@ -9,9 +9,7 @@ class CarBitmap {
     Car *car;
 
     // Body
-    SDL_Surface *bodySurface;
-    SDL_Texture *bodyTexture;
-    SDL_Rect bodyRect;
+    Bitmap body;
 
     // Driver
     SDL_Surface *driverSurface;
@@ -36,9 +34,7 @@ class CarBitmap {
    public:
     CarBitmap(Car *car);
     ~CarBitmap();
-    SDL_Texture *GetTexture();
+//    SDL_Texture *GetTexture();
     void Draw();
     void Move(SDL_Point p);
-    void MoveLeft();
-    void MoveRight();
 };

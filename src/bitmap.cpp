@@ -23,6 +23,11 @@ void Bitmap::SetPosition(int x, int y) {
     this->rect.y = y;
 }
 
+void Bitmap::SetDimensions(int width, int height) {
+    this->rect.w = width;
+    this->rect.h = height;
+}
+
 void Bitmap::Align(BitmapAlign b, bool allowStatusBar) {
     int offset = allowStatusBar ? GAME_STATUSBAR_HEIGHT : 0;
     if (b == BitmapAlignTop) {
@@ -57,34 +62,49 @@ void Bitmap::LoadBitmap(string filename) {
     rect.h = surface->h;
 }
 
-Bitmap::LoadBitmapFromChunky(const vector<uint16_t>& image_data, int width, int height) {
-    surface = SDL_CreateRGBSurface(0, width, height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    if (!surface) {
-        cerr << "LoadBitmapFromChunky failed: " << SDL_GetError() << endl;
-        return nullptr;
+void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, int height) {
+    if (colors.size() != width * height) {
+        std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
+        return;
     }
 
+    // Create an SDL surface with the specified width and height
+    surface = SDL_CreateRGBSurface(0, width, height, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+    if (!surface) {
+        std::cerr << "Error: Could not create SDL surface: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    // Lock the surface to directly access the pixels
+    SDL_LockSurface(surface);
+
+    // Get a pointer to the surface's pixel data
     uint32_t* pixels = static_cast<uint32_t*>(surface->pixels);
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int pixel_index = y * width + x;
-            uint16_t color = image_data[pixel_index];
+    // Iterate through the color vector and set each pixel on the surface
+    for (int i = 0; i < width * height; ++i) {
+        uint8_t r = std::get<0>(colors[i]);
+        uint8_t g = std::get<1>(colors[i]);
+        uint8_t b = std::get<2>(colors[i]);
 
-            // Convert the 16-bit color to 24-bit RGB
-            uint8_t r = (color & 0xF800) >> 8; // 5 bits
-            uint8_t g = (color & 0x07E0) >> 3; // 6 bits
-            uint8_t b = (color & 0x001F) << 3; // 5 bits
+        // Set the first pixel transparent
+        uint8_t a = (i == 0) ? 0 : 255;
 
-            // Combine into a 32-bit color value
-            uint32_t rgb_color = (r << 16) | (g << 8) | b;
-
-            // Set the pixel in the surface
-            pixels[pixel_index] = rgb_color;
-        }
+        // Pack the RGBA values into a 32-bit integer in SDL's format (RGBA)
+        pixels[i] = SDL_MapRGBA(surface->format, r, g, b, a);
     }
 
+    // Unlock the surface after pixel manipulation
+    SDL_UnlockSurface(surface);
+
+    // Set the color key (transparent pixel) if needed
+    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
+
+    // Create a texture from the surface
     texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+    }
 }
 
 

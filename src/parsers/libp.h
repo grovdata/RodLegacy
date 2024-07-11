@@ -105,7 +105,7 @@ enum AmigaLibAsset {
 
 
 #pragma pack(push, 1)
-struct LibBitmapEntry_t {
+struct BitmapEntry_t {
     uint16_t width;
     uint16_t height;
     uint8_t depth;
@@ -127,7 +127,7 @@ const vector<pair<int, uint8_t>> RLE = {
 	{8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}
 };
 
-const vector<uint16_t> PAL = {
+const vector<uint16_t> PAL1 = {
     0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98,
     0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96,
     0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32,
@@ -137,21 +137,24 @@ const vector<uint16_t> PAL = {
 
 class BitmapParser {
    private:
-    uint8_t readUint8(std::ifstream& file);
-	uint16_t readUint16BigEndian(std::ifstream& file);
-    uint32_t readUint32BigEndian(std::ifstream& file);
 
-    void PrintEntry(int number, LibBitmapEntry_t entry);
+    Palette pal1;
+
+    uint8_t ReadUint8(std::ifstream& file);
+	uint16_t ReadUint16BigEndian(std::ifstream& file);
+    uint32_t ReadUint32BigEndian(std::ifstream& file);
+
+    void PrintBitmapEntry(int number, BitmapEntry_t entry);
     void PrintBitplanes(const std::vector<uint16_t>& data);
 
    public:
 
-	pair<int, vector<LibBitmapEntry_t>>             GetEntries(const string& filename);
-    vector<Color>                                PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const Palette& palette);
-    vector<uint8_t>                                 GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount);
-    vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const LibBitmapEntry_t &sprite, const vector<uint8_t> &data);
-    vector<uint8_t>                                 ReadImage(const string& filename, LibBitmapEntry_t entry, int index, int totalEntriesCount);
-    vector<pair<LibBitmapEntry_t, vector<uint8_t>>> ReadAllImages(const string& filename);
+	pair<int, vector<BitmapEntry_t>>                GetEntries(const string& filename);
+    vector<Color>                                   PlanarToChunky(const vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette);
+    vector<uint8_t>                                 GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
+    vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data);
+    vector<uint8_t>                                 ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount);
+    vector<pair<BitmapEntry_t, vector<uint8_t>>>    ReadAllImages(const string& filename);
 
     Palette                                         PreparePalette(const vector<uint16_t>& palette);
     Color                                           GetRGBFromRGB4(uint16_t rgb4);

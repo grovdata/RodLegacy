@@ -1,24 +1,43 @@
 #include "carbitmap.h"
-
+#include "parsers/libp.h"
 CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
 
-    bodySurface = IMG_Load(model.filename.c_str());
+    // bodySurface = IMG_Load(model.filename.c_str());
 
     // Get the top-left pixel's color
-    Uint32 topLeftPixelColor = ((Uint32*)bodySurface->pixels)[0];
+    // Uint32 topLeftPixelColor = ((Uint32*)bodySurface->pixels)[0];
 
-    SDL_Log("debugpix %d", topLeftPixelColor);
-    if (SDL_SetColorKey(bodySurface, SDL_TRUE, topLeftPixelColor) != 0) {
-        SDL_LogDebug(0, "SDL_SetColorKey error %s", SDL_GetError());
-    }
+    // SDL_Log("debugpix %d", topLeftPixelColor);
+    // if (SDL_SetColorKey(bodySurface, SDL_TRUE, topLeftPixelColor) != 0) {
+    //     SDL_LogDebug(0, "SDL_SetColorKey error %s", SDL_GetError());
+    // }
 
-    bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
-    bodyRect.x = 0;
-    bodyRect.y = 0;
-    bodyRect.w = model.width;
-    bodyRect.h = model.height;
+
+    int spriteIndex = 179;
+    string examplefile = "../../streetrod-bins/amiga/SR_disk2/lib.p";
+    BitmapParser p;
+    pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
+    BitmapEntry_t b = entries.second[spriteIndex];
+    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
+    Palette pal = p.PreparePalette(PAL1);
+
+    vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
+    // // p.PrintBitplanes(data);
+
+    //bodySurface = createSurfaceFromColors(chunkyData, b.width, b.height);
+    body.LoadBitmapFromChunky(chunkyData, b.width, b.height);
+    body.SetPosition(0, 0);
+    body.SetDimensions(model.width, model.height);
+    body.SetVisible(true);
+    SDL_Rect bodyRect = body.GetPosition();
+
+    // bodyTexture = SDL_CreateTextureFromSurface(renderer, bodySurface);
+    // bodyRect.x = 0;
+    // bodyRect.y = 0;
+    // bodyRect.w = model.width;
+    // bodyRect.h = model.height;
 
     driverSurface = IMG_Load("../data/res/lib_p_346.gif");
     driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
@@ -43,17 +62,17 @@ CarBitmap::CarBitmap(Car *car) {
 }
 
 CarBitmap::~CarBitmap() {
-    SDL_FreeSurface(bodySurface);
-    SDL_DestroyTexture(bodyTexture);
+    // delete body;
+    // SDL_DestroyTexture(bodyTexture);
     SDL_FreeSurface(driverSurface);
     SDL_DestroyTexture(driverTexture);
     delete rearWheel;
     delete frontWheel;
 }
 
-SDL_Texture* CarBitmap::GetTexture() {
-    return bodyTexture;
-}
+// SDL_Texture* CarBitmap::GetTexture() {
+//     return body.texture;
+// }
 
 void CarBitmap::Draw() {
     Uint64 elapsed = SDL_GetTicks64() - t;
@@ -67,30 +86,21 @@ void CarBitmap::Draw() {
     SDL_RenderCopy(renderer, driverTexture, NULL, &driverRect);
     rearWheel->DrawSprite(&rearWheelRect);
     rearWheel->DrawSprite(&frontWheelRect);
-    SDL_RenderCopy(renderer, bodyTexture, NULL, &bodyRect);
+    // SDL_RenderCopy(renderer, bodyTexture, NULL, &bodyRect);
+    body.Draw();
 
     gasCap.Draw();
     hoodScoop.Draw();
 }
 
 void CarBitmap::Move(SDL_Point p) {
-    bodyRect.x = p.x;
-    bodyRect.y = p.y;
-    UpdateTextures();
-}
-
-void CarBitmap::MoveLeft() {
-    bodyRect.x -= 3;
-    UpdateTextures();
-}
-
-void CarBitmap::MoveRight() {
-    bodyRect.x += 3;
+    body.SetPosition(p.x, p.y);
     UpdateTextures();
 }
 
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
+    SDL_Rect bodyRect = body.GetPosition();
     driverRect.x = bodyRect.x + model.driverX;
     driverRect.y = bodyRect.y + model.driverY;
 
