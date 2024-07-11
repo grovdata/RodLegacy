@@ -23,5 +23,6 @@ $(EXEC): $(OBJS) $(HDRS) Makefile
 clean:
 	find . -name '*.o' -exec rm -rf {} \;
 	find . -name '*.dSYM' -exec rm -rf {} \;
+	rm $(EXEC)
 
 .PHONY: all clean

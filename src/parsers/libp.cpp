@@ -60,12 +60,12 @@ void BitmapParser::PrintBitplanes(const std::vector<uint8_t>& data) {
     }
 }
 
-vector<LibBitmapEntry_t> BitmapParser::GetEntries(const string& filename) {
+pair<int, vector<LibBitmapEntry_t>> BitmapParser::GetEntries(const string& filename) {
     vector<LibBitmapEntry_t> result;
     ifstream file(filename, ios::binary);
     if (!file) {
         cerr << "File error: Unable to open file " << filename << endl;
-        return result;
+        return pair<int, vector<LibBitmapEntry_t>>(0, result);
     }
 
     uint16_t totalEntriesCount = readUint16BigEndian(file);
@@ -85,7 +85,7 @@ vector<LibBitmapEntry_t> BitmapParser::GetEntries(const string& filename) {
         result.push_back(newEntry);
     }
 
-    return result;
+    return pair<int, vector<LibBitmapEntry_t>>(totalEntriesCount, result);
 }
 
 vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount) {
@@ -99,6 +99,9 @@ vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const L
     file.seekg(0, ios::beg);
 
     int fileOffset = 2 + (sizeof(LibBitmapEntry_t) * totalEntriesCount) + bitmapEntry.offset;
+    cout << "entries " << totalEntriesCount << endl;
+    cout << "sizeof " << sizeof(LibBitmapEntry_t) << endl;
+    cout << "Offset for bitmap " << bitmapEntry.offset << " in file " << fileOffset << endl;
 
     if (fileOffset >= fileSize) {
         throw runtime_error("Can't read data because offset is larger than file size.");
@@ -132,18 +135,14 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
         bool found = false;
         const uint8_t *directory = sprite.rleDictionary;
 
-        for (int i = 0; i < 16; ++i) {
+        for (int i = 0; i < 16; i++) {
             if (directory[i] == 0) {
                 break;
             }
             if (b == directory[i]) {
-                for (int c = 0; c < rle[i].first; ++c) {
-                    try {
-                        ++pos;
-                        flat_bp.push_back(rle[i].second);
-                    } catch (...) {
-                        continue;
-                    }
+                for (int c = 0; c < rle[i].first; c++) {
+                    pos++;
+                    flat_bp.push_back(rle[i].second);
                 }
                 found = true;
                 break;
@@ -151,21 +150,21 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
         }
 
         if (found) {
-            ++p;
+            p++;
             continue;
         }
 
         if (b == 0 || b == 0xFF) {
             uint8_t c = data[p + 1] & 0xFF;
-            for (int i = 0; i < c + 1; ++i) {
+            for (int i = 0; i < c + 1; i++) {
                 flat_bp.push_back(b);
-                ++pos;
+                pos++;
             }
             p += 2;
         } else {
             flat_bp.push_back(b);
-            ++pos;
-            ++p;
+            pos++;
+            p++;
         }
     }
 
@@ -180,14 +179,16 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
 
 vector<pair<LibBitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
     vector<pair<LibBitmapEntry_t, vector<uint8_t>>> result;
-    vector<LibBitmapEntry_t> entries = GetEntries(filename);
+    pair<int, vector<LibBitmapEntry_t>> entries = GetEntries(filename);
 
     return result;
 }
 
-vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t entry, int index) {
+vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t entry, int index, int totalEntriesCount) {
     int expectedSize = (entry.width * entry.height * entry.depth) / 8;
-    vector<uint8_t> packedData = GetPackedData(filename, entry, 10);
+    vector<uint8_t> packedData = GetPackedData(filename, entry, totalEntriesCount);
+    cout << "packed data " << packedData.size()  << endl;
+    PrintBitplanes(packedData);
     vector<uint8_t> data = UnpackData(RLE, entry, packedData);
     if (expectedSize != data.size()) {
         cout << "Expected size: " << expectedSize << " actual size: " << data.size() << endl;
@@ -200,7 +201,7 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t
 int main() {
     string examplefile = "../../../streetrod-bins/amiga/SR_disk2/lib.p";
     BitmapParser p;
-    vector<LibBitmapEntry_t> entries = p.GetEntries(examplefile.c_str());
-    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), entries[0], 0);
+    pair<int, vector<LibBitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
+    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), entries.second[0], 0, entries.first);
     // p.PrintBitplanes(data);
 }
