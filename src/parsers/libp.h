@@ -100,7 +100,8 @@ enum AmigaLibAsset {
     GARAGE_SCREEN = 365,
 };
 
-// An entry representing a packed bitmap
+
+#pragma pack(push, 1)
 struct LibBitmapEntry_t {
     uint16_t width;
     uint16_t height;
@@ -110,17 +111,26 @@ struct LibBitmapEntry_t {
     uint32_t offset;
     uint16_t sizePacked;
 };
+#pragma pack(pop)
 
 // hard-coded in SR.EXE / SRSE.EXE @ 0x3CA23
 const int COUNT[] = {1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8};
 const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00};
 
-std::vector<std::pair<int, uint8_t>> RLE = {
+vector<pair<int, uint8_t>> RLE = {
 	{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0},
 	{2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},
 	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff},
 	{8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}
 };
+
+vector<uint16_t> PAL = {
+    0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98,
+    0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96,
+    0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32,
+    0x009F, 0x00BF
+};
+
 
 class BitmapParser {
    private:
@@ -133,10 +143,10 @@ class BitmapParser {
 
    public:
 
-	std::vector<LibBitmapEntry_t> GetEntries(const string& filename);
-
-    vector<uint8_t> GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount);
-    vector<uint8_t> UnpackData(const vector<pair<int, uint8_t>> &rle, const LibBitmapEntry_t &sprite, const vector<uint8_t> &data);
-    vector<uint8_t> ReadImage(const string& filename, LibBitmapEntry_t entry, int index);
+	pair<int, vector<LibBitmapEntry_t>>             GetEntries(const string& filename);
+    vector<uint8_t>                                 PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const vector<uint16_t>& palette);
+    vector<uint8_t>                                 GetPackedData(const std::string& filename, const LibBitmapEntry_t& bitmapEntry, int totalEntriesCount);
+    vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const LibBitmapEntry_t &sprite, const vector<uint8_t> &data);
+    vector<uint8_t>                                 ReadImage(const string& filename, LibBitmapEntry_t entry, int index, int totalEntriesCount);
     vector<pair<LibBitmapEntry_t, vector<uint8_t>>> ReadAllImages(const string& filename);
 };

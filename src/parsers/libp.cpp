@@ -177,6 +177,36 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
     return flat_bp;
 }
 
+vector<uint8_t> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, LibBitmapEntry_t entry, const vector<uint16_t>& palette) {
+    vector<uint8_t> chunkyData(entry.width * entry.height);
+
+    int planeSize = (entry.width / 8) * entry.height;
+
+    for (int y = 0; y < entry.height; ++y) {
+        for (int x = 0; x < entry.width; x += 8) {
+            int offset = (y * entry.width + x) / 8;
+            for (int i = 0; i < 8; ++i) {
+                uint8_t value = 0;
+                uint8_t shift = (1 << (7 - i));
+
+                for (int p = 0; p < entry.depth; ++p) {
+                    if (shift & data[p * planeSize + offset]) {
+                        value |= 1 << p;
+                    }
+                }
+
+                int pixel_index = (y * entry.width) + (x + i);
+                chunkyData[pixel_index] = palette[value];
+            }
+        }
+    }
+
+    cout << "chunky data " << chunkyData.size()  << endl;
+    PrintBitplanes(chunkyData);
+
+    return chunkyData;
+}
+
 vector<pair<LibBitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
     vector<pair<LibBitmapEntry_t, vector<uint8_t>>> result;
     pair<int, vector<LibBitmapEntry_t>> entries = GetEntries(filename);
@@ -187,8 +217,8 @@ vector<pair<LibBitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(cons
 vector<uint8_t> BitmapParser::ReadImage(const string& filename, LibBitmapEntry_t entry, int index, int totalEntriesCount) {
     int expectedSize = (entry.width * entry.height * entry.depth) / 8;
     vector<uint8_t> packedData = GetPackedData(filename, entry, totalEntriesCount);
-    cout << "packed data " << packedData.size()  << endl;
-    PrintBitplanes(packedData);
+    // cout << "packed data " << packedData.size()  << endl;
+    // PrintBitplanes(packedData);
     vector<uint8_t> data = UnpackData(RLE, entry, packedData);
     if (expectedSize != data.size()) {
         cout << "Expected size: " << expectedSize << " actual size: " << data.size() << endl;
@@ -202,6 +232,8 @@ int main() {
     string examplefile = "../../../streetrod-bins/amiga/SR_disk2/lib.p";
     BitmapParser p;
     pair<int, vector<LibBitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
-    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), entries.second[0], 0, entries.first);
+    LibBitmapEntry_t b = entries.second[0];
+    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, 0, entries.first);
+    vector<uint8_t> chunkyData = p.PlanarToChunky(data, b, PAL);
     // p.PrintBitplanes(data);
 }

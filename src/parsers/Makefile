@@ -1,6 +1,6 @@
 CC := g++
 SDL_CONF := `sdl2-config --cflags --libs`
-CFLAGS := $(SDL_CONF) -ggdb3 -O0 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
+CFLAGS := $(SDL_CONF) -ggdb3 -O3 -Wall -lSDL2_image -lSDL2_mixer -lm -std=c++11
 
 
 HDRS := libp.h
