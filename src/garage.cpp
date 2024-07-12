@@ -1,7 +1,10 @@
 #include "garage.h"
 #include "state.h"
+#include "assets.h"
+#include "state.h"
 
-Garage::Garage() : CarScene("../data/res/garage_bar.png") {
+Garage::Garage() : CarScene((Asset){AssetTypeBitmap, AssetLocationAmigaLibP, GARAGE_SCREEN}) {
+
     SDL_Rect bottleRect = {7, 161, 8, 24};
     Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
 

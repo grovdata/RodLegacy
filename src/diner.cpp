@@ -4,7 +4,7 @@
 
 double carAnimationTimeDiner = 0;
 
-Diner::Diner() : CarScene("../data/res/lib_p_305.gif") {
+Diner::Diner() : CarScene((Asset){AssetTypeBitmap, AssetLocationAmigaLibP, DINER_SCREEN}) {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);

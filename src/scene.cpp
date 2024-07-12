@@ -1,8 +1,36 @@
 #include "scene.h"
 #include "state.h"
 #include "ui/zone.h"
+#include "assets.h"
+
+Scene::Scene(Asset backgroundAsset) {
+    this->isSetup = false;
+    this->backgroundAsset = backgroundAsset;
+    //background->SetPosition(0, 0);
+    //background->SetVisible(true);
+}
 
 Scene::Scene(std::string backgroundName) {
+    this->isSetup = false;
+    this->backgroundName = backgroundName;
+}
+
+Scene::~Scene() {
+    SDL_FreeSurface(fontSurface);
+    SDL_DestroyTexture(fontTexture);
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(fadeSurface);
+    SDL_DestroyTexture(fadeTexture);
+}
+
+MousePointer Scene::GetPointerType() {
+    return PointerHand;
+}
+
+void Scene::Init() {
+    background = state.assets.GetBitmapAsset(backgroundAsset);
+    background->SetVisible(true);
     sceneTransition = SCENE_SOLID;
     surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
                                     0x00FF0000,
@@ -35,20 +63,7 @@ Scene::Scene(std::string backgroundName) {
     m_statusBarRect.h = GAME_STATUSBAR_HEIGHT;
 
     m_statusBarMiddleRect = m_statusBarRect;
-    m_statusBarMiddleRect.x = 160;
-}
-
-Scene::~Scene() {
-    SDL_FreeSurface(fontSurface);
-    SDL_DestroyTexture(fontTexture);
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(fadeSurface);
-    SDL_DestroyTexture(fadeTexture);
-}
-
-MousePointer Scene::GetPointerType() {
-    return PointerHand;
+    m_statusBarMiddleRect.x = GAME_WIDTH/2;
 }
 
 void Scene::SetStatusBar(char *text) {
@@ -95,6 +110,12 @@ SDL_Texture *Scene::GetTexture() {
 }
 
 void Scene::Draw() {
+    if (!isSetup) {
+        Init();
+        isSetup = true;
+    }
+
+    background->Draw();
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
     SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);
 }
@@ -163,7 +184,9 @@ void Scene::OnFadeComplete() {
 }
 
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
+}
 
+CarScene::CarScene(Asset backgroundAsset): Scene(backgroundAsset) {
 }
 
 void CarScene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {

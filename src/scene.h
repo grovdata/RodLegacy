@@ -5,6 +5,8 @@
 #include "ui/button.h"
 #include "ui/bubble.h"
 #include "mouse.h"
+#include "assets.h"
+#include "bitmap.h"
 #include "carbitmap.h"
 
 using namespace std;
@@ -28,6 +30,8 @@ class Car;
 
 class Scene {
    private:
+    bool isSetup;
+
     ZoneId CheckMouseHover(int x, int y);
     static Uint32 FadeCallback(Uint32 interval, void* param);
     SDL_TimerID fadeTimerID;
@@ -36,19 +40,25 @@ class Scene {
     SceneTransition sceneTransition;
     GameScene sceneTransitioningTo;
 
+    Asset backgroundAsset;
+    Bitmap *background;
+
     SDL_Surface *surface, *fontSurface, *fadeSurface;
     SDL_Texture *texture, *fontTexture, *fadeTexture;
     SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
 
-    string m_backgroundName;
+    string backgroundName;
     vector<Zone> zones;
     vector<Button> buttons;
     vector<SDL_Texture*> textures;
     vector<Bubble*> bubbles;
 
    public:
+    Scene(Asset backgroundAsset);
     Scene(string backgroundName);
     ~Scene();
+    void Init();
+
     SDL_Texture *GetTexture();
 
     virtual MousePointer GetPointerType();
@@ -71,6 +81,7 @@ class Scene {
 class CarScene: public Scene {
     public:
         CarScene(std::string backgroundName);
+        CarScene(Asset backgroundAsset);
         virtual void DrawMaskAfterCar();
         virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
         virtual SDL_Point GetCarIdlePosition();

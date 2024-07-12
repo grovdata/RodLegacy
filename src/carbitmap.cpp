@@ -6,20 +6,10 @@
 CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
-    // int spriteIndex = model.index;
-    // string examplefile = LIBP_FILE;
 
-    // BitmapParser p;
-    // pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
-    // BitmapEntry_t b = entries.second[spriteIndex];
-    // vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
-    // Palette pal = p.PreparePalette(PAL1);
-    // vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
-
-    Asset carAsset = {AssetTypeBitmap, AssetLocationAmigaLibP, CHEVROLET_CORVETTE_1963_BODY};
+    Asset carAsset = {AssetTypeBitmap, AssetLocationAmigaLibP, FORD_FAIRLANE_19XX_BODY};
     body = state.assets.GetBitmapAsset(carAsset);
 
-    // body->LoadBitmapFromChunky(chunkyData, b.width, b.height);
     body->SetPosition(0, 0);
     body->SetDimensions(model.width, model.height);
     body->SetVisible(true);

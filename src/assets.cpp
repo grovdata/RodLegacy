@@ -23,6 +23,8 @@ void AssetManager::LoadAssets() {
         unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
         bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
 
+        bitmap->SetDimensions(b.width, b.height);
+
         Asset a;
         a.id = i;
         a.location = AssetLocationAmigaLibP;
