@@ -29,10 +29,10 @@ Game game;
 Mouse mouse;
 BitmapParser b;
 
+
 int main(void) {
     // TODO: Move this somewhere else
-    // vector<LibBitmapEntry_t> result =
-    // b.Parse(strdup("../amiga/SR_disk2/lib.p")); LibBitmapEntry_t first =
+    // vector<BitmapEntry_t> result = b.GetEntries(strdup("../../streetrod-bins/amiga/SR_disk2/lib.p"));// LibBitmapEntry_t first =
     // result.at(0); uint8_t databuf[first.sizePacked];
     // b.GetData(strdup("../amiga/SR_disk2/lib.p"), databuf, &first,
     // result.size());
@@ -111,7 +111,7 @@ int main(void) {
     bool close_requested = false;
 
     Uint64 timeDelta = 0;
-    
+
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -164,22 +164,22 @@ int main(void) {
         }
 
         SDL_RenderClear(renderer);
-        
+
         Scene *scene = state.GetCurrentScene();
-        
-        
+
+
         scene->Draw();
-        
+
         // This is hacky, we can do better
         GameScene gameScene = state.GetCurrentGameScene();
         if (gameScene != SCENE_DRIVING && gameScene != SCENE_CRUISING) {
             ((CarScene*)scene)->DrawMaskAfterCar();
         }
-        
+
         mouse.Draw();
-        
+
         timeDelta = SDL_GetTicks64() - timeDelta;
-        
+
         game.Update(timeDelta);
         state.SetElapsedTime(timeDelta);
 

@@ -6,13 +6,9 @@
 
 [[cars]]
 id = "chevy2dr"
-index = 0
+index = 179
 vendor = 2
 name = "Chevrolet 2-dr coupe"
-#filename = "/home/user/kod/privat/streetrod-legacy/data/dos-rip/dat2/Sprite039.bmp"
-#filename = "/home/user/kod/privat/streetrod-research/src/parsers/data/bitmaps/lib_p/lib_p_179.gif"
-#filename = "/home/user/Code/streetrod-research/research/parsers/data/bitmaps/lib_p/lib_p_179.gif"
-filename = "../data/res/lib_p_179.gif"
 year = 1940
 baseSpeed = 98
 width = 232

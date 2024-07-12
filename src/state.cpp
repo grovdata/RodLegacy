@@ -14,6 +14,8 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     CarModel chevy = carData.GetModel(strdup("chevy2dr"));
     Car *chevyCar = new Car(chevy);
     this->currentCar = chevyCar;
+
+    assets.LoadAssets();
 }
 
 State::~State() {

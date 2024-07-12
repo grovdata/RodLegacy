@@ -69,10 +69,10 @@ int main(int argc, char *argv[]) {
 
     string examplefile = "../../../streetrod-bins/amiga/SR_disk2/lib.p";
     BitmapParser p;
-    pair<int, vector<LibBitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
-    LibBitmapEntry_t b = entries.second[spriteIndex];
+    pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
+    BitmapEntry_t b = entries.second[spriteIndex];
     vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
-    Palette pal = p.PreparePalette(PAL);
+    Palette pal = p.PreparePalette(PAL1);
 
     vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
     // p.PrintBitplanes(data);

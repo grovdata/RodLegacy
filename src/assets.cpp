@@ -1,41 +1,46 @@
 #include "assets.h"
+
 #include "bitmap.h"
 #include "parsers/libp.h"
 
-AssetManager::AssetManager() {}
+AssetManager::AssetManager() {
+}
 
 AssetManager::~AssetManager() {
-    cleanup();
 }
 
-bool AssetManager::loadImage(const std::string& filePath) {
-    SDL_Surface* surface = loadSurface(filePath);
-    if (surface != nullptr) {
-        assets.push_back(surface);
-        return true;
+void AssetManager::LoadAssets() {
+    BitmapParser p;
+    pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(LIBP_FILE);
+
+    Palette pal = p.PreparePalette(PAL1);
+
+    for (int i = 0; i < entries.first; i++) {
+        BitmapEntry_t b = entries.second[i];
+        vector<uint8_t> data = p.ReadImage(LIBP_FILE, b, i, entries.first);
+        vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
+        Bitmap bitmap;
+        bitmap.LoadBitmapFromChunky(chunkyData, b.width, b.height);
+
+        Asset a;
+        a.id = i;
+        a.location = AssetLocationAmigaLibP;
+        a.type = AssetTypeBitmap;
+
+        imageAssets.push_back(make_pair(a, bitmap));
     }
-    return false;
 }
 
-SDL_Surface* AssetManager::getImage(int index) const {
-    if (index >= 0 && index < assets.size()) {
-        return assets[index];
-    }
-    std::cerr << "Error: Index out of bounds in getImage()" << std::endl;
-    return nullptr;
-}
+Bitmap AssetManager::GetBitmapAsset(Asset asset) {
+    switch (asset.type) {
+        case AssetTypeBitmap:
+            for (auto i: imageAssets) {
+                if (i.first == asset) {
+                    return i.second;
+                }
+            }
 
-void AssetManager::cleanup() {
-    for (auto surface : assets) {
-        SDL_FreeSurface(surface);
+        default:
+            break;
     }
-    assets.clear();
-}
-
-SDL_Surface* AssetManager::loadSurface(const std::string& filePath) {
-    SDL_Surface* surface = SDL_LoadBMP(filePath.c_str());
-    if (surface == nullptr) {
-        std::cerr << "Unable to load image " << filePath << "! SDL Error: " << SDL_GetError() << std::endl;
-    }
-    return surface;
 }

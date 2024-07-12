@@ -1,29 +1,44 @@
 #pragma once
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <vector>
 #include <string>
 #include <iostream>
+#include <tuple>
+
+#include "bitmap.h"
+
+enum AssetType {
+    AssetTypeBitmap = 0
+};
+
+enum AssetLocation {
+    AssetLocationAmigaLibStart = 0,
+    AssetLocationAmigaLibP = 1
+};
+
+struct Asset {
+    AssetType type;
+    AssetLocation location;
+    int id;
+
+    bool operator==(const Asset& other) const {
+        return (type == other.type && location == other.location && id == other.id);
+    }
+};
 
 class AssetManager {
 public:
-    // Constructor
     AssetManager();
-
-    // Destructor
     ~AssetManager();
 
-    // Load an image into the asset manager
-    bool loadImage(const std::string& filePath);
+    void LoadAssets();
 
-    // Get a loaded image
-    SDL_Surface* getImage(int index) const;
+    Bitmap GetBitmapAsset(Asset asset);
 
-    // Cleanup all loaded assets
-    void cleanup();
 
 private:
-    std::vector<SDL_Surface*> assets;
+    vector<pair<Asset, Bitmap>> imageAssets;
 
     // Load a single surface
     SDL_Surface* loadSurface(const std::string& filePath);

@@ -7,6 +7,7 @@
 #include "driving.h"
 #include "garage.h"
 #include "gas_station.h"
+#include "assets.h"
 
 #include <set>
 #include <vector>
@@ -29,9 +30,10 @@ private:
 
     GameScene currentGameScene;
     Scene *currentScene;
-        
+
     Uint64 elapsedTime;
 
+    AssetManager assets;
     CarData carData;
     Garage garage;
     Diner diner;

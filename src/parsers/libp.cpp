@@ -131,6 +131,11 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
 
     int pos = 0;
 
+    if (rle.size() != 16) {
+        cout << "No valid RLE table!" << endl;
+        return flat_bp;
+    }
+
     while (pos < width * height * depth) {
         uint8_t b = data[p];
 
@@ -142,6 +147,7 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
                 break;
             }
             if (b == directory[i]) {
+                cout << "rle " << i << " " << rle.size() << endl;
                 for (int c = 0; c < rle[i].first; c++) {
                     pos++;
                     flat_bp.push_back(rle[i].second);
