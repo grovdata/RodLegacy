@@ -5,6 +5,8 @@
 #include <string>
 #include <iostream>
 #include <tuple>
+#include <memory>
+#include <map>
 
 #include "bitmap.h"
 
@@ -34,12 +36,10 @@ public:
 
     void LoadAssets();
 
-    Bitmap GetBitmapAsset(Asset asset);
+    Bitmap* GetBitmapAsset(const Asset& asset);
 
 
 private:
-    vector<pair<Asset, Bitmap>> imageAssets;
-
-    // Load a single surface
-    SDL_Surface* loadSurface(const std::string& filePath);
+    vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
+    map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
 };

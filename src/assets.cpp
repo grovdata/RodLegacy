@@ -12,6 +12,7 @@ AssetManager::~AssetManager() {
 void AssetManager::LoadAssets() {
     BitmapParser p;
     pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(LIBP_FILE);
+    imageEntries[AssetLocationAmigaLibP] = entries;
 
     Palette pal = p.PreparePalette(PAL1);
 
@@ -19,28 +20,30 @@ void AssetManager::LoadAssets() {
         BitmapEntry_t b = entries.second[i];
         vector<uint8_t> data = p.ReadImage(LIBP_FILE, b, i, entries.first);
         vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
-        Bitmap bitmap;
-        bitmap.LoadBitmapFromChunky(chunkyData, b.width, b.height);
+        unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
+        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
 
         Asset a;
         a.id = i;
         a.location = AssetLocationAmigaLibP;
         a.type = AssetTypeBitmap;
 
-        imageAssets.push_back(make_pair(a, bitmap));
+        imageAssets.push_back(make_pair(a, move(bitmap)));
     }
 }
 
-Bitmap AssetManager::GetBitmapAsset(Asset asset) {
+Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     switch (asset.type) {
         case AssetTypeBitmap:
-            for (auto i: imageAssets) {
+            for (auto& i : imageAssets) {
                 if (i.first == asset) {
-                    return i.second;
+                    return i.second.get();
                 }
             }
+            break;
 
         default:
             break;
     }
+    return nullptr;
 }

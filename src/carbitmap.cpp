@@ -1,23 +1,29 @@
 #include "carbitmap.h"
 #include "parsers/libp.h"
+#include "assets.h"
+#include "state.h"
+
 CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
-    int spriteIndex = model.index;
-    string examplefile = LIBP_FILE;
+    // int spriteIndex = model.index;
+    // string examplefile = LIBP_FILE;
 
-    BitmapParser p;
-    pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
-    BitmapEntry_t b = entries.second[spriteIndex];
-    vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
-    Palette pal = p.PreparePalette(PAL1);
-    vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
+    // BitmapParser p;
+    // pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
+    // BitmapEntry_t b = entries.second[spriteIndex];
+    // vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
+    // Palette pal = p.PreparePalette(PAL1);
+    // vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
 
-    body.LoadBitmapFromChunky(chunkyData, b.width, b.height);
-    body.SetPosition(0, 0);
-    body.SetDimensions(model.width, model.height);
-    body.SetVisible(true);
-    SDL_Rect bodyRect = body.GetPosition();
+    Asset carAsset = {AssetTypeBitmap, AssetLocationAmigaLibP, CHEVROLET_CORVETTE_1963_BODY};
+    body = state.assets.GetBitmapAsset(carAsset);
+
+    // body->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+    body->SetPosition(0, 0);
+    body->SetDimensions(model.width, model.height);
+    body->SetVisible(true);
+    SDL_Rect bodyRect = body->GetPosition();
 
     driverSurface = IMG_Load("../data/res/lib_p_346.gif");
     driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
@@ -61,19 +67,19 @@ void CarBitmap::Draw() {
     rearWheel->DrawSprite(&rearWheelRect);
     rearWheel->DrawSprite(&frontWheelRect);
 
-    body.Draw();
+    body->Draw();
     gasCap.Draw();
     hoodScoop.Draw();
 }
 
 void CarBitmap::Move(SDL_Point p) {
-    body.SetPosition(p.x, p.y);
+    body->SetPosition(p.x, p.y);
     UpdateTextures();
 }
 
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
-    SDL_Rect bodyRect = body.GetPosition();
+    SDL_Rect bodyRect = body->GetPosition();
     driverRect.x = bodyRect.x + model.driverX;
     driverRect.y = bodyRect.y + model.driverY;
 

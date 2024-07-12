@@ -33,7 +33,6 @@ private:
 
     Uint64 elapsedTime;
 
-    AssetManager assets;
     CarData carData;
     Garage garage;
     Diner diner;
@@ -57,6 +56,7 @@ public:
 
     Car* GetCurrentCar();
 
+    AssetManager assets;
 };
 
 extern State state;

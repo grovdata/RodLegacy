@@ -9,7 +9,7 @@ class CarBitmap {
     Car *car;
 
     // Body
-    Bitmap body;
+    Bitmap *body;
 
     // Driver
     SDL_Surface *driverSurface;
