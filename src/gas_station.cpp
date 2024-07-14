@@ -3,7 +3,7 @@
 
 double carAnimationTimeGasStation = 0;
 
-GasStation::GasStation() : CarScene((Asset){AssetTypeBitmap, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
+GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
     // SDL_Rect bottleRect = {7, 161, 8, 24};
     // Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
     // zones.push_back(bottle);

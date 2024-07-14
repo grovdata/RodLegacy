@@ -213,4 +213,6 @@ class BitmapParser {
     Color                                           GetRGBFromRGB4(uint16_t rgb4);
 
     LibAssetType                                    GetAssetType(AssetLocation location, int index);
+
+    pair<int, int>                                  GetSpritesheetInfo(AssetLocation location, int index);
 };

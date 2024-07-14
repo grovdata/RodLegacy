@@ -287,25 +287,46 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t en
     return data;
 }
 
-LibAssetType GetAssetType(AssetLocation location, int index) {
+LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
     switch (location) {
-    case AssetLocationAmigaLibP:
-        AmigaLibAsset a = (AmigaLibAsset)index;
-        switch (a) {
-            case CAR_TIRES_BRAND:
-            case CAR_TIRES_RACING:
-            case CAR_TIRES_STOCK:
-            case PHONEBOOK_GUY:
-                return LibAssetSpritesheet;
-            case GUS_GAS_MASK:
-                return LibAssetMask;
-            default:
-                return LibAssetRegular;
-        }
-
-        break;
+    case AssetLocationAmigaLibP: {
+            AmigaLibAsset a = (AmigaLibAsset)index;
+            switch (a) {
+                case CAR_TIRES_BRAND:
+                case CAR_TIRES_RACING:
+                case CAR_TIRES_STOCK:
+                case PHONEBOOK_GUY:
+                    return LibAssetSpritesheet;
+                case GUS_GAS_MASK:
+                    return LibAssetMask;
+                default:
+                    return LibAssetRegular;
+            }
+    }
 
     default:
         return LibAssetRegular;
+    }
+}
+
+// Return rows, columns for spritesheet
+pair<int, int> BitmapParser::GetSpritesheetInfo(AssetLocation location, int index) {
+switch (location) {
+    case AssetLocationAmigaLibP: {
+            AmigaLibAsset a = (AmigaLibAsset)index;
+            switch (a) {
+                case CAR_TIRES_BRAND:
+                case CAR_TIRES_RACING:
+                case CAR_TIRES_STOCK:
+                    return make_tuple(1, 4);
+                case PHONEBOOK_GUY:
+                    return make_tuple(2, 5);
+                default:
+                    return make_tuple(0, 0);
+            }
+    }
+
+    default:
+        return make_tuple(0, 0);
     }
 }

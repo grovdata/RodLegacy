@@ -1,6 +1,7 @@
 #include "assets.h"
 
 #include "bitmap.h"
+#include "spritesheet.h"
 #include "parsers/libp.h"
 
 AssetManager::AssetManager() {
@@ -24,10 +25,11 @@ void AssetManager::LoadAssets() {
         Asset a;
         a.id = i;
         a.location = AssetLocationAmigaLibP;
-        a.type = p.GetAssetType(AssetLocationAmigaLibP);
+        a.type = p.GetAssetType(AssetLocationAmigaLibP, i);
 
-        if (a.type == LibAssetRegular) {
-            unique_ptr<SpriteSheet> spriteSheet = make_unique<SpriteSheet>();
+        if (a.type == LibAssetSpritesheet) {
+            pair<int, int> info = p.GetSpritesheetInfo(AssetLocationAmigaLibP, i);
+            unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
             spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height);
             spriteSheet->SetDimensions(b.width, b.height);
             imageAssets.push_back(make_pair(a, move(spriteSheet)));
@@ -44,7 +46,7 @@ void AssetManager::LoadAssets() {
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     switch (asset.type) {
-        case AssetTypeBitmap:
+        case LibAssetRegular:
             for (auto& i : imageAssets) {
                 if (i.first == asset) {
                     return i.second.get();
