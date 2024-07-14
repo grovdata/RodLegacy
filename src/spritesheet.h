@@ -1,23 +1,19 @@
 #pragma once
 
 #include "global.h"
+#include "bitmap.h"
 
-class Spritesheet {
+class Spritesheet: Bitmap {
    public:
-    Spritesheet(char const *path, int rows, int columns);
-    ~Spritesheet();
-
+    Spritesheet(int rows, int columns);
     void SelectSprite(int x, int y);
     void UpdateSprite();
     void CycleNextSprite();
-    void DrawSprite(SDL_Rect *position);
-
-    SDL_Texture* GetTexture();
+    void Draw() override;
+    void SetPosition(int x, int y);
 
    private:
     SDL_Rect clipRect;
-    SDL_Texture *texture;
-    SDL_Surface *surface;
 
     int rows;
     int columns;

@@ -29,4 +29,6 @@ class Car {
 
 
         CarModel GetModel();
+        CarWheelType GetTireType();
+        int GetDriver();
 };

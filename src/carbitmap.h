@@ -12,9 +12,7 @@ class CarBitmap {
     Bitmap *body;
 
     // Driver
-    SDL_Surface *driverSurface;
-    SDL_Texture *driverTexture;
-    SDL_Rect driverRect;
+    Bitmap *driver;
 
     // Wheels
     Spritesheet *rearWheel;
@@ -24,8 +22,8 @@ class CarBitmap {
     SDL_Rect frontWheelRect;
 
     // Gas cap
-    Bitmap gasCap;
-    Bitmap hoodScoop;
+    Bitmap *gasCap;
+    Bitmap *hoodScoop;
 
     Uint64 t;
 

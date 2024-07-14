@@ -16,6 +16,18 @@ enum AmigaLibFile {
     LIBP = 1
 };
 
+enum LibAssetType {
+    LibAssetRegular,
+    LibAssetMask,
+    LibAssetSpritesheet,
+    LibAssetInvalid
+};
+
+enum AssetLocation {
+    AssetLocationAmigaLibStart = 0,
+    AssetLocationAmigaLibP = 1
+};
+
 enum AmigaLibAsset {
     SPEECH_BUBBLE_ARROW_RIGHT = 0,
     SPEECH_BUBBLE_ARROW_LEFT = 1,
@@ -151,6 +163,8 @@ enum AmigaLibAsset {
     DRIVER_THE_KING = 364,
     //
     GARAGE_SCREEN = 365,
+    //
+    PHONEBOOK_GUY = 374
 };
 
 
@@ -197,4 +211,6 @@ class BitmapParser {
 
     Palette                                         PreparePalette(const vector<uint16_t>& palette);
     Color                                           GetRGBFromRGB4(uint16_t rgb4);
+
+    LibAssetType                                    GetAssetType(AssetLocation location, int index);
 };

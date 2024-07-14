@@ -9,12 +9,11 @@ enum BitmapAlign {
 };
 
 class Bitmap {
-    private:
-        SDL_Texture *texture;
-        SDL_Surface *surface;
     protected:
         SDL_Rect rect;
         bool isVisible;
+        SDL_Texture *texture;
+        SDL_Surface *surface;
     public:
         Bitmap();
         ~Bitmap();
@@ -30,5 +29,5 @@ class Bitmap {
 
         void SetVisible(bool visible);
 
-        void Draw();
+        virtual void Draw();
 };

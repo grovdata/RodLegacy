@@ -7,39 +7,46 @@ CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
 
-    Asset carAsset = {AssetTypeBitmap, AssetLocationAmigaLibP, FORD_FAIRLANE_19XX_BODY};
+    Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
     body = state.assets.GetBitmapAsset(carAsset);
-
     body->SetPosition(0, 0);
     body->SetDimensions(model.width, model.height);
     body->SetVisible(true);
     SDL_Rect bodyRect = body->GetPosition();
 
-    driverSurface = IMG_Load("../data/res/lib_p_346.gif");
-    driverTexture = SDL_CreateTextureFromSurface(renderer, driverSurface);
-    driverRect.x  = model.driverX;
-    driverRect.y  = model.driverY;
-    driverRect.w  = driverSurface->w;
-    driverRect.h  = driverSurface->h;
+    driver = state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, car->GetDriver()});
+    driver->SetVisible(false);
 
-    gasCap.LoadBitmap("../data/res/lib_p_308.gif");
+    Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
+    gasCap = state.assets.GetBitmapAsset(capAsset);
+    gasCap->SetVisible(false);
 
-    gasCap.SetVisible(false);
+    Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_SCOOP1};
+    hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
+    hoodScoop->SetPosition(model.width + model.hoodScoopX, model.height + model.hoodScoopY);
+    hoodScoop->SetVisible(true);
 
-    hoodScoop.LoadBitmap("../data/res/lib_p_310.gif");
-    hoodScoop.SetPosition(model.width + model.hoodScoopX, model.height + model.hoodScoopY);
-    hoodScoop.SetVisible(true);
+    AmigaLibAsset wheelAssetNo;
+    switch (car->GetTireType())
+    {
+    case RACING:
+        wheelAssetNo = CAR_TIRES_RACING;
+    case BRAND:
+        wheelAssetNo = CAR_TIRES_BRAND;
+    default:
+        wheelAssetNo = CAR_TIRES_STOCK;
+        break;
+    }
 
-    rearWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);
-    frontWheel = new Spritesheet("../data/res/lib_p_321.png", 1, 4);
+
+    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(1,0);
 
     t = SDL_GetTicks64();
 }
 
 CarBitmap::~CarBitmap() {
-    SDL_FreeSurface(driverSurface);
-    SDL_DestroyTexture(driverTexture);
+    delete driver;
     delete rearWheel;
     delete frontWheel;
 }
@@ -53,13 +60,12 @@ void CarBitmap::Draw() {
         frontWheel->CycleNextSprite();
     }
 
-    SDL_RenderCopy(renderer, driverTexture, NULL, &driverRect);
-    rearWheel->DrawSprite(&rearWheelRect);
-    rearWheel->DrawSprite(&frontWheelRect);
-
+    driver->Draw();
+    rearWheel->Draw();
+    rearWheel->Draw();
     body->Draw();
-    gasCap.Draw();
-    hoodScoop.Draw();
+    gasCap->Draw();
+    hoodScoop->Draw();
 }
 
 void CarBitmap::Move(SDL_Point p) {
@@ -70,11 +76,12 @@ void CarBitmap::Move(SDL_Point p) {
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     SDL_Rect bodyRect = body->GetPosition();
-    driverRect.x = bodyRect.x + model.driverX;
-    driverRect.y = bodyRect.y + model.driverY;
+    driver->SetPosition(bodyRect.x + model.driverX, bodyRect.y + model.driverY);
+    rearWheel->SetPosition(bodyRect.x + model.rearWheelX, bodyRect.y + model.rearWheelY);
+    frontWheel->SetPosition(bodyRect.x + model.frontWheelX, bodyRect.y);
 
-    rearWheelRect = { bodyRect.x + model.rearWheelX, bodyRect.y + model.rearWheelY, 31, 31};
-    frontWheelRect = { bodyRect.x + model.frontWheelX, bodyRect.y + model.frontWheelY, 31, 31};
+    // rearWheelRect = { bodyRect.x + model.rearWheelX, bodyRect.y + model.rearWheelY, 31, 31};
+    // frontWheelRect = { bodyRect.x + model.frontWheelX, bodyRect.y + model.frontWheelY, 31, 31};
 
-    gasCap.SetPosition(bodyRect.x + model.gasCapX, bodyRect.y + model.gasCapY);
+    gasCap->SetPosition(bodyRect.x + model.gasCapX, bodyRect.y + model.gasCapY);
 }

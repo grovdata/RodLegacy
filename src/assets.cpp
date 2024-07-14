@@ -20,17 +20,25 @@ void AssetManager::LoadAssets() {
         BitmapEntry_t b = entries.second[i];
         vector<uint8_t> data = p.ReadImage(LIBP_FILE, b, i, entries.first);
         vector<Color> chunkyData = p.PlanarToChunky(data, b, pal);
-        unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
-        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
-
-        bitmap->SetDimensions(b.width, b.height);
 
         Asset a;
         a.id = i;
         a.location = AssetLocationAmigaLibP;
-        a.type = AssetTypeBitmap;
+        a.type = p.GetAssetType(AssetLocationAmigaLibP);
 
-        imageAssets.push_back(make_pair(a, move(bitmap)));
+        if (a.type == LibAssetRegular) {
+            unique_ptr<SpriteSheet> spriteSheet = make_unique<SpriteSheet>();
+            spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+            spriteSheet->SetDimensions(b.width, b.height);
+            imageAssets.push_back(make_pair(a, move(spriteSheet)));
+        } else {
+            unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
+            bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+            bitmap->SetDimensions(b.width, b.height);
+            imageAssets.push_back(make_pair(a, move(bitmap)));
+        }
+
+
     }
 }
 

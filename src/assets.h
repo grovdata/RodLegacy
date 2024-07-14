@@ -9,18 +9,11 @@
 #include <map>
 
 #include "bitmap.h"
+#include "parsers/libp.h"
 
-enum AssetType {
-    AssetTypeBitmap = 0
-};
-
-enum AssetLocation {
-    AssetLocationAmigaLibStart = 0,
-    AssetLocationAmigaLibP = 1
-};
 
 struct Asset {
-    AssetType type;
+    LibAssetType type;
     AssetLocation location;
     int id;
 

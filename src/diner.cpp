@@ -4,7 +4,7 @@
 
 double carAnimationTimeDiner = 0;
 
-Diner::Diner() : CarScene((Asset){AssetTypeBitmap, AssetLocationAmigaLibP, DINER_SCREEN}) {
+Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
@@ -32,10 +32,13 @@ Diner::Diner() : CarScene((Asset){AssetTypeBitmap, AssetLocationAmigaLibP, DINER
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    phonebookGuy = new Spritesheet("../data/res/lib_p_315.gif", 2, 5);
-    waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
-    textures.push_back(phonebookGuy->GetTexture());
-    textures.push_back(waitress->GetTexture());
+    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, PHONEBOOK_GUY});
+    phonebookGuy->SetVisible(true);
+
+
+    // waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
+    // textures.push_back(phonebookGuy->GetTexture());
+    // textures.push_back(waitress->GetTexture());
 
     guySpriteX = 0;
     guySpriteY = 0;
@@ -97,7 +100,7 @@ void Diner::Draw() {
     }
 
     phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
-    phonebookGuy->DrawSprite(&guyRect);
+    phonebookGuy->Draw();
 
     if (elapsed > 2000 && !animatingCar) {
         // printf("start animate\n");

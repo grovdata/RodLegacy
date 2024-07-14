@@ -287,3 +287,25 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t en
     return data;
 }
 
+LibAssetType GetAssetType(AssetLocation location, int index) {
+    switch (location) {
+    case AssetLocationAmigaLibP:
+        AmigaLibAsset a = (AmigaLibAsset)index;
+        switch (a) {
+            case CAR_TIRES_BRAND:
+            case CAR_TIRES_RACING:
+            case CAR_TIRES_STOCK:
+            case PHONEBOOK_GUY:
+                return LibAssetSpritesheet;
+            case GUS_GAS_MASK:
+                return LibAssetMask;
+            default:
+                return LibAssetRegular;
+        }
+
+        break;
+
+    default:
+        return LibAssetRegular;
+    }
+}

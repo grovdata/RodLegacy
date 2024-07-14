@@ -1,23 +1,13 @@
 #include "spritesheet.h"
 
-Spritesheet::Spritesheet(char const *path, int rows, int columns) {
+Spritesheet::Spritesheet(int rows, int columns) {
     this->rows = rows;
     this->columns = columns;
-
-    surface = IMG_Load(path);
-
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-
     clipRect.w = surface->w / columns;
     clipRect.h = surface->h / rows;
+    Bitmap();
     // printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
     // printf("Spritesheet cell width: %d height:%d \n", clipRect.w, clipRect.h);
-}
-
-Spritesheet::~Spritesheet() {
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(texture);
 }
 
 void Spritesheet::SelectSprite(int x, int y) {
@@ -49,10 +39,8 @@ void Spritesheet::UpdateSprite() {
     clipRect.y = currentY * clipRect.h;
 }
 
-void Spritesheet::DrawSprite(SDL_Rect *position) {
-    SDL_RenderCopy(renderer, texture, &clipRect, position);
-}
 
-SDL_Texture *Spritesheet::GetTexture() {
-    return texture;
+void Spritesheet::Draw() {
+    if (isVisible)
+        SDL_RenderCopy(renderer, texture, &clipRect, &rect);
 }
