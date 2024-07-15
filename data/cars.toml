@@ -26,7 +26,7 @@ driverY = 7
 
 [[cars]]
 id = "vette56"
-index = 1
+index = 191
 vendor = 2
 name = "Corvette"
 filename = "../data/res/corvette.gif"
