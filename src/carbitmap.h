@@ -18,9 +18,6 @@ class CarBitmap {
     Spritesheet *rearWheel;
     Spritesheet *frontWheel;
 
-    SDL_Rect rearWheelRect;
-    SDL_Rect frontWheelRect;
-
     // Gas cap
     Bitmap *gasCap;
     Bitmap *hoodScoop;
@@ -32,7 +29,7 @@ class CarBitmap {
    public:
     CarBitmap(Car *car);
     ~CarBitmap();
-//    SDL_Texture *GetTexture();
+
     void Draw();
     void Move(SDL_Point p);
 };

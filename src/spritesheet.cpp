@@ -10,10 +10,11 @@ Spritesheet::Spritesheet(int rows, int columns) : Bitmap() {
 }
 
 void Spritesheet::SelectSprite(int x, int y) {
-    if (surface)
+
 
     clipRect.w = surface->w / this->columns;
     clipRect.h = surface->h / this->rows;
+
 
     currentX = x;
     currentY = y;

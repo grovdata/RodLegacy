@@ -39,6 +39,9 @@ void Diner::Init() {
     bubbles.push_back(guyBubble);
 
     phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, PHONEBOOK_GUY});
+    phonebookGuy->SetPosition(189, 65);
+    phonebookGuy->SetDimensions(38, 60);
+    // phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->SetVisible(true);
 
 

@@ -31,7 +31,7 @@ void AssetManager::LoadAssets() {
             pair<int, int> info = p.GetSpritesheetInfo(AssetLocationAmigaLibP, i);
             unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
             spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height);
-            spriteSheet->SetDimensions(b.width, b.height);
+            //spriteSheet->SetDimensions(b.width, b.height);
             imageAssets.push_back(make_pair(a, move(spriteSheet)));
         } else {
             unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();

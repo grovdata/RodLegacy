@@ -17,17 +17,17 @@ class Bitmap {
     public:
         Bitmap();
         ~Bitmap();
-        void         LoadBitmap(std::string filename);
-        void         LoadBitmapFromChunky(const vector<Color>& colors, int width, int height);
+        void     LoadBitmap(std::string filename);
+        void     LoadBitmapFromChunky(const vector<Color>& colors, int width, int height);
 
-        void Align(BitmapAlign b, bool allowStatusBar);
-        void AlignAbove(Bitmap *dest);
+        void     Align(BitmapAlign b, bool allowStatusBar);
+        void     AlignAbove(Bitmap *dest);
 
-        void SetDimensions(int width, int height);
+        void     SetDimensions(int width, int height);
         SDL_Rect GetPosition();
-        void SetPosition(int x, int y);
+        void     SetPosition(int x, int y);
 
-        void SetVisible(bool visible);
+        void     SetVisible(bool visible);
 
         virtual void Draw();
 };
