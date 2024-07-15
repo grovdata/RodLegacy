@@ -31,14 +31,6 @@ BitmapParser b;
 
 
 int main(void) {
-    // TODO: Move this somewhere else
-    // vector<BitmapEntry_t> result = b.GetEntries(strdup("../../streetrod-bins/amiga/SR_disk2/lib.p"));// LibBitmapEntry_t first =
-    // result.at(0); uint8_t databuf[first.sizePacked];
-    // b.GetData(strdup("../amiga/SR_disk2/lib.p"), databuf, &first,
-    // result.size());
-    // SDL_Surface *bmpsurface = SDL_CreateRGBSurface(0, first.width, first.width,
-    // 8, 0, 0, 0, 0); b.Unpack(&first, databuf, bmpsurface);
-    // b.Parse(strdup("../amiga/SR_disk2/lib.p"));
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {

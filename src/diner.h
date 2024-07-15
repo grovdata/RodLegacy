@@ -18,16 +18,14 @@ class Diner: public CarScene {
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
 
-
     Uint64 t;
-
-
 
     void CycleGuy();
 
     public:
         Diner();
         ~Diner();
+        void Init() override;
 
         MousePointer GetPointerType() override;
 

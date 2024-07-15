@@ -16,6 +16,10 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     this->currentCar = chevyCar;
 
     assets.LoadAssets();
+    diner.Init();
+    gasStation.Init();
+    garage.Init();
+    //driving.Init();
 }
 
 State::~State() {

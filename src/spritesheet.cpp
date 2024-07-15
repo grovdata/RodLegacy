@@ -1,16 +1,20 @@
 #include "spritesheet.h"
 
-Spritesheet::Spritesheet(int rows, int columns) {
+Spritesheet::Spritesheet(int rows, int columns) : Bitmap() {
     this->rows = rows;
     this->columns = columns;
-    clipRect.w = surface->w / columns;
-    clipRect.h = surface->h / rows;
-    Bitmap();
+
+
     // printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
     // printf("Spritesheet cell width: %d height:%d \n", clipRect.w, clipRect.h);
 }
 
 void Spritesheet::SelectSprite(int x, int y) {
+    if (surface)
+
+    clipRect.w = surface->w / this->columns;
+    clipRect.h = surface->h / this->rows;
+
     currentX = x;
     currentY = y;
     UpdateSprite();

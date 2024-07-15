@@ -189,6 +189,18 @@ CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 CarScene::CarScene(Asset backgroundAsset): Scene(backgroundAsset) {
 }
 
+void CarScene::Init() {
+    Scene::Init();
+}
+
+//void CarScene::Draw() {
+//    if (!isSetup) {
+//        Init();
+//        isSetup = true;
+//    }
+//    Scene::Draw();
+//}
+
 void CarScene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
 }
 

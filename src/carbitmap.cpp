@@ -39,8 +39,10 @@ CarBitmap::CarBitmap(Car *car) {
     }
 
 
-    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, wheelAssetNo});
+    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(1,0);
+    frontWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
+    frontWheel->SelectSprite(1,0);
 
     t = SDL_GetTicks64();
 }

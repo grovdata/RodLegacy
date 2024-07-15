@@ -39,23 +39,16 @@ void AssetManager::LoadAssets() {
             bitmap->SetDimensions(b.width, b.height);
             imageAssets.push_back(make_pair(a, move(bitmap)));
         }
-
-
     }
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
-    switch (asset.type) {
-        case LibAssetRegular:
-            for (auto& i : imageAssets) {
-                if (i.first == asset) {
-                    return i.second.get();
-                }
-            }
-            break;
-
-        default:
-            break;
+    for (auto& i : imageAssets) {
+        if (i.first == asset) {
+            return i.second.get();
+        }
     }
+
+    cout << "Warning: Asset not found " << asset.id << endl;
     return nullptr;
 }

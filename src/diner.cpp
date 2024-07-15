@@ -5,6 +5,12 @@
 double carAnimationTimeDiner = 0;
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
+
+}
+
+void Diner::Init() {
+    Scene::Init();
+
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
@@ -32,7 +38,7 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, PHONEBOOK_GUY});
+    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, PHONEBOOK_GUY});
     phonebookGuy->SetVisible(true);
 
 
@@ -89,7 +95,10 @@ void Diner::Action(ZoneId zone) {
 
 void Diner::Draw() {
     Scene::Draw();
-
+    if (!isSetup) {
+        Init();
+        isSetup = true;
+    }
 
     Uint64 elapsed = SDL_GetTicks64() - t;
 

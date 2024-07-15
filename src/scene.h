@@ -30,13 +30,14 @@ class Car;
 
 class Scene {
    private:
-    bool isSetup;
 
     ZoneId CheckMouseHover(int x, int y);
     static Uint32 FadeCallback(Uint32 interval, void* param);
     SDL_TimerID fadeTimerID;
 
    protected:
+    bool isSetup;
+
     SceneTransition sceneTransition;
     GameScene sceneTransitioningTo;
 
@@ -82,6 +83,7 @@ class CarScene: public Scene {
     public:
         CarScene(std::string backgroundName);
         CarScene(Asset backgroundAsset);
+        virtual void Init();
         virtual void DrawMaskAfterCar();
         virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
         virtual SDL_Point GetCarIdlePosition();
