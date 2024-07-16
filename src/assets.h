@@ -27,12 +27,20 @@ public:
     AssetManager();
     ~AssetManager();
 
+    const string GetDataFile();
+    const string GetLibPFile();
+    const string GetLibStartFile();
+
     void LoadAssets();
-
     Bitmap* GetBitmapAsset(const Asset& asset);
-
+    BitmapOffset_t GetCarOffset(int carIndex);
 
 private:
+    DataParser dp;
+    BitmapParser bp;
+
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
-    map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
+    vector<BitmapOffset_t> offsets;
+    //map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
+
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.h"
+#include "parsers/libp.h"
 
 class Spritesheet;
 extern SDL_Renderer *renderer;
@@ -22,13 +23,14 @@ class Car {
         int tuning;
         CarWheelType tires;
         CarModel model;
+        CarDecal decal;
 
     public:
         Car(CarModel model);
         ~Car();
 
-
         CarModel GetModel();
         CarWheelType GetTireType();
+        CarDecal GetDecal();
         int GetDriver();
 };

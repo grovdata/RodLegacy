@@ -18,5 +18,9 @@ CarWheelType Car::GetTireType() {
 }
 
 int Car::GetDriver() {
-    return DRIVER_01;
+    return DRIVER_03;
+}
+
+CarDecal Car::GetDecal() {
+    return CarDecalHotLips;
 }

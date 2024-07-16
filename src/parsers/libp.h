@@ -28,6 +28,18 @@ enum AssetLocation {
     AssetLocationAmigaLibP = 1
 };
 
+enum CarDecal {
+    CarDecalHotLips = 0,
+    CarDecalRanger = 1,
+    CarDecalNotBulletProof = 2,
+    CarDecalHotRod = 3,
+    CarDecalDestinyCanWait = 4,
+    CarDecalLoveBandit = 5,
+    CarDecalBigChief = 6,
+    CarDecalImNotACop = 7,
+    CarDecalNone = 8
+};
+
 enum AmigaLibAsset {
     SPEECH_BUBBLE_ARROW_RIGHT = 0,
     SPEECH_BUBBLE_ARROW_LEFT = 1,
@@ -127,6 +139,7 @@ enum AmigaLibAsset {
     FORD_THUNDERBIRD_1957_CHOPPED_REARBUMPER = 258,
     FORD_THUNDERBIRD_1957_CHOPPED_FRONTBUMPER = 259,
     //
+    DECALS = 280,
     GIRLFRIEND_ANIMATION = 297,
     KISS_ANIMATION = 298,
     WIN_SCREEN = 299,
@@ -193,25 +206,42 @@ struct BitmapEntry_t {
 };
 #pragma pack(pop)
 
+struct BitmapOffset_t {
+    uint8_t offsetXRearTire;
+    uint8_t offsetXFrontTire;
+    uint8_t offsetXDriver;
+    uint8_t offsetYDriver;
+    uint8_t offsetXChoppedRoof;
+    uint8_t offsetXAirScoop;
+    uint8_t offsetYAirScoop;
+    uint8_t offsetYRearBumper;
+    uint8_t offsetXFrontBumper;
+    uint8_t offsetYFrontBumper;
+    uint8_t offsetXDecal;
+    uint8_t offsetYDecal;
+};
+
 // hard-coded in SR.EXE / SRSE.EXE @ 0x3CA23
 const int COUNT[] = {1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8};
 const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00};
 
-#define RLE  {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
-#define PAL1 {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
+#define RLE       {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
+#define PAL1      {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
+#define CAR_INDEX {179, 183, 187, 191, 194, 197, 200, 204, 206, 210, 214, 216, 220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268, 272}
 
+uint8_t  ReadUint8(std::ifstream& file);
+uint16_t ReadUint16BigEndian(std::ifstream& file);
+uint32_t ReadUint32BigEndian(std::ifstream& file);
 
 class BitmapParser {
    private:
 
     Palette pal1;
 
-    uint8_t ReadUint8(std::ifstream& file);
-	uint16_t ReadUint16BigEndian(std::ifstream& file);
-    uint32_t ReadUint32BigEndian(std::ifstream& file);
 
-    void PrintBitmapEntry(int number, BitmapEntry_t entry);
-    void PrintBitplanes(const std::vector<uint16_t>& data);
+
+    void                                            PrintBitmapEntry(int number, BitmapEntry_t entry);
+    void                                            PrintBitplanes(const std::vector<uint16_t>& data);
 
    public:
 
@@ -228,4 +258,12 @@ class BitmapParser {
     LibAssetType                                    GetAssetType(AssetLocation location, int index);
 
     pair<int, int>                                  GetSpritesheetInfo(AssetLocation location, int index);
+};
+
+class DataParser {
+    private:
+        vector<pair<BitmapEntry_t, BitmapOffset_t>> offsets;
+    public:
+        vector<BitmapOffset_t> GetEntries(const string& filename);
+        int                    GetCarIndex(AmigaLibAsset asset);
 };

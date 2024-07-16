@@ -11,7 +11,7 @@ class Diner: public CarScene {
 
     SDL_Surface *roadMaskSurface;
     SDL_Texture *roadMaskTexture;
-    SDL_Rect roadMaskSrcRect = {0, 155, 320, 10}; //200-45-11};
+    SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
 
     int guySpriteX;

@@ -5,13 +5,13 @@
 using namespace std;
 
 
-uint16_t BitmapParser::ReadUint16BigEndian(std::ifstream& file) {
+uint16_t ReadUint16BigEndian(std::ifstream& file) {
     uint8_t bytes[2];
     file.read(reinterpret_cast<char*>(bytes), 2);
     return (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
 }
 
-uint32_t BitmapParser::ReadUint32BigEndian(std::ifstream& file) {
+uint32_t ReadUint32BigEndian(std::ifstream& file) {
     uint8_t bytes[4];
     file.read(reinterpret_cast<char*>(bytes), 4);
     return (static_cast<uint32_t>(bytes[0]) << 24) |
@@ -20,7 +20,7 @@ uint32_t BitmapParser::ReadUint32BigEndian(std::ifstream& file) {
            bytes[3];
 }
 
-uint8_t BitmapParser::ReadUint8(std::ifstream& file) {
+uint8_t ReadUint8(std::ifstream& file) {
     uint8_t byte;
     file.read(reinterpret_cast<char*>(&byte), 1);
     return byte;
@@ -296,6 +296,7 @@ LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
                 case CAR_TIRES_RACING:
                 case CAR_TIRES_STOCK:
                 case PHONEBOOK_GUY:
+                case DECALS:
                     return LibAssetSpritesheet;
                 case GUS_GAS_MASK:
                     return LibAssetMask;
@@ -329,4 +330,62 @@ switch (location) {
     default:
         return make_tuple(0, 0);
     }
+}
+
+vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
+    vector<BitmapOffset_t> offsets;
+    ifstream file(filename, ios::binary);
+    if (!file) {
+        cerr << "File error: Unable to open file " << filename << endl;
+        return vector<BitmapOffset_t>();
+    }
+
+    #define OFFSETS_START 0x34C
+    #define CARS_COUNT 17
+
+    file.seekg(OFFSETS_START, ios::beg);
+
+    for (int i = 0; i < CARS_COUNT; i++) {
+        BitmapOffset_t newEntry;
+        newEntry.offsetXRearTire = ReadUint8(file);
+        newEntry.offsetXFrontTire = ReadUint8(file);
+        newEntry.offsetXDriver = ReadUint8(file);
+        newEntry.offsetYDriver = ReadUint8(file);
+        newEntry.offsetXChoppedRoof = ReadUint8(file);
+        newEntry.offsetXAirScoop = ReadUint8(file);
+        newEntry.offsetYAirScoop = ReadUint8(file);
+        newEntry.offsetYRearBumper = ReadUint8(file);
+        newEntry.offsetXFrontBumper = ReadUint8(file);
+        newEntry.offsetYFrontBumper = ReadUint8(file);
+        newEntry.offsetXDecal = ReadUint8(file);
+        newEntry.offsetYDecal = ReadUint8(file);
+
+    std::cout << "offsetXRearTire: " << static_cast<int>(newEntry.offsetXRearTire) << std::endl;
+    std::cout << "offsetXFrontTire: " << static_cast<int>(newEntry.offsetXFrontTire) << std::endl;
+    std::cout << "offsetXDriver: " << static_cast<int>(newEntry.offsetXDriver) << std::endl;
+    std::cout << "offsetYDriver: " << static_cast<int>(newEntry.offsetYDriver) << std::endl;
+    std::cout << "offsetXChoppedRoof: " << static_cast<int>(newEntry.offsetXChoppedRoof) << std::endl;
+    std::cout << "offsetXAirScoop: " << static_cast<int>(newEntry.offsetXAirScoop) << std::endl;
+    std::cout << "offsetYAirScoop: " << static_cast<int>(newEntry.offsetYAirScoop) << std::endl;
+    std::cout << "offsetYRearBumper: " << static_cast<int>(newEntry.offsetYRearBumper) << std::endl;
+    std::cout << "offsetXFrontBumper: " << static_cast<int>(newEntry.offsetXFrontBumper) << std::endl;
+    std::cout << "offsetYFrontBumper: " << static_cast<int>(newEntry.offsetYFrontBumper) << std::endl;
+    std::cout << "offsetXDecal: " << static_cast<int>(newEntry.offsetXDecal) << std::endl;
+    std::cout << "offsetYDecal: " << static_cast<int>(newEntry.offsetYDecal) << std::endl;
+
+        offsets.push_back(newEntry);
+    }
+
+    return offsets;
+}
+
+int DataParser::GetCarIndex(AmigaLibAsset asset) {
+    vector<int> indices = CAR_INDEX;
+
+    for (int i = 0; i < indices.size(); i++) {
+        if (indices[i] == (int)asset) {
+            return i;
+        }
+    }
+    return -1;
 }

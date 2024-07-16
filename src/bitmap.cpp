@@ -14,6 +14,10 @@ Bitmap::~Bitmap() {
     }
 }
 
+SDL_Surface* Bitmap::GetSurface() {
+    return surface;
+}
+
 SDL_Rect Bitmap::GetPosition() {
     return this->rect;
 }
@@ -60,6 +64,38 @@ void Bitmap::LoadBitmap(string filename) {
     rect.y = 0;
     rect.w = surface->w;
     rect.h = surface->h;
+}
+
+void Bitmap::LoadSurface(SDL_Surface* src) {
+    if (src == nullptr) {
+        std::cerr << "Source surface is null!" << std::endl;
+        return;
+    }
+
+    // Create a new surface with the same format and size as the source
+    surface = SDL_CreateRGBSurfaceWithFormat(
+        0, src->w, src->h, src->format->BitsPerPixel, src->format->format);
+
+    if (surface == nullptr) {
+        std::cerr << "Could not create surface: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    // Copy the pixel data
+    if (SDL_BlitSurface(src, nullptr, surface, nullptr) < 0) {
+        std::cerr << "Could not copy surface: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    rect.x = 0;
+    rect.y = 0;
+    rect.w = surface->w;
+    rect.h = surface->h;
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+    }
 }
 
 void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, int height) {

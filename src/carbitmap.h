@@ -3,26 +3,24 @@
 #include "car.h"
 #include "bitmap.h"
 #include "spritesheet.h"
+#include "parsers/libp.h"
 
 class CarBitmap {
    private:
     Car *car;
 
-    // Body
+
     Bitmap *body;
-
-    // Driver
     Bitmap *driver;
-
-    // Wheels
     Spritesheet *rearWheel;
     Spritesheet *frontWheel;
-
-    // Gas cap
     Bitmap *gasCap;
     Bitmap *hoodScoop;
+    Spritesheet *decal;
 
     Uint64 t;
+
+    BitmapOffset_t offsets;
 
     void UpdateTextures();
 

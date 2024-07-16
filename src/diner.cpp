@@ -12,9 +12,9 @@ void Diner::Init() {
     Scene::Init();
 
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
-    SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
     roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-    SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
     textures.push_back(roadMaskTexture);
 
     SDL_Rect orderRect = {132, 53, 27, 9};
@@ -41,13 +41,7 @@ void Diner::Init() {
     phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, PHONEBOOK_GUY});
     phonebookGuy->SetPosition(189, 65);
     phonebookGuy->SetDimensions(38, 60);
-    // phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->SetVisible(true);
-
-
-    // waitress = new Spritesheet("../data/res/lib_p_335.gif", 2, 6);
-    // textures.push_back(phonebookGuy->GetTexture());
-    // textures.push_back(waitress->GetTexture());
 
     guySpriteX = 0;
     guySpriteY = 0;
@@ -132,6 +126,8 @@ void Diner::Draw() {
 }
 
 void Diner::DrawMaskAfterCar() {
+    SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
     SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
     CarScene::DrawMaskAfterCar();
 }

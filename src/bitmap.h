@@ -17,7 +17,9 @@ class Bitmap {
     public:
         Bitmap();
         ~Bitmap();
+
         void     LoadBitmap(std::string filename);
+        void     LoadSurface(SDL_Surface* src);
         void     LoadBitmapFromChunky(const vector<Color>& colors, int width, int height);
 
         void     Align(BitmapAlign b, bool allowStatusBar);
@@ -30,4 +32,7 @@ class Bitmap {
         void     SetVisible(bool visible);
 
         virtual void Draw();
+
+        //Remove later
+        SDL_Surface* GetSurface();
 };

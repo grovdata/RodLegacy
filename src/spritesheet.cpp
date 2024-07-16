@@ -3,10 +3,20 @@
 Spritesheet::Spritesheet(int rows, int columns) : Bitmap() {
     this->rows = rows;
     this->columns = columns;
+}
 
+Spritesheet::Spritesheet(int rows, int columns, Spritesheet *other) {
+    this->rows = other->GetRows();
+    this->columns = other->GetColumns();
+    this->LoadSurface(other->surface);
+}
 
-    // printf("Spritesheet surface width: %d height:%d %d \n", surface->w, surface->h,columns);
-    // printf("Spritesheet cell width: %d height:%d \n", clipRect.w, clipRect.h);
+int Spritesheet::GetRows() {
+     return rows;
+}
+
+int Spritesheet::GetColumns() {
+    return columns;
 }
 
 void Spritesheet::SelectSprite(int x, int y) {
