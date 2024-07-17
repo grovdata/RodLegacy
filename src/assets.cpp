@@ -55,7 +55,7 @@ void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int in
         pair<int, int> info = bp.GetSpritesheetInfo(AssetLocationAmigaLibP, index);
         unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
         spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height);
-        // spriteSheet->SetDimensions(b.width, b.height);
+        spriteSheet->SetDimensions(b.width, b.height);
         imageAssets.push_back(make_pair(a, std::move(spriteSheet)));
     } else {
 

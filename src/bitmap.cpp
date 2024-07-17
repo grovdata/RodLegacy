@@ -45,6 +45,32 @@ void Bitmap::AlignAbove(Bitmap *dest) {
     this->rect.y = dest->GetPosition().y - this->rect.h;
 }
 
+void Bitmap::Crop(SDL_Rect crop) {
+    // Create a new surface with the dimensions of the crop rectangle
+    SDL_Surface* cropped = SDL_CreateRGBSurface(
+        0,
+        crop.w,
+        crop.h,
+        surface->format->BitsPerPixel,
+        surface->format->Rmask,
+        surface->format->Gmask,
+        surface->format->Bmask,
+        surface->format->Amask
+    );
+
+    if (!cropped) {
+        std::cerr << "SDL_CreateRGBSurface failed: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    // Copy the pixels from the original surface to the new cropped surface
+    SDL_BlitSurface(surface, &crop, cropped, nullptr);
+    SDL_FreeSurface(surface);
+
+    surface = cropped;
+    texture = SDL_CreateTextureFromSurface(renderer, cropped);
+}
+
 void Bitmap::SetVisible(bool visible) {
     this->isVisible = visible;
 }
@@ -140,6 +166,15 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, i
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
         std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+    }
+}
+
+void Bitmap::SaveBitmap(int index) {
+    char filename[30];
+    snprintf(filename, sizeof(filename),"sprite_%d.bmp", index);
+
+    if (SDL_SaveBMP(surface, filename) != 0) {
+        std::cerr << "Failed to save BMP file: " << SDL_GetError() << std::endl;
     }
 }
 

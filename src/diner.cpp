@@ -42,9 +42,7 @@ void Diner::Init() {
     phonebookGuy->SetPosition(189, 65);
     phonebookGuy->SetDimensions(38, 60);
     phonebookGuy->SetVisible(true);
-
-    guySpriteX = 0;
-    guySpriteY = 0;
+    phonebookGuy->SelectSprite(0, 0);
 
     t = SDL_GetTicks64();
 }
@@ -57,16 +55,6 @@ Diner::~Diner() {
 
 MousePointer Diner::GetPointerType() {
     return PointerHand;
-}
-
-void Diner::CycleGuy() {
-    if (guySpriteX == 4) {
-        guySpriteX = 0;
-        guySpriteY = (guySpriteY == 1) ? 0 : 1;
-    } else {
-        guySpriteX += 1;
-    }
-    // printf("Guy %d %d\n", guySpriteX, guySpriteY);
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
@@ -100,12 +88,12 @@ void Diner::Draw() {
     Uint64 elapsed = SDL_GetTicks64() - t;
 
     if (elapsed % 400 == 0) {
-        CycleGuy();
+        //CycleGuy();
         // Fix spritesheet code
-        // phonebookGuy->CycleNextSprite();
+        phonebookGuy->CycleNextSprite();
     }
 
-    phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
+    //phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->Draw();
 
     if (elapsed > 2000 && !animatingCar) {

@@ -21,10 +21,12 @@ class Bitmap {
         void     LoadBitmap(std::string filename);
         void     LoadSurface(SDL_Surface* src);
         void     LoadBitmapFromChunky(const vector<Color>& colors, int width, int height);
+        void     SaveBitmap(int index);
 
         void     Align(BitmapAlign b, bool allowStatusBar);
         void     AlignAbove(Bitmap *dest);
 
+        void     Crop(SDL_Rect crop);
         void     SetDimensions(int width, int height);
         SDL_Rect GetPosition();
         void     SetPosition(int x, int y);

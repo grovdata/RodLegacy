@@ -22,5 +22,5 @@ int Car::GetDriver() {
 }
 
 CarDecal Car::GetDecal() {
-    return CarDecalHotLips;
+    return CarDecalDestinyCanWait;
 }

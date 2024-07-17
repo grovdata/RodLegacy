@@ -36,23 +36,51 @@ CarBitmap::CarBitmap(Car *car) {
 
     Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_SCOOP1};
     hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
-    hoodScoop->SetPosition(model.width + model.hoodScoopX, model.height + model.hoodScoopY);
+
     hoodScoop->SetVisible(true);
 
     decal = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
-    decal->SetPosition(model.width + offsets.offsetXDecal, model.height + offsets.offsetYDecal);
+    SDL_Rect cropDecal = {7, 10, 215, 50};
+
+    // FIXME: Only crop once!
+    decal->Crop(cropDecal);
+
     decal->SetVisible(true);
 
     switch (car->GetDecal())
     {
     case CarDecalHotLips:
+        decal->SelectSprite(0, 1);
+        break;
+    case CarDecalRanger:
+        decal->SelectSprite(0, 2);
+        break;
+    case CarDecalNotBulletProof:
+        decal->SelectSprite(0, 3);
+        break;
+    case CarDecalHotRod:
+        decal->SelectSprite(0, 4);
+        break;
+    case CarDecalDestinyCanWait:
         decal->SelectSprite(1, 0);
+        break;
+    case CarDecalLoveBandit:
+        decal->SelectSprite(1, 1);
+        break;
+    case CarDecalBigChief:
+        decal->SelectSprite(1, 2);
+        break;
+    case CarDecalImNotACop:
+        decal->SelectSprite(1, 3);
         break;
 
     default:
-        decal->SetVisible(false);
+        //decal->SetVisible(false);
         break;
     }
+
+    decal->SaveBitmap(DECALS);
+    decal->Print();
 
     AmigaLibAsset wheelAssetNo;
     switch (car->GetTireType())
@@ -67,12 +95,12 @@ CarBitmap::CarBitmap(Car *car) {
     }
 
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, CAR_TIRES_RACING});
-    rearWheel->SelectSprite(1,0);
+    rearWheel->SelectSprite(0, 1);
     rearWheel->SetVisible(true);
     rearWheel->SetDimensions(31, 31);
 
     frontWheel = new Spritesheet(1, 4, rearWheel);
-    frontWheel->SelectSprite(1,0);
+    frontWheel->SelectSprite(0, 1);
     frontWheel->SetVisible(true);
     frontWheel->SetDimensions(31, 31);
     UpdateTextures();
@@ -96,9 +124,9 @@ void CarBitmap::Draw() {
     }
 
     driver->Draw();
+    body->Draw();
     rearWheel->Draw();
     frontWheel->Draw();
-    body->Draw();
     gasCap->Draw();
     hoodScoop->Draw();
     decal->Draw();
@@ -116,4 +144,6 @@ void CarBitmap::UpdateTextures() {
     rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + model.rearWheelY);
     frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + model.frontWheelY);
     gasCap->SetPosition(bodyRect.x + model.gasCapX, bodyRect.y + model.gasCapY);
+    decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
+    hoodScoop->SetPosition(bodyRect.x + model.hoodScoopX, bodyRect.y + model.hoodScoopY);
 }

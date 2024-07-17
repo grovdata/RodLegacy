@@ -387,6 +387,8 @@ switch (location) {
                     return make_tuple(1, 4);
                 case PHONEBOOK_GUY:
                     return make_tuple(2, 5);
+                case DECALS:
+                    return make_tuple(2, 4);
                 default:
                     return make_tuple(0, 0);
             }

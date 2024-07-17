@@ -7,11 +7,11 @@ class Spritesheet: public Bitmap {
    public:
     Spritesheet(int rows, int columns);
     Spritesheet(int rows, int columns, Spritesheet *other);
-    void SelectSprite(int x, int y);
+    void SelectSprite(int row, int column);
     void UpdateSprite();
     void CycleNextSprite();
     void Draw() override;
-
+    void Print();
     int GetRows();
     int GetColumns();
 

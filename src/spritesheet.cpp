@@ -19,16 +19,14 @@ int Spritesheet::GetColumns() {
     return columns;
 }
 
-void Spritesheet::SelectSprite(int x, int y) {
-
-
+void Spritesheet::SelectSprite(int row, int column) {
     clipRect.w = surface->w / this->columns;
     clipRect.h = surface->h / this->rows;
-
-
-    currentX = x;
-    currentY = y;
+    currentY = row;
+    currentX = column;
+    SetDimensions(clipRect.w, clipRect.h);
     UpdateSprite();
+
     //printf("rect %d %d %d %d\n", m_clip.x, m_clip.y, m_clip.w, m_clip.y);
     //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, rect.w, rect.h);
     //SDL_UpdateTexture(texture, NULL, surface->pixels + m_clip.x + m_clip.y * surface->pitch, surface->pitch);
@@ -54,6 +52,9 @@ void Spritesheet::UpdateSprite() {
     clipRect.y = currentY * clipRect.h;
 }
 
+void Spritesheet::Print() {
+    cout << "SelectSprite " << currentX << "," << currentY << ": [" << clipRect.x << "," << clipRect.y << ", " << clipRect.w << ", " << clipRect.h << "]" << endl;
+}
 
 void Spritesheet::Draw() {
     if (isVisible)
