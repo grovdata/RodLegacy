@@ -246,18 +246,19 @@ class BitmapParser {
    public:
 
 	pair<int, vector<BitmapEntry_t>>                GetEntries(const string& filename);
-    vector<Color>                                   PlanarToChunky(const vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette);
-    vector<uint8_t>                                 GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
+    vector<Color>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
+    vector<uint8_t>                                 GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data);
     vector<uint8_t>                                 ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount);
     vector<pair<BitmapEntry_t, vector<uint8_t>>>    ReadAllImages(const string& filename);
 
-    Palette                                         PreparePalette(const vector<uint16_t>& palette);
+    Palette                                         PreparePalette(const vector<uint16_t>& palette, bool ehb);
     Color                                           GetRGBFromRGB4(uint16_t rgb4);
 
     LibAssetType                                    GetAssetType(AssetLocation location, int index);
 
     pair<int, int>                                  GetSpritesheetInfo(AssetLocation location, int index);
+    void                                            SavePaletteToBMP(const Palette& palette, const std::string& filename);
 };
 
 class DataParser {

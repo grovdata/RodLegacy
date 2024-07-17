@@ -1,6 +1,8 @@
 #include "libp.h"
+#include "carcolor.h"
 #include <fstream>
 #include <iostream>
+#include <SDL.h>
 
 using namespace std;
 
@@ -184,8 +186,8 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
     return flat_bp;
 }
 
-vector<Color> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette) {
-    vector<Color> chunkyData(entry.width * entry.height);
+std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette) {
+    std::vector<Color> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
 
@@ -202,21 +204,25 @@ vector<Color> BitmapParser::PlanarToChunky(const vector<uint8_t>& data, BitmapEn
                     }
                 }
 
-                // cout << "chunky pixel [" << x << "," << y << "]: " << get<0>(palette[value])  << endl;
+                // Select palette based on value range
+                const Palette& selectedPalette = (value >= 1 && value <= 9 && !carPalette.empty()) ? carPalette : palette;
                 int pixel_index = (y * entry.width) + (x + i);
-                chunkyData[pixel_index] = palette[value];
+                chunkyData[pixel_index] = selectedPalette[value];
             }
         }
     }
 
-    cout << "chunky data " << chunkyData.size()  << endl;
-    //PrintBitplanes(chunkyData);
+    SavePaletteToBMP(palette, "normalpalette.bmp");
+    SavePaletteToBMP(carPalette, "carcolors.bmp");
+
+    std::cout << "chunky data size: " << chunkyData.size() << std::endl;
+    // Optionally print or process chunkyData further
 
     return chunkyData;
 }
 
 // Converts 12bit palette to RGB and adds EHB colors
-Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette) {
+Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) {
     Palette rval;
 
     // Add RGB colors from the palette
@@ -224,13 +230,15 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette) {
         rval.push_back(GetRGBFromRGB4(palette[i]));
     }
 
-    // Add EHB colors
-    for (int i = 0; i < palette.size(); i++) {
-        Color color = rval[i];
-        uint8_t r = get<0>(color);
-        uint8_t g = get<1>(color);
-        uint8_t b = get<2>(color);
-        rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
+    if (ehb) {
+        // Add EHB colors
+        for (int i = 0; i < palette.size(); i++) {
+            Color color = rval[i];
+            uint8_t r = get<0>(color);
+            uint8_t g = get<1>(color);
+            uint8_t b = get<2>(color);
+            rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
+        }
     }
 
     // Print the palette colors
@@ -243,6 +251,38 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette) {
     }
 
     return rval;
+}
+
+void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& filename) {
+    // Calculate the size of the BMP image
+    int BLOCK_SIZE = 16;
+    int numColors = palette.size();
+    int imageWidth = BLOCK_SIZE * numColors;
+    int imageHeight = BLOCK_SIZE;
+
+
+    // Create an SDL surface
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, imageWidth, imageHeight, 24, 0x000000FF, 0x0000FF00, 0x00FF0000, 0);
+    if (!surface) {
+        std::cerr << "Failed to create SDL surface: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return;
+    }
+
+    // Fill the surface with palette colors
+    for (int i = 0; i < numColors; ++i) {
+        auto [r, g, b] = palette[i];
+        SDL_Rect rect = { i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE };
+        SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, r, g, b));
+    }
+
+    // Save the surface as a BMP file
+    if (SDL_SaveBMP(surface, filename.c_str()) != 0) {
+        std::cerr << "Failed to save BMP file: " << SDL_GetError() << std::endl;
+    }
+
+    // Free the surface and quit SDL
+    SDL_FreeSurface(surface);
 }
 
 Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
