@@ -33,8 +33,8 @@ public:
 
     void LoadAssets();
 
-    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& pal);
-    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& pal, Palette& carPalette);
+    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i);
+    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& carPalette);
     Bitmap* GetBitmapAsset(const Asset& asset);
     BitmapOffset_t GetCarOffset(int carIndex);
 

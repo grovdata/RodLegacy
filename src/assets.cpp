@@ -24,24 +24,25 @@ const string AssetManager::GetLibStartFile() {
 void AssetManager::LoadAssets() {
     offsets = dp.GetEntries(GetDataFile());
     pair<int, vector<BitmapEntry_t>> entries = bp.GetEntries(GetLibPFile());
-    Palette pal = bp.PreparePalette(PAL1, true);
 
     for (int i = 0; i < entries.first; i++) {
-        UpdateAsset(entries, i, pal);
+        UpdateAsset(entries, i);
     }
 }
 
-void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& pal, Palette& carPalette) {
+void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& carPalette) {
     BitmapEntry_t b = entries.second[index];
     vector<uint8_t> data = bp.ReadImage(GetLibPFile(), b, index, entries.first);
 
 
-        if (index == 179) {
+    if (index == 179) {
+        vector<uint16_t> turq = PAL_CAR_COLOR_LIGHT_GREEN;
+        carPalette = bp.PrepareCarPalette(turq);
+    }
 
-            vector<uint16_t> turq = PAL_CAR_COLOR_TURQUOISE;
-            carPalette = bp.PreparePalette(turq, false);
+    vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
+    Palette pal = bp.PreparePalette(palData, true);
 
-        }
 
     vector<Color> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
 
@@ -65,9 +66,9 @@ void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int in
     }
 }
 
-void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& pal) {
+void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index) {
     Palette empty;
-    UpdateAsset(entries, index, pal, empty);
+    UpdateAsset(entries, index, empty);
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {

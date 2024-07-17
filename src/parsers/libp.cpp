@@ -205,7 +205,7 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
                 }
 
                 // Select palette based on value range
-                const Palette& selectedPalette = (value >= 1 && value <= 9 && !carPalette.empty()) ? carPalette : palette;
+                const Palette& selectedPalette = ((value >= 1 && value <= 9 || (value >= 1+32 && value <= 9+32)) && !carPalette.empty()) ? carPalette : palette;
                 int pixel_index = (y * entry.width) + (x + i);
                 chunkyData[pixel_index] = selectedPalette[value];
             }
@@ -248,6 +248,31 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) 
         uint8_t g = get<1>(color);
         uint8_t b = get<2>(color);
         cout << "Palette " << i << ": " << static_cast<int>(r) << "," << static_cast<int>(g) << "," << static_cast<int>(b) << endl;
+    }
+
+    return rval;
+}
+
+// Creates a black palette except for color 1-10 (car shades) and EHB counterparts
+Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
+    Palette rval;
+
+    // Add RGB colors from the palette
+    for (int i = 0; i < 32; i++) {
+        rval.push_back(make_tuple(0,0,0));
+    }
+
+    for (int i = 0; i < 9; i++) {
+        rval.at(i+1) = GetRGBFromRGB4(palette[i]);
+    }
+
+    // Add EHB colors
+    for (int i = 0; i < palette.size(); i++) {
+        Color color = rval[i];
+        uint8_t r = get<0>(color);
+        uint8_t g = get<1>(color);
+        uint8_t b = get<2>(color);
+        rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
     }
 
     return rval;
@@ -371,6 +396,24 @@ switch (location) {
         return make_tuple(0, 0);
     }
 }
+
+vector<uint16_t> BitmapParser::GetPalette(AssetLocation location, int index) {
+switch (location) {
+    case AssetLocationAmigaLibP: {
+            AmigaLibAsset a = (AmigaLibAsset)index;
+            switch (a) {
+                case GUS_GAS_SCREEN:
+                    return PAL_GAS;
+                default:
+                    return PAL1;
+            }
+    }
+
+    default:
+        return PAL1;
+    }
+}
+
 
 vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
     vector<BitmapOffset_t> offsets;
