@@ -110,11 +110,6 @@ SDL_Texture *Scene::GetTexture() {
 }
 
 void Scene::Draw() {
-    if (!isSetup) {
-        Init();
-        isSetup = true;
-    }
-
     background->Draw();
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
     SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);

@@ -96,7 +96,7 @@ void Diner::Draw() {
     //phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->Draw();
 
-    if (elapsed > 2000 && !animatingCar) {
+    if (elapsed > 5000 && !animatingCar) {
         // printf("start animate\n");
         StartAnimateCar(state.GetCurrentCar(), nullptr, false);
         animatingCar = true;
@@ -139,7 +139,6 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
 
     if (carToAnimate != nullptr && carBitmap == nullptr) {
-        printf("create new car \n");
         carBitmap = new CarBitmap(carToAnimate);
         carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
     }
