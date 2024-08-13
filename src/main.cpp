@@ -28,13 +28,19 @@ Uint64 startTime = SDL_GetTicks64();
 Game game;
 Mouse mouse;
 BitmapParser b;
+bool isFullScreen = false;
 
+void ToggleFullScreen(SDL_Window* window, bool currentState) {
+    isFullScreen = !currentState;
+    int r = SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_ShowCursor(currentState);
+}
 
 int main(void) {
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
-        printf("error initializing SDL: %s\n", SDL_GetError());
+        SDL_Log("error initializing SDL: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
@@ -108,8 +114,8 @@ int main(void) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             state.GetCurrentScene()->PushEvent(&event);
-
             switch (event.type) {
+
                 case SDL_QUIT:
                     close_requested = true;
                     break;
@@ -119,6 +125,7 @@ int main(void) {
                             break;
                         case SDLK_RIGHT:
                             break;
+
                         default:
                             break;
                     }
@@ -130,6 +137,11 @@ int main(void) {
                             break;
                         case SDLK_d:
                             state.MoveToScene(SCENE_DINER);
+                            break;
+                        case SDLK_f:
+                            if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
+                                ToggleFullScreen(win, isFullScreen);
+                            }
                             break;
                         case SDLK_ESCAPE:
                             close_requested = true;
@@ -181,7 +193,7 @@ int main(void) {
         SDL_Delay(1000 / 240);
     }
 
-    printf("Whadda loser!\n");
+    //printf("Whadda loser!\n");
 
     // delete currentScene;
 
