@@ -298,7 +298,7 @@ void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& f
     for (int i = 0; i < numColors; ++i) {
         Color c = palette[i];
         SDL_Rect rect = { i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE };
-       // SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, c.get(0), c.get(1), c.get(2)));
+        SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, get<0>(c), get<1>(c), get<2>(c)));
     }
 
     // Save the surface as a BMP file
