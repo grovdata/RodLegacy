@@ -89,7 +89,7 @@ SFont_Font* SFont_InitFont(SDL_Surface* Surface)
         x++;
         }
     }
-    printf("Number of chars: %d\n", i);
+    // printf("Number of chars: %d\n", i);
     Font->MaxPos = x-1;
     pixel = GetPixel(Surface, 0, Surface->h-1);
     SDL_UnlockSurface(Surface);

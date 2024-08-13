@@ -47,7 +47,6 @@ Driving::Driving() : Scene("") {
 
     racing = new Racing();
 
-    timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
 }
 
 Driving::~Driving() {
@@ -60,9 +59,13 @@ Driving::~Driving() {
     SDL_RemoveTimer(timerID);
 }
 
+void Driving::Start() {
+    timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
+}
+
 void Driving::Draw() {
     Scene::Draw();
-    
+
     roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
 
     SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);

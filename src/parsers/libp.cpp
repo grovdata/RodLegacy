@@ -73,7 +73,7 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::GetEntries(const string& filename
     }
 
     uint16_t totalEntriesCount = ReadUint16BigEndian(file);
-    cout << "Number of bitmap entries in " << filename << ": " << totalEntriesCount << endl;
+    // cout << "Number of bitmap entries in " << filename << ": " << totalEntriesCount << endl;
 
     for (int i = 0; i < totalEntriesCount; ++i) {
         BitmapEntry_t newEntry = {};
@@ -85,7 +85,7 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::GetEntries(const string& filename
         newEntry.offset = ReadUint32BigEndian(file);
         newEntry.sizePacked = ReadUint16BigEndian(file);
 
-        PrintBitmapEntry(i, newEntry);
+        // PrintBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
 
@@ -103,9 +103,9 @@ vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const B
     file.seekg(0, ios::beg);
 
     int fileOffset = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount) + bitmapEntry.offset;
-    cout << "entries " << totalEntriesCount << endl;
-    cout << "sizeof " << sizeof(BitmapEntry_t) << endl;
-    cout << "Offset for bitmap " << bitmapEntry.offset << " in file " << fileOffset << endl;
+    // cout << "entries " << totalEntriesCount << endl;
+    // cout << "sizeof " << sizeof(BitmapEntry_t) << endl;
+    // cout << "Offset for bitmap " << bitmapEntry.offset << " in file " << fileOffset << endl;
 
     if (fileOffset >= fileSize) {
         throw runtime_error("Can't read data because offset is larger than file size.");
@@ -215,7 +215,7 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
     SavePaletteToBMP(palette, "normalpalette.bmp");
     SavePaletteToBMP(carPalette, "carcolors.bmp");
 
-    std::cout << "chunky data size: " << chunkyData.size() << std::endl;
+    // std::cout << "chunky data size: " << chunkyData.size() << std::endl;
     // Optionally print or process chunkyData further
 
     return chunkyData;
@@ -247,7 +247,7 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) 
         uint8_t r = get<0>(color);
         uint8_t g = get<1>(color);
         uint8_t b = get<2>(color);
-        cout << "Palette " << i << ": " << static_cast<int>(r) << "," << static_cast<int>(g) << "," << static_cast<int>(b) << endl;
+        // cout << "Palette " << i << ": " << static_cast<int>(r) << "," << static_cast<int>(g) << "," << static_cast<int>(b) << endl;
     }
 
     return rval;
@@ -296,9 +296,9 @@ void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& f
 
     // Fill the surface with palette colors
     for (int i = 0; i < numColors; ++i) {
-        auto [r, g, b] = palette[i];
+        Color c = palette[i];
         SDL_Rect rect = { i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE };
-        SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, r, g, b));
+       // SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, c.get(0), c.get(1), c.get(2)));
     }
 
     // Save the surface as a BMP file
@@ -444,20 +444,6 @@ vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
         newEntry.offsetYFrontBumper = ReadUint8(file);
         newEntry.offsetXDecal = ReadUint8(file);
         newEntry.offsetYDecal = ReadUint8(file);
-
-    std::cout << "offsetXRearTire: " << static_cast<int>(newEntry.offsetXRearTire) << std::endl;
-    std::cout << "offsetXFrontTire: " << static_cast<int>(newEntry.offsetXFrontTire) << std::endl;
-    std::cout << "offsetXDriver: " << static_cast<int>(newEntry.offsetXDriver) << std::endl;
-    std::cout << "offsetYDriver: " << static_cast<int>(newEntry.offsetYDriver) << std::endl;
-    std::cout << "offsetXChoppedRoof: " << static_cast<int>(newEntry.offsetXChoppedRoof) << std::endl;
-    std::cout << "offsetXAirScoop: " << static_cast<int>(newEntry.offsetXAirScoop) << std::endl;
-    std::cout << "offsetYAirScoop: " << static_cast<int>(newEntry.offsetYAirScoop) << std::endl;
-    std::cout << "offsetYRearBumper: " << static_cast<int>(newEntry.offsetYRearBumper) << std::endl;
-    std::cout << "offsetXFrontBumper: " << static_cast<int>(newEntry.offsetXFrontBumper) << std::endl;
-    std::cout << "offsetYFrontBumper: " << static_cast<int>(newEntry.offsetYFrontBumper) << std::endl;
-    std::cout << "offsetXDecal: " << static_cast<int>(newEntry.offsetXDecal) << std::endl;
-    std::cout << "offsetYDecal: " << static_cast<int>(newEntry.offsetYDecal) << std::endl;
-
         offsets.push_back(newEntry);
     }
 

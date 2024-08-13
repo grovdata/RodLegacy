@@ -34,6 +34,7 @@ class Driving: public Scene {
         // SDL_Point GetCarOffscreenPosition() override;
 
         // void Action(ZoneId zone) override;
+        void Start();
 
         void Draw() override;
         void PushEvent(SDL_Event *event) override;

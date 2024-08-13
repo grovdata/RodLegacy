@@ -19,7 +19,7 @@ CarModel CarData::GetModel(char* carModel) {
     for (auto m: allCarModels) {
         bool equals = strcmp(m.id.c_str(), carModel);
         if (equals == 0) {
-            printf("Found model %s\n", carModel);
+            // printf("Found model %s\n", carModel);
             return m;
         }
     }
@@ -82,7 +82,7 @@ void CarData::ReadCarsFromFile(char *filename) {
             newModel.driverX = car["driverX"].as_integer();
             newModel.driverY = car["driverY"].as_integer();
             newModel.index = car["index"].as_integer();
-            PrintModel(newModel);
+            // PrintModel(newModel);
             allCarModels.insert(newModel);
         }
     } catch (const toml::type_error &e) {
