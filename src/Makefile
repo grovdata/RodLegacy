@@ -14,12 +14,11 @@ CFLAGS := $(SDL_CONF) -ggdb3 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++14
 
 # add header files here
 HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h carbitmap.h cardata.h driving.h racing.h spritesheet.h SFont.h assets.h ui/button.h ui/zone.h parsers/libp.h \
-		parsers/carcolor.h ui/bubble.h include/toml.hpp include/libamivideo/amivideotypes.h include/libamivideo/viewportmode.h include/libamivideo/palette.h  \
-		include/libamivideo/screen.h
+		parsers/carcolor.h ui/bubble.h include/toml.hpp
 
 # add source files here
 SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp racing.cpp garage.cpp gas_station.cpp assets.cpp ui/button.cpp \
-		ui/bubble.cpp parsers/libp.cpp parsers/carcolor.cpp include/libamivideo/viewportmode.c include/libamivideo/palette.c include/libamivideo/screen.c
+		ui/bubble.cpp parsers/libp.cpp parsers/carcolor.cpp
 
 # generate names of object files
 OBJS := $(SRCS:.c=.o)
@@ -34,9 +33,13 @@ all: $(EXEC)
 $(EXEC): $(OBJS) $(HDRS) Makefile
 	$(CC) -o $@ $(OBJS) $(CFLAGS)
 
+# new target for generating dependency tree
+tree: CFLAGS += -H
+tree: $(EXEC)
+
 # recipe to clean the workspace
 clean:
 	find . -name '*.o' -exec rm -rf {} \;
 	find . -name '*.dSYM' -exec rm -rf {} \;
 
-.PHONY: all clean
+.PHONY: all clean tree
