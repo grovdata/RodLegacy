@@ -8,6 +8,7 @@
 #include "garage.h"
 #include "gas_station.h"
 #include "assets.h"
+#include "roster.h"
 
 #include <set>
 #include <vector>
@@ -20,13 +21,13 @@ private:
     int dragRacesCompleted;
     int roadRacesCompleted;
 
-    std::set<std::string> allDriverNames;
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
 
     std::vector<Car *> carRoster;
     Car *currentCar;
 
+    Roster roster;
 
     GameScene currentGameScene;
     Scene *currentScene;

@@ -26,8 +26,22 @@ class Car {
         CarDecal decal;
 
     public:
+        // Parts
+        Part* gearbox;
+        Part* tires;
+        Part* engine;
+        Part* carburator;
+        Part* manifold;
+
         Car(CarModel model);
         ~Car();
+
+        // Part getters
+        Part* GetGearbox() const { return gearbox; }
+        Part* GetTires() const { return tires; }
+        Part* GetEngine() const { return engine; }
+        Part* GetCarburator() const { return carburator; }
+        Part* GetManifold() const { return manifold; }
 
         CarModel GetModel();
         CarWheelType GetTireType();

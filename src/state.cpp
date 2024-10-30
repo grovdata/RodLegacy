@@ -7,7 +7,7 @@
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     // this->garage = new Garage();
     // this->diner = new Diner();
-    this->allDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
+
 
     // TODO
     carData.ReadCarsFromFile(strdup("../data/cars.toml"));
@@ -19,6 +19,7 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     diner.Init();
     gasStation.Init();
     garage.Init();
+    roster.Randomize();
     //driving.Init();
 }
 
