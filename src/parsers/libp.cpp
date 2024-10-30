@@ -451,10 +451,10 @@ vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
 }
 
 int DataParser::GetCarIndex(AmigaLibAsset asset) {
-    vector<int> indices = CAR_INDEX;
+    int stockCarCount = sizeof(CAR_INDEX);
 
-    for (int i = 0; i < indices.size(); i++) {
-        if (indices[i] == (int)asset) {
+    for (int i = 0; i < stockCarCount; i++) {
+        if (CAR_INDEX[i] == (int)asset) {
             return i;
         }
     }
