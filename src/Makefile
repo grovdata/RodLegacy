@@ -4,20 +4,20 @@
 CC := g++
 #CC := llvm-g++
 
-# macOS
-SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
+## macOS
+#SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
 
 # Linux
-#SDL_CONF := `sdl2-config --cflags --libs`
+SDL_CONF := `sdl2-config --cflags --libs`
 # set the compiler flags
 CFLAGS := $(SDL_CONF) -ggdb3 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++14
 
 # add header files here
-HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h carbitmap.h cardata.h driving.h racing.h spritesheet.h SFont.h assets.h ui/button.h ui/zone.h parsers/libp.h \
+HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h part.h carbitmap.h cardata.h driving.h racing.h spritesheet.h SFont.h assets.h ui/button.h ui/zone.h parsers/libp.h \
 		parsers/carcolor.h ui/bubble.h include/toml.hpp roster.h
 
 # add source files here
-SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp racing.cpp garage.cpp gas_station.cpp assets.cpp ui/button.cpp \
+SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp part.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp racing.cpp garage.cpp gas_station.cpp assets.cpp ui/button.cpp \
 		ui/bubble.cpp parsers/libp.cpp parsers/carcolor.cpp roster.cpp
 
 # generate names of object files

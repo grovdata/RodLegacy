@@ -384,18 +384,18 @@ switch (location) {
                 case CAR_TIRES_BRAND:
                 case CAR_TIRES_RACING:
                 case CAR_TIRES_STOCK:
-                    return make_tuple(1, 4);
+                    return make_pair(1, 4);
                 case PHONEBOOK_GUY:
-                    return make_tuple(2, 5);
+                    return make_pair(2, 5);
                 case DECALS:
-                    return make_tuple(2, 4);
+                    return make_pair(2, 4);
                 default:
-                    return make_tuple(0, 0);
+                    return make_pair(0, 0);
             }
     }
 
     default:
-        return make_tuple(0, 0);
+        return make_pair(0, 0);
     }
 }
 

@@ -3,9 +3,8 @@
 #include <tuple>
 #include <vector>
 #include <fstream>
-
-//#include "../include/libamivideo/amivideotypes.h"
-//#include "../include/libamivideo/screen.h"
+#include <cstdint>
+#include <iomanip>
 
 using namespace std;
 using Color = tuple<uint8_t, uint8_t, uint8_t>;
@@ -38,6 +37,13 @@ enum CarDecal {
     CarDecalBigChief = 6,
     CarDecalImNotACop = 7,
     CarDecalNone = 8
+};
+
+enum CarVendor {
+    CarVendorChrysler = 0,
+    CarVendorFord = 1,
+    CarVendorGM = 2,
+    CarVendorCustom = 3
 };
 
 enum AmigaLibAsset {

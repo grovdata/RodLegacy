@@ -1,12 +1,7 @@
 #pragma once
 #include <string>
+#include "parsers/libp.h"
 
-enum CarVendor {
-    CHRYSLER = 0,
-    FORD = 1,
-    GM = 2,
-    CUSTOM = 3
-};
 
 struct CarModel {
     std::string id;

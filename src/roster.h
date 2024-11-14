@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "driver.h"
+#include "car.h"
 
 using namespace std;
 

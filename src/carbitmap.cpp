@@ -82,19 +82,9 @@ CarBitmap::CarBitmap(Car *car) {
     decal->SaveBitmap(DECALS);
     // decal->Print();
 
-    AmigaLibAsset wheelAssetNo;
-    switch (car->GetTireType())
-    {
-    case RACING:
-        wheelAssetNo = CAR_TIRES_RACING;
-    case BRAND:
-        wheelAssetNo = CAR_TIRES_BRAND;
-    default:
-        wheelAssetNo = CAR_TIRES_STOCK;
-        break;
-    }
-
-    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, CAR_TIRES_RACING});
+    AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
+    
+    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(0, 1);
     rearWheel->SetVisible(true);
     rearWheel->SetDimensions(31, 31);

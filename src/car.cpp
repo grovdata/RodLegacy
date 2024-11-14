@@ -3,6 +3,8 @@
 
 Car::Car(CarModel model) {
     this->model = model;
+    this->tires = new Part(CAR_TIRES_STOCK);
+
 }
 
 Car::~Car() {
@@ -11,10 +13,6 @@ Car::~Car() {
 
 CarModel Car::GetModel() {
     return model;
-}
-
-CarWheelType Car::GetTireType() {
-    return tires;
 }
 
 int Car::GetDriver() {

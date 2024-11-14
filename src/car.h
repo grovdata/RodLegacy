@@ -2,11 +2,13 @@
 
 #include "global.h"
 #include "parsers/libp.h"
+#include "part.h"
 
 class Spritesheet;
 extern SDL_Renderer *renderer;
 
 enum CarWheelType { STOCK, BRAND, RACING };
+
 
 class Car {
     /*
@@ -21,18 +23,17 @@ class Car {
         bool isRoofChopped;
         bool isMoving;
         int tuning;
-        CarWheelType tires;
         CarModel model;
         CarDecal decal;
-
-    public:
-        // Parts
+        
         Part* gearbox;
         Part* tires;
         Part* engine;
         Part* carburator;
         Part* manifold;
 
+    public:
+        
         Car(CarModel model);
         ~Car();
 
@@ -44,7 +45,7 @@ class Car {
         Part* GetManifold() const { return manifold; }
 
         CarModel GetModel();
-        CarWheelType GetTireType();
+        
         CarDecal GetDecal();
         int GetDriver();
 };
