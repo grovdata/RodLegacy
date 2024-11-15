@@ -236,6 +236,12 @@ struct BitmapOffset_t {
     uint8_t offsetYDecal;
 };
 
+struct ClassifiedEntry_t {
+    string carName;
+    string adText;
+    int price;
+};
+
 // hard-coded in SR.EXE / SRSE.EXE @ 0x3CA23
 const int COUNT[] = {1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8};
 const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00};

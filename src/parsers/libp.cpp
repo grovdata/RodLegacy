@@ -426,6 +426,7 @@ vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
     }
 
     #define OFFSETS_START 0x34C
+    #define CLASSIFIEDS_START 0x854
     #define CARS_COUNT 17
 
     file.seekg(OFFSETS_START, ios::beg);
@@ -446,6 +447,42 @@ vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
         newEntry.offsetYDecal = ReadUint8(file);
         offsets.push_back(newEntry);
     }
+
+     // Parse Classifieds
+    file.seekg(CLASSIFIEDS_START, ios::beg);
+    for (int i = 0; i < CARS_COUNT; i++) {
+        ClassifiedEntry_t newClassified;
+
+        // Read car name
+        newClassified.carName = ReadNullTerminatedString(file);
+
+        // Read ad text
+        string adText;
+        while (true) {
+            string line = ReadNullTerminatedString(file);
+            if (line.empty() || line.find('$') != string::npos) {
+                // Found the price line
+                string priceStr = line.substr(1); // Remove the '$' symbol
+                newClassified.price = stoi(priceStr); // Convert to integer
+                break;
+            }
+            if (!adText.empty()) {
+                adText += " "; // Add space between lines
+            }
+            adText += line;
+        }
+        newClassified.adText = adText;
+        classifieds.push_back(newClassified);
+    }
+
+    // (Optional) Output for debug
+    for (const auto& classified : classifieds) {
+        cout << "Car Name: " << classified.carName << endl;
+        cout << "Ad Text: " << classified.adText << endl;
+        cout << "Price: " << classified.price << endl << endl;
+    }
+
+    //todo return classifieds too
 
     return offsets;
 }
