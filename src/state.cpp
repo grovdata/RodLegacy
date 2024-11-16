@@ -10,7 +10,7 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
 
 
     // TODO
-    carData.ReadCarsFromFile(strdup("../data/cars.toml"));
+    carData.ReadCarsFromTomlFile(strdup("../data/cars.toml"));
     CarModel chevy = carData.GetModel(strdup("chevy2dr"));
     Car *chevyCar = new Car(chevy);
     this->currentCar = chevyCar;

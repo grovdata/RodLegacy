@@ -1,10 +1,13 @@
 #include "car.h"
 #include "parsers/libp.h"
 
+Car::Car() {
+
+}
+
 Car::Car(CarModel model) {
     this->model = model;
     this->tires = new Part(CAR_TIRES_STOCK);
-
 }
 
 Car::~Car() {

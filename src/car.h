@@ -25,7 +25,7 @@ class Car {
         int tuning;
         CarModel model;
         CarDecal decal;
-        
+
         Part* gearbox;
         Part* tires;
         Part* engine;
@@ -33,7 +33,8 @@ class Car {
         Part* manifold;
 
     public:
-        
+
+        Car();
         Car(CarModel model);
         ~Car();
 
@@ -45,7 +46,7 @@ class Car {
         Part* GetManifold() const { return manifold; }
 
         CarModel GetModel();
-        
+
         CarDecal GetDecal();
         int GetDriver();
 };

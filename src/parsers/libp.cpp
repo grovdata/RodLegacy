@@ -2,6 +2,7 @@
 #include "carcolor.h"
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <SDL.h>
 
 using namespace std;
@@ -26,6 +27,15 @@ uint8_t ReadUint8(std::ifstream& file) {
     uint8_t byte;
     file.read(reinterpret_cast<char*>(&byte), 1);
     return byte;
+}
+
+string ReadNullTerminatedString(ifstream& file) {
+    stringstream ss;
+    char ch;
+    while (file.get(ch) && ch != '\0') {
+        ss << ch;
+    }
+    return ss.str();
 }
 
 void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
@@ -64,7 +74,10 @@ void BitmapParser::PrintBitplanes(const std::vector<uint16_t>& data) {
     }
 }
 
-pair<int, vector<BitmapEntry_t>> BitmapParser::GetEntries(const string& filename) {
+/// @brief Read metadata about bitmaps in library file
+/// @param filename
+/// @return Map of int (total entries) and BitmapEntry_t metadata struct
+pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filename) {
     vector<BitmapEntry_t> result;
     ifstream file(filename, ios::binary);
     if (!file) {
@@ -324,7 +337,7 @@ Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
 
 vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
     vector<pair<BitmapEntry_t, vector<uint8_t>>> result;
-    pair<int, vector<BitmapEntry_t>> entries = GetEntries(filename);
+    pair<int, vector<BitmapEntry_t>> entries = ReadEntries(filename);
 
     // for (int i = 0; i < entries.second.size(); i++) {
     //     auto b = entries.second[i];
@@ -417,8 +430,33 @@ switch (location) {
 }
 
 
-vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
+struct {
+    BitmapOffset_t offsets;
+    ClassifiedEntry_t classified;
+} CarMetadata;
+
+void DataParser::CleanupCarString(string& str) {
+    size_t pos = 0;
+
+    // Replace double backticks (``) with a space
+    while ((pos = str.find("``", pos)) != string::npos) {
+        str.replace(pos, 2, " "); // Replace `` with space
+    }
+
+    pos = 0; // Reset position
+
+    // Replace single backticks (`) with a space
+    while ((pos = str.find("`", pos)) != string::npos) {
+        str.replace(pos, 1, " "); // Replace ` with space
+    }
+}
+
+/// @brief Reads info about cars and parts from data file (SR_data)
+/// @param filename
+/// @return
+vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
     vector<BitmapOffset_t> offsets;
+    vector<ClassifiedEntry_t> classifieds;
     ifstream file(filename, ios::binary);
     if (!file) {
         cerr << "File error: Unable to open file " << filename << endl;
@@ -454,15 +492,20 @@ vector<BitmapOffset_t> DataParser::GetEntries(const string& filename) {
         ClassifiedEntry_t newClassified;
 
         // Read car name
-        newClassified.carName = ReadNullTerminatedString(file);
+        string carNameStr = ReadNullTerminatedString(file);
+        CleanupCarString(carNameStr);
+        newClassified.carName = carNameStr;
 
         // Read ad text
         string adText;
         while (true) {
             string line = ReadNullTerminatedString(file);
-            if (line.empty() || line.find('$') != string::npos) {
+            CleanupCarString(line);
+            size_t dollarPos = line.find('$');
+            if (line.empty() || dollarPos != string::npos) {
                 // Found the price line
-                string priceStr = line.substr(1); // Remove the '$' symbol
+                string priceStr = line.substr(dollarPos).substr(1); // Remove the '$' symbol
+                std::cout << "najs prajs " << dollarPos << " " << priceStr << std::endl;
                 newClassified.price = stoi(priceStr); // Convert to integer
                 break;
             }

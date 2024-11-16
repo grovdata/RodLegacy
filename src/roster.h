@@ -6,9 +6,11 @@
 
 using namespace std;
 
-struct Opponent {
+class Opponent {
+    public:
     Driver driver;
     Car car;
+    Opponent();
 };
 
 class Roster {

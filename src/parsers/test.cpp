@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 
     string examplefile = "../../../streetrod-bins/amiga/SR_disk2/lib.p";
     BitmapParser p;
-    pair<int, vector<BitmapEntry_t>> entries = p.GetEntries(examplefile.c_str());
+    pair<int, vector<BitmapEntry_t>> entries = p.ReadEntries(examplefile.c_str());
     BitmapEntry_t b = entries.second[spriteIndex];
     vector<uint8_t> data = p.ReadImage(examplefile.c_str(), b, spriteIndex, entries.first);
     Palette pal = p.PreparePalette(PAL1);

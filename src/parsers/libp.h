@@ -252,9 +252,11 @@ const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0
 #define CAR_INDEX ((int[]){179, 183, 187, 191, 194, 197, 200, 204, 206, 210, 214, 216, 220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268, 272})
 #define CAR_INDEX_COUNT sizeof(CAR_INDEX) / sizeof(int)
 
+// Helper functions
 uint8_t  ReadUint8(std::ifstream& file);
 uint16_t ReadUint16BigEndian(std::ifstream& file);
 uint32_t ReadUint32BigEndian(std::ifstream& file);
+string ReadNullTerminatedString(ifstream& file);
 
 class BitmapParser {
    private:
@@ -268,7 +270,7 @@ class BitmapParser {
 
    public:
 
-	pair<int, vector<BitmapEntry_t>>                GetEntries(const string& filename);
+	pair<int, vector<BitmapEntry_t>>                ReadEntries(const string& filename);
     vector<Color>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
     vector<uint8_t>                                 GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data);
@@ -289,7 +291,8 @@ class BitmapParser {
 class DataParser {
     private:
         vector<pair<BitmapEntry_t, BitmapOffset_t>> offsets;
+        void CleanupCarString(string& str);
     public:
-        vector<BitmapOffset_t> GetEntries(const string& filename);
+        vector<BitmapOffset_t> ReadEntries(const string& filename);
         int                    GetCarIndex(AmigaLibAsset asset);
 };

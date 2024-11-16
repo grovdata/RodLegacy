@@ -20,7 +20,7 @@ class CarData {
         CarModel GetModel(char* modelId);
 
         void PrintModel(CarModel model);
-        void ReadCarsFromFile(char *filename);
+        void ReadCarsFromTomlFile(char *filename);
         CarModel GetRandomModel();
 
 };

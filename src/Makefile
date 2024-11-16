@@ -1,8 +1,8 @@
 # A simple Makefile for compiling small SDL projects
 
 # set the compiler
-CC := g++
-#CC := llvm-g++
+#CC := gcc-14
+CC := llvm-g++
 
 ## macOS
 #SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
@@ -10,7 +10,7 @@ CC := g++
 # Linux
 SDL_CONF := `sdl2-config --cflags --libs`
 # set the compiler flags
-CFLAGS := $(SDL_CONF) -ggdb3 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++14
+CFLAGS := $(SDL_CONF) -ggdb2 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++14 -ferror-limit=2
 
 # add header files here
 HDRS := global.h state.h types.h mouse.h driver.h scene.h game.h bitmap.h car.h part.h carbitmap.h cardata.h driving.h racing.h spritesheet.h SFont.h assets.h ui/button.h ui/zone.h parsers/libp.h \

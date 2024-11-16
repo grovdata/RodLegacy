@@ -45,7 +45,7 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
     return search != table->end();
 }
 
-void CarData::ReadCarsFromFile(char *filename) {
+void CarData::ReadCarsFromTomlFile(char *filename) {
     try {
         const auto data = toml::parse(filename);
         const auto table = toml::find<vector<toml::table>>(data, "cars");
@@ -62,7 +62,7 @@ void CarData::ReadCarsFromFile(char *filename) {
 
             CarModel newModel;
             newModel.id = car["id"].as_string();
-            newModel.vendor = CarVendor(car["year"].as_integer());
+            newModel.vendor = CarVendor(car["vendor"].as_integer());
             newModel.year = car["year"].as_integer();
             newModel.name = car["name"].as_string();
             if (MapContainsKey(&car, "filename")) {

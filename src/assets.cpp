@@ -22,8 +22,8 @@ const string AssetManager::GetLibStartFile() {
 }
 
 void AssetManager::LoadAssets() {
-    offsets = dp.GetEntries(GetDataFile());
-    pair<int, vector<BitmapEntry_t>> entries = bp.GetEntries(GetLibPFile());
+    offsets = dp.ReadEntries(GetDataFile());
+    pair<int, vector<BitmapEntry_t>> entries = bp.ReadEntries(GetLibPFile());
 
     for (int i = 0; i < entries.first; i++) {
         UpdateAsset(entries, i);
@@ -35,6 +35,7 @@ void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int in
     vector<uint8_t> data = bp.ReadImage(GetLibPFile(), b, index, entries.first);
 
 
+    // FIXME hardcoded
     if (index == 179) {
         vector<uint16_t> turq = PAL_CAR_COLOR_LIGHT_GREEN;
         carPalette = bp.PrepareCarPalette(turq);
