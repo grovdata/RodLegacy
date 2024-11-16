@@ -237,6 +237,7 @@ struct BitmapOffset_t {
 };
 
 struct ClassifiedEntry_t {
+    int year;
     string carName;
     string adText;
     int price;

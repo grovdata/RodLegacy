@@ -495,6 +495,8 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 
         // Read car name
         string carNameStr = ReadNullTerminatedString(file);
+        string carYearStr = carNameStr.substr(0, 4);
+        newClassified.year = stoi(carYearStr);
         CleanupCarString(carNameStr);
         newClassified.carName = carNameStr;
 

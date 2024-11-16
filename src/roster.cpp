@@ -17,7 +17,7 @@ void Roster::Randomize() {
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distrCar(0, stockCarCount);
-    std::uniform_int_distribution<> distrName(0, stockDriverNames.size());
+    std::uniform_int_distribution<> distrName(0, stockDriverNames.size()-1);
 
     while (this->stockDriverNames.size() > 0) {
         string name = this->stockDriverNames.back();
