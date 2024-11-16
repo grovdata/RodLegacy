@@ -430,10 +430,7 @@ switch (location) {
 }
 
 
-struct {
-    BitmapOffset_t offsets;
-    ClassifiedEntry_t classified;
-} CarMetadata;
+
 
 void DataParser::CleanupCarString(string& str) {
     size_t pos = 0;
@@ -451,16 +448,18 @@ void DataParser::CleanupCarString(string& str) {
     }
 }
 
+
+
 /// @brief Reads info about cars and parts from data file (SR_data)
 /// @param filename
 /// @return
-vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
-    vector<BitmapOffset_t> offsets;
-    vector<ClassifiedEntry_t> classifieds;
+vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
+    vector<CarMetadata_t> result;
+
     ifstream file(filename, ios::binary);
     if (!file) {
         cerr << "File error: Unable to open file " << filename << endl;
-        return vector<BitmapOffset_t>();
+        return vector<CarMetadata_t>();
     }
 
     #define OFFSETS_START 0x34C
@@ -470,6 +469,7 @@ vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
     file.seekg(OFFSETS_START, ios::beg);
 
     for (int i = 0; i < CARS_COUNT; i++) {
+        CarMetadata_t metadataEntry;
         BitmapOffset_t newEntry;
         newEntry.offsetXRearTire = ReadUint8(file);
         newEntry.offsetXFrontTire = ReadUint8(file);
@@ -483,12 +483,14 @@ vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
         newEntry.offsetYFrontBumper = ReadUint8(file);
         newEntry.offsetXDecal = ReadUint8(file);
         newEntry.offsetYDecal = ReadUint8(file);
-        offsets.push_back(newEntry);
+        metadataEntry.offsets = newEntry;
+        result.push_back(metadataEntry);
     }
 
      // Parse Classifieds
     file.seekg(CLASSIFIEDS_START, ios::beg);
     for (int i = 0; i < CARS_COUNT; i++) {
+        CarMetadata_t metadataEntry = result[i];
         ClassifiedEntry_t newClassified;
 
         // Read car name
@@ -503,10 +505,9 @@ vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
             CleanupCarString(line);
             size_t dollarPos = line.find('$');
             if (line.empty() || dollarPos != string::npos) {
-                // Found the price line
-                string priceStr = line.substr(dollarPos).substr(1); // Remove the '$' symbol
-                std::cout << "najs prajs " << dollarPos << " " << priceStr << std::endl;
-                newClassified.price = stoi(priceStr); // Convert to integer
+                // Convert price
+                string priceStr = line.substr(dollarPos).substr(1);
+                newClassified.price = stoi(priceStr);
                 break;
             }
             if (!adText.empty()) {
@@ -515,19 +516,19 @@ vector<BitmapOffset_t> DataParser::ReadEntries(const string& filename) {
             adText += line;
         }
         newClassified.adText = adText;
-        classifieds.push_back(newClassified);
+        metadataEntry.classified = newClassified;
     }
 
     // (Optional) Output for debug
-    for (const auto& classified : classifieds) {
-        cout << "Car Name: " << classified.carName << endl;
-        cout << "Ad Text: " << classified.adText << endl;
-        cout << "Price: " << classified.price << endl << endl;
-    }
+    // for (const auto& classified : classifieds) {
+    //     cout << "Car Name: " << classified.carName << endl;
+    //     cout << "Ad Text: " << classified.adText << endl;
+    //     cout << "Price: " << classified.price << endl << endl;
+    // }
 
     //todo return classifieds too
 
-    return offsets;
+    return result;
 }
 
 int DataParser::GetCarIndex(AmigaLibAsset asset) {

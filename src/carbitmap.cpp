@@ -6,7 +6,7 @@ CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
 
-    offsets = state.assets.GetCarOffset(model.index);
+    offsets = state.assets.GetCarMetadata(model.index).offsets;
     // std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
     // std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
     // std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
@@ -83,7 +83,7 @@ CarBitmap::CarBitmap(Car *car) {
     // decal->Print();
 
     AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
-    
+
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(0, 1);
     rearWheel->SetVisible(true);

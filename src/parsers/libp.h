@@ -242,6 +242,11 @@ struct ClassifiedEntry_t {
     int price;
 };
 
+struct CarMetadata_t {
+    BitmapOffset_t offsets;
+    ClassifiedEntry_t classified;
+};
+
 // hard-coded in SR.EXE / SRSE.EXE @ 0x3CA23
 const int COUNT[] = {1, 1, 2, 3, 4, 2, 3, 5, 6, 6, 4, 7, 7, 5, 8, 8};
 const unsigned char VALUE[] = {0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0x00};
@@ -293,6 +298,6 @@ class DataParser {
         vector<pair<BitmapEntry_t, BitmapOffset_t>> offsets;
         void CleanupCarString(string& str);
     public:
-        vector<BitmapOffset_t> ReadEntries(const string& filename);
+        vector<CarMetadata_t>  ReadEntries(const string& filename);
         int                    GetCarIndex(AmigaLibAsset asset);
 };

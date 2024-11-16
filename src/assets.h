@@ -36,14 +36,14 @@ public:
     void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i);
     void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& carPalette);
     Bitmap* GetBitmapAsset(const Asset& asset);
-    BitmapOffset_t GetCarOffset(int carIndex);
+    CarMetadata_t GetCarMetadata(int carIndex);
 
    private:
     DataParser dp;
     BitmapParser bp;
 
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
-    vector<BitmapOffset_t> offsets;
+    vector<CarMetadata_t> carMetadata;
     //map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
 
 };

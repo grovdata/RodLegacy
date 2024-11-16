@@ -22,7 +22,7 @@ const string AssetManager::GetLibStartFile() {
 }
 
 void AssetManager::LoadAssets() {
-    offsets = dp.ReadEntries(GetDataFile());
+    carMetadata = dp.ReadEntries(GetDataFile());
     pair<int, vector<BitmapEntry_t>> entries = bp.ReadEntries(GetLibPFile());
 
     for (int i = 0; i < entries.first; i++) {
@@ -83,7 +83,7 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     return nullptr;
 }
 
-BitmapOffset_t AssetManager::GetCarOffset(int carIndex) {
+CarMetadata_t AssetManager::GetCarMetadata(int carIndex) {
     int index = dp.GetCarIndex((AmigaLibAsset)carIndex);
-    return offsets[index];
+    return carMetadata[index];
 }
