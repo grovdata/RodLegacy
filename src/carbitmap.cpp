@@ -6,7 +6,7 @@ CarBitmap::CarBitmap(Car *car) {
     this->car = car;
     CarModel model = car->GetModel();
 
-    offsets = state.assets.GetCarMetadata(model.index).offsets;
+    offsets = state.carData.GetCarMetadata(model.index).offsets;
     // std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
     // std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
     // std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
@@ -129,11 +129,12 @@ void CarBitmap::Move(SDL_Point p) {
 
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
+    BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
-    driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + model.driverY);
-    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + model.rearWheelY);
-    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + model.frontWheelY);
-    gasCap->SetPosition(bodyRect.x + model.gasCapX, bodyRect.y + model.gasCapY);
+    driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y /*+ model.driverY*/);
+    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y/* + model.rearWheelY*/);
+    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y/* + model.frontWheelY*/);
+    gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
-    hoodScoop->SetPosition(bodyRect.x + model.hoodScoopX, bodyRect.y + model.hoodScoopY);
+    hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
 }

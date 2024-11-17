@@ -2,24 +2,23 @@
 #include "diner.h"
 #include "garage.h"
 #include "gas_station.h"
-
+#include "game.h"
 
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
-    // this->garage = new Garage();
-    // this->diner = new Diner();
+    assets.ReadAssets(GetLibPFile());
+    pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();
+    carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
+    
 
-
-    // TODO
-    carData.ReadCarsFromTomlFile(strdup("../data/cars.toml"));
     CarModel chevy = carData.GetModel(strdup("chevy2dr"));
     Car *chevyCar = new Car(chevy);
     this->currentCar = chevyCar;
 
-    assets.LoadAssets();
+    
     diner.Init();
     gasStation.Init();
     garage.Init();
-    roster.Randomize();
+    roster.Randomize(&carData);
     //driving.Init();
 }
 
@@ -27,6 +26,22 @@ State::~State() {
     // delete garage;
     // delete diner;
     delete this->currentCar;
+}
+
+const string State::GetTomlFile() {
+    return "../data/cars.toml";
+}
+
+const string State::GetDataFile() {
+    return "../../streetrod-bins/amiga/SR_disk2/SR_data";
+}
+
+const string State::GetLibPFile() {
+    return "../../streetrod-bins/amiga/SR_disk2/lib.p";
+}
+
+const string State::GetLibStartFile() {
+    return "../../streetrod-bins/amiga/SR_disk1/libstart.p";
 }
 
 int State::GetBankroll() {

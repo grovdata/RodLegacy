@@ -34,7 +34,6 @@ private:
 
     Uint64 elapsedTime;
 
-    CarData carData;
     Garage garage;
     Diner diner;
     GasStation gasStation;
@@ -57,7 +56,13 @@ public:
 
     Car* GetCurrentCar();
 
+    CarData carData;
     AssetManager assets;
+
+    const string GetTomlFile();
+    const string GetDataFile();
+    const string GetLibPFile();
+    const string GetLibStartFile();
 };
 
 extern State state;

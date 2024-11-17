@@ -6,7 +6,7 @@ class Part {
     private:
         int wear;
         int cost;
-        CarVendor vendor;
+        CarVendor_t vendor;
         AmigaLibAsset assetId;
     public:
         int GetWear() const { return wear; }

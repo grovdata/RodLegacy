@@ -29,4 +29,5 @@ class Game {
 
     void Update(Uint64 elapsedTime) {
     }
+
 };

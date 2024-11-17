@@ -27,23 +27,22 @@ public:
     AssetManager();
     ~AssetManager();
 
-    const string GetDataFile();
-    const string GetLibPFile();
-    const string GetLibStartFile();
+    void ReadAssets(string libfile);
 
-    void LoadAssets();
-
-    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i);
-    void UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& carPalette);
+    void UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int i);
+    void UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& carPalette);
     Bitmap* GetBitmapAsset(const Asset& asset);
-    CarMetadata_t GetCarMetadata(int carIndex);
+    
+    pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
    private:
-    DataParser dp;
+    
     BitmapParser bp;
 
+    pair<int, vector<BitmapEntry_t>> imageEntries;
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
-    vector<CarMetadata_t> carMetadata;
+    
+    
     //map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
 
 };

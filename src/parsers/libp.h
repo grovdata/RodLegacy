@@ -39,7 +39,7 @@ enum CarDecal {
     CarDecalNone = 8
 };
 
-enum CarVendor {
+enum CarVendor_t {
     CarVendorChrysler = 0,
     CarVendorFord = 1,
     CarVendorGM = 2,

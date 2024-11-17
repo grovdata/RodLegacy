@@ -3,6 +3,7 @@
 #include <vector>
 #include "driver.h"
 #include "car.h"
+#include "cardata.h"
 
 using namespace std;
 
@@ -19,6 +20,6 @@ class Roster {
         vector<Opponent> opponents;
     public:
         Roster();
-        void Randomize();
+        void Randomize(CarData *carData);
 
 };

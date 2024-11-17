@@ -11,7 +11,7 @@ Roster::Roster() {
 
 }
 
-void Roster::Randomize() {
+void Roster::Randomize(CarData *carData) {
     int stockCarCount = CAR_INDEX_COUNT;
 
     std::random_device rd; // obtain a random number from hardware
@@ -25,40 +25,37 @@ void Roster::Randomize() {
         int preferredCar = distrCar(gen);
         Driver driver;
         driver.preferredCar = CAR_INDEX[preferredCar];
-        driver.name = stockDriverNames[distrName(gen)];
-        std::cout << "Random name " << driver.name << " car " << driver.preferredCar << " (" << stockCarCount << ") " << this->stockDriverNames.size()  << std::endl;
-
+        driver.name = name;
+        std::cout << "Random name " << driver.name << " car " << driver.preferredCar << " (" << stockCarCount << ") " << this->stockDriverNames.size()  << std::endl;        
         Opponent oppo;
         oppo.driver = driver;
         opponents.push_back(oppo);
     }
 
-    #if 0
-
-    for (auto d: opponents) {
-        // FIXME
-        Car* car = new Car((CarModel)d.driver.preferredCar);
+    for (auto d: opponents) {        
+        int carIndex = d.driver.preferredCar;
+        CarModel model = carData->GetModelFromIndex(carIndex);
+        Car* car = new Car(model);
 
         // Random number generation for parts wear and choices
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> wearDist(0, 30); // Parts start with some wear
-        std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::LAST - 1);
+        std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
         std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
 
         // Create parts with random wear levels
-        car->gearbox = new Part(PartType::GEARBOX, wearDist(gen));
-        car->tires = new Part(PartType::TIRES, wearDist(gen));
-        car->engine = new Part(PartType::ENGINE, wearDist(gen));
-        car->carburator = new Part(PartType::CARBURATOR, wearDist(gen));
-        car->manifold = new Part(PartType::MANIFOLD, wearDist(gen));
+        // FIXME bogus asset
+        // car->SetGearbox(new Part(RACING_HOOD, wearDist(gen)));
+        // car->SetTires(new Part(RACING_HOOD, wearDist(gen)));
+        // car->SetEngine(new Part(RACING_HOOD, wearDist(gen)));
+        // car->SetCarburator(new Part(RACING_HOOD, wearDist(gen)));
+        // car->SetManifold(new Part(RACING_HOOD, wearDist(gen)));
 
         // Set random decal and tire type
-        car->SetDecal((CarDecal)stickerDist(gen));
-        car->SetTireType((CarWheelType)tireDist(gen));
+        // car->SetDecal((CarDecal)stickerDist(gen));
+        // car->SetTireType((CarWheelType)tireDist(gen));
 
     }
-
-    #endif
 
 }

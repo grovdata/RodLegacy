@@ -2,20 +2,24 @@
 #include <string>
 #include "parsers/libp.h"
 
+using namespace std;
 
 struct CarModel {
-    std::string id;
-    CarVendor vendor;
-    std::string name;
-    std::string filename;
-    int year;
+    // For custom cars
+    string id;
+    string filename;
+
+    // Currently not known where this is defined
     int baseSpeed;
-    int width, height;
-    int driverX, driverY;
-    int rearWheelX, rearWheelY;
-    int frontWheelX, frontWheelY;
-    int gasCapX, gasCapY;
-    int hoodScoopX, hoodScoopY;
+    
+    // From SR_data
+    int year;
+    string name;
+    CarVendor_t vendor;
+    BitmapOffset_t offsets;
+    
+    // From lib.p
+    int width, height;    
     int index;
 };
 

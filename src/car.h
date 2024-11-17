@@ -45,6 +45,12 @@ class Car {
         Part* GetCarburator() const { return carburator; }
         Part* GetManifold() const { return manifold; }
 
+        void SetGearbox(Part* gearbox) { this->gearbox = gearbox; }
+        void SetTires(Part* tires) { this->tires = tires; }
+        void SetEngine(Part* engine) { this->engine = engine; }
+        void SetCarburator(Part* carburator) { this->carburator = carburator; }
+        void SetManifold(Part* manifold) { this->manifold = manifold; }
+
         CarModel GetModel();
 
         CarDecal GetDecal();

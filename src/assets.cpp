@@ -11,28 +11,18 @@ AssetManager::AssetManager() {
 AssetManager::~AssetManager() {
 }
 
-const string AssetManager::GetDataFile() {
-    return "../../streetrod-bins/amiga/SR_disk2/SR_data";
-}
-const string AssetManager::GetLibPFile() {
-    return "../../streetrod-bins/amiga/SR_disk2/lib.p";
-}
-const string AssetManager::GetLibStartFile() {
-    return "../../streetrod-bins/amiga/SR_disk1/libstart.p";
-}
 
-void AssetManager::LoadAssets() {
-    carMetadata = dp.ReadEntries(GetDataFile());
-    pair<int, vector<BitmapEntry_t>> entries = bp.ReadEntries(GetLibPFile());
+void AssetManager::ReadAssets(string libfile) {    
+    pair<int, vector<BitmapEntry_t>> entries = bp.ReadEntries(libfile);
 
     for (int i = 0; i < entries.first; i++) {
-        UpdateAsset(entries, i);
+        UpdateAsset(libfile, entries, i);
     }
 }
 
-void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& carPalette) {
+void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& carPalette) {
     BitmapEntry_t b = entries.second[index];
-    vector<uint8_t> data = bp.ReadImage(GetLibPFile(), b, index, entries.first);
+    vector<uint8_t> data = bp.ReadImage(libfile, b, index, entries.first);
 
 
     // FIXME hardcoded
@@ -59,7 +49,6 @@ void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int in
         spriteSheet->SetDimensions(b.width, b.height);
         imageAssets.push_back(make_pair(a, std::move(spriteSheet)));
     } else {
-
         unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
         bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
         bitmap->SetDimensions(b.width, b.height);
@@ -67,9 +56,9 @@ void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int in
     }
 }
 
-void AssetManager::UpdateAsset(pair<int, vector<BitmapEntry_t>>& entries, int index) {
+void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int index) {
     Palette empty;
-    UpdateAsset(entries, index, empty);
+    UpdateAsset(libfile, entries, index, empty);
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
@@ -83,7 +72,3 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     return nullptr;
 }
 
-CarMetadata_t AssetManager::GetCarMetadata(int carIndex) {
-    int index = dp.GetCarIndex((AmigaLibAsset)carIndex);
-    return carMetadata[index];
-}

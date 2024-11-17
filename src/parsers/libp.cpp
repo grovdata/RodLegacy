@@ -454,6 +454,10 @@ void DataParser::CleanupCarString(string& str) {
 /// @param filename
 /// @return
 vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
+    #define OFFSETS_START 0x34C
+    #define CLASSIFIEDS_START 0x854
+    #define CARS_COUNT 17
+
     vector<CarMetadata_t> result;
 
     ifstream file(filename, ios::binary);
@@ -461,10 +465,6 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
         cerr << "File error: Unable to open file " << filename << endl;
         return vector<CarMetadata_t>();
     }
-
-    #define OFFSETS_START 0x34C
-    #define CLASSIFIEDS_START 0x854
-    #define CARS_COUNT 17
 
     file.seekg(OFFSETS_START, ios::beg);
 
@@ -522,11 +522,11 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
     }
 
     // (Optional) Output for debug
-    // for (const auto& classified : classifieds) {
-    //     cout << "Car Name: " << classified.carName << endl;
-    //     cout << "Ad Text: " << classified.adText << endl;
-    //     cout << "Price: " << classified.price << endl << endl;
-    // }
+    for (const auto& c : result) {
+         cout << "Car Name: " << c.classified.carName << endl;
+         cout << "Ad Text: " << c.classified.adText << endl;
+         cout << "Price: " << c.classified.price << endl << endl;
+     }
 
     //todo return classifieds too
 
