@@ -7,7 +7,7 @@ Car::Car() {
 
 Car::Car(CarModel model) {
     this->model = model;
-    this->tires = new Part(CAR_TIRES_STOCK);
+    this->tires = tires;
 }
 
 Car::~Car() {
@@ -23,5 +23,5 @@ int Car::GetDriver() {
 }
 
 CarDecal Car::GetDecal() {
-    return CarDecalDestinyCanWait;
+    return decal;
 }

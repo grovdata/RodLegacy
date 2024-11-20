@@ -9,9 +9,9 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();
     carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
 
-    CarModel chevy = carData.GetModel(strdup("chevy2dr"));
-    Car *chevyCar = new Car(chevy);
-    this->currentCar = chevyCar;
+    CarModel randomModel = carData.GetRandomModel();
+    Car *randomCar = new Car(randomModel);
+    this->currentCar = randomCar;
     
     diner.Init();
     gasStation.Init();
