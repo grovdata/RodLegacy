@@ -13,10 +13,10 @@ AssetManager::~AssetManager() {
 
 
 void AssetManager::ReadAssets(string libfile) {    
-    pair<int, vector<BitmapEntry_t>> entries = bp.ReadEntries(libfile);
+    imageEntries = bp.ReadEntries(libfile);
 
-    for (int i = 0; i < entries.first; i++) {
-        UpdateAsset(libfile, entries, i);
+    for (int i = 0; i < imageEntries.first; i++) {
+        UpdateAsset(libfile, imageEntries, i);
     }
 }
 
