@@ -3,6 +3,9 @@
 #include "cardata.h"
 
 double carAnimationTimeDiner = 0;
+double carExitAnimationTime = 0;
+const double WAIT_BEFORE_EXIT = 3.0;  // seconds to wait before exit
+const double WAIT_BEFORE_NEXT = 2.0;  // seconds to wait before next car
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
 
@@ -88,26 +91,43 @@ void Diner::Draw() {
     Uint64 elapsed = SDL_GetTicks64() - t;
 
     if (elapsed % 400 == 0) {
-        //CycleGuy();
-        // Fix spritesheet code
         phonebookGuy->CycleNextSprite();
     }
 
-    //phonebookGuy->SelectSprite(guySpriteX, guySpriteY);
     phonebookGuy->Draw();
 
-    if (elapsed > 5000 && !animatingCar) {
-        // printf("start animate\n");
+    // Handle car animation states
+    if (!animatingCar && !exitingCar && carBitmap != nullptr) {
+        waitTimer += 1.0/60.0;  // Assuming 60 FPS
+        if (waitTimer >= WAIT_BEFORE_EXIT) {
+            exitingCar = true;
+            waitTimer = 0;
+            carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
+        }
+    }
+    
+    if (!animatingCar && !exitingCar && carBitmap == nullptr) {
+        waitTimer += 1.0/60.0;
+        if (waitTimer >= WAIT_BEFORE_NEXT) {
+            waitTimer = 0;
+            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+            animatingCar = true;
+        }
+    }
+
+    if (elapsed > 5000 && !animatingCar && !exitingCar && carBitmap == nullptr) {
         StartAnimateCar(state.GetCurrentCar(), nullptr, false);
         animatingCar = true;
     }
+
     if (carBitmap != nullptr) {
-        // printf("Move %d %d\n",carx,cary);
         SDL_Point p;
-        p.x = carx; p.y = cary;
+        p.x = carx; 
+        p.y = cary;
         carBitmap->Move(p);
         carBitmap->Draw();
     }
+
     for (auto b : bubbles) {
         b->Draw();
     }
@@ -154,22 +174,40 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
 
 Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     Diner* diner = static_cast<Diner*>(param);
+    
+    if (diner->exitingCar) {
+        carExitAnimationTime += interval / 1000.0;
+        const double exitDuration = 2.0;
+        double easedValue = (1 - pow(2, -10 * carExitAnimationTime / exitDuration));
+        
+        // Move from current position to off right side of screen
+        int startX = 60;  // Starting X position
+        int endX = 320;   // End X position (off screen)
+        int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
+        diner->carx = carX;
+
+        if (easedValue >= 0.992) {
+            diner->exitingCar = false;
+            diner->carBitmap = nullptr;  // Clear the current car
+            carExitAnimationTime = 0;
+            return 0;
+        }
+        return interval;
+    }
+    
+    // Original entrance animation
     carAnimationTimeDiner += interval / 1000.0;
     const double duration = 2.0;
-    // Ease-out function (you can experiment with different easing functions)
     double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
-    // printf("easedvalue %f\n",easedValue);
-    int carX = static_cast<int>((easedValue * (320 + 50)) - 320);  // Scale to cover the range -320 to 100
-    // int carX = (int)(easedValue * 100);
+    int carX = static_cast<int>((easedValue * (320 + 50)) - 320);
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;
 
     if (easedValue >= 0.992) {
-        // printf("stop\n");
         diner->animatingCar = false;
+        carAnimationTimeDiner = 0;
         return 0;
     }
-    // printf("Carx cary %d %d\n",carX,carY);
     return interval;
 }

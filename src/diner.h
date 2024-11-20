@@ -22,6 +22,9 @@ class Diner: public CarScene {
 
     Uint64 t;
 
+    bool exitingCar;
+    double waitTimer;
+
     string GetOpponentText(Opponent *opponent);
 
     public:
