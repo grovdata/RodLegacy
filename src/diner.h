@@ -4,6 +4,8 @@
 #include "spritesheet.h"
 #include "carbitmap.h"
 
+class Opponent;
+
 class Diner: public CarScene {
    private:
     Spritesheet *phonebookGuy;
@@ -20,7 +22,7 @@ class Diner: public CarScene {
 
     Uint64 t;
 
-    void CycleGuy();
+    string GetOpponentText(Opponent *opponent);
 
     public:
         Diner();

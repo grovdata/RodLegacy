@@ -129,14 +129,22 @@ void Diner::DrawMaskAfterCar() {
 //     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 // }
 
+string Diner::GetOpponentText(Opponent *opponent) {
+    string result = opponent->driver.name + "    " + opponent->car->GetModel().name;
+    return result;
+}
+
 void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     if (animatingCar && carBitmap) return;
     // From announcing the driver with text, it should take approx. 8 seconds to
     // drive the car to a halt.
-    Car *carToAnimate = state.GetCurrentCar();
-    CarModel model = carToAnimate->GetModel();
-    SetStatusBar(strdup(model.name.c_str()));
-    SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
+    Opponent *opponent = state.GetNextOpponent();
+    string oppoText = GetOpponentText(opponent);
+    Car *carToAnimate = opponent->car;
+    
+    ClearStatusBar();
+    SetStatusBar(strdup(oppoText.c_str()));
+    SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
     if (carToAnimate != nullptr && carBitmap == nullptr) {
         carBitmap = new CarBitmap(carToAnimate);
