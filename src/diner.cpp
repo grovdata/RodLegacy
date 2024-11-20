@@ -161,13 +161,15 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     Opponent *opponent = state.GetNextOpponent();
     string oppoText = GetOpponentText(opponent);
     Car *carToAnimate = opponent->car;
+    std::cout << "car index " << carToAnimate->GetModel().index << std::endl;
+    Driver driverz = opponent->driver;
     
     ClearStatusBar();
     SetStatusBar(strdup(oppoText.c_str()));
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
     if (carToAnimate != nullptr && carBitmap == nullptr) {
-        carBitmap = new CarBitmap(carToAnimate);
+        carBitmap = new CarBitmap(carToAnimate, &driverz);
         carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
     }
 }
@@ -188,7 +190,8 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
 
         if (easedValue >= 0.992) {
             diner->exitingCar = false;
-            diner->carBitmap = nullptr;  // Clear the current car
+            delete diner->carBitmap;  // Free the memory
+            diner->carBitmap = nullptr;  // Set pointer to null
             carExitAnimationTime = 0;
             return 0;
         }
@@ -199,7 +202,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     carAnimationTimeDiner += interval / 1000.0;
     const double duration = 2.0;
     double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
-    int carX = static_cast<int>((easedValue * (320 + 50)) - 320);
+    int carX = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;

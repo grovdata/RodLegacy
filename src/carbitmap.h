@@ -22,10 +22,12 @@ class CarBitmap {
 
     BitmapOffset_t offsets;
 
+    bool showDriver;
+
     void UpdateTextures();
 
    public:
-    CarBitmap(Car *car);
+    CarBitmap(Car *car, Driver* driver);
     ~CarBitmap();
 
     void Draw();

@@ -18,10 +18,6 @@ CarModel Car::GetModel() {
     return model;
 }
 
-int Car::GetDriver() {
-    return DRIVER_04;
-}
-
 CarDecal Car::GetDecal() {
     return decal;
 }

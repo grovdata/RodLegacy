@@ -2,7 +2,7 @@
 #include "assets.h"
 #include "state.h"
 
-CarBitmap::CarBitmap(Car *car) {
+CarBitmap::CarBitmap(Car *car, Driver* driver) {
     this->car = car;
     CarModel model = car->GetModel();
 
@@ -27,8 +27,15 @@ CarBitmap::CarBitmap(Car *car) {
     body->SetVisible(true);
     SDL_Rect bodyRect = body->GetPosition();
 
-    driver = state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, car->GetDriver()});
-    driver->SetVisible(true);
+    if (driver != nullptr) {
+        showDriver = true;
+        int driverSprite = driver->spriteIndex;
+        this->driver = state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, driverSprite});
+        this->driver->SetVisible(true);
+    } else {
+        showDriver = false;
+        this->driver->SetVisible(false);
+    }
 
     Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
     gasCap = state.assets.GetBitmapAsset(capAsset);
@@ -113,7 +120,9 @@ void CarBitmap::Draw() {
         // frontWheel->CycleNextSprite();
     }
 
-    driver->Draw();
+    if (showDriver)
+        driver->Draw();
+
     body->Draw();
     // rearWheel->Draw();
     // frontWheel->Draw();

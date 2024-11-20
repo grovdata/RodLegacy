@@ -52,9 +52,6 @@ class Car {
         void SetManifold(Part* manifold) { this->manifold = manifold; }
         void SetDecal(CarDecal decal) { this->decal = decal; }
 
-
         CarModel GetModel();
-
         CarDecal GetDecal();
-        int GetDriver();
 };
