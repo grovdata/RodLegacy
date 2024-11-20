@@ -1,61 +1,83 @@
 #include "roster.h"
 #include <random>
-#include <ctime>
-#include "parsers/libp.h"
+#include <algorithm>
 
-Opponent::Opponent() {
+Opponent::Opponent() : car(nullptr) {}
 
-}
+Roster::Roster() : currentOpponent(opponents.begin()) {}
 
-Roster::Roster() {
+void Roster::Initialize(CarData& carData) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distrCar(0, CAR_INDEX_COUNT - 1);
 
-}
+    // Clear any existing opponents
+    opponents.clear();
 
-void Roster::Randomize(CarData *carData) {
-    int stockCarCount = CAR_INDEX_COUNT;
+    // Create opponents from stock driver names
+    while (!stockDriverNames.empty()) {
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+        
+        Driver driver = GenerateRandomDriver(preferredCarIndex);
+        CarModel model = carData.GetModelFromIndex(preferredCarIndex);
+        Car* car = GenerateRandomCar(model);
 
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<> distrCar(0, stockCarCount);
-    std::uniform_int_distribution<> distrName(0, stockDriverNames.size()-1);
-
-    while (this->stockDriverNames.size() > 0) {
-        string name = this->stockDriverNames.back();
-        this->stockDriverNames.pop_back();
-        int preferredCar = distrCar(gen);
-        Driver driver;
-        driver.preferredCar = CAR_INDEX[preferredCar];
-        driver.name = name;
-        std::cout << "Random name " << driver.name << " car " << driver.preferredCar << " (" << stockCarCount << ") " << this->stockDriverNames.size()  << std::endl;        
-        Opponent oppo;
-        oppo.driver = driver;
-        opponents.push_back(oppo);
+        // Create and add opponent directly to avoid move issues
+        opponents.emplace_back();
+        opponents.back().driver = std::move(driver);
+        opponents.back().car = car;
     }
 
-    for (auto d: opponents) {        
-        int carIndex = d.driver.preferredCar;
-        CarModel model = carData->GetModelFromIndex(carIndex);
-        Car* car = new Car(model);
+    ShuffleOpponents();
+    currentOpponent = opponents.begin();
+}
 
-        // Random number generation for parts wear and choices
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> wearDist(0, 30); // Parts start with some wear
-        std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
-        std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
+Car* Roster::GenerateRandomCar(const CarModel& model) {
+    Car* car = new Car(model);
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> wearDist(0, 30);
+    std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
+    std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
 
-        // Create parts with random wear levels
-        // FIXME bogus asset
-        // car->SetGearbox(new Part(RACING_HOOD, wearDist(gen)));
-        // car->SetTires(new Part(RACING_HOOD, wearDist(gen)));
-        // car->SetEngine(new Part(RACING_HOOD, wearDist(gen)));
-        // car->SetCarburator(new Part(RACING_HOOD, wearDist(gen)));
-        // car->SetManifold(new Part(RACING_HOOD, wearDist(gen)));
+    // Set random customization and wear
+    car->SetDecal((CarDecal)stickerDist(gen));
 
-        // Set random decal and tire type
-        // car->SetDecal((CarDecal)stickerDist(gen));
-        // car->SetTireType((CarWheelType)tireDist(gen));
+    car->SetTires((CarWheelType)tireDist(gen));
 
+    // TODO: Uncomment when part system is implemented
+    // car->SetGearbox(new Part(RACING_HOOD, wearDist(gen)));
+    // car->SetTires(new Part(RACING_HOOD, wearDist(gen)));
+    // car->SetEngine(new Part(RACING_HOOD, wearDist(gen)));
+    // car->SetCarburator(new Part(RACING_HOOD, wearDist(gen)));
+    // car->SetManifold(new Part(RACING_HOOD, wearDist(gen)));
+
+    return car;
+}
+
+Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
+    Driver driver;
+    driver.name = stockDriverNames.back();
+    stockDriverNames.pop_back();
+    driver.preferredCar = preferredCarIndex;
+    return driver;
+}
+
+Opponent* Roster::GetNextOpponent() {
+    if (currentOpponent == opponents.end()) {
+        return nullptr;
     }
+    return &*(currentOpponent++);
+}
 
+bool Roster::HasMoreOpponents() const {
+    return currentOpponent != opponents.end();
+}
+
+void Roster::ShuffleOpponents() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(opponents.begin(), opponents.end(), gen);
+    currentOpponent = opponents.begin();
 }

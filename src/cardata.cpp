@@ -48,12 +48,15 @@ CarModel CarData::GetModelFromIndex(int index) {
 CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata) {
     CarModel m;
     // FIXME Speed is unknown
+    if (index <= CAR_INDEX_COUNT) {
+        m.index = CAR_INDEX[index];
+        std::cout << "Car body ID: " << static_cast<int>(m.index) << std::endl;
+    }
     m.baseSpeed = 100;
     m.filename = "";
     m.height = bitmap.height;
     m.width = bitmap.width;
     m.id = "";
-    m.index = index;
     m.name = metadata.classified.carName;
     m.offsets = metadata.offsets;
     // FIXME Vendor is unknown

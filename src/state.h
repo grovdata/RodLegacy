@@ -51,6 +51,8 @@ public:
 
     void MoveToScene(GameScene scene);
 
+    Opponent* GetNextOpponent();
+
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
 

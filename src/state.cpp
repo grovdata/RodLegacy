@@ -9,6 +9,9 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();
     carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
 
+    // Initialize roster
+    roster.Initialize(carData);
+    
     CarModel randomModel = carData.GetRandomModel();
     Car *randomCar = new Car(randomModel);
     this->currentCar = randomCar;
@@ -16,7 +19,6 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     diner.Init();
     gasStation.Init();
     garage.Init();
-    roster.Randomize(&carData);
     //driving.Init();
 }
 
@@ -89,6 +91,10 @@ void State::SetElapsedTime(Uint64 elapsedTime) {
 
 Uint64 State::GetElapsedTime() {
     return this->elapsedTime;
+}
+
+Opponent* State::GetNextOpponent() {
+    return roster.GetNextOpponent();
 }
 
 // Global object

@@ -490,7 +490,8 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
      // Parse Classifieds
     file.seekg(CLASSIFIEDS_START, ios::beg);
     for (int i = 0; i < CARS_COUNT; i++) {
-        CarMetadata_t metadataEntry = result[i];
+        // Get a reference to modify the original entry, not a copy
+        CarMetadata_t& metadataEntry = result[i];
         ClassifiedEntry_t newClassified;
 
         // Read car name
