@@ -59,7 +59,7 @@ void GasStation::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
 
     if (carToAnimate != nullptr && carBitmap == nullptr) {
-        carBitmap = new CarBitmap(carToAnimate);
+        carBitmap = new CarBitmap(carToAnimate, nullptr);
         carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
     }
 }

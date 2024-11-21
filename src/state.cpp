@@ -97,5 +97,9 @@ Opponent* State::GetNextOpponent() {
     return roster.GetNextOpponent();
 }
 
+Opponent* State::GetCurrentOpponent() {
+    return roster.GetCurrentOpponent();
+}
+
 // Global object
 State state;

@@ -31,6 +31,7 @@ class Roster {
         Roster();
         void Initialize(CarData& carData);
         Opponent* GetNextOpponent();
+        Opponent* GetCurrentOpponent();
         bool HasMoreOpponents() const;
         void ShuffleOpponents();
         size_t GetOpponentCount() const { return opponents.size(); }
