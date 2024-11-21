@@ -2,6 +2,7 @@
 
 #include "global.h"
 #include "parsers/libp.h"
+#include "parsers/carcolor.h"
 #include "part.h"
 
 class Spritesheet;
@@ -25,6 +26,7 @@ class Car {
         int tuning;
         CarModel model;
         CarDecal decal;
+        StandardCarColor color;
 
         Part* gearbox;
         Part* tires;
@@ -51,7 +53,9 @@ class Car {
         void SetCarburator(Part* carburator) { this->carburator = carburator; }
         void SetManifold(Part* manifold) { this->manifold = manifold; }
         void SetDecal(CarDecal decal) { this->decal = decal; }
+        void SetColor(StandardCarColor color) { this->color = color; }
 
         CarModel GetModel();
         CarDecal GetDecal();
+        StandardCarColor GetColor() const { return color; }
 };

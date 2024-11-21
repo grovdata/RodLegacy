@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+using namespace std;
 
 enum StandardCarColor {
     CarColorRed,
@@ -32,3 +34,5 @@ enum StandardCarColor {
 #define PAL_CAR_COLOR_TURQUOISE    {0x0063, 0x0064, 0x0085, 0x0096, 0x00B7, 0x00C8, 0x00D9, 0x00FB, 0x00FD}
 // TODO: The King colors
 
+
+vector<uint16_t> GetStandardCarColor(StandardCarColor col);

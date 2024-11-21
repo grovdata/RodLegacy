@@ -10,7 +10,7 @@
 
 #include "bitmap.h"
 #include "parsers/libp.h"
-
+#include "parsers/carcolor.h"
 
 struct Asset {
     LibAssetType type;
@@ -29,8 +29,9 @@ public:
 
     void ReadAssets(string libfile);
 
-    void UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int i);
-    void UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int i, Palette& carPalette);
+    void UpdateAsset(string libfile, int i);
+    void UpdateAsset(string libfile, int i, Palette& carPalette);
+    void UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
     
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }

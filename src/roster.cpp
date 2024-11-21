@@ -1,4 +1,6 @@
 #include "roster.h"
+#include "parsers/carcolor.h"
+#include "state.h"
 #include <random>
 #include <algorithm>
 
@@ -34,11 +36,18 @@ void Roster::Initialize(CarData& carData) {
 Car* Roster::GenerateRandomCar(const CarModel& model) {
     Car* car = new Car(model);
     
-    // Random color
-    // PAL_CAR_COLOR_LIGHT_GREEN
-
+    // Random color selection
     std::random_device rd;
     std::mt19937 gen(rd());
+    std::uniform_int_distribution<> colorDist(0, StandardCarColor::CarColorCount - 1);
+    StandardCarColor randomColor = static_cast<StandardCarColor>(colorDist(gen));
+    
+    // Set the car color
+    car->SetColor(randomColor);
+
+    // Update the asset with the selected color
+    state.assets.UpdateAssetWithCarPalette(state.GetLibPFile(), model.index, randomColor); 
+
     std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
@@ -46,13 +55,6 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     // Set random customization and wear
     car->SetDecal((CarDecal)stickerDist(gen));
     car->SetTires((CarWheelType)tireDist(gen));
-
-    // TODO: Uncomment when part system is implemented
-    // car->SetGearbox(new Part(RACING_HOOD, wearDist(gen)));
-    // car->SetTires(new Part(RACING_HOOD, wearDist(gen)));
-    // car->SetEngine(new Part(RACING_HOOD, wearDist(gen)));
-    // car->SetCarburator(new Part(RACING_HOOD, wearDist(gen)));
-    // car->SetManifold(new Part(RACING_HOOD, wearDist(gen)));
 
     return car;
 }

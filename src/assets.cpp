@@ -16,13 +16,17 @@ void AssetManager::ReadAssets(string libfile) {
     imageEntries = bp.ReadEntries(libfile);
 
     for (int i = 0; i < imageEntries.first; i++) {
-        UpdateAsset(libfile, imageEntries, i);
+        UpdateAsset(libfile, i);
     }
 }
 
-void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& carPalette) {
-    BitmapEntry_t b = entries.second[index];
-    vector<uint8_t> data = bp.ReadImage(libfile, b, index, entries.first);
+/// @brief Reads the actual bitmap data for a bitmap
+/// @param libfile 
+/// @param index 
+/// @param carPalette 
+void AssetManager::UpdateAsset(string libfile, int index, Palette& carPalette) {
+    BitmapEntry_t b = imageEntries.second[index];
+    vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
     vector<Color> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
@@ -46,9 +50,15 @@ void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>&
     }
 }
 
-void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int index) {
+void AssetManager::UpdateAsset(string libfile, int index) {
     Palette empty;
-    UpdateAsset(libfile, entries, index, empty);
+    UpdateAsset(libfile, index, empty);
+}
+
+void AssetManager::UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette) {
+    vector<uint16_t> carPalette = GetStandardCarColor(palette);   
+    Palette newPalette = bp.PrepareCarPalette(carPalette);
+    UpdateAsset(libfile, index, newPalette); // Update the asset with the new color
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
