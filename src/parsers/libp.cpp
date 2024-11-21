@@ -98,7 +98,7 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filenam
         newEntry.offset = ReadUint32BigEndian(file);
         newEntry.sizePacked = ReadUint16BigEndian(file);
 
-        // PrintBitmapEntry(i, newEntry);
+        PrintBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
 

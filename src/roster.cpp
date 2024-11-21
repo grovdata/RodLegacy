@@ -21,6 +21,8 @@ void Roster::Initialize(CarData& carData) {
         
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
+        std::cout << "Rostermodel" << std::endl;
+        model.Log();
         Car* car = GenerateRandomCar(model);
 
         // Create and add opponent directly to avoid move issues

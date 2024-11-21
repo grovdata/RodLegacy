@@ -23,18 +23,8 @@ void AssetManager::ReadAssets(string libfile) {
 void AssetManager::UpdateAsset(string libfile, pair<int, vector<BitmapEntry_t>>& entries, int index, Palette& carPalette) {
     BitmapEntry_t b = entries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, entries.first);
-
-
-    // FIXME hardcoded
-    if (index == 179) {
-        vector<uint16_t> turq = PAL_CAR_COLOR_LIGHT_GREEN;
-        carPalette = bp.PrepareCarPalette(turq);
-    }
-
     vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
-
-
     vector<Color> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
 
     Asset a;

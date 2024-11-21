@@ -5,20 +5,24 @@
 CarBitmap::CarBitmap(Car *car, Driver* driver) {
     this->car = car;
     CarModel model = car->GetModel();
+    model.Log();
 
     offsets = state.carData.GetCarMetadata(model.index).offsets;
-    // std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
-    // std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
-    // std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
-    // std::cout << "offsetYDriver: " << static_cast<int>(offsets.offsetYDriver) << std::endl;
-    // std::cout << "offsetXChoppedRoof: " << static_cast<int>(offsets.offsetXChoppedRoof) << std::endl;
-    // std::cout << "offsetXAirScoop: " << static_cast<int>(offsets.offsetXAirScoop) << std::endl;
-    // std::cout << "offsetYAirScoop: " << static_cast<int>(offsets.offsetYAirScoop) << std::endl;
-    // std::cout << "offsetYRearBumper: " << static_cast<int>(offsets.offsetYRearBumper) << std::endl;
-    // std::cout << "offsetXFrontBumper: " << static_cast<int>(offsets.offsetXFrontBumper) << std::endl;
-    // std::cout << "offsetYFrontBumper: " << static_cast<int>(offsets.offsetYFrontBumper) << std::endl;
-    // std::cout << "offsetXDecal: " << static_cast<int>(offsets.offsetXDecal) << std::endl;
-    // std::cout << "offsetYDecal: " << static_cast<int>(offsets.offsetYDecal) << std::endl;
+    std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
+    std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
+    std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
+    std::cout << "offsetYDriver: " << static_cast<int>(offsets.offsetYDriver) << std::endl;
+    std::cout << "offsetXChoppedRoof: " << static_cast<int>(offsets.offsetXChoppedRoof) << std::endl;
+    std::cout << "offsetXAirScoop: " << static_cast<int>(offsets.offsetXAirScoop) << std::endl;
+    std::cout << "offsetYAirScoop: " << static_cast<int>(offsets.offsetYAirScoop) << std::endl;
+    std::cout << "offsetYRearBumper: " << static_cast<int>(offsets.offsetYRearBumper) << std::endl;
+    std::cout << "offsetXFrontBumper: " << static_cast<int>(offsets.offsetXFrontBumper) << std::endl;
+    std::cout << "offsetYFrontBumper: " << static_cast<int>(offsets.offsetYFrontBumper) << std::endl;
+    std::cout << "offsetXDecal: " << static_cast<int>(offsets.offsetXDecal) << std::endl;
+    std::cout << "offsetYDecal: " << static_cast<int>(offsets.offsetYDecal) << std::endl;
+    std::cout << "model w: " << static_cast<int>(model.width) << std::endl;
+    std::cout << "model y: " << static_cast<int>(model.height) << std::endl;
+
 
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
     body = state.assets.GetBitmapAsset(carAsset);

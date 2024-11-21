@@ -1,16 +1,17 @@
 # A simple Makefile for compiling small SDL projects
 
 # set the compiler
-CC := g++
-#CC := llvm-g++
+#CC := g++
+CC := llvm-g++
 
 ## macOS
-#SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
+SDL_CONF := `/opt/homebrew/bin/sdl2-config --cflags --libs`
 
 # Linux
-SDL_CONF := `sdl2-config --cflags --libs`
+#SDL_CONF := `sdl2-config --cflags --libs`
 # set the compiler flags
-CFLAGS := $(SDL_CONF) -ggdb2 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++14 -fmax-errors=3
+CFLAGS := $(SDL_CONF) -ggdb2 -O0 -lSDL2_image -lSDL2_mixer -lm -std=c++17
+# -fmax-errors=3
 # -ferror-limit=2
 
 # add header files here

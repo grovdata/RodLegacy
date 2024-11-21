@@ -184,7 +184,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
         
         // Move from current position to off right side of screen
         int startX = 60;  // Starting X position
-        int endX = 320;   // End X position (off screen)
+        int endX = GAME_WIDTH;   // End X position (off screen)
         int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
         diner->carx = carX;
 
@@ -192,6 +192,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
             diner->exitingCar = false;
             delete diner->carBitmap;  // Free the memory
             diner->carBitmap = nullptr;  // Set pointer to null
+            
             carExitAnimationTime = 0;
             return 0;
         }

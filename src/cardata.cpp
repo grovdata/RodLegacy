@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <iostream>
 #include <fstream>
+#include <SDL.h>
 
 using namespace std;
 
@@ -17,7 +18,7 @@ CarData::~CarData() {
 // FIXME ick ugly, refactor
 void CarData::ReadEntries(string datafile, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
     ReadCarsBuiltin(datafile, bitmaps);
-    ReadCarsFromTomlFile(tomlfile);
+   // ReadCarsFromTomlFile(tomlfile);
 }
 
 CarModel CarData::GetModel(char* carModel) {
@@ -35,12 +36,14 @@ CarModel CarData::GetModel(char* carModel) {
 CarModel CarData::GetModelFromIndex(int index) {
     for (auto m: allCarModels) {
         bool equals = m.index == index;
-        if (equals == 0) {
-            // printf("Found model %s\n", carModel);
+        if (equals) {
+            printf("Found model %s\n", m.name.c_str());
+            m.Log();
             return m;
         }
     }
     // Not sure about this
+    std::cout << "No model found for id " << index << std::endl;
     return CarModel();
 }
 
@@ -48,6 +51,9 @@ CarModel CarData::GetModelFromIndex(int index) {
 CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata) {
     CarModel m;
     // FIXME Speed is unknown
+
+    std::cout << "bitmap w " << bitmap.width << " h" << bitmap.height << std::endl;
+
     if (index <= CAR_INDEX_COUNT) {
         m.index = CAR_INDEX[index];
         std::cout << "Car body ID: " << static_cast<int>(m.index) << std::endl;
@@ -85,9 +91,15 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
 
 void CarData::ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> bitmaps) {
     carMetadata = dp.ReadEntries(datafile);
-    for (int i = 0; i < carMetadata.size(); i++) {        
-        CarModel newModel = CreateModel(i, bitmaps.second[i], carMetadata[i]);
+    // Index mapping to bitmaps is incorrect
+    for (int i = 0; i < carMetadata.size(); i++) {   
+        std::cout << " Input bitmap w:" << bitmaps.second[i].width << " h: " << bitmaps.second[i].height << std::endl;         
+        CarModel newModel = CreateModel(i, bitmaps.second[CAR_INDEX[i]], carMetadata[i]);
         allCarModels.insert(newModel);
+    }
+    std::cout << " ALL CAR MODELS " << std::endl;
+    for (auto newModel: allCarModels) {                
+        newModel.Log();
     }
 }
 

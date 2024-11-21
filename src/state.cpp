@@ -7,6 +7,11 @@
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     assets.ReadAssets(GetLibPFile());
     pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();
+    for (auto b: entries.second) {
+        std::cout << " State bitmap w:" << b.width << " h: " << b.height << std::endl;         
+    }
+    std::cout << " State bitmap 214" << entries.second[214].width << " h: " << entries.second[214].height << std::endl;   
+
     carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
 
     // Initialize roster
