@@ -8,7 +8,7 @@ const double WAIT_BEFORE_EXIT = 3.0;  // seconds to wait before exit
 const double WAIT_BEFORE_NEXT = 2.0;  // seconds to wait before next car
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
-
+    activeCarBitmap = nullptr;
 }
 
 void Diner::Init() {
@@ -54,6 +54,8 @@ Diner::~Diner() {
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
     SDL_RemoveTimer(carTimerID);
+    opponentCarBitmaps.clear();
+    activeCarBitmap = nullptr;
 }
 
 MousePointer Diner::GetPointerType() {
@@ -97,7 +99,7 @@ void Diner::Draw() {
     phonebookGuy->Draw();
 
     // Handle car animation states
-    if (!animatingCar && !exitingCar && carBitmap != nullptr) {
+    if (!animatingCar && !exitingCar && activeCarBitmap) {
         waitTimer += 1.0/60.0;  // Assuming 60 FPS
         if (waitTimer >= WAIT_BEFORE_EXIT) {
             exitingCar = true;
@@ -106,7 +108,7 @@ void Diner::Draw() {
         }
     }
     
-    if (!animatingCar && !exitingCar && carBitmap == nullptr) {
+    if (!animatingCar && !exitingCar && !activeCarBitmap) {
         waitTimer += 1.0/60.0;
         if (waitTimer >= WAIT_BEFORE_NEXT) {
             waitTimer = 0;
@@ -115,17 +117,17 @@ void Diner::Draw() {
         }
     }
 
-    if (elapsed > 5000 && !animatingCar && !exitingCar && carBitmap == nullptr) {
+    if (elapsed > 5000 && !animatingCar && !exitingCar && !activeCarBitmap) {
         StartAnimateCar(state.GetCurrentCar(), nullptr, false);
         animatingCar = true;
     }
 
-    if (carBitmap != nullptr) {
+    if (activeCarBitmap != nullptr) {
         SDL_Point p;
         p.x = carx; 
         p.y = cary;
-        carBitmap->Move(p);
-        carBitmap->Draw();
+        activeCarBitmap->Move(p);
+        activeCarBitmap->Draw();
     }
 
     for (auto b : bubbles) {
@@ -155,23 +157,31 @@ string Diner::GetOpponentText(Opponent *opponent) {
 }
 
 void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
-    if (animatingCar && carBitmap) return;
-    // From announcing the driver with text, it should take approx. 8 seconds to
-    // drive the car to a halt.
+    if (animatingCar && activeCarBitmap) return;
+    
     Opponent *opponent = state.GetNextOpponent();
+    if (!opponent) return;
+    
     string oppoText = GetOpponentText(opponent);
-    Car *carToAnimate = opponent->car;
-    std::cout << "car index " << carToAnimate->GetModel().index << std::endl;
-    Driver driverz = opponent->driver;
+    string opponentId = opponent->driver.name;  // Or some unique identifier for the opponent
     
     ClearStatusBar();
     SetStatusBar(strdup(oppoText.c_str()));
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
-    if (carToAnimate != nullptr && carBitmap == nullptr) {
-        carBitmap = new CarBitmap(carToAnimate, &driverz);
-        carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);  // 16 ms interval for about 60 FPS
+    // Check if we already have a CarBitmap for this opponent
+    auto existingBitmap = opponentCarBitmaps.find(opponentId);
+    if (existingBitmap != opponentCarBitmaps.end()) {
+        activeCarBitmap = existingBitmap->second.get();
+    } else {
+        // Create new CarBitmap and store it
+        auto newBitmap = std::make_unique<CarBitmap>(opponent->car, &opponent->driver);
+        activeCarBitmap = newBitmap.get();
+        opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
+
+    carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
+    animatingCar = true;
 }
 
 Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
@@ -190,9 +200,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
 
         if (easedValue >= 0.992) {
             diner->exitingCar = false;
-            delete diner->carBitmap;  // Free the memory
-            diner->carBitmap = nullptr;  // Set pointer to null
-            
+            diner->activeCarBitmap = nullptr;  // Don't delete, just clear the pointer
             carExitAnimationTime = 0;
             return 0;
         }

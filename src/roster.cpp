@@ -75,13 +75,13 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
 
 Opponent* Roster::GetNextOpponent() {
     if (currentOpponent == opponents.end()) {
-        return nullptr;
+        currentOpponent = opponents.begin();  // Wrap around to start
     }
     return &*(currentOpponent++);
 }
 
 bool Roster::HasMoreOpponents() const {
-    return currentOpponent != opponents.end();
+    return !opponents.empty();  // Only return false if there are no opponents at all
 }
 
 void Roster::ShuffleOpponents() {
