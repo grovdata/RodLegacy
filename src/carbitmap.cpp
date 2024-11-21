@@ -86,24 +86,24 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
         break;
 
     default:
-        //decal->SetVisible(false);
+        decal->SetVisible(false);
         break;
     }
 
     decal->SaveBitmap(DECALS);
     // decal->Print();
 
-    // AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
+    AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
 
-    // rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
-    // rearWheel->SelectSprite(0, 1);
-    // rearWheel->SetVisible(true);
-    // rearWheel->SetDimensions(31, 31);
+    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
+    rearWheel->SelectSprite(0, 1);
+    rearWheel->SetVisible(true);
+    rearWheel->SetDimensions(31, 31);
 
-    // frontWheel = new Spritesheet(1, 4, rearWheel);
-    // frontWheel->SelectSprite(0, 1);
-    // frontWheel->SetVisible(true);
-    // frontWheel->SetDimensions(31, 31);
+    frontWheel = new Spritesheet(1, 4, rearWheel);
+    frontWheel->SelectSprite(0, 1);
+    frontWheel->SetVisible(true);
+    frontWheel->SetDimensions(31, 31);
     UpdateTextures();
 
     t = SDL_GetTicks64();
@@ -120,16 +120,16 @@ void CarBitmap::Draw() {
     Uint64 elapsed = SDL_GetTicks64() - t;
 
     if (elapsed % 400 == 0) {
-        // rearWheel->CycleNextSprite();
-        // frontWheel->CycleNextSprite();
+        rearWheel->CycleNextSprite();
+        frontWheel->CycleNextSprite();
     }
 
     if (showDriver)
         driver->Draw();
 
-    body->Draw();
-    // rearWheel->Draw();
-    // frontWheel->Draw();
+    rearWheel->Draw();
+    frontWheel->Draw();
+    body->Draw();    
     gasCap->Draw();
     hoodScoop->Draw();
     decal->Draw();
@@ -144,9 +144,9 @@ void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
-    driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y /*+ model.driverY*/);
-    //rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y/* + model.rearWheelY*/);
-    //frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y/* + model.frontWheelY*/);
+    driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + 30/* + model.rearWheelY*/);
+    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + 30/* + model.frontWheelY*/);
     gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);

@@ -6,12 +6,11 @@ Car::Car() {
 }
 
 Car::Car(CarModel model) {
-    this->model = model;
-    this->tires = tires;
+    this->model = model;    
 }
 
 Car::~Car() {
-
+    delete this->tires;
 }
 
 CarModel Car::GetModel() {
@@ -35,8 +34,7 @@ void Car::SetTires(CarWheelType type) {
             aid = CAR_TIRES_RACING;
             break;
     }
-
-    Part p(aid);
-    this->tires = &p;
+    
+    this->tires = new Part(aid);
     std::cout << "Tire asset ID: " << static_cast<int>(this->tires->GetAssetId()) << std::endl;
 }
