@@ -3,6 +3,10 @@
 using namespace std;
 
 Bitmap::Bitmap() {
+    surface = NULL;
+    texture = NULL;
+    isVisible = true;
+    rect = {0, 0, 0, 0};
 }
 
 Bitmap::~Bitmap() {
@@ -66,6 +70,12 @@ void Bitmap::Crop(SDL_Rect crop) {
     // Copy the pixels from the original surface to the new cropped surface
     SDL_BlitSurface(surface, &crop, cropped, nullptr);
     SDL_FreeSurface(surface);
+
+    // Free existing texture before creating new one
+    if (texture != NULL) {
+        SDL_DestroyTexture(texture);
+        texture = NULL;
+    }
 
     surface = cropped;
     texture = SDL_CreateTextureFromSurface(renderer, cropped);
@@ -180,6 +190,7 @@ void Bitmap::SaveBitmap(int index) {
 
 
 void Bitmap::Draw() {
-    if (isVisible)
+    if (isVisible && texture != NULL) {
         SDL_RenderCopy(renderer, texture, NULL, &rect);
+    }
 }
