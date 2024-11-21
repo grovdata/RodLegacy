@@ -11,18 +11,14 @@ void Roster::Initialize(CarData& carData) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrCar(0, CAR_INDEX_COUNT - 1);
 
-    // Clear any existing opponents
     opponents.clear();
-
-    // Create opponents from stock driver names
+    
     while (!stockDriverNames.empty()) {
-        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
-        std::cout << "Preferred car index: " << preferredCarIndex << std::endl;
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];        
         
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
-        std::cout << "Rostermodel" << std::endl;
-        model.Log();
+        // model.Log();
         Car* car = GenerateRandomCar(model);
 
         // Create and add opponent directly to avoid move issues
@@ -67,7 +63,13 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     std::uniform_int_distribution<> spriteIndexDist(DRIVER_01, DRIVER_01 + DRIVER_COUNT - 1);
     Driver driver;
     driver.name = stockDriverNames.back();
-    driver.spriteIndex = spriteIndexDist(gen);
+    if (driver.name == "Erica") {
+        driver.spriteIndex = DRIVER_22;
+    } else {
+        do {
+            driver.spriteIndex = spriteIndexDist(gen);
+        } while (driver.spriteIndex == DRIVER_22);
+    }
     stockDriverNames.pop_back();
     driver.preferredCar = preferredCarIndex;
     return driver;
