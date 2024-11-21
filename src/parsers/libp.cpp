@@ -456,8 +456,6 @@ void DataParser::CleanupCarString(string& str) {
 vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
     #define OFFSETS_START 0x34C
     #define CLASSIFIEDS_START 0x854
-    #define CARS_COUNT 17
-
     vector<CarMetadata_t> result;
 
     ifstream file(filename, ios::binary);
@@ -468,7 +466,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 
     file.seekg(OFFSETS_START, ios::beg);
 
-    for (int i = 0; i < CARS_COUNT; i++) {
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarMetadata_t metadataEntry;
         BitmapOffset_t newEntry;
         newEntry.offsetXRearTire = ReadUint8(file);
@@ -489,7 +487,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 
      // Parse Classifieds
     file.seekg(CLASSIFIEDS_START, ios::beg);
-    for (int i = 0; i < CARS_COUNT; i++) {
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         // Get a reference to modify the original entry, not a copy
         CarMetadata_t& metadataEntry = result[i];
         ClassifiedEntry_t newClassified;

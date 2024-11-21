@@ -179,7 +179,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     
     if (diner->exitingCar) {
         carExitAnimationTime += interval / 1000.0;
-        const double exitDuration = 2.0;
+        const double exitDuration = 1.5;
         double easedValue = (1 - pow(2, -10 * carExitAnimationTime / exitDuration));
         
         // Move from current position to off right side of screen
