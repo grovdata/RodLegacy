@@ -36,7 +36,8 @@ enum CarDecal {
     CarDecalLoveBandit = 5,
     CarDecalBigChief = 6,
     CarDecalImNotACop = 7,
-    CarDecalNone = 8
+    CarDecalCount,
+    CarDecalNone,
 };
 
 enum CarVendor_t {

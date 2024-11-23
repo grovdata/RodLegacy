@@ -6,24 +6,32 @@
 #include "parsers/carcolor.h"
 
 AssetManager::AssetManager() {
+    this->carDecals = nullptr;
 }
 
 AssetManager::~AssetManager() {
 }
 
 
-void AssetManager::ReadAssets(string libfile) {    
+void AssetManager::ReadAssets(string libfile) {
     imageEntries = bp.ReadEntries(libfile);
 
     for (int i = 0; i < imageEntries.first; i++) {
         UpdateAsset(libfile, i);
     }
+
+    if (carDecals == nullptr) {
+        Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
+        SDL_Rect cropDecal = {7, 10, 215, 50};
+        decals->Crop(cropDecal); // Remove the decal border (window)
+        carDecals = std::move(decals);
+    }
 }
 
 /// @brief Reads the actual bitmap data for a bitmap
-/// @param libfile 
-/// @param index 
-/// @param carPalette 
+/// @param libfile
+/// @param index
+/// @param carPalette
 void AssetManager::UpdateAsset(string libfile, int index, Palette& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
@@ -56,7 +64,7 @@ void AssetManager::UpdateAsset(string libfile, int index) {
 }
 
 void AssetManager::UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette) {
-    vector<uint16_t> carPalette = GetStandardCarColor(palette);   
+    vector<uint16_t> carPalette = GetStandardCarColor(palette);
     Palette newPalette = bp.PrepareCarPalette(carPalette);
     UpdateAsset(libfile, index, newPalette); // Update the asset with the new color
 }
@@ -72,3 +80,6 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     return nullptr;
 }
 
+Spritesheet* AssetManager::GetCarDecals() {
+    return this->carDecals;
+}

@@ -50,12 +50,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
 
     hoodScoop->SetVisible(true);
 
-    decal = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
-    SDL_Rect cropDecal = {7, 10, 215, 50};
-
-    // FIXME: Only crop once!
-    decal->Crop(cropDecal);
-
+    decal = (Spritesheet*)state.assets.GetCarDecals();
     decal->SetVisible(true);
 
     switch (car->GetDecal())
@@ -90,7 +85,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
         break;
     }
 
-    decal->SaveBitmap(DECALS);
+    //decal->SaveBitmap(DECALS);
     // decal->Print();
 
     AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
@@ -129,7 +124,7 @@ void CarBitmap::Draw() {
 
     rearWheel->Draw();
     frontWheel->Draw();
-    body->Draw();    
+    body->Draw();
     gasCap->Draw();
     hoodScoop->Draw();
     decal->Draw();

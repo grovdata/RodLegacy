@@ -9,6 +9,7 @@
 #include <map>
 
 #include "bitmap.h"
+#include "spritesheet.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
@@ -33,17 +34,18 @@ public:
     void UpdateAsset(string libfile, int i, Palette& carPalette);
     void UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
-    
+
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
+    Spritesheet* GetCarDecals();
+
    private:
-    
+
     BitmapParser bp;
 
     pair<int, vector<BitmapEntry_t>> imageEntries;
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
-    
-    
-    //map<AssetLocation, pair<int, vector<BitmapEntry_t>>> imageEntries;
+
+    Spritesheet* carDecals;
 
 };
