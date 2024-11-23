@@ -198,6 +198,12 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
         int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
         diner->carx = carX;
 
+        // Calculate instantaneous speed for wheel animation
+        float speed = (endX - startX) * pow(2, -10 * carExitAnimationTime / exitDuration) * (10.0/exitDuration);
+        if (diner->activeCarBitmap) {
+            diner->activeCarBitmap->UpdateWheelAnimation(speed);
+        }
+
         if (easedValue >= 0.992) {
             diner->exitingCar = false;
             diner->activeCarBitmap = nullptr;  // Don't delete, just clear the pointer
@@ -215,6 +221,12 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     int carY = 100;
     diner->carx = carX;
     diner->cary = carY;
+
+    // Calculate instantaneous speed for wheel animation
+    float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTimeDiner / duration) * (10.0/duration);
+    if (diner->activeCarBitmap) {
+        diner->activeCarBitmap->UpdateWheelAnimation(speed);
+    }
 
     if (easedValue >= 0.992) {
         diner->animatingCar = false;
