@@ -56,7 +56,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
     switch (car->GetDecal())
     {
     case CarDecalHotLips:
-        decal->SelectSprite(0, 1);
+        decal->SelectSprite(0, 0);
         break;
     case CarDecalRanger:
         decal->SelectSprite(0, 2);
@@ -65,7 +65,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
         decal->SelectSprite(0, 3);
         break;
     case CarDecalHotRod:
-        decal->SelectSprite(0, 4);
+        decal->SelectSprite(0, 3);
         break;
     case CarDecalDestinyCanWait:
         decal->SelectSprite(1, 0);
@@ -80,6 +80,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
         decal->SelectSprite(1, 3);
         break;
 
+    case CarDecalNone:
     default:
         decal->SetVisible(false);
         break;

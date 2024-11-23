@@ -53,7 +53,14 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
 
     // Set random customization and wear
-    car->SetDecal((CarDecal)stickerDist(gen));
+    // Introduce a 25% chance to set CarDecal to CarDecalNone
+    std::uniform_int_distribution<> chanceDist(0, 3); // 0 to 3 for 25% chance
+    if (chanceDist(gen) == 0) {
+        car->SetDecal(CarDecal::CarDecalNone);
+    } else {
+        car->SetDecal((CarDecal)stickerDist(gen));
+    }
+    
     car->SetTires((CarWheelType)tireDist(gen));
 
     return car;
