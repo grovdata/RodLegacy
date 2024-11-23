@@ -113,13 +113,6 @@ CarBitmap::~CarBitmap() {
 
 
 void CarBitmap::Draw() {
-    Uint64 elapsed = SDL_GetTicks64() - t;
-
-    if (elapsed % 400 == 0) {
-        rearWheel->CycleNextSprite();
-        frontWheel->CycleNextSprite();
-    }
-
     if (showDriver)
         driver->Draw();
 
@@ -146,4 +139,16 @@ void CarBitmap::UpdateTextures() {
     gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
+}
+
+void CarBitmap::UpdateWheelAnimation(float speed) {
+    // Only update wheels if there's enough movement and enough time has passed
+    Uint64 currentTime = SDL_GetTicks64();
+    const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
+    
+    if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
+        rearWheel->CycleNextSprite();
+        frontWheel->CycleNextSprite();
+        lastWheelUpdateTime = currentTime;
+    }
 }

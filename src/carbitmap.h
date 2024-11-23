@@ -24,6 +24,8 @@ class CarBitmap {
 
     bool showDriver;
 
+    Uint64 lastWheelUpdateTime = 0;  // Track last wheel animation update time
+
     void UpdateTextures();
 
    public:
@@ -32,4 +34,5 @@ class CarBitmap {
 
     void Draw();
     void Move(SDL_Point p);
+    void UpdateWheelAnimation(float speed);
 };
