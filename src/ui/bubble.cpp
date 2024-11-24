@@ -1,5 +1,5 @@
 #include "bubble.h"
-
+#include "../state.h"
 Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
     string filename = "";
     switch (style) {
@@ -45,7 +45,7 @@ void Bubble::Draw() {
 void Bubble::UpdateText(std::string text, int xPos, int yPos) {
     char buf[50];
     snprintf(buf, 50, "%s", text.c_str());
-    SFont_Write(fontSurface, font, 0, 0, buf);
+    SFont_Write(fontSurface, state.assets.GetMainFont(), 0, 0, buf);
     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
     SDL_SetTextureColorMod(fontTexture, 0, 0, 0);
 

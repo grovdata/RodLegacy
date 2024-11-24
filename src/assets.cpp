@@ -10,8 +10,28 @@ AssetManager::AssetManager() {
 }
 
 AssetManager::~AssetManager() {
+    if (mainFont) {
+        SDL_FreeSurface(mainFont->Surface);
+        free(mainFont);
+    }
+    if (debugFont) {
+        SDL_FreeSurface(debugFont->Surface);
+        free(debugFont);
+    }
 }
 
+void AssetManager::InitFonts() {
+    mainFont = SFont_InitFont(IMG_Load("../data/font/font.png"));
+    debugFont = SFont_InitFont(IMG_Load("../data/font/lemon.png"));
+}
+
+SFont_Font* AssetManager::GetMainFont() {
+    return mainFont;
+}
+
+SFont_Font* AssetManager::GetDebugFont() {
+    return debugFont;
+}
 
 void AssetManager::ReadAssets(string libfile) {
     imageEntries = bp.ReadEntries(libfile);
@@ -83,3 +103,4 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
 Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
 }
+

@@ -1,4 +1,5 @@
 #include "button.h"
+#include "../state.h"
 
 #define COL_GREEN 0, 100, 110
 #define COL_WHITE 255, 255, 255
@@ -21,7 +22,7 @@ Button::Button(std::string text, int offsetX, int offsetY, int width, int height
     SDL_Rect innerFill = { 2, 2, width - 3, height - 4};
     SDL_FillRect(m_Surface, &innerFill, SDL_MapRGB(m_Surface->format, COL_GREEN));
 
-    SFont_Write(m_Surface, font, 3, cButtonStandardTextOffsetY, text.c_str());
+    SFont_Write(m_Surface, state.assets.GetMainFont(), 3, cButtonStandardTextOffsetY, text.c_str());
     m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
 }
 

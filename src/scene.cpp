@@ -2,17 +2,24 @@
 #include "state.h"
 #include "ui/zone.h"
 #include "assets.h"
+#include "state.h"
+
+DebugOverlay* Scene::debugOverlay = nullptr;
 
 Scene::Scene(Asset backgroundAsset) {
     this->isSetup = false;
     this->backgroundAsset = backgroundAsset;
     //background->SetPosition(0, 0);
     //background->SetVisible(true);
+    debugOverlay = nullptr;
+    debugMode = false;
 }
 
 Scene::Scene(std::string backgroundName) {
     this->isSetup = false;
     this->backgroundName = backgroundName;
+    debugOverlay = nullptr;
+    debugMode = false;
 }
 
 Scene::~Scene() {
@@ -22,6 +29,19 @@ Scene::~Scene() {
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(fadeSurface);
     SDL_DestroyTexture(fadeTexture);
+    if (debugOverlay) {
+        delete debugOverlay;
+        debugOverlay = nullptr;
+    }
+}
+
+void Scene::InitDebugOverlay() {
+    debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
+}
+    
+void Scene::CleanupDebugOverlay() {
+    delete debugOverlay;
+    debugOverlay = nullptr;
 }
 
 MousePointer Scene::GetPointerType() {
@@ -69,8 +89,8 @@ void Scene::Init() {
 void Scene::SetStatusBar(char *text) {
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(fontSurface, font, 2, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, bankroll);
-    SFont_Write(fontSurface, font, 160, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, text);
+    SFont_Write(fontSurface, state.assets.GetMainFont(), 2, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, bankroll);
+    SFont_Write(fontSurface, state.assets.GetMainFont(), 160, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, text);
     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
 }
@@ -113,6 +133,11 @@ void Scene::Draw() {
     background->Draw();
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
     SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);
+
+    if (debugMode) {
+        UpdateDebugInfo();
+        debugOverlay->Draw();
+    }
 }
 
 void Scene::PushEvent(SDL_Event *event) {
@@ -178,6 +203,27 @@ void Scene::OnFadeComplete() {
     }
 }
 
+
+void Scene::EnableDebug(bool enable) {
+    debugMode = enable;
+    if (enable && !debugOverlay) {
+        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
+    } else if (!enable && debugOverlay) {
+        delete debugOverlay;
+        debugOverlay = nullptr;
+    }
+}
+
+void Scene::UpdateDebugInfo() {
+    // Base implementation - can be overridden by derived classes
+    if (debugOverlay) {
+        debugOverlay->Clear();
+        debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
+        debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));
+    }
+}
+
+
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 }
 
@@ -209,4 +255,9 @@ SDL_Point CarScene::GetCarOffscreenPosition() {
 
 void CarScene::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
+}
+
+void CarScene::UpdateDebugInfo() {
+    if (!debugMode) return;
+    Scene::UpdateDebugInfo();
 }

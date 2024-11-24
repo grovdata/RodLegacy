@@ -4,9 +4,6 @@
 #include "parsers/libp.h"
 #include "state.h"
 #include "scene.h"
-#include "imgui.h"
-#include "backends/imgui_impl_sdl2.h"
-#include "backends/imgui_impl_sdlrenderer2.h"
 #include "debug_overlay.h"
 
 #define BITPLANE_DEPTH 4
@@ -26,20 +23,15 @@
 
 SDL_Window *win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
 SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-SFont_Font *font = SFont_InitFont(IMG_Load(FONT));
-SFont_Font *debugFont = SFont_InitFont(IMG_Load(DEBUG_FONT));
 SDL_Joystick *controller = NULL;
 Uint64 startTime = SDL_GetTicks64();
 
-Game game;
 Mouse mouse;
 BitmapParser b;
 bool isFullScreen = false;
 
 float scaleX = 1.0f;
 float scaleY = 1.0f;
-
-DebugOverlay debugOverlay(renderer, debugFont);
 
 void ToggleFullScreen(SDL_Window* window, bool currentState) {
     isFullScreen = !currentState;
@@ -112,6 +104,7 @@ int main(int argc, char *argv[]) {
 
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
+    Scene::InitDebugOverlay();
 
     state.MoveToScene(SCENE_GARAGE);
 
@@ -136,62 +129,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (debugMode) {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui_ImplSDL2_InitForSDLRenderer(win, renderer);
-        ImGui_ImplSDLRenderer2_Init(renderer);
-
-        // Adjust style for tiny UI
-        ImGuiStyle& style = ImGui::GetStyle();
-        style.WindowPadding = ImVec2(2, 2);
-        style.FramePadding = ImVec2(1, 1);
-        style.ItemSpacing = ImVec2(2, 1);
-        style.ItemInnerSpacing = ImVec2(1, 1);
-        style.TouchExtraPadding = ImVec2(0, 0);
-        style.ScrollbarSize = 8;
-        
-        // Scale everything down even more
-        style.ScaleAllSizes(0.5f);
-
-        // Make font tiny
-        ImGuiIO& io = ImGui::GetIO();
-        //io.Fonts->AddFontFromFileTTF("include/imgui/misc/fonts/ProggyTiny.ttf", 10.0f);
-        io.FontGlobalScale = 0.5f;
-    }
 
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (debugMode) {
-                // Create a copy of the event for ImGui
-                SDL_Event imguiEvent = event;
-                
-                // Scale mouse coordinates UP for ImGui copy
-                if (imguiEvent.type == SDL_MOUSEMOTION) {
-                    imguiEvent.motion.x = (int)(imguiEvent.motion.x * scaleX);
-                    imguiEvent.motion.y = (int)(imguiEvent.motion.y * scaleY);
-                }
-                else if (imguiEvent.type == SDL_MOUSEBUTTONDOWN || imguiEvent.type == SDL_MOUSEBUTTONUP) {
-                    imguiEvent.button.x = (int)(imguiEvent.button.x * scaleX);
-                    imguiEvent.button.y = (int)(imguiEvent.button.y * scaleY);
-                }
-                
-                std::cout << "imgui mouse: " << imguiEvent.motion.x << ", " << imguiEvent.motion.y << std::endl;
-                
-                ImGui_ImplSDL2_ProcessEvent(&imguiEvent);
-                
-                ImGuiIO& io = ImGui::GetIO();
-                if (io.WantCaptureMouse && (
-                    event.type == SDL_MOUSEMOTION ||
-                    event.type == SDL_MOUSEBUTTONDOWN ||
-                    event.type == SDL_MOUSEBUTTONUP ||
-                    event.type == SDL_MOUSEWHEEL))
-                {
-                    continue;
-                }
-            }
-            
             state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
 
@@ -263,15 +204,10 @@ int main(int argc, char *argv[]) {
 
         timeDelta = SDL_GetTicks64() - timeDelta;
 
-        game.Update(timeDelta);
         state.SetElapsedTime(timeDelta);
 
         if (debugMode) {
-            debugOverlay.Clear();
-            //debugOverlay.AddLine("FPS: " + std::to_string(1000.0f / timeDelta));
-            debugOverlay.AddLine("Scene: " + std::to_string(state.GetCurrentGameScene()));
-            // debugOverlay.AddLine("Mouse: " + std::to_string(mouse.x) + ", " + std::to_string(mouse.y));
-            debugOverlay.Draw();
+            state.GetCurrentScene()->EnableDebug(true);
         }
 
         SDL_RenderPresent(renderer);
@@ -283,6 +219,7 @@ int main(int argc, char *argv[]) {
     //printf("Whadda loser!\n");
 
     // delete currentScene;
+    Scene::CleanupDebugOverlay();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
@@ -291,9 +228,4 @@ int main(int argc, char *argv[]) {
     Mix_CloseAudio();
     SDL_Quit();
 
-    if (debugMode) {
-        ImGui_ImplSDLRenderer2_Shutdown();
-        ImGui_ImplSDL2_Shutdown();
-        ImGui::DestroyContext();
-    }
 }

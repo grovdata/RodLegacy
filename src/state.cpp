@@ -5,12 +5,9 @@
 #include "game.h"
 
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
+    assets.InitFonts();
     assets.ReadAssets(GetLibPFile());
-    pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();
-    for (auto b: entries.second) {
-        std::cout << " State bitmap w:" << b.width << " h: " << b.height << std::endl;         
-    }
-    std::cout << " State bitmap 214" << entries.second[214].width << " h: " << entries.second[214].height << std::endl;   
+    pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
     carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
 
@@ -21,10 +18,16 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     Car *randomCar = new Car(randomModel);
     this->currentCar = randomCar;
     
-    diner.Init();
-    gasStation.Init();
-    garage.Init();
-    //driving.Init();
+    // Create scenes after fonts are initialized
+    garage = std::make_unique<Garage>();
+    diner = std::make_unique<Diner>();
+    gasStation = std::make_unique<GasStation>();
+    driving = std::make_unique<Driving>();
+
+    garage->Init();
+    diner->Init();
+    gasStation->Init();
+    //driving->Init();
 }
 
 State::~State() {
@@ -69,17 +72,17 @@ void State::MoveToScene(GameScene scene) {
     currentGameScene = scene;
     switch (scene) {
         case SCENE_DINER:
-            this->currentScene = &diner;
+            this->currentScene = diner.get();
             break;
         case SCENE_GARAGE:
-            this->currentScene = &garage;
+            this->currentScene = garage.get();
             break;
         case SCENE_GAS_STATION:
-            this->currentScene = &gasStation;
+            this->currentScene = gasStation.get();
             break;
         case SCENE_CRUISING:
         case SCENE_DRIVING:
-            this->currentScene = &driving;
+            this->currentScene = driving.get();
             break;
     }
 

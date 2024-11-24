@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "spritesheet.h"
 #include "carbitmap.h"
+#include "debug_overlay.h"
 
 class Opponent;
 
@@ -36,6 +37,9 @@ class Diner: public CarScene {
     // Keep track of current active bitmap
     CarBitmap* activeCarBitmap;
 
+    // Add debug overlay member if needed
+    DebugOverlay* debugOverlay;
+
     public:
         Diner();
         ~Diner();
@@ -60,5 +64,5 @@ class Diner: public CarScene {
 
         static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
-        void DrawDebugUI() override;
+        void UpdateDebugInfo() override;
 };

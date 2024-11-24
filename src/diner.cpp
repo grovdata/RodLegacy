@@ -1,6 +1,7 @@
 #include "diner.h"
 #include "state.h"
 #include "cardata.h"
+#include "debug_overlay.h"
 
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
@@ -50,7 +51,7 @@ void Diner::Init() {
     t = SDL_GetTicks64();
 }
 
-Diner::~Diner() {
+Diner::~Diner() {    
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
     SDL_RemoveTimer(carTimerID);
@@ -236,72 +237,25 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     return interval;
 }
 
-void Diner::DrawDebugUI() {
-    ImGui::SetNextWindowPos(
-        ImVec2(ImGui::GetIO().DisplaySize.x, 0), 
-        ImGuiCond_FirstUseEver, 
-        ImVec2(1.0f, 0.0f)
-    );
+void Diner::UpdateDebugInfo() {
+    if (!debugMode) return;
     
-    if (ImGui::Begin("Diner", nullptr, 
-        ImGuiWindowFlags_AlwaysAutoResize 
-    )) {
-        if (activeCarBitmap) {
-            Opponent* opponent = state.GetCurrentOpponent();
-            if (opponent) {
-                Car* car = opponent->car;
-                CarModel model = car->GetModel();
-                
-                // Basic info always visible
-                ImGui::Text("%s", model.name.c_str());
-                ImGui::Text("State: %s", 
-                    animatingCar ? "In" : 
-                    exitingCar ? "Out" : "Idle");
+    CarScene::UpdateDebugInfo();
+    
+    // Use inherited debugOverlay
+    // debugOverlay->AddLine(std::string("Animation: ") + (animatingCar ? "true" : "false"));
+    // debugOverlay->AddLine(std::string("Exiting: ") + (exitingCar ? "true" : "false"));
 
-                // Add wheel visibility toggle button
-                bool wheelsVisible = activeCarBitmap->AreWheelsVisible();
-                if (ImGui::Button(wheelsVisible ? "Hide Wheels" : "Show Wheels")) {
-                    activeCarBitmap->ToggleWheels();
-                }
+    if (debugOverlay) {
+    debugOverlay->Clear();
+    //debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
 
-                // Bitmap section
-                if (ImGui::TreeNode("Bitmap")) {
-                    ImGui::Text("Pos: %d,%d", carx, cary);
-                    ImGui::Text("Offset XRearTire: %d", activeCarBitmap->GetOffset().offsetXRearTire);
-                    ImGui::Text("Offset XFrontTire: %d", activeCarBitmap->GetOffset().offsetXFrontTire);
-                    ImGui::Text("Offset XDriver: %d", activeCarBitmap->GetOffset().offsetXDriver);
-                    ImGui::Text("Offset YDriver: %d", activeCarBitmap->GetOffset().offsetYDriver);
-                    ImGui::Text("Offset XChoppedRoof: %d", activeCarBitmap->GetOffset().offsetXChoppedRoof);
-                    ImGui::Text("Offset XAirScoop: %d", activeCarBitmap->GetOffset().offsetXAirScoop);
-                    ImGui::Text("Offset YAirScoop: %d", activeCarBitmap->GetOffset().offsetYAirScoop);
-                    ImGui::Text("Offset YRearBumper: %d", activeCarBitmap->GetOffset().offsetYRearBumper);
-                    ImGui::Text("Offset XFrontBumper: %d", activeCarBitmap->GetOffset().offsetXFrontBumper);
-                    ImGui::Text("Offset YFrontBumper: %d", activeCarBitmap->GetOffset().offsetYFrontBumper);
-                    ImGui::Text("Offset XDecal: %d", activeCarBitmap->GetOffset().offsetXDecal);
-                    ImGui::Text("Offset YDecal: %d", activeCarBitmap->GetOffset().offsetYDecal);
-                    ImGui::TreePop();
-                }
-
-                // Driver section
-                if (ImGui::TreeNode("Driver")) {
-                    ImGui::Text("Name: %s", opponent->driver.name.c_str());
-                    ImGui::Text("Sprite: $%d", opponent->driver.spriteIndex);                    
-                    ImGui::TreePop();
-                }
-
-                // Car details section
-                if (ImGui::TreeNode("Car")) {
-                    ImGui::Text("Year: %d", model.year);
-                    ImGui::Text("Spd: %d", model.baseSpeed);
-                    ImGui::Text("Decal: %d", car->GetDecal());
-                    ImGui::Text("Scoop: %d", car->GetScoop());
-                    //ImGui::Text("Paint: %d", car->GetPaint());
-                    ImGui::TreePop();
-                }
-            }
-        } else {
-            ImGui::Text("No car");
-        }
+    debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));    
+    debugOverlay->AddLine("Car X: " + std::to_string(carx));
+    debugOverlay->AddLine("Car Y: " + std::to_string(cary));
+    Opponent *opponent = state.GetNextOpponent();   
+    if (opponent) {        
+        debugOverlay->AddLine("Opponent: " + opponent->driver.name);
     }
-    ImGui::End();
+    }
 }

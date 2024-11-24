@@ -8,6 +8,7 @@
 #include "assets.h"
 #include "bitmap.h"
 #include "carbitmap.h"
+#include "debug_overlay.h"
 
 using namespace std;
 
@@ -54,6 +55,9 @@ class Scene {
     vector<SDL_Texture*> textures;
     vector<Bubble*> bubbles;
 
+    static DebugOverlay* debugOverlay;
+    bool debugMode;
+    
    public:
     Scene(Asset backgroundAsset);
     Scene(string backgroundName);
@@ -79,6 +83,13 @@ class Scene {
     void SetZoneText(ZoneId id, char* text);
 
     virtual void DrawDebugUI() {}
+
+    void EnableDebug(bool enable);
+    virtual void UpdateDebugInfo();
+
+    static void InitDebugOverlay();
+    
+    static void CleanupDebugOverlay();
 };
 
 class CarScene: public Scene {
@@ -90,6 +101,7 @@ class CarScene: public Scene {
         virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
         virtual SDL_Point GetCarIdlePosition();
         virtual SDL_Point GetCarOffscreenPosition();
+        virtual void UpdateDebugInfo() override;
 
         CarBitmap *carBitmap;
 

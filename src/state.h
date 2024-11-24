@@ -9,11 +9,13 @@
 #include "gas_station.h"
 #include "assets.h"
 #include "roster.h"
+#include "debug_overlay.h"
 
 #include <set>
 #include <vector>
 #include <string>
 #include <SDL.h>
+#include <memory>
 
 class State {
 private:
@@ -34,10 +36,11 @@ private:
 
     Uint64 elapsedTime;
 
-    Garage garage;
-    Diner diner;
-    GasStation gasStation;
-    Driving driving;
+    std::unique_ptr<Garage> garage;
+    std::unique_ptr<Diner> diner;
+    std::unique_ptr<GasStation> gasStation;
+    std::unique_ptr<Driving> driving;
+
 
 public:
     State();
@@ -61,11 +64,12 @@ public:
 
     CarData carData;
     AssetManager assets;
-
+    
     const string GetTomlFile();
     const string GetDataFile();
     const string GetLibPFile();
     const string GetLibStartFile();
+    
 };
 
 extern State state;

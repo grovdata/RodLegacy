@@ -12,6 +12,7 @@
 #include "spritesheet.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
+#include "SFont.h"
 
 struct Asset {
     LibAssetType type;
@@ -39,8 +40,11 @@ public:
 
     Spritesheet* GetCarDecals();
 
-   private:
+    void InitFonts();
+    SFont_Font* GetMainFont();
+    SFont_Font* GetDebugFont();
 
+private:
     BitmapParser bp;
 
     pair<int, vector<BitmapEntry_t>> imageEntries;
@@ -48,4 +52,6 @@ public:
 
     Spritesheet* carDecals;
 
+    SFont_Font* mainFont;
+    SFont_Font* debugFont;
 };

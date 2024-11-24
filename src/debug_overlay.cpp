@@ -3,7 +3,7 @@
 DebugOverlay::DebugOverlay(SDL_Renderer* r, SFont_Font* f) 
     : font(f), padding(5), needsUpdate(true) {
     renderer = r;
-    bgColor = {0, 0, 0, 51}; // 20% opacity black
+    bgColor = {0, 0, 0, 150}; // 20% opacity black
 }
 
 DebugOverlay::~DebugOverlay() {
@@ -27,7 +27,7 @@ void DebugOverlay::UpdateContent() {
     int totalHeight = 0;
     int maxWidth = 0;
     for (const auto& line : lines) {
-        int w = SFont_TextWidth(font, line.c_str());
+        int w = SFontUtils::GetTextWidth(font, line);
         maxWidth = std::max(maxWidth, w);
         totalHeight += SFont_TextHeight(font);
     }
@@ -49,7 +49,7 @@ void DebugOverlay::UpdateContent() {
     // Draw text
     int y = padding;
     for (const auto& line : lines) {
-        SFont_Write(surface, font, padding, y, line.c_str());
+        SFontUtils::Write(surface, font, padding, y, line);
         y += SFont_TextHeight(font);
     }
 

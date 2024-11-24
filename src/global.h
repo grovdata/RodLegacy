@@ -10,7 +10,6 @@
 #include <SDL_image.h>
 #include <SDL_mixer.h>
 #include <SDL_timer.h>
-#include "include/imgui/imgui.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -25,4 +24,3 @@
 #include "utils.h"
 
 extern SDL_Renderer *renderer;
-extern SFont_Font *font;

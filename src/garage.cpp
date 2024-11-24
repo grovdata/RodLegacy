@@ -90,7 +90,7 @@ void Garage::UpdateSign() {
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
     snprintf(text, 50, "%d %s.", m.year, m.name.c_str());
-    SFont_Write(signSurface, font, 85, 45, text);
+    SFont_Write(signSurface, state.assets.GetMainFont(), 85, 45, text);
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 }
