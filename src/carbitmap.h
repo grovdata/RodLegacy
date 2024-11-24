@@ -26,6 +26,8 @@ class CarBitmap {
 
     Uint64 lastWheelUpdateTime = 0;  // Track last wheel animation update time
 
+    bool wheelsVisible = true;  // Add this member variable
+
     void UpdateTextures();
 
    public:
@@ -37,4 +39,7 @@ class CarBitmap {
     void UpdateWheelAnimation(float speed);
 
     BitmapOffset_t GetOffset();
+
+    bool AreWheelsVisible() const { return wheelsVisible; }
+    void ToggleWheels() { wheelsVisible = !wheelsVisible; }
 };

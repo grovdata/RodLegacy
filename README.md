@@ -11,3 +11,4 @@ StreetRod Legacy use these fine libraries:
  - [SDL2_mixer](https://github.com/libsdl-org/SDL_mixer)
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
+ - [lemon font](https://github.com/cmvnd/fonts)

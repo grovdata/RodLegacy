@@ -23,7 +23,7 @@ IMGUI_OBJS = $(IMGUI_SRCS:.cpp=.o)
 SRCS := main.cpp state.cpp types.cpp SFont.c bitmap.cpp spritesheet.cpp scene.cpp car.cpp \
         part.cpp cardata.cpp carbitmap.cpp diner.cpp driving.cpp racing.cpp garage.cpp \
         gas_station.cpp assets.cpp ui/button.cpp ui/bubble.cpp parsers/libp.cpp \
-        parsers/carcolor.cpp roster.cpp
+        parsers/carcolor.cpp roster.cpp debug_overlay.cpp
 
 # Generate object files for game sources
 OBJS = $(SRCS:.c=.o)

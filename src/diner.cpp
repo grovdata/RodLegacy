@@ -258,6 +258,12 @@ void Diner::DrawDebugUI() {
                     animatingCar ? "In" : 
                     exitingCar ? "Out" : "Idle");
 
+                // Add wheel visibility toggle button
+                bool wheelsVisible = activeCarBitmap->AreWheelsVisible();
+                if (ImGui::Button(wheelsVisible ? "Hide Wheels" : "Show Wheels")) {
+                    activeCarBitmap->ToggleWheels();
+                }
+
                 // Bitmap section
                 if (ImGui::TreeNode("Bitmap")) {
                     ImGui::Text("Pos: %d,%d", carx, cary);

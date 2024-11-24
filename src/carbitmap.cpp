@@ -136,8 +136,11 @@ void CarBitmap::Draw() {
     if (showDriver)
         driver->Draw();
 
-    rearWheel->Draw();
-    frontWheel->Draw();
+    if (wheelsVisible) {
+        rearWheel->Draw();
+        frontWheel->Draw();
+    }
+
     body->Draw();
     gasCap->Draw();
     hoodScoop->Draw();
