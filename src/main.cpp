@@ -125,11 +125,32 @@ int main(int argc, char *argv[]) {
         ImGui::CreateContext();
         ImGui_ImplSDL2_InitForSDLRenderer(win, renderer);
         ImGui_ImplSDLRenderer2_Init(renderer);
+
+        // Adjust style for tiny UI
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.WindowPadding = ImVec2(2, 2);
+        style.FramePadding = ImVec2(1, 1);
+        style.ItemSpacing = ImVec2(2, 1);
+        style.ItemInnerSpacing = ImVec2(1, 1);
+        style.TouchExtraPadding = ImVec2(0, 0);
+        style.ScrollbarSize = 8;
+        
+        // Scale everything down even more
+        style.ScaleAllSizes(0.5f);
+
+        // Make font tiny
+        ImGuiIO& io = ImGui::GetIO();
+        io.FontGlobalScale = 0.5f;
     }
 
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            // Let ImGui process events first
+            if (debugMode) {
+                ImGui_ImplSDL2_ProcessEvent(&event);
+            }
+            
             state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
 

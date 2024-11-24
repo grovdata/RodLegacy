@@ -237,30 +237,64 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
 }
 
 void Diner::DrawDebugUI() {
-    if (ImGui::Begin("Diner Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Scene: Diner");
-        
+    ImGui::SetNextWindowPos(
+        ImVec2(ImGui::GetIO().DisplaySize.x, 0), 
+        ImGuiCond_FirstUseEver, 
+        ImVec2(1.0f, 0.0f)
+    );
+    
+    if (ImGui::Begin("Diner", nullptr, 
+        ImGuiWindowFlags_AlwaysAutoResize 
+    )) {
         if (activeCarBitmap) {
             Opponent* opponent = state.GetCurrentOpponent();
             if (opponent) {
                 Car* car = opponent->car;
                 CarModel model = car->GetModel();
                 
-                ImGui::Separator();
-                ImGui::Text("Current Opponent Car:");
-                ImGui::Text("Model: %s", model.name.c_str());
-                ImGui::Text("Year: %d", model.year);
-                ImGui::Text("Base Speed: %d", model.baseSpeed);
-                ImGui::Text("Dimensions: %dx%d", model.width, model.height);
-                
-                ImGui::Separator();
-                ImGui::Text("Animation:");
-                ImGui::Text("Position: %d, %d", carx, cary);
-                ImGui::Text("Animating: %s", animatingCar ? "Yes" : "No");
-                ImGui::Text("Exiting: %s", exitingCar ? "Yes" : "No");
+                // Basic info always visible
+                ImGui::Text("%s", model.name.c_str());
+                ImGui::Text("State: %s", 
+                    animatingCar ? "In" : 
+                    exitingCar ? "Out" : "Idle");
+
+                // Bitmap section
+                if (ImGui::TreeNode("Bitmap")) {
+                    ImGui::Text("Pos: %d,%d", carx, cary);
+                    ImGui::Text("Offset XRearTire: %d", activeCarBitmap->GetOffset().offsetXRearTire);
+                    ImGui::Text("Offset XFrontTire: %d", activeCarBitmap->GetOffset().offsetXFrontTire);
+                    ImGui::Text("Offset XDriver: %d", activeCarBitmap->GetOffset().offsetXDriver);
+                    ImGui::Text("Offset YDriver: %d", activeCarBitmap->GetOffset().offsetYDriver);
+                    ImGui::Text("Offset XChoppedRoof: %d", activeCarBitmap->GetOffset().offsetXChoppedRoof);
+                    ImGui::Text("Offset XAirScoop: %d", activeCarBitmap->GetOffset().offsetXAirScoop);
+                    ImGui::Text("Offset YAirScoop: %d", activeCarBitmap->GetOffset().offsetYAirScoop);
+                    ImGui::Text("Offset YRearBumper: %d", activeCarBitmap->GetOffset().offsetYRearBumper);
+                    ImGui::Text("Offset XFrontBumper: %d", activeCarBitmap->GetOffset().offsetXFrontBumper);
+                    ImGui::Text("Offset YFrontBumper: %d", activeCarBitmap->GetOffset().offsetYFrontBumper);
+                    ImGui::Text("Offset XDecal: %d", activeCarBitmap->GetOffset().offsetXDecal);
+                    ImGui::Text("Offset YDecal: %d", activeCarBitmap->GetOffset().offsetYDecal);
+                    ImGui::TreePop();
+                }
+
+                // Driver section
+                if (ImGui::TreeNode("Driver")) {
+                    ImGui::Text("Name: %s", opponent->driver.name.c_str());
+                    ImGui::Text("Sprite: $%d", opponent->driver.spriteIndex);                    
+                    ImGui::TreePop();
+                }
+
+                // Car details section
+                if (ImGui::TreeNode("Car")) {
+                    ImGui::Text("Year: %d", model.year);
+                    ImGui::Text("Spd: %d", model.baseSpeed);
+                    ImGui::Text("Decal: %d", car->GetDecal());
+                    ImGui::Text("Scoop: %d", car->GetScoop());
+                    //ImGui::Text("Paint: %d", car->GetPaint());
+                    ImGui::TreePop();
+                }
             }
         } else {
-            ImGui::Text("No active car");
+            ImGui::Text("No car");
         }
     }
     ImGui::End();

@@ -172,3 +172,7 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
         lastWheelUpdateTime = currentTime;
     }
 }
+
+BitmapOffset_t CarBitmap::GetOffset() {
+    return offsets;
+}
