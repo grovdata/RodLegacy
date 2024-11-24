@@ -45,10 +45,30 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
     gasCap = state.assets.GetBitmapAsset(capAsset);
     gasCap->SetVisible(false);
 
-    Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_SCOOP1};
-    hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
+    CarScoopType scoop = car->GetScoop();
+    int scoopAssetId = CAR_SCOOP1;
+    switch (scoop) {
+        case SCOOP1:
+            scoopAssetId = CAR_SCOOP1;
+            break;
+        case SCOOP2:
+            scoopAssetId = CAR_SCOOP2;
+            break;
+        case SCOOP3:
+            scoopAssetId = CAR_SCOOP3;
+            break;
+        case SCOOP4:
+            scoopAssetId = CAR_SCOOP4;
+            break;
+        case SCOOP_NONE:
+            break;
+    }
 
-    hoodScoop->SetVisible(true);
+    std::cout << "scoopAssetId: " << scoopAssetId << " hasScoop: " << (scoop != SCOOP_NONE) << std::endl;
+    bool hasScoop = scoop != SCOOP_NONE;
+    Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, scoopAssetId};
+    hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
+    hoodScoop->SetVisible(hasScoop);
 
     decal = (Spritesheet*)state.assets.GetCarDecals();
     decal->SetVisible(true);

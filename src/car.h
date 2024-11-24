@@ -9,7 +9,7 @@ class Spritesheet;
 extern SDL_Renderer *renderer;
 
 enum CarWheelType { STOCK, BRAND, RACING };
-
+enum CarScoopType { SCOOP1, SCOOP2, SCOOP3, SCOOP4, SCOOP_NONE };
 
 class Car {
     /*
@@ -26,6 +26,7 @@ class Car {
         int tuning;
         CarModel model;
         CarDecal decal;
+        CarScoopType scoop;
         StandardCarColor color;
 
         Part* gearbox;
@@ -54,8 +55,9 @@ class Car {
         void SetManifold(Part* manifold) { this->manifold = manifold; }
         void SetDecal(CarDecal decal) { this->decal = decal; }
         void SetColor(StandardCarColor color) { this->color = color; }
-
+        void SetScoop(CarScoopType type);
         CarModel GetModel();
         CarDecal GetDecal();
+        CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
 };

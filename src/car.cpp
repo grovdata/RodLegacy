@@ -38,3 +38,7 @@ void Car::SetTires(CarWheelType type) {
     this->tires = new Part(aid);
     std::cout << "Tire asset ID: " << static_cast<int>(this->tires->GetAssetId()) << std::endl;
 }
+
+void Car::SetScoop(CarScoopType type) {
+    this->scoop = type;
+}

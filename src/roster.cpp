@@ -51,6 +51,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
+    std::uniform_int_distribution<> scoopDist(0, (int)CarScoopType::SCOOP_NONE - 1);
 
     // Set random customization and wear
     // Introduce a 25% chance to set CarDecal to CarDecalNone
@@ -62,7 +63,13 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     }
     
     car->SetTires((CarWheelType)tireDist(gen));
-
+    car->SetScoop((CarScoopType)scoopDist(gen));
+    // Introduce a 50% chance to not have a scoop at all
+    if (chanceDist(gen) == 0) {
+        car->SetScoop(CarScoopType::SCOOP_NONE);
+    } else {
+        car->SetScoop((CarScoopType)scoopDist(gen));
+    }
     return car;
 }
 
