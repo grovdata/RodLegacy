@@ -12,8 +12,8 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER
     activeCarBitmap = nullptr;
 }
 
-void Diner::Init() {
-    Scene::Init();
+void Diner::Init(bool debugMode) {
+    CarScene::Init(debugMode);
 
     roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
     SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
@@ -87,7 +87,7 @@ void Diner::Action(ZoneId zone) {
 void Diner::Draw() {
     Scene::Draw();
     if (!isSetup) {
-        Init();
+        Init(debugMode);
         isSetup = true;
     }
 
@@ -133,6 +133,10 @@ void Diner::Draw() {
 
     for (auto b : bubbles) {
         b->Draw();
+    }
+
+    if (debugMode && debugOverlay) {
+        debugOverlay->Draw();
     }
 }
 
@@ -241,21 +245,18 @@ void Diner::UpdateDebugInfo() {
     if (!debugMode) return;
     
     CarScene::UpdateDebugInfo();
-    
-    // Use inherited debugOverlay
-    // debugOverlay->AddLine(std::string("Animation: ") + (animatingCar ? "true" : "false"));
-    // debugOverlay->AddLine(std::string("Exiting: ") + (exitingCar ? "true" : "false"));
-
+        
     if (debugOverlay) {
-    debugOverlay->Clear();
-    //debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
+        debugOverlay->Clear();
+        //debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
 
-    debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));    
-    debugOverlay->AddLine("Car X: " + std::to_string(carx));
-    debugOverlay->AddLine("Car Y: " + std::to_string(cary));
-    Opponent *opponent = state.GetNextOpponent();   
-    if (opponent) {        
-        debugOverlay->AddLine("Opponent: " + opponent->driver.name);
-    }
+        debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));    
+        debugOverlay->AddLine("Car X: " + std::to_string(carx));
+        debugOverlay->AddLine("Car Y: " + std::to_string(cary));
+        Opponent *opponent = state.GetCurrentOpponent();   
+        if (opponent) {        
+            debugOverlay->AddLine("Opponent: " + opponent->driver.name);
+        }
+        
     }
 }

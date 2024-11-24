@@ -5,6 +5,10 @@
 #include "game.h"
 
 State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
+}
+
+void State::Init(bool enableDebug) {
+    this->debugMode = enableDebug;
     assets.InitFonts();
     assets.ReadAssets(GetLibPFile());
     pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
@@ -24,9 +28,9 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
     gasStation = std::make_unique<GasStation>();
     driving = std::make_unique<Driving>();
 
-    garage->Init();
-    diner->Init();
-    gasStation->Init();
+    garage->Init(debugMode);
+    diner->Init(debugMode);
+    gasStation->Init(debugMode);
     //driving->Init();
 }
 

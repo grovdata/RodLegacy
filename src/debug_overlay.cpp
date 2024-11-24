@@ -26,10 +26,26 @@ void DebugOverlay::UpdateContent() {
     // Calculate required dimensions
     int totalHeight = 0;
     int maxWidth = 0;
+    static int minWidth = 200;  // Minimum width to prevent excessive resizing
+    static int lastWidth = minWidth;  // Remember previous width
+
     for (const auto& line : lines) {
         int w = SFontUtils::GetTextWidth(font, line);
         maxWidth = std::max(maxWidth, w);
         totalHeight += SFont_TextHeight(font);
+    }
+
+    // Smooth width changes to prevent jumping
+    maxWidth = std::max(maxWidth, minWidth);
+    if (maxWidth < lastWidth) {
+        // Only shrink if new content is significantly smaller (prevents rapid oscillation)
+        if (maxWidth < lastWidth * 0.7) {
+            lastWidth = maxWidth;
+        } else {
+            maxWidth = lastWidth;
+        }
+    } else {
+        lastWidth = maxWidth;
     }
 
     int width = maxWidth + (padding * 2);

@@ -22,6 +22,7 @@ private:
     int bankroll;
     int dragRacesCompleted;
     int roadRacesCompleted;
+    bool debugMode;
 
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
@@ -45,6 +46,8 @@ private:
 public:
     State();
     ~State();
+
+    void Init(bool enableDebug);
 
     int GetBankroll();
 

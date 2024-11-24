@@ -41,6 +41,13 @@ void ToggleFullScreen(SDL_Window* window, bool currentState) {
 
 int main(int argc, char *argv[]) {
 
+    bool debugMode = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--debug") == 0) {
+            debugMode = true;
+        }
+    }
+
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
         SDL_Log("error initializing SDL: %s\n", SDL_GetError());
@@ -91,20 +98,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    state.Init(debugMode);
+
     // Res scaling
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
 
-    int windowWidth, windowHeight;
-    int logicalWidth, logicalHeight;
-    SDL_GetWindowSize(win, &windowWidth, &windowHeight);
-    SDL_RenderGetLogicalSize(renderer, &logicalWidth, &logicalHeight);
-
-    scaleX = (float)windowWidth / logicalWidth;
-    scaleY = (float)windowHeight / logicalHeight;
-
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
-    Scene::InitDebugOverlay();
 
     state.MoveToScene(SCENE_GARAGE);
 
@@ -122,12 +122,7 @@ int main(int argc, char *argv[]) {
 
     Uint64 timeDelta = 0;
 
-    bool debugMode = false;
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--debug") == 0) {
-            debugMode = true;
-        }
-    }
+  
 
 
     while (!close_requested) {
@@ -206,10 +201,6 @@ int main(int argc, char *argv[]) {
 
         state.SetElapsedTime(timeDelta);
 
-        if (debugMode) {
-            state.GetCurrentScene()->EnableDebug(true);
-        }
-
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
@@ -219,7 +210,7 @@ int main(int argc, char *argv[]) {
     //printf("Whadda loser!\n");
 
     // delete currentScene;
-    Scene::CleanupDebugOverlay();
+    
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);

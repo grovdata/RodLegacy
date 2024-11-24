@@ -55,14 +55,14 @@ class Scene {
     vector<SDL_Texture*> textures;
     vector<Bubble*> bubbles;
 
-    static DebugOverlay* debugOverlay;
+    DebugOverlay* debugOverlay;
     bool debugMode;
     
    public:
     Scene(Asset backgroundAsset);
     Scene(string backgroundName);
     ~Scene();
-    void Init();
+    void Init(bool debugMode);
 
     SDL_Texture *GetTexture();
 
@@ -84,19 +84,14 @@ class Scene {
 
     virtual void DrawDebugUI() {}
 
-    void EnableDebug(bool enable);
     virtual void UpdateDebugInfo();
-
-    static void InitDebugOverlay();
-    
-    static void CleanupDebugOverlay();
 };
 
 class CarScene: public Scene {
     public:
         CarScene(std::string backgroundName);
         CarScene(Asset backgroundAsset);
-        virtual void Init();
+        virtual void Init(bool debugMode);
         virtual void DrawMaskAfterCar();
         virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
         virtual SDL_Point GetCarIdlePosition();

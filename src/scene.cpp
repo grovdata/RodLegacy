@@ -4,8 +4,6 @@
 #include "assets.h"
 #include "state.h"
 
-DebugOverlay* Scene::debugOverlay = nullptr;
-
 Scene::Scene(Asset backgroundAsset) {
     this->isSetup = false;
     this->backgroundAsset = backgroundAsset;
@@ -35,20 +33,12 @@ Scene::~Scene() {
     }
 }
 
-void Scene::InitDebugOverlay() {
-    debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
-}
-    
-void Scene::CleanupDebugOverlay() {
-    delete debugOverlay;
-    debugOverlay = nullptr;
-}
-
 MousePointer Scene::GetPointerType() {
     return PointerHand;
 }
 
-void Scene::Init() {
+void Scene::Init(bool debugMode) {
+    this->debugMode = debugMode;
     background = state.assets.GetBitmapAsset(backgroundAsset);
     background->SetVisible(true);
     sceneTransition = SCENE_SOLID;
@@ -84,6 +74,10 @@ void Scene::Init() {
 
     m_statusBarMiddleRect = m_statusBarRect;
     m_statusBarMiddleRect.x = GAME_WIDTH/2;
+
+    if (debugMode) {
+        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
+    }
 }
 
 void Scene::SetStatusBar(char *text) {
@@ -203,17 +197,6 @@ void Scene::OnFadeComplete() {
     }
 }
 
-
-void Scene::EnableDebug(bool enable) {
-    debugMode = enable;
-    if (enable && !debugOverlay) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
-    } else if (!enable && debugOverlay) {
-        delete debugOverlay;
-        debugOverlay = nullptr;
-    }
-}
-
 void Scene::UpdateDebugInfo() {
     // Base implementation - can be overridden by derived classes
     if (debugOverlay) {
@@ -230,8 +213,8 @@ CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 CarScene::CarScene(Asset backgroundAsset): Scene(backgroundAsset) {
 }
 
-void CarScene::Init() {
-    Scene::Init();
+void CarScene::Init(bool debugMode) {
+    Scene::Init(debugMode);
 }
 
 //void CarScene::Draw() {

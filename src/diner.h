@@ -37,13 +37,10 @@ class Diner: public CarScene {
     // Keep track of current active bitmap
     CarBitmap* activeCarBitmap;
 
-    // Add debug overlay member if needed
-    DebugOverlay* debugOverlay;
-
     public:
         Diner();
         ~Diner();
-        void Init() override;
+        void Init(bool debugMode) override;
 
         MousePointer GetPointerType() override;
 
