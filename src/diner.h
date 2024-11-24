@@ -59,4 +59,6 @@ class Diner: public CarScene {
         int carx, cary;
 
         static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+
+        void DrawDebugUI() override;
 };

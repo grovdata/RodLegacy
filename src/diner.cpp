@@ -235,3 +235,33 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     }
     return interval;
 }
+
+void Diner::DrawDebugUI() {
+    if (ImGui::Begin("Diner Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Scene: Diner");
+        
+        if (activeCarBitmap) {
+            Opponent* opponent = state.GetCurrentOpponent();
+            if (opponent) {
+                Car* car = opponent->car;
+                CarModel model = car->GetModel();
+                
+                ImGui::Separator();
+                ImGui::Text("Current Opponent Car:");
+                ImGui::Text("Model: %s", model.name.c_str());
+                ImGui::Text("Year: %d", model.year);
+                ImGui::Text("Base Speed: %d", model.baseSpeed);
+                ImGui::Text("Dimensions: %dx%d", model.width, model.height);
+                
+                ImGui::Separator();
+                ImGui::Text("Animation:");
+                ImGui::Text("Position: %d, %d", carx, cary);
+                ImGui::Text("Animating: %s", animatingCar ? "Yes" : "No");
+                ImGui::Text("Exiting: %s", exitingCar ? "Yes" : "No");
+            }
+        } else {
+            ImGui::Text("No active car");
+        }
+    }
+    ImGui::End();
+}

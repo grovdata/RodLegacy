@@ -4,6 +4,9 @@
 #include "parsers/libp.h"
 #include "state.h"
 #include "scene.h"
+#include "imgui.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_sdlrenderer2.h"
 
 #define BITPLANE_DEPTH 4
 
@@ -36,7 +39,7 @@ void ToggleFullScreen(SDL_Window* window, bool currentState) {
     SDL_ShowCursor(currentState);
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
@@ -109,6 +112,20 @@ int main(void) {
     bool close_requested = false;
 
     Uint64 timeDelta = 0;
+
+    bool debugMode = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--debug") == 0) {
+            debugMode = true;
+        }
+    }
+
+    if (debugMode) {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui_ImplSDL2_InitForSDLRenderer(win, renderer);
+        ImGui_ImplSDLRenderer2_Init(renderer);
+    }
 
     while (!close_requested) {
         SDL_Event event;
@@ -187,6 +204,18 @@ int main(void) {
         game.Update(timeDelta);
         state.SetElapsedTime(timeDelta);
 
+        if (debugMode) {
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            ImGui_ImplSDLRenderer2_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
+            
+            scene->DrawDebugUI();
+            
+            ImGui::Render();
+            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+        }
+
         SDL_RenderPresent(renderer);
 
         // wait 1/60th of a second
@@ -203,4 +232,10 @@ int main(void) {
     Mix_FreeMusic(music);
     Mix_CloseAudio();
     SDL_Quit();
+
+    if (debugMode) {
+        ImGui_ImplSDLRenderer2_Shutdown();
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+    }
 }

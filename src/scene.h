@@ -77,6 +77,8 @@ class Scene {
     void ClearStatusBar();
 
     void SetZoneText(ZoneId id, char* text);
+
+    virtual void DrawDebugUI() {}
 };
 
 class CarScene: public Scene {
