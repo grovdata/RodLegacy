@@ -37,8 +37,11 @@ MousePointer Scene::GetPointerType() {
     return PointerHand;
 }
 
-void Scene::Init(bool debugMode) {
-    this->debugMode = debugMode;
+void Scene::Init(bool initialDebugMode) {
+    debugMode = initialDebugMode;
+    if (debugMode) {
+        debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
+    }
     background = state.assets.GetBitmapAsset(backgroundAsset);
     background->SetVisible(true);
     sceneTransition = SCENE_SOLID;
@@ -74,10 +77,6 @@ void Scene::Init(bool debugMode) {
 
     m_statusBarMiddleRect = m_statusBarRect;
     m_statusBarMiddleRect.x = GAME_WIDTH/2;
-
-    if (debugMode) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
-    }
 }
 
 void Scene::SetStatusBar(char *text) {
@@ -135,10 +134,13 @@ void Scene::Draw() {
 }
 
 void Scene::PushEvent(SDL_Event *event) {
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12) {
+        ToggleDebugMode();
+    }
     ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         Action(z);
-    }
+    }        
 }
 
 void Scene::Action(ZoneId zone) {

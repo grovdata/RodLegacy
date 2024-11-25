@@ -58,6 +58,13 @@ class Scene {
     DebugOverlay* debugOverlay;
     bool debugMode;
     
+    virtual void ToggleDebugMode() {
+        debugMode = !debugMode;
+        if (debugOverlay) {
+            debugOverlay->Clear();
+        }
+    }
+
    public:
     Scene(Asset backgroundAsset);
     Scene(string backgroundName);
