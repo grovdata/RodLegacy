@@ -41,7 +41,7 @@ void Scene::Init(bool initialDebugMode) {
     debugMode = initialDebugMode;
     debugEnabled = initialDebugMode;
     if (debugMode) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
+        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
     }
     background = state.assets.GetBitmapAsset(backgroundAsset);
     background->SetVisible(true);
