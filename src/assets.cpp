@@ -105,19 +105,9 @@ Spritesheet* AssetManager::GetCarDecals() {
 }
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(string libfile, Asset asset, const vector<uint16_t>& carPalette) {
-    // First try to find existing asset
-    auto it = std::find_if(imageAssets.begin(), imageAssets.end(),
-        [&asset](const pair<Asset, unique_ptr<Bitmap>>& p) {
-            return p.first == asset;
-        });
-    
-    if (it == imageAssets.end()) {
-        // Load new asset with custom palette
-        UpdateAssetWithPalette(libfile, asset.id, carPalette);
-        return GetBitmapAsset(asset);
-    }
-    
-    return it->second.get();
+    // Always create a new asset with the custom palette
+    UpdateAssetWithPalette(libfile, asset.id, carPalette);
+    return imageAssets.back().second.get();  // Return the newly created asset
 }
 
 void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette) {
@@ -126,7 +116,7 @@ void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vecto
     vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
     
     // Convert car palette to RGB format
-    Palette processedCarPalette = bp.PreparePalette(carPalette, true);
+    Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
     Palette basePal = bp.PreparePalette(palData, true);
     
     // Use provided car palette for color ranges
