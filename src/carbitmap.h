@@ -4,6 +4,7 @@
 #include "bitmap.h"
 #include "spritesheet.h"
 #include "parsers/libp.h"
+#include "parsers/carcolor.h"
 
 class CarBitmap {
    private:
@@ -28,11 +29,13 @@ class CarBitmap {
 
     bool wheelsVisible = true;  // Add this member variable
 
+    StandardCarColor currentColor;
+
     void UpdateTextures();
     void UpdateTires();
 
    public:
-    CarBitmap(Car *car, Driver* driver);
+    CarBitmap(Car *car, Driver* driver, StandardCarColor color);
     ~CarBitmap();
 
     void Draw();
@@ -46,4 +49,6 @@ class CarBitmap {
     int GetWheelsYOffset() const { return wheelsYOffset; }
     bool AreWheelsVisible() const { return wheelsVisible; }
     void ToggleWheels() { wheelsVisible = !wheelsVisible; }
+
+    void UpdateColor(StandardCarColor newColor);
 };

@@ -104,3 +104,42 @@ Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
 }
 
+Bitmap* AssetManager::GetBitmapAssetWithPalette(string libfile, Asset asset, const vector<uint16_t>& carPalette) {
+    // First try to find existing asset
+    auto it = std::find_if(imageAssets.begin(), imageAssets.end(),
+        [&asset](const pair<Asset, unique_ptr<Bitmap>>& p) {
+            return p.first == asset;
+        });
+    
+    if (it == imageAssets.end()) {
+        // Load new asset with custom palette
+        UpdateAssetWithPalette(libfile, asset.id, carPalette);
+        return GetBitmapAsset(asset);
+    }
+    
+    return it->second.get();
+}
+
+void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette) {
+    BitmapEntry_t b = imageEntries.second[index];
+    vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
+    vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
+    
+    // Convert car palette to RGB format
+    Palette processedCarPalette = bp.PreparePalette(carPalette, true);
+    Palette basePal = bp.PreparePalette(palData, true);
+    
+    // Use provided car palette for color ranges
+    vector<Color> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
+    
+    Asset a;
+    a.id = index;
+    a.location = AssetLocationAmigaLibP;
+    a.type = bp.GetAssetType(AssetLocationAmigaLibP, index);
+    
+    unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
+    bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+    bitmap->SetDimensions(b.width, b.height);
+    imageAssets.push_back(make_pair(a, std::move(bitmap)));
+}
+

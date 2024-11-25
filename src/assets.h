@@ -35,6 +35,7 @@ public:
     void UpdateAsset(string libfile, int i, Palette& carPalette);
     void UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
+    Bitmap* GetBitmapAssetWithPalette(string libfile, Asset asset, const vector<uint16_t>& carPalette);
 
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
@@ -54,4 +55,6 @@ private:
 
     SFont_Font* mainFont;
     SFont_Font* debugFont;
+
+    void UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette);
 };

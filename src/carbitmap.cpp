@@ -1,9 +1,12 @@
 #include "carbitmap.h"
 #include "assets.h"
 #include "state.h"
+#include "parsers/libp.h"
+#include "parsers/carcolor.h"
 
-CarBitmap::CarBitmap(Car *car, Driver* driver) {
+CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     this->car = car;
+    currentColor = color;
     CarModel model = car->GetModel();
     model.Log();
 
@@ -22,10 +25,14 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
     std::cout << "offsetYDecal: " << static_cast<int>(offsets.offsetYDecal) << std::endl;
     std::cout << "model w: " << static_cast<int>(model.width) << std::endl;
     std::cout << "model y: " << static_cast<int>(model.height) << std::endl;
+    std::cout << "color: " << static_cast<int>(color) << std::endl;
 
-
+    // Get car palette for the selected color
+    vector<uint16_t> carPalette = GetStandardCarColor(color);
+    
+    // Load car bitmap with custom palette
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
-    body = state.assets.GetBitmapAsset(carAsset);
+    body = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
     
     body->SetPosition(0, 0);
     body->SetDimensions(model.width, model.height);
@@ -197,4 +204,15 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
 
 BitmapOffset_t CarBitmap::GetOffset() {
     return offsets;
+}
+
+void CarBitmap::UpdateColor(StandardCarColor newColor) {
+    currentColor = newColor;
+    CarModel model = car->GetModel();
+    
+    vector<uint16_t> carPalette = GetStandardCarColor(newColor);
+    
+    // Reload bitmap with new palette
+    Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
+    body = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
 }

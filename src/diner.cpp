@@ -65,7 +65,7 @@ MousePointer Diner::GetPointerType() {
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
-    return {60, 95};
+    return {80, 95};
 }
 
 SDL_Point Diner::GetCarOffscreenPosition() {
@@ -205,7 +205,8 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
         activeCarBitmap = existingBitmap->second.get();
     } else {
         // Create new CarBitmap and store it
-        auto newBitmap = std::make_unique<CarBitmap>(currentOpponent->car, &currentOpponent->driver);
+        StandardCarColor carColor = static_cast<StandardCarColor>(currentOpponent->car->GetColor());
+        auto newBitmap = std::make_unique<CarBitmap>(currentOpponent->car, &currentOpponent->driver, carColor);
         activeCarBitmap = newBitmap.get();
         opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
@@ -229,7 +230,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
         double easedValue = (1 - pow(2, -10 * carExitAnimationTime / exitDuration));
         
         // Move from current position to off right side of screen
-        int startX = 60;  // Starting X position
+        int startX = 82;  // Starting X position
         int endX = GAME_WIDTH;   // End X position (off screen)
         int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
         diner->carx = carX;
@@ -284,7 +285,7 @@ void Diner::UpdateDebugInfo() {
             debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
-            debugOverlay->AddLine("model: " + model.name);
+            debugOverlay->AddLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
             debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));            
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
             debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
