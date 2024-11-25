@@ -37,6 +37,8 @@ class Diner: public CarScene {
     CarBitmap* activeCarBitmap;
     Opponent *currentOpponent;
 
+    bool isPaused;
+
     public:
         Diner();
         ~Diner();
@@ -62,4 +64,6 @@ class Diner: public CarScene {
         static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
         void UpdateDebugInfo() override;
+
+        void PushEvent(SDL_Event *event) override;
 };

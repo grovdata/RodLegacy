@@ -26,6 +26,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver) {
 
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
     body = state.assets.GetBitmapAsset(carAsset);
+    
     body->SetPosition(0, 0);
     body->SetDimensions(model.width, model.height);
     body->SetVisible(true);
@@ -150,6 +151,12 @@ void CarBitmap::Draw() {
 void CarBitmap::Move(SDL_Point p) {
     body->SetPosition(p.x, p.y);
     UpdateTextures();
+}
+
+// Move the body only, not the driver, wheels, etc.
+// Debug purposes
+void CarBitmap::MoveBody(SDL_Point p) {
+    body->SetPosition(p.x, p.y); 
 }
 
 void CarBitmap::UpdateTextures() {

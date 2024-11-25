@@ -36,6 +36,7 @@ class CarBitmap {
 
     void Draw();
     void Move(SDL_Point p);
+    void MoveBody(SDL_Point p);
     void UpdateWheelAnimation(float speed);
 
     BitmapOffset_t GetOffset();

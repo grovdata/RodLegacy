@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <SDL.h>
-
+#include "parsers/libp.h"
 using namespace std;
 
 CarData::CarData() {
@@ -172,3 +172,12 @@ void CarData::PrintModel(CarModel model) {
 CarModel CarData::GetRandomModel() {
     return getRandomElement(allCarModels);
 }
+
+int CarData::GetCarRoofYOffset(CarModel model) {
+    for(int i = 0; i < CAR_Y_OFFSETS_COUNT; i++) {
+        if(CAR_Y_OFFSETS[i][0] == model.index) {
+            return CAR_Y_OFFSETS[i][1];
+        }
+    }
+    return 96; // default value if not found
+}   

@@ -10,6 +10,7 @@ const double WAIT_BEFORE_NEXT = 2.0;  // seconds to wait before next car
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
     activeCarBitmap = nullptr;
+    isPaused = false;
 }
 
 void Diner::Init(bool debugMode) {
@@ -85,6 +86,30 @@ void Diner::Action(ZoneId zone) {
 }
 
 void Diner::Draw() {
+    if (debugMode && isPaused) {
+        // When paused, only redraw the scene without updating car animations or opponent logic
+        Scene::Draw();  // Draw background
+        
+        // Draw the car in its current position
+        if (activeCarBitmap) {
+            activeCarBitmap->Draw();
+        }
+        
+        // Draw any existing opponent car
+        Opponent* opponent = state.GetCurrentOpponent();
+        if (opponent && opponentCarBitmaps.count(opponent->driver.name)) {
+            opponentCarBitmaps[opponent->driver.name]->Draw();
+        }
+        
+        // Draw debug overlay if active
+        if (debugOverlay && debugMode) {
+            debugOverlay->Draw();
+        }
+        
+        return;
+    }
+
+    // Normal non-paused drawing and update logic
     Scene::Draw();
     if (!isSetup) {
         Init(debugMode);
@@ -185,6 +210,10 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
         opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
 
+    int carYOffset = state.carData.GetCarRoofYOffset(currentOpponent->car->GetModel());    
+    this->cary = carYOffset;
+
+
     carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
     animatingCar = true;
 }
@@ -222,10 +251,8 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     carAnimationTimeDiner += interval / 1000.0;
     const double duration = 2.0;
     double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
-    int carX = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);
-    int carY = 100;
+    int carX = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);    
     diner->carx = carX;
-    diner->cary = carY;
 
     // Calculate instantaneous speed for wheel animation
     float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTimeDiner / duration) * (10.0/duration);
@@ -248,9 +275,7 @@ void Diner::UpdateDebugInfo() {
         
     if (debugOverlay) {
         debugOverlay->Clear();
-        //debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
-
-        debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));    
+        
         debugOverlay->AddLine("Car X: " + std::to_string(carx));
         debugOverlay->AddLine("Car Y: " + std::to_string(cary));
 
@@ -258,6 +283,7 @@ void Diner::UpdateDebugInfo() {
             debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
+            debugOverlay->AddLine("model: " + model.name);
             debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop));
             debugOverlay->AddLine("offsetYAirScoop: " + std::to_string(offset.offsetYAirScoop));
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
@@ -271,5 +297,35 @@ void Diner::UpdateDebugInfo() {
             debugOverlay->AddLine("offsetYDecal: " + std::to_string(offset.offsetYDecal));
         }
         
+        debugOverlay->AddLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
+        
+    }
+}
+
+void Diner::PushEvent(SDL_Event *event) {
+    CarScene::PushEvent(event);  // Handle parent events first (like F12)
+
+    if (!debugMode) return;  // Only handle these events in debug mode
+
+    if (event->type == SDL_KEYDOWN) {
+        switch (event->key.keysym.sym) {
+            case SDLK_p:
+                isPaused = !isPaused;
+                break;
+            
+            case SDLK_UP:
+                if (isPaused && activeCarBitmap) {
+                    cary--;  // Move car up
+                    activeCarBitmap->MoveBody({carx, cary});
+                }
+                break;
+                
+            case SDLK_DOWN:
+                if (isPaused && activeCarBitmap) {
+                    cary++;  // Move car down
+                    activeCarBitmap->MoveBody({carx, cary});
+                }
+                break;
+        }
     }
 }
