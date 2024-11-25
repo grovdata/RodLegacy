@@ -41,6 +41,9 @@ class Car {
         Car(CarModel model);
         ~Car();
 
+        bool IsRoofChopped() const { return isRoofChopped; }
+        void SetRoofChopped(bool chopped) { isRoofChopped = chopped; }
+
         // Part getters
         Part* GetGearbox() const { return gearbox; }
         Part* GetTires() const { return tires; }

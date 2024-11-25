@@ -30,14 +30,43 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     // Get car palette for the selected color
     vector<uint16_t> carPalette = GetStandardCarColor(color);
     
-    // Load car bitmap with custom palette
+    // Load original body
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
-    body = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
-    
-    body->SetPosition(0, 0);
-    body->SetDimensions(model.width, model.height);
-    body->SetVisible(true);
-    SDL_Rect bodyRect = body->GetPosition();
+    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
+    bodyOriginal->SetPosition(0, 0);
+    bodyOriginal->SetDimensions(model.width, model.height);
+    bodyOriginal->SetVisible(true);
+
+    // Load and prepare chopped version if car can be chopped
+    if (car->IsRoofChopped()) {
+        // Load chopped roof with same palette
+        Asset roofAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+1};
+        Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), roofAsset, carPalette);
+        
+        // Create new surface for chopped version
+        bodyChopped = new Bitmap(*bodyOriginal);  // Create a copy of original body
+        
+        // Blend chopped roof onto the copy
+        SDL_Surface* choppedSurface = bodyChopped->GetSurface();
+        SDL_Surface* roofSurface = choppedRoof->GetSurface();
+        
+        SDL_Rect roofPos = {
+            model.offsets.offsetXChoppedRoof,
+            0,
+            roofSurface->w,
+            roofSurface->h
+        };
+        
+        SDL_BlitSurface(roofSurface, NULL, choppedSurface, &roofPos);
+        bodyChopped->SaveBitmap(model.index+1);
+        //bodyChopped->UpdateFromSurface();
+    } else {
+        bodyChopped = nullptr;
+    }
+
+    // Set initial state
+    isRoofChopped = car->IsRoofChopped();
+    body = isRoofChopped ? bodyChopped : bodyOriginal;
 
     if (driver != nullptr) {
         showDriver = true;
@@ -72,7 +101,6 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
             break;
     }
 
-    std::cout << "scoopAssetId: " << scoopAssetId << " hasScoop: " << (scoop != SCOOP_NONE) << std::endl;
     bool hasScoop = scoop != SCOOP_NONE;
     Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, scoopAssetId};
     hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
@@ -134,13 +162,32 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 }
 
 CarBitmap::~CarBitmap() {
+    delete bodyOriginal;
+    if (bodyChopped) {
+        delete bodyChopped;
+    }
     delete driver;
     delete rearWheel;
     delete frontWheel;
 }
 
+void CarBitmap::ToggleChoppedRoof() {
+    if (!bodyChopped) return;  // Can't toggle if no chopped version
+    
+    isRoofChopped = !isRoofChopped;
+    body = isRoofChopped ? bodyChopped : bodyOriginal;
+    
+    // Update position and visibility
+    SDL_Rect pos = bodyOriginal->GetPosition();
+    body->SetPosition(pos.x, pos.y);
+    body->SetVisible(true);
+}
 
 void CarBitmap::Draw() {
+    if (body && body->IsVisible()) {
+        body->Draw();
+    }
+
     if (showDriver)
         driver->Draw();
 
@@ -149,14 +196,15 @@ void CarBitmap::Draw() {
         frontWheel->Draw();
     }
 
-    body->Draw();
     gasCap->Draw();
     hoodScoop->Draw();
     decal->Draw();
 }
 
 void CarBitmap::Move(SDL_Point p) {
-    body->SetPosition(p.x, p.y);
+    if (body) {
+        body->SetPosition(p.x, p.y);
+    }
     UpdateTextures();
 }
 
@@ -214,5 +262,5 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     
     // Reload bitmap with new palette
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
-    body = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
+    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
 }

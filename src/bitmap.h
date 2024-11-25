@@ -31,6 +31,7 @@ class Bitmap {
         SDL_Rect GetPosition();
         void     SetPosition(int x, int y);
 
+        bool     IsVisible() const { return isVisible; }
         void     SetVisible(bool visible);
 
         virtual void Draw();

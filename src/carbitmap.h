@@ -10,8 +10,11 @@ class CarBitmap {
    private:
     Car *car;
 
+    Bitmap *bodyOriginal;  // Original body without chopped roof
+    Bitmap *bodyChopped;   // Body with chopped roof
+    Bitmap *body;          // Pointer to current active body (original or chopped)
+    bool isRoofChopped;
 
-    Bitmap *body;
     Bitmap *driver;
     Spritesheet *rearWheel;
     Spritesheet *frontWheel;
@@ -51,4 +54,7 @@ class CarBitmap {
     void ToggleWheels() { wheelsVisible = !wheelsVisible; }
 
     void UpdateColor(StandardCarColor newColor);
+
+    void ToggleChoppedRoof();
+    bool IsRoofChopped() const { return isRoofChopped; }
 };

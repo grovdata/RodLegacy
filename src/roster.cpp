@@ -45,6 +45,11 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     // Set the car color
     car->SetColor(randomColor);
 
+    // Randomize roof chopping
+    std::uniform_int_distribution<> roofDist(0, 1);
+    bool isRoofChopped = roofDist(gen) == 1;
+    car->SetRoofChopped(isRoofChopped);
+
     // Update the asset with the selected color
     state.assets.UpdateAssetWithCarPalette(state.GetLibPFile(), model.index, randomColor); 
 
