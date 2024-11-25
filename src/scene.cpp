@@ -39,6 +39,7 @@ MousePointer Scene::GetPointerType() {
 
 void Scene::Init(bool initialDebugMode) {
     debugMode = initialDebugMode;
+    debugEnabled = initialDebugMode;
     if (debugMode) {
         debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
     }
@@ -77,6 +78,22 @@ void Scene::Init(bool initialDebugMode) {
 
     m_statusBarMiddleRect = m_statusBarRect;
     m_statusBarMiddleRect.x = GAME_WIDTH/2;
+}
+
+void Scene::ToggleDebugMode() {
+    if (!debugEnabled) return;  // Early return if debug wasn't enabled at startup
+    
+    debugMode = !debugMode;
+    
+    // Create overlay if it doesn't exist yet
+    if (debugMode && !debugOverlay) {
+        debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
+    }
+    
+    // Clear overlay when toggling off
+    if (!debugMode && debugOverlay) {
+        debugOverlay->Clear();
+    }
 }
 
 void Scene::SetStatusBar(char *text) {
@@ -134,9 +151,10 @@ void Scene::Draw() {
 }
 
 void Scene::PushEvent(SDL_Event *event) {
-    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12) {
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
-    }
+        return;
+}
     ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         Action(z);
