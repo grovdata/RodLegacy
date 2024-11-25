@@ -38,4 +38,6 @@ class Bitmap {
 
         //Remove later
         SDL_Surface* GetSurface();
+
+        void UpdateFromSurface();
 };

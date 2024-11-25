@@ -194,3 +194,10 @@ void Bitmap::Draw() {
         SDL_RenderCopy(renderer, texture, NULL, &rect);
     }
 }
+
+void Bitmap::UpdateFromSurface() {
+    if (texture) {
+        SDL_DestroyTexture(texture);
+    }
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+}

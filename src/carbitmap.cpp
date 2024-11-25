@@ -11,21 +11,21 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     model.Log();
 
     offsets = state.carData.GetCarMetadata(model.index).offsets;
-    std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
-    std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
-    std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
-    std::cout << "offsetYDriver: " << static_cast<int>(offsets.offsetYDriver) << std::endl;
-    std::cout << "offsetXChoppedRoof: " << static_cast<int>(offsets.offsetXChoppedRoof) << std::endl;
-    std::cout << "offsetXAirScoop: " << static_cast<int>(offsets.offsetXAirScoop) << std::endl;
-    std::cout << "offsetYAirScoop: " << static_cast<int>(offsets.offsetYAirScoop) << std::endl;
-    std::cout << "offsetYRearBumper: " << static_cast<int>(offsets.offsetYRearBumper) << std::endl;
-    std::cout << "offsetXFrontBumper: " << static_cast<int>(offsets.offsetXFrontBumper) << std::endl;
-    std::cout << "offsetYFrontBumper: " << static_cast<int>(offsets.offsetYFrontBumper) << std::endl;
-    std::cout << "offsetXDecal: " << static_cast<int>(offsets.offsetXDecal) << std::endl;
-    std::cout << "offsetYDecal: " << static_cast<int>(offsets.offsetYDecal) << std::endl;
-    std::cout << "model w: " << static_cast<int>(model.width) << std::endl;
-    std::cout << "model y: " << static_cast<int>(model.height) << std::endl;
-    std::cout << "color: " << static_cast<int>(color) << std::endl;
+    // std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
+    // std::cout << "offsetXFrontTire: " << static_cast<int>(offsets.offsetXFrontTire) << std::endl;
+    // std::cout << "offsetXDriver: " << static_cast<int>(offsets.offsetXDriver) << std::endl;
+    // std::cout << "offsetYDriver: " << static_cast<int>(offsets.offsetYDriver) << std::endl;
+    // std::cout << "offsetXChoppedRoof: " << static_cast<int>(offsets.offsetXChoppedRoof) << std::endl;
+    // std::cout << "offsetXAirScoop: " << static_cast<int>(offsets.offsetXAirScoop) << std::endl;
+    // std::cout << "offsetYAirScoop: " << static_cast<int>(offsets.offsetYAirScoop) << std::endl;
+    // std::cout << "offsetYRearBumper: " << static_cast<int>(offsets.offsetYRearBumper) << std::endl;
+    // std::cout << "offsetXFrontBumper: " << static_cast<int>(offsets.offsetXFrontBumper) << std::endl;
+    // std::cout << "offsetYFrontBumper: " << static_cast<int>(offsets.offsetYFrontBumper) << std::endl;
+    // std::cout << "offsetXDecal: " << static_cast<int>(offsets.offsetXDecal) << std::endl;
+    // std::cout << "offsetYDecal: " << static_cast<int>(offsets.offsetYDecal) << std::endl;
+    // std::cout << "model w: " << static_cast<int>(model.width) << std::endl;
+    // std::cout << "model y: " << static_cast<int>(model.height) << std::endl;
+    // std::cout << "color: " << static_cast<int>(color) << std::endl;
 
     // Get car palette for the selected color
     vector<uint16_t> carPalette = GetStandardCarColor(color);
@@ -37,8 +37,12 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     bodyOriginal->SetDimensions(model.width, model.height);
     bodyOriginal->SetVisible(true);
 
+    // Initialize chopped version
+    bodyChopped = nullptr;
+    
     // Load and prepare chopped version if car can be chopped
     if (car->IsRoofChopped()) {
+        
         // Load chopped roof with same palette
         Asset roofAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+1};
         Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), roofAsset, carPalette);
@@ -51,23 +55,24 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
         SDL_Surface* roofSurface = choppedRoof->GetSurface();
         
         SDL_Rect roofPos = {
-            model.offsets.offsetXChoppedRoof,
+            offsets.offsetXChoppedRoof,
             0,
             roofSurface->w,
             roofSurface->h
         };
         
+        // First clear the area where roof will go (make it transparent)
+        SDL_FillRect(choppedSurface, &roofPos, SDL_MapRGBA(choppedSurface->format, 0, 0, 0, 0));
+        
+        // Then blit the chopped roof
         SDL_BlitSurface(roofSurface, NULL, choppedSurface, &roofPos);
-        bodyChopped->SaveBitmap(model.index+1);
-        //bodyChopped->UpdateFromSurface();
-    } else {
-        bodyChopped = nullptr;
+        bodyChopped->UpdateFromSurface();
     }
 
     // Set initial state
     isRoofChopped = car->IsRoofChopped();
     body = isRoofChopped ? bodyChopped : bodyOriginal;
-
+    
     if (driver != nullptr) {
         showDriver = true;
         int driverSprite = driver->spriteIndex;
@@ -184,21 +189,37 @@ void CarBitmap::ToggleChoppedRoof() {
 }
 
 void CarBitmap::Draw() {
+    // Draw driver first (if visible)
+    if (showDriver && driver && driver->IsVisible()) {
+        driver->Draw();
+    }
+
+    // Draw body on top of driver
     if (body && body->IsVisible()) {
         body->Draw();
     }
 
-    if (showDriver)
-        driver->Draw();
-
+    // Draw other parts (wheels, gas cap, etc.)
     if (wheelsVisible) {
-        rearWheel->Draw();
-        frontWheel->Draw();
+        if (rearWheel && rearWheel->IsVisible()) {
+            rearWheel->Draw();
+        }
+        if (frontWheel && frontWheel->IsVisible()) {
+            frontWheel->Draw();
+        }
     }
 
-    gasCap->Draw();
-    hoodScoop->Draw();
-    decal->Draw();
+    if (gasCap && gasCap->IsVisible()) {
+        gasCap->Draw();
+    }
+
+    if (hoodScoop && hoodScoop->IsVisible()) {
+        hoodScoop->Draw();
+    }
+
+    if (decal && decal->IsVisible()) {
+        decal->Draw();
+    }
 }
 
 void CarBitmap::Move(SDL_Point p) {

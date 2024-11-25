@@ -340,6 +340,12 @@ void Diner::PushEvent(SDL_Event *event) {
                     
                 }
                 break;
+
+            case SDLK_r:
+                if (isPaused && activeCarBitmap) {
+                    activeCarBitmap->ToggleChoppedRoof();
+                }
+                break;
         }
     }
 }
