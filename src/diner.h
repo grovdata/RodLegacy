@@ -4,7 +4,6 @@
 #include "spritesheet.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
-
 class Opponent;
 
 class Diner: public CarScene {
@@ -36,6 +35,7 @@ class Diner: public CarScene {
     
     // Keep track of current active bitmap
     CarBitmap* activeCarBitmap;
+    Opponent *currentOpponent;
 
     public:
         Diner();
