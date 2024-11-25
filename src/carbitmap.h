@@ -21,7 +21,7 @@ class CarBitmap {
     Uint64 t;
 
     BitmapOffset_t offsets;
-
+    int wheelsYOffset;
     bool showDriver;
 
     Uint64 lastWheelUpdateTime = 0;  // Track last wheel animation update time
@@ -29,6 +29,7 @@ class CarBitmap {
     bool wheelsVisible = true;  // Add this member variable
 
     void UpdateTextures();
+    void UpdateTires();
 
    public:
     CarBitmap(Car *car, Driver* driver);
@@ -37,10 +38,12 @@ class CarBitmap {
     void Draw();
     void Move(SDL_Point p);
     void MoveBody(SDL_Point p);
+    void MoveWheelsYOffset(int y);
     void UpdateWheelAnimation(float speed);
 
     BitmapOffset_t GetOffset();
 
+    int GetWheelsYOffset() const { return wheelsYOffset; }
     bool AreWheelsVisible() const { return wheelsVisible; }
     void ToggleWheels() { wheelsVisible = !wheelsVisible; }
 };

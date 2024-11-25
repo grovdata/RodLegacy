@@ -159,16 +159,28 @@ void CarBitmap::MoveBody(SDL_Point p) {
     body->SetPosition(p.x, p.y); 
 }
 
+void CarBitmap::MoveWheelsYOffset(int y) {
+    this->wheelsYOffset = y;
+    UpdateTires();
+}
+
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
     driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
-    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + 30/* + model.rearWheelY*/);
-    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + 30/* + model.frontWheelY*/);
     gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
+    UpdateTires();
+}
+
+void CarBitmap::UpdateTires() {
+    SDL_Rect bodyRect = body->GetPosition();
+    CarModel model = car->GetModel();
+    BitmapOffset_t offsets = model.offsets;
+    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + wheelsYOffset);
+    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + wheelsYOffset);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {

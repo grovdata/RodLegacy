@@ -36,6 +36,8 @@ class CarData {
         void ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> bitmaps);
         void ReadCarsFromTomlFile(string filename);
         CarModel GetRandomModel();
+
         int GetCarRoofYOffset(CarModel model);
+        int GetCarWheelsYOffset(CarModel model);
 };
 

@@ -180,4 +180,13 @@ int CarData::GetCarRoofYOffset(CarModel model) {
         }
     }
     return 96; // default value if not found
-}   
+}
+
+int CarData::GetCarWheelsYOffset(CarModel model) {
+    for(int i = 0; i < CAR_WHEELS_Y_OFFSETS_COUNT; i++) {
+        if(CAR_WHEELS_Y_OFFSETS[i][0] == model.index) {
+            return CAR_WHEELS_Y_OFFSETS[i][1];
+        }
+    }
+    return 34; // default value if not found
+}

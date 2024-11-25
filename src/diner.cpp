@@ -213,6 +213,8 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     int carYOffset = state.carData.GetCarRoofYOffset(currentOpponent->car->GetModel());    
     this->cary = carYOffset;
 
+    int carWheelsYOffset = state.carData.GetCarWheelsYOffset(currentOpponent->car->GetModel());
+    activeCarBitmap->MoveWheelsYOffset(carWheelsYOffset);
 
     carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
     animatingCar = true;
@@ -276,29 +278,25 @@ void Diner::UpdateDebugInfo() {
     if (debugOverlay) {
         debugOverlay->Clear();
         
-        debugOverlay->AddLine("Car X: " + std::to_string(carx));
-        debugOverlay->AddLine("Car Y: " + std::to_string(cary));
+        debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
 
-        if (currentOpponent) {        
+        if (currentOpponent && activeCarBitmap) {        
             debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
             debugOverlay->AddLine("model: " + model.name);
-            debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop));
-            debugOverlay->AddLine("offsetYAirScoop: " + std::to_string(offset.offsetYAirScoop));
+            debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));            
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
             debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
-            debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver));
-            debugOverlay->AddLine("offsetYDriver: " + std::to_string(offset.offsetYDriver));
+            debugOverlay->AddLine("offsetYTires: " + std::to_string(activeCarBitmap->GetWheelsYOffset()));
+            debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));            
             debugOverlay->AddLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
-            debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper));
-            debugOverlay->AddLine("offsetYFrontBumper: " + std::to_string(offset.offsetYFrontBumper));
-            debugOverlay->AddLine("offsetXDecal: " + std::to_string(offset.offsetXDecal));
-            debugOverlay->AddLine("offsetYDecal: " + std::to_string(offset.offsetYDecal));
+            debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));            
+            debugOverlay->AddLine("offsetXDecal: " + std::to_string(offset.offsetXDecal) + " Y: " + std::to_string(offset.offsetYDecal));
+            
         }
         
         debugOverlay->AddLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
-        
     }
 }
 
@@ -324,6 +322,20 @@ void Diner::PushEvent(SDL_Event *event) {
                 if (isPaused && activeCarBitmap) {
                     cary++;  // Move car down
                     activeCarBitmap->MoveBody({carx, cary});
+                }
+                break;
+
+            case SDLK_LEFT:
+                if (isPaused && activeCarBitmap) {
+                    activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() - 1);
+                    
+                }
+                break;
+
+            case SDLK_RIGHT:
+                if (isPaused && activeCarBitmap) {
+                    activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() + 1);
+                    
                 }
                 break;
         }
