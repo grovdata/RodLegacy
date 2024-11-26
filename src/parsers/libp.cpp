@@ -561,6 +561,10 @@ bool CarQuery::CanStripBumpers(AmigaLibAsset carAsset) {
         case FORD_DEUCE_COUPE_1932_BODY:
         case FORD_SEDAN_1932_BODY:
         case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
+        // FIXME: These SHOULD be able to strip bumpers, the bitmaps are garbled
+        case CHEVROLET_CORVETTE_1956_BODY:
+        case CHEVROLET_CORVETTE_1961_BODY:
+        case CHEVROLET_CORVETTE_1963_BODY:
             return false;
         default:
             return true;

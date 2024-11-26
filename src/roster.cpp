@@ -55,9 +55,14 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     }
 
     bool areBumpersStripped = false;
-    
-    std::uniform_int_distribution<> stripDist(0, 1);
-    areBumpersStripped = stripDist(gen) == 1;
+   
+    bool canStripBumpers = CarQuery::CanStripBumpers((AmigaLibAsset)model.index);
+    if (!canStripBumpers) {
+        car->SetBumpersStripped(false);
+    } else {
+        std::uniform_int_distribution<> stripDist(0, 1);
+        areBumpersStripped = stripDist(gen) == 1;
+    }
     
     car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color
