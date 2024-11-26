@@ -49,12 +49,16 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> roofDist(0, 1);
     bool isRoofChopped = roofDist(gen) == 1;
     car->SetRoofChopped(isRoofChopped);
+    bool canChopRoof = CarQuery::CanChopRoof((AmigaLibAsset)model.index);
+    if (!canChopRoof) {
+        car->SetRoofChopped(false);
+    }
 
     bool areBumpersStripped = false;
-    if (isRoofChopped) {
-        std::uniform_int_distribution<> stripDist(0, 1);
-        areBumpersStripped = stripDist(gen) == 1;
-    }
+    
+    std::uniform_int_distribution<> stripDist(0, 1);
+    areBumpersStripped = stripDist(gen) == 1;
+    
     car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color
     state.assets.UpdateAssetWithCarPalette(state.GetLibPFile(), model.index, randomColor); 

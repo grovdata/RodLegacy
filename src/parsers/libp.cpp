@@ -542,3 +542,44 @@ int DataParser::GetCarIndex(AmigaLibAsset asset) {
     }
     return -1;
 }
+
+
+bool CarQuery::CanChopRoof(AmigaLibAsset carAsset) {
+    switch (carAsset) {
+        case CHEVROLET_CORVETTE_1956_BODY:
+        case CHEVROLET_CORVETTE_1961_BODY:
+        case CHEVROLET_CORVETTE_1963_BODY:
+        case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
+            return false;
+        default:
+            return true;
+    }
+}
+
+bool CarQuery::CanStripBumpers(AmigaLibAsset carAsset) {
+    switch (carAsset) {
+        case FORD_DEUCE_COUPE_1932_BODY:
+        case FORD_SEDAN_1932_BODY:
+        case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
+            return false;
+        default:
+            return true;
+    }
+}
+
+int CarQuery::GetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
+    switch (carAsset) {
+        case CHEVROLET_CORVETTE_1956_BODY:
+        case CHEVROLET_CORVETTE_1961_BODY:
+        case CHEVROLET_CORVETTE_1963_BODY:
+            return false;
+        default:
+            return true;
+    }
+
+    return carAsset + 2;
+}
+
+int CarQuery::GetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
+    return carAsset + 3;
+}

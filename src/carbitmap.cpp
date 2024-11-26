@@ -39,10 +39,13 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
     // Initialize chopped version
     bodyChopped = nullptr;
+    // Set initial state
+    isRoofChopped = car->IsRoofChopped();
+    body = bodyOriginal;
     
     // Load and prepare chopped version if car can be chopped
-    if (car->IsRoofChopped()) {
-        
+    bool canChopRoof = CarQuery::CanChopRoof((AmigaLibAsset)model.index);
+    if (canChopRoof && car->IsRoofChopped()) {        
         // Load chopped roof with same palette
         Asset roofAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+1};
         Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), roofAsset, carPalette);
@@ -52,20 +55,18 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
         
         // Overlay the chopped roof
         OverlayPart(bodyChopped, choppedRoof, offsets.offsetXChoppedRoof, 0);
+        body = bodyChopped;
     }
 
     if (car->IsBumpersStripped()) {
         Asset rearBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+2};
         Bitmap* rearBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), rearBumperAsset, carPalette);
         Asset frontBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+3};
-        Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), frontBumperAsset, carPalette);
-        OverlayPart(bodyChopped, rearBumper, 0, offsets.offsetYRearBumper);
-        OverlayPart(bodyChopped, frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
-    }   
+        Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), frontBumperAsset, carPalette);        
+        OverlayPart(body, rearBumper, 0, offsets.offsetYRearBumper);
+        OverlayPart(body, frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+    }
 
-    // Set initial state
-    isRoofChopped = car->IsRoofChopped();
-    body = isRoofChopped ? bodyChopped : bodyOriginal;
     
     if (driver != nullptr) {
         showDriver = true;
