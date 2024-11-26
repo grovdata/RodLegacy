@@ -36,6 +36,7 @@ class CarBitmap {
 
     void UpdateTextures();
     void UpdateTires();
+    void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
 
    public:
     CarBitmap(Car *car, Driver* driver, StandardCarColor color);

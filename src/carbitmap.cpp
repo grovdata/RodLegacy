@@ -50,24 +50,18 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
         // Create new surface for chopped version
         bodyChopped = new Bitmap(*bodyOriginal);  // Create a copy of original body
         
-        // Blend chopped roof onto the copy
-        SDL_Surface* choppedSurface = bodyChopped->GetSurface();
-        SDL_Surface* roofSurface = choppedRoof->GetSurface();
-        
-        SDL_Rect roofPos = {
-            offsets.offsetXChoppedRoof,
-            0,
-            roofSurface->w,
-            roofSurface->h
-        };
-        
-        // First clear the area where roof will go (make it transparent)
-        SDL_FillRect(choppedSurface, &roofPos, SDL_MapRGBA(choppedSurface->format, 0, 0, 0, 0));
-        
-        // Then blit the chopped roof
-        SDL_BlitSurface(roofSurface, NULL, choppedSurface, &roofPos);
-        bodyChopped->UpdateFromSurface();
+        // Overlay the chopped roof
+        OverlayPart(bodyChopped, choppedRoof, offsets.offsetXChoppedRoof, 0);
     }
+
+    if (car->IsBumpersStripped()) {
+        Asset rearBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+2};
+        Bitmap* rearBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), rearBumperAsset, carPalette);
+        Asset frontBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+3};
+        Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), frontBumperAsset, carPalette);
+        OverlayPart(bodyChopped, rearBumper, 0, offsets.offsetYRearBumper);
+        OverlayPart(bodyChopped, frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+    }   
 
     // Set initial state
     isRoofChopped = car->IsRoofChopped();
@@ -194,11 +188,6 @@ void CarBitmap::Draw() {
         driver->Draw();
     }
 
-    // Draw body on top of driver
-    if (body && body->IsVisible()) {
-        body->Draw();
-    }
-
     // Draw other parts (wheels, gas cap, etc.)
     if (wheelsVisible) {
         if (rearWheel && rearWheel->IsVisible()) {
@@ -207,6 +196,11 @@ void CarBitmap::Draw() {
         if (frontWheel && frontWheel->IsVisible()) {
             frontWheel->Draw();
         }
+    }
+
+    // Draw body on top of driver
+    if (body && body->IsVisible()) {
+        body->Draw();
     }
 
     if (gasCap && gasCap->IsVisible()) {
@@ -284,4 +278,23 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     // Reload bitmap with new palette
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
     bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
+}
+
+void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset) {
+    SDL_Surface* baseSurface = baseBitmap->GetSurface();
+    SDL_Surface* partSurface = partBitmap->GetSurface();
+    
+    SDL_Rect partPos = {
+        xOffset,
+        yOffset,
+        partSurface->w,
+        partSurface->h
+    };
+    
+    // Clear the area where part will go
+    SDL_FillRect(baseSurface, &partPos, SDL_MapRGBA(baseSurface->format, 0, 0, 0, 0));
+    
+    // Overlay the part
+    SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
+    baseBitmap->UpdateFromSurface();
 }

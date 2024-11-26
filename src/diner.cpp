@@ -287,6 +287,7 @@ void Diner::UpdateDebugInfo() {
             BitmapOffset_t offset = model.offsets;
             debugOverlay->AddLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
             debugOverlay->AddLine("roof chopped: " + std::string(currentOpponent->car->IsRoofChopped() ? "Yes" : "No"));
+            debugOverlay->AddLine("bumpers stripped: " + std::string(currentOpponent->car->IsBumpersStripped() ? "Yes" : "No"));
             debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));            
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
             debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));

@@ -50,6 +50,12 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     bool isRoofChopped = roofDist(gen) == 1;
     car->SetRoofChopped(isRoofChopped);
 
+    bool areBumpersStripped = false;
+    if (isRoofChopped) {
+        std::uniform_int_distribution<> stripDist(0, 1);
+        areBumpersStripped = stripDist(gen) == 1;
+    }
+    car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color
     state.assets.UpdateAssetWithCarPalette(state.GetLibPFile(), model.index, randomColor); 
 

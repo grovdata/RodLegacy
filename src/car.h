@@ -19,8 +19,8 @@ class Car {
          Gas station:
     */
     private:
-        bool isFrontBumperChopped;
-        bool isBackBumperChopped;
+        bool isFrontBumperStripped;
+        bool isBackBumperStripped;
         bool isRoofChopped;
         bool isMoving;
         int tuning;
@@ -43,6 +43,8 @@ class Car {
 
         bool IsRoofChopped() const { return isRoofChopped; }
         void SetRoofChopped(bool chopped) { isRoofChopped = chopped; }
+        bool IsBumpersStripped() const { return isFrontBumperStripped && isBackBumperStripped; }
+        void SetBumpersStripped(bool stripped) { isFrontBumperStripped = stripped; isBackBumperStripped = stripped; }
 
         // Part getters
         Part* GetGearbox() const { return gearbox; }
