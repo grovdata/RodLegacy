@@ -37,6 +37,7 @@ __pycache__
 src/game
 src/main
 src/*.dSYM
+src/*.bmp
 
 research/parsers/data
 
