@@ -1,12 +1,14 @@
 #include "libp.h"
-#include "carcolor.h"
+
+#include <SDL.h>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <SDL.h>
+
+#include "carcolor.h"
 
 using namespace std;
-
 
 uint16_t ReadUint16BigEndian(std::ifstream& file) {
     uint8_t bytes[2];
@@ -17,10 +19,7 @@ uint16_t ReadUint16BigEndian(std::ifstream& file) {
 uint32_t ReadUint32BigEndian(std::ifstream& file) {
     uint8_t bytes[4];
     file.read(reinterpret_cast<char*>(bytes), 4);
-    return (static_cast<uint32_t>(bytes[0]) << 24) |
-           (static_cast<uint32_t>(bytes[1]) << 16) |
-           (static_cast<uint32_t>(bytes[2]) << 8) |
-           bytes[3];
+    return (static_cast<uint32_t>(bytes[0]) << 24) | (static_cast<uint32_t>(bytes[1]) << 16) | (static_cast<uint32_t>(bytes[2]) << 8) | bytes[3];
 }
 
 uint8_t ReadUint8(std::ifstream& file) {
@@ -135,7 +134,7 @@ vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const B
     return buf;
 }
 
-vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data) {
+vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>>& rle, const BitmapEntry_t& sprite, const vector<uint8_t>& data) {
     int p = 0;
     int width = sprite.width / 8;
     int height = sprite.height;
@@ -155,7 +154,7 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>> &rle, 
         uint8_t b = data[p];
 
         bool found = false;
-        const uint8_t *directory = sprite.rleDictionary;
+        const uint8_t* directory = sprite.rleDictionary;
 
         for (int i = 0; i < 16; i++) {
             if (directory[i] == 0) {
@@ -218,15 +217,15 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
                 }
 
                 // Select palette based on value range
-                const Palette& selectedPalette = ((value >= 1 && value <= 9 || (value >= 1+32 && value <= 9+32)) && !carPalette.empty()) ? carPalette : palette;
+                const Palette& selectedPalette = ((value >= 1 && value <= 9 || (value >= 1 + 32 && value <= 9 + 32)) && !carPalette.empty()) ? carPalette : palette;
                 int pixel_index = (y * entry.width) + (x + i);
                 chunkyData[pixel_index] = selectedPalette[value];
             }
         }
     }
 
-    SavePaletteToBMP(palette, "normalpalette.bmp");
-    SavePaletteToBMP(carPalette, "carcolors.bmp");
+    // SavePaletteToBMP(palette, "normalpalette.bmp");
+    // SavePaletteToBMP(carPalette, "carcolors.bmp");
 
     // std::cout << "chunky data size: " << chunkyData.size() << std::endl;
     // Optionally print or process chunkyData further
@@ -272,11 +271,11 @@ Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
 
     // Add RGB colors from the palette
     for (int i = 0; i < 32; i++) {
-        rval.push_back(make_tuple(0,0,0));
+        rval.push_back(make_tuple(0, 0, 0));
     }
 
     for (int i = 0; i < 9; i++) {
-        rval.at(i+1) = GetRGBFromRGB4(palette[i]);
+        rval.at(i + 1) = GetRGBFromRGB4(palette[i]);
     }
 
     // Add EHB colors
@@ -298,7 +297,6 @@ void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& f
     int imageWidth = BLOCK_SIZE * numColors;
     int imageHeight = BLOCK_SIZE;
 
-
     // Create an SDL surface
     SDL_Surface* surface = SDL_CreateRGBSurface(0, imageWidth, imageHeight, 24, 0x000000FF, 0x0000FF00, 0x00FF0000, 0);
     if (!surface) {
@@ -310,7 +308,7 @@ void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& f
     // Fill the surface with palette colors
     for (int i = 0; i < numColors; ++i) {
         Color c = palette[i];
-        SDL_Rect rect = { i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE };
+        SDL_Rect rect = {i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE};
         SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, get<0>(c), get<1>(c), get<2>(c)));
     }
 
@@ -350,7 +348,6 @@ vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const s
     return result;
 }
 
-
 vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
     int expectedSize = (entry.width * entry.height * entry.depth) / 8;
     vector<uint8_t> packedData = GetPackedData(filename, entry, totalEntriesCount);
@@ -359,7 +356,7 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t en
     vector<uint8_t> data = UnpackData(RLE, entry, packedData);
     if (expectedSize != data.size()) {
         cout << "Expected size: " << expectedSize << " actual size: " << data.size() << endl;
-        //PrintBitplanes(data);
+        // PrintBitplanes(data);
         throw runtime_error("Size mismatch reading bitmap");
     }
     return data;
@@ -367,7 +364,7 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t en
 
 LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
     switch (location) {
-    case AssetLocationAmigaLibP: {
+        case AssetLocationAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case CAR_TIRES_BRAND:
@@ -381,17 +378,17 @@ LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
                 default:
                     return LibAssetRegular;
             }
-    }
+        }
 
-    default:
-        return LibAssetRegular;
+        default:
+            return LibAssetRegular;
     }
 }
 
 // Return rows, columns for spritesheet
 pair<int, int> BitmapParser::GetSpritesheetInfo(AssetLocation location, int index) {
-switch (location) {
-    case AssetLocationAmigaLibP: {
+    switch (location) {
+        case AssetLocationAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case CAR_TIRES_BRAND:
@@ -405,16 +402,16 @@ switch (location) {
                 default:
                     return make_pair(0, 0);
             }
-    }
+        }
 
-    default:
-        return make_pair(0, 0);
+        default:
+            return make_pair(0, 0);
     }
 }
 
 vector<uint16_t> BitmapParser::GetPalette(AssetLocation location, int index) {
-switch (location) {
-    case AssetLocationAmigaLibP: {
+    switch (location) {
+        case AssetLocationAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case GUS_GAS_SCREEN:
@@ -422,40 +419,39 @@ switch (location) {
                 default:
                     return PAL1;
             }
-    }
+        }
 
-    default:
-        return PAL1;
+        default:
+            return PAL1;
     }
 }
-
-
-
 
 void DataParser::CleanupCarString(string& str) {
     size_t pos = 0;
 
     // Replace double backticks (``) with a space
     while ((pos = str.find("``", pos)) != string::npos) {
-        str.replace(pos, 2, " "); // Replace `` with space
+        str.replace(pos, 2, " ");  // Replace `` with space
     }
 
-    pos = 0; // Reset position
+    pos = 0;  // Reset position
 
     // Replace single backticks (`) with a space
     while ((pos = str.find("`", pos)) != string::npos) {
-        str.replace(pos, 1, " "); // Replace ` with space
+        str.replace(pos, 1, " ");  // Replace ` with space
+    }
+
+    if (str[str.size() - 1] == '.') {
+        str.pop_back();
     }
 }
-
-
 
 /// @brief Reads info about cars and parts from data file (SR_data)
 /// @param filename
 /// @return
 vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
-    #define OFFSETS_START 0x34C
-    #define CLASSIFIEDS_START 0x854
+#define OFFSETS_START 0x34C
+#define CLASSIFIEDS_START 0x854
     vector<CarMetadata_t> result;
 
     ifstream file(filename, ios::binary);
@@ -485,7 +481,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
         result.push_back(metadataEntry);
     }
 
-     // Parse Classifieds
+    // Parse Classifieds
     file.seekg(CLASSIFIEDS_START, ios::beg);
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         // Get a reference to modify the original entry, not a copy
@@ -512,7 +508,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
                 break;
             }
             if (!adText.empty()) {
-                adText += " "; // Add space between lines
+                adText += " ";  // Add space between lines
             }
             adText += line;
         }
@@ -522,12 +518,12 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 
     // (Optional) Output for debug
     for (const auto& c : result) {
-         cout << "Car Name: " << c.classified.carName << endl;
-         cout << "Ad Text: " << c.classified.adText << endl;
-         cout << "Price: " << c.classified.price << endl << endl;
-     }
+        cout << "Car Name: " << c.classified.carName << endl;
+        cout << "Ad Text: " << c.classified.adText << endl;
+        cout << "Price: " << c.classified.price << endl << endl;
+    }
 
-    //todo return classifieds too
+    // todo return classifieds too
 
     return result;
 }
@@ -542,7 +538,6 @@ int DataParser::GetCarIndex(AmigaLibAsset asset) {
     }
     return -1;
 }
-
 
 bool CarQuery::CanChopRoof(AmigaLibAsset carAsset) {
     switch (carAsset) {
