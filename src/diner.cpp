@@ -126,11 +126,15 @@ void Diner::Draw() {
 
     // Handle car animation states
     if (!animatingCar && !exitingCar && activeCarBitmap) {
-        waitTimer += 1.0/60.0;  // Assuming 60 FPS
+        waitTimer += 1.0/60.0;
         if (waitTimer >= WAIT_BEFORE_EXIT) {
+            if (debugMode) {
+                printf("Starting Exit Animation\n");
+            }
             exitingCar = true;
             waitTimer = 0;
-            carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
+            carExitAnimationTime = 0;
+            carTimerID = SDL_AddTimer(8, CarAnimationTimerCallback, this);
         }
     }
     
@@ -149,10 +153,7 @@ void Diner::Draw() {
     }
 
     if (activeCarBitmap != nullptr) {
-        SDL_Point p;
-        p.x = carx; 
-        p.y = cary;
-        activeCarBitmap->Move(p);
+        activeCarBitmap->Move({carx, cary});
         activeCarBitmap->Draw();
     }
 
@@ -217,53 +218,74 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     int carWheelsYOffset = state.carData.GetCarWheelsYOffset(currentOpponent->car->GetModel());
     activeCarBitmap->MoveWheelsYOffset(carWheelsYOffset);
 
-    carTimerID = SDL_AddTimer(16, CarAnimationTimerCallback, this);
+    carTimerID = SDL_AddTimer(8, CarAnimationTimerCallback, this);
     animatingCar = true;
 }
 
 Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
     Diner* diner = static_cast<Diner*>(param);
+    static Uint64 lastTime = SDL_GetTicks64();
+    Uint64 currentTime = SDL_GetTicks64();
+    double deltaTime = (currentTime - lastTime) / 1000.0;
+    lastTime = currentTime;
     
     if (diner->exitingCar) {
-        carExitAnimationTime += interval / 1000.0;
-        const double exitDuration = 1.5;
-        double easedValue = (1 - pow(2, -10 * carExitAnimationTime / exitDuration));
+        carExitAnimationTime += deltaTime;
+        const double exitDuration = 2.5;  // Increased duration for smoother exit
         
-        // Move from current position to off right side of screen
-        int startX = 82;  // Starting X position
-        int endX = GAME_WIDTH + 50;   // End X position (off screen)
-        int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
-        diner->carx = carX;
+        // Cubic ease-in: t³ (starts slow, accelerates)
+        double t = carExitAnimationTime / exitDuration;
+        t = std::min(1.0, t);
+        double easedValue = t * t * t;  // Cubic easing
+        
+        SDL_Point idlePos = diner->GetCarIdlePosition();
+        int startX = idlePos.x;
+        int endX = GAME_WIDTH + 50;
+        int newX = static_cast<int>(startX + (easedValue * (endX - startX)));
+        
+        if (diner->debugMode) {
+            printf("Exit Animation: time=%.2f, eased=%.2f, x=%d->%d (current=%d)\n", 
+                   carExitAnimationTime, easedValue, startX, endX, newX);
+        }
+        
+        diner->carx = newX;
 
-        // Calculate instantaneous speed for wheel animation
-        float speed = (endX - startX) * pow(2, -10 * carExitAnimationTime / exitDuration) * (10.0/exitDuration);
+        // Wheel speed matches the acceleration
+        float speed = (endX - startX) * (3 * t * t) / exitDuration;  // Derivative of cubic for velocity
         if (diner->activeCarBitmap) {
-            diner->activeCarBitmap->UpdateWheelAnimation(speed);
+            diner->activeCarBitmap->UpdateWheelAnimation(speed * deltaTime);
+            diner->activeCarBitmap->Move({diner->carx, diner->cary});
         }
 
-        if (easedValue >= 0.992) {
+        if (carExitAnimationTime >= exitDuration) {
+            if (diner->debugMode) {
+                printf("Exit Animation Complete\n");
+            }
             diner->exitingCar = false;
-            diner->activeCarBitmap = nullptr;  // Don't delete, just clear the pointer
+            diner->activeCarBitmap = nullptr;
             carExitAnimationTime = 0;
+            SDL_RemoveTimer(diner->carTimerID);
+            diner->carTimerID = 0;
             return 0;
         }
         return interval;
     }
     
-    // Original entrance animation
-    carAnimationTimeDiner += interval / 1000.0;
+    // Entrance animation
+    carAnimationTimeDiner += deltaTime;
     const double duration = 2.0;
     double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
-    int carX = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);    
-    diner->carx = carX;
+    
+    // Smoother position calculation
+    diner->carx = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);
 
-    // Calculate instantaneous speed for wheel animation
+    // Smoother wheel animation
     float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTimeDiner / duration) * (10.0/duration);
     if (diner->activeCarBitmap) {
-        diner->activeCarBitmap->UpdateWheelAnimation(speed);
+        diner->activeCarBitmap->UpdateWheelAnimation(speed * deltaTime);
     }
 
-    if (easedValue >= 0.992) {
+    if (carAnimationTimeDiner >= duration) {
         diner->animatingCar = false;
         carAnimationTimeDiner = 0;
         return 0;
