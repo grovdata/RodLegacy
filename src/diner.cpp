@@ -118,6 +118,24 @@ void Diner::Draw() {
 
     Uint64 elapsed = SDL_GetTicks64() - t;
 
+    // Handle initial delay
+    if (initialDelay) {
+        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {  // 2 second delay
+            initialDelay = false;
+            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+            animatingCar = true;
+        }
+        // Still draw everything else while waiting
+        phonebookGuy->Draw();
+        for (auto b : bubbles) {
+            b->Draw();
+        }
+        if (debugMode && debugOverlay) {
+            debugOverlay->Draw();
+        }
+        return;
+    }
+
     if (elapsed % 400 == 0) {
         phonebookGuy->CycleNextSprite();
     }
@@ -374,9 +392,13 @@ void Diner::PushEvent(SDL_Event *event) {
 }
 
 void Diner::OnFadeComplete() {
-    // Start initial car animation
-    if (!animatingCar && !exitingCar && !activeCarBitmap) {
-        StartAnimateCar(state.GetCurrentCar(), nullptr, false);
-        animatingCar = true;
+    if (initialDelay) {
+        fadeCompleteTime = SDL_GetTicks64();
+    } else {
+        // Start car animation immediately for subsequent fades
+        if (!animatingCar && !exitingCar && !activeCarBitmap) {
+            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+            animatingCar = true;
+        }
     }
 }

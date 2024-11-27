@@ -39,6 +39,9 @@ class Diner: public CarScene {
 
     bool isPaused;
 
+    bool initialDelay = true;
+    Uint64 fadeCompleteTime = 0;
+
     public:
         Diner();
         ~Diner();
