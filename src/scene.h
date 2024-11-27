@@ -59,6 +59,8 @@ class Scene {
     bool debugMode;
     bool debugEnabled;
     
+    Uint8 fadeAlpha = 255;
+    
     virtual void ToggleDebugMode();
 
    public:

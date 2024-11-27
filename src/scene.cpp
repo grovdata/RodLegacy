@@ -71,6 +71,8 @@ void Scene::Init(bool initialDebugMode) {
     SDL_SetTextureBlendMode(fadeTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
 
+    FadeIn();
+
     m_statusBarRect.x = 0;
     m_statusBarRect.y = GAME_HEIGHT - GAME_STATUSBAR_HEIGHT;
     m_statusBarRect.w = GAME_WIDTH;
@@ -166,7 +168,10 @@ void Scene::Action(ZoneId zone) {
 }
 
 void Scene::FadeIn() {
-    SDL_RemoveTimer(fadeTimerID);
+    if (fadeTimerID != 0) {
+        SDL_RemoveTimer(fadeTimerID);
+    }
+    fadeAlpha = 255;
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
     fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_IN;
@@ -181,29 +186,21 @@ void Scene::FadeOut() {
 
 Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
     Scene* scene = static_cast<Scene*>(param);
-    Uint8 alpha;
-    SDL_GetTextureAlphaMod(scene->fadeTexture, &alpha);
-    // printf("alpha %d\n",alpha);
-    int rate = 1;
-    int retval = interval;
-
+    
     if (scene->sceneTransition == SCENE_FADE_IN) {
-        if (alpha <= SDL_ALPHA_TRANSPARENT + rate) {
+        scene->fadeAlpha -= 5;
+        SDL_SetTextureAlphaMod(scene->fadeTexture, scene->fadeAlpha);
+        
+        if (scene->fadeAlpha <= 0) {
+            scene->fadeAlpha = 255;  // Reset for next time
             scene->sceneTransition = SCENE_SOLID;
             scene->OnFadeComplete();
+            SDL_RemoveTimer(scene->fadeTimerID);
+            scene->fadeTimerID = 0;  // Clear the timer ID
             return 0;
         }
-        alpha -= rate;
-    } else if (scene->sceneTransition == SCENE_FADE_OUT) {
-        if (alpha >= SDL_ALPHA_TRANSPARENT - rate) {
-            scene->OnFadeComplete();
-            return 0;
-        }
-        alpha += rate;
     }
-
-    SDL_SetTextureAlphaMod(scene->fadeTexture, alpha);
-    return retval;
+    return interval;
 }
 
 void Scene::OnFadeComplete() {

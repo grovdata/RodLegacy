@@ -231,7 +231,7 @@ Uint32 Diner::CarAnimationTimerCallback(Uint32 interval, void* param) {
         
         // Move from current position to off right side of screen
         int startX = 82;  // Starting X position
-        int endX = GAME_WIDTH;   // End X position (off screen)
+        int endX = GAME_WIDTH + 50;   // End X position (off screen)
         int carX = static_cast<int>(startX + (easedValue * (endX - startX)));
         diner->carx = carX;
 
@@ -348,5 +348,13 @@ void Diner::PushEvent(SDL_Event *event) {
                 }
                 break;
         }
+    }
+}
+
+void Diner::OnFadeComplete() {
+    // Start initial car animation
+    if (!animatingCar && !exitingCar && !activeCarBitmap) {
+        StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+        animatingCar = true;
     }
 }
