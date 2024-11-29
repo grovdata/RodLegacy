@@ -38,6 +38,10 @@ src/game
 src/main
 src/*.dSYM
 src/*.bmp
+src/*.o
+src/parsers/*.o
+
+output/*
 
 research/parsers/data
 
