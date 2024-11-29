@@ -7,6 +7,8 @@
 #include <tuple>
 #include <memory>
 #include <map>
+#include <filesystem>
+#include <stdexcept>
 
 #include "bitmap.h"
 #include "spritesheet.h"
@@ -24,11 +26,19 @@ struct Asset {
     }
 };
 
+namespace fs = std::filesystem;
+
+class AssetLoadError : public std::runtime_error {
+public:
+    AssetLoadError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
 class AssetManager {
 public:
     AssetManager();
     ~AssetManager();
 
+    fs::path FindGameDirectory();
     void ReadAssets(string libfile);
 
     void UpdateAsset(string libfile, int i);
@@ -46,6 +56,10 @@ public:
     SFont_Font* GetDebugFont();
 
 private:
+    fs::path gameBasePath;
+    fs::path dataPath;
+    fs::path fontPath;
+
     BitmapParser bp;
 
     pair<int, vector<BitmapEntry_t>> imageEntries;
@@ -56,5 +70,6 @@ private:
     SFont_Font* mainFont;
     SFont_Font* debugFont;
 
+    fs::path ResolvePath(const std::string& relativePath);
     void UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette);
 };

@@ -1,13 +1,14 @@
 # Use CMake subproject for ADFlib
 cmake = import('cmake')
 
-adflib_proj = cmake.subproject('ADFlib',
+adflib_proj = cmake.subproject('ADFlib', 
     required: true,
     cmake_options: [
         '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
     ]
 )
-adflib_dep = adflib_proj.dependency('adf')  # or whatever target name is defined in ADFlib's CMakeLists.txt
+
+adflib_dep = adflib_proj.dependency('adf')
 
 # C sources (removed ADFlib sources since they're handled by CMake now)
 c_sources = [
@@ -47,6 +48,8 @@ inc_dirs = include_directories(
     '../subprojects/ADFlib/src'  # Add ADFlib headers path
 )
 
+# Rest of your sources...
+
 executable('streetrod_legacy',
     sources: c_sources + cpp_sources,
     include_directories: inc_dirs,
@@ -54,8 +57,8 @@ executable('streetrod_legacy',
         sdl2_dep,
         sdl2_image_dep,
         sdl2_mixer_dep,
-        adflib_dep,  # Add ADFlib dependency here
+        adflib_dep,
     ],
     cpp_args: ['-ggdb2', '-O0'],
     c_args: ['-ggdb2', '-O0']
-) 
+)

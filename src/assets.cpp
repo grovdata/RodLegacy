@@ -1,12 +1,29 @@
 #include "assets.h"
 
+
 #include "bitmap.h"
 #include "spritesheet.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
-AssetManager::AssetManager() {
-    this->carDecals = nullptr;
+AssetManager::AssetManager() : carDecals(nullptr) {
+    try {
+        gameBasePath = FindGameDirectory();
+        dataPath = gameBasePath / "data";
+        fontPath = gameBasePath / "data" / "font";
+        if (!fs::exists(dataPath)) {
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Data path does not exist: %s", dataPath.string().c_str());
+            throw AssetLoadError("Data path does not exist: " + dataPath.string());
+        }
+        if (!fs::exists(fontPath)) {
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Font path does not exist: %s", fontPath.string().c_str());
+            throw AssetLoadError("Font path does not exist: " + fontPath.string());
+        }
+        SDL_Log("Game directory found at: %s", gameBasePath.string().c_str());
+    } catch (const AssetLoadError& e) {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
+        throw;
+    }
 }
 
 AssetManager::~AssetManager() {
@@ -19,12 +36,10 @@ AssetManager::~AssetManager() {
         free(debugFont);
     }
 }
-
 void AssetManager::InitFonts() {
     mainFont = SFont_InitFont(IMG_Load("../data/font/font.png"));
     debugFont = SFont_InitFont(IMG_Load("../data/font/lemon.png"));
 }
-
 SFont_Font* AssetManager::GetMainFont() {
     return mainFont;
 }
@@ -33,18 +48,27 @@ SFont_Font* AssetManager::GetDebugFont() {
     return debugFont;
 }
 
-void AssetManager::ReadAssets(string libfile) {
-    imageEntries = bp.ReadEntries(libfile);
+void AssetManager::ReadAssets(std::string libfile) {
+    try {
+        fs::path libPath = ResolvePath(libfile);
+        imageEntries = bp.ReadEntries(libPath.string());
 
-    for (int i = 0; i < imageEntries.first; i++) {
-        UpdateAsset(libfile, i);
-    }
+        for (int i = 0; i < imageEntries.first; i++) {
+            UpdateAsset(libPath.string(), i);
+        }
 
-    if (carDecals == nullptr) {
-        Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
-        SDL_Rect cropDecal = {7, 10, 215, 50};
-        decals->Crop(cropDecal); // Remove the decal border (window)
-        carDecals = std::move(decals);
+        if (carDecals == nullptr) {
+            Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
+            if (!decals) {
+                throw AssetLoadError("Failed to load car decals");
+            }
+            SDL_Rect cropDecal = {7, 10, 215, 50};
+            decals->Crop(cropDecal);
+            carDecals = std::move(decals);
+        }
+    } catch (const std::exception& e) {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to read assets: %s", e.what());
+        throw;
     }
 }
 
@@ -131,5 +155,45 @@ void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vecto
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
     bitmap->SetDimensions(b.width, b.height);
     imageAssets.push_back(make_pair(a, std::move(bitmap)));
+}
+
+fs::path AssetManager::FindGameDirectory() {
+    // Get the base path where the executable is
+    char* basePath = SDL_GetBasePath();
+    if (!basePath) {
+        throw AssetLoadError("Could not determine base path: " + std::string(SDL_GetError()));
+    }
+    fs::path base(basePath);
+    SDL_free(basePath);
+
+    // Check common locations for data directory
+    std::vector<fs::path> searchPaths = {
+        base / "data",           // Next to executable
+        base / "../data",        // One level up
+        base / "../../data",     // Two levels up (for build directories)
+    };
+
+    // Get the preferred path from environment variable if set
+    const char* envPath = SDL_getenv("STREETROD_DATA");
+    if (envPath) {
+        searchPaths.insert(searchPaths.begin(), envPath);
+    }
+
+    // Search for data directory
+    for (const auto& path : searchPaths) {
+        if (fs::exists(path / "font/font.png")) {
+            return path.parent_path(); // Return the game root directory
+        }
+    }
+
+    throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
+}
+
+fs::path AssetManager::ResolvePath(const std::string& relativePath) {
+    fs::path fullPath = dataPath / relativePath;
+    if (!fs::exists(fullPath)) {
+        throw AssetLoadError("Required game file not found: " + fullPath.string());
+    }
+    return fullPath;
 }
 

@@ -3,7 +3,8 @@ project('streetrod_legacy', ['cpp', 'c'],
   default_options : [
     'warning_level=2',
     'cpp_std=c++17',
-    'buildtype=debug'
+    'buildtype=debug',
+    'stop_on_error=true'
   ]
 )
 
