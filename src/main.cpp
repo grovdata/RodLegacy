@@ -27,7 +27,6 @@ SDL_Joystick *controller = NULL;
 Uint64 startTime = SDL_GetTicks64();
 
 Mouse mouse;
-BitmapParser b;
 bool isFullScreen = false;
 
 float scaleX = 1.0f;
@@ -101,6 +100,7 @@ int main(int argc, char *argv[]) {
     try {
         state.Init(debugMode);
     } catch (const AssetLoadError& e) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files!", "Failed to find game files! \nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf must be in the same directory as the executable.", win);
         SDL_Log("Failed to load game assets: %s", e.what());
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);

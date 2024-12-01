@@ -34,6 +34,7 @@ void State::Init(bool enableDebug) {
         gasStation->Init(debugMode);
         //driving->Init();
     } catch (const std::exception& e) {
+        SDL_Log("Failed to initialize game state: %s", e.what());
         // Clean up any resources that were allocated before the exception
         delete currentCar;
         throw; // Re-throw to main

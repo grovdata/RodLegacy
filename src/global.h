@@ -7,6 +7,7 @@
 #define GAME_FPS 60
 
 #include <SDL.h>
+#include <SDL_messagebox.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
 #include <SDL_timer.h>

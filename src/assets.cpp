@@ -8,23 +8,7 @@
 #include "parsers/carcolor.h"
 
 AssetManager::AssetManager() : carDecals(nullptr) {
-    try {
-        gameBasePath = FindGameDirectory();        
-        dataPath = gameBasePath / "data";
-        fontPath = gameBasePath / "data" / "font";
-        if (!fs::exists(dataPath)) {
-            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Data path does not exist: %s", dataPath.string().c_str());
-            throw AssetLoadError("Data path does not exist: " + dataPath.string());
-        }
-        if (!fs::exists(fontPath)) {
-            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Font path does not exist: %s", fontPath.string().c_str());
-            throw AssetLoadError("Font path does not exist: " + fontPath.string());
-        }
-        SDL_Log("Game directory found at: %s", gameBasePath.string().c_str());
-    } catch (const AssetLoadError& e) {
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
-        throw;
-    }
+
 }
 
 AssetManager::~AssetManager() {
@@ -77,6 +61,24 @@ void AssetManager::InitGameFiles() {
 }
 
 void AssetManager::Init() {
+    try {
+        gameBasePath = FindGameDirectory();        
+        dataPath = gameBasePath / "data";
+        fontPath = gameBasePath / "data" / "font";
+        if (!fs::exists(dataPath)) {
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Data path does not exist: %s", dataPath.string().c_str());
+            throw AssetLoadError("Data path does not exist: " + dataPath.string());
+        }
+        if (!fs::exists(fontPath)) {
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Font path does not exist: %s", fontPath.string().c_str());
+            throw AssetLoadError("Font path does not exist: " + fontPath.string());
+        }
+        SDL_Log("Game directory found at: %s", gameBasePath.string().c_str());
+    } catch (const AssetLoadError& e) {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
+        throw;
+    }
+
     InitFonts();
     InitGameFiles();
 }
