@@ -66,7 +66,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     
     car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color
-    state.assets.UpdateAssetWithCarPalette(state.GetLibPFile(), model.index, randomColor); 
+    state.assets.UpdateAssetWithCarPalette(state.assets.GetLibPData(), model.index, randomColor); 
 
     std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);

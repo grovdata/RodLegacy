@@ -98,7 +98,27 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    state.Init(debugMode);
+    try {
+        state.Init(debugMode);
+    } catch (const AssetLoadError& e) {
+        SDL_Log("Failed to load game assets: %s", e.what());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(win);
+        SDL_JoystickClose(controller);
+        Mix_FreeMusic(music);
+        Mix_CloseAudio();
+        SDL_Quit();
+        return 1;
+    } catch (const std::exception& e) {
+        SDL_Log("Failed to initialize game state: %s", e.what());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(win);
+        SDL_JoystickClose(controller);
+        Mix_FreeMusic(music);
+        Mix_CloseAudio();
+        SDL_Quit();
+        return 1;
+    }
 
     // Res scaling
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);

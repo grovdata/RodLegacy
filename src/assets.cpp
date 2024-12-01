@@ -49,7 +49,7 @@ void AssetManager::InitFonts() {
     debugFont = SFont_InitFont(IMG_Load(debugFontPath.string().c_str()));
 }
 
-void AssetManager::OpenGameFiles() {
+void AssetManager::InitGameFiles() {
     fs::path disk1Path = ResolvePath("SR1AMIGA_DISK1.adf");
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
     
@@ -60,8 +60,8 @@ void AssetManager::OpenGameFiles() {
     );
     delete libStartData;
     
-    fs::path disk2Path = ResolvePath("SR1AMIGA_DISxK2.adf");
-    AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "libp.p");
+    fs::path disk2Path = ResolvePath("SR1AMIGA_DISK2.adf");
+    AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "lib.p");
     libPData_vec.assign(
         static_cast<uint8_t*>(libPData->data),
         static_cast<uint8_t*>(libPData->data) + libPData->size
@@ -76,6 +76,11 @@ void AssetManager::OpenGameFiles() {
     delete srData;
 }
 
+void AssetManager::Init() {
+    InitFonts();
+    InitGameFiles();
+}
+
 SFont_Font* AssetManager::GetMainFont() {
     return mainFont;
 }
@@ -84,13 +89,12 @@ SFont_Font* AssetManager::GetDebugFont() {
     return debugFont;
 }
 
-void AssetManager::ReadAssets(std::string libfile) {
+void AssetManager::ReadAssets() {
     try {
-        fs::path libPath = ResolvePath(libfile);
-        imageEntries = bp.ReadEntries(libPath.string());
+        imageEntries = bp.ReadEntries(libPData_vec);
 
         for (int i = 0; i < imageEntries.first; i++) {
-            UpdateAsset(libPath.string(), i);
+            UpdateAsset(libPData_vec, i);
         }
 
         if (carDecals == nullptr) {
@@ -108,11 +112,17 @@ void AssetManager::ReadAssets(std::string libfile) {
     }
 }
 
+void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
+    Palette empty;
+    UpdateAsset(libfile, index, empty);
+}
+
+
 /// @brief Reads the actual bitmap data for a bitmap
 /// @param libfile
 /// @param index
 /// @param carPalette
-void AssetManager::UpdateAsset(string libfile, int index, Palette& carPalette) {
+void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
@@ -138,12 +148,8 @@ void AssetManager::UpdateAsset(string libfile, int index, Palette& carPalette) {
     }
 }
 
-void AssetManager::UpdateAsset(string libfile, int index) {
-    Palette empty;
-    UpdateAsset(libfile, index, empty);
-}
 
-void AssetManager::UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette) {
+void AssetManager::UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette) {
     vector<uint16_t> carPalette = GetStandardCarColor(palette);
     Palette newPalette = bp.PrepareCarPalette(carPalette);
     UpdateAsset(libfile, index, newPalette); // Update the asset with the new color
@@ -164,13 +170,13 @@ Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
 }
 
-Bitmap* AssetManager::GetBitmapAssetWithPalette(string libfile, Asset asset, const vector<uint16_t>& carPalette) {
+Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette) {
     // Always create a new asset with the custom palette
     UpdateAssetWithPalette(libfile, asset.id, carPalette);
     return imageAssets.back().second.get();  // Return the newly created asset
 }
 
-void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette) {
+void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);

@@ -8,30 +8,36 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
 }
 
 void State::Init(bool enableDebug) {
-    this->debugMode = enableDebug;
-    assets.InitFonts();
-    assets.ReadAssets("");
-    pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
+    try {
+        this->debugMode = enableDebug;
+        assets.Init();
+        assets.ReadAssets();
+        pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
-    carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
+        carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
 
-    // Initialize roster
-    roster.Initialize(carData);
-    
-    CarModel randomModel = carData.GetRandomModel();
-    Car *randomCar = new Car(randomModel);
-    this->currentCar = randomCar;
-    
-    // Create scenes after fonts are initialized
-    garage = std::make_unique<Garage>();
-    diner = std::make_unique<Diner>();
-    gasStation = std::make_unique<GasStation>();
-    driving = std::make_unique<Driving>();
+        // Initialize roster
+        roster.Initialize(carData);
+        
+        CarModel randomModel = carData.GetRandomModel();
+        Car *randomCar = new Car(randomModel);
+        this->currentCar = randomCar;
+        
+        // Create scenes after fonts are initialized
+        garage = std::make_unique<Garage>();
+        diner = std::make_unique<Diner>();
+        gasStation = std::make_unique<GasStation>();
+        driving = std::make_unique<Driving>();
 
-    garage->Init(debugMode);
-    diner->Init(debugMode);
-    gasStation->Init(debugMode);
-    //driving->Init();
+        garage->Init(debugMode);
+        diner->Init(debugMode);
+        gasStation->Init(debugMode);
+        //driving->Init();
+    } catch (const std::exception& e) {
+        // Clean up any resources that were allocated before the exception
+        delete currentCar;
+        throw; // Re-throw to main
+    }
 }
 
 State::~State() {

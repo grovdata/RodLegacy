@@ -33,27 +33,33 @@ public:
     AssetLoadError(const std::string& msg) : std::runtime_error(msg) {}
 };
 
+typedef std::vector<uint8_t> byte_vector;
+
 class AssetManager {
 public:
     AssetManager();
     ~AssetManager();
 
     fs::path FindGameDirectory();
-    void ReadAssets(string libfile);
+    void ReadAssets();
 
-    void UpdateAsset(string libfile, int i);
-    void UpdateAsset(string libfile, int i, Palette& carPalette);
-    void UpdateAssetWithCarPalette(string libfile, int index, StandardCarColor palette);
+    void UpdateAsset(byte_vector& libfile, int index);
+    void UpdateAsset(byte_vector& libfile, int index, Palette& carPalette);
+    void UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
-    Bitmap* GetBitmapAssetWithPalette(string libfile, Asset asset, const vector<uint16_t>& carPalette);
+    Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette);
 
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
     Spritesheet* GetCarDecals();
 
-    void InitFonts();
+    void Init();
     SFont_Font* GetMainFont();
     SFont_Font* GetDebugFont();
+
+    byte_vector& GetLibPData() { return libPData_vec; }
+    byte_vector& GetLibStartData() { return libStartData_vec; }
+    byte_vector& GetSrData() { return srData_vec; }
 
 private:
     fs::path gameBasePath;
@@ -61,7 +67,6 @@ private:
     fs::path fontPath;
 
     BitmapParser bp;
-
 
     pair<int, vector<BitmapEntry_t>> imageEntries;
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
@@ -71,11 +76,12 @@ private:
     SFont_Font* mainFont;
     SFont_Font* debugFont;
 
-    std::vector<uint8_t> libStartData_vec;
-    std::vector<uint8_t> libPData_vec;
-    std::vector<uint8_t> srData_vec;
+    byte_vector libStartData_vec;
+    byte_vector libPData_vec;
+    byte_vector srData_vec;
 
-    void OpenGameFiles();
+    void InitFonts();
+    void InitGameFiles();
     fs::path ResolvePath(fs::path relativePath);
-    void UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette);
+    void UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette);
 };

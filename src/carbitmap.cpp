@@ -32,7 +32,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     
     // Load original body
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
-    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
+    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), carAsset, carPalette);
     bodyOriginal->SetPosition(0, 0);
     bodyOriginal->SetDimensions(model.width, model.height);
     bodyOriginal->SetVisible(true);
@@ -48,7 +48,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     if (canChopRoof && car->IsRoofChopped()) {        
         // Load chopped roof with same palette
         Asset roofAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+1};
-        Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), roofAsset, carPalette);
+        Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), roofAsset, carPalette);
         
         // Create new surface for chopped version
         bodyChopped = new Bitmap(*bodyOriginal);  // Create a copy of original body
@@ -60,9 +60,9 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
     if (car->IsBumpersStripped()) {
         Asset rearBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+2};
-        Bitmap* rearBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), rearBumperAsset, carPalette);
+        Bitmap* rearBumper = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), rearBumperAsset, carPalette);
         Asset frontBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+3};
-        Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), frontBumperAsset, carPalette);        
+        Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), frontBumperAsset, carPalette);        
         OverlayPart(body, rearBumper, 0, offsets.offsetYRearBumper);
         OverlayPart(body, frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
     }
@@ -278,7 +278,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     
     // Reload bitmap with new palette
     Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
-    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.GetLibPFile(), carAsset, carPalette);
+    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), carAsset, carPalette);
 }
 
 void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset) {
