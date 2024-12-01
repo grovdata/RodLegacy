@@ -224,10 +224,12 @@ fs::path AssetManager::FindGameDirectory() {
         searchPaths.insert(searchPaths.begin(), envPath);
     }
 
+
     // Search for data directory
     for (const auto& path : searchPaths) {
         if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
-            return path.parent_path(); // Return the game root directory
+            SDL_Log("Found game files in: %s", path.string().c_str());
+            return path;
         }
     }
 
