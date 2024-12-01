@@ -10,33 +10,6 @@
 
 using namespace std;
 
-uint16_t ReadUint16BigEndian(std::ifstream& file) {
-    uint8_t bytes[2];
-    file.read(reinterpret_cast<char*>(bytes), 2);
-    return (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
-}
-
-uint32_t ReadUint32BigEndian(std::ifstream& file) {
-    uint8_t bytes[4];
-    file.read(reinterpret_cast<char*>(bytes), 4);
-    return (static_cast<uint32_t>(bytes[0]) << 24) | (static_cast<uint32_t>(bytes[1]) << 16) | (static_cast<uint32_t>(bytes[2]) << 8) | bytes[3];
-}
-
-uint8_t ReadUint8(std::ifstream& file) {
-    uint8_t byte;
-    file.read(reinterpret_cast<char*>(&byte), 1);
-    return byte;
-}
-
-string ReadNullTerminatedString(ifstream& file) {
-    stringstream ss;
-    char ch;
-    while (file.get(ch) && ch != '\0') {
-        ss << ch;
-    }
-    return ss.str();
-}
-
 void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
     printf("---------\n");
     printf("bitmap %d\n", number);
@@ -76,62 +49,42 @@ void BitmapParser::PrintBitplanes(const std::vector<uint16_t>& data) {
 /// @brief Read metadata about bitmaps in library file
 /// @param filename
 /// @return Map of int (total entries) and BitmapEntry_t metadata struct
-pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filename) {
+pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const vector<uint8_t>& data) {
     vector<BitmapEntry_t> result;
-    ifstream file(filename, ios::binary);
-    if (!file) {
-        cerr << "File error: Unable to open file " << filename << endl;
-        return pair<int, vector<BitmapEntry_t>>(0, result);
-    }
-
-    uint16_t totalEntriesCount = ReadUint16BigEndian(file);
-    // cout << "Number of bitmap entries in " << filename << ": " << totalEntriesCount << endl;
-
+    VectorReader reader(data);
+    
+    uint16_t totalEntriesCount = reader.ReadUint16BE();
+    
     for (int i = 0; i < totalEntriesCount; ++i) {
         BitmapEntry_t newEntry = {};
-        newEntry.width = ReadUint16BigEndian(file);
-        newEntry.height = ReadUint16BigEndian(file);
-        newEntry.depth = ReadUint8(file);
-        newEntry.unknown1 = ReadUint8(file);
-        file.read(reinterpret_cast<char*>(newEntry.rleDictionary), sizeof(newEntry.rleDictionary));
-        newEntry.offset = ReadUint32BigEndian(file);
-        newEntry.sizePacked = ReadUint16BigEndian(file);
-
+        newEntry.width = reader.ReadUint16BE();
+        newEntry.height = reader.ReadUint16BE();
+        newEntry.depth = reader.ReadUint8();
+        newEntry.unknown1 = reader.ReadUint8();
+        auto dictData = reader.ReadBytes(sizeof(newEntry.rleDictionary));
+        memcpy(newEntry.rleDictionary, dictData.data(), sizeof(newEntry.rleDictionary));
+        newEntry.offset = reader.ReadUint32BE();
+        newEntry.sizePacked = reader.ReadUint16BE();
+        
         PrintBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
-
+    
     return pair<int, vector<BitmapEntry_t>>(totalEntriesCount, result);
 }
 
-vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
-    ifstream file(filename, ios::binary);
-    if (!file.is_open()) {
-        throw runtime_error("File error: Unable to open file");
+vector<uint8_t> BitmapParser::GetPackedData(const vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
+    int headerSize = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount);
+    int fileOffset = headerSize + bitmapEntry.offset;
+    
+    if (fileOffset + bitmapEntry.sizePacked > data.size()) {
+        throw runtime_error("Can't read data because offset is larger than data size.");
     }
-
-    file.seekg(0, ios::end);
-    int fileSize = file.tellg();
-    file.seekg(0, ios::beg);
-
-    int fileOffset = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount) + bitmapEntry.offset;
-    // cout << "entries " << totalEntriesCount << endl;
-    // cout << "sizeof " << sizeof(BitmapEntry_t) << endl;
-    // cout << "Offset for bitmap " << bitmapEntry.offset << " in file " << fileOffset << endl;
-
-    if (fileOffset >= fileSize) {
-        throw runtime_error("Can't read data because offset is larger than file size.");
-    }
-
-    file.seekg(fileOffset, ios::beg);
-    vector<uint8_t> buf(bitmapEntry.sizePacked);
-    file.read(reinterpret_cast<char*>(buf.data()), bitmapEntry.sizePacked);
-
-    if (!file) {
-        throw runtime_error("Error reading file");
-    }
-
-    return buf;
+    
+    return vector<uint8_t>(
+        data.begin() + fileOffset,
+        data.begin() + fileOffset + bitmapEntry.sizePacked
+    );
 }
 
 vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>>& rle, const BitmapEntry_t& sprite, const vector<uint8_t>& data) {
@@ -348,18 +301,9 @@ vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const s
     return result;
 }
 
-vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
-    int expectedSize = (entry.width * entry.height * entry.depth) / 8;
-    vector<uint8_t> packedData = GetPackedData(filename, entry, totalEntriesCount);
-    // cout << "packed data " << packedData.size()  << endl;
-    // PrintBitplanes(packedData);
-    vector<uint8_t> data = UnpackData(RLE, entry, packedData);
-    if (expectedSize != data.size()) {
-        cout << "Expected size: " << expectedSize << " actual size: " << data.size() << endl;
-        // PrintBitplanes(data);
-        throw runtime_error("Size mismatch reading bitmap");
-    }
-    return data;
+vector<uint8_t> BitmapParser::ReadImage(const vector<uint8_t>& data, BitmapEntry_t entry, int index, int totalEntriesCount) {
+    vector<uint8_t> packedData = GetPackedData(data, entry, totalEntriesCount);
+    return UnpackData(RLE, entry, packedData);
 }
 
 LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
@@ -426,6 +370,78 @@ vector<uint16_t> BitmapParser::GetPalette(AssetLocation location, int index) {
     }
 }
 
+// File-based wrapper for ReadEntries
+pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filename) {
+    // Read file into vector
+    ifstream file(filename, ios::binary | ios::ate);
+    if (!file) {
+        cerr << "File error: Unable to open file " << filename << endl;
+        return make_pair(0, vector<BitmapEntry_t>());
+    }
+    
+    // Get file size and create vector
+    streamsize size = file.tellg();
+    file.seekg(0, ios::beg);
+    vector<uint8_t> buffer(size);
+    
+    // Read file content into vector
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        cerr << "File error: Unable to read file " << filename << endl;
+        return make_pair(0, vector<BitmapEntry_t>());
+    }
+    
+    // Use the new vector-based implementation
+    return ReadEntries(buffer);
+}
+
+// File-based wrapper for GetPackedData
+vector<uint8_t> BitmapParser::GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
+    // Read file into vector
+    ifstream file(filename, ios::binary | ios::ate);
+    if (!file) {
+        cerr << "File error: Unable to open file " << filename << endl;
+        return vector<uint8_t>();
+    }
+    
+    // Get file size and create vector
+    streamsize size = file.tellg();
+    file.seekg(0, ios::beg);
+    vector<uint8_t> buffer(size);
+    
+    // Read file content into vector
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        cerr << "File error: Unable to read file " << filename << endl;
+        return vector<uint8_t>();
+    }
+    
+    // Use the new vector-based implementation
+    return GetPackedData(buffer, bitmapEntry, totalEntriesCount);
+}
+
+// File-based wrapper for ReadImage
+vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
+    // Read file into vector
+    ifstream file(filename, ios::binary | ios::ate);
+    if (!file) {
+        cerr << "File error: Unable to open file " << filename << endl;
+        return vector<uint8_t>();
+    }
+    
+    // Get file size and create vector
+    streamsize size = file.tellg();
+    file.seekg(0, ios::beg);
+    vector<uint8_t> buffer(size);
+    
+    // Read file content into vector
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        cerr << "File error: Unable to read file " << filename << endl;
+        return vector<uint8_t>();
+    }
+    
+    // Use the new vector-based implementation
+    return ReadImage(buffer, entry, index, totalEntriesCount);
+}
+
 void DataParser::CleanupCarString(string& str) {
     size_t pos = 0;
 
@@ -450,46 +466,67 @@ void DataParser::CleanupCarString(string& str) {
 /// @param filename
 /// @return
 vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
-#define OFFSETS_START 0x34C
-#define CLASSIFIEDS_START 0x854
-    vector<CarMetadata_t> result;
-
-    ifstream file(filename, ios::binary);
+    // Read file into vector
+    ifstream file(filename, ios::binary | ios::ate);
     if (!file) {
         cerr << "File error: Unable to open file " << filename << endl;
         return vector<CarMetadata_t>();
     }
+    
+    // Get file size and create vector
+    streamsize size = file.tellg();
+    file.seekg(0, ios::beg);
+    vector<uint8_t> buffer(size);
+    
+    // Read file content into vector
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        cerr << "File error: Unable to read file " << filename << endl;
+        return vector<CarMetadata_t>();
+    }
+    
+    // Use the new vector-based implementation
+    return ReadEntries(buffer);
+}
 
-    file.seekg(OFFSETS_START, ios::beg);
+/// @brief Reads info about cars and parts from data file (SR_data)
+/// @param filename
+/// @return
+vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
+#define OFFSETS_START 0x34C
+#define CLASSIFIEDS_START 0x854
+    vector<CarMetadata_t> result;
+    VectorReader reader(data);
+
+    reader.Seek(OFFSETS_START);
 
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarMetadata_t metadataEntry;
         BitmapOffset_t newEntry;
-        newEntry.offsetXRearTire = ReadUint8(file);
-        newEntry.offsetXFrontTire = ReadUint8(file);
-        newEntry.offsetXDriver = ReadUint8(file);
-        newEntry.offsetYDriver = ReadUint8(file);
-        newEntry.offsetXChoppedRoof = ReadUint8(file);
-        newEntry.offsetXAirScoop = ReadUint8(file);
-        newEntry.offsetYAirScoop = ReadUint8(file);
-        newEntry.offsetYRearBumper = ReadUint8(file);
-        newEntry.offsetXFrontBumper = ReadUint8(file);
-        newEntry.offsetYFrontBumper = ReadUint8(file);
-        newEntry.offsetXDecal = ReadUint8(file);
-        newEntry.offsetYDecal = ReadUint8(file);
+        newEntry.offsetXRearTire = reader.ReadUint8();
+        newEntry.offsetXFrontTire = reader.ReadUint8();
+        newEntry.offsetXDriver = reader.ReadUint8();
+        newEntry.offsetYDriver = reader.ReadUint8();
+        newEntry.offsetXChoppedRoof = reader.ReadUint8();
+        newEntry.offsetXAirScoop = reader.ReadUint8();
+        newEntry.offsetYAirScoop = reader.ReadUint8();
+        newEntry.offsetYRearBumper = reader.ReadUint8();
+        newEntry.offsetXFrontBumper = reader.ReadUint8();
+        newEntry.offsetYFrontBumper = reader.ReadUint8();
+        newEntry.offsetXDecal = reader.ReadUint8();
+        newEntry.offsetYDecal = reader.ReadUint8();
         metadataEntry.offsets = newEntry;
         result.push_back(metadataEntry);
     }
 
     // Parse Classifieds
-    file.seekg(CLASSIFIEDS_START, ios::beg);
+    reader.Seek(CLASSIFIEDS_START);
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         // Get a reference to modify the original entry, not a copy
         CarMetadata_t& metadataEntry = result[i];
         ClassifiedEntry_t newClassified;
 
         // Read car name
-        string carNameStr = ReadNullTerminatedString(file);
+        string carNameStr = reader.ReadNullTerminatedString();
         string carYearStr = carNameStr.substr(0, 4);
         newClassified.year = stoi(carYearStr);
         CleanupCarString(carNameStr);
@@ -498,7 +535,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
         // Read ad text
         string adText;
         while (true) {
-            string line = ReadNullTerminatedString(file);
+            string line = reader.ReadNullTerminatedString();
             CleanupCarString(line);
             size_t dollarPos = line.find('$');
             if (line.empty() || dollarPos != string::npos) {
@@ -527,6 +564,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 
     return result;
 }
+
 
 int DataParser::GetCarIndex(AmigaLibAsset asset) {
     int stockCarCount = sizeof(CAR_INDEX);
@@ -582,3 +620,4 @@ int CarQuery::GetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
 int CarQuery::GetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
     return carAsset + 3;
 }
+

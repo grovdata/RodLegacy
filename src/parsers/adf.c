@@ -1,15 +1,27 @@
+#include "adflib.h"
 #include "adf.h"
 
-typedef struct {
-    unsigned char* data;
-    size_t size;
-} AdfFileData;
+struct AdfDevice* adf_mount_device(const char* filename, int readonly) {
+    return adfMountDev(filename, readonly);
+}
 
-AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char *file_to_extract) {
+void adf_unmount_device(struct AdfDevice* dev) {
+    adfUnMountDev(dev);
+}
+
+struct AdfVolume* adf_mount_volume(struct AdfDevice* dev, int vol_num, int readonly) {
+    return adfMount(dev, vol_num, readonly);
+}
+
+void adf_unmount_volume(struct AdfVolume* vol) {
+    adfUnMount(vol);
+}
+
+struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char *file_to_extract) {
     struct AdfDevice *dev = NULL;
     struct AdfVolume *vol = NULL;
     struct AdfFile *file = NULL;
-    AdfFileData* result = NULL;
+    struct AdfFileData* result = NULL;
     unsigned char* buffer = NULL;
     size_t total_size = 0;
     size_t current_pos = 0;
@@ -55,7 +67,7 @@ AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char *file_t
 
     if (current_pos == total_size) {
         // Success - prepare return structure
-        result = (AdfFileData*)malloc(sizeof(AdfFileData));
+        result = (struct AdfFileData*)malloc(sizeof(AdfFileData));
         if (result) {
             result->data = buffer;
             result->size = total_size;

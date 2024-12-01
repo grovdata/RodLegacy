@@ -3,12 +3,13 @@
 
 #include "bitmap.h"
 #include "spritesheet.h"
+#include "parsers/adf.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
 AssetManager::AssetManager() : carDecals(nullptr) {
     try {
-        gameBasePath = FindGameDirectory();
+        gameBasePath = FindGameDirectory();        
         dataPath = gameBasePath / "data";
         fontPath = gameBasePath / "data" / "font";
         if (!fs::exists(dataPath)) {
@@ -36,10 +37,45 @@ AssetManager::~AssetManager() {
         free(debugFont);
     }
 }
+
 void AssetManager::InitFonts() {
-    mainFont = SFont_InitFont(IMG_Load("../data/font/font.png"));
-    debugFont = SFont_InitFont(IMG_Load("../data/font/lemon.png"));
+    fs::path mainFontPath = fontPath / "font.png";
+    fs::path debugFontPath = fontPath / "lemon.png";
+    if (!fs::exists(mainFontPath) || !fs::exists(debugFontPath)) {
+        throw AssetLoadError("Font files not found");
+    }
+
+    mainFont = SFont_InitFont(IMG_Load(mainFontPath.string().c_str()));
+    debugFont = SFont_InitFont(IMG_Load(debugFontPath.string().c_str()));
 }
+
+void AssetManager::OpenGameFiles() {
+    fs::path disk1Path = ResolvePath("SR1AMIGA_DISK1.adf");
+    AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
+    
+    // Copy binary data to vector
+    libStartData_vec.assign(
+        static_cast<uint8_t*>(libStartData->data),
+        static_cast<uint8_t*>(libStartData->data) + libStartData->size
+    );
+    delete libStartData;
+    
+    fs::path disk2Path = ResolvePath("SR1AMIGA_DISxK2.adf");
+    AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "libp.p");
+    libPData_vec.assign(
+        static_cast<uint8_t*>(libPData->data),
+        static_cast<uint8_t*>(libPData->data) + libPData->size
+    );
+    delete libPData;
+    
+    AdfFileData *srData = extract_adf_file_to_memory(disk2Path.string().c_str(), "SR_Data");
+    srData_vec.assign(
+        static_cast<uint8_t*>(srData->data),
+        static_cast<uint8_t*>(srData->data) + srData->size
+    );
+    delete srData;
+}
+
 SFont_Font* AssetManager::GetMainFont() {
     return mainFont;
 }
@@ -160,6 +196,7 @@ void AssetManager::UpdateAssetWithPalette(string libfile, int index, const vecto
 fs::path AssetManager::FindGameDirectory() {
     // Get the base path where the executable is
     char* basePath = SDL_GetBasePath();
+    SDL_Log("Game base path: %s", basePath);
     if (!basePath) {
         throw AssetLoadError("Could not determine base path: " + std::string(SDL_GetError()));
     }
@@ -181,7 +218,7 @@ fs::path AssetManager::FindGameDirectory() {
 
     // Search for data directory
     for (const auto& path : searchPaths) {
-        if (fs::exists(path / "font/font.png")) {
+        if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
             return path.parent_path(); // Return the game root directory
         }
     }
@@ -189,7 +226,7 @@ fs::path AssetManager::FindGameDirectory() {
     throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
 }
 
-fs::path AssetManager::ResolvePath(const std::string& relativePath) {
+fs::path AssetManager::ResolvePath(fs::path relativePath) {
     fs::path fullPath = dataPath / relativePath;
     if (!fs::exists(fullPath)) {
         throw AssetLoadError("Required game file not found: " + fullPath.string());

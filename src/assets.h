@@ -62,6 +62,7 @@ private:
 
     BitmapParser bp;
 
+
     pair<int, vector<BitmapEntry_t>> imageEntries;
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
 
@@ -70,6 +71,11 @@ private:
     SFont_Font* mainFont;
     SFont_Font* debugFont;
 
-    fs::path ResolvePath(const std::string& relativePath);
+    std::vector<uint8_t> libStartData_vec;
+    std::vector<uint8_t> libPData_vec;
+    std::vector<uint8_t> srData_vec;
+
+    void OpenGameFiles();
+    fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(string libfile, int index, const vector<uint16_t>& carPalette);
 };

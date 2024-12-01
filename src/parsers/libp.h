@@ -404,11 +404,62 @@ struct CarMetadata_t {
 #define CAR_PLAYER_MODEL_COUNT 25
 #define DRIVER_COUNT 22
 
-// Helper functions
-uint8_t  ReadUint8(std::ifstream& file);
-uint16_t ReadUint16BigEndian(std::ifstream& file);
-uint32_t ReadUint32BigEndian(std::ifstream& file);
-string ReadNullTerminatedString(ifstream& file);
+// Add these helper functions at the top of the file, after the includes
+class VectorReader {
+private:
+    const vector<uint8_t>& data;
+    size_t position;
+
+public:
+    VectorReader(const vector<uint8_t>& data) : data(data), position(0) {}
+    
+    uint8_t ReadUint8() {
+        if (position >= data.size()) throw runtime_error("Read beyond vector bounds");
+        return data[position++];
+    }
+    
+    uint16_t ReadUint16BE() {
+        if (position + 1 >= data.size()) throw runtime_error("Read beyond vector bounds");
+        uint16_t value = (static_cast<uint16_t>(data[position]) << 8) | data[position + 1];
+        position += 2;
+        return value;
+    }
+    
+    uint32_t ReadUint32BE() {
+        if (position + 3 >= data.size()) throw runtime_error("Read beyond vector bounds");
+        uint32_t value = (static_cast<uint32_t>(data[position]) << 24) |
+                        (static_cast<uint32_t>(data[position + 1]) << 16) |
+                        (static_cast<uint32_t>(data[position + 2]) << 8) |
+                        data[position + 3];
+        position += 4;
+        return value;
+    }
+    
+    string ReadNullTerminatedString() {
+        string result;
+        while (position < data.size() && data[position] != 0) {
+            result += static_cast<char>(data[position++]);
+        }
+        position++; // Skip the null terminator
+        return result;
+    }
+    
+    void Seek(size_t newPosition) {
+        if (newPosition > data.size()) throw runtime_error("Seek beyond vector bounds");
+        position = newPosition;
+    }
+    
+    size_t Tell() const {
+        return position;
+    }
+    
+    vector<uint8_t> ReadBytes(size_t count) {
+        if (position + count > data.size()) throw runtime_error("Read beyond vector bounds");
+        vector<uint8_t> result(data.begin() + position, data.begin() + position + count);
+        position += count;
+        return result;
+    }
+};
 
 class BitmapParser {
    private:
@@ -418,10 +469,13 @@ class BitmapParser {
 
    public:
 
+    pair<int, vector<BitmapEntry_t>>                ReadEntries(const vector<uint8_t>& data);
 	pair<int, vector<BitmapEntry_t>>                ReadEntries(const string& filename);
     vector<Color>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
+    vector<uint8_t>                                 GetPackedData(const vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data);
+    vector<uint8_t>                                 ReadImage(const vector<uint8_t>& data, BitmapEntry_t entry, int index, int totalEntriesCount);
     vector<uint8_t>                                 ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount);
     vector<pair<BitmapEntry_t, vector<uint8_t>>>    ReadAllImages(const string& filename);
 
@@ -442,6 +496,7 @@ class DataParser {
         void CleanupCarString(string& str);
     public:
         vector<CarMetadata_t>  ReadEntries(const string& filename);
+        vector<CarMetadata_t>  ReadEntries(const vector<uint8_t>& data);
         int                    GetCarIndex(AmigaLibAsset asset);
 };
 

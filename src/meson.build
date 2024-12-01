@@ -12,13 +12,13 @@ adflib_dep = adflib_proj.dependency('adf')
 
 # C sources (removed ADFlib sources since they're handled by CMake now)
 c_sources = [
-    'SFont.c',
-    'parsers/adf.c',
+    'SFont.c'
 ]
 
 # C++ sources
 cpp_sources = [
     'main.cpp',
+    'parsers/adf.c',
     'state.cpp',
     'types.cpp',
     'bitmap.cpp',

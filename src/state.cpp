@@ -10,7 +10,7 @@ State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
 void State::Init(bool enableDebug) {
     this->debugMode = enableDebug;
     assets.InitFonts();
-    assets.ReadAssets(GetLibPFile());
+    assets.ReadAssets("");
     pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
     carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
