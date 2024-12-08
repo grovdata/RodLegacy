@@ -194,15 +194,6 @@ void Diner::DrawMaskAfterCar() {
     CarScene::DrawMaskAfterCar();
 }
 
-// void Diner::SetStatusBar(char *text) {
-//     char statusText[70];
-//     snprintf(statusText, 30, "Bankroll: $%d", state.GetBankroll());
-//     SFont_Write(fontSurface, font, 2, 200 - 9, statusText);
-//     SFont_Write(fontSurface, font, 160, 200 - 9, text);
-//     fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
-//     SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
-// }
-
 string Diner::GetOpponentText(Opponent *opponent) {
     string result = opponent->driver.name + "    " + opponent->car->GetModel().name;
     return result;
