@@ -4,6 +4,7 @@
 #include "ui/zone.h"
 #include "ui/button.h"
 #include "ui/bubble.h"
+#include "ui/hud.h"
 #include "mouse.h"
 #include "assets.h"
 #include "bitmap.h"
@@ -43,11 +44,13 @@ class Scene {
     GameScene sceneTransitioningTo;
 
     Asset backgroundAsset;
+    StockPalette palette;
     Bitmap *background;
+    HUD *hud;
 
     SDL_Surface *surface, *fontSurface, *fadeSurface;
     SDL_Texture *texture, *fontTexture, *fadeTexture;
-    SDL_Rect m_backgroundRect, m_statusBarRect, m_statusBarMiddleRect;
+    SDL_Rect m_backgroundRect;
 
     string backgroundName;
     vector<Zone> zones;
@@ -64,7 +67,7 @@ class Scene {
     virtual void ToggleDebugMode();
 
    public:
-    Scene(Asset backgroundAsset);
+    Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     Scene(string backgroundName);
     ~Scene();
     void Init(bool debugMode);
@@ -81,9 +84,6 @@ class Scene {
     virtual void Action(ZoneId zone);
     virtual void Draw();
     virtual void PushEvent(SDL_Event *event);
-
-    virtual void SetStatusBar(char *text);
-    void ClearStatusBar();
 
     void SetZoneText(ZoneId id, char* text);
 

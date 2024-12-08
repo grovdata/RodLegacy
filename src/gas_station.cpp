@@ -55,8 +55,8 @@ void GasStation::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     // drive the car to a halt.
     Car *carToAnimate = state.GetCurrentCar();
     CarModel model = carToAnimate->GetModel();
-    SetStatusBar(strdup(model.name.c_str()));
-    SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
+    // SetStatusBar(strdup(model.name.c_str()), PAL1[5]);
+    // SetZoneText(ZONE_DINER_BACKGROUND, strdup(model.name.c_str()));
 
     if (carToAnimate != nullptr && carBitmap == nullptr) {
         carBitmap = new CarBitmap(carToAnimate, nullptr, carToAnimate->GetColor());

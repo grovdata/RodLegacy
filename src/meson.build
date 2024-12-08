@@ -36,6 +36,7 @@ cpp_sources = [
     'assets.cpp',
     'ui/button.cpp',
     'ui/bubble.cpp',
+    'ui/hud.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',
     'roster.cpp',

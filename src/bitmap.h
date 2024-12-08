@@ -16,7 +16,8 @@ class Bitmap {
         SDL_Surface *surface;
     public:
         Bitmap();
-        ~Bitmap();
+        Bitmap(int width, int height, int depth);
+        virtual ~Bitmap();
 
         void     LoadBitmap(std::string filename);
         void     LoadSurface(SDL_Surface* src);
@@ -38,6 +39,7 @@ class Bitmap {
 
         //Remove later
         SDL_Surface* GetSurface();
+        SDL_Texture* GetTexture();
 
         void UpdateFromSurface();
 };

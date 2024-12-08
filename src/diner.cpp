@@ -141,6 +141,7 @@ void Diner::Draw() {
     }
 
     phonebookGuy->Draw();
+    hud->Draw();
 
     // Handle car animation states
     if (!animatingCar && !exitingCar && activeCarBitmap) {
@@ -214,9 +215,13 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     string oppoText = GetOpponentText(currentOpponent);
     string opponentId = currentOpponent->driver.name;  // Or some unique identifier for the opponent
     
-    ClearStatusBar();
-    SetStatusBar(strdup(oppoText.c_str()));
-    SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
+    vector<uint16_t> colors = PAL1;
+
+    //ClearStatusBar(colors[0]);
+    // Need the EHB palette here
+    hud->SetText(strdup(oppoText.c_str()));
+    //SetStatusBar(strdup(oppoText.c_str()), colors[5]); // 59
+    //SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
     // Check if we already have a CarBitmap for this opponent
     auto existingBitmap = opponentCarBitmaps.find(opponentId);

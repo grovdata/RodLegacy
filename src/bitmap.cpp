@@ -9,17 +9,29 @@ Bitmap::Bitmap() {
     rect = {0, 0, 0, 0};
 }
 
+Bitmap::Bitmap(int width, int height, int depth) {
+    surface = SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+}
+
 Bitmap::~Bitmap() {
-    if (surface != NULL) {
-        SDL_FreeSurface(surface);
-    }
-    if (texture != NULL) {
+    SDL_Log("Deleting Bitmap virtual");
+    if (texture) {
         SDL_DestroyTexture(texture);
+        texture = nullptr;
+    }
+    if (surface) {
+        SDL_FreeSurface(surface);
+        surface = nullptr;
     }
 }
 
 SDL_Surface* Bitmap::GetSurface() {
     return surface;
+}
+
+SDL_Texture* Bitmap::GetTexture() {
+    return texture;
 }
 
 SDL_Rect Bitmap::GetPosition() {

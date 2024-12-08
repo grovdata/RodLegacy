@@ -4,9 +4,10 @@
 #include "assets.h"
 #include "state.h"
 
-Scene::Scene(Asset backgroundAsset) {
+Scene::Scene(Asset backgroundAsset, StockPalette palette) {
     this->isSetup = false;
     this->backgroundAsset = backgroundAsset;
+    this->palette = palette;
     //background->SetPosition(0, 0);
     //background->SetVisible(true);
     debugOverlay = nullptr;
@@ -21,8 +22,6 @@ Scene::Scene(std::string backgroundName) {
 }
 
 Scene::~Scene() {
-    SDL_FreeSurface(fontSurface);
-    SDL_DestroyTexture(fontTexture);
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(fadeSurface);
@@ -59,11 +58,14 @@ void Scene::Init(bool initialDebugMode) {
     }
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     textures.push_back(texture);
-    fontSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    
     m_backgroundRect.x = 0;
     m_backgroundRect.y = 0;
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
+
+    hud = new HUD(palette, 0, 20);
+    hud->Clear();
 
     fadeSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     SDL_FillRect(fadeSurface, &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
@@ -72,14 +74,6 @@ void Scene::Init(bool initialDebugMode) {
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
 
     FadeIn();
-
-    m_statusBarRect.x = 0;
-    m_statusBarRect.y = GAME_HEIGHT - GAME_STATUSBAR_HEIGHT;
-    m_statusBarRect.w = GAME_WIDTH;
-    m_statusBarRect.h = GAME_STATUSBAR_HEIGHT;
-
-    m_statusBarMiddleRect = m_statusBarRect;
-    m_statusBarMiddleRect.x = GAME_WIDTH/2;
 }
 
 void Scene::ToggleDebugMode() {
@@ -98,32 +92,17 @@ void Scene::ToggleDebugMode() {
     }
 }
 
-void Scene::SetStatusBar(char *text) {
-    char bankroll[30];
-    snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(fontSurface, state.assets.GetMainFont(), 2, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, bankroll);
-    SFont_Write(fontSurface, state.assets.GetMainFont(), 160, GAME_HEIGHT - GAME_STATUSBAR_HEIGHT, text);
-    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
-    SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
-}
-
-void Scene::ClearStatusBar() {
-    SDL_FillRect(fontSurface, &m_statusBarMiddleRect, 0);
-    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
-    SDL_SetTextureColorMod(fontTexture, 119, 102, 17);
-}
-
 ZoneId Scene::CheckMouseHover(int x, int y) {
     for (size_t i = 0; i < zones.size(); i++) {
         Zone zone = zones.at(i);
         if (zone.IsInsideZone(x, y)) {
-            ClearStatusBar();
-            SetStatusBar(zone.GetText());
+            hud->Clear();
+            hud->SetText(zone.GetText());            
             return zone.GetId();
         }
     }
     // If no hover, clear bar
-    ClearStatusBar();
+    hud->Clear();    
     return ZONE_NULL;
 }
 
@@ -143,8 +122,8 @@ SDL_Texture *Scene::GetTexture() {
 
 void Scene::Draw() {
     background->Draw();
+    hud->Draw();
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
-    SDL_RenderCopy(renderer, fontTexture, NULL, &m_backgroundRect);
 
     if (debugMode) {
         UpdateDebugInfo();

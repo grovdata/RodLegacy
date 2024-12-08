@@ -396,6 +396,14 @@ struct CarMetadata_t {
     ClassifiedEntry_t classified;
 };
 
+enum StockPalette {
+    StockPaletteAmigaDiner = 0,
+    StockPaletteAmigaGasStation = 1,
+    StockPaletteAmigaJukebox = 2,
+    StockPaletteAmigaTitleScreen = 3,
+};
+
+// FIXME: Add all stock palettes
 #define RLE       {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
 #define PAL1      {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
 #define PAL_GAS   {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00B0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x0F96, 0x0C63}
@@ -481,9 +489,9 @@ class BitmapParser {
 
     Palette                                         PreparePalette(const vector<uint16_t>& palette, bool ehb);
     Palette                                         PrepareCarPalette(const vector<uint16_t>& palette);
-    Color                                           GetRGBFromRGB4(uint16_t rgb4);
+    static Color                                    GetRGBFromRGB4(uint16_t rgb4);
     vector<uint16_t>                                GetPalette(AssetLocation location, int index);
-
+    static vector<uint16_t>                         GetStockPalette(StockPalette palette);
     LibAssetType                                    GetAssetType(AssetLocation location, int index);
 
     pair<int, int>                                  GetSpritesheetInfo(AssetLocation location, int index);

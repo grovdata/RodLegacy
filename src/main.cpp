@@ -16,7 +16,7 @@
 #define TUNE "../data/snd/sr1_ost.ogg"
 
 #define ICON "../data/res/icon.png"
-#define APP_TITLE "Street Rod Legacy"
+#define APP_TITLE "OpenSR"
 
 // speed in pixels/second
 #define SPEED (300)

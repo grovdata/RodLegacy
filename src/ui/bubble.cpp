@@ -1,62 +1,77 @@
 #include "bubble.h"
 #include "../state.h"
+#include "../parsers/libp.h"
+
 Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
     string filename = "";
+
+    AmigaLibAsset bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
     switch (style) {
         case BUBBLE_LEFT:
-            filename = "lib_p_0.gif";
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
             break;
         case BUBBLE_RIGHT:
-            filename = "lib_p_1.gif";
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_RIGHT;
             break;
         case BUBBLE_RIGHT_TWO_LINES:
-            filename = "lib_p_2.gif";
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS;
             break;
     }
 
-    // FIXME
-    filename = "../data/res/bubbles/" + filename;
+    Asset bubbleAsset = {LibAssetRegular, AssetLocationAmigaLibP, bubbleAssetId};
+    bubble = state.assets.GetBitmapAsset(bubbleAsset);
+    bubble->SetVisible(true);
+    bubble->SetPosition(xPos, yPos);
 
-    LoadBitmap(filename);
-    rect.x = xPos;
-    rect.y = yPos;
-
-    fontSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    fontSurface.reset(SDL_CreateRGBSurface(0, 256, 64, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 
     UpdateText(text, xPos, yPos);
 
-    if (autoDismiss)
-        timerID = SDL_AddTimer(5000, AnimationTimerCallback, this);
+    if (autoDismiss) {
+        timerStart = SDL_GetTicks64();
+    }
 }
 
 Bubble::~Bubble() {
     // Free font surface
-    Bitmap::~Bitmap();
-    SDL_RemoveTimer(timerID);
+    delete bubble;
+}
+
+void Bubble::SetVisible(bool visible) {
+    this->visible = visible;
+    bubble->SetVisible(visible);
+    if (!this->visible && visible) {
+        timerStart = SDL_GetTicks64();
+    }
 }
 
 void Bubble::Draw() {
-    Bitmap::Draw();
-    if (isVisible)
-        SDL_RenderCopy(renderer, fontTexture, NULL, &fontRect);
+
+    uint64_t ticks = SDL_GetTicks64();
+
+    if (ticks - timerStart > 5000)
+        SetVisible(false);
+
+    if (visible) {
+        bubble->Draw();
+        SDL_RenderCopy(renderer, fontTexture.get(), NULL, &fontRect);
+    }
 
 }
 
 void Bubble::UpdateText(std::string text, int xPos, int yPos) {
+    SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
+    
     char buf[50];
     snprintf(buf, 50, "%s", text.c_str());
-    SFont_Write(fontSurface, state.assets.GetMainFont(), 0, 0, buf);
-    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
-    SDL_SetTextureColorMod(fontTexture, 0, 0, 0);
+    SFont_Write(fontSurface.get(), state.assets.GetMainFont(), 0, 0, buf);
+    
+    fontTexture.reset(SDL_CreateTextureFromSurface(renderer, fontSurface.get()));
+    SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);
 
+    SDL_Rect rect = bubble->GetPosition();
     fontRect.x = rect.x + 6; // dynamic
     fontRect.y = rect.y + 6;
     fontRect.w = fontSurface->w;
     fontRect.h = fontSurface->h;
-}
-
-Uint32 Bubble::AnimationTimerCallback(Uint32 interval, void* param) {
-    Bubble* bubble = static_cast<Bubble*>(param);
-    bubble->SetVisible(false);
-    return interval;
 }
