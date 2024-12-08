@@ -38,11 +38,12 @@ Bubble::~Bubble() {
 }
 
 void Bubble::SetVisible(bool visible) {
-    this->visible = visible;
-    bubble->SetVisible(visible);
+    // Restart animation timer
     if (!this->visible && visible) {
         timerStart = SDL_GetTicks64();
     }
+    this->visible = visible;
+    //bubble->SetVisible(visible);
 }
 
 void Bubble::Draw() {

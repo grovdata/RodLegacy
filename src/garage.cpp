@@ -58,10 +58,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GAR
     zones.push_back(cars);
     zones.push_back(street);
 
-    Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_RIGHT, 79, 30, true);
+    Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
     bubbleDrink->SetVisible(false);
     bubbles.push_back(bubbleDrink);
-    Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_RIGHT, 79, 30, true);
+    Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
     partsBubble->SetVisible(false);
     bubbles.push_back(partsBubble);
     Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_RIGHT, 79, 30, true);
@@ -103,7 +103,7 @@ void Garage::Action(ZoneId zone) {
     switch (zone)
     {
     case ZONE_GARAGE_GOTO_DINER:
-        sceneTransitioningTo = SCENE_CRUISING;
+        sceneTransitioningTo = SCENE_DINER;
         FadeOut();
         break;
     case ZONE_GARAGE_GAS_CAN:
