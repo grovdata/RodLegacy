@@ -7,17 +7,18 @@
 
 using namespace std;
 
-class HUD {
+class HUD: public IDrawable {
    private:
     uint16_t backgroundColor;
     uint16_t fontColor;
-    Bitmap *textBitmap;
+    Bitmap *backgroundBitmap, *textBitmap;
     SDL_Rect statusBarRect, statusBarMiddleRect;
 
    public:
     HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex);
     ~HUD();
     void Clear();
-    void Draw();
+    void Draw() override;
+    void SetVisible(bool visible) override;
     void SetText(const char *text);
 };

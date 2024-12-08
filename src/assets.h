@@ -48,6 +48,7 @@ public:
     void UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
     Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette);
+    Palette GetStockPalette(StockPalette palette);
 
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
@@ -80,8 +81,11 @@ private:
     byte_vector libPData_vec;
     byte_vector srData_vec;
 
+    map<StockPalette, Palette> stockPalettes;
+
     void InitFonts();
     void InitGameFiles();
+    void InitStockPalettes();
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette);
 };

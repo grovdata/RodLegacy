@@ -49,6 +49,8 @@ void Diner::Init(bool debugMode) {
     phonebookGuy->SetVisible(true);
     phonebookGuy->SelectSprite(0, 0);
 
+    hud->SetVisible(true);
+
     t = SDL_GetTicks64();
 }
 
@@ -141,7 +143,6 @@ void Diner::Draw() {
     }
 
     phonebookGuy->Draw();
-    hud->Draw();
 
     // Handle car animation states
     if (!animatingCar && !exitingCar && activeCarBitmap) {
@@ -183,6 +184,7 @@ void Diner::Draw() {
     if (debugMode && debugOverlay) {
         debugOverlay->Draw();
     }
+    hud->Draw();
 }
 
 void Diner::DrawMaskAfterCar() {
@@ -221,7 +223,8 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     // Need the EHB palette here
     hud->SetText(strdup(oppoText.c_str()));
     //SetStatusBar(strdup(oppoText.c_str()), colors[5]); // 59
-    //SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
+    
+    SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
     // Check if we already have a CarBitmap for this opponent
     auto existingBitmap = opponentCarBitmaps.find(opponentId);
@@ -376,14 +379,12 @@ void Diner::PushEvent(SDL_Event *event) {
             case SDLK_LEFT:
                 if (isPaused && activeCarBitmap) {
                     activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() - 1);
-                    
                 }
                 break;
 
             case SDLK_RIGHT:
                 if (isPaused && activeCarBitmap) {
                     activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() + 1);
-                    
                 }
                 break;
 

@@ -177,8 +177,8 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
         }
     }
 
-    // SavePaletteToBMP(palette, "normalpalette.bmp");
-    // SavePaletteToBMP(carPalette, "carcolors.bmp");
+    SavePaletteToBMP(palette, "normalpalette.bmp");
+    SavePaletteToBMP(carPalette, "carcolors.bmp");
 
     // std::cout << "chunky data size: " << chunkyData.size() << std::endl;
     // Optionally print or process chunkyData further
@@ -286,17 +286,6 @@ Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
     return make_tuple(r, g, b);
 }
 
-vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
-    switch (palette) {
-        case StockPaletteAmigaDiner:
-            return PAL1;
-        case StockPaletteAmigaGasStation:
-            return PAL_GAS;
-        default:
-            return PAL1;
-    }
-}
-
 vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
     vector<pair<BitmapEntry_t, vector<uint8_t>>> result;
     pair<int, vector<BitmapEntry_t>> entries = ReadEntries(filename);
@@ -361,6 +350,17 @@ pair<int, int> BitmapParser::GetSpritesheetInfo(AssetLocation location, int inde
 
         default:
             return make_pair(0, 0);
+    }
+}
+
+vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
+    switch (palette) {
+        case StockPaletteAmigaDiner:
+            return PAL1;
+        case StockPaletteAmigaGasStation:
+            return PAL_GAS;
+        default:
+            return PAL1;
     }
 }
 

@@ -15,14 +15,7 @@ typedef enum {
     BUBBLE_RIGHT_TWO_LINES
 } BubbleStyle;
 
-class IDrawable {
-    protected:
-        bool visible;
-    public:
-        virtual ~IDrawable() = default;
-        virtual void Draw() = 0;
-        virtual void SetVisible(bool visible) = 0;
-};
+
 
 class Bubble: public IDrawable {
     private:

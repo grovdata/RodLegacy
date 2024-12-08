@@ -64,7 +64,8 @@ void Scene::Init(bool initialDebugMode) {
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    hud = new HUD(palette, 0, 20);
+    hud = new HUD(palette, 0, 59);
+    hud->SetVisible(true);
     hud->Clear();
 
     fadeSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -122,20 +123,20 @@ SDL_Texture *Scene::GetTexture() {
 
 void Scene::Draw() {
     background->Draw();
-    hud->Draw();
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
 
     if (debugMode) {
         UpdateDebugInfo();
         debugOverlay->Draw();
     }
+    hud->Draw();
 }
 
 void Scene::PushEvent(SDL_Event *event) {
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
         return;
-}
+    }
     ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         Action(z);

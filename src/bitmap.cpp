@@ -10,6 +10,7 @@ Bitmap::Bitmap() {
 }
 
 Bitmap::Bitmap(int width, int height, int depth) {
+    rect = {0, 0, width, height};
     surface = SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     texture = SDL_CreateTextureFromSurface(renderer, surface);
 }

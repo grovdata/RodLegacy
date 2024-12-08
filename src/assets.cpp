@@ -60,6 +60,16 @@ void AssetManager::InitGameFiles() {
     delete srData;
 }
 
+void AssetManager::InitStockPalettes() {
+    stockPalettes[StockPaletteAmigaDiner] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDiner), true);
+    stockPalettes[StockPaletteAmigaGasStation] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaGasStation), true);
+
+    int i = 0;
+    for (auto& pair : stockPalettes[StockPaletteAmigaDiner]) {
+        SDL_Log("Diner palette %d: %d, %d, %d", i++, get<0>(pair), get<1>(pair), get<2>(pair));
+    }
+}
+
 void AssetManager::Init() {
     try {
         gameBasePath = FindGameDirectory();        
@@ -81,6 +91,7 @@ void AssetManager::Init() {
 
     InitFonts();
     InitGameFiles();
+    InitStockPalettes();
 }
 
 SFont_Font* AssetManager::GetMainFont() {
@@ -89,6 +100,10 @@ SFont_Font* AssetManager::GetMainFont() {
 
 SFont_Font* AssetManager::GetDebugFont() {
     return debugFont;
+}
+
+Palette AssetManager::GetStockPalette(StockPalette palette) {
+    return stockPalettes[palette];
 }
 
 void AssetManager::ReadAssets() {
