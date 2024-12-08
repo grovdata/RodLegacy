@@ -12,21 +12,18 @@ HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex) {
     Palette rgbPal = state.assets.GetStockPalette(palette);
     Color backgroundColor = rgbPal[backgroundColorIndex];
     Color fontColor = rgbPal[fontColorIndex];
-
-    this->backgroundColor = SDL_MapRGB(backgroundBitmap->GetSurface()->format, get<0>(backgroundColor), get<1>(backgroundColor), get<2>(backgroundColor));
-    std::cout << "Background color in hex: " << std::hex << this->backgroundColor << std::endl;        
-    this->fontColor = SDL_MapRGB(textBitmap->GetSurface()->format, get<0>(fontColor), get<1>(fontColor), get<2>(fontColor));
-    std::cout << "Font color in hex: " << std::hex << this->fontColor << std::endl;
-
+    
+    this->backgroundColor = backgroundColor;
+    this->fontColor = fontColor;
 
     backgroundBitmap->SetPosition(0, HUD_YPOS);
     backgroundBitmap->SetDimensions(GAME_WIDTH, GAME_STATUSBAR_HEIGHT);
 
-    textBitmap->SetPosition(0, HUD_YPOS);
+    textBitmap->SetPosition(0, HUD_YPOS+1);
     textBitmap->SetDimensions(GAME_WIDTH, GAME_STATUSBAR_HEIGHT);
 
     statusBarRect.x = 0;
-    statusBarRect.y = HUD_YPOS;
+    statusBarRect.y = 0;
     statusBarRect.w = GAME_WIDTH;
     statusBarRect.h = GAME_STATUSBAR_HEIGHT;
 
@@ -53,13 +50,11 @@ void HUD::Draw() {
 void HUD::SetText(const char *text) {
     Clear();
     
-    // Extract RGB components from fontColor
-    uint8_t r = (fontColor >> 16) & 0xFF;
-    uint8_t g = (fontColor >> 8) & 0xFF; 
-    uint8_t b = fontColor & 0xFF;
-
-    // Set the color modulation before writing text
-    SDL_SetSurfaceColorMod(textBitmap->GetSurface(), r, g, b);
+    // Use the stored RGB components directly
+    SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 
+        get<0>(fontColor), 
+        get<1>(fontColor), 
+        get<2>(fontColor));
     
     // Write the text
     char bankroll[30];
@@ -71,9 +66,10 @@ void HUD::SetText(const char *text) {
     textBitmap->SaveBitmap(666);
 }
 
-void HUD::Clear() {  
+void HUD::Clear() {
+    Uint32 sdlColor = SDL_MapRGB(backgroundBitmap->GetSurface()->format, get<0>(backgroundColor), get<1>(backgroundColor), get<2>(backgroundColor));
     SDL_FillRect(textBitmap->GetSurface(), NULL, 0);
-    SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarRect, backgroundColor);
-    SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarMiddleRect, backgroundColor);
+    SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarRect, sdlColor);
+    SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarMiddleRect, sdlColor);
     backgroundBitmap->UpdateFromSurface();
 }

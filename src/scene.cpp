@@ -64,7 +64,7 @@ void Scene::Init(bool initialDebugMode) {
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    hud = new HUD(palette, 0, 59);
+    hud = new HUD(palette, 20, 59);
     hud->SetVisible(true);
     hud->Clear();
 

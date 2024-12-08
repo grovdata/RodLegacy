@@ -9,10 +9,12 @@ using namespace std;
 
 class HUD: public IDrawable {
    private:
-    uint16_t backgroundColor;
-    uint16_t fontColor;
+    Color backgroundColor;
+    Color fontColor;
+    
     Bitmap *backgroundBitmap, *textBitmap;
     SDL_Rect statusBarRect, statusBarMiddleRect;
+    
 
    public:
     HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex);
