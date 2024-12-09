@@ -82,6 +82,7 @@ void Diner::Action(ZoneId zone) {
     if (zone == ZONE_DINER_GOTO_GARAGE) {
         sceneTransitioningTo = SCENE_GARAGE;
         FadeOut();
+        state.MoveToScene(SCENE_GARAGE);
     } else if (zone == ZONE_DINER_CALL) {
         bubbles[0]->SetVisible(true);
     }

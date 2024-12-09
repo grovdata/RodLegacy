@@ -103,12 +103,10 @@ void Garage::Action(ZoneId zone) {
     switch (zone)
     {
     case ZONE_GARAGE_GOTO_DINER:
-        sceneTransitioningTo = SCENE_DINER;
-        FadeOut();
+        state.MoveToScene(SCENE_DINER);
         break;
     case ZONE_GARAGE_GAS_CAN:
-        sceneTransitioningTo = SCENE_GAS_STATION;
-        FadeOut();
+        state.MoveToScene(SCENE_GAS_STATION);
         break;
     case ZONE_GARAGE_DRINK:
         bubbles[0]->SetVisible(true);
