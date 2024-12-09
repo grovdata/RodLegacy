@@ -1,6 +1,6 @@
 #include "gas_station.h"
 #include "state.h"
-
+#include "parsers/libp.h"
 double carAnimationTimeGasStation = 0;
 
 GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
@@ -8,6 +8,10 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaL
     // Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
     // zones.push_back(bottle);
     t = SDL_GetTicks64();
+
+    maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, AssetLocationAmigaLibP, GUS_GAS_MASK});
+    maskBitmap->SetVisible(true);
+    maskBitmap->SetPosition(0, 107);
 }
 
 MousePointer GasStation::GetPointerType() {
@@ -47,6 +51,8 @@ void GasStation::Draw() {
         carBitmap->Move(p);
         carBitmap->Draw();
     }
+
+    maskBitmap->Draw();
 }
 
 void GasStation::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {

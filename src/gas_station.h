@@ -3,6 +3,8 @@
 #include "global.h"
 #include "scene.h"
 #include "ui/zone.h"
+#include "bitmap.h"
+
 
 class GasStation : public CarScene {
    public:
@@ -20,4 +22,5 @@ class GasStation : public CarScene {
 
     static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
+    Bitmap* maskBitmap;
 };

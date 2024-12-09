@@ -30,7 +30,7 @@ class Bitmap {
 
         void     LoadBitmap(std::string filename);
         void     LoadSurface(SDL_Surface* src);
-        void     LoadBitmapFromChunky(const vector<Color>& colors, int width, int height);
+        void     LoadBitmapFromChunky(const vector<Color>& colors, int width, int height, bool isMask = false);
         void     SaveBitmap(int index);
 
         void     Align(BitmapAlign b, bool allowStatusBar);

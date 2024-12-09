@@ -151,10 +151,12 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     a.location = AssetLocationAmigaLibP;
     a.type = bp.GetAssetType(AssetLocationAmigaLibP, index);
 
+    bool isMask = a.type == LibAssetMask;
+
     if (a.type == LibAssetSpritesheet) {
         pair<int, int> info = bp.GetSpritesheetInfo(AssetLocationAmigaLibP, index);
         unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
-        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask);
         spriteSheet->SetDimensions(b.width, b.height);
         imageAssets.push_back(make_pair(a, std::move(spriteSheet)));
     } else {

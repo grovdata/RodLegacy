@@ -147,7 +147,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     }
 }
 
-void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, int height) {
+void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, int height, bool isMask) {
     if (colors.size() != width * height) {
         std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
         return;
@@ -160,35 +160,36 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, i
         return;
     }
 
-    // Lock the surface to directly access the pixels
     SDL_LockSurface(surface);
-
-    // Get a pointer to the surface's pixel data
     uint32_t* pixels = static_cast<uint32_t*>(surface->pixels);
 
-    // Iterate through the color vector and set each pixel on the surface
     for (int i = 0; i < width * height; ++i) {
         uint8_t r = std::get<0>(colors[i]);
         uint8_t g = std::get<1>(colors[i]);
         uint8_t b = std::get<2>(colors[i]);
+        
+        uint8_t a;
+        if (isMask) {
+            // For masks: any non-zero pixel becomes transparent (alpha = 0)
+            // Zero pixels become opaque black (alpha = 255)
+            a = (r || g || b) ? 0 : 255;
+            r = g = b = 0;  // Set color to black for mask pixels
+        } else {
+            // Normal bitmap behavior: first pixel transparent, rest opaque
+            a = (r == 0 && g == 0 && b == 0) ? 0 : 255;
+        }
 
-        // Set the first pixel transparent
-        uint8_t a = (i == 0) ? 0 : 255;
-
-        // Pack the RGBA values into a 32-bit integer in SDL's format (RGBA)
         pixels[i] = SDL_MapRGBA(surface->format, r, g, b, a);
     }
 
-    // Unlock the surface after pixel manipulation
     SDL_UnlockSurface(surface);
 
-    // Set the color key (transparent pixel) if needed
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
-
-    // Create a texture from the surface
+    // Set up alpha blending for the texture
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
         std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+    } else {
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
 }
 
