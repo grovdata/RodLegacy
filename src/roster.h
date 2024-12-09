@@ -25,11 +25,11 @@ class Roster {
         vector<string> stockDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
         vector<Opponent> opponents;
         vector<Opponent>::iterator currentOpponent;
-        Car* GenerateRandomCar(const CarModel& model);
         Driver GenerateRandomDriver(int preferredCarIndex);
     public:
         Roster();
         void Initialize(CarData& carData);
+        Car* GenerateRandomCar(const CarModel& model);
         Opponent* GetNextOpponent();
         Opponent* GetCurrentOpponent();
         bool HasMoreOpponents() const;

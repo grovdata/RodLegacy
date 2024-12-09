@@ -18,9 +18,11 @@ void State::Init(bool enableDebug) {
 
         // Initialize roster
         roster.Initialize(carData);
-        
-        CarModel randomModel = carData.GetRandomModel();
-        Car *randomCar = new Car(randomModel);
+
+        // FIXME: Until we can buy a car        
+        CarModel chevy = carData.GetModelFromIndex(179);
+        Car *randomCar = roster.GenerateRandomCar(chevy);
+
         this->currentCar = randomCar;
         
         // Create scenes after fonts are initialized

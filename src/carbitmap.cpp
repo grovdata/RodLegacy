@@ -75,7 +75,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
         this->driver->SetVisible(true);
     } else {
         showDriver = false;
-        this->driver->SetVisible(false);
+        //this->driver->SetVisible(false);
     }
 
     Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
@@ -239,7 +239,9 @@ void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
-    driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+    if (driver != nullptr) {
+        driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+    }
     gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
