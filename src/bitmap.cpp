@@ -16,7 +16,6 @@ Bitmap::Bitmap(int width, int height, int depth) {
 }
 
 Bitmap::~Bitmap() {
-    SDL_Log("Deleting Bitmap virtual");
     if (texture) {
         SDL_DestroyTexture(texture);
         texture = nullptr;
@@ -93,6 +92,78 @@ void Bitmap::Crop(SDL_Rect crop) {
     surface = cropped;
     texture = SDL_CreateTextureFromSurface(renderer, cropped);
 }
+
+void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
+    Color maskColor = AmigaMaskColor;
+    uint8_t maskR = std::get<0>(maskColor);
+    uint8_t maskG = std::get<1>(maskColor);
+    uint8_t maskB = std::get<2>(maskColor);
+
+    SDL_Log("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
+    SDL_Log("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s", 
+            maskR, maskG, maskB,
+            (128 == maskR && 16 == maskG && 0 == maskB) ? "true" : "false");
+
+    if (target->format != surface->format) {
+        SDL_LogWarn(0, "Target surface format differs from source format - this might cause issues");
+        SDL_LogWarn(0, "Source BPP: %d, Target BPP: %d", surface->format->BitsPerPixel, target->format->BitsPerPixel);
+    }
+
+    // Ensure the rect does not exceed the bounds of the surfaces
+    if (rect.x < 0 || rect.y < 0 || 
+        rect.x + rect.w > surface->w || rect.y + rect.h > surface->h) {
+        SDL_LogError(0, "Rectangle exceeds the bounds of the surface surface!\n");
+        return;
+    }
+
+    if (rect.w > mask->w || rect.h > mask->h) {
+        SDL_LogError(0, "Mask dimensions are smaller than the rectangle area!\n");
+        return;
+    }
+
+    // Lock surfaces for pixel access if necessary
+    if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+    if (SDL_MUSTLOCK(mask)) SDL_LockSurface(mask);
+    if (SDL_MUSTLOCK(target)) SDL_LockSurface(target);
+
+    // Access pixel data
+    Uint32 *bgPixels = (Uint32 *)surface->pixels;
+    Uint32 *maskPixels = (Uint32 *)mask->pixels;
+    Uint32 *targetPixels = (Uint32 *)target->pixels;
+
+    SDL_PixelFormat *maskFormat = mask->format;
+
+    int copiedPixels = 0;
+    static int debugCount = 0;
+    debugCount = 0;  // Reset debug counter
+
+    for (int y = 0; y < rect.h; y++) {
+        for (int x = 0; x < rect.w; x++) {
+            int maskIdx = y * mask->w + x;
+            int bgIdx = (rect.y + y) * surface->w + (rect.x + x);
+            int targetIdx = y * target->w + x;  // Changed to use local coordinates
+
+            Uint32 maskPixel = maskPixels[maskIdx];
+            Uint8 r, g, b;
+            SDL_GetRGB(maskPixel, maskFormat, &r, &g, &b);
+
+            if (r == maskR && g == maskG && b == maskB) {
+                Uint8 bgR, bgG, bgB;
+                SDL_GetRGB(bgPixels[bgIdx], surface->format, &bgR, &bgG, &bgB);
+                targetPixels[targetIdx] = SDL_MapRGBA(target->format, bgR, bgG, bgB, 255);
+                copiedPixels++;
+            } else {
+                targetPixels[targetIdx] = SDL_MapRGBA(target->format, 0, 0, 0, 0);
+            }
+        }
+    }
+
+    // Unlock surfaces
+    if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+    if (SDL_MUSTLOCK(mask)) SDL_UnlockSurface(mask);
+    if (SDL_MUSTLOCK(target)) SDL_UnlockSurface(target);
+}
+
 
 void Bitmap::SetVisible(bool visible) {
     this->isVisible = visible;

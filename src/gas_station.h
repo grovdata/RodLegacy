@@ -4,11 +4,16 @@
 #include "scene.h"
 #include "ui/zone.h"
 #include "bitmap.h"
-
+#include "utils.h"
 
 class GasStation : public CarScene {
+   private:
+    sdl2::SurfacePtr maskedBackground;
+    sdl2::TexturePtr maskedBackgroundTexture;
+
    public:
     GasStation();
+    void Init(bool initialDebugMode) override;
 
     MousePointer GetPointerType() override;
 

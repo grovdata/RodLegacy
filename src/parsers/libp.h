@@ -263,6 +263,8 @@ enum AmigaLibAsset {
     PHONEBOOK_GUY = 374
 };
 
+const Color AmigaMaskColor = {128, 16, 0};
+
 enum StockCarModels {
     CHEVROLET_2DR_COUPE_1940 = 179,
     CHEVROLET_ROADSTER_1940 = 183,
