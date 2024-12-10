@@ -41,6 +41,8 @@ class Diner: public CarScene {
 
     bool initialDelay = true;
     Uint64 fadeCompleteTime = 0;
+    double lastFrameTime;
+    double currentTime;
 
     public:
         Diner();
@@ -59,12 +61,13 @@ class Diner: public CarScene {
         // void SetStatusBar(char *text) override;
 
         void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
+        void UpdateAnimation(double deltaTime);
 
         // Used by animation callback
         bool animatingCar = false;
         int carx, cary;
 
-        static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+        //static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
         void UpdateDebugInfo() override;
 
