@@ -51,6 +51,16 @@ void GasStation::Draw() {
 
     Scene::Draw();
 
+    // Handle initial delay
+    if (initialDelay) {
+        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
+            initialDelay = false;
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            animatingCar = true;
+        }
+        return;
+    }
+
     if (carBitmap != nullptr) {
         SDL_Point p;
         p.x = carx; p.y = cary;
@@ -70,7 +80,8 @@ void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType anim
         SDL_Point offscreenPos = GetCarOffscreenPosition();
         carx = offscreenPos.x;
         cary = offscreenPos.y;
-        CarScene::StartAnimateCar(car, driver, CarAnimationType::SINGLE_CAR_DRIVE);
+        animatingCar = true;
+        currentAnimationType = animType;
     }
 }
 
@@ -81,6 +92,7 @@ void GasStation::OnFadeComplete() {
         // Start car animation only once after fade
         if (!animatingCar && !carBitmap) {
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            animatingCar = true;
         }
     }
 }

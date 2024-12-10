@@ -107,9 +107,9 @@ private:
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
     bool isPaused = false;
-    CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
 
 protected:
+    CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
     bool initialDelay = true;
     Uint64 fadeCompleteTime = 0;
     double initStartTime;
