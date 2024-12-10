@@ -123,12 +123,47 @@ void Garage::Action(ZoneId zone) {
 }
 
 void Garage::Draw() {
+    currentTime = SDL_GetTicks64() / 1000.0;
+    double deltaTime = currentTime - lastFrameTime;
+    lastFrameTime = currentTime;
+
+    UpdateCarAnimation(deltaTime);
+
     Scene::Draw();
+
+    // Handle initial delay
+    if (initialDelay) {
+        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
+            initialDelay = false;
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            animatingCar = true;
+        }
+        return;
+    }
+
+    if (carBitmap != nullptr) {
+        SDL_Point p;
+        p.x = carx; p.y = cary;
+        carBitmap->Move(p);
+        carBitmap->Draw();
+    }
 
     UpdateSign();
     SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 
     for (auto b : bubbles) {
         b->Draw();
+    }
+}
+
+void Garage::OnFadeComplete() {
+    if (initialDelay) {
+        fadeCompleteTime = SDL_GetTicks64();
+    } else {
+        // Start car animation only once after fade
+        if (!animatingCar && !carBitmap) {
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            animatingCar = true;
+        }
     }
 }

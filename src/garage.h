@@ -21,6 +21,7 @@ class Garage : public CarScene {
 
     void Action(ZoneId zone) override;
     void Draw() override;
+    void OnFadeComplete() override;
 
     MousePointer GetPointerType() override;
 };
