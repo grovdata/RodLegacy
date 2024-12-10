@@ -4,12 +4,11 @@
 double carAnimationTimeGasStation = 0;
 
 GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
-    // SDL_Rect bottleRect = {7, 161, 8, 24};
-    // Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
-    // zones.push_back(bottle);
+    isPumping = false;
+    SDL_Rect bottleRect = {7, 161, 8, 24};
+    Zone bottle(ZONE_GAS_STATION_PUMP, strdup("Wanna drink ?"), &bottleRect);
+    zones.push_back(bottle);
     t = SDL_GetTicks64();
-
-    
 }
 
 void GasStation::Init(bool initialDebugMode) {
@@ -37,8 +36,8 @@ SDL_Point GasStation::GetCarOffscreenPosition() {
 }
 
 void GasStation::Action(ZoneId zone) {
-    if (zone == ZONE_GARAGE_GOTO_DINER) {
-        state.MoveToScene(SCENE_DINER);
+    if (zone == ZONE_GAS_STATION_CAR_WINDOW) {
+        
     }
 }
 

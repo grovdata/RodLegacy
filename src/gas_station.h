@@ -11,6 +11,8 @@ class GasStation : public CarScene {
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
 
+    bool isPumping;
+
    public:
     GasStation();
     void Init(bool initialDebugMode) override;
