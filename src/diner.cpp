@@ -52,7 +52,7 @@ void Diner::Init(bool debugMode) {
 
     hud->SetVisible(true);
 
-    t = SDL_GetTicks64();
+    initStartTime = SDL_GetTicks64();
 }
 
 Diner::~Diner() {    
@@ -89,29 +89,25 @@ void Diner::Action(ZoneId zone) {
 }
 
 void Diner::Draw() {
-    currentTime = SDL_GetTicks64() / 1000.0;  // Convert to seconds
+    currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
 
-    // Update animations
-    if (!isPaused) {
-        UpdateAnimation(deltaTime);
-    }
+    UpdateCarAnimation(deltaTime);
 
-    // Normal non-paused drawing and update logic
     Scene::Draw();
     if (!isSetup) {
         Init(debugMode);
         isSetup = true;
     }
 
-    Uint64 elapsed = SDL_GetTicks64() - t;
+    Uint64 elapsed = SDL_GetTicks64() - initStartTime;
 
     // Handle initial delay
     if (initialDelay) {
-        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {  // 2 second delay
+        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
-            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
             animatingCar = true;
         }
         // Still draw everything else while waiting
@@ -158,30 +154,22 @@ string Diner::GetOpponentText(Opponent *opponent) {
     return result;
 }
 
-void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
+void Diner::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && activeCarBitmap) return;
     
     this->currentOpponent = state.GetNextOpponent();
     if (!currentOpponent) return;
     
     string oppoText = GetOpponentText(currentOpponent);
-    string opponentId = currentOpponent->driver.name;  // Or some unique identifier for the opponent
+    string opponentId = currentOpponent->driver.name;
     
-    vector<uint16_t> colors = PAL1;
-
-    //ClearStatusBar(colors[0]);
-    // Need the EHB palette here
     hud->SetText(strdup(oppoText.c_str()));
-    //SetStatusBar(strdup(oppoText.c_str()), colors[5]); // 59
-    
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
-    // Check if we already have a CarBitmap for this opponent
     auto existingBitmap = opponentCarBitmaps.find(opponentId);
     if (existingBitmap != opponentCarBitmaps.end()) {
         activeCarBitmap = existingBitmap->second.get();
     } else {
-        // Create new CarBitmap and store it
         StandardCarColor carColor = static_cast<StandardCarColor>(currentOpponent->car->GetColor());
         auto newBitmap = std::make_unique<CarBitmap>(currentOpponent->car, &currentOpponent->driver, carColor);
         activeCarBitmap = newBitmap.get();
@@ -194,73 +182,7 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, bool keepDriving) {
     int carWheelsYOffset = state.carData.GetCarWheelsYOffset(currentOpponent->car->GetModel());
     activeCarBitmap->MoveWheelsYOffset(carWheelsYOffset);
 
-    animatingCar = true;
-}
-
-void Diner::UpdateAnimation(double deltaTime) {
-    if (exitingCar) {
-        carExitAnimationTime += deltaTime;
-        const double exitDuration = 2.5;
-        
-        double t = carExitAnimationTime / exitDuration;
-        t = std::min(1.0, t);
-        double easedValue = t * t * t;  // Cubic easing
-        
-        // Use the current car position as the starting point
-        int startX = carx;
-        int endX = GAME_WIDTH + 50;
-        int newX = static_cast<int>(startX + (easedValue * (endX - startX)));
-        
-        carx = newX;
-
-        // Wheel speed matches the acceleration
-        float speed = (endX - startX) * (3 * t * t) / exitDuration;
-        if (activeCarBitmap) {
-            activeCarBitmap->UpdateWheelAnimation(speed * deltaTime);
-            activeCarBitmap->Move({carx, cary});
-        }
-
-        if (carExitAnimationTime >= exitDuration) {
-            exitingCar = false;
-            activeCarBitmap = nullptr;
-            carExitAnimationTime = 0;
-        }
-    } else if (animatingCar) {
-        carAnimationTimeDiner += deltaTime;
-        const double duration = 2.0;
-        double easedValue = (1 - pow(2, -10 * carAnimationTimeDiner / duration));
-        
-        carx = static_cast<int>((easedValue * (GAME_WIDTH + 50)) - GAME_WIDTH);
-
-        float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTimeDiner / duration) * (10.0/duration);
-        if (activeCarBitmap) {
-            activeCarBitmap->UpdateWheelAnimation(speed * deltaTime);
-        }
-
-        if (carAnimationTimeDiner >= duration) {
-            animatingCar = false;
-            carAnimationTimeDiner = 0;
-        }
-    }
-
-    // Handle waiting timers
-    if (!animatingCar && !exitingCar && activeCarBitmap) {
-        waitTimer += deltaTime;
-        if (waitTimer >= WAIT_BEFORE_EXIT) {
-            exitingCar = true;
-            waitTimer = 0;
-            carExitAnimationTime = 0;
-        }
-    }
-    
-    if (!animatingCar && !exitingCar && !activeCarBitmap) {
-        waitTimer += deltaTime;
-        if (waitTimer >= WAIT_BEFORE_NEXT) {
-            waitTimer = 0;
-            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
-            animatingCar = true;
-        }
-    }
+    CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
 }
 
 void Diner::UpdateDebugInfo() {
@@ -347,7 +269,7 @@ void Diner::OnFadeComplete() {
     } else {
         // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !activeCarBitmap) {
-            StartAnimateCar(state.GetCurrentCar(), nullptr, false);
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
             animatingCar = true;
         }
     }

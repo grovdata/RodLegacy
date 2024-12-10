@@ -20,8 +20,6 @@ class Diner: public CarScene {
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
 
-    Uint64 t;
-
     bool exitingCar;
     double waitTimer;
 
@@ -60,14 +58,9 @@ class Diner: public CarScene {
         void DrawMaskAfterCar() override;
         // void SetStatusBar(char *text) override;
 
-        void StartAnimateCar(Car *car, Driver *driver, bool keepDriving) override;
+        void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
         void UpdateAnimation(double deltaTime);
 
-        // Used by animation callback
-        bool animatingCar = false;
-        int carx, cary;
-
-        //static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
 
         void UpdateDebugInfo() override;
 

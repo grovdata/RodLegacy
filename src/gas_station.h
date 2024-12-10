@@ -25,9 +25,8 @@ class GasStation : public CarScene {
     void Action(ZoneId zone) override;
     void Draw() override;
 
-    void StartAnimateCar(Car* car, Driver* driver, bool keepDriving) override;
-
-    static Uint32 CarAnimationTimerCallback(Uint32 interval, void* param);
+    void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
+    void OnFadeComplete() override;
 
     Bitmap* maskBitmap;
 };

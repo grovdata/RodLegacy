@@ -222,7 +222,18 @@ void CarScene::Init(bool debugMode) {
 //    Scene::Draw();
 //}
 
-void CarScene::StartAnimateCar(Car *car, Driver *driver, bool keepDriving) {
+void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {
+    if (animatingCar && carBitmap) return;
+
+    currentAnimationType = animType;
+    if (car != nullptr && carBitmap == nullptr) {
+        carBitmap = new CarBitmap(car, driver, car->GetColor());
+        SDL_Point offscreenPos = GetCarOffscreenPosition();
+        carx = offscreenPos.x;
+        cary = offscreenPos.y;
+        animatingCar = true;
+        waitTimer = 0;
+    }
 }
 
 SDL_Point CarScene::GetCarIdlePosition() {
@@ -240,4 +251,104 @@ void CarScene::DrawMaskAfterCar() {
 void CarScene::UpdateDebugInfo() {
     if (!debugMode) return;
     Scene::UpdateDebugInfo();
+}
+
+void CarScene::UpdateCarAnimation(double deltaTime) {
+    if (!isPaused) {
+        if (exitingCar) {
+            carExitAnimationTime += deltaTime;
+            const double exitDuration = 2.5;
+            
+            double t = carExitAnimationTime / exitDuration;
+            t = std::min(1.0, t);
+            double easedValue = t * t * t;  // Cubic easing
+            
+            SDL_Point idlePos = GetCarIdlePosition();
+            int startX = carx;
+            int endX = GAME_WIDTH + 50;
+            int newX = static_cast<int>(startX + (easedValue * (endX - startX)));
+            
+            carx = newX;
+
+            float speed = (endX - startX) * (3 * t * t) / exitDuration;
+            if (carBitmap) {
+                carBitmap->UpdateWheelAnimation(speed * deltaTime);
+                carBitmap->Move({carx, cary});
+            }
+
+            if (carExitAnimationTime >= exitDuration) {
+                exitingCar = false;
+                carBitmap = nullptr;
+                carExitAnimationTime = 0;
+                OnCarExitComplete();
+                
+                // Only start next car for OPPONENT_CONTINUOUS
+                if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
+                    waitTimer = 0;
+                }
+            }
+        } else if (animatingCar) {
+            carAnimationTime += deltaTime;
+            const double duration = 2.0;
+            double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
+            
+            SDL_Point idlePos = GetCarIdlePosition();
+            int targetX;
+            
+            if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
+                // Reverse animation: start from right side
+                targetX = static_cast<int>((1.0 - easedValue) * (idlePos.x + GAME_WIDTH) - GAME_WIDTH);
+            } else {
+                // Normal forward animation
+                targetX = static_cast<int>((easedValue * (idlePos.x + GAME_WIDTH)) - GAME_WIDTH);
+            }
+            
+            carx = targetX;
+
+            float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTime / duration) * (10.0/duration);
+            if (carBitmap) {
+                carBitmap->UpdateWheelAnimation(speed * deltaTime);
+                carBitmap->Move({carx, cary});
+            }
+
+            if (carAnimationTime >= duration) {
+                animatingCar = false;
+                carAnimationTime = 0;
+                OnCarAnimationComplete();
+                
+                // For OPPONENT_CONTINUOUS, start exit timer
+                if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
+                    waitTimer = 0;
+                }
+            }
+        }
+
+        // Handle waiting timers for OPPONENT_CONTINUOUS only
+        if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
+            if (!animatingCar && !exitingCar && carBitmap) {
+                waitTimer += deltaTime;
+                if (waitTimer >= WAIT_BEFORE_EXIT) {
+                    exitingCar = true;
+                    waitTimer = 0;
+                    carExitAnimationTime = 0;
+                }
+            }
+            
+            if (!animatingCar && !exitingCar && !carBitmap) {
+                waitTimer += deltaTime;
+                if (waitTimer >= WAIT_BEFORE_NEXT) {
+                    waitTimer = 0;
+                    StartAnimateCar(state.GetCurrentCar(), nullptr, currentAnimationType);
+                }
+            }
+        }
+    }
+}
+
+void CarScene::PushEvent(SDL_Event *event) {
+    Scene::PushEvent(event);
+}
+
+void CarScene::OnFadeComplete() {
+    Scene::OnFadeComplete();
 }

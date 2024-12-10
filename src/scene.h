@@ -92,22 +92,46 @@ class Scene {
     virtual void UpdateDebugInfo();
 };
 
+enum class CarAnimationType {
+    OPPONENT_CONTINUOUS,  // For Diner: Cars drive in, wait, drive out, repeat
+    SINGLE_CAR_DRIVE,    // For Gas Station: Car drives in to idle position and stops
+    SINGLE_CAR_REVERSE   // For future use: Car reverses into position
+};
+
 class CarScene: public Scene {
-    public:
-        CarScene(std::string backgroundName);
-        CarScene(Asset backgroundAsset);
-        virtual void Init(bool debugMode);
-        virtual void DrawMaskAfterCar();
-        virtual void StartAnimateCar(Car *car, Driver *driver, bool keepDriving);
-        virtual SDL_Point GetCarIdlePosition();
-        virtual SDL_Point GetCarOffscreenPosition();
-        virtual void UpdateDebugInfo() override;
+private:
+    double carAnimationTime = 0;
+    double carExitAnimationTime = 0;
+    double waitTimer = 0;
+    bool exitingCar = false;
+    const double WAIT_BEFORE_EXIT = 3.0;
+    const double WAIT_BEFORE_NEXT = 2.0;
+    bool isPaused = false;
+    CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
 
-        CarBitmap *carBitmap;
+protected:
+    bool initialDelay = true;
+    Uint64 fadeCompleteTime = 0;
+    double initStartTime;
+    double lastFrameTime;
+    double currentTime;
+    void UpdateCarAnimation(double deltaTime);
+    virtual void OnCarAnimationComplete() {}
+    virtual void OnCarExitComplete() {}
 
-        // Used by animation callback
-        Uint64 t = 0;
-        bool animatingCar = false;
-        int carx, cary;
-        SDL_TimerID carTimerID;
+public:
+    CarScene(std::string backgroundName);
+    CarScene(Asset backgroundAsset);
+    virtual void Init(bool debugMode);
+    virtual void DrawMaskAfterCar();
+    virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
+    virtual SDL_Point GetCarIdlePosition();
+    virtual SDL_Point GetCarOffscreenPosition();
+    virtual void UpdateDebugInfo() override;
+    virtual void PushEvent(SDL_Event *event) override;
+    virtual void OnFadeComplete() override;
+
+    CarBitmap *carBitmap;
+    bool animatingCar = false;
+    int carx, cary;
 };
