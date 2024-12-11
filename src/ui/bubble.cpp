@@ -25,7 +25,7 @@ Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDism
 
     fontSurface.reset(SDL_CreateRGBSurface(0, 256, 64, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 
-    UpdateText(text, xPos, yPos);
+    UpdateText(text);
 
     if (autoDismiss) {
         timerStart = SDL_GetTicks64();
@@ -60,7 +60,7 @@ void Bubble::Draw() {
 
 }
 
-void Bubble::UpdateText(std::string text, int xPos, int yPos) {
+void Bubble::UpdateText(std::string text) {
     SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
     
     char buf[50];

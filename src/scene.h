@@ -51,6 +51,7 @@ class Scene {
     SDL_Surface *surface, *fontSurface, *fadeSurface;
     SDL_Texture *texture, *fontTexture, *fadeTexture;
     SDL_Rect m_backgroundRect;
+    MousePointer currentPointer = PointerHand;
 
     string backgroundName;
     vector<Zone> zones;
@@ -74,7 +75,7 @@ class Scene {
 
     SDL_Texture *GetTexture();
 
-    virtual MousePointer GetPointerType();
+    virtual MousePointer GetPointerType() { return currentPointer; }
 
     void FadeOut();
     void FadeIn();
@@ -115,6 +116,7 @@ protected:
     double initStartTime;
     double lastFrameTime;
     double currentTime;
+
     void UpdateCarAnimation(double deltaTime);
     virtual void OnCarAnimationComplete() {}
     virtual void OnCarExitComplete() {}

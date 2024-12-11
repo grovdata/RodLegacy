@@ -47,8 +47,6 @@ class Diner: public CarScene {
         ~Diner();
         void Init(bool debugMode) override;
 
-        MousePointer GetPointerType() override;
-
         SDL_Point GetCarIdlePosition() override;
         SDL_Point GetCarOffscreenPosition() override;
 

@@ -1,6 +1,5 @@
 #include "global.h"
 #include "mouse.h"
-#include "game.h"
 #include "parsers/libp.h"
 #include "state.h"
 #include "scene.h"
@@ -215,6 +214,7 @@ int main(int argc, char *argv[]) {
             ((CarScene*)scene)->DrawMaskAfterCar();
         }
 
+        mouse.SetPointerType(scene->GetPointerType());
         mouse.Draw();
 
         timeDelta = SDL_GetTicks64() - timeDelta;

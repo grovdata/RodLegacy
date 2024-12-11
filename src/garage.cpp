@@ -68,14 +68,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GAR
     tiresBubble->SetVisible(false);
     bubbles.push_back(tiresBubble);
 
+    currentPointer = PointerWrench;
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-}
-
-MousePointer Garage::GetPointerType() {
-    return PointerWrench;
 }
 
 SDL_Point Garage::GetCarIdlePosition() {

@@ -20,8 +20,8 @@
 class State {
 private:
     int bankroll;
-    int dragRacesCompleted;
-    int roadRacesCompleted;
+    // int dragRacesCompleted;
+    // int roadRacesCompleted;
     bool debugMode;
 
     std::set<Driver *> allDrivers;

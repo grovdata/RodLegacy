@@ -5,9 +5,17 @@ double carAnimationTimeGasStation = 0;
 
 GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
     isPumping = false;
-    SDL_Rect bottleRect = {7, 161, 8, 24};
-    Zone bottle(ZONE_GAS_STATION_PUMP, strdup("Wanna drink ?"), &bottleRect);
-    zones.push_back(bottle);
+    SDL_Rect pumpRect = {40, 105, 42, 73};
+    Zone pump(ZONE_GAS_STATION_PUMP, strdup("The pump"), &pumpRect);
+    
+    SDL_Rect ragRect = {95, 176, 22, 14};
+    Zone rag(ZONE_GAS_STATION_RAG, strdup("A rag"), &ragRect);
+
+    zones.push_back(pump);
+    zones.push_back(rag);
+
+    //hud = new HUD(StockPalette::GUS_GAS_STATION, 20, 18);
+    // Hud color text index 18
 }
 
 void GasStation::Init(bool initialDebugMode) {
@@ -24,8 +32,14 @@ void GasStation::Init(bool initialDebugMode) {
     initStartTime = SDL_GetTicks64();
 }
 
-MousePointer GasStation::GetPointerType() {
-    return PointerHand;
+void GasStation::Action(ZoneId zone) {
+    if (zone == ZONE_GAS_STATION_PUMP) {
+        currentPointer = PointerFuelPump;
+    } else if (zone == ZONE_GAS_STATION_RAG) {
+        currentPointer = PointerRag;
+    } else {
+        currentPointer = PointerHand;
+    }
 }
 
 SDL_Point GasStation::GetCarIdlePosition() {
@@ -34,12 +48,6 @@ SDL_Point GasStation::GetCarIdlePosition() {
 
 SDL_Point GasStation::GetCarOffscreenPosition() {
     return {-320, 82};
-}
-
-void GasStation::Action(ZoneId zone) {
-    if (zone == ZONE_GAS_STATION_CAR_WINDOW) {
-        
-    }
 }
 
 void GasStation::Draw() {

@@ -32,10 +32,6 @@ Scene::~Scene() {
     }
 }
 
-MousePointer Scene::GetPointerType() {
-    return PointerHand;
-}
-
 void Scene::Init(bool initialDebugMode) {
     debugMode = initialDebugMode;
     debugEnabled = initialDebugMode;

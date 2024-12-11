@@ -25,7 +25,7 @@ class Bubble: public IDrawable {
         SDL_Rect fontRect;
         Bitmap *bubble;
 
-        void UpdateText(string text, int xPos, int yPos);
+        void UpdateText(string text);
 
 
     public:

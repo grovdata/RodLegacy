@@ -17,8 +17,6 @@ class GasStation : public CarScene {
     GasStation();
     void Init(bool initialDebugMode) override;
 
-    MousePointer GetPointerType() override;
-
     SDL_Point GetCarIdlePosition() override;
     SDL_Point GetCarOffscreenPosition() override;
 

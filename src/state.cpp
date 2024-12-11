@@ -2,9 +2,8 @@
 #include "diner.h"
 #include "garage.h"
 #include "gas_station.h"
-#include "game.h"
 
-State::State() : bankroll(750), dragRacesCompleted(0), roadRacesCompleted(0) {
+State::State() : bankroll(750) {
 }
 
 void State::Init(bool enableDebug) {

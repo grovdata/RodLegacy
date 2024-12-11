@@ -5,8 +5,6 @@
 
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
-const double WAIT_BEFORE_EXIT = 3.0;  // seconds to wait before exit
-const double WAIT_BEFORE_NEXT = 2.0;  // seconds to wait before next car
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
     lastFrameTime = SDL_GetTicks64() / 1000.0;
@@ -60,10 +58,6 @@ Diner::~Diner() {
     SDL_DestroyTexture(roadMaskTexture);
     opponentCarBitmaps.clear();
     activeCarBitmap = nullptr;
-}
-
-MousePointer Diner::GetPointerType() {
-    return PointerHand;
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
