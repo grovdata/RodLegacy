@@ -8,7 +8,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     this->car = car;
     currentColor = color;
     CarModel model = car->GetModel();
-    model.Log();
+    //model.Log();
 
     offsets = state.carData.GetCarMetadata(model.index).offsets;
     // std::cout << "offsetXRearTire: " << static_cast<int>(offsets.offsetXRearTire) << std::endl;
@@ -79,7 +79,8 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     }
 
     Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
-    gasCap = state.assets.GetBitmapAsset(capAsset);
+    gasCap = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), capAsset, carPalette);
+    gasCap->SetPosition(offsets.offsetXRearTire, offsets.offsetYDecal);
     gasCap->SetVisible(false);
 
     CarScoopType scoop = car->GetScoop();
@@ -183,6 +184,10 @@ void CarBitmap::ToggleChoppedRoof() {
     body->SetVisible(true);
 }
 
+void CarBitmap::SetGasCapRemoved(bool removed) {
+    gasCap->SetVisible(removed);
+}
+
 void CarBitmap::Draw() {
     // Draw driver first (if visible)
     if (showDriver && driver && driver->IsVisible()) {
@@ -245,6 +250,8 @@ void CarBitmap::UpdateTextures() {
     gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
+    // FIXME: We don't know the offset.
+    gasCap->SetPosition(bodyRect.x + offsets.offsetXRearTire + 44, bodyRect.y + offsets.offsetYDecal + 7);
     UpdateTires();
 }
 

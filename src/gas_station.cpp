@@ -33,7 +33,9 @@ void GasStation::Init(bool initialDebugMode) {
 }
 
 void GasStation::Action(ZoneId zone) {
+    if (carBitmap) carBitmap->SetGasCapRemoved(false);
     if (zone == ZONE_GAS_STATION_PUMP) {
+        if (carBitmap) carBitmap->SetGasCapRemoved(true);
         currentPointer = PointerFuelPump;
     } else if (zone == ZONE_GAS_STATION_RAG) {
         currentPointer = PointerRag;

@@ -57,5 +57,6 @@ class CarBitmap {
     void UpdateColor(StandardCarColor newColor);
 
     void ToggleChoppedRoof();
+    void SetGasCapRemoved(bool removed);
     bool IsRoofChopped() const { return isRoofChopped; }
 };
