@@ -6,6 +6,15 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
+class CarShadow: public Bitmap {
+    private:
+        int width;
+    public:
+        CarShadow(int width);
+        ~CarShadow();
+        void Draw() override;
+};
+
 class CarBitmap {
    private:
     Car *car;
@@ -13,6 +22,7 @@ class CarBitmap {
     Bitmap *bodyOriginal;  // Original body without chopped roof
     Bitmap *bodyChopped;   // Body with chopped roof
     Bitmap *body;          // Pointer to current active body (original or chopped)
+    CarShadow *shadow;
     bool isRoofChopped;
 
     Bitmap *driver;

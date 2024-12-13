@@ -4,6 +4,54 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
+CarShadow::CarShadow(int width) {
+    this->width = width;
+    this->surface = SDL_CreateRGBSurface(0, width, 4, 32,
+        0xFF000000,  // Red mask
+        0x00FF0000,  // Green mask
+        0x0000FF00,  // Blue mask
+        0x000000FF   // Alpha mask
+    );
+}
+
+CarShadow::~CarShadow() {
+}
+
+void CarShadow::Draw() {
+    // Get the existing surface from Bitmap base class
+    SDL_Surface* surface = GetSurface();
+    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
+    
+    // Clear parts to create the pattern with transparency
+    SDL_Rect clearRect;
+    Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);  // Transparent black
+    
+    // Line 1: width - 8 pixels (clear 4 pixels from each side)
+    clearRect = {0, 0, 3, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    clearRect = {width - 3, 0, 3, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    
+    // Line 2: width pixels (full width, no clearing needed)
+    
+    // Line 3: width - 6 pixels (clear 3 pixels from each side)
+    clearRect = {0, 2, 3, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    clearRect = {width - 3, 2, 3, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    
+    // Line 4: width - 12 pixels (clear 6 pixels from each side)
+    clearRect = {0, 3, 6, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    clearRect = {width - 6, 3, 6, 1};
+    SDL_FillRect(surface, &clearRect, transparent);
+    
+    // Update the texture from the modified surface
+    UpdateFromSurface();
+    // Let Bitmap handle the actual drawing
+    Bitmap::Draw();
+}
+
 CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     this->car = car;
     currentColor = color;
@@ -36,6 +84,11 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     bodyOriginal->SetPosition(0, 0);
     bodyOriginal->SetDimensions(model.width, model.height);
     bodyOriginal->SetVisible(true);
+
+    shadow = new CarShadow(model.width);
+    shadow->SetPosition(0, model.height + 31);
+    shadow->SetDimensions(model.width, 4);
+    shadow->SetVisible(true);
 
     // Initialize chopped version
     bodyChopped = nullptr;
@@ -194,6 +247,10 @@ void CarBitmap::Draw() {
         driver->Draw();
     }
 
+    if (shadow && shadow->IsVisible()) {
+        shadow->Draw();
+    }
+
     // Draw other parts (wheels, gas cap, etc.)
     if (wheelsVisible) {
         if (rearWheel && rearWheel->IsVisible()) {
@@ -220,6 +277,7 @@ void CarBitmap::Draw() {
     if (decal && decal->IsVisible()) {
         decal->Draw();
     }
+
 }
 
 void CarBitmap::Move(SDL_Point p) {
@@ -247,11 +305,10 @@ void CarBitmap::UpdateTextures() {
     if (driver != nullptr) {
         driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
     }
-    gasCap->SetPosition(bodyRect.x /*+ model.gasCapX*/, bodyRect.y/* + model.gasCapY*/);
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
-    // FIXME: We don't know the offset.
-    gasCap->SetPosition(bodyRect.x + offsets.offsetXRearTire + 44, bodyRect.y + offsets.offsetYDecal + 7);
+    gasCap->SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
+    shadow->SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
     UpdateTires();
 }
 
@@ -259,8 +316,8 @@ void CarBitmap::UpdateTires() {
     SDL_Rect bodyRect = body->GetPosition();
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
-    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + wheelsYOffset);
-    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + wheelsYOffset);
+    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
+    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {
@@ -269,6 +326,7 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
     const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
     
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
+        SDL_Log("Updating wheels");
         rearWheel->CycleNextSprite();
         frontWheel->CycleNextSprite();
         lastWheelUpdateTime = currentTime;
@@ -278,6 +336,12 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
 BitmapOffset_t CarBitmap::GetOffset() {
     return offsets;
 }
+
+// void CarBitmap::SetCarYBottom(int y) {
+//     // Position the car so the wheels' bottom edge is at y
+//     this->position.y = y - (31); // 31 is wheel height
+//     UpdateTextures(); // Ensure wheels and other parts are updated with new position
+// }
 
 void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;

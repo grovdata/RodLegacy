@@ -295,7 +295,7 @@ enum StockCarModels {
 };
 
 // FIXME: Values are made up
-// And also for the Diner scene
+// And are specific to the Diner scene
 // TODO: Add scene lookup to table
 const int CAR_Y_OFFSETS[][2] = {
     {CHEVROLET_2DR_COUPE_1940, 96},
@@ -329,7 +329,7 @@ const int CAR_Y_OFFSETS[][2] = {
 #define CAR_Y_OFFSETS_COUNT (sizeof(CAR_Y_OFFSETS) / sizeof(CAR_Y_OFFSETS[0]))
 
 const int CAR_WHEELS_Y_OFFSETS[][2] = {
-    {CHEVROLET_2DR_COUPE_1940, 30},
+    {CHEVROLET_2DR_COUPE_1940, 36},
     {CHEVROLET_ROADSTER_1940, 30},
     {CHEVROLET_MASTER_DELUXE_2DR_1938, 37},
     {CHEVROLET_CORVETTE_1956, 24},
@@ -359,6 +359,37 @@ const int CAR_WHEELS_Y_OFFSETS[][2] = {
 
 #define CAR_WHEELS_Y_OFFSETS_COUNT (sizeof(CAR_WHEELS_Y_OFFSETS) / sizeof(CAR_WHEELS_Y_OFFSETS[0]))
 
+const int CAR_GAS_CAP_XY_OFFSETS[][3] = {
+    {CHEVROLET_2DR_COUPE_1940, 74, 35},
+    {CHEVROLET_ROADSTER_1940, 44, 7},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938, 37, 7},
+    {CHEVROLET_CORVETTE_1956, 24, 7},
+    {CHEVROLET_CORVETTE_1961, 30, 7},
+    {CHEVROLET_CORVETTE_1963, 30, 7},
+    {DODGE_CUSTOM_ROYAL_LANCER_1955, 30, 7},
+    {FORD_DEUCE_COUPE_1932, 30, 7},
+    {DODGE_POLARA_1962, 30, 7},
+    {PLYMOUTH_SAVOY_2DR_1962, 30, 7},
+    {FORD_SEDAN_1932, 30, 7},
+    {FORD_DELUXE_2DR_1940, 39, 7},
+    {FORD_FAIRLANE_VICTORIA_1955, 30, 7},
+    {FORD_FAIRLANE_500_1956, 30, 7},
+    {MERCURY_MONTEREY_1954, 30, 7},
+    {MERCURY_CUSTOM_2DR_1956, 30, 7},
+    {CHEVROLET_STYLELINE_2DR_1949, 30, 7},
+    {CHEVROLET_IMPALA_1958, 30, 7},
+    {OLDSMOBILE_88_2DR_CUSTOM_1949, 30, 7},
+    {OLDSMOBILE_88_CUSTOM_1952, 30, 7},
+    {PONTIAC_SILVER_STREAK_1950, 30, 7},
+    {FORD_THUNDERBIRD_1957, 30, 7},
+    {VALIANT_V200_1961, 30, 7},
+    {VALIANT_V100_2DR_1963, 30, 7},
+    {CHEVROLET_BELAIR_SPORTS_COUPE, 30, 7},
+    {THE_KING_CHEVROLET_CORVETTE_1963, 30, 7}
+};
+
+#define CAR_GAS_CAP_XY_OFFSETS_COUNT (sizeof(CAR_GAS_CAP_XY_OFFSETS) / sizeof(CAR_GAS_CAP_XY_OFFSETS[0]))
+
 #pragma pack(push, 1)
 struct BitmapEntry_t {
     uint16_t width;
@@ -384,6 +415,11 @@ struct BitmapOffset_t {
     uint8_t offsetYFrontBumper;
     uint8_t offsetXDecal;
     uint8_t offsetYDecal;
+    // Supplemental offsets
+    // not found in SR_data
+    uint8_t offsetYTires;
+    uint8_t offsetXGasCap;
+    uint8_t offsetYGasCap;
 };
 
 struct ClassifiedEntry_t {

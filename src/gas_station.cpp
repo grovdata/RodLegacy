@@ -14,6 +14,10 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaL
     zones.push_back(pump);
     zones.push_back(rag);
 
+    int carYOffset = state.carData.GetCarRoofYOffset(state.GetCurrentCar()->GetModel());
+    this->cary = carYOffset;
+    this->cary = 105;
+
     //hud = new HUD(StockPalette::GUS_GAS_STATION, 20, 18);
     // Hud color text index 18
 }
@@ -89,7 +93,7 @@ void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType anim
         carBitmap = new CarBitmap(car, nullptr, car->GetColor());
         SDL_Point offscreenPos = GetCarOffscreenPosition();
         carx = offscreenPos.x;
-        cary = offscreenPos.y;
+        //cary = offscreenPos.y;
         animatingCar = true;
         currentAnimationType = animType;
     }

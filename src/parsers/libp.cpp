@@ -525,6 +525,14 @@ vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
         newEntry.offsetYFrontBumper = reader.ReadUint8();
         newEntry.offsetXDecal = reader.ReadUint8();
         newEntry.offsetYDecal = reader.ReadUint8();
+        
+        // We add supplemental offsets here,
+        // even though they are not in the data file.        
+        StockCarModels model = (StockCarModels)i;
+        newEntry.offsetYTires = CAR_WHEELS_Y_OFFSETS[model][1];
+        newEntry.offsetXGasCap = CAR_GAS_CAP_XY_OFFSETS[model][1];
+        newEntry.offsetYGasCap = CAR_GAS_CAP_XY_OFFSETS[model][2];
+
         metadataEntry.offsets = newEntry;
         result.push_back(metadataEntry);
     }
