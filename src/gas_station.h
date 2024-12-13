@@ -5,11 +5,13 @@
 #include "ui/zone.h"
 #include "bitmap.h"
 #include "utils.h"
+#include "spritesheet.h"
 
 class GasStation : public CarScene {
    private:
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
+    Spritesheet* attendant;
 
     bool isPumping;
 

@@ -316,6 +316,7 @@ LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
                 case CAR_TIRES_STOCK:
                 case PHONEBOOK_GUY:
                 case DECALS:
+                case GUS_GAS_ATTENDANT:
                     return LibAssetSpritesheet;
                 case GUS_GAS_MASK:
                     return LibAssetMask;
@@ -343,6 +344,8 @@ pair<int, int> BitmapParser::GetSpritesheetInfo(AssetLocation location, int inde
                     return make_pair(2, 5);
                 case DECALS:
                     return make_pair(2, 4);
+                case GUS_GAS_ATTENDANT:
+                    return make_pair(1, 4);
                 default:
                     return make_pair(0, 0);
             }

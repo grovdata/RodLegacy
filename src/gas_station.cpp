@@ -32,6 +32,12 @@ void GasStation::Init(bool initialDebugMode) {
     background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
+
+    attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, GUS_GAS_ATTENDANT});
+    attendant->SetDimensions(47, 47);
+    attendant->SelectSprite(0, 0);
+    attendant->SetPosition(200, 90);
+    attendant->SetVisible(true);
     
     initStartTime = SDL_GetTicks64();
 }
@@ -75,6 +81,8 @@ void GasStation::Draw() {
         return;
     }
 
+
+    attendant->Draw();
     if (carBitmap != nullptr) {
         SDL_Point p;
         p.x = carx; p.y = cary;
@@ -82,8 +90,8 @@ void GasStation::Draw() {
         carBitmap->Draw();
     }
     SDL_Rect rect = {0, 107, 312, 69};
-
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
+
 }
 
 void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {

@@ -232,6 +232,7 @@ enum AmigaLibAsset {
     CAR_TIRES_STOCK = 323,
 
     //
+    GUS_GAS_ATTENDANT = 337,
     GUS_GAS_SCREEN = 340,
     GUS_GAS_MASK = 341,
     DRIVER_01 = 342,

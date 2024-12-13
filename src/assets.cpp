@@ -181,7 +181,7 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
         }
     }
 
-    cout << "Warning: Asset not found " << asset.id << endl;
+    cout << "Warning: Asset not found (wrong type?)" << asset.id << endl;
     return nullptr;
 }
 

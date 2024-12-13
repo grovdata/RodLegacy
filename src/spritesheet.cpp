@@ -8,7 +8,8 @@ Spritesheet::Spritesheet(int rows, int columns) : Bitmap() {
 Spritesheet::Spritesheet(int rows, int columns, Spritesheet *other) {
     this->rows = other->GetRows();
     this->columns = other->GetColumns();
-    this->LoadSurface(other->surface);
+    this->surface = SDL_ConvertSurface(other->surface, other->surface->format, 0);
+    this->texture = SDL_CreateTextureFromSurface(renderer, this->surface);
 }
 
 int Spritesheet::GetRows() {
@@ -27,7 +28,7 @@ void Spritesheet::SelectSprite(int row, int column) {
     SetDimensions(clipRect.w, clipRect.h);
     UpdateSprite();
 
-    //printf("rect %d %d %d %d\n", m_clip.x, m_clip.y, m_clip.w, m_clip.y);
+    //printf("spritesheet rect %d %d %d %d\n", m_clip.x, m_clip.y, m_clip.w, m_clip.y);
     //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, rect.w, rect.h);
     //SDL_UpdateTexture(texture, NULL, surface->pixels + m_clip.x + m_clip.y * surface->pitch, surface->pitch);
 }
