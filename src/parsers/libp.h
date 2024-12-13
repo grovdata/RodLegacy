@@ -216,7 +216,8 @@ enum AmigaLibAsset {
     ROSTER_SCREEN_CALIFORNIA_HIGHWAY_PATROL = 300,
     //
     DINER_SCREEN = 305,
-    CAR_GAS_CAP_FILLING = 307,
+    GUS_GAS_PUMP1 = 306,
+    GUS_GAS_PUMP_FILLING = 307,
     CAR_GAS_CAP = 308,
     //
     CAR_SCOOP1 = 310,
@@ -224,6 +225,7 @@ enum AmigaLibAsset {
     CAR_SCOOP3 = 312,
     CAR_SCOOP4 = 313,
     //
+    CAR_SHADOW = 316,
     DMV_SCREEN = 318,
     CALENDAR_AUGUST_SCREEN = 319,
     CALENDAR_JULY_SCREEN = 320,
@@ -233,6 +235,8 @@ enum AmigaLibAsset {
 
     //
     GUS_GAS_ATTENDANT = 337,
+    GUS_GAS_PUMP2 = 338,
+    GUS_GAS_PUMP3 = 339,
     GUS_GAS_SCREEN = 340,
     GUS_GAS_MASK = 341,
     DRIVER_01 = 342,

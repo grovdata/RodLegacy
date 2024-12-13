@@ -373,6 +373,11 @@ vector<uint16_t> BitmapParser::GetPalette(AssetLocation location, int index) {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case GUS_GAS_SCREEN:
+                case GUS_GAS_ATTENDANT:
+                case GUS_GAS_PUMP1:
+                case GUS_GAS_PUMP2:
+                case GUS_GAS_PUMP3:
+                case GUS_GAS_PUMP_FILLING:
                     return PAL_GAS;
                 default:
                     return PAL1;
