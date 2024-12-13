@@ -29,6 +29,7 @@ class CarBitmap {
     Spritesheet *rearWheel;
     Spritesheet *frontWheel;
     Bitmap *gasCap;
+    Bitmap *pumpingHandle;
     Bitmap *hoodScoop;
     Spritesheet *decal;
 
@@ -68,5 +69,6 @@ class CarBitmap {
 
     void ToggleChoppedRoof();
     void SetGasCapRemoved(bool removed);
+    void SetPumpingHandleVisible(bool visible);
     bool IsRoofChopped() const { return isRoofChopped; }
 };

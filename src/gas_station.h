@@ -3,8 +3,8 @@
 #include "global.h"
 #include "scene.h"
 #include "ui/zone.h"
-#include "bitmap.h"
 #include "utils.h"
+#include "bitmap.h"
 #include "spritesheet.h"
 
 class GasStation : public CarScene {
@@ -12,6 +12,7 @@ class GasStation : public CarScene {
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
     Spritesheet* attendant;
+    Bitmap* pumpingHandle;
 
     bool isPumping;
 

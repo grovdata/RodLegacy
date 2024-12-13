@@ -33,6 +33,8 @@ void GasStation::Init(bool initialDebugMode) {
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
 
+
+
     attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, GUS_GAS_ATTENDANT});
     attendant->SetDimensions(47, 47);
     attendant->SelectSprite(0, 0);
@@ -43,9 +45,16 @@ void GasStation::Init(bool initialDebugMode) {
 }
 
 void GasStation::Action(ZoneId zone) {
-    if (carBitmap) carBitmap->SetGasCapRemoved(false);
+    if (carBitmap){
+        carBitmap->SetGasCapRemoved(false);
+        carBitmap->SetPumpingHandleVisible(false);
+    }
+    
     if (zone == ZONE_GAS_STATION_PUMP) {
-        if (carBitmap) carBitmap->SetGasCapRemoved(true);
+        if (carBitmap) {
+            carBitmap->SetGasCapRemoved(true);
+            carBitmap->SetPumpingHandleVisible(true);
+        }
         currentPointer = PointerFuelPump;
     } else if (zone == ZONE_GAS_STATION_RAG) {
         currentPointer = PointerRag;
@@ -83,6 +92,7 @@ void GasStation::Draw() {
 
 
     attendant->Draw();
+    
     if (carBitmap != nullptr) {
         SDL_Point p;
         p.x = carx; p.y = cary;

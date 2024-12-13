@@ -133,8 +133,14 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
     Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
     gasCap = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), capAsset, carPalette);
-    gasCap->SetPosition(offsets.offsetXRearTire, offsets.offsetYDecal);
+    gasCap->SetPosition(offsets.offsetXGasCap, offsets.offsetYGasCap);
     gasCap->SetVisible(false);
+
+    Asset handleAsset = {LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_PUMP_FILLING};
+    pumpingHandle = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), handleAsset, carPalette);
+    pumpingHandle->SetPosition(offsets.offsetXGasCap, offsets.offsetYGasCap);
+    pumpingHandle->SetPosition(150, 50);
+    pumpingHandle->SetVisible(false);
 
     CarScoopType scoop = car->GetScoop();
     int scoopAssetId = CAR_SCOOP1;
@@ -241,6 +247,11 @@ void CarBitmap::SetGasCapRemoved(bool removed) {
     gasCap->SetVisible(removed);
 }
 
+void CarBitmap::SetPumpingHandleVisible(bool visible) {
+    gasCap->SetVisible(visible);
+    pumpingHandle->SetVisible(visible);
+}
+
 void CarBitmap::Draw() {
     // Draw driver first (if visible)
     if (showDriver && driver && driver->IsVisible()) {
@@ -268,6 +279,10 @@ void CarBitmap::Draw() {
 
     if (gasCap && gasCap->IsVisible()) {
         gasCap->Draw();
+    }
+
+    if (pumpingHandle && pumpingHandle->IsVisible()) {
+        pumpingHandle->Draw();
     }
 
     if (hoodScoop && hoodScoop->IsVisible()) {
@@ -308,6 +323,8 @@ void CarBitmap::UpdateTextures() {
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap->SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
+    SDL_Rect handleRect = pumpingHandle->GetPosition();
+    pumpingHandle->SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
     shadow->SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
     UpdateTires();
 }
