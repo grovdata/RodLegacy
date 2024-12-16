@@ -37,6 +37,7 @@ class Scene {
     static Uint32 FadeCallback(Uint32 interval, void* param);
     SDL_TimerID fadeTimerID;
 
+
    protected:
     bool isSetup;
 
@@ -66,6 +67,7 @@ class Scene {
     Uint8 fadeAlpha = 255;
     
     virtual void ToggleDebugMode();
+    virtual void DrawDebugZones();
 
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
@@ -87,7 +89,7 @@ class Scene {
     virtual void PushEvent(SDL_Event *event);
 
     void SetZoneText(ZoneId id, char* text);
-
+    void SetZoneRect(ZoneId id, SDL_Rect *rect);
     virtual void DrawDebugUI() {}
 
     virtual void UpdateDebugInfo();

@@ -434,9 +434,28 @@ struct ClassifiedEntry_t {
     int price;
 };
 
+struct ClickBox_t {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+struct CarClickBoxes_t {
+    ClickBox_t clickBoxRearBumper;
+    ClickBox_t clickBoxFrontBumper;
+    ClickBox_t clickBoxChoppedRoof;
+    ClickBox_t clickBoxTransmission;
+    ClickBox_t clickBoxEngine;
+    ClickBox_t clickBoxRearWindow;
+    ClickBox_t clickBoxFrontWindow;
+    ClickBox_t clickBoxGasCap;
+};
+
 struct CarMetadata_t {
     BitmapOffset_t offsets;
     ClassifiedEntry_t classified;
+    CarClickBoxes_t clickBoxes;
 };
 
 enum StockPalette {

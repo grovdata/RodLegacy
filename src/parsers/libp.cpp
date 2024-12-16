@@ -507,11 +507,14 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
     return ReadEntries(buffer);
 }
 
+
+
 /// @brief Reads info about cars and parts from data file (SR_data)
 /// @param filename
 /// @return
 vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
 #define OFFSETS_START 0x34C
+#define CLICKBOX_START 0x484 // ????
 #define CLASSIFIEDS_START 0x854
     vector<CarMetadata_t> result;
     VectorReader reader(data);
@@ -580,11 +583,68 @@ vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
         metadataEntry.classified = newClassified;
     }
 
+    reader.Seek(CLICKBOX_START);
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        CarClickBoxes_t newClickBoxes;
+        ClickBox_t rearBumper, choppedRoof, transmission, engine, frontBumper;
+        rearBumper.x = reader.ReadUint8();
+        rearBumper.y = reader.ReadUint8();
+        rearBumper.width = reader.ReadUint8();
+        rearBumper.height = reader.ReadUint8();
+        newClickBoxes.clickBoxRearBumper = rearBumper;
+
+        choppedRoof.x = reader.ReadUint8();
+        choppedRoof.y = reader.ReadUint8();
+        choppedRoof.width = reader.ReadUint8();
+        choppedRoof.height = reader.ReadUint8();
+        newClickBoxes.clickBoxChoppedRoof = choppedRoof;
+
+        transmission.x = reader.ReadUint8();
+        transmission.y = reader.ReadUint8();
+        transmission.width = reader.ReadUint8();
+        transmission.height = reader.ReadUint8();
+        newClickBoxes.clickBoxTransmission = transmission;
+
+        engine.x = reader.ReadUint8();
+        engine.y = reader.ReadUint8();
+        engine.width = reader.ReadUint8();
+        engine.height = reader.ReadUint8();
+        newClickBoxes.clickBoxEngine = engine;
+
+        frontBumper.x = reader.ReadUint8();
+        frontBumper.y = reader.ReadUint8();
+        frontBumper.width = reader.ReadUint8();
+        frontBumper.height = reader.ReadUint8();
+        newClickBoxes.clickBoxFrontBumper = frontBumper;
+
+        result[i].clickBoxes = newClickBoxes;
+    }
+
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        CarMetadata_t& metadataEntry = result[i];
+        CarClickBoxes_t& clickBoxes = metadataEntry.clickBoxes;
+        clickBoxes.clickBoxRearWindow.x = reader.ReadUint8();
+        clickBoxes.clickBoxRearWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxRearWindow.width = 24;
+        clickBoxes.clickBoxRearWindow.height = 12;
+
+        clickBoxes.clickBoxFrontWindow.x = reader.ReadUint8();
+        clickBoxes.clickBoxFrontWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxFrontWindow.width = 24;
+        clickBoxes.clickBoxFrontWindow.height = 12;
+
+        clickBoxes.clickBoxGasCap.x = reader.ReadUint8();
+        clickBoxes.clickBoxGasCap.y = reader.ReadUint8();
+        clickBoxes.clickBoxGasCap.width = 12;
+        clickBoxes.clickBoxGasCap.height = 12;
+    }
+
     // (Optional) Output for debug
     for (const auto& c : result) {
         cout << "Car Name: " << c.classified.carName << endl;
         cout << "Ad Text: " << c.classified.adText << endl;
         cout << "Price: " << c.classified.price << endl << endl;
+
     }
 
     // todo return classifieds too

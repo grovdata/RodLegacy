@@ -44,6 +44,18 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GAR
     SDL_Rect streetRect = {0, 42, 40, 62};
     Zone street(ZONE_GARAGE_GOTO_DINER, strdup("Hit the street"), &streetRect);
 
+    SDL_Rect rearBumperRect = {290, 107, 27, 14};
+    Zone rearBumper(ZONE_GARAGE_REAR_BUMPER, strdup("Rear bumper"), &rearBumperRect);
+
+    SDL_Rect frontBumperRect = {290, 107, 27, 14};
+    Zone frontBumper(ZONE_GARAGE_FRONT_BUMPER, strdup("Front bumper"), &frontBumperRect);
+
+    SDL_Rect transmissionRect = {290, 107, 27, 14};
+    Zone transmission(ZONE_GARAGE_TRANSMISSION, strdup("Transmission"), &transmissionRect);
+
+    SDL_Rect engineRect = {290, 107, 27, 14};
+    Zone engine(ZONE_GARAGE_ENGINE, strdup("Pop the hood"), &engineRect);
+
     zones.push_back(bottle);
     zones.push_back(newsPaper);
     zones.push_back(changeTires);
@@ -57,6 +69,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GAR
     zones.push_back(menu);
     zones.push_back(cars);
     zones.push_back(street);
+    zones.push_back(rearBumper);
+    zones.push_back(frontBumper);
+    zones.push_back(transmission);
+    zones.push_back(engine);
 
     Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
     bubbleDrink->SetVisible(false);
@@ -143,6 +159,25 @@ void Garage::Draw() {
         p.x = carx; p.y = cary;
         carBitmap->Move(p);
         carBitmap->Draw();
+
+        // get clickboxes
+        CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+        CarClickBoxes_t clickBoxes = metadata.clickBoxes;
+        
+        SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
+        SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
+
+        SDL_Rect choppedRoofRect = {carx + clickBoxes.clickBoxChoppedRoof.x, cary + clickBoxes.clickBoxChoppedRoof.y, clickBoxes.clickBoxChoppedRoof.width, clickBoxes.clickBoxChoppedRoof.height};
+        SetZoneRect(ZONE_GARAGE_CHOPPED_ROOF, &choppedRoofRect);
+
+        SDL_Rect frontBumperRect = {carx + clickBoxes.clickBoxFrontBumper.x, cary + clickBoxes.clickBoxFrontBumper.y, clickBoxes.clickBoxFrontBumper.width, clickBoxes.clickBoxFrontBumper.height};
+        SetZoneRect(ZONE_GARAGE_FRONT_BUMPER, &frontBumperRect);
+
+        SDL_Rect transmissionRect = {carx + clickBoxes.clickBoxTransmission.x, cary + clickBoxes.clickBoxTransmission.y, clickBoxes.clickBoxTransmission.width, clickBoxes.clickBoxTransmission.height};
+        SetZoneRect(ZONE_GARAGE_TRANSMISSION, &transmissionRect);
+
+        SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
+        SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
 
     UpdateSign();
@@ -151,6 +186,8 @@ void Garage::Draw() {
     for (auto b : bubbles) {
         b->Draw();
     }
+
+    DrawDebugZones();
 }
 
 void Garage::OnFadeComplete() {

@@ -17,6 +17,11 @@ typedef enum {
     ZONE_GARAGE_MENU,
     ZONE_GARAGE_CAR_LIST,
     ZONE_GARAGE_GOTO_DINER,
+    ZONE_GARAGE_REAR_BUMPER,
+    ZONE_GARAGE_CHOPPED_ROOF,
+    ZONE_GARAGE_FRONT_BUMPER,
+    ZONE_GARAGE_TRANSMISSION,
+    ZONE_GARAGE_ENGINE,
     ZONE_DINER_CALL,
     ZONE_DINER_GOTO_GARAGE,
     ZONE_DINER_ORDER,
@@ -24,8 +29,10 @@ typedef enum {
     ZONE_DINER_CHALLENGE_OPPONENT,
     ZONE_DINER_POP_HOOD,
     ZONE_GAS_STATION_PUMP,
+    ZONE_GAS_STATION_GAS_CAP,
     ZONE_GAS_STATION_RAG,
-    ZONE_GAS_STATION_CAR_WINDOW,
+    ZONE_GAS_STATION_CAR_WINDOW_REAR,
+    ZONE_GAS_STATION_CAR_WINDOW_FRONT,
     ZONE_GAS_STATION_GUS,
 } ZoneId;
 
@@ -58,6 +65,17 @@ class Zone {
 
         void SetText(char *text) {
             this->text = text;
+        }
+
+        const SDL_Rect GetRect() {
+            return rect;
+        }
+
+        void SetRect(SDL_Rect *rect) {
+            this->rect.x = rect->x;
+            this->rect.y = rect->y;
+            this->rect.w = rect->w;
+            this->rect.h = rect->h;
         }
 
         ZoneId GetId() {

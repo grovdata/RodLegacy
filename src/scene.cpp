@@ -113,6 +113,16 @@ void Scene::SetZoneText(ZoneId id, char* text) {
     }
 }
 
+void Scene::SetZoneRect(ZoneId id, SDL_Rect *rect) {
+   for (size_t i = 0; i < zones.size(); i++) {
+        Zone& zone = zones.at(i);
+        if (zone.GetId() == id) {
+            zone.SetRect(rect);
+            return;
+        }
+    }
+}
+
 SDL_Texture *Scene::GetTexture() {
     return texture;
 }
@@ -122,6 +132,7 @@ void Scene::Draw() {
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
 
     if (debugMode) {
+        DrawDebugZones();
         UpdateDebugInfo();
         debugOverlay->Draw();
     }
@@ -199,6 +210,31 @@ void Scene::UpdateDebugInfo() {
     }
 }
 
+void Scene::DrawDebugZones() {
+    if (!debugMode) return;
+    
+    // Create a yellow semi-transparent surface for zone highlighting
+    SDL_Surface* zoneSurface = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
+    SDL_SetSurfaceBlendMode(zoneSurface, SDL_BLENDMODE_BLEND);
+    
+    // Yellow with 50% transparency
+    Uint32 zoneColor = SDL_MapRGBA(zoneSurface->format, 255, 255, 0, 128);
+    
+    // Draw each zone
+    for (auto zone : zones) {
+        SDL_Rect zoneRect = zone.GetRect(); // Assuming rect is public or has a getter
+        SDL_FillRect(zoneSurface, &zoneRect, zoneColor);
+    }
+    
+    // Create texture and render
+    SDL_Texture* zoneTexture = SDL_CreateTextureFromSurface(renderer, zoneSurface);
+    SDL_SetTextureBlendMode(zoneTexture, SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, zoneTexture, NULL, NULL);
+    
+    // Clean up
+    SDL_FreeSurface(zoneSurface);
+    SDL_DestroyTexture(zoneTexture);
+}
 
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 }
