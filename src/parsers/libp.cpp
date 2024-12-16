@@ -515,6 +515,7 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
 #define OFFSETS_START 0x34C
 #define CLICKBOX_START 0x484 // ????
+#define CLICKBOX_GASSTATION_START 0x68c
 #define CLASSIFIEDS_START 0x854
     vector<CarMetadata_t> result;
     VectorReader reader(data);
@@ -620,23 +621,24 @@ vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
         result[i].clickBoxes = newClickBoxes;
     }
 
+    reader.Seek(CLICKBOX_GASSTATION_START);
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarMetadata_t& metadataEntry = result[i];
         CarClickBoxes_t& clickBoxes = metadataEntry.clickBoxes;
-        clickBoxes.clickBoxRearWindow.x = reader.ReadUint8();
-        clickBoxes.clickBoxRearWindow.y = reader.ReadUint8();
-        clickBoxes.clickBoxRearWindow.width = 24;
-        clickBoxes.clickBoxRearWindow.height = 12;
-
-        clickBoxes.clickBoxFrontWindow.x = reader.ReadUint8();
-        clickBoxes.clickBoxFrontWindow.y = reader.ReadUint8();
-        clickBoxes.clickBoxFrontWindow.width = 24;
-        clickBoxes.clickBoxFrontWindow.height = 12;
-
         clickBoxes.clickBoxGasCap.x = reader.ReadUint8();
         clickBoxes.clickBoxGasCap.y = reader.ReadUint8();
         clickBoxes.clickBoxGasCap.width = 12;
         clickBoxes.clickBoxGasCap.height = 12;
+        
+        clickBoxes.clickBoxRearWindow.x = reader.ReadUint8();
+        clickBoxes.clickBoxRearWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxRearWindow.width = 24;
+        clickBoxes.clickBoxRearWindow.height = 24;
+
+        clickBoxes.clickBoxFrontWindow.x = reader.ReadUint8();
+        clickBoxes.clickBoxFrontWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxFrontWindow.width = 24;
+        clickBoxes.clickBoxFrontWindow.height = 24;
     }
 
     // (Optional) Output for debug

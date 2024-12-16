@@ -111,23 +111,28 @@ void GasStation::Draw() {
         carBitmap->Move(p);
         carBitmap->Draw();
 
-        CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
-        CarClickBoxes_t clickBoxes = metadata.clickBoxes;
-        
-        SDL_Rect gasCapRect = {carx + clickBoxes.clickBoxGasCap.x, cary + clickBoxes.clickBoxGasCap.y, clickBoxes.clickBoxGasCap.width, clickBoxes.clickBoxGasCap.height};
-        SetZoneRect(ZONE_GAS_STATION_GAS_CAP, &gasCapRect);
-
-        SDL_Rect rearWindowRect = {carx + clickBoxes.clickBoxRearWindow.x, cary + clickBoxes.clickBoxRearWindow.y, clickBoxes.clickBoxRearWindow.width, clickBoxes.clickBoxRearWindow.height};
-        SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_REAR, &rearWindowRect);
-
-        SDL_Rect frontWindowRect = {carx + clickBoxes.clickBoxFrontWindow.x, cary + clickBoxes.clickBoxFrontWindow.y, clickBoxes.clickBoxFrontWindow.width, clickBoxes.clickBoxFrontWindow.height};
-        SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_FRONT, &frontWindowRect);
 
     }
     SDL_Rect rect = {0, 107, 312, 69};
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
 
     DrawDebugZones();
+}
+
+void GasStation::UpdateCarAnimation(double deltaTime) {
+    CarScene::UpdateCarAnimation(deltaTime);
+    if (!animatingCar) return;
+    CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+    CarClickBoxes_t clickBoxes = metadata.clickBoxes;
+    
+    SDL_Rect gasCapRect = {carx + clickBoxes.clickBoxGasCap.x, cary + clickBoxes.clickBoxGasCap.y, clickBoxes.clickBoxGasCap.width, clickBoxes.clickBoxGasCap.height};
+    SetZoneRect(ZONE_GAS_STATION_GAS_CAP, &gasCapRect);
+
+    SDL_Rect rearWindowRect = {metadata.offsets.offsetXRearTire + clickBoxes.clickBoxRearWindow.x, cary + clickBoxes.clickBoxRearWindow.y, clickBoxes.clickBoxRearWindow.width, clickBoxes.clickBoxRearWindow.height};
+    SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_REAR, &rearWindowRect);
+
+    SDL_Rect frontWindowRect = {metadata.offsets.offsetXRearTire + clickBoxes.clickBoxFrontWindow.x, cary + clickBoxes.clickBoxFrontWindow.y, clickBoxes.clickBoxFrontWindow.width, clickBoxes.clickBoxFrontWindow.height};
+    SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_FRONT, &frontWindowRect);
 }
 
 void GasStation::UpdateDebugInfo() {
@@ -160,6 +165,47 @@ void GasStation::UpdateDebugInfo() {
                                 " h=" + std::to_string(clickBoxes.clickBoxFrontWindow.height));
         }
         
+    }
+}
+
+void GasStation::PushEvent(SDL_Event* event) {
+    Scene::PushEvent(event);
+
+    if (!debugMode) return;
+
+    if (event->type == SDL_KEYDOWN) {
+        switch (event->key.keysym.sym) {
+            case SDLK_TAB:
+                break;
+            case SDLK_LEFT:
+            case SDLK_RIGHT:
+            case SDLK_UP:
+            case SDLK_DOWN: {
+                Zone& rearWindow = GetZone(ZONE_GAS_STATION_CAR_WINDOW_REAR);  // Note the & here
+                SDL_Rect targetRect = rearWindow.GetRect();
+                
+                int delta = (event->key.keysym.mod & KMOD_SHIFT) ? 5 : 1;
+                switch(event->key.keysym.sym) {
+                    case SDLK_LEFT:
+                        targetRect.x -= delta;
+                        break;
+                    case SDLK_RIGHT:
+                        targetRect.x += delta;
+                        break;
+                    case SDLK_UP:
+                        targetRect.y -= delta;
+                        break;
+                    case SDLK_DOWN:
+                        targetRect.y += delta;
+                        break;
+                }
+                
+                std::cout << "rearwin: x=" <<  targetRect.x - carx << " (carx: " << carx << ") y=" << targetRect.y << " w=" << targetRect.w << " h=" << targetRect.h << std::endl;
+
+                rearWindow.SetRect(&targetRect);
+            }
+            break;
+        }
     }
 }
 

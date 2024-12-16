@@ -90,6 +90,7 @@ class Scene {
 
     void SetZoneText(ZoneId id, char* text);
     void SetZoneRect(ZoneId id, SDL_Rect *rect);
+    Zone& GetZone(ZoneId id);
     virtual void DrawDebugUI() {}
 
     virtual void UpdateDebugInfo();
@@ -119,7 +120,7 @@ protected:
     double lastFrameTime;
     double currentTime;
 
-    void UpdateCarAnimation(double deltaTime);
+    virtual void UpdateCarAnimation(double deltaTime);
     virtual void OnCarAnimationComplete() {}
     virtual void OnCarExitComplete() {}
 

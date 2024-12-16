@@ -123,6 +123,17 @@ void Scene::SetZoneRect(ZoneId id, SDL_Rect *rect) {
     }
 }
 
+Zone& Scene::GetZone(ZoneId id) {
+    for (size_t i = 0; i < zones.size(); i++) {
+        if (zones[i].GetId() == id) {
+            return zones[i];
+        }
+    }
+    // Need a static Zone object to return in case of failure
+    static Zone nullZone(ZONE_NULL, const_cast<char*>(""), new SDL_Rect{0,0,0,0});
+    return nullZone;
+}
+
 SDL_Texture *Scene::GetTexture() {
     return texture;
 }

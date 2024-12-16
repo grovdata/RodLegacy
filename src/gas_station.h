@@ -25,7 +25,9 @@ class GasStation : public CarScene {
 
     void Action(ZoneId zone) override;
     void Draw() override;
+    void UpdateCarAnimation(double deltaTime) override;
     void UpdateDebugInfo() override;
+    void PushEvent(SDL_Event* event) override;
 
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnFadeComplete() override;
