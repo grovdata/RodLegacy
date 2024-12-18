@@ -562,7 +562,6 @@ class BitmapParser {
 
 class DataParser {
     private:
-        vector<pair<BitmapEntry_t, BitmapOffset_t>> offsets;
         void CleanupCarString(string& str);
     public:
         vector<CarMetadata_t>  ReadEntries(const string& filename);
