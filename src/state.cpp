@@ -19,7 +19,7 @@ void State::Init(bool enableDebug) {
         roster.Initialize(carData);
 
         // FIXME: Until we can buy a car        
-        CarModel chevy = carData.GetModelFromIndex(179);
+        CarModel chevy = carData.GetModelFromIndex(CHEVROLET_STYLELINE_2DR_1949);
         Car *randomCar = roster.GenerateRandomCar(chevy);
 
         this->currentCar = randomCar;

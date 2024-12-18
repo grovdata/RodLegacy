@@ -18,37 +18,22 @@ CarShadow::~CarShadow() {
 }
 
 void CarShadow::Draw() {
-    // Get the existing surface from Bitmap base class
-    SDL_Surface* surface = GetSurface();
     SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
-    
-    // Clear parts to create the pattern with transparency
     SDL_Rect clearRect;
     Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);  // Transparent black
-    
-    // Line 1: width - 8 pixels (clear 4 pixels from each side)
     clearRect = {0, 0, 3, 1};
     SDL_FillRect(surface, &clearRect, transparent);
     clearRect = {width - 3, 0, 3, 1};
     SDL_FillRect(surface, &clearRect, transparent);
-    
-    // Line 2: width pixels (full width, no clearing needed)
-    
-    // Line 3: width - 6 pixels (clear 3 pixels from each side)
     clearRect = {0, 2, 3, 1};
     SDL_FillRect(surface, &clearRect, transparent);
     clearRect = {width - 3, 2, 3, 1};
     SDL_FillRect(surface, &clearRect, transparent);
-    
-    // Line 4: width - 12 pixels (clear 6 pixels from each side)
     clearRect = {0, 3, 6, 1};
     SDL_FillRect(surface, &clearRect, transparent);
     clearRect = {width - 6, 3, 6, 1};
     SDL_FillRect(surface, &clearRect, transparent);
-    
-    // Update the texture from the modified surface
     UpdateFromSurface();
-    // Let Bitmap handle the actual drawing
     Bitmap::Draw();
 }
 
@@ -317,13 +302,13 @@ void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
+
     if (driver != nullptr) {
         driver->SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
     }
     decal->SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop->SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap->SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
-    SDL_Rect handleRect = pumpingHandle->GetPosition();
     pumpingHandle->SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
     shadow->SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
     UpdateTires();

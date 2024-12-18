@@ -121,7 +121,7 @@ protected:
     double currentTime;
 
     virtual void UpdateCarAnimation(double deltaTime);
-    virtual void OnCarAnimationComplete() {}
+    virtual void OnCarAnimationComplete() {};
     virtual void OnCarExitComplete() {}
 
 public:
