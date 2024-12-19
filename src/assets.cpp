@@ -34,7 +34,12 @@ void AssetManager::InitFonts() {
 }
 
 void AssetManager::InitGameFiles() {
-    fs::path disk1Path = ResolvePath("SR1AMIGA_DISK1.adf");
+    fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
+    uint32_t srlibver = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
+    if (srlibver != SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) {
+        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted");
+    }
+
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
     
     // Copy binary data to vector

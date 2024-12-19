@@ -69,7 +69,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     state.assets.UpdateAssetWithCarPalette(state.assets.GetLibPData(), model.index, randomColor); 
 
     std::uniform_int_distribution<> wearDist(0, 30);
-    std::uniform_int_distribution<> stickerDist(0, (int)CarDecal::CarDecalNone - 1);
+    std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
     std::uniform_int_distribution<> scoopDist(0, (int)CarScoopType::SCOOP_NONE - 1);
 
@@ -77,9 +77,9 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     // Introduce a 25% chance to set CarDecal to CarDecalNone
     std::uniform_int_distribution<> chanceDist(0, 3); // 0 to 3 for 25% chance
     if (chanceDist(gen) == 0) {
-        car->SetDecal(CarDecal::CarDecalNone);
+        car->SetDecal(SrLibCarDecalNone);
     } else {
-        car->SetDecal((CarDecal)stickerDist(gen));
+        car->SetDecal((SrLibCarDecal)stickerDist(gen));
     }
     
     car->SetTires((CarWheelType)tireDist(gen));

@@ -156,32 +156,32 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
     switch (car->GetDecal())
     {
-    case CarDecalHotLips:
+    case SrLibCarDecalAmigaHotLips:
         decal->SelectSprite(0, 0);
         break;
-    case CarDecalRanger:
+    case SrLibCarDecalAmigaRanger:
         decal->SelectSprite(0, 2);
         break;
-    case CarDecalNotBulletProof:
+    case SrLibCarDecalAmigaNotBulletProof:
         decal->SelectSprite(0, 3);
         break;
-    case CarDecalHotRod:
+    case SrLibCarDecalAmigaHotRod:
         decal->SelectSprite(0, 3);
         break;
-    case CarDecalDestinyCanWait:
+    case SrLibCarDecalAmigaDestinyCanWait:
         decal->SelectSprite(1, 0);
         break;
-    case CarDecalLoveBandit:
+    case SrLibCarDecalAmigaLoveBandit:
         decal->SelectSprite(1, 1);
         break;
-    case CarDecalBigChief:
+    case SrLibCarDecalAmigaBigChief:
         decal->SelectSprite(1, 2);
         break;
-    case CarDecalImNotACop:
+    case SrLibCarDecalAmigaImNotACop:
         decal->SelectSprite(1, 3);
         break;
 
-    case CarDecalNone:
+    case SrLibCarDecalNone:
     default:
         decal->SetVisible(false);
         break;

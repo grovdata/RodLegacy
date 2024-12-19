@@ -1,4 +1,14 @@
-#pragma once
+#ifndef LIBP_H
+#define LIBP_H
+
+/*
+    SrLib: 2024 by grovdata
+    This library reads and writes assets for the Street Rod games.
+
+    SrLib is a fan project and is not affiliated with streetrodonline.com
+    who owns the Street Rod copyright.
+
+*/
 
 #include <tuple>
 #include <vector>
@@ -10,10 +20,28 @@ using namespace std;
 using Color = tuple<uint8_t, uint8_t, uint8_t>;
 using Palette = vector<Color>;
 
-enum AmigaLibFile {
-    LIBSTART = 0,
-    LIBP = 1
+enum SrLibFile {
+    SrLibFileAmigaLibStart = 0,
+    SrLibFileAmigaLibP = 1,
+    SrLibFileDosLib1 = 2,
+    SrLibFileDosLib1c = 3,
+    SrLibFileDosLib2 = 4,    
 };
+
+
+enum SrLibArchive {
+    SrLibArchiveSR1AmigaDisk1 = 0,
+    SrLibArchiveSR1AmigaDisk2 = 1,
+    SrLibArchiveSR2AmigaDisk1 = 2,
+    SrLibArchiveSR2AmigaDisk2 = 3,
+};
+
+
+
+extern const char *SrLibFileNames[];
+extern const uint32_t SrLibFileChecksums[];
+extern const char *SrLibArchiveNames[];
+extern const uint32_t SrLibArchiveChecksums[];
 
 enum LibAssetType {
     LibAssetRegular,
@@ -27,17 +55,33 @@ enum AssetLocation {
     AssetLocationAmigaLibP = 1
 };
 
-enum CarDecal {
-    CarDecalHotLips = 0,
-    CarDecalRanger = 1,
-    CarDecalNotBulletProof = 2,
-    CarDecalHotRod = 3,
-    CarDecalDestinyCanWait = 4,
-    CarDecalLoveBandit = 5,
-    CarDecalBigChief = 6,
-    CarDecalImNotACop = 7,
-    CarDecalCount,
-    CarDecalNone,
+enum SrLibCarDecal {
+    SrLibCarDecalAmigaHotLips = 0,
+    SrLibCarDecalAmigaRanger = 1,
+    SrLibCarDecalAmigaNotBulletProof = 2,
+    SrLibCarDecalAmigaHotRod = 3,
+    SrLibCarDecalAmigaDestinyCanWait = 4,
+    SrLibCarDecalAmigaLoveBandit = 5,
+    SrLibCarDecalAmigaBigChief = 6,
+    SrLibCarDecalAmigaImNotACop = 7,
+    // SrLibCarDecalDosHotLips = 8,
+    // SrLibCarDecalDosRanger = 9,
+    // SrLibCarDecalDosNotBulletProof = 10,
+    // SrLibCarDecalDosHotRod = 11,
+    // SrLibCarDecalDosDestinyCanWait = 12,
+    // SrLibCarDecalDosLoveBandit = 13,
+    // SrLibCarDecalDosBigChief = 14,
+    // SrLibCarDecalDosImNotACop = 15,
+    // SrLibCarDecalDosDataDiskUsa1 = 16,
+    // SrLibCarDecalDosDataDiskEagle = 17,
+    // SrLibCarDecalDosDataDiskNot4Sale = 18,
+    // SrLibCarDecalDosDataDiskVeteran = 19,
+    // SrLibCarDecalDosDataDiskHell = 20,
+    // SrLibCarDecalDosDataDiskHawaii = 21,
+    // SrLibCarDecalDosDataDiskBananaClub = 22,
+    // SrLibCarDecalDosDataDiskExplosive = 23,
+    SrLibCarDecalCount,
+    SrLibCarDecalNone,
 };
 
 enum CarVendor_t {
@@ -577,3 +621,7 @@ class CarQuery {
         static int GetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
 };
 
+uint32_t SrLibCalculateChecksum(const char *filename);
+int      SrLibVerifyChecksum(const char *filename, uint32_t checksum);
+
+#endif

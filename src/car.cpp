@@ -17,7 +17,7 @@ CarModel Car::GetModel() {
     return model;
 }
 
-CarDecal Car::GetDecal() {
+SrLibCarDecal Car::GetDecal() {
     return decal;
 }
 

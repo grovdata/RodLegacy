@@ -10,6 +10,36 @@
 
 using namespace std;
 
+const char *SrLibFileNames[] = {
+    "lib.start",
+    "lib.p",
+    "LIB1",
+    "LIB1C",
+    "LIB2"
+};
+
+const uint32_t SrLibFileChecksums[] = {
+    0x388A781C,
+    0x3EBE203A,
+    0x3460C66A,
+    0x2DE22048,
+    0xF3EAD7B0
+};
+
+const char *SrLibArchiveNames[] = {
+    "SR1AMIGA_DISK1.adf",
+    "SR1AMIGA_DISK2.adf",
+    "SR2AMIGA_DISK1.adf",
+    "SR2AMIGA_DISK2.adf",    
+};
+
+const uint32_t SrLibArchiveChecksums[] = {
+    0x53587B9F,
+    0xFF24276C,
+    0x5458C0BC,
+    0x135549EB
+};
+
 void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
     printf("---------\n");
     printf("bitmap %d\n", number);
@@ -710,3 +740,40 @@ int CarQuery::GetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
     return carAsset + 3;
 }
 
+uint32_t SrLibCalculateChecksum(const char *filename) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        return 0;
+    }
+
+    uint32_t checksum = 0;
+    uint8_t buffer[1024];
+    size_t bytes_read;
+
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        for (size_t i = 0; i < bytes_read; i++) {
+            checksum = ((checksum << 5) + checksum) + buffer[i]; // Simple rolling hash
+        }
+    }
+
+    fclose(file);
+    return checksum;
+}
+
+int SrLibVerifyChecksum(const char *filename, uint32_t expected_checksum) {
+    uint32_t actual_checksum = SrLibCalculateChecksum(filename);
+    if (actual_checksum == 0) {
+        printf("Error: Could not open file %s\n", filename);
+        return -1;
+    }
+
+    if (actual_checksum != expected_checksum) {
+        printf("Signature mismatch for %s\n", filename);
+        printf("Expected: %08X\n", expected_checksum);
+        printf("Actual:   %08X\n", actual_checksum);
+        return 0;
+    }
+
+    printf("File signature verified successfully\n");
+    return 1;
+}

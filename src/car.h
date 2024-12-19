@@ -25,7 +25,7 @@ class Car {
         bool isMoving;
         int tuning;
         CarModel model;
-        CarDecal decal;
+        SrLibCarDecal decal;
         CarScoopType scoop;
         StandardCarColor color;
 
@@ -58,11 +58,11 @@ class Car {
         void SetEngine(Part* engine) { this->engine = engine; }
         void SetCarburator(Part* carburator) { this->carburator = carburator; }
         void SetManifold(Part* manifold) { this->manifold = manifold; }
-        void SetDecal(CarDecal decal) { this->decal = decal; }
+        void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
         CarModel GetModel();
-        CarDecal GetDecal();
+        SrLibCarDecal GetDecal();
         CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
 };
