@@ -6,7 +6,7 @@
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
 
-Diner::Diner() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, DINER_SCREEN}) {
+Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN}) {
     lastFrameTime = SDL_GetTicks64() / 1000.0;
     activeCarBitmap = nullptr;
     isPaused = false;
@@ -42,7 +42,7 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, PHONEBOOK_GUY});
+    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
     phonebookGuy->SetPosition(189, 65);
     phonebookGuy->SetDimensions(38, 60);
     phonebookGuy->SetVisible(true);

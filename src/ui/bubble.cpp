@@ -18,7 +18,7 @@ Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDism
             break;
     }
 
-    Asset bubbleAsset = {LibAssetRegular, AssetLocationAmigaLibP, bubbleAssetId};
+    Asset bubbleAsset = {LibAssetRegular, SrLibFileAmigaLibP, bubbleAssetId};
     bubble = state.assets.GetBitmapAsset(bubbleAsset);
     bubble->SetVisible(true);
     bubble->SetPosition(xPos, yPos);

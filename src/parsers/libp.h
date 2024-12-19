@@ -36,8 +36,6 @@ enum SrLibArchive {
     SrLibArchiveSR2AmigaDisk2 = 3,
 };
 
-
-
 extern const char *SrLibFileNames[];
 extern const uint32_t SrLibFileChecksums[];
 extern const char *SrLibArchiveNames[];
@@ -48,11 +46,6 @@ enum LibAssetType {
     LibAssetMask,
     LibAssetSpritesheet,
     LibAssetInvalid
-};
-
-enum AssetLocation {
-    AssetLocationAmigaLibStart = 0,
-    AssetLocationAmigaLibP = 1
 };
 
 enum SrLibCarDecal {
@@ -596,11 +589,11 @@ class BitmapParser {
     Palette                                         PreparePalette(const vector<uint16_t>& palette, bool ehb);
     Palette                                         PrepareCarPalette(const vector<uint16_t>& palette);
     static Color                                    GetRGBFromRGB4(uint16_t rgb4);
-    vector<uint16_t>                                GetPalette(AssetLocation location, int index);
+    vector<uint16_t>                                GetPalette(SrLibFile location, int index);
     static vector<uint16_t>                         GetStockPalette(StockPalette palette);
-    LibAssetType                                    GetAssetType(AssetLocation location, int index);
+    LibAssetType                                    GetAssetType(SrLibFile location, int index);
 
-    pair<int, int>                                  GetSpritesheetInfo(AssetLocation location, int index);
+    pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
     void                                            SavePaletteToBMP(const Palette& palette, const std::string& filename);
 };
 
@@ -621,7 +614,13 @@ class CarQuery {
         static int GetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
 };
 
-uint32_t SrLibCalculateChecksum(const char *filename);
-int      SrLibVerifyChecksum(const char *filename, uint32_t checksum);
+enum SrLibStatus {
+    SrLibStatusSuccess = 0,
+    SrLibStatusChecksumMismatch = 1,
+    SrLibStatusFileNotFound = 2,
+};
+
+uint32_t    SrLibCalculateChecksum(const char *filename);
+SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t checksum);
 
 #endif

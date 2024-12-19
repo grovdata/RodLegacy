@@ -3,7 +3,7 @@
 #include "parsers/libp.h"
 double carAnimationTimeGasStation = 0;
 
-GasStation::GasStation() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_SCREEN}) {
+GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_SCREEN}) {
     SDL_Rect pumpRect = {40, 105, 42, 73};
     Zone pump(ZONE_GAS_STATION_PUMP, strdup("The pump"), &pumpRect);
     
@@ -37,7 +37,7 @@ void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
     // Create a mask for gas pump
-    maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, AssetLocationAmigaLibP, GUS_GAS_MASK});
+    maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
     maskedBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
     background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
@@ -45,11 +45,11 @@ void GasStation::Init(bool initialDebugMode) {
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
 
     
-    pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_PUMP2});
+    pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
     pumpNoHandle->SetPosition(56, 114);
     pumpNoHandle->SetVisible(true);
 
-    attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, GUS_GAS_ATTENDANT});
+    attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
     attendant->SetDimensions(47, 47);
     attendant->SelectSprite(0, 0);
     attendant->SetPosition(200, 90);

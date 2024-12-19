@@ -3,7 +3,7 @@
 #include "assets.h"
 #include "state.h"
 
-Garage::Garage() : CarScene((Asset){LibAssetRegular, AssetLocationAmigaLibP, GARAGE_SCREEN}) {
+Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
 
     SDL_Rect bottleRect = {7, 161, 8, 24};
     Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);

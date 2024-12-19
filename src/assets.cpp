@@ -35,9 +35,10 @@ void AssetManager::InitFonts() {
 
 void AssetManager::InitGameFiles() {
     fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
-    uint32_t srlibver = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
-    if (srlibver != SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) {
-        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted");
+    printf("Disk1 path: %s\n", disk1Path.string().c_str());
+    SrLibStatus srlibver = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
+    if (srlibver != SrLibStatusSuccess) {
+        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + to_string(srlibver) + ")");
     }
 
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
@@ -120,7 +121,7 @@ void AssetManager::ReadAssets() {
         }
 
         if (carDecals == nullptr) {
-            Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, DECALS});
+            Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
             if (!decals) {
                 throw AssetLoadError("Failed to load car decals");
             }
@@ -147,19 +148,19 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
 void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
+    vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
     vector<Color> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
 
     Asset a;
     a.id = index;
-    a.location = AssetLocationAmigaLibP;
-    a.type = bp.GetAssetType(AssetLocationAmigaLibP, index);
+    a.location = SrLibFileAmigaLibP;
+    a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
 
     bool isMask = a.type == LibAssetMask;
 
     if (a.type == LibAssetSpritesheet) {
-        pair<int, int> info = bp.GetSpritesheetInfo(AssetLocationAmigaLibP, index);
+        pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
         unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
         spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask);
         spriteSheet->SetDimensions(b.width, b.height);
@@ -203,7 +204,7 @@ Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asse
 void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    vector<uint16_t> palData = bp.GetPalette(AssetLocationAmigaLibP, index);
+    vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     
     // Convert car palette to RGB format
     Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
@@ -214,8 +215,8 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     
     Asset a;
     a.id = index;
-    a.location = AssetLocationAmigaLibP;
-    a.type = bp.GetAssetType(AssetLocationAmigaLibP, index);
+    a.location = SrLibFileAmigaLibP;
+    a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
     
     unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);

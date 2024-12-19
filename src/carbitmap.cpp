@@ -63,8 +63,8 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     // Get car palette for the selected color
     vector<uint16_t> carPalette = GetStandardCarColor(color);
     
-    // Load original body
-    Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
+    // Load original bodyAssetLocation
+    Asset carAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index};
     bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), carAsset, carPalette);
     bodyOriginal->SetPosition(0, 0);
     bodyOriginal->SetDimensions(model.width, model.height);
@@ -85,7 +85,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     bool canChopRoof = CarQuery::CanChopRoof((AmigaLibAsset)model.index);
     if (canChopRoof && car->IsRoofChopped()) {        
         // Load chopped roof with same palette
-        Asset roofAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+1};
+        Asset roofAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index+1};
         Bitmap* choppedRoof = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), roofAsset, carPalette);
         
         // Create new surface for chopped version
@@ -97,9 +97,9 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     }
 
     if (car->IsBumpersStripped()) {
-        Asset rearBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+2};
+        Asset rearBumperAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index+2};
         Bitmap* rearBumper = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), rearBumperAsset, carPalette);
-        Asset frontBumperAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index+3};
+        Asset frontBumperAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index+3};
         Bitmap* frontBumper = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), frontBumperAsset, carPalette);        
         OverlayPart(body, rearBumper, 0, offsets.offsetYRearBumper);
         OverlayPart(body, frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
@@ -109,19 +109,19 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     if (driver != nullptr) {
         showDriver = true;
         int driverSprite = driver->spriteIndex;
-        this->driver = state.assets.GetBitmapAsset({LibAssetRegular, AssetLocationAmigaLibP, driverSprite});
+        this->driver = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverSprite});
         this->driver->SetVisible(true);
     } else {
         showDriver = false;
         //this->driver->SetVisible(false);
     }
 
-    Asset capAsset = {LibAssetRegular, AssetLocationAmigaLibP, CAR_GAS_CAP};
+    Asset capAsset = {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP};
     gasCap = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), capAsset, carPalette);
     gasCap->SetPosition(offsets.offsetXGasCap, offsets.offsetYGasCap);
     gasCap->SetVisible(false);
 
-    Asset handleAsset = {LibAssetRegular, AssetLocationAmigaLibP, GUS_GAS_PUMP_FILLING};
+    Asset handleAsset = {LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP_FILLING};
     pumpingHandle = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), handleAsset, carPalette);
     pumpingHandle->SetPosition(offsets.offsetXGasCap, offsets.offsetYGasCap);
     pumpingHandle->SetPosition(150, 50);
@@ -147,7 +147,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     }
 
     bool hasScoop = scoop != SCOOP_NONE;
-    Asset scoopAsset = {LibAssetRegular, AssetLocationAmigaLibP, scoopAssetId};
+    Asset scoopAsset = {LibAssetRegular, SrLibFileAmigaLibP, scoopAssetId};
     hoodScoop = state.assets.GetBitmapAsset(scoopAsset);
     hoodScoop->SetVisible(hasScoop);
 
@@ -192,7 +192,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
     AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
 
-    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, AssetLocationAmigaLibP, wheelAssetNo});
+    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(0, 1);
     rearWheel->SetVisible(true);
     rearWheel->SetDimensions(31, 31);
@@ -352,7 +352,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     vector<uint16_t> carPalette = GetStandardCarColor(newColor);
     
     // Reload bitmap with new palette
-    Asset carAsset = {LibAssetRegular, AssetLocationAmigaLibP, model.index};
+    Asset carAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index};
     bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), carAsset, carPalette);
 }
 

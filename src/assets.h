@@ -18,7 +18,7 @@
 
 struct Asset {
     LibAssetType type;
-    AssetLocation location;
+    SrLibFile location;
     int id;
 
     bool operator==(const Asset& other) const {

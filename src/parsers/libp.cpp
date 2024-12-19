@@ -216,7 +216,7 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
     return chunkyData;
 }
 
-// Converts 12bit palette to RGB and adds EHB colors
+// Converts 12bit palette to RGB and adds EHB colors needed for the Amiga graphics
 Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) {
     Palette rval;
 
@@ -336,9 +336,9 @@ vector<uint8_t> BitmapParser::ReadImage(const vector<uint8_t>& data, BitmapEntry
     return UnpackData(RLE, entry, packedData);
 }
 
-LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
+LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
     switch (location) {
-        case AssetLocationAmigaLibP: {
+        case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case CAR_TIRES_BRAND:
@@ -361,9 +361,9 @@ LibAssetType BitmapParser::GetAssetType(AssetLocation location, int index) {
 }
 
 // Return rows, columns for spritesheet
-pair<int, int> BitmapParser::GetSpritesheetInfo(AssetLocation location, int index) {
+pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
     switch (location) {
-        case AssetLocationAmigaLibP: {
+        case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case CAR_TIRES_BRAND:
@@ -397,9 +397,9 @@ vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
     }
 }
 
-vector<uint16_t> BitmapParser::GetPalette(AssetLocation location, int index) {
+vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
     switch (location) {
-        case AssetLocationAmigaLibP: {
+        case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
             switch (a) {
                 case GUS_GAS_SCREEN:
@@ -542,6 +542,8 @@ vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
 /// @brief Reads info about cars and parts from data file (SR_data)
 /// @param filename
 /// @return
+
+// CarMetadata_t[] SrLibReadDataAmiga(const uint8_t[] data)
 vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
 #define OFFSETS_START 0x34C
 #define CLICKBOX_START 0x484 // ????
@@ -760,20 +762,20 @@ uint32_t SrLibCalculateChecksum(const char *filename) {
     return checksum;
 }
 
-int SrLibVerifyChecksum(const char *filename, uint32_t expected_checksum) {
+SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t expected_checksum) {
     uint32_t actual_checksum = SrLibCalculateChecksum(filename);
     if (actual_checksum == 0) {
         printf("Error: Could not open file %s\n", filename);
-        return -1;
+        return SrLibStatusFileNotFound;
     }
 
     if (actual_checksum != expected_checksum) {
         printf("Signature mismatch for %s\n", filename);
         printf("Expected: %08X\n", expected_checksum);
         printf("Actual:   %08X\n", actual_checksum);
-        return 0;
+        return SrLibStatusChecksumMismatch;
     }
 
     printf("File signature verified successfully\n");
-    return 1;
+    return SrLibStatusSuccess;
 }
