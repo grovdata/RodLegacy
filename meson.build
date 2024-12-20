@@ -4,7 +4,6 @@ project('streetrod_legacy', ['cpp', 'c'],
     'warning_level=2',
     'cpp_std=c++17',
     'buildtype=debug',
-    'stop_on_error=true'
   ]
 )
 

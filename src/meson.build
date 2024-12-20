@@ -10,7 +10,11 @@ adflib_proj = cmake.subproject('ADFlib',
 
 adflib_dep = adflib_proj.dependency('adf')
 
-# C sources (removed ADFlib sources since they're handled by CMake now)
+# Get lodepng dependency
+lodepng_proj = subproject('lodepng')
+lodepng_dep = lodepng_proj.get_variable('lodepng_dep')
+
+# C sources
 c_sources = [
     'SFont.c'
 ]
@@ -44,14 +48,14 @@ cpp_sources = [
 ]
 
 # Include directories
-inc_dirs = include_directories(
-    'include',
-    '../subprojects/ADFlib/src'  # Add ADFlib headers path
-)
+inc_dirs = include_directories('include')
 
-# Rest of your sources...
+# Add compiler flags specific to GCC
+cpp_args = ['-ggdb2', '-O0']
+c_args = ['-ggdb2', '-O0']
 
-executable('streetrod_legacy',
+
+executable('open_sr',
     sources: c_sources + cpp_sources,
     include_directories: inc_dirs,
     dependencies: [
@@ -59,7 +63,8 @@ executable('streetrod_legacy',
         sdl2_image_dep,
         sdl2_mixer_dep,
         adflib_dep,
+        lodepng_dep,
     ],
-    cpp_args: ['-ggdb2', '-O0'],
-    c_args: ['-ggdb2', '-O0']
+    cpp_args: cpp_args,
+    c_args: c_args
 )
