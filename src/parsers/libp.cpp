@@ -1,6 +1,6 @@
 #include "libp.h"
 
-#include <SDL.h>
+
 
 #include <fstream>
 #include <iostream>
@@ -40,7 +40,7 @@ const uint32_t SrLibArchiveChecksums[] = {
     0x135549EB
 };
 
-void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
+void SrLibDebugBitmapEntry(int number, BitmapEntry_t entry) {
     printf("---------\n");
     printf("bitmap %d\n", number);
     printf("width %d\n", entry.width);
@@ -51,30 +51,37 @@ void BitmapParser::PrintBitmapEntry(int number, BitmapEntry_t entry) {
     printf("sizePacked %d\n", entry.sizePacked);
 }
 
-void BitmapParser::PrintBitplanes(const std::vector<uint16_t>& data) {
+/// @brief Prints bitplanes in text format
+/// @param data
+/// @param width
+/// @param height
+/// @param depth
+void SrLibDebugBitplanes(const uint8_t* data, int width, int height, int depth) {
     const int bytesPerColumn = 4;
     const int maxColumns = 8;
+    const int totalBytes = width * height * depth;
 
-    for (size_t i = 0; i < data.size(); ++i) {
-        // Print each byte as a two-digit hexadecimal number
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(data[i]);
+    for (int i = 0; i < totalBytes; i++) {
+        // Print each byte as a two-digit hexadecimal number with padding
+        printf("%02x", data[i]);
 
-        // Insert a space after every byte
+        // Insert a space after every bytesPerColumn bytes
         if ((i + 1) % bytesPerColumn == 0) {
-            std::cout << ' ';
+            printf(" ");
         }
 
         // Insert a newline after every maxColumns * bytesPerColumn bytes
         if ((i + 1) % (bytesPerColumn * maxColumns) == 0) {
-            std::cout << std::endl;
+            printf("\n");
         }
     }
 
     // Handle the case where the last row may not be completely filled
-    if (data.size() % (bytesPerColumn * maxColumns) != 0) {
-        std::cout << std::endl;
+    if (totalBytes % (bytesPerColumn * maxColumns) != 0) {
+        printf("\n");
     }
 }
+
 
 /// @brief Read metadata about bitmaps in library file
 /// @param filename
@@ -96,7 +103,7 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const vector<uint8_t>
         newEntry.offset = reader.ReadUint32BE();
         newEntry.sizePacked = reader.ReadUint16BE();
         
-        PrintBitmapEntry(i, newEntry);
+        SrLibDebugBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
     
@@ -207,8 +214,8 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
         }
     }
 
-    SavePaletteToBMP(palette, "normalpalette.bmp");
-    SavePaletteToBMP(carPalette, "carcolors.bmp");
+    SavePaletteToPNG(palette, "normalpalette.png");
+    SavePaletteToPNG(carPalette, "carcolors.png");
 
     // std::cout << "chunky data size: " << chunkyData.size() << std::endl;
     // Optionally print or process chunkyData further
@@ -273,35 +280,45 @@ Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
     return rval;
 }
 
-void BitmapParser::SavePaletteToBMP(const Palette& palette, const std::string& filename) {
-    // Calculate the size of the BMP image
-    int BLOCK_SIZE = 16;
-    int numColors = palette.size();
-    int imageWidth = BLOCK_SIZE * numColors;
-    int imageHeight = BLOCK_SIZE;
+void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& filename) {
+    // Calculate the size of the PNG image
+    const int BLOCK_SIZE = 16;
+    const int numColors = palette.size();
+    const int imageWidth = BLOCK_SIZE * numColors;
+    const int imageHeight = BLOCK_SIZE;
 
-    // Create an SDL surface
-    SDL_Surface* surface = SDL_CreateRGBSurface(0, imageWidth, imageHeight, 24, 0x000000FF, 0x0000FF00, 0x00FF0000, 0);
-    if (!surface) {
-        std::cerr << "Failed to create SDL surface: " << SDL_GetError() << std::endl;
-        SDL_Quit();
-        return;
+    // Create image data (RGBA format)
+    std::vector<unsigned char> image(imageWidth * imageHeight * 4);
+    
+    // Fill the image with palette colors
+    for (int y = 0; y < imageHeight; y++) {
+        for (int x = 0; x < imageWidth; x++) {
+            Color c = palette[x / BLOCK_SIZE];
+            size_t pos = 4 * (y * imageWidth + x);
+            image[pos + 0] = std::get<0>(c);    // R
+            image[pos + 1] = std::get<1>(c);    // G
+            image[pos + 2] = std::get<2>(c);    // B
+            image[pos + 3] = 255;               // A (fully opaque)
+        }
     }
 
-    // Fill the surface with palette colors
-    for (int i = 0; i < numColors; ++i) {
-        Color c = palette[i];
-        SDL_Rect rect = {i * BLOCK_SIZE, 0, BLOCK_SIZE, BLOCK_SIZE};
-        SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, get<0>(c), get<1>(c), get<2>(c)));
+    // Save using LodePNG C interface
+    unsigned char* png;
+    size_t pngsize;
+    unsigned error = lodepng_encode32(&png, &pngsize, image.data(), imageWidth, imageHeight);
+    
+    if (error) {
+        std::cerr << "Failed to encode PNG: " << lodepng_error_text(error) << std::endl;
+    } else {
+        // Save to file
+        error = lodepng_save_file(png, pngsize, filename.c_str());
+        if (error) {
+            std::cerr << "Failed to save PNG file: " << lodepng_error_text(error) << std::endl;
+        }
     }
-
-    // Save the surface as a BMP file
-    if (SDL_SaveBMP(surface, filename.c_str()) != 0) {
-        std::cerr << "Failed to save BMP file: " << SDL_GetError() << std::endl;
-    }
-
-    // Free the surface and quit SDL
-    SDL_FreeSurface(surface);
+    
+    // Free the PNG buffer
+    free(png);
 }
 
 Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
@@ -491,201 +508,266 @@ vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t en
     return ReadImage(buffer, entry, index, totalEntriesCount);
 }
 
-void DataParser::CleanupCarString(string& str) {
-    size_t pos = 0;
+
+
+void SrLibDataCleanupCarString(char* str) {
+    char* src;
+    char* dst;
+    int len = strlen(str);
 
     // Replace double backticks (``) with a space
-    while ((pos = str.find("``", pos)) != string::npos) {
-        str.replace(pos, 2, " ");  // Replace `` with space
+    src = dst = str;
+    while (*src) {
+        if (src[0] == '`' && src[1] == '`') {
+            *dst++ = ' ';
+            src += 2;
+        } else {
+            *dst++ = *src++;
+        }
     }
-
-    pos = 0;  // Reset position
+    *dst = '\0';
 
     // Replace single backticks (`) with a space
-    while ((pos = str.find("`", pos)) != string::npos) {
-        str.replace(pos, 1, " ");  // Replace ` with space
+    src = dst = str;
+    while (*src) {
+        if (*src == '`') {
+            *dst++ = ' ';
+            src++;
+        } else {
+            *dst++ = *src++;
+        }
     }
+    *dst = '\0';
 
-    if (str[str.size() - 1] == '.') {
-        str.pop_back();
+    // Remove trailing period if present
+    len = strlen(str);
+    if (len > 0 && str[len - 1] == '.') {
+        str[len - 1] = '\0';
     }
 }
 
 /// @brief Reads info about cars and parts from data file (SR_data)
-/// @param filename
-/// @return
-vector<CarMetadata_t> DataParser::ReadEntries(const string& filename) {
-    // Read file into vector
-    ifstream file(filename, ios::binary | ios::ate);
-    if (!file) {
-        cerr << "File error: Unable to open file " << filename << endl;
-        return vector<CarMetadata_t>();
-    }
+/// @param data Pointer to data buffer
+/// @param dataSize Size of data buffer
+/// @param outCount Pointer to store number of entries
+/// @return Array of CarMetadata_t entries (must be freed by caller)
+CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount) {
+    const int OFFSETS_START = 0x34C;
+    const int CLICKBOX_START = 0x484; // ????
+    const int CLICKBOX_GASSTATION_START = 0x68c;
+    const int CLASSIFIEDS_START = 0x854;
+
+    if (!data || !outCount || dataSize < OFFSETS_START) return NULL;
     
-    // Get file size and create vector
-    streamsize size = file.tellg();
-    file.seekg(0, ios::beg);
-    vector<uint8_t> buffer(size);
-    
-    // Read file content into vector
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        cerr << "File error: Unable to read file " << filename << endl;
-        return vector<CarMetadata_t>();
-    }
-    
-    // Use the new vector-based implementation
-    return ReadEntries(buffer);
-}
+    *outCount = CAR_PLAYER_MODEL_COUNT;
+    CarMetadata_t* result = (CarMetadata_t*)calloc(CAR_PLAYER_MODEL_COUNT, sizeof(CarMetadata_t));
+    if (!result) return NULL;
 
+    const uint8_t* ptr = data + OFFSETS_START;
 
-
-/// @brief Reads info about cars and parts from data file (SR_data)
-/// @param filename
-/// @return
-
-// CarMetadata_t[] SrLibReadDataAmiga(const uint8_t[] data)
-vector<CarMetadata_t> DataParser::ReadEntries(const vector<uint8_t>& data) {
-#define OFFSETS_START 0x34C
-#define CLICKBOX_START 0x484 // ????
-#define CLICKBOX_GASSTATION_START 0x68c
-#define CLASSIFIEDS_START 0x854
-    vector<CarMetadata_t> result;
-    VectorReader reader(data);
-
-    reader.Seek(OFFSETS_START);
-
+    // Read offsets
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        CarMetadata_t metadataEntry;
-        BitmapOffset_t newEntry;
-        newEntry.offsetXRearTire = reader.ReadUint8();
-        newEntry.offsetXFrontTire = reader.ReadUint8();
-        newEntry.offsetXDriver = reader.ReadUint8();
-        newEntry.offsetYDriver = reader.ReadUint8();
-        newEntry.offsetXChoppedRoof = reader.ReadUint8();
-        newEntry.offsetXAirScoop = reader.ReadUint8();
-        newEntry.offsetYAirScoop = reader.ReadUint8();
-        newEntry.offsetYRearBumper = reader.ReadUint8();
-        newEntry.offsetXFrontBumper = reader.ReadUint8();
-        newEntry.offsetYFrontBumper = reader.ReadUint8();
-        newEntry.offsetXDecal = reader.ReadUint8();
-        newEntry.offsetYDecal = reader.ReadUint8();
+        BitmapOffset_t newEntry = {};
+        newEntry.offsetXRearTire = *ptr++;
+        newEntry.offsetXFrontTire = *ptr++;
+        newEntry.offsetXDriver = *ptr++;
+        newEntry.offsetYDriver = *ptr++;
+        newEntry.offsetXChoppedRoof = *ptr++;
+        newEntry.offsetXAirScoop = *ptr++;
+        newEntry.offsetYAirScoop = *ptr++;
+        newEntry.offsetYRearBumper = *ptr++;
+        newEntry.offsetXFrontBumper = *ptr++;
+        newEntry.offsetYFrontBumper = *ptr++;
+        newEntry.offsetXDecal = *ptr++;
+        newEntry.offsetYDecal = *ptr++;
         
-        // We add supplemental offsets here,
-        // even though they are not in the data file.        
+        // Add supplemental offsets
         StockCarModels model = (StockCarModels)i;
         newEntry.offsetYTires = CAR_WHEELS_Y_OFFSETS[model][1];
         newEntry.offsetXGasCap = CAR_GAS_CAP_XY_OFFSETS[model][1];
         newEntry.offsetYGasCap = CAR_GAS_CAP_XY_OFFSETS[model][2];
 
-        metadataEntry.offsets = newEntry;
-        result.push_back(metadataEntry);
+        result[i].offsets = newEntry;
     }
 
     // Parse Classifieds
-    reader.Seek(CLASSIFIEDS_START);
+    ptr = data + CLASSIFIEDS_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        // Get a reference to modify the original entry, not a copy
-        CarMetadata_t& metadataEntry = result[i];
-        ClassifiedEntry_t newClassified;
+        CarMetadata_t* metadataEntry = &result[i];
+        ClassifiedEntry_t newClassified = {};  // Zero initialize
 
-        // Read car name
-        string carNameStr = reader.ReadNullTerminatedString();
-        string carYearStr = carNameStr.substr(0, 4);
-        newClassified.year = stoi(carYearStr);
-        CleanupCarString(carNameStr);
-        newClassified.carName = carNameStr;
+        // Read null-terminated string
+        const char* carNameStr = (const char*)ptr;
+        ptr += strlen(carNameStr) + 1;  // Skip past null terminator
 
-        // Read ad text
-        string adText;
+        // Parse year
+        char yearStr[5] = {0};
+        strncpy(yearStr, carNameStr, 4);
+        newClassified.year = atoi(yearStr);
+        
+        // Allocate and copy car name
+        char* carName = (char*)malloc(strlen(carNameStr) + 1);
+        if (!carName) goto cleanup;
+        strcpy(carName, carNameStr);
+        SrLibDataCleanupCarString(carName);
+        newClassified.carName = carName;
+
+        // Read and process ad text
+        char* adText = (char*)malloc(1024);
+        if (!adText) {
+            free(carName);
+            goto cleanup;
+        }
+        adText[0] = '\0';
+        
         while (true) {
-            string line = reader.ReadNullTerminatedString();
-            CleanupCarString(line);
-            size_t dollarPos = line.find('$');
-            if (line.empty() || dollarPos != string::npos) {
-                // Convert price
-                string priceStr = line.substr(dollarPos).substr(1);
-                newClassified.price = stoi(priceStr);
+            const char* lineStr = (const char*)ptr;
+            ptr += strlen(lineStr) + 1;  // Skip past null terminator
+
+            char* line = (char*)malloc(strlen(lineStr) + 1);
+            if (!line) {
+                free(carName);
+                free(adText);
+                goto cleanup;
+            }
+            strcpy(line, lineStr);
+            SrLibDataCleanupCarString(line);
+
+            const char* dollarPos = strchr(line, '$');
+            if (!lineStr[0] || dollarPos) {
+                // Found price or empty line
+                if (dollarPos) {
+                    newClassified.price = atoi(dollarPos + 1);
+                }
+                free(line);
                 break;
             }
-            if (!adText.empty()) {
-                adText += " ";  // Add space between lines
+
+            // Append line to ad text
+            if (adText[0]) {
+                strcat(adText, " ");
             }
-            adText += line;
+            strcat(adText, line);
+            free(line);
         }
         newClassified.adText = adText;
-        metadataEntry.classified = newClassified;
+        metadataEntry->classified = newClassified;
     }
 
-    reader.Seek(CLICKBOX_START);
+    ptr = data + CLICKBOX_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarClickBoxes_t newClickBoxes;
         ClickBox_t rearBumper, choppedRoof, transmission, engine, frontBumper;
-        rearBumper.x = reader.ReadUint8();
-        rearBumper.y = reader.ReadUint8();
-        rearBumper.width = reader.ReadUint8();
-        rearBumper.height = reader.ReadUint8();
+        
+        rearBumper.x = *ptr++;
+        rearBumper.y = *ptr++;
+        rearBumper.width = *ptr++;
+        rearBumper.height = *ptr++;
         newClickBoxes.clickBoxRearBumper = rearBumper;
 
-        choppedRoof.x = reader.ReadUint8();
-        choppedRoof.y = reader.ReadUint8();
-        choppedRoof.width = reader.ReadUint8();
-        choppedRoof.height = reader.ReadUint8();
+        choppedRoof.x = *ptr++;
+        choppedRoof.y = *ptr++;
+        choppedRoof.width = *ptr++;
+        choppedRoof.height = *ptr++;
         newClickBoxes.clickBoxChoppedRoof = choppedRoof;
 
-        transmission.x = reader.ReadUint8();
-        transmission.y = reader.ReadUint8();
-        transmission.width = reader.ReadUint8();
-        transmission.height = reader.ReadUint8();
+        transmission.x = *ptr++;
+        transmission.y = *ptr++;
+        transmission.width = *ptr++;
+        transmission.height = *ptr++;
         newClickBoxes.clickBoxTransmission = transmission;
 
-        engine.x = reader.ReadUint8();
-        engine.y = reader.ReadUint8();
-        engine.width = reader.ReadUint8();
-        engine.height = reader.ReadUint8();
+        engine.x = *ptr++;
+        engine.y = *ptr++;
+        engine.width = *ptr++;
+        engine.height = *ptr++;
         newClickBoxes.clickBoxEngine = engine;
 
-        frontBumper.x = reader.ReadUint8();
-        frontBumper.y = reader.ReadUint8();
-        frontBumper.width = reader.ReadUint8();
-        frontBumper.height = reader.ReadUint8();
+        frontBumper.x = *ptr++;
+        frontBumper.y = *ptr++;
+        frontBumper.width = *ptr++;
+        frontBumper.height = *ptr++;
         newClickBoxes.clickBoxFrontBumper = frontBumper;
 
         result[i].clickBoxes = newClickBoxes;
     }
 
-    reader.Seek(CLICKBOX_GASSTATION_START);
+    ptr = data + CLICKBOX_GASSTATION_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarMetadata_t& metadataEntry = result[i];
         CarClickBoxes_t& clickBoxes = metadataEntry.clickBoxes;
-        clickBoxes.clickBoxGasCap.x = reader.ReadUint8();
-        clickBoxes.clickBoxGasCap.y = reader.ReadUint8();
+        
+        clickBoxes.clickBoxGasCap.x = *ptr++;
+        clickBoxes.clickBoxGasCap.y = *ptr++;
         clickBoxes.clickBoxGasCap.width = 12;
         clickBoxes.clickBoxGasCap.height = 12;
         
-        clickBoxes.clickBoxRearWindow.x = reader.ReadUint8();
-        clickBoxes.clickBoxRearWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxRearWindow.x = *ptr++;
+        clickBoxes.clickBoxRearWindow.y = *ptr++;
         clickBoxes.clickBoxRearWindow.width = 24;
         clickBoxes.clickBoxRearWindow.height = 24;
 
-        clickBoxes.clickBoxFrontWindow.x = reader.ReadUint8();
-        clickBoxes.clickBoxFrontWindow.y = reader.ReadUint8();
+        clickBoxes.clickBoxFrontWindow.x = *ptr++;
+        clickBoxes.clickBoxFrontWindow.y = *ptr++;
         clickBoxes.clickBoxFrontWindow.width = 24;
         clickBoxes.clickBoxFrontWindow.height = 24;
     }
 
-    // (Optional) Output for debug
-    for (const auto& c : result) {
-        cout << "Car Name: " << c.classified.carName << endl;
-        cout << "Ad Text: " << c.classified.adText << endl;
-        cout << "Price: " << c.classified.price << endl << endl;
 
+    return result;
+
+cleanup:
+    // If we hit an error, clean up what we've allocated so far
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        SrLibDataFreeClassified(&result[i].classified);
+    }
+    free(result);
+    *outCount = 0;
+    return NULL;
+}
+
+// File-based wrapper
+CarMetadata_t* DataParser::SrLibDataReadDataFromFile(const char* filename, int* outCount) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        fprintf(stderr, "File error: Unable to open file %s\n", filename);
+        return NULL;
     }
 
-    // todo return classifieds too
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
+    // Read file into buffer
+    uint8_t* buffer = (uint8_t*)malloc(size);
+    if (!buffer) {
+        fclose(file);
+        return NULL;
+    }
+
+    if (fread(buffer, 1, size, file) != size) {
+        fprintf(stderr, "File error: Unable to read file %s\n", filename);
+        free(buffer);
+        fclose(file);
+        return NULL;
+    }
+    fclose(file);
+
+    // Process the data
+    CarMetadata_t* result = SrLibDataReadDataFromBuffer(buffer, size, outCount);
+    free(buffer);
     return result;
 }
 
+void SrLibDataFreeClassified(ClassifiedEntry_t* classified) {
+    if (classified) {
+        free(classified->carName);
+        free(classified->adText);
+        classified->carName = nullptr;
+        classified->adText = nullptr;
+    }
+}
 
 int DataParser::GetCarIndex(AmigaLibAsset asset) {
     int stockCarCount = sizeof(CAR_INDEX);
@@ -698,7 +780,7 @@ int DataParser::GetCarIndex(AmigaLibAsset asset) {
     return -1;
 }
 
-bool CarQuery::CanChopRoof(AmigaLibAsset carAsset) {
+bool CarQuery::SrLibQueryCanChopRoof(AmigaLibAsset carAsset) {
     switch (carAsset) {
         case CHEVROLET_CORVETTE_1956_BODY:
         case CHEVROLET_CORVETTE_1961_BODY:
@@ -710,7 +792,7 @@ bool CarQuery::CanChopRoof(AmigaLibAsset carAsset) {
     }
 }
 
-bool CarQuery::CanStripBumpers(AmigaLibAsset carAsset) {
+bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
     switch (carAsset) {
         case FORD_DEUCE_COUPE_1932_BODY:
         case FORD_SEDAN_1932_BODY:
@@ -725,7 +807,7 @@ bool CarQuery::CanStripBumpers(AmigaLibAsset carAsset) {
     }
 }
 
-int CarQuery::GetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
+int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
     switch (carAsset) {
         case CHEVROLET_CORVETTE_1956_BODY:
         case CHEVROLET_CORVETTE_1961_BODY:
@@ -738,7 +820,7 @@ int CarQuery::GetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
     return carAsset + 2;
 }
 
-int CarQuery::GetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
+int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
     return carAsset + 3;
 }
 

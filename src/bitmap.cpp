@@ -1,5 +1,9 @@
 #include "bitmap.h"
 
+extern "C" {
+#include "lodepng.h"
+}
+
 using namespace std;
 
 Bitmap::Bitmap() {
@@ -266,11 +270,31 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, i
 
 void Bitmap::SaveBitmap(int index) {
     char filename[30];
-    snprintf(filename, sizeof(filename),"sprite_%d.bmp", index);
+    snprintf(filename, sizeof(filename), "sprite_%d.png", index);
 
-    if (SDL_SaveBMP(surface, filename) != 0) {
-        std::cerr << "Failed to save BMP file: " << SDL_GetError() << std::endl;
+    // Get surface pixels and convert to RGBA format
+    SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
+    if (!rgbaSurface) {
+        std::cerr << "Failed to convert surface: " << SDL_GetError() << std::endl;
+        return;
     }
+
+    // Get pixel data
+    const size_t pixelCount = rgbaSurface->w * rgbaSurface->h * 4;
+    uint8_t* image = new uint8_t[pixelCount];
+    
+    SDL_LockSurface(rgbaSurface);
+    memcpy(image, rgbaSurface->pixels, pixelCount);
+    SDL_UnlockSurface(rgbaSurface);
+
+    // Encode and save using lodepng
+    unsigned error = lodepng_encode32_file(filename, image, rgbaSurface->w, rgbaSurface->h);
+    if (error) {
+        std::cerr << "Failed to save PNG file: " << lodepng_error_text(error) << std::endl;
+    }
+
+    delete[] image;
+    SDL_FreeSurface(rgbaSurface);
 }
 
 

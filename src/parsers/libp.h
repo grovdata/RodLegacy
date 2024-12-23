@@ -16,6 +16,10 @@
 #include <cstdint>
 #include <iomanip>
 
+extern "C" {
+#include "lodepng.h"
+}
+
 using namespace std;
 using Color = tuple<uint8_t, uint8_t, uint8_t>;
 using Palette = vector<Color>;
@@ -466,8 +470,8 @@ struct BitmapOffset_t {
 
 struct ClassifiedEntry_t {
     int year;
-    string carName;
-    string adText;
+    char* carName;
+    char* adText;
     int price;
 };
 
@@ -568,11 +572,19 @@ public:
     }
 };
 
-class BitmapParser {
-   private:
+/*
+    Debug functions
+*/
 
-    void                                            PrintBitmapEntry(int number, BitmapEntry_t entry);
-    void                                            PrintBitplanes(const std::vector<uint16_t>& data);
+void SrLibDebugBitmapEntry(int number, BitmapEntry_t entry);
+void SrLibDebugBitplanes(const uint8_t* data, int width, int height, int depth);
+
+
+/*
+    Bitmap functions
+*/
+
+class BitmapParser {
 
    public:
 
@@ -594,24 +606,36 @@ class BitmapParser {
     LibAssetType                                    GetAssetType(SrLibFile location, int index);
 
     pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
-    void                                            SavePaletteToBMP(const Palette& palette, const std::string& filename);
+    void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);
 };
 
+
+
+/*
+    Data functions
+*/
+
+void SrLibDataCleanupCarString(char* str);
+void SrLibDataFreeClassified(ClassifiedEntry_t* entry);
+
 class DataParser {
-    private:
-        void CleanupCarString(string& str);
     public:
-        vector<CarMetadata_t>  ReadEntries(const string& filename);
-        vector<CarMetadata_t>  ReadEntries(const vector<uint8_t>& data);
+        CarMetadata_t*         SrLibDataReadDataFromFile(const char* filename, int* outCount);
+        CarMetadata_t*         SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
         int                    GetCarIndex(AmigaLibAsset asset);
 };
 
+
+/*
+    Query functions
+*/
+
 class CarQuery {
     public:
-        static bool CanChopRoof(AmigaLibAsset carAsset);
-        static bool CanStripBumpers(AmigaLibAsset carAsset);
-        static int GetChoppedBumberRearIndex(AmigaLibAsset carAsset);
-        static int GetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
+        static bool SrLibQueryCanChopRoof(AmigaLibAsset carAsset);
+        static bool SrLibQueryCanStripBumpers(AmigaLibAsset carAsset);
+        static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);
+        static int SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
 };
 
 enum SrLibStatus {

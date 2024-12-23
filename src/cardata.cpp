@@ -90,16 +90,31 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
 }
 
 void CarData::ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> bitmaps) {
-    carMetadata = dp.ReadEntries(datafile);
-    // Index mapping to bitmaps is incorrect
+    int metadataCount;
+    CarMetadata_t* metadata = dp.SrLibDataReadDataFromFile(datafile.c_str(), &metadataCount);
+    
+    // Resize vector and copy array data
+    carMetadata.clear();
+    carMetadata.assign(metadata, metadata + metadataCount);
+    
     for (int i = 0; i < carMetadata.size(); i++) {   
-        std::cout << " Input bitmap w:" << bitmaps.second[i].width << " h: " << bitmaps.second[i].height << std::endl;         
-        CarModel newModel = CreateModel(i, bitmaps.second[CAR_INDEX[i]], carMetadata[i]);
+        // Get the car's stock model index from CAR_INDEX array
+        int stockIndex = CAR_INDEX[i];
+        
+        // Get the corresponding bitmap for this car model
+        BitmapEntry_t& bitmap = bitmaps.second[i];
+        
+        std::cout << "Creating car " << i << " (stock index " << stockIndex << ") with bitmap w:" 
+                  << bitmap.width << " h: " << bitmap.height << std::endl;         
+        
+        // Create the car model using the stock index
+        CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
         allCarModels.insert(newModel);
     }
-    std::cout << " ALL CAR MODELS " << std::endl;
-    for (auto newModel: allCarModels) {                
-        newModel.Log();
+
+    std::cout << "Created " << allCarModels.size() << " car models:" << std::endl;
+    for (const auto& model : allCarModels) {                
+        model.Log();
     }
 }
 

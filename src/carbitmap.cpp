@@ -82,7 +82,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     body = bodyOriginal;
     
     // Load and prepare chopped version if car can be chopped
-    bool canChopRoof = CarQuery::CanChopRoof((AmigaLibAsset)model.index);
+    bool canChopRoof = CarQuery::SrLibQueryCanChopRoof((AmigaLibAsset)model.index);
     if (canChopRoof && car->IsRoofChopped()) {        
         // Load chopped roof with same palette
         Asset roofAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index+1};

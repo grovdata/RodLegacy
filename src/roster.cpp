@@ -49,14 +49,14 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> roofDist(0, 1);
     bool isRoofChopped = roofDist(gen) == 1;
     car->SetRoofChopped(isRoofChopped);
-    bool canChopRoof = CarQuery::CanChopRoof((AmigaLibAsset)model.index);
+    bool canChopRoof = CarQuery::SrLibQueryCanChopRoof((AmigaLibAsset)model.index);
     if (!canChopRoof) {
         car->SetRoofChopped(false);
     }
 
     bool areBumpersStripped = false;
    
-    bool canStripBumpers = CarQuery::CanStripBumpers((AmigaLibAsset)model.index);
+    bool canStripBumpers = CarQuery::SrLibQueryCanStripBumpers((AmigaLibAsset)model.index);
     if (!canStripBumpers) {
         car->SetBumpersStripped(false);
     } else {
