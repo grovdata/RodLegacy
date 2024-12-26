@@ -97,12 +97,12 @@ void CarData::ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> 
     carMetadata.clear();
     carMetadata.assign(metadata, metadata + metadataCount);
     
-    for (int i = 0; i < carMetadata.size(); i++) {   
+    for (int i = 0; i < metadataCount; i++) {   
         // Get the car's stock model index from CAR_INDEX array
         int stockIndex = CAR_INDEX[i];
         
         // Get the corresponding bitmap for this car model
-        BitmapEntry_t& bitmap = bitmaps.second[i];
+        BitmapEntry_t& bitmap = bitmaps.second[stockIndex];
         
         std::cout << "Creating car " << i << " (stock index " << stockIndex << ") with bitmap w:" 
                   << bitmap.width << " h: " << bitmap.height << std::endl;         
