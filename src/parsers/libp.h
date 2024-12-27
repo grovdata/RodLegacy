@@ -52,6 +52,14 @@ enum LibAssetType {
     LibAssetInvalid
 };
 
+enum SrLibGameScene {
+    SCENE_GARAGE,
+    SCENE_DINER,
+    SCENE_GAS_STATION,
+    SCENE_CRUISING,
+    SCENE_DRIVING
+};
+
 enum SrLibCarDecal {
     SrLibCarDecalAmigaHotLips = 0,
     SrLibCarDecalAmigaRanger = 1,
@@ -340,36 +348,35 @@ enum StockCarModels {
     THE_KING_CHEVROLET_CORVETTE_1963 = 272
 };
 
-// FIXME: Values are made up
-// And are specific to the Diner scene
-// TODO: Add scene lookup to table
-const int CAR_Y_OFFSETS[][2] = {
-    {CHEVROLET_2DR_COUPE_1940, 96},
-    {CHEVROLET_ROADSTER_1940, 96},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938, 96},
-    {CHEVROLET_CORVETTE_1956, 106},
-    {CHEVROLET_CORVETTE_1961, 108},
-    {CHEVROLET_CORVETTE_1963, 98},
-    {DODGE_CUSTOM_ROYAL_LANCER_1955, 96},
-    {FORD_DEUCE_COUPE_1932, 92},
-    {DODGE_POLARA_1962, 100},
-    {PLYMOUTH_SAVOY_2DR_1962, 98},
-    {FORD_SEDAN_1932, 90},
-    {FORD_DELUXE_2DR_1940, 96},
-    {FORD_FAIRLANE_VICTORIA_1955, 102},
-    {FORD_FAIRLANE_500_1956, 100},
-    {MERCURY_MONTEREY_1954, 102},
-    {MERCURY_CUSTOM_2DR_1956, 98},
-    {CHEVROLET_STYLELINE_2DR_1949, 96},
-    {CHEVROLET_IMPALA_1958, 100},
-    {OLDSMOBILE_88_2DR_CUSTOM_1949, 98},
-    {OLDSMOBILE_88_CUSTOM_1952, 96},
-    {PONTIAC_SILVER_STREAK_1950, 96},
-    {FORD_THUNDERBIRD_1957, 102},
-    {VALIANT_V200_1961, 100},
-    {VALIANT_V100_2DR_1963, 98},
-    {CHEVROLET_BELAIR_SPORTS_COUPE, 100},
-    {THE_KING_CHEVROLET_CORVETTE_1963, 98}
+// Car Y offset lookup table by scene and car model
+const int CAR_Y_OFFSETS[][6] = {
+    // Format: {CarModel, Garage, Diner, GasStation, Cruising, Driving}
+    {CHEVROLET_2DR_COUPE_1940,             90, 96, 92, 0, 0},
+    {CHEVROLET_ROADSTER_1940,              90, 96, 92, 0, 0},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938,     90, 96, 92, 0, 0},
+    {CHEVROLET_CORVETTE_1956,              100, 106, 102, 0, 0},
+    {CHEVROLET_CORVETTE_1961,              102, 108, 104, 0, 0},
+    {CHEVROLET_CORVETTE_1963,              92, 98, 94, 0, 0},
+    {DODGE_CUSTOM_ROYAL_LANCER_1955,       90, 96, 92, 0, 0},
+    {FORD_DEUCE_COUPE_1932,                86, 92, 88, 0, 0},
+    {DODGE_POLARA_1962,                    94, 100, 96, 0, 0},
+    {PLYMOUTH_SAVOY_2DR_1962,              92, 98, 94, 0, 0},
+    {FORD_SEDAN_1932,                      84, 90, 86, 0, 0},
+    {FORD_DELUXE_2DR_1940,                 90, 96, 92, 0, 0},
+    {FORD_FAIRLANE_VICTORIA_1955,          96, 102, 98, 0, 0},
+    {FORD_FAIRLANE_500_1956,               94, 100, 96, 0, 0},
+    {MERCURY_MONTEREY_1954,                96, 102, 98, 0, 0},
+    {MERCURY_CUSTOM_2DR_1956,              92, 98, 94, 0, 0},
+    {CHEVROLET_STYLELINE_2DR_1949,         90, 96, 92, 0, 0},
+    {CHEVROLET_IMPALA_1958,                94, 100, 96, 0, 0},
+    {OLDSMOBILE_88_2DR_CUSTOM_1949,        92, 98, 94, 0, 10},
+    {OLDSMOBILE_88_CUSTOM_1952,            90, 96, 92, 0, 0},
+    {PONTIAC_SILVER_STREAK_1950,           90, 96, 92, 0, 0},
+    {FORD_THUNDERBIRD_1957,                96, 102, 98, 0, 0},
+    {VALIANT_V200_1961,                    94, 100, 96, 0, 0},
+    {VALIANT_V100_2DR_1963,                92, 98, 94, 0, 0},
+    {CHEVROLET_BELAIR_SPORTS_COUPE,        94, 100, 96, 0, 0},
+    {THE_KING_CHEVROLET_CORVETTE_1963,     92, 98, 94, 0, 0}
 };
 
 #define CAR_Y_OFFSETS_COUNT (sizeof(CAR_Y_OFFSETS) / sizeof(CAR_Y_OFFSETS[0]))
@@ -377,7 +384,7 @@ const int CAR_Y_OFFSETS[][2] = {
 const int CAR_WHEELS_Y_OFFSETS[][2] = {
     {CHEVROLET_2DR_COUPE_1940, 36},
     {CHEVROLET_ROADSTER_1940, 30},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938, 37},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938, 36},
     {CHEVROLET_CORVETTE_1956, 24},
     {CHEVROLET_CORVETTE_1961, 30},
     {CHEVROLET_CORVETTE_1963, 30},
@@ -391,7 +398,7 @@ const int CAR_WHEELS_Y_OFFSETS[][2] = {
     {FORD_FAIRLANE_500_1956, 30},
     {MERCURY_MONTEREY_1954, 30},
     {MERCURY_CUSTOM_2DR_1956, 30},
-    {CHEVROLET_STYLELINE_2DR_1949, 30},
+    {CHEVROLET_STYLELINE_2DR_1949, 36},
     {CHEVROLET_IMPALA_1958, 30},
     {OLDSMOBILE_88_2DR_CUSTOM_1949, 30},
     {OLDSMOBILE_88_CUSTOM_1952, 30},
@@ -637,6 +644,8 @@ class CarQuery {
         static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
 };
+
+int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
 
 enum SrLibStatus {
     SrLibStatusSuccess = 0,

@@ -32,7 +32,7 @@ private:
 
     Roster roster;
 
-    GameScene currentGameScene;
+    SrLibGameScene currentGameScene;
     Scene *currentScene;
 
     Uint64 elapsedTime;
@@ -51,11 +51,11 @@ public:
 
     int GetBankroll();
 
-    GameScene GetCurrentGameScene();
+    SrLibGameScene GetCurrentGameScene();
     Scene* GetCurrentScene();
     void SetCurrentScene(Scene *scene);
 
-    void MoveToScene(GameScene scene);
+    void MoveToScene(SrLibGameScene scene);
 
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();

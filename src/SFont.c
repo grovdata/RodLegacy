@@ -134,7 +134,7 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
         charoffset = ((int) (*c - 33)) * 2 + 1;
         /* skip spaces and nonprintable characters */
         if (*c == ' ') {
-            x += 7;
+            x += 5;
             continue;
         }
 

@@ -103,7 +103,7 @@ void Garage::UpdateSign() {
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
     snprintf(text, 50, "%s.", m.name.c_str());
-    SFont_Write(signSurface, state.assets.GetMainFont(), 85, 45, text);
+    SFont_Write(signSurface, state.assets.GetMainFont(), 78, 45, text);
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 }
@@ -180,6 +180,7 @@ void Garage::Draw() {
         SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
 
+    // FIXME: Only update sign when car changes
     UpdateSign();
     SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 

@@ -170,8 +170,8 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType)
         opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
 
-    int carYOffset = state.carData.GetCarRoofYOffset(currentOpponent->car->GetModel());
-    this->cary = carYOffset;
+    int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), currentOpponent->car->GetModel().index);
+    this->cary = carYOffset;    
 
     CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
 }

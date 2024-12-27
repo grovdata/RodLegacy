@@ -25,9 +25,8 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP,
     zones.push_back(rearWindow);
     zones.push_back(frontWindow);
 
-    int carYOffset = state.carData.GetCarRoofYOffset(state.GetCurrentCar()->GetModel());
+    int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
     this->cary = carYOffset;
-    this->cary = 105;
 
     //hud = new HUD(StockPalette::GUS_GAS_STATION, 20, 18);
     // Hud color text index 18

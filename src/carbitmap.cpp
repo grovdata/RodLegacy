@@ -71,7 +71,6 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     bodyOriginal->SetVisible(true);
 
     shadow = new CarShadow(model.width);
-    shadow->SetPosition(0, model.height + 31);
     shadow->SetDimensions(model.width, 4);
     shadow->SetVisible(true);
 
@@ -195,12 +194,12 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     rearWheel->SelectSprite(0, 1);
     rearWheel->SetVisible(true);
-    rearWheel->SetDimensions(31, 31);
+    rearWheel->SetDimensions(32, 32);
 
     frontWheel = new Spritesheet(1, 4, rearWheel);
     frontWheel->SelectSprite(0, 1);
     frontWheel->SetVisible(true);
-    frontWheel->SetDimensions(31, 31);
+    frontWheel->SetDimensions(32, 32);
     UpdateTextures();
 
     t = SDL_GetTicks64();
@@ -320,6 +319,7 @@ void CarBitmap::UpdateTires() {
     BitmapOffset_t offsets = model.offsets;
     rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
     frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
+    shadow->SetPosition(bodyRect.x, bodyRect.y + offsets.offsetYTires + 32 - 4);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {

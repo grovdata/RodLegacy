@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
         scene->Draw();
 
         // This is hacky, we can do better
-        GameScene gameScene = state.GetCurrentGameScene();
+        SrLibGameScene gameScene = state.GetCurrentGameScene();
         if (gameScene != SCENE_DRIVING && gameScene != SCENE_CRUISING) {
             ((CarScene*)scene)->DrawMaskAfterCar();
         }

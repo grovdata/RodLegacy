@@ -19,7 +19,7 @@ void State::Init(bool enableDebug) {
         roster.Initialize(carData);
 
         // FIXME: Until we can buy a car        
-        CarModel chevy = carData.GetModelFromIndex(CHEVROLET_STYLELINE_2DR_1949);
+        CarModel chevy = carData.GetModelFromIndex(CHEVROLET_MASTER_DELUXE_2DR_1938_BODY);
         Car *randomCar = roster.GenerateRandomCar(chevy);
 
         this->currentCar = randomCar;
@@ -68,7 +68,7 @@ int State::GetBankroll() {
     return bankroll;
 }
 
-GameScene State::GetCurrentGameScene() {
+SrLibGameScene State::GetCurrentGameScene() {
     return currentGameScene;
 }
 
@@ -80,7 +80,7 @@ void State::SetCurrentScene(Scene *scene) {
     this->currentScene = scene;
 }
 
-void State::MoveToScene(GameScene scene) {
+void State::MoveToScene(SrLibGameScene scene) {
     currentGameScene = scene;
     switch (scene) {
         case SCENE_DINER:

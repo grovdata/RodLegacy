@@ -10,16 +10,9 @@
 #include "bitmap.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
+#include "parsers/libp.h"
 
 using namespace std;
-
-typedef enum {
-    SCENE_GARAGE,
-    SCENE_DINER,
-    SCENE_GAS_STATION,
-    SCENE_CRUISING,
-    SCENE_DRIVING
-} GameScene;
 
 typedef enum {
     SCENE_BLACK,
@@ -42,7 +35,7 @@ class Scene {
     bool isSetup;
 
     SceneTransition sceneTransition;
-    GameScene sceneTransitioningTo;
+    SrLibGameScene sceneTransitioningTo;
 
     Asset backgroundAsset;
     StockPalette palette;
