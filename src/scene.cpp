@@ -204,7 +204,7 @@ Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
 void Scene::OnFadeComplete() {
     if (sceneTransition == SCENE_FADE_OUT) {
         sceneTransition = SCENE_BLACK;
-        state.MoveToScene(sceneTransitioningTo);
+        //state.MoveToScene(sceneTransitioningTo);
         // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_TRANSPARENT);
     } else if (sceneTransition == SCENE_FADE_IN) {
         sceneTransition = SCENE_SOLID;
@@ -271,19 +271,14 @@ void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animTy
     currentAnimationType = animType;
     if (car != nullptr && carBitmap == nullptr) {
         carBitmap = new CarBitmap(car, driver, car->GetColor());
-        SDL_Point offscreenPos = GetCarOffscreenPosition();
-        carx = offscreenPos.x;
-        cary = offscreenPos.y;
+        carx = -GAME_WIDTH;
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
         animatingCar = true;
         waitTimer = 0;
     }
 }
 
 SDL_Point CarScene::GetCarIdlePosition() {
-    return {0, 0};
-}
-
-SDL_Point CarScene::GetCarOffscreenPosition() {
     return {0, 0};
 }
 

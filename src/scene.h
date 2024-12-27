@@ -124,7 +124,6 @@ public:
     virtual void DrawMaskAfterCar();
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
-    virtual SDL_Point GetCarOffscreenPosition();
     virtual void UpdateDebugInfo() override;
     virtual void PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;

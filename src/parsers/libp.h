@@ -53,11 +53,11 @@ enum LibAssetType {
 };
 
 enum SrLibGameScene {
-    SCENE_GARAGE,
-    SCENE_DINER,
-    SCENE_GAS_STATION,
-    SCENE_CRUISING,
-    SCENE_DRIVING
+    SCENE_GARAGE = 0,
+    SCENE_DINER = 1,
+    SCENE_GAS_STATION = 2,
+    SCENE_CRUISING = 3,
+    SCENE_DRIVING = 4
 };
 
 enum SrLibCarDecal {
@@ -348,12 +348,23 @@ enum StockCarModels {
     THE_KING_CHEVROLET_CORVETTE_1963 = 272
 };
 
+// Car X position lookup table by scene
+const int CAR_IDLE_X[][2] = {
+    {SCENE_GARAGE,      35},
+    {SCENE_DINER,       82},
+    {SCENE_GAS_STATION, 40},
+    {SCENE_CRUISING,    0},  // Not used in idle position
+    {SCENE_DRIVING,     0}   // Not used in idle position
+};
+
+#define CAR_IDLE_X_COUNT (sizeof(CAR_IDLE_X) / sizeof(CAR_IDLE_X[0]))
+
 // Car Y offset lookup table by scene and car model
 const int CAR_Y_OFFSETS[][6] = {
     // Format: {CarModel, Garage, Diner, GasStation, Cruising, Driving}
-    {CHEVROLET_2DR_COUPE_1940,             90, 96, 92, 0, 0},
-    {CHEVROLET_ROADSTER_1940,              90, 96, 92, 0, 0},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938,     90, 96, 92, 0, 0},
+    {CHEVROLET_2DR_COUPE_1940,             90, 96, 112, 0, 0},
+    {CHEVROLET_ROADSTER_1940,              90, 96, 112, 0, 0},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938,     90, 96, 112, 0, 0},
     {CHEVROLET_CORVETTE_1956,              100, 106, 102, 0, 0},
     {CHEVROLET_CORVETTE_1961,              102, 108, 104, 0, 0},
     {CHEVROLET_CORVETTE_1963,              92, 98, 94, 0, 0},
@@ -384,7 +395,7 @@ const int CAR_Y_OFFSETS[][6] = {
 const int CAR_WHEELS_Y_OFFSETS[][2] = {
     {CHEVROLET_2DR_COUPE_1940, 36},
     {CHEVROLET_ROADSTER_1940, 30},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938, 36},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938, 40},
     {CHEVROLET_CORVETTE_1956, 24},
     {CHEVROLET_CORVETTE_1961, 30},
     {CHEVROLET_CORVETTE_1963, 30},
@@ -646,6 +657,7 @@ class CarQuery {
 };
 
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
+int SrLibQueryGetCarIdleX(SrLibGameScene scene);
 
 enum SrLibStatus {
     SrLibStatusSuccess = 0,

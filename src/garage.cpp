@@ -88,15 +88,14 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
+    SDL_Log("Car Y offset: %d", cary);
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
-    return {35, 82};
-}
-
-SDL_Point Garage::GetCarOffscreenPosition() {
-    return {-320, 82};
+    int x = SrLibQueryGetCarIdleX(SCENE_GARAGE);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, state.GetCurrentCar()->GetModel().index);
+    return {x, y};
 }
 
 void Garage::UpdateSign() {

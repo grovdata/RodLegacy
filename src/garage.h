@@ -17,7 +17,6 @@ class Garage : public CarScene {
     Garage();
 
     SDL_Point GetCarIdlePosition() override;
-    SDL_Point GetCarOffscreenPosition() override;
 
     void Action(ZoneId zone) override;
     void Draw() override;

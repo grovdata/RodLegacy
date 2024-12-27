@@ -27,7 +27,6 @@ class GasStation : public CarScene {
     void Init(bool initialDebugMode) override;
 
     SDL_Point GetCarIdlePosition() override;
-    SDL_Point GetCarOffscreenPosition() override;
 
     void Action(ZoneId zone) override;
     void Draw() override;

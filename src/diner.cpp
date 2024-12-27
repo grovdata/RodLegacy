@@ -61,11 +61,10 @@ Diner::~Diner() {
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
-    return {80, 95};
-}
-
-SDL_Point Diner::GetCarOffscreenPosition() {
-    return {-320, 95};
+    if (!currentOpponent) return {80, 95};
+    int x = SrLibQueryGetCarIdleX(SCENE_DINER);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_DINER, currentOpponent->car->GetModel().index);
+    return {x, y};
 }
 
 void Diner::Action(ZoneId zone) {

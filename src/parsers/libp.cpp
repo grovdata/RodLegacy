@@ -807,18 +807,27 @@ bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
     }
 }
 
-// Helper function to get car Y offset for a specific scene
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex) {
-    // Find the car in the offset table
     for (size_t i = 0; i < CAR_Y_OFFSETS_COUNT; i++) {
         if (CAR_Y_OFFSETS[i][0] == carIndex) {
-            // Return the offset for the specified scene
             // Add 1 to scene index since car model is in column 0
+            printf("Car Y index: %d, scene: %d, offset: %d\n", carIndex, (int)scene, CAR_Y_OFFSETS[i][(int)(scene) + 1]);
             return CAR_Y_OFFSETS[i][(int)(scene) + 1];
         }
     }
     return 96; // Default offset if car not found
 }
+
+// Helper function to get car X position for a specific scene
+int SrLibQueryGetCarIdleX(SrLibGameScene scene) {
+    for (size_t i = 0; i < CAR_IDLE_X_COUNT; i++) {
+        if (CAR_IDLE_X[i][0] == scene) {
+            return CAR_IDLE_X[i][1];
+        }
+    }
+    return 35; // Default X position if scene not found
+}
+
 
 int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
     switch (carAsset) {

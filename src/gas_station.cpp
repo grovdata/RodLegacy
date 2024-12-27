@@ -25,8 +25,8 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP,
     zones.push_back(rearWindow);
     zones.push_back(frontWindow);
 
-    int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
-    this->cary = carYOffset;
+    carx = -GAME_WIDTH;
+    cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().index);
 
     //hud = new HUD(StockPalette::GUS_GAS_STATION, 20, 18);
     // Hud color text index 18
@@ -80,11 +80,9 @@ void GasStation::Action(ZoneId zone) {
 }
 
 SDL_Point GasStation::GetCarIdlePosition() {
-    return {35, 82};
-}
-
-SDL_Point GasStation::GetCarOffscreenPosition() {
-    return {-320, 82};
+    int x = SrLibQueryGetCarIdleX(SCENE_GAS_STATION);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().index);
+    return {x, y};
 }
 
 void GasStation::Draw() {
@@ -213,9 +211,8 @@ void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType anim
     if (animatingCar && carBitmap) return;
 
     if (car != nullptr && carBitmap == nullptr) {
-        carBitmap = new CarBitmap(car, nullptr, car->GetColor());
-        SDL_Point offscreenPos = GetCarOffscreenPosition();
-        carx = offscreenPos.x;
+        carBitmap = new CarBitmap(car, nullptr, car->GetColor());        
+        carx = -GAME_WIDTH;
         //cary = offscreenPos.y;
         animatingCar = true;
         currentAnimationType = animType;

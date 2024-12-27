@@ -48,7 +48,6 @@ class Diner: public CarScene {
         void Init(bool debugMode) override;
 
         SDL_Point GetCarIdlePosition() override;
-        SDL_Point GetCarOffscreenPosition() override;
 
         void Action(ZoneId zone) override;
 
