@@ -104,7 +104,11 @@ void Dialog::Draw() {
     SDL_FillRect(surface, &inner, SDL_MapRGB(surface->format, COL_FILL));
 
     // Draw title
-    SFont_Write(surface, font, bounds.w / 2, 5, title.c_str());
+    int textHeight = SFont_TextHeight(font);
+    int textWidth = SFont_TextWidth(font, title.c_str());
+    SFont_Write(surface, font, (bounds.w - textWidth) / 2, 3, title.c_str());
+    SDL_Rect lineRect = {3, 3+textHeight+2, bounds.w - 6, 1};
+    SDL_FillRect(surface, &lineRect, SDL_MapRGB(surface->format, COL_BORDER));
 
     // Draw list if enabled
     if (hasListBox) {
