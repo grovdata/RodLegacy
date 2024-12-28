@@ -1,8 +1,8 @@
 #include "dialog.h"
 
-#define COL_BORDER 0, 100, 110    // Same green as buttons
-#define COL_FILL 20, 20, 20       // Dark gray background
-#define COL_HIGHLIGHT 0, 120, 130  // Lighter green for selection
+#define COL_BORDER      0, 111, 239
+#define COL_FILL        20, 240, 20
+#define COL_HIGHLIGHT   0, 120, 130  // Lighter green for selection
 
 Dialog::Dialog(const std::string& title, const SDL_Rect& bounds, const SFont_Font* font)
     : bounds(bounds), 
@@ -93,15 +93,14 @@ void Dialog::HandleEvent(SDL_Event* event) {
 void Dialog::Draw() {
     if (!visible) return;
 
-    // Clear surface with fill color
     SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, COL_FILL));
 
-    // Draw border
-    SDL_Rect border = {0, 0, bounds.w, bounds.h};
+
+    SDL_Rect border = {1, 1, bounds.w - 2, bounds.h - 2};
     SDL_FillRect(surface, &border, SDL_MapRGB(surface->format, COL_BORDER));
     
     // Draw inner area
-    SDL_Rect inner = {1, 1, bounds.w - 2, bounds.h - 2};
+    SDL_Rect inner = {2, 2, bounds.w - 4, bounds.h - 4};
     SDL_FillRect(surface, &inner, SDL_MapRGB(surface->format, COL_FILL));
 
     // Draw title

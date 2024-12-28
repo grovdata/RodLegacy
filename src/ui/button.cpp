@@ -1,8 +1,9 @@
 #include "button.h"
 #include "../state.h"
 
-#define COL_GREEN 0, 100, 110
-#define COL_WHITE 255, 255, 255
+#define COL_GRAY      144, 144, 144
+#define COL_BLACK     0, 0, 0
+#define COL_WHITE     255, 255, 255
 #define COL_HIGHLIGHT 0, 120, 130
 
 Button::Button(std::string text, int offsetX, int offsetY, int width, int height) {
@@ -27,25 +28,31 @@ void Button::CreateButtonSurface() {
                                     0x000000FF,
                                     0xFF000000);
 
+    fontSurface = SDL_CreateRGBSurface(0, bounds.w, bounds.h, 32,
+                                    0x00FF0000,
+                                    0x0000FF00,
+                                    0x000000FF,
+                                    0xFF000000);
+    
     m_Rect = bounds;
-    SDL_FillRect(m_Surface, NULL, SDL_MapRGB(m_Surface->format, COL_GREEN));
+    SDL_FillRect(m_Surface, NULL, SDL_MapRGB(m_Surface->format, COL_GRAY));
 
     SDL_Rect border = {1, 1, bounds.w - 2, bounds.h - 2};
-    SDL_FillRect(m_Surface, &border, SDL_MapRGB(m_Surface->format, COL_WHITE));
+    SDL_FillRect(m_Surface, &border, SDL_MapRGB(m_Surface->format, COL_BLACK));
 
     SDL_Rect innerFill = {2, 2, bounds.w - 4, bounds.h - 4};
-    SDL_FillRect(m_Surface, &innerFill, SDL_MapRGB(m_Surface->format, pressed ? COL_HIGHLIGHT : COL_GREEN));
+    SDL_FillRect(m_Surface, &innerFill, SDL_MapRGB(m_Surface->format, pressed ? COL_HIGHLIGHT : COL_GRAY));
 
-    // Get text dimensions
     int textWidth = SFont_TextWidth(state.assets.GetMainFont(), text.c_str());
     int textHeight = SFont_TextHeight(state.assets.GetMainFont());
-
-    // Calculate centered position
     int textX = (bounds.w - textWidth) / 2;
     int textY = (bounds.h - textHeight) / 2;
 
     // Draw text at centered position
-    SFont_Write(m_Surface, state.assets.GetMainFont(), textX, textY, text.c_str());
+    SFont_Write(fontSurface, state.assets.GetMainFont(), textX, textY, text.c_str());
+    fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+    SDL_SetTextureColorMod(fontTexture, COL_BLACK);
+
     m_Texture = SDL_CreateTextureFromSurface(renderer, m_Surface);
 }
 
@@ -53,14 +60,21 @@ Button::~Button() {
     if (m_Surface) {
         SDL_FreeSurface(m_Surface);
     }
+    if (fontSurface) {
+        SDL_FreeSurface(fontSurface);
+    }
     if (m_Texture) {
         SDL_DestroyTexture(m_Texture);
+    }
+    if (fontTexture) {
+        SDL_DestroyTexture(fontTexture);
     }
 }
 
 void Button::Draw() {
     if (!visible) return;
     SDL_RenderCopy(renderer, m_Texture, NULL, &m_Rect);
+    SDL_RenderCopy(renderer, fontTexture, NULL, &m_Rect);
 }
 
 void Button::HandleEvent(SDL_Event* event) {

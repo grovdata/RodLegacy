@@ -10,8 +10,8 @@ const int cButtonStandardTextOffsetY = 5;
 
 class Button {
     private:
-        SDL_Surface *m_Surface;
-        SDL_Texture *m_Texture;
+        SDL_Surface *m_Surface, *fontSurface;
+        SDL_Texture *m_Texture, *fontTexture;
         SDL_Rect m_Rect;
         std::string text;
         SDL_Rect bounds;
