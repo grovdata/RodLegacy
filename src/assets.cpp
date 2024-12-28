@@ -124,8 +124,8 @@ void AssetManager::ReadAssets() {
             Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
             if (!decals) {
                 throw AssetLoadError("Failed to load car decals");
-            }
-            SDL_Rect cropDecal = {7, 10, 215, 50};
+            }            
+            SDL_Rect cropDecal = {4, 9, 222, 51};
             decals->Crop(cropDecal);
             carDecals = std::move(decals);
         }

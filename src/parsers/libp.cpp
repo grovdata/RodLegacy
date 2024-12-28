@@ -811,7 +811,6 @@ int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex) {
     for (size_t i = 0; i < CAR_Y_OFFSETS_COUNT; i++) {
         if (CAR_Y_OFFSETS[i][0] == carIndex) {
             // Add 1 to scene index since car model is in column 0
-            printf("Car Y index: %d, scene: %d, offset: %d\n", carIndex, (int)scene, CAR_Y_OFFSETS[i][(int)(scene) + 1]);
             return CAR_Y_OFFSETS[i][(int)(scene) + 1];
         }
     }

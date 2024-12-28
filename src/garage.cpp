@@ -80,7 +80,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
     partsBubble->SetVisible(false);
     bubbles.push_back(partsBubble);
-    Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_RIGHT, 79, 30, true);
+    Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
     tiresBubble->SetVisible(false);
     bubbles.push_back(tiresBubble);
 
@@ -88,7 +88,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
-    SDL_Log("Car Y offset: %d", cary);
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 }
 

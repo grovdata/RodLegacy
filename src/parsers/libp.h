@@ -259,6 +259,16 @@ enum AmigaLibAsset {
     THE_KING_CHEVROLET_CORVETTE_1963_BODY = 272,
     //
     DECALS = 280,
+    CAR_WHEELHOUSE = 287,
+    ENGINE_WINDOWFRAME = 288,
+    ENGINE_V6 = 289,
+    ENGINE_V8 = 290,
+    ENGINE_V8_BIG = 291,
+    ENGINE_WIRE1 = 292,
+    ENGINE_WIRE2 = 293,
+    ENGINE_BOLT = 294,
+    ENGINE_WINDOWBUTTONS = 295,
+    KING_STREET_RODDERS = 296,
     GIRLFRIEND_ANIMATION = 297,
     KISS_ANIMATION = 298,
     WIN_SCREEN = 299,
@@ -362,9 +372,9 @@ const int CAR_IDLE_X[][2] = {
 // Car Y offset lookup table by scene and car model
 const int CAR_Y_OFFSETS[][6] = {
     // Format: {CarModel, Garage, Diner, GasStation, Cruising, Driving}
-    {CHEVROLET_2DR_COUPE_1940,             90, 96, 112, 0, 0},
-    {CHEVROLET_ROADSTER_1940,              90, 96, 112, 0, 0},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938,     90, 96, 112, 0, 0},
+    {CHEVROLET_2DR_COUPE_1940,             82, 96, 112, 0, 0},
+    {CHEVROLET_ROADSTER_1940,              82, 96, 112, 0, 0},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938,     82, 96, 112, 0, 0},
     {CHEVROLET_CORVETTE_1956,              100, 106, 102, 0, 0},
     {CHEVROLET_CORVETTE_1961,              102, 108, 104, 0, 0},
     {CHEVROLET_CORVETTE_1963,              92, 98, 94, 0, 0},

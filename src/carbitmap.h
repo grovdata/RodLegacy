@@ -31,6 +31,8 @@ class CarBitmap {
     Bitmap *gasCap;
     Bitmap *pumpingHandle;
     Bitmap *hoodScoop;
+    Bitmap *rearWheelhouse;
+    Bitmap *frontWheelhouse;
     Spritesheet *decal;
 
     Uint64 t;
@@ -44,6 +46,9 @@ class CarBitmap {
     bool wheelsVisible = true;  // Add this member variable
 
     StandardCarColor currentColor;
+
+    Bitmap* rearWheelhouseBackground;
+    Bitmap* frontWheelhouseBackground;
 
     void UpdateTextures();
     void UpdateTires();

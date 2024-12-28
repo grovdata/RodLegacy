@@ -189,6 +189,21 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     //decal->SaveBitmap(DECALS);
     // decal->Print();
 
+    rearWheelhouse = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE});
+    rearWheelhouse->SetVisible(true);
+    frontWheelhouse = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE});
+    frontWheelhouse->SetVisible(true);
+    
+    // Add black surfaces behind wheelhouses
+    rearWheelhouseBackground = new Bitmap(38, 20, 32);  // Assuming wheelhouse is 32x32
+    frontWheelhouseBackground = new Bitmap(38, 20, 32);
+    SDL_FillRect(rearWheelhouseBackground->GetSurface(), NULL, SDL_MapRGB(rearWheelhouseBackground->GetSurface()->format, 0, 0, 0));
+    SDL_FillRect(frontWheelhouseBackground->GetSurface(), NULL, SDL_MapRGB(frontWheelhouseBackground->GetSurface()->format, 0, 0, 0));
+    rearWheelhouseBackground->UpdateFromSurface();
+    frontWheelhouseBackground->UpdateFromSurface();
+    rearWheelhouseBackground->SetVisible(true);
+    frontWheelhouseBackground->SetVisible(true);
+
     AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
 
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
@@ -248,6 +263,12 @@ void CarBitmap::Draw() {
 
     // Draw other parts (wheels, gas cap, etc.)
     if (wheelsVisible) {
+        // Draw black backgrounds first
+        rearWheelhouseBackground->Draw();
+        frontWheelhouseBackground->Draw();
+        // Then draw wheelhouses
+        rearWheelhouse->Draw();
+        frontWheelhouse->Draw();
         if (rearWheel && rearWheel->IsVisible()) {
             rearWheel->Draw();
         }
@@ -310,6 +331,11 @@ void CarBitmap::UpdateTextures() {
     gasCap->SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
     pumpingHandle->SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
     shadow->SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
+    rearWheelhouse->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
+    frontWheelhouse->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
+    // Update black background positions to match wheelhouses
+    rearWheelhouseBackground->SetPosition(bodyRect.x + offsets.offsetXRearTire - 2, bodyRect.y + bodyRect.h - 32);
+    frontWheelhouseBackground->SetPosition(bodyRect.x + offsets.offsetXFrontTire - 2, bodyRect.y + bodyRect.h - 32);
     UpdateTires();
 }
 

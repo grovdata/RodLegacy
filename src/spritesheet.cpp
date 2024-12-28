@@ -21,16 +21,21 @@ int Spritesheet::GetColumns() {
 }
 
 void Spritesheet::SelectSprite(int row, int column) {
-    clipRect.w = surface->w / this->columns;
-    clipRect.h = surface->h / this->rows;
+    if (row < 0 || row >= rows || column < 0 || column >= columns) {
+        printf("Warning: Invalid sprite coordinates (row=%d, col=%d)\n", row, column);
+        return;
+    }
+
+    clipRect.w = surface->w / columns;
+    clipRect.h = surface->h / rows;
+    
     currentY = row;
     currentX = column;
     SetDimensions(clipRect.w, clipRect.h);
     UpdateSprite();
 
-    //printf("spritesheet rect %d %d %d %d\n", m_clip.x, m_clip.y, m_clip.w, m_clip.y);
-    //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, rect.w, rect.h);
-    //SDL_UpdateTexture(texture, NULL, surface->pixels + m_clip.x + m_clip.y * surface->pitch, surface->pitch);
+    //SDL_Log("Spritesheet: selected sprite (%d,%d) rect=[%d,%d,%d,%d]\n", 
+    //       row, column, clipRect.x, clipRect.y, clipRect.w, clipRect.h);
 }
 
 void Spritesheet::CycleNextSprite() {
