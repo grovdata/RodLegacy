@@ -89,6 +89,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+
+    carSelectDialog = std::make_unique<CarSelectDialog>(
+        [this](Car* selectedCar) {
+            //state.SetCurrentCar(selectedCar);
+            StartAnimateCar(selectedCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+        }
+    );
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -127,6 +134,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_TIRES:
         bubbles[2]->SetVisible(true);
+        break;
+    case ZONE_GARAGE_CAR_LIST:
+        carSelectDialog->Show();
         break;
     default:
         break;
@@ -187,6 +197,10 @@ void Garage::Draw() {
     }
 
     DrawDebugZones();
+
+    if (carSelectDialog && carSelectDialog->IsVisible()) {
+        carSelectDialog->Draw();
+    }
 }
 
 void Garage::OnFadeComplete() {
@@ -198,5 +212,12 @@ void Garage::OnFadeComplete() {
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
             animatingCar = true;
         }
+    }
+}
+
+void Garage::PushEvent(SDL_Event* event) {
+    Scene::PushEvent(event);
+    if (carSelectDialog && carSelectDialog->IsVisible()) {
+        carSelectDialog->HandleEvent(event);
     }
 }

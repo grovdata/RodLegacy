@@ -45,6 +45,8 @@ cpp_sources = [
     'parsers/carcolor.cpp',
     'roster.cpp',
     'debug_overlay.cpp',
+    'ui/dialog.cpp',
+    'ui/car_select_dialog.cpp',
 ]
 
 # Include directories

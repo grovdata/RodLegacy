@@ -5,6 +5,7 @@
 #include "mouse.h"
 #include "ui/zone.h"
 #include "ui/bubble.h"
+#include "ui/car_select_dialog.h"
 
 class Garage : public CarScene {
    private:
@@ -12,6 +13,7 @@ class Garage : public CarScene {
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     void UpdateSign();
+    std::unique_ptr<CarSelectDialog> carSelectDialog;
 
    public:
     Garage();
@@ -19,6 +21,7 @@ class Garage : public CarScene {
     SDL_Point GetCarIdlePosition() override;
 
     void Action(ZoneId zone) override;
+    void PushEvent(SDL_Event* event) override;
     void Draw() override;
     void OnFadeComplete() override;
 };
