@@ -28,6 +28,7 @@ private:
     std::set<Driver *> knownDrivers;
 
     std::vector<Car *> carRoster;
+    std::vector<Car *> ownedCars;
     Car *currentCar;
 
     Roster roster;
@@ -64,6 +65,7 @@ public:
     Uint64 GetElapsedTime();
 
     Car* GetCurrentCar();
+    std::vector<Car *> GetOwnedCars();
 
     CarData carData;
     AssetManager assets;

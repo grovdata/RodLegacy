@@ -16,16 +16,19 @@ protected:
     std::vector<Button*> buttons;
     
     // Optional list functionality
+    SDL_Rect listBoxRect;
     bool hasListBox;
     std::vector<std::string> items;
     int selectedIndex;
     int scrollOffset;
     int visibleItems;
+    int listRowHeight;
     Button* scrollUpBtn;
     Button* scrollDownBtn;
     
     SDL_Surface* surface;
     SDL_Texture* texture;
+    
     
 public:
     Dialog(const std::string& title, const SDL_Rect& bounds, const SFont_Font* font);

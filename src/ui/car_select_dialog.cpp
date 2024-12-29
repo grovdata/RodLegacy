@@ -2,19 +2,20 @@
 #include "../state.h"
 
 CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
-    : Dialog("Your cars", {60, 40, 200, 120}, state.assets.GetMainFont()),
+    : Dialog("Your cars", {36, 26, 246, 136}, state.assets.GetMainFont()),
       onCarSelected(onCarSelected)
 {
+    listBoxRect = {0, 0, 242, 80};
     EnableList();
     
     Button* switchItButton = new Button(
         "Switch it",
-        SDL_Rect{bounds.x + 5, bounds.y + bounds.h - 25, 60, 18},
+        SDL_Rect{bounds.x + 14, bounds.y + bounds.h - 26, 66, 16},
         [this]() {
             if (selectedIndex >= 0) {
-                // CarModel model = state.GetCarModels()[selectedIndex];
-                // Car* car = new Car(model);
-                // onCarSelected(car);
+                CarModel model = state.GetOwnedCars()[selectedIndex]->GetModel();
+                Car* car = new Car(model);
+                this->onCarSelected(car);
                 Hide();
             }
         }
@@ -22,7 +23,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
 
     Button* sellItButton = new Button(
         "Sell it",
-        SDL_Rect{bounds.x + 65, bounds.y + bounds.h - 25, 60, 18},
+        SDL_Rect{bounds.x + 65, bounds.y + bounds.h - 26, 66, 16},
         [this]() {
             // TODO: Implement sell logic
         }
@@ -30,7 +31,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
     
     Button* cancelBtn = new Button(
         "Forget it",
-        SDL_Rect{bounds.x + 125, bounds.y + bounds.h - 25, 60, 18},
+        SDL_Rect{bounds.x + 125, bounds.y + bounds.h - 26, 66, 16},
         [this]() { Hide(); }
     );
     
@@ -40,7 +41,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
     
     // Create scroll buttons
     scrollUpBtn = new Button(
-        "U",
+        "/",
         SDL_Rect{bounds.x + bounds.w - 20, bounds.y + 5, 15, 15},
         [this]() {
             if (scrollOffset > 0) scrollOffset--;
@@ -48,7 +49,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
     );
     
     scrollDownBtn = new Button(
-        "D", 
+        ">", 
         SDL_Rect{bounds.x + bounds.w - 20, bounds.y + bounds.h - 40, 15, 15},
         [this]() {
             if (scrollOffset + visibleItems < static_cast<int>(items.size())) scrollOffset++;
@@ -63,8 +64,8 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
 
 void CarSelectDialog::PopulateCarList() {
     std::vector<std::string> carNames;
-    // for (const auto& model : state.GetCarModels()) {
-    //     carNames.push_back(model.name);
-    // }
+    for (const auto& model : state.GetOwnedCars()) {
+        carNames.push_back(model->GetModel().name);
+    }
     SetItems(carNames);
 } 

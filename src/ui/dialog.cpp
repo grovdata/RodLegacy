@@ -17,7 +17,17 @@ Dialog::Dialog(const std::string& title, const SDL_Rect& bounds, const SFont_Fon
       surface(nullptr),
       texture(nullptr)
 {
-    visibleItems = (bounds.h - 45) / 15;
+    // Calculate list box area
+    int titleHeight = SFont_TextHeight(font) + 10;  // Title + padding
+    listRowHeight = SFont_TextHeight(font) + 1;
+    listBoxRect = {
+        2,                  // x: 2 pixels from dialog edge
+        titleHeight,        // y: below title area
+        bounds.w - 4,       // width: dialog width minus borders
+        bounds.h - titleHeight - 4  // height: remaining space minus bottom border
+    };
+    
+    visibleItems = listBoxRect.h / listRowHeight;  // Adjust item height if needed
 
     surface = SDL_CreateRGBSurface(0, bounds.w, bounds.h, 32,
                                   0x00FF0000,
@@ -79,9 +89,10 @@ void Dialog::HandleEvent(SDL_Event* event) {
             int x = event->button.x - bounds.x;
             int y = event->button.y - bounds.y;
             
-            // Check if click is in list area
-            if (x >= 2 && x < bounds.w - 2 && y >= 25 && y < 25 + visibleItems * 15) {
-                int clickedIndex = scrollOffset + (y - 25) / 15;
+            // Check if click is within listBoxRect
+            if (x >= listBoxRect.x && x < listBoxRect.x + listBoxRect.w && 
+                y >= listBoxRect.y && y < listBoxRect.y + listBoxRect.h) {
+                int clickedIndex = scrollOffset + (y - listBoxRect.y) / 15;
                 if (clickedIndex < static_cast<int>(items.size())) {
                     selectedIndex = clickedIndex;
                 }
@@ -112,14 +123,19 @@ void Dialog::Draw() {
 
     // Draw list if enabled
     if (hasListBox) {
-        int y = 25;
         for (int i = scrollOffset; i < std::min(scrollOffset + visibleItems, static_cast<int>(items.size())); i++) {
+            int y = listBoxRect.y + (i - scrollOffset) * listRowHeight;
+            
             if (i == selectedIndex) {
-                SDL_Rect highlight = {2, y, bounds.w - 4, 15};
+                SDL_Rect highlight = {
+                    listBoxRect.x, 
+                    y, 
+                    listBoxRect.w, 
+                    listRowHeight
+                };
                 SDL_FillRect(surface, &highlight, SDL_MapRGB(surface->format, COL_HIGHLIGHT));
             }
-            SFont_Write(surface, font, 5, y, items[i].c_str());
-            y += 15;
+            SFont_Write(surface, font, listBoxRect.x + 1, y, items[i].c_str());
         }
     }
 
