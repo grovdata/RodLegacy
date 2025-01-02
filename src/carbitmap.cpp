@@ -349,6 +349,10 @@ void CarBitmap::UpdateTires() {
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {
+    if (!rearWheel || !frontWheel) {
+        return;
+    }
+
     // Only update wheels if there's enough movement and enough time has passed
     Uint64 currentTime = SDL_GetTicks64();
     const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
@@ -399,4 +403,13 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
     // Overlay the part
     SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
     baseBitmap->UpdateFromSurface();
+}
+
+void CarBitmap::Print() {
+    SDL_Log("CarBitmap driver is null: %s", this->driver == nullptr ? "true" : "false");
+    SDL_Log("Bodyoriginal is null: %s", this->bodyOriginal == nullptr ? "true" : "false");
+    SDL_Log("Bodychopped is null: ", this->bodyChopped == nullptr ? "true" : "false");
+    SDL_Log("Rear wheel is null: ", this->rearWheel == nullptr ? "true" : "false");
+    SDL_Log("Front wheel is null: ", this->frontWheel == nullptr ? "true" : "false");    
+
 }

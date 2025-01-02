@@ -156,6 +156,7 @@ void Garage::Draw() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
+            
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
             animatingCar = true;
         }

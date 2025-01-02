@@ -76,4 +76,6 @@ class CarBitmap {
     void SetGasCapRemoved(bool removed);
     void SetPumpingHandleVisible(bool visible);
     bool IsRoofChopped() const { return isRoofChopped; }
+
+    void Print();
 };

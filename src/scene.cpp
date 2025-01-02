@@ -267,9 +267,11 @@ void CarScene::Init(bool debugMode) {
 
 void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
+    SDL_Log("CarScene::StartAnimateCar");
 
     currentAnimationType = animType;
     if (car != nullptr && carBitmap == nullptr) {
+        SDL_Log("CarScene::StartAnimateCar - need to create new bitmap");
         carBitmap = new CarBitmap(car, driver, car->GetColor());
         carx = -GAME_WIDTH;
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
@@ -309,6 +311,8 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             carx = newX;
 
             float speed = (endX - startX) * (3 * t * t) / exitDuration;
+
+            carBitmap->Print();
             if (carBitmap) {
                 carBitmap->UpdateWheelAnimation(speed * deltaTime);
                 carBitmap->Move({carx, cary});
