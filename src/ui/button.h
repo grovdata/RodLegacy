@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include "../global.h"
 #include "zone.h"
 

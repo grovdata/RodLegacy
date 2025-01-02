@@ -9,8 +9,15 @@ project('streetrod_legacy', ['cpp', 'c'],
 
 # Dependencies
 sdl2_dep = dependency('sdl2')
-sdl2_image_dep = dependency('sdl2_image')
-sdl2_mixer_dep = dependency('sdl2_mixer')
+
+
+# OSX
+#sdl2_image_dep = dependency('sdl2_image')
+#sdl2_mixer_dep = dependency('sdl2_mixer')
+
+# Linux
+sdl2_image_dep = dependency('SDL2_image')
+sdl2_mixer_dep = dependency('SDL2_mixer')
 
 
 subdir('src') 
