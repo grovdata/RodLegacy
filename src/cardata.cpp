@@ -15,9 +15,8 @@ CarData::~CarData() {
 
 }
 
-// FIXME ick ugly, refactor
-void CarData::ReadEntries(string datafile, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
-    ReadCarsBuiltin(datafile, bitmaps);
+void CarData::ReadEntries(std::vector<char> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
+    ReadCarsBuiltin(datafilebuf, bitmaps);
    // ReadCarsFromTomlFile(tomlfile);
 }
 
@@ -89,9 +88,10 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
     return search != table->end();
 }
 
-void CarData::ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadCarsBuiltin(std::vector<unsigned char> datafilebuf, pair<int, vector<BitmapEntry_t>> bitmaps) {
     int metadataCount;
-    CarMetadata_t* metadata = dp.SrLibDataReadDataFromFile(datafile.c_str(), &metadataCount);
+
+    CarMetadata_t* metadata = dp.SrLibDataReadDataFromBuffer(datafilebuf, &metadataCount);
     
     // Resize vector and copy array data
     carMetadata.clear();

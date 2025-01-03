@@ -21,7 +21,8 @@ class CarData {
         ~CarData();
 
         CarMetadata_t GetCarMetadata(int carIndex);
-        void ReadEntries(string datafile, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps);
+        
+        void ReadEntries(std::vector<unsigned char> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps);
 
         /// @brief Finds a model in car data array
         /// @param modelId
@@ -33,7 +34,7 @@ class CarData {
 
         void PrintModel(CarModel model);
 
-        void ReadCarsBuiltin(string datafile, pair<int, vector<BitmapEntry_t>> bitmaps);
+        void ReadCarsBuiltin(std::vector<unsigned char>, pair<int, vector<BitmapEntry_t>> bitmaps);
         void ReadCarsFromTomlFile(string filename);
         CarModel GetRandomModel();
 };

@@ -13,7 +13,7 @@ void State::Init(bool enableDebug) {
         assets.ReadAssets();
         pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
-        carData.ReadEntries(this->GetDataFile(), GetTomlFile(), entries);
+        carData.ReadEntries(assets.GetLibPData(), GetTomlFile(), entries);
 
         // Initialize roster
         roster.Initialize(carData);
