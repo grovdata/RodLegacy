@@ -244,13 +244,21 @@ fs::path AssetManager::FindGameDirectory() {
     // Get the preferred path from environment variable if set
     const char* envPath = SDL_getenv("STREETROD_DATA");
     if (envPath) {
+        SDL_Log("Using STREETROD_DATA from environment: %s", envPath);
         searchPaths.insert(searchPaths.begin(), envPath);
     }
 
-
     // Search for data directory
     for (const auto& path : searchPaths) {
-        if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
+        // Check if ADF files are in the data directory
+        if (fs::exists(path / "data" / "SR1AMIGA_DISK1.adf") && 
+            fs::exists(path / "data" / "SR1AMIGA_DISK2.adf")) {
+            SDL_Log("Found game files in data subdirectory: %s", path.string().c_str());
+            return path;
+        }
+        // Also check if ADF files are in the root directory
+        if (fs::exists(path / "SR1AMIGA_DISK1.adf") && 
+            fs::exists(path / "SR1AMIGA_DISK2.adf")) {
             SDL_Log("Found game files in: %s", path.string().c_str());
             return path;
         }
