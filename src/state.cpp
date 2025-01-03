@@ -13,7 +13,7 @@ void State::Init(bool enableDebug) {
         assets.ReadAssets();
         pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
-        carData.ReadEntries(assets.GetLibPData(), GetTomlFile(), entries);
+        carData.ReadEntries(assets.GetSrData(), GetTomlFile(), entries);
 
         // Initialize roster
         roster.Initialize(carData);
@@ -45,7 +45,7 @@ void State::Init(bool enableDebug) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
 
-        // FIXME: Until we can buy a car        
+        // FIXME: Until we can buy a car
         CarModel chevy = carData.GetModelFromIndex(CHEVROLET_MASTER_DELUXE_2DR_1938_BODY);
         Car *randomCar = roster.GenerateRandomCar(chevy);
 

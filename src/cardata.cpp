@@ -15,7 +15,7 @@ CarData::~CarData() {
 
 }
 
-void CarData::ReadEntries(std::vector<unsigned char> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
     ReadCarsBuiltin(datafilebuf, bitmaps);
 //    ReadCarsFromTomlFile(tomlfile);
 }
@@ -45,7 +45,6 @@ CarModel CarData::GetModelFromIndex(int index) {
     std::cout << "No model found for id " << index << std::endl;
     return CarModel();
 }
-
 
 CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata) {
     CarModel m;
@@ -88,11 +87,11 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
     return search != table->end();
 }
 
-void CarData::ReadCarsBuiltin(std::vector<unsigned char> datafilebuf, pair<int, vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, pair<int, vector<BitmapEntry_t>> bitmaps) {
     int metadataCount;
-    
+
     // Convert vector<unsigned char> to unsigned char*
-    unsigned char* buffer = datafilebuf.data();
+    unsigned char* buffer = reinterpret_cast<uint8_t*>(datafilebuf.data());
     CarMetadata_t* metadata = dp.SrLibDataReadDataFromBuffer(buffer, datafilebuf.size(), &metadataCount);
     
     // Resize vector and copy array data

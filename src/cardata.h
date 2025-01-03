@@ -22,7 +22,7 @@ class CarData {
 
         CarMetadata_t GetCarMetadata(int carIndex);
         
-        void ReadEntries(std::vector<unsigned char> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps);
+        void ReadEntries(std::vector<uint8_t> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps);
 
         /// @brief Finds a model in car data array
         /// @param modelId
