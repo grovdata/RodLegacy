@@ -52,9 +52,7 @@ private:
     void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
 
 public:
-    // Default constructor
-    CarBitmap();
-    
+   
     // Main constructor
     CarBitmap(Car* car, Driver* driver, StandardCarColor color);
     

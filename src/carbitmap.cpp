@@ -37,23 +37,6 @@ void CarShadow::Draw() {
     Bitmap::Draw();
 }
 
-CarBitmap::CarBitmap() 
-    : car(nullptr)
-    , body(&bodyOriginal)
-    , shadow(32)
-    , wheels()
-    , decal()
-    , t(0)
-    , offsets{}
-    , wheelsYOffset(0)
-    , showDriver(false)
-    , isRoofChopped(false)
-    , lastWheelUpdateTime(0)
-    , wheelsVisible(true)
-    , currentColor(CarColorRed)
-    , gasCapRemoved(false)
-    , pumpingHandleVisible(false) {
-}
 
 CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color) 
     : car(car)
