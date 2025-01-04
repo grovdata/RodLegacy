@@ -92,8 +92,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     carSelectDialog = std::make_unique<CarSelectDialog>(
         [this](Car* selectedCar) {
-            //state.SetCurrentCar(selectedCar);
-            StartAnimateCar(selectedCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            pendingCarSwap = true;
+            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
         }
     );
 }
@@ -188,9 +188,7 @@ void Garage::Draw() {
         SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
         SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
-
-    // FIXME: Only update sign when car changes
-    UpdateSign();
+   
     SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 
     for (auto b : bubbles) {
@@ -221,4 +219,9 @@ void Garage::PushEvent(SDL_Event* event) {
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->HandleEvent(event);
     }
+}
+
+void Garage::OnCarAnimationComplete() {
+    CarScene::OnCarAnimationComplete();
+    UpdateSign();
 }

@@ -266,17 +266,38 @@ void CarScene::Init(bool debugMode) {
 //}
 
 void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {
-    if (animatingCar && carBitmap) return;
-    SDL_Log("CarScene::StartAnimateCar");
+    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d, carBitmap=%p)", 
+            animatingCar, (void*)carBitmap);
+    
+    if (animatingCar) {
+        SDL_Log("StartAnimateCar: Already animating, skipping");
+        return;
+    }
+    SDL_Log("CarScene::StartAnimateCar - Type: %d", (int)animType);
 
     currentAnimationType = animType;
+    
+    // For reverse animation, we want to use the existing bitmap
+    if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
+        SDL_Log("StartAnimateCar: Starting reverse animation with existing bitmap");
+        carAnimationTime = 0;
+        animatingCar = true;
+        return;
+    }
+    
+    // For other animations, create new bitmap if needed
     if (car != nullptr && carBitmap == nullptr) {
-        SDL_Log("CarScene::StartAnimateCar - need to create new bitmap");
+        SDL_Log("CarScene::StartAnimateCar - creating new bitmap");
         carBitmap = new CarBitmap(car, driver, car->GetColor());
         carx = -GAME_WIDTH;
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
         animatingCar = true;
         waitTimer = 0;
+        SDL_Log("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d", 
+                carx, cary, (int)animType, animatingCar);
+    } else {
+        SDL_Log("CarScene::StartAnimateCar - Conditions not met: car=%p, carBitmap=%p", 
+                (void*)car, (void*)carBitmap);
     }
 }
 
@@ -294,8 +315,12 @@ void CarScene::UpdateDebugInfo() {
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
+    SDL_Log("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
+            isPaused, exitingCar, animatingCar);
+            
     if (!isPaused) {
         if (exitingCar) {
+            SDL_Log("UpdateCarAnimation: Handling exit animation");
             carExitAnimationTime += deltaTime;
             const double exitDuration = 2.5;
             
@@ -330,6 +355,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
             }
         } else if (animatingCar) {
+            SDL_Log("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
             carAnimationTime += deltaTime;
             const double duration = 2.0;
             double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
@@ -338,16 +364,22 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             int targetX;
             
             if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
-                // Reverse animation: start from right side
+                SDL_Log("UpdateCarAnimation: Reverse animation");
                 targetX = static_cast<int>((1.0 - easedValue) * (idlePos.x + GAME_WIDTH) - GAME_WIDTH);
             } else {
-                // Normal forward animation
+                SDL_Log("UpdateCarAnimation: Forward animation");
                 targetX = static_cast<int>((easedValue * (idlePos.x + GAME_WIDTH)) - GAME_WIDTH);
             }
             
             carx = targetX;
+            SDL_Log("UpdateCarAnimation: New carx=%d", carx);
 
-            float speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTime / duration) * (10.0/duration);
+            float speed;
+            if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
+                speed = (GAME_WIDTH + 50) * (10.0/duration) * easedValue;  // Accelerate right
+            } else {
+                speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTime / duration) * (10.0/duration);  // Original forward speed
+            }
             if (carBitmap) {
                 carBitmap->UpdateWheelAnimation(speed * deltaTime);
                 carBitmap->Move({carx, cary});

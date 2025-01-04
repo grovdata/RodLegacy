@@ -9,7 +9,7 @@
 
 class Garage : public CarScene {
    private:
-
+    bool pendingCarSwap = false;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     void UpdateSign();
@@ -23,5 +23,6 @@ class Garage : public CarScene {
     void Action(ZoneId zone) override;
     void PushEvent(SDL_Event* event) override;
     void Draw() override;
+    void OnCarAnimationComplete() override;
     void OnFadeComplete() override;
 };
