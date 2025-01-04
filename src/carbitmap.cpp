@@ -55,15 +55,15 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     , gasCapRemoved(false)
     , pumpingHandleVisible(false) {
     
-    // Load body textures
-    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
-    
+    CarModel model = car->GetModel();
+
     // Get reference to the lib file
     byte_vector& libFile = state.assets.GetLibPData();
-    state.assets.UpdateAssetWithCarPalette(libFile, bodyAssetNo, color);
     
     // Load original body
-    auto* originalAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo});
+    vector<uint16_t> carPalette = GetStandardCarColor(color);
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
+    auto* originalAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (originalAsset) {
         bodyOriginal = *originalAsset;  // Copy the bitmap
     }
@@ -75,6 +75,9 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
             bodyChopped = *choppedAsset;  // Copy the bitmap
         }
     }
+
+    shadow.SetDimensions(model.width, 4);
+    shadow.SetVisible(true);
 
     // Load wheels
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
