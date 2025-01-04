@@ -228,8 +228,7 @@ void Garage::OnCarAnimationComplete() {
     SDL_Log("Garage::OnCarAnimationComplete - Entry point");
     CarScene::OnCarAnimationComplete();
     if (pendingCar != nullptr) {
-        delete carBitmap;
-        carBitmap = new CarBitmap(pendingCar, nullptr, pendingCar->GetColor());
+        delete carBitmap;        
         carx = -GAME_WIDTH;
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
 
