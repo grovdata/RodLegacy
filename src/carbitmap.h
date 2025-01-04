@@ -16,70 +16,71 @@ class CarShadow: public Bitmap {
 };
 
 class CarBitmap {
-   private:
-    Car *car;
+private:
+    Car* car;  // This stays a pointer as it's managed elsewhere
 
-    Bitmap *bodyOriginal;  // Original body without chopped roof
-    Bitmap *bodyChopped;   // Body with chopped roof
-    Bitmap *body;          // Pointer to current active body (original or chopped)
-    CarShadow *shadow;
-    bool isRoofChopped;
+    // Convert pointer members to direct objects
+    Bitmap bodyOriginal;
+    Bitmap bodyChopped;
+    Bitmap* body;  // This stays a pointer as it points to either bodyOriginal or bodyChopped
+    CarShadow shadow;
+    Bitmap driver;
+    Spritesheet wheels;  // Single wheels spritesheet
+    Bitmap gasCap;
+    Bitmap pumpingHandle;
+    Bitmap hoodScoop;
+    Bitmap rearWheelhouse;
+    Bitmap frontWheelhouse;
+    Spritesheet decal;
+    Bitmap rearWheelhouseBackground;
+    Bitmap frontWheelhouseBackground;
 
-    Bitmap *driver;
-    Spritesheet *rearWheel;
-    Spritesheet *frontWheel;
-    Bitmap *gasCap;
-    Bitmap *pumpingHandle;
-    Bitmap *hoodScoop;
-    Bitmap *rearWheelhouse;
-    Bitmap *frontWheelhouse;
-    Spritesheet *decal;
-
+    SDL_Rect frontWheelPos;
+    SDL_Rect rearWheelPos;
+    
     Uint64 t;
-
     BitmapOffset_t offsets;
     int wheelsYOffset;
     bool showDriver;
-
-    Uint64 lastWheelUpdateTime = 0;  // Track last wheel animation update time
-
-    bool wheelsVisible = true;  // Add this member variable
-
+    bool isRoofChopped;
+    Uint64 lastWheelUpdateTime;
+    bool wheelsVisible;
     StandardCarColor currentColor;
+    bool gasCapRemoved;
+    bool pumpingHandleVisible;
 
-    Bitmap* rearWheelhouseBackground;
-    Bitmap* frontWheelhouseBackground;
-
-    Spritesheet* wheels;  // Single spritesheet for both wheels
-    SDL_Rect frontWheelPos;  // Position for front wheel
-    SDL_Rect rearWheelPos;   // Position for rear wheel
-
-    void UpdateTextures();
-    void UpdateTires();
-    void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
-
-   public:
-    CarBitmap(Car *car, Driver* driver, StandardCarColor color);
-    ~CarBitmap();
-
+public:
+    // Default constructor
+    CarBitmap();
+    
+    // Main constructor
+    CarBitmap(Car* car, Driver* driver, StandardCarColor color);
+    
+    // No need for destructor anymore as members clean up automatically
+    
     void Draw();
     void Move(SDL_Point p);
-    void MoveBody(SDL_Point p);
-    void MoveWheelsYOffset(int y);
-    void UpdateWheelAnimation(float speed);
-
-    BitmapOffset_t GetOffset();
-
-    int GetWheelsYOffset() const { return wheelsYOffset; }
-    bool AreWheelsVisible() const { return wheelsVisible; }
-    void ToggleWheels() { wheelsVisible = !wheelsVisible; }
-
-    void UpdateColor(StandardCarColor newColor);
-
+    void SetVisible(bool visible);
     void ToggleChoppedRoof();
-    void SetGasCapRemoved(bool removed);
-    void SetPumpingHandleVisible(bool visible);
-    bool IsRoofChopped() const { return isRoofChopped; }
+    void UpdateTires();
+    void UpdateTextures();
 
-    void Print();
+    // Add missing methods
+    void MoveBody(SDL_Point p);
+    void MoveWheelsYOffset(int offset);
+    int GetWheelsYOffset() const { return wheelsYOffset; }
+
+    // Gas station methods
+    void SetGasCapRemoved(bool removed) { 
+        gasCapRemoved = removed; 
+        gasCap.SetVisible(!removed);
+    }
+    
+    void SetPumpingHandleVisible(bool visible) { 
+        pumpingHandleVisible = visible;
+        pumpingHandle.SetVisible(visible);
+    }
+    
+    bool IsGasCapRemoved() const { return gasCapRemoved; }
+    bool IsPumpingHandleVisible() const { return pumpingHandleVisible; }
 };

@@ -3,10 +3,30 @@
 #include "global.h"
 #include "bitmap.h"
 
-class Spritesheet: public Bitmap {
-   public:
-    Spritesheet(int rows, int columns);
-    Spritesheet(int rows, int columns, Spritesheet *other);
+class Spritesheet : public Bitmap {
+private:
+    int rows;
+    int columns;
+    int currentRow;
+    int currentColumn;
+    int currentX;
+    int currentY;
+
+    SDL_Rect clipRect;
+
+public:
+    // Default constructor
+    Spritesheet() : Bitmap(), rows(1), columns(1), currentRow(0), currentColumn(0), currentX(0), currentY(0), clipRect({0, 0, 0, 0}) {}
+    
+    // Constructor with dimensions
+    Spritesheet(int rows, int columns) 
+        : Bitmap(), rows(rows), columns(columns), currentRow(0), currentColumn(0), currentX(0), currentY(0), clipRect({0, 0, 0, 0}) {}
+    
+    // Copy constructor
+    Spritesheet(const Spritesheet& other)
+        : Bitmap(other), rows(other.rows), columns(other.columns),
+          currentRow(other.currentRow), currentColumn(other.currentColumn), currentX(other.currentX), currentY(other.currentY), clipRect(other.clipRect) {}
+    
     virtual ~Spritesheet() {
         Bitmap::~Bitmap();
         SDL_Log("Deleting Spritesheet virtual");
@@ -18,12 +38,4 @@ class Spritesheet: public Bitmap {
     void Print();
     int GetRows();
     int GetColumns();
-
-   private:
-    SDL_Rect clipRect;
-
-    int rows;
-    int columns;
-    int currentX;
-    int currentY;
 };

@@ -355,7 +355,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
             }
         } else if (animatingCar) {
-            SDL_Log("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
+            // SDL_Log("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
             carAnimationTime += deltaTime;
             const double duration = 2.0;
             double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
@@ -364,15 +364,15 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             int targetX;
             
             if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
-                SDL_Log("UpdateCarAnimation: Reverse animation");
+                // SDL_Log("UpdateCarAnimation: Reverse animation");
                 targetX = static_cast<int>((1.0 - easedValue) * (idlePos.x + GAME_WIDTH) - GAME_WIDTH);
             } else {
-                SDL_Log("UpdateCarAnimation: Forward animation");
+                // SDL_Log("UpdateCarAnimation: Forward animation");
                 targetX = static_cast<int>((easedValue * (idlePos.x + GAME_WIDTH)) - GAME_WIDTH);
             }
             
             carx = targetX;
-            SDL_Log("UpdateCarAnimation: New carx=%d", carx);
+            // SDL_Log("UpdateCarAnimation: New carx=%d", carx);
 
             float speed;
             if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {

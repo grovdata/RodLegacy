@@ -1,17 +1,5 @@
 #include "spritesheet.h"
 
-Spritesheet::Spritesheet(int rows, int columns) : Bitmap() {
-    this->rows = rows;
-    this->columns = columns;
-}
-
-Spritesheet::Spritesheet(int rows, int columns, Spritesheet *other) {
-    this->rows = other->GetRows();
-    this->columns = other->GetColumns();
-    this->surface = SDL_ConvertSurface(other->surface, other->surface->format, 0);
-    this->texture = SDL_CreateTextureFromSurface(renderer, this->surface);
-}
-
 int Spritesheet::GetRows() {
      return rows;
 }

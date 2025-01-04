@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!win) {
-        printf("error creating window: %s\n", SDL_GetError());
+        SDL_Log("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }

@@ -230,6 +230,8 @@ void Garage::OnCarAnimationComplete() {
     if (pendingCar != nullptr) {
         delete carBitmap;
         carBitmap = new CarBitmap(pendingCar, nullptr, pendingCar->GetColor());
+        carx = -GAME_WIDTH;
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
 
         UpdateSign();
         state.SetCurrentCar(pendingCar);

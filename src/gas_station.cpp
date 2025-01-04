@@ -221,10 +221,8 @@ void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType anim
 
 void GasStation::OnCarAnimationComplete() {
     CarScene::OnCarAnimationComplete();
-    if (carBitmap) {
-        carBitmap->SetGasCapRemoved(true);
-        carBitmap->SetPumpingHandleVisible(true);
-    }
+    carBitmap->SetGasCapRemoved(true);
+    carBitmap->SetPumpingHandleVisible(true);
 }
 
 void GasStation::OnFadeComplete() {
