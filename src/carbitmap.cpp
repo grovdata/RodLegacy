@@ -126,19 +126,34 @@ void CarBitmap::UpdatePositions() {
 }
 
 void CarBitmap::Draw() {
+    driver.Draw();
+
+    if (shadow.IsVisible()) {
+        shadow.Draw();
+    }
+    
+    if (wheelsVisible) {
+        wheels.SetPosition(frontWheelPos.x, frontWheelPos.y);
+        wheels.Draw();
+        wheels.SetPosition(rearWheelPos.x, rearWheelPos.y);
+        wheels.Draw();
+    }
+
     if (body) {
         body->Draw();
     }
     
-    if (wheelsVisible) {
-        wheels.Draw();
-        wheels.Draw();
+    if (gasCap.IsVisible()) {   
+        gasCap.Draw();
     }
-    
-    // Draw other parts
-    gasCap.Draw();
-    hoodScoop.Draw();
-    // ... draw other parts ...
+
+    if (hoodScoop.IsVisible()) {
+        hoodScoop.Draw();
+    }
+
+    if (decal.IsVisible()) {
+        decal.Draw();
+    }
 }
 
 void CarBitmap::ToggleChoppedRoof() {
