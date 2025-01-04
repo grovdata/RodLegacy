@@ -8,6 +8,7 @@ class Spritesheet: public Bitmap {
     Spritesheet(int rows, int columns);
     Spritesheet(int rows, int columns, Spritesheet *other);
     virtual ~Spritesheet() {
+        Bitmap::~Bitmap();
         SDL_Log("Deleting Spritesheet virtual");
     }
     void SelectSprite(int row, int column);

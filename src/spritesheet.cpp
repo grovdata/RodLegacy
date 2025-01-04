@@ -22,7 +22,7 @@ int Spritesheet::GetColumns() {
 
 void Spritesheet::SelectSprite(int row, int column) {
     if (row < 0 || row >= rows || column < 0 || column >= columns) {
-        printf("Warning: Invalid sprite coordinates (row=%d, col=%d)\n", row, column);
+        SDL_LogWarn(0, "Warning: Invalid sprite coordinates (row=%d, col=%d)\n", row, column);
         return;
     }
 

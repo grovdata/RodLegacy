@@ -1,7 +1,7 @@
 #include "car_select_dialog.h"
 #include "../state.h"
 
-CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
+CarSelectDialog::CarSelectDialog(std::function<void(int)> onCarSelected)
     : Dialog("Your cars", {36, 26, 246, 136}, state.assets.GetMainFont()),
       onCarSelected(onCarSelected)
 {
@@ -17,10 +17,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
         SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() {
             if (selectedIndex >= 0) {
-                CarModel model = state.GetOwnedCars()[selectedIndex]->GetModel();
-                Car* car = new Car(model);
-                this->onCarSelected(car);
-                Hide();
+                this->OnItemSelected(selectedIndex);
             }
         }
     );
@@ -68,8 +65,16 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
 
 void CarSelectDialog::PopulateCarList() {
     std::vector<std::string> carNames;
+    carNames.reserve(state.GetOwnedCars().size());
     for (const auto& model : state.GetOwnedCars()) {
         carNames.push_back(model->GetModel().name);
     }
     SetItems(carNames);
+}
+
+void CarSelectDialog::OnItemSelected(int index) {
+    if (onCarSelected) {
+        onCarSelected(index);
+    }
+    Hide();
 } 

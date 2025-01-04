@@ -46,10 +46,8 @@ void State::Init(bool enableDebug) {
 
 
         // FIXME: Until we can buy a car
-        CarModel chevy = carData.GetModelFromIndex(CHEVROLET_MASTER_DELUXE_2DR_1938_BODY);
-        Car *randomCar = roster.GenerateRandomCar(chevy);
-
-        this->currentCar = randomCar;
+        this->currentCar = ownedCars.at(0);
+        SDL_Log("Current car tires: %d", this->currentCar->GetTires().assetId);
         
         // Create scenes after fonts are initialized
         garage = std::make_unique<Garage>();

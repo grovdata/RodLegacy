@@ -91,8 +91,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 
     carSelectDialog = std::make_unique<CarSelectDialog>(
-        [this](Car* selectedCar) {
+        [this](int selectedIndex) {
+            Car* selectedCar = state.GetOwnedCars()[selectedIndex];
             pendingCar = selectedCar;
+            SDL_Log("Garage::CarSelectDialog: selectedCarTires=%d", selectedCar->GetTires().assetId);
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
         }
     );
@@ -111,6 +113,7 @@ void Garage::UpdateSign() {
     SFont_Write(signSurface, state.assets.GetMainFont(), 78, 45, text);
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
+    SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 }
 
 void Garage::Action(ZoneId zone) {
@@ -189,7 +192,7 @@ void Garage::Draw() {
         SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
    
-    SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
+    
 
     for (auto b : bubbles) {
         b->Draw();

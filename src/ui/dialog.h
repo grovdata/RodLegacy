@@ -38,6 +38,7 @@ public:
     void Hide();
     void Draw();
     void HandleEvent(SDL_Event* event);
+    virtual void OnItemSelected(int index) = 0;
     
     void AddButton(Button* button);
     void EnableList();

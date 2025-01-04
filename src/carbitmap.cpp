@@ -205,6 +205,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     frontWheelhouseBackground->SetVisible(true);
 
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
+
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     if (rearWheel != nullptr) {
         rearWheel->SelectSprite(0, 1);
@@ -215,7 +216,7 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
         frontWheel->SetVisible(true);
         frontWheel->SetDimensions(32, 32);
     } else {
-        SDL_LogError("Rear wheel asset is null");
+        SDL_LogWarn(0, "Rear wheel asset is null");
     }
 
     UpdateTextures();
@@ -412,8 +413,8 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
 void CarBitmap::Print() {
     SDL_Log("CarBitmap driver is null: %s", this->driver == nullptr ? "true" : "false");
     SDL_Log("Bodyoriginal is null: %s", this->bodyOriginal == nullptr ? "true" : "false");
-    SDL_Log("Bodychopped is null: ", this->bodyChopped == nullptr ? "true" : "false");
-    SDL_Log("Rear wheel is null: ", this->rearWheel == nullptr ? "true" : "false");
-    SDL_Log("Front wheel is null: ", this->frontWheel == nullptr ? "true" : "false");    
+    SDL_Log("Bodychopped is null: %s", this->bodyChopped == nullptr ? "true" : "false");
+    SDL_Log("Rear wheel is null: %s", this->rearWheel == nullptr ? "true" : "false");
+    SDL_Log("Front wheel is null: %s", this->frontWheel == nullptr ? "true" : "false");    
 
 }

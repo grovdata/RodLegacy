@@ -4,9 +4,12 @@
 
 class CarSelectDialog : public Dialog {
 private:
-    std::function<void(Car*)> onCarSelected;
+    std::function<void(int)> onCarSelected;
+    std::vector<std::string> items;
+    int selectedIndex;
     
 public:
-    CarSelectDialog(std::function<void(Car*)> onCarSelected);
+    CarSelectDialog(std::function<void(int)> onCarSelected);
     void PopulateCarList();
+    void OnItemSelected(int index) override;
 }; 
