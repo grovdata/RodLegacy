@@ -50,6 +50,10 @@ class CarBitmap {
     Bitmap* rearWheelhouseBackground;
     Bitmap* frontWheelhouseBackground;
 
+    Spritesheet* wheels;  // Single spritesheet for both wheels
+    SDL_Rect frontWheelPos;  // Position for front wheel
+    SDL_Rect rearWheelPos;   // Position for rear wheel
+
     void UpdateTextures();
     void UpdateTires();
     void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);

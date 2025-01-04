@@ -205,18 +205,13 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     frontWheelhouseBackground->SetVisible(true);
 
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
-
-    rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
-    if (rearWheel != nullptr) {
-        rearWheel->SelectSprite(0, 1);
-        rearWheel->SetVisible(true);
-        rearWheel->SetDimensions(32, 32);
-        frontWheel = new Spritesheet(1, 4, rearWheel);
-        frontWheel->SelectSprite(0, 1);
-        frontWheel->SetVisible(true);
-        frontWheel->SetDimensions(32, 32);
+    wheels = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
+    if (wheels != nullptr) {
+        wheels->SelectSprite(0, 1);
+        wheels->SetVisible(true);
+        wheels->SetDimensions(32, 32);
     } else {
-        SDL_LogWarn(0, "Rear wheel asset is null");
+        SDL_LogWarn(0, "Wheel asset is null");
     }
 
     UpdateTextures();
@@ -231,8 +226,7 @@ CarBitmap::~CarBitmap() {
     //     delete bodyChopped;
     // }
     delete driver;
-    delete rearWheel;
-    delete frontWheel;
+    delete wheels;
 }
 
 void CarBitmap::ToggleChoppedRoof() {
@@ -274,11 +268,11 @@ void CarBitmap::Draw() {
         // Then draw wheelhouses
         rearWheelhouse->Draw();
         frontWheelhouse->Draw();
-        if (rearWheel && rearWheel->IsVisible()) {
-            rearWheel->Draw();
-        }
-        if (frontWheel && frontWheel->IsVisible()) {
-            frontWheel->Draw();
+        if (wheels && wheelsVisible) {
+            wheels->SetPosition(rearWheelPos.x, rearWheelPos.y);
+            wheels->Draw();
+            wheels->SetPosition(frontWheelPos.x, frontWheelPos.y);
+            wheels->Draw();            
         }
     }
 
@@ -348,13 +342,17 @@ void CarBitmap::UpdateTires() {
     SDL_Rect bodyRect = body->GetPosition();
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
-    rearWheel->SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
-    frontWheel->SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
+    rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, 
+                    bodyRect.y + offsets.offsetYTires,
+                    32, 32};
+    frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire,
+                     bodyRect.y + offsets.offsetYTires,
+                     32, 32};
     shadow->SetPosition(bodyRect.x, bodyRect.y + offsets.offsetYTires + 32 - 4);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {
-    if (!rearWheel || !frontWheel) {
+    if (!wheels) {
         return;
     }
 
@@ -364,8 +362,7 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
     
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
         SDL_Log("Updating wheels");
-        rearWheel->CycleNextSprite();
-        frontWheel->CycleNextSprite();
+        wheels->CycleNextSprite();
         lastWheelUpdateTime = currentTime;
     }
 }
@@ -414,7 +411,7 @@ void CarBitmap::Print() {
     SDL_Log("CarBitmap driver is null: %s", this->driver == nullptr ? "true" : "false");
     SDL_Log("Bodyoriginal is null: %s", this->bodyOriginal == nullptr ? "true" : "false");
     SDL_Log("Bodychopped is null: %s", this->bodyChopped == nullptr ? "true" : "false");
-    SDL_Log("Rear wheel is null: %s", this->rearWheel == nullptr ? "true" : "false");
-    SDL_Log("Front wheel is null: %s", this->frontWheel == nullptr ? "true" : "false");    
+    SDL_Log("Rear wheel is null: %s", this->wheels == nullptr ? "true" : "false");
+    SDL_Log("Front wheel is null: %s", this->wheels == nullptr ? "true" : "false");    
 
 }
