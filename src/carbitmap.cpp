@@ -204,17 +204,20 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
     rearWheelhouseBackground->SetVisible(true);
     frontWheelhouseBackground->SetVisible(true);
 
-    AmigaLibAsset wheelAssetNo = car->GetTires()->GetAssetId();
-
+    AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
     rearWheel = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
-    rearWheel->SelectSprite(0, 1);
-    rearWheel->SetVisible(true);
-    rearWheel->SetDimensions(32, 32);
+    if (rearWheel != nullptr) {
+        rearWheel->SelectSprite(0, 1);
+        rearWheel->SetVisible(true);
+        rearWheel->SetDimensions(32, 32);
+        frontWheel = new Spritesheet(1, 4, rearWheel);
+        frontWheel->SelectSprite(0, 1);
+        frontWheel->SetVisible(true);
+        frontWheel->SetDimensions(32, 32);
+    } else {
+        SDL_LogError("Rear wheel asset is null");
+    }
 
-    frontWheel = new Spritesheet(1, 4, rearWheel);
-    frontWheel->SelectSprite(0, 1);
-    frontWheel->SetVisible(true);
-    frontWheel->SetDimensions(32, 32);
     UpdateTextures();
 
     t = SDL_GetTicks64();
@@ -222,9 +225,10 @@ CarBitmap::CarBitmap(Car *car, Driver* driver, StandardCarColor color) {
 
 CarBitmap::~CarBitmap() {
     delete bodyOriginal;
-    if (bodyChopped) {
-        delete bodyChopped;
-    }
+    // FIXME: Why is this causing a crash?
+    // if (bodyChopped) {
+    //     delete bodyChopped;
+    // }
     delete driver;
     delete rearWheel;
     delete frontWheel;

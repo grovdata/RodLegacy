@@ -9,7 +9,7 @@
 
 class Garage : public CarScene {
    private:
-    bool pendingCarSwap = false;
+    Car *pendingCar = nullptr;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     void UpdateSign();

@@ -10,7 +10,7 @@ Car::Car(CarModel model) {
 }
 
 Car::~Car() {
-    delete this->tires;
+   
 }
 
 CarModel Car::GetModel() {
@@ -22,6 +22,7 @@ SrLibCarDecal Car::GetDecal() {
 }
 
 void Car::SetTires(CarWheelType type) {
+    CarVendor_t vendor = (CarVendor_t)CAR_VENDOR_LOOKUP[model.index][1];
     AmigaLibAsset aid;
     switch (type) {
         case STOCK:
@@ -34,9 +35,10 @@ void Car::SetTires(CarWheelType type) {
             aid = CAR_TIRES_RACING;
             break;
     }
+
+    SDL_Log("Setting tires for %d to %d", model.index, aid);
     
-    this->tires = new Part(aid);
-    std::cout << "Tire asset ID: " << static_cast<int>(this->tires->GetAssetId()) << std::endl;
+    this->tires = Part{0, 0, vendor, aid};
 }
 
 void Car::SetScoop(CarScoopType type) {

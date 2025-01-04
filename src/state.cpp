@@ -132,6 +132,10 @@ Car* State::GetCurrentCar() {
     return this->currentCar;
 }
 
+void State::SetCurrentCar(Car *car) {
+    this->currentCar = car;
+}
+
 std::vector<Car *> State::GetOwnedCars() {
     return ownedCars;
 }

@@ -92,7 +92,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     carSelectDialog = std::make_unique<CarSelectDialog>(
         [this](Car* selectedCar) {
-            pendingCarSwap = true;
+            pendingCar = selectedCar;
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
         }
     );
@@ -222,6 +222,15 @@ void Garage::PushEvent(SDL_Event* event) {
 }
 
 void Garage::OnCarAnimationComplete() {
+    SDL_Log("Garage::OnCarAnimationComplete - Entry point");
     CarScene::OnCarAnimationComplete();
-    UpdateSign();
+    if (pendingCar != nullptr) {
+        delete carBitmap;
+        carBitmap = new CarBitmap(pendingCar, nullptr, pendingCar->GetColor());
+
+        UpdateSign();
+        state.SetCurrentCar(pendingCar);
+        StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+        pendingCar = nullptr;
+    }
 }

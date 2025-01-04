@@ -29,11 +29,11 @@ class Car {
         CarScoopType scoop;
         StandardCarColor color;
 
-        Part* gearbox;
-        Part* tires;
-        Part* engine;
-        Part* carburator;
-        Part* manifold;
+        Part gearbox;
+        Part tires;
+        Part engine;
+        Part carburator;
+        Part manifold;
 
     public:
 
@@ -47,17 +47,17 @@ class Car {
         void SetBumpersStripped(bool stripped) { isFrontBumperStripped = stripped; isBackBumperStripped = stripped; }
 
         // Part getters
-        Part* GetGearbox() const { return gearbox; }
-        Part* GetTires() const { return tires; }
-        Part* GetEngine() const { return engine; }
-        Part* GetCarburator() const { return carburator; }
-        Part* GetManifold() const { return manifold; }
+        Part GetGearbox() const { return gearbox; }
+        Part GetTires() const { return tires; }
+        Part GetEngine() const { return engine; }
+        Part GetCarburator() const { return carburator; }
+        Part GetManifold() const { return manifold; }
 
-        void SetGearbox(Part* gearbox) { this->gearbox = gearbox; }
+        void SetGearbox(Part gearbox) { this->gearbox = gearbox; }
         void SetTires(CarWheelType type);
-        void SetEngine(Part* engine) { this->engine = engine; }
-        void SetCarburator(Part* carburator) { this->carburator = carburator; }
-        void SetManifold(Part* manifold) { this->manifold = manifold; }
+        void SetEngine(Part engine) { this->engine = engine; }
+        void SetCarburator(Part carburator) { this->carburator = carburator; }
+        void SetManifold(Part manifold) { this->manifold = manifold; }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);

@@ -96,6 +96,8 @@ enum CarVendor_t {
     CarVendorCustom = 3
 };
 
+
+
 enum AmigaLibAsset {
     SPEECH_BUBBLE_ARROW_RIGHT = 0,
     SPEECH_BUBBLE_ARROW_LEFT = 1,
@@ -357,6 +359,36 @@ enum StockCarModels {
     CHEVROLET_BELAIR_SPORTS_COUPE = 268,
     THE_KING_CHEVROLET_CORVETTE_1963 = 272
 };
+
+const int CAR_VENDOR_LOOKUP[][2] = {
+    {CHEVROLET_2DR_COUPE_1940,             CarVendorGM},
+    {CHEVROLET_ROADSTER_1940,              CarVendorGM},
+    {CHEVROLET_MASTER_DELUXE_2DR_1938,     CarVendorGM},
+    {CHEVROLET_CORVETTE_1956,              CarVendorGM},
+    {CHEVROLET_CORVETTE_1961,              CarVendorGM},
+    {CHEVROLET_CORVETTE_1963,              CarVendorGM},
+    {DODGE_CUSTOM_ROYAL_LANCER_1955,       CarVendorChrysler},
+    {FORD_DEUCE_COUPE_1932,                CarVendorFord},
+    {DODGE_POLARA_1962,                    CarVendorChrysler},
+    {PLYMOUTH_SAVOY_2DR_1962,              CarVendorChrysler},
+    {FORD_SEDAN_1932,                      CarVendorFord},
+    {FORD_DELUXE_2DR_1940,                 CarVendorFord},
+    {FORD_FAIRLANE_VICTORIA_1955,          CarVendorFord},
+    {FORD_FAIRLANE_500_1956,               CarVendorFord},
+    {MERCURY_MONTEREY_1954,                CarVendorFord},
+    {MERCURY_CUSTOM_2DR_1956,              CarVendorFord},
+    {CHEVROLET_STYLELINE_2DR_1949,         CarVendorGM},
+    {CHEVROLET_IMPALA_1958,                CarVendorGM},
+    {OLDSMOBILE_88_2DR_CUSTOM_1949,        CarVendorGM},
+    {OLDSMOBILE_88_CUSTOM_1952,            CarVendorGM},
+    {PONTIAC_SILVER_STREAK_1950,           CarVendorGM},
+    {FORD_THUNDERBIRD_1957,                CarVendorFord},
+    {VALIANT_V200_1961,                    CarVendorChrysler},
+    {VALIANT_V100_2DR_1963,                CarVendorChrysler},
+    {CHEVROLET_BELAIR_SPORTS_COUPE,        CarVendorGM},
+    {THE_KING_CHEVROLET_CORVETTE_1963,     CarVendorGM}
+};
+
 
 // Car X position lookup table by scene
 const int CAR_IDLE_X[][2] = {
@@ -677,5 +709,8 @@ enum SrLibStatus {
 
 uint32_t    SrLibCalculateChecksum(const char *filename);
 SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t checksum);
+
+
+
 
 #endif

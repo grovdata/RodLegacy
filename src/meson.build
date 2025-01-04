@@ -29,7 +29,6 @@ cpp_sources = [
     'spritesheet.cpp',
     'scene.cpp',
     'car.cpp',
-    'part.cpp',
     'cardata.cpp',
     'carbitmap.cpp',
     'diner.cpp',

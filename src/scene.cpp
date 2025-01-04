@@ -315,8 +315,8 @@ void CarScene::UpdateDebugInfo() {
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
-    SDL_Log("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
-            isPaused, exitingCar, animatingCar);
+    // SDL_Log("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
+    //         isPaused, exitingCar, animatingCar);
             
     if (!isPaused) {
         if (exitingCar) {

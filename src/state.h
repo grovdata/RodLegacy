@@ -65,6 +65,7 @@ public:
     Uint64 GetElapsedTime();
 
     Car* GetCurrentCar();
+    void SetCurrentCar(Car *car);
     std::vector<Car *> GetOwnedCars();
 
     CarData carData;
