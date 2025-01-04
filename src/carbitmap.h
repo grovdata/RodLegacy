@@ -49,6 +49,8 @@ private:
     bool gasCapRemoved;
     bool pumpingHandleVisible;
 
+    void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
+
 public:
     // Default constructor
     CarBitmap();
@@ -57,29 +59,26 @@ public:
     CarBitmap(Car* car, Driver* driver, StandardCarColor color);
     
     // No need for destructor anymore as members clean up automatically
-    
+    void LoadCarParts();
+
     void Draw();
     void Move(SDL_Point p);
-    void SetVisible(bool visible);
     void ToggleChoppedRoof();
+    void UpdatePositions();
     void UpdateTires();
+    void UpdateWheelAnimation(float speed);
     void UpdateTextures();
+    void UpdateColor(StandardCarColor newColor);
 
     // Add missing methods
     void MoveBody(SDL_Point p);
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
+    BitmapOffset_t GetOffset();
 
     // Gas station methods
-    void SetGasCapRemoved(bool removed) { 
-        gasCapRemoved = removed; 
-        gasCap.SetVisible(!removed);
-    }
-    
-    void SetPumpingHandleVisible(bool visible) { 
-        pumpingHandleVisible = visible;
-        pumpingHandle.SetVisible(visible);
-    }
+    void SetGasCapRemoved(bool removed);
+    void SetPumpingHandleVisible(bool visible);
     
     bool IsGasCapRemoved() const { return gasCapRemoved; }
     bool IsPumpingHandleVisible() const { return pumpingHandleVisible; }

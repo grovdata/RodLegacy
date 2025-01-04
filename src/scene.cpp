@@ -337,7 +337,6 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
 
             float speed = (endX - startX) * (3 * t * t) / exitDuration;
 
-            carBitmap->Print();
             if (carBitmap) {
                 carBitmap->UpdateWheelAnimation(speed * deltaTime);
                 carBitmap->Move({carx, cary});

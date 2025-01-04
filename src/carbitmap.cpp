@@ -55,7 +55,7 @@ CarBitmap::CarBitmap()
     , pumpingHandleVisible(false) {
 }
 
-CarBitmap::CarBitmap(Car* car, Character* driver, StandardCarColor color) 
+CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color) 
     : car(car)
     , body(&bodyOriginal)
     , shadow(car->GetModel().width)
@@ -73,8 +73,11 @@ CarBitmap::CarBitmap(Car* car, Character* driver, StandardCarColor color)
     , pumpingHandleVisible(false) {
     
     // Load body textures
-    AmigaLibAsset bodyAssetNo = car->GetModel().assetId;
-    state.assets.UpdateAssetWithCarPalette(SrLibFileAmigaLibP, bodyAssetNo, color);
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
+    
+    // Get reference to the lib file
+    byte_vector& libFile = state.assets.GetLibPData();
+    state.assets.UpdateAssetWithCarPalette(libFile, bodyAssetNo, color);
     
     // Load original body
     auto* originalAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo});
@@ -100,15 +103,14 @@ CarBitmap::CarBitmap(Car* car, Character* driver, StandardCarColor color)
         wheels.SetDimensions(32, 32);
     }
 
-    // Load other parts
-    LoadCarParts();
+    LoadCarParts(); 
     UpdatePositions();
     UpdateTextures();
 }
 
 void CarBitmap::LoadCarParts() {
     // Load decal if car has one
-    if (car->GetDecal() != DECAL_NONE) {
+    if (car->GetDecal() != SrLibCarDecalNone) {
         auto* decalAsset = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, (AmigaLibAsset)car->GetDecal()});
         if (decalAsset) {
             decal = *((Spritesheet*)decalAsset);
@@ -146,8 +148,8 @@ void CarBitmap::Draw() {
     }
     
     if (wheelsVisible) {
-        wheels.Draw(&rearWheelPos);
-        wheels.Draw(&frontWheelPos);
+        wheels.Draw();
+        wheels.Draw();
     }
     
     // Draw other parts
@@ -157,13 +159,12 @@ void CarBitmap::Draw() {
 }
 
 void CarBitmap::ToggleChoppedRoof() {
-    if (!bodyChopped) return;  // Can't toggle if no chopped version
     
     isRoofChopped = !isRoofChopped;
-    body = isRoofChopped ? bodyChopped : bodyOriginal;
+    // body = isRoofChopped ? bodyChopped : bodyOriginal;
     
     // Update position and visibility
-    SDL_Rect pos = bodyOriginal->GetPosition();
+    SDL_Rect pos = bodyOriginal.GetPosition();
     body->SetPosition(pos.x, pos.y);
     body->SetVisible(true);
 }
@@ -203,9 +204,9 @@ void CarBitmap::UpdateTextures() {
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
 
-    if (driver != nullptr) {
-        driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
-    }
+    // if (driver != nullptr) {
+    //     driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+    // }
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
@@ -229,21 +230,17 @@ void CarBitmap::UpdateTires() {
     frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire,
                      bodyRect.y + offsets.offsetYTires,
                      32, 32};
-    shadow->SetPosition(bodyRect.x, bodyRect.y + offsets.offsetYTires + 32 - 4);
+    shadow.SetPosition(bodyRect.x, bodyRect.y + offsets.offsetYTires + 32 - 4);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {
-    if (!wheels) {
-        return;
-    }
-
     // Only update wheels if there's enough movement and enough time has passed
     Uint64 currentTime = SDL_GetTicks64();
     const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
     
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
         //SDL_Log("Updating wheels");
-        wheels->CycleNextSprite();
+        wheels.CycleNextSprite();
         lastWheelUpdateTime = currentTime;
     }
 }
@@ -286,13 +283,4 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
     // Overlay the part
     SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
     baseBitmap->UpdateFromSurface();
-}
-
-void CarBitmap::Print() {
-    SDL_Log("CarBitmap driver is null: %s", this->driver == nullptr ? "true" : "false");
-    SDL_Log("Bodyoriginal is null: %s", this->bodyOriginal == nullptr ? "true" : "false");
-    SDL_Log("Bodychopped is null: %s", this->bodyChopped == nullptr ? "true" : "false");
-    SDL_Log("Rear wheel is null: %s", this->wheels == nullptr ? "true" : "false");
-    SDL_Log("Front wheel is null: %s", this->wheels == nullptr ? "true" : "false");    
-
 }
