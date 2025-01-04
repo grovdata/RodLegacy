@@ -4,6 +4,8 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
+const int wheelSize = 31;
+
 CarShadow::CarShadow(int width) {
     this->width = width;
     this->surface = SDL_CreateRGBSurface(0, width, 4, 32,
@@ -86,7 +88,55 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
         wheels = *((Spritesheet*)wheelAsset);  // Copy the spritesheet
         wheels.SelectSprite(0, 1);
         wheels.SetVisible(true);
-        wheels.SetDimensions(32, 32);
+        wheels.SetDimensions(wheelSize, wheelSize);
+    }
+
+    auto* gasCapAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
+    if (gasCapAsset) {
+        gasCap = *gasCapAsset;
+        gasCap.SetVisible(false);
+    }
+
+    if (car->GetDecal() != SrLibCarDecalNone) {
+
+        auto* decalAsset = (Spritesheet*)state.assets.GetCarDecals();
+        if (decalAsset) {
+            decal = *((Spritesheet*)decalAsset);            
+            decal.SetVisible(true);
+        }
+
+        switch (car->GetDecal())
+        {
+        case SrLibCarDecalAmigaHotLips:
+            decal.SelectSprite(0, 0);
+            break;
+        case SrLibCarDecalAmigaRanger:
+            decal.SelectSprite(0, 2);
+            break;
+        case SrLibCarDecalAmigaNotBulletProof:
+            decal.SelectSprite(0, 3);
+            break;
+        case SrLibCarDecalAmigaHotRod:
+            decal.SelectSprite(0, 3);
+            break;
+        case SrLibCarDecalAmigaDestinyCanWait:
+            decal.SelectSprite(1, 0);
+            break;
+        case SrLibCarDecalAmigaLoveBandit:
+            decal.SelectSprite(1, 1);
+            break;
+        case SrLibCarDecalAmigaBigChief:
+            decal.SelectSprite(1, 2);
+            break;
+        case SrLibCarDecalAmigaImNotACop:
+            decal.SelectSprite(1, 3);
+            break;
+
+        case SrLibCarDecalNone:
+        default:
+            decal.SetVisible(false);
+            break;
+        }
     }
 
     LoadCarParts(); 
@@ -96,18 +146,10 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
 
 void CarBitmap::LoadCarParts() {
     // Load decal if car has one
-    if (car->GetDecal() != SrLibCarDecalNone) {
-        auto* decalAsset = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, (AmigaLibAsset)car->GetDecal()});
-        if (decalAsset) {
-            decal = *((Spritesheet*)decalAsset);
-        }
-    }
+    
 
     // Load other parts similarly
-    auto* gasCapAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP});
-    if (gasCapAsset) {
-        gasCap = *gasCapAsset;
-    }
+    
     
     // ... load other parts ...
 }
@@ -118,10 +160,10 @@ void CarBitmap::UpdatePositions() {
     // Update wheel positions
     rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, 
                     bodyRect.y + offsets.offsetYTires,
-                    32, 32};
+                    wheelSize, wheelSize};
     frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire,
                      bodyRect.y + offsets.offsetYTires,
-                     32, 32};
+                     wheelSize, wheelSize};
                      
     // Update other part positions
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
@@ -216,8 +258,8 @@ void CarBitmap::UpdateTextures() {
     rearWheelhouse.SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
     frontWheelhouse.SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
     // Update black background positions to match wheelhouses
-    rearWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXRearTire - 2, bodyRect.y + bodyRect.h - 32);
-    frontWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXFrontTire - 2, bodyRect.y + bodyRect.h - 32);
+    rearWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXRearTire - 2, bodyRect.y + bodyRect.h - wheelSize);
+    frontWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXFrontTire - 2, bodyRect.y + bodyRect.h - wheelSize);
     UpdateTires();
 }
 
