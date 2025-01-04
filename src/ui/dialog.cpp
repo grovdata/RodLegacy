@@ -92,7 +92,7 @@ void Dialog::HandleEvent(SDL_Event* event) {
             // Check if click is within listBoxRect
             if (x >= listBoxRect.x && x < listBoxRect.x + listBoxRect.w && 
                 y >= listBoxRect.y && y < listBoxRect.y + listBoxRect.h) {
-                int clickedIndex = scrollOffset + (y - listBoxRect.y) / 15;
+                int clickedIndex = scrollOffset + (y - listBoxRect.y) / listRowHeight;
                 if (clickedIndex < static_cast<int>(items.size())) {
                     selectedIndex = clickedIndex;
                 }

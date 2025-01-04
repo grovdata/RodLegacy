@@ -5,12 +5,16 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
     : Dialog("Your cars", {36, 26, 246, 136}, state.assets.GetMainFont()),
       onCarSelected(onCarSelected)
 {
-    listBoxRect = {0, 0, 242, 80};
+ 
+    listBoxRect = {3, listRowHeight + 6, 242, 80};
     EnableList();
     
+    int buttonWidth = 66;
+    int buttonHeight = 16;
+
     Button* switchItButton = new Button(
         "Switch it",
-        SDL_Rect{bounds.x + 14, bounds.y + bounds.h - 26, 66, 16},
+        SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() {
             if (selectedIndex >= 0) {
                 CarModel model = state.GetOwnedCars()[selectedIndex]->GetModel();
@@ -23,7 +27,7 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
 
     Button* sellItButton = new Button(
         "Sell it",
-        SDL_Rect{bounds.x + 65, bounds.y + bounds.h - 26, 66, 16},
+        SDL_Rect{bounds.x + 14 + buttonWidth + 2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() {
             // TODO: Implement sell logic
         }
@@ -31,14 +35,14 @@ CarSelectDialog::CarSelectDialog(std::function<void(Car*)> onCarSelected)
     
     Button* cancelBtn = new Button(
         "Forget it",
-        SDL_Rect{bounds.x + 125, bounds.y + bounds.h - 26, 66, 16},
+        SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() { Hide(); }
     );
     
     AddButton(switchItButton);
     AddButton(sellItButton);
-    AddButton(cancelBtn);
-    
+    AddButton(cancelBtn);    
+
     // Create scroll buttons
     scrollUpBtn = new Button(
         "/",
