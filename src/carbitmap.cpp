@@ -56,8 +56,11 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     , currentColor(color)
     , gasCapRemoved(false)
     , pumpingHandleVisible(false) {
-    
-    CarModel model = car->GetModel();
+    LoadCarParts(car, driver, color);
+}
+
+void CarBitmap::LoadCarParts(Car* car, Driver* driver, StandardCarColor color) {
+   CarModel model = car->GetModel();
 
     // Get reference to the lib file
     byte_vector& libFile = state.assets.GetLibPData();
@@ -139,19 +142,8 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
         }
     }
 
-    LoadCarParts(); 
     UpdatePositions();
     UpdateTextures();
-}
-
-void CarBitmap::LoadCarParts() {
-    // Load decal if car has one
-    
-
-    // Load other parts similarly
-    
-    
-    // ... load other parts ...
 }
 
 void CarBitmap::UpdatePositions() {

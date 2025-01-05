@@ -18,14 +18,12 @@ class CarShadow: public Bitmap {
 class CarBitmap {
 private:
     Car* car;  // This stays a pointer as it's managed elsewhere
-
-    // Convert pointer members to direct objects
     Bitmap bodyOriginal;
     Bitmap bodyChopped;
-    Bitmap* body;  // This stays a pointer as it points to either bodyOriginal or bodyChopped
+    Bitmap* body;  // Points to either bodyOriginal or bodyChopped
     CarShadow shadow;
     Bitmap driver;
-    Spritesheet wheels;  // Single wheels spritesheet
+    Spritesheet wheels;
     Bitmap gasCap;
     Bitmap pumpingHandle;
     Bitmap hoodScoop;
@@ -57,7 +55,7 @@ public:
     CarBitmap(Car* car, Driver* driver, StandardCarColor color);
     
     // No need for destructor anymore as members clean up automatically
-    void LoadCarParts();
+    void LoadCarParts(Car *car, Driver *driver, StandardCarColor color);
 
     void Draw();
     void Move(SDL_Point p);
