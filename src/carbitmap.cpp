@@ -60,9 +60,10 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
 }
 
 void CarBitmap::LoadCarParts(Car* car, Driver* driver, StandardCarColor color) {
+    this->car = car;
+    this->currentColor = color;
+    
    CarModel model = car->GetModel();
-
-    // Get reference to the lib file
     byte_vector& libFile = state.assets.GetLibPData();
     
     // Load original body
@@ -141,6 +142,9 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driver, StandardCarColor color) {
             break;
         }
     }
+
+    // Make sure we're pointing to the right body
+    body = isRoofChopped ? &bodyChopped : &bodyOriginal;
 
     UpdatePositions();
     UpdateTextures();

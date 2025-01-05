@@ -117,6 +117,8 @@ protected:
     virtual void OnCarAnimationComplete() {};
     virtual void OnCarExitComplete() {}
 
+    bool needsNewAnimation = true;
+
 public:
     CarScene(std::string backgroundName);
     CarScene(Asset backgroundAsset);

@@ -265,15 +265,9 @@ void CarScene::Init(bool debugMode) {
 //    Scene::Draw();
 //}
 
-void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {
-    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d, carBitmap=%p)", 
-            animatingCar, (void*)carBitmap);
-    
-    if (animatingCar) {
-        SDL_Log("StartAnimateCar: Already animating, skipping");
-        return;
-    }
-    SDL_Log("CarScene::StartAnimateCar - Type: %d", (int)animType);
+void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d)", animatingCar);
+    SDL_Log("CarScene::StartAnimateCar - Type: %d", animType);
 
     currentAnimationType = animType;
     
@@ -285,19 +279,20 @@ void CarScene::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animTy
         return;
     }
     
-    // For other animations, create new bitmap if needed
-    if (car != nullptr && carBitmap == nullptr) {
-        SDL_Log("CarScene::StartAnimateCar - creating new bitmap");
-        carBitmap = new CarBitmap(car, driver, car->GetColor());
+    // Use flag instead of null check
+    if (car != nullptr && needsNewAnimation) {
+        SDL_Log("CarScene::StartAnimateCar - starting new animation");
+        if (carBitmap == nullptr) {
+            carBitmap = new CarBitmap(car, driver, car->GetColor());
+        }
         carx = -GAME_WIDTH;
-        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
+        carBitmap->Move({carx, cary});
         animatingCar = true;
         waitTimer = 0;
+        needsNewAnimation = false;  // Reset flag
         SDL_Log("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d", 
                 carx, cary, (int)animType, animatingCar);
-    } else {
-        SDL_Log("CarScene::StartAnimateCar - Conditions not met: car=%p, carBitmap=%p", 
-                (void*)car, (void*)carBitmap);
     }
 }
 

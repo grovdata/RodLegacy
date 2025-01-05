@@ -6,6 +6,7 @@
 #include "ui/zone.h"
 #include "ui/bubble.h"
 #include "ui/car_select_dialog.h"
+#include "carbitmap.h"
 
 class Garage : public CarScene {
    private:
@@ -14,9 +15,16 @@ class Garage : public CarScene {
     SDL_Texture *signTexture;
     void UpdateSign();
     std::unique_ptr<CarSelectDialog> carSelectDialog;
+    
+    // Container for all car bitmaps
+    std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
 
    public:
     Garage();
+    ~Garage();
+    
+    void InitCarBitmaps();  // Create bitmaps for all owned cars
+    CarBitmap* GetOrCreateCarBitmap(Car* car);
 
     SDL_Point GetCarIdlePosition() override;
 

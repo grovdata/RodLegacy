@@ -93,11 +93,30 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     carSelectDialog = std::make_unique<CarSelectDialog>(
         [this](int selectedIndex) {
             Car* selectedCar = state.GetOwnedCars()[selectedIndex];
-            pendingCar = selectedCar;
-            SDL_Log("Garage::CarSelectDialog: selectedCarTires=%d", selectedCar->GetTires().assetId);
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+            SDL_Log("Garage::CarSelectDialog: Selected index=%d, car=%s (ptr: %p)", 
+                   selectedIndex, 
+                   selectedCar->GetModel().name.c_str(), 
+                   (void*)selectedCar);
+            
+            // Only switch if selecting a different car
+            if (selectedCar != state.GetCurrentCar()) {
+                pendingCar = selectedCar;
+                StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                SDL_Log("Garage::CarSelectDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
+                       (void*)state.GetCurrentCar(),
+                       (void*)pendingCar);
+            } else {
+                SDL_Log("Garage::CarSelectDialog: Same car selected, ignoring");
+            }
         }
     );
+
+    InitCarBitmaps();
+    
+    // Set initial car bitmap
+    if (state.GetCurrentCar()) {
+        carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
+    }
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -228,13 +247,45 @@ void Garage::OnCarAnimationComplete() {
     SDL_Log("Garage::OnCarAnimationComplete - Entry point");
     CarScene::OnCarAnimationComplete();
     if (pendingCar != nullptr) {
-        delete carBitmap;        
-        carx = -GAME_WIDTH;
-        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
-
-        UpdateSign();
         state.SetCurrentCar(pendingCar);
-        StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+        // Get or create bitmap for pending car
+        CarBitmap* newBitmap = GetOrCreateCarBitmap(pendingCar);
+        
+        // Update scene's carBitmap pointer
+        carBitmap = newBitmap;
+        
+        carx = -GAME_WIDTH;
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), pendingCar->GetModel().index);
+        carBitmap->Move({carx, cary});
+        
+        UpdateSign();
+        
+        
+        animatingCar = true;
+        currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
+        //carAnimationTime = 0;
+        
         pendingCar = nullptr;
     }
+}
+
+void Garage::InitCarBitmaps() {
+    // Create bitmaps for all owned cars
+    for (auto& car : state.GetOwnedCars()) {
+        if (carBitmaps.find(car) == carBitmaps.end()) {
+            carBitmaps[car] = std::make_unique<CarBitmap>(car, nullptr, car->GetColor());
+        }
+    }
+}
+
+CarBitmap* Garage::GetOrCreateCarBitmap(Car* car) {
+    auto it = carBitmaps.find(car);
+    if (it == carBitmaps.end()) {
+        carBitmaps[car] = std::make_unique<CarBitmap>(car, nullptr, car->GetColor());
+    }
+    return carBitmaps[car].get();
+}
+
+Garage::~Garage() {
+    carBitmaps.clear();
 }
