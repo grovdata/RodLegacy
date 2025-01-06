@@ -342,9 +342,9 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 carExitAnimationTime = 0;
                 OnCarExitComplete();
                 
-                // Only start next car for OPPONENT_CONTINUOUS
                 if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
                     waitTimer = 0;
+                    needsNewAnimation = true;  // Reset flag for continuous animations
                 }
             }
         } else if (animatingCar) {
@@ -419,3 +419,4 @@ void CarScene::PushEvent(SDL_Event *event) {
 void CarScene::OnFadeComplete() {
     Scene::OnFadeComplete();
 }
+

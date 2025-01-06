@@ -28,11 +28,6 @@ class Diner: public CarScene {
     // Add a map to store opponent car bitmaps
     std::map<std::string, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
     
-    // Remove the inherited carBitmap since we'll manage it differently
-    // CarBitmap *carBitmap;  // Comment out or remove this line
-    
-    // Keep track of current active bitmap
-    CarBitmap* activeCarBitmap;
     Opponent *currentOpponent;
 
     bool isPaused;

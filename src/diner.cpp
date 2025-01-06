@@ -8,7 +8,7 @@ double carExitAnimationTime = 0;
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN}) {
     lastFrameTime = SDL_GetTicks64() / 1000.0;
-    activeCarBitmap = nullptr;
+    carBitmap = nullptr;
     isPaused = false;
 }
 
@@ -57,7 +57,7 @@ Diner::~Diner() {
     SDL_FreeSurface(roadMaskSurface);
     SDL_DestroyTexture(roadMaskTexture);
     opponentCarBitmaps.clear();
-    activeCarBitmap = nullptr;
+    carBitmap = nullptr;
 }
 
 SDL_Point Diner::GetCarIdlePosition() {
@@ -120,9 +120,9 @@ void Diner::Draw() {
 
     phonebookGuy->Draw();
 
-    if (activeCarBitmap != nullptr) {
-        activeCarBitmap->Move({carx, cary});
-        activeCarBitmap->Draw();
+    if (carBitmap != nullptr) {
+        carBitmap->Move({carx, cary});
+        carBitmap->Draw();
     }
 
     for (auto b : bubbles) {
@@ -148,7 +148,7 @@ string Diner::GetOpponentText(Opponent *opponent) {
 }
 
 void Diner::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
-    if (animatingCar && activeCarBitmap) return;
+    if (animatingCar && carBitmap) return;
     
     this->currentOpponent = state.GetNextOpponent();
     if (!currentOpponent) return;
@@ -161,11 +161,11 @@ void Diner::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType)
 
     auto existingBitmap = opponentCarBitmaps.find(opponentId);
     if (existingBitmap != opponentCarBitmaps.end()) {
-        activeCarBitmap = existingBitmap->second.get();
+        carBitmap = existingBitmap->second.get();
     } else {
         StandardCarColor carColor = static_cast<StandardCarColor>(currentOpponent->car->GetColor());
         auto newBitmap = std::make_unique<CarBitmap>(currentOpponent->car, &currentOpponent->driver, carColor);
-        activeCarBitmap = newBitmap.get();
+        carBitmap = newBitmap.get();
         opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
 
@@ -185,7 +185,7 @@ void Diner::UpdateDebugInfo() {
         
         debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
 
-        if (currentOpponent && activeCarBitmap) {        
+        if (currentOpponent && carBitmap) {        
             debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
@@ -195,7 +195,7 @@ void Diner::UpdateDebugInfo() {
             debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));            
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
             debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
-            debugOverlay->AddLine("offsetYTires: " + std::to_string(activeCarBitmap->GetWheelsYOffset()));
+            debugOverlay->AddLine("offsetYTires: " + std::to_string(carBitmap->GetWheelsYOffset()));
             debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));            
             debugOverlay->AddLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
             debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));            
@@ -219,34 +219,34 @@ void Diner::PushEvent(SDL_Event *event) {
                 break;
             
             case SDLK_UP:
-                if (isPaused && activeCarBitmap) {
+                if (isPaused && carBitmap) {
                     cary--;  // Move car up
-                    activeCarBitmap->MoveBody({carx, cary});
+                    carBitmap->MoveBody({carx, cary});
                 }
                 break;
                 
             case SDLK_DOWN:
-                if (isPaused && activeCarBitmap) {
+                if (isPaused && carBitmap) {
                     cary++;  // Move car down
-                    activeCarBitmap->MoveBody({carx, cary});
+                    carBitmap->MoveBody({carx, cary});
                 }
                 break;
 
             case SDLK_LEFT:
-                if (isPaused && activeCarBitmap) {
-                    activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() - 1);
+                if (isPaused && carBitmap) {
+                    carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() - 1);
                 }
                 break;
 
             case SDLK_RIGHT:
-                if (isPaused && activeCarBitmap) {
-                    activeCarBitmap->MoveWheelsYOffset(activeCarBitmap->GetWheelsYOffset() + 1);
+                if (isPaused && carBitmap) {
+                    carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() + 1);
                 }
                 break;
 
             case SDLK_r:
-                if (isPaused && activeCarBitmap) {
-                    activeCarBitmap->ToggleChoppedRoof();
+                if (isPaused && carBitmap) {
+                    carBitmap->ToggleChoppedRoof();
                 }
                 break;
         }
@@ -258,7 +258,7 @@ void Diner::OnFadeComplete() {
         fadeCompleteTime = SDL_GetTicks64();
     } else {
         // Start car animation immediately for subsequent fades
-        if (!animatingCar && !exitingCar && !activeCarBitmap) {
+        if (!animatingCar && !exitingCar && !carBitmap) {
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
             animatingCar = true;
         }
