@@ -7,7 +7,7 @@ ListDialog::ListDialog(const SDL_Rect& bounds, std::vector<std::string> labels, 
       onItemSelected(onItemSelected)
 {
 
-    SDL_Rect topRect = {37, 27, 283, 122};
+    SDL_Rect topRect = {37, 27, 246, 95};
     AddContentArea(topRect);
     
     SDL_Rect bottomRect = {37, 123, 246, 40};
@@ -46,25 +46,43 @@ ListDialog::ListDialog(const SDL_Rect& bounds, std::vector<std::string> labels, 
     AddButton(sellItButton);
     AddButton(cancelBtn);    
 
-    // Create scroll buttons
-    Button* scrollUpBtn = new Button(
-        "/",
+    
+    Button* scrollTopBtn = new Button(
+        "\\",
         SDL_Rect{topRect.x + topRect.w + 2, topRect.y + 14, 15, 15},
+        [this]() {
+            //if (scrollOffset > 0) scrollOffset--;
+        }
+    );
+
+    Button* scrollUpBtn = new Button(
+        "<",
+        SDL_Rect{topRect.x + topRect.w + 2, topRect.y + 30, 15, 15},
         [this]() {
             //if (scrollOffset > 0) scrollOffset--;
         }
     );
     
     Button* scrollDownBtn = new Button(
-        "\\", 
-        SDL_Rect{topRect.x + topRect.w + 2, topRect.y + 30, 15, 15},
+        ">", 
+        SDL_Rect{topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15},
         [this]() {
             // if (scrollOffset + visibleItems < static_cast<int>(labels.size())) scrollOffset++;
         }
     );
+
+    Button* scrollBottomBtn = new Button(
+        "/",
+        SDL_Rect{topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15},
+        [this]() {
+            //if (scrollOffset > 0) scrollOffset--;
+        }
+    );
     
+    AddButton(scrollTopBtn);
     AddButton(scrollUpBtn);
     AddButton(scrollDownBtn);
+    AddButton(scrollBottomBtn);
     
     PopulateList();
 }
