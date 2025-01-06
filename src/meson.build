@@ -44,8 +44,8 @@ cpp_sources = [
     'ui/button.cpp',
     'ui/bubble.cpp',
     'ui/hud.cpp',
-    'ui/dialog.cpp',
-    'ui/car_select_dialog.cpp',
+    'ui/dialog.cpp',    
+    'ui/list_dialog.cpp',
     'ui/rectangle.cpp',
 ]
 

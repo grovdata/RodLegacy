@@ -90,10 +90,17 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 
-    carSelectDialog = std::make_unique<CarSelectDialog>(
+    std::vector<std::string> labels;
+    for (const auto& car : state.GetOwnedCars()) {
+        labels.push_back(car->GetModel().name);
+    }
+
+    carSelectDialog = std::make_unique<ListDialog>(
+        SDL_Rect{36, 26, 260, 136},
+        labels,
         [this](int selectedIndex) {
             Car* selectedCar = state.GetOwnedCars()[selectedIndex];
-            SDL_Log("Garage::CarSelectDialog: Selected index=%d, car=%s (ptr: %p)", 
+            SDL_Log("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
                    selectedIndex, 
                    selectedCar->GetModel().name.c_str(), 
                    (void*)selectedCar);
@@ -102,11 +109,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             if (selectedCar != state.GetCurrentCar()) {
                 pendingCar = selectedCar;
                 StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
-                SDL_Log("Garage::CarSelectDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
+                SDL_Log("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
                        (void*)state.GetCurrentCar(),
                        (void*)pendingCar);
             } else {
-                SDL_Log("Garage::CarSelectDialog: Same car selected, ignoring");
+                SDL_Log("Garage::ListDialog: Same car selected, ignoring");
             }
         }
     );

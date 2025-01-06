@@ -5,7 +5,7 @@
 #include "mouse.h"
 #include "ui/zone.h"
 #include "ui/bubble.h"
-#include "ui/car_select_dialog.h"
+#include "ui/list_dialog.h"
 #include "carbitmap.h"
 
 class Garage : public CarScene {
@@ -14,7 +14,7 @@ class Garage : public CarScene {
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     void UpdateSign();
-    std::unique_ptr<CarSelectDialog> carSelectDialog;
+    std::unique_ptr<ListDialog> carSelectDialog;
     
     // Container for all car bitmaps
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
