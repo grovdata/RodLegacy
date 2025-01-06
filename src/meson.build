@@ -37,15 +37,16 @@ cpp_sources = [
     'garage.cpp',
     'gas_station.cpp',
     'assets.cpp',
-    'ui/button.cpp',
-    'ui/bubble.cpp',
-    'ui/hud.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',
     'roster.cpp',
     'debug_overlay.cpp',
+    'ui/button.cpp',
+    'ui/bubble.cpp',
+    'ui/hud.cpp',
     'ui/dialog.cpp',
     'ui/car_select_dialog.cpp',
+    'ui/rectangle.cpp',
 ]
 
 # Include directories

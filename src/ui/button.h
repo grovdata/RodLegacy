@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include "../bitmap.h"
 #include "../global.h"
 #include "zone.h"
 
@@ -9,7 +10,7 @@ const int cButtonStandardTextOffsetY = 5;
 // testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
     // testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
 
-class Button {
+class Button: public IDrawable {
     private:
         SDL_Surface *m_Surface, *fontSurface;
         SDL_Texture *m_Texture, *fontTexture;

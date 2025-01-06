@@ -30,6 +30,66 @@ Bitmap::~Bitmap() {
     }
 }
 
+ // Assignment from pointer
+Bitmap& Bitmap::operator=(const Bitmap* other) {
+    if (other) {
+        // Clean up existing resources
+        if (texture) {
+            SDL_DestroyTexture(texture);
+        }
+        if (surface) {
+            SDL_FreeSurface(surface);
+        }
+
+        // Copy from other
+        if (other->surface) {
+            surface = SDL_CreateRGBSurfaceFrom(other->surface->pixels,
+                                                other->surface->w,
+                                                other->surface->h,
+                                                other->surface->format->BitsPerPixel,
+                                                other->surface->pitch,
+                                                other->surface->format->Rmask,
+                                                other->surface->format->Gmask,
+                                                other->surface->format->Bmask,
+                                                other->surface->format->Amask);
+            texture = SDL_CreateTextureFromSurface(renderer, surface);
+        }
+        isVisible = other->isVisible;
+        rect = other->rect;
+    }
+    return *this;
+}
+
+// Regular assignment operator
+Bitmap& Bitmap::operator=(const Bitmap& other) {
+    if (this != &other) {
+        // Clean up existing resources
+        if (texture) {
+            SDL_DestroyTexture(texture);
+        }
+        if (surface) {
+            SDL_FreeSurface(surface);
+        }
+
+        // Copy from other
+        if (other.surface) {
+            surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
+                                                other.surface->w,
+                                                other.surface->h,
+                                                other.surface->format->BitsPerPixel,
+                                                other.surface->pitch,
+                                                other.surface->format->Rmask,
+                                                other.surface->format->Gmask,
+                                                other.surface->format->Bmask,
+                                                other.surface->format->Amask);
+            texture = SDL_CreateTextureFromSurface(renderer, surface);
+        }
+        isVisible = other.isVisible;
+        rect = other.rect;
+    }
+    return *this;
+}
+
 SDL_Surface* Bitmap::GetSurface() {
     return surface;
 }
