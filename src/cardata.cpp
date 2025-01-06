@@ -24,7 +24,7 @@ CarModel CarData::GetModel(char* carModel) {
     for (auto m: allCarModels) {
         bool equals = strcmp(m.id.c_str(), carModel);
         if (equals == 0) {
-            // printf("Found model %s\n", carModel);
+            SDL_Log("Found model %s\n", carModel);            
             return m;
         }
     }
@@ -36,8 +36,8 @@ CarModel CarData::GetModelFromIndex(int index) {
     for (auto m: allCarModels) {
         bool equals = m.index == index;
         if (equals) {
-            printf("Found model %s\n", m.name.c_str());
-            m.Log();
+            SDL_Log("Found model %s\n", m.name.c_str());
+            // m.Log();
             return m;
         }
     }
@@ -63,8 +63,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     m.id = "";
     m.name = metadata.classified.carName;
     m.offsets = metadata.offsets;
-    // FIXME Vendor is unknown
-    m.vendor = CarVendorGM;
+    m.vendor = SrLibQueryGetCarVendor(index);
     m.year = metadata.classified.year;
     return m;
 }

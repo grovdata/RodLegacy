@@ -93,7 +93,8 @@ enum CarVendor_t {
     CarVendorChrysler = 0,
     CarVendorFord = 1,
     CarVendorGM = 2,
-    CarVendorCustom = 3
+    CarVendorCustom = 3,
+    CarVendorUnknown = 4
 };
 
 
@@ -700,6 +701,7 @@ class CarQuery {
 
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
 int SrLibQueryGetCarIdleX(SrLibGameScene scene);
+CarVendor_t SrLibQueryGetCarVendor(int carIndex);
 
 enum SrLibStatus {
     SrLibStatusSuccess = 0,

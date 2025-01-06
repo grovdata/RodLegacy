@@ -114,7 +114,7 @@ vector<uint8_t> BitmapParser::GetPackedData(const vector<uint8_t>& data, const B
     int headerSize = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount);
     int fileOffset = headerSize + bitmapEntry.offset;
     
-    if (fileOffset + bitmapEntry.sizePacked > data.size()) {
+    if (fileOffset + bitmapEntry.sizePacked > (int)data.size()) {
         throw runtime_error("Can't read data because offset is larger than data size.");
     }
     
@@ -129,7 +129,7 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>>& rle, 
     int width = sprite.width / 8;
     int height = sprite.height;
     int depth = sprite.depth;
-    int size_expected = (sprite.width * sprite.height * sprite.depth) / 8;
+    size_t size_expected = (sprite.width * sprite.height * sprite.depth) / 8;
 
     vector<uint8_t> flat_bp;
 
@@ -843,6 +843,16 @@ int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
 
 int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
     return carAsset + 3;
+}
+
+CarVendor_t SrLibQueryGetCarVendor(int carIndex) {
+     for (size_t i = 0; i < CAR_INDEX_COUNT; i++) {
+        if (CAR_VENDOR_LOOKUP[i][0] == carIndex) {
+            return (CarVendor_t)CAR_VENDOR_LOOKUP[i][1];
+        }
+    }
+   
+    return CarVendorUnknown;
 }
 
 uint32_t SrLibCalculateChecksum(const char *filename) {

@@ -314,8 +314,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
     //         isPaused, exitingCar, animatingCar);
             
     if (!isPaused) {
-        if (exitingCar) {
-            SDL_Log("UpdateCarAnimation: Handling exit animation");
+        if (exitingCar) {            
             carExitAnimationTime += deltaTime;
             const double exitDuration = 2.5;
             
