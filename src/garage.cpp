@@ -96,10 +96,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     }
 
     carSelectDialog = std::make_unique<ListDialog>(
-        SDL_Rect{36, 26, 260, 136},
-        labels,
-        [this](int selectedIndex) {
-            Car* selectedCar = state.GetOwnedCars()[selectedIndex];
+        DialogConfig{SDL_Rect{36, 26, 260, 136}},
+        ListDialogConfig{
+            labels,
+            [this](int selectedIndex) {
+                Car* selectedCar = state.GetOwnedCars()[selectedIndex];
             SDL_Log("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
                    selectedIndex, 
                    selectedCar->GetModel().name.c_str(), 

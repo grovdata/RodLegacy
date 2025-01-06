@@ -1,7 +1,7 @@
 #include "dialog.h"
 
-Dialog::Dialog(const SDL_Rect& bounds) {    
-    mainBounds = bounds;
+Dialog::Dialog(const DialogConfig& config) {    
+    this->config = config;
 }
 
 Dialog::~Dialog() {

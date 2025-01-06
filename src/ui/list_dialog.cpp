@@ -1,11 +1,11 @@
 #include "list_dialog.h"
 #include "../state.h"
 
-ListDialog::ListDialog(const SDL_Rect& bounds, std::vector<std::string> labels, std::function<void(int)> onItemSelected)
-    : Dialog(bounds),
-      labels(labels),
-      onItemSelected(onItemSelected)
+ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
+    : Dialog(config),         
+      listConfig(listConfig)
 {
+    
 
     SDL_Rect topRect = {37, 27, 246, 95};
     AddContentArea(topRect);
@@ -14,32 +14,34 @@ ListDialog::ListDialog(const SDL_Rect& bounds, std::vector<std::string> labels, 
     AddContentArea(bottomRect);
     
     //SDL_Rect listBoxRect = {3, listRowHeight + 6, 242, 80};    
-    
+
+    SDL_Rect bounds = config.bounds;    
     int buttonWidth = 66;
     int buttonHeight = 16;
 
     Button* switchItButton = new Button(
         "Switch it",
-        SDL_Rect{mainBounds.x + 14, mainBounds.y + mainBounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
+        SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() {
-            if (selectedIndex >= 0) {
-                this->OnItemSelected(selectedIndex);
-            }
+            this->config.onButtonPressed(0);
         }
     );
 
     Button* sellItButton = new Button(
         "Sell it",
-        SDL_Rect{mainBounds.x + 14 + buttonWidth + 2, mainBounds.y + mainBounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
+        SDL_Rect{bounds.x + 14 + buttonWidth + 2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
         [this]() {
-            // TODO: Implement sell logic
+            this->config.onButtonPressed(1);
         }
     );
     
     Button* cancelBtn = new Button(
         "Forget it",
-        SDL_Rect{mainBounds.x + 14 + buttonWidth*2 + 2*2, mainBounds.y + mainBounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
-        [this]() { Hide(); }
+        SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
+        [this]() { 
+            this->config.onButtonPressed(2);
+            this->Hide();
+        }
     );
     
     AddButton(switchItButton);
@@ -88,7 +90,7 @@ ListDialog::ListDialog(const SDL_Rect& bounds, std::vector<std::string> labels, 
 }
 
 ListDialog::~ListDialog() {
-    labels.clear();
+
 }
 
 void ListDialog::Draw() {
@@ -100,8 +102,8 @@ void ListDialog::PopulateList() {
 }
 
 void ListDialog::OnItemSelected(int index) {
-    if (onItemSelected) {
-        onItemSelected(index);
+    if (listConfig.onItemSelected) {
+        listConfig.onItemSelected(index);
     }
     Hide();
 } 
