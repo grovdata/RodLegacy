@@ -49,7 +49,6 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     , t(SDL_GetTicks64())
     , offsets{}
     , wheelsYOffset(0)
-    , showDriver(driver != nullptr)
     , isRoofChopped(false)
     , lastWheelUpdateTime(0)
     , wheelsVisible(true)
@@ -59,7 +58,7 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     LoadCarParts(car, driver, color);
 }
 
-void CarBitmap::LoadCarParts(Car* car, Driver* driver, StandardCarColor color) {
+void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor color) {
     this->car = car;
     this->currentColor = color;
     
@@ -84,6 +83,16 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driver, StandardCarColor color) {
 
     shadow.SetDimensions(model.width, 4);
     shadow.SetVisible(true);
+
+    if (driverInfo != nullptr) {
+        AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
+        auto* driverAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
+        if (driverAsset) {
+            driver = *driverAsset;
+            driver.SetVisible(true);
+            
+        }
+    }
 
     // Load wheels
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
@@ -171,8 +180,8 @@ void CarBitmap::Draw() {
 
     if (shadow.IsVisible()) {
         shadow.Draw();
-    }
-    
+    }   
+
     if (wheelsVisible) {
         wheels.SetPosition(frontWheelPos.x, frontWheelPos.y);
         wheels.Draw();
@@ -243,9 +252,8 @@ void CarBitmap::UpdateTextures() {
     BitmapOffset_t offsets = model.offsets;
     SDL_Rect bodyRect = body->GetPosition();
 
-    // if (driver != nullptr) {
-    //     driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
-    // }
+    
+    driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);    
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);

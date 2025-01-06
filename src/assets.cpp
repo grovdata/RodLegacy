@@ -187,7 +187,7 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
         }
     }
 
-    SDL_LogWarn(0, "Warning: Asset not found (wrong type of asset?): %d", asset.id);
+    SDL_LogError(0, "Warning: Asset not found (wrong type of asset?): %d", asset.id);
     return nullptr;
 }
 

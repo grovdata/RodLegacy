@@ -32,14 +32,13 @@ private:
     Spritesheet decal;
     Bitmap rearWheelhouseBackground;
     Bitmap frontWheelhouseBackground;
-
+    
     SDL_Rect frontWheelPos;
     SDL_Rect rearWheelPos;
     
     Uint64 t;
     BitmapOffset_t offsets;
     int wheelsYOffset;
-    bool showDriver;
     bool isRoofChopped;
     Uint64 lastWheelUpdateTime;
     bool wheelsVisible;
@@ -52,7 +51,7 @@ private:
 public:
    
     // Main constructor
-    CarBitmap(Car* car, Driver* driver, StandardCarColor color);
+    CarBitmap(Car* car, Driver* driverInfo, StandardCarColor color);
     
     // No need for destructor anymore as members clean up automatically
     void LoadCarParts(Car *car, Driver *driver, StandardCarColor color);
