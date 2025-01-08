@@ -113,6 +113,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.bounds = bounds;
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
+    dialogConfig.font = state.assets.GetMainFont();
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         if (buttonIndex == 2) { // Forget it
             carSelectDialog->Hide();

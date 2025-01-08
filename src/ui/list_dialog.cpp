@@ -6,7 +6,6 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     : Dialog(config),         
       listConfig(listConfig)
 {
-    Dialog::Dialog(config);
 
     // int buttonWidth = 66;
     // int buttonHeight = 16;
