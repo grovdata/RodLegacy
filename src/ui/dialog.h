@@ -18,6 +18,7 @@ struct DialogButtonConfig {
 };
 
 struct DialogConfig {
+    SFont_Font *font;
     SDL_Rect bounds;
     vector<DialogButtonConfig> buttons;
     vector<SDL_Rect> contentAreas;
@@ -25,22 +26,24 @@ struct DialogConfig {
 };
 
 class Dialog {
-private:
-    vector<Rectangle*> contentAreas;
-    vector<Button*> buttons;
-    bool isVisible = false;
 protected:
+    Bitmap *mainBitmap;
+    vector<Button*> buttons;
+    vector<Rectangle*> contentAreas;
     DialogConfig config;
+    bool isVisible = false;
 public:
     Dialog(const DialogConfig& config);
-    ~Dialog();
+    virtual ~Dialog();
     
     void AddContentArea(const SDL_Rect& area, SDL_Color fillColor = {0x60, 0x60, 0x60, 0xFF}, SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF});
-    void AddButton(Button* button);
+    void AddButton(DialogButtonConfig buttonCfg);
+    void AddText(const char* text, const SDL_Rect& area);
 
     virtual void HandleEvent(SDL_Event *event) = 0;
     virtual void Draw() = 0;
-    void Show();
-    void Hide();
-    bool IsVisible() const { return isVisible; }
+    virtual void Show();
+    virtual void Hide();
+    virtual bool IsVisible() const { return isVisible; }
+    void OnButtonPressed(int index);
 }; 

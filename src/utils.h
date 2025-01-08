@@ -42,4 +42,8 @@ namespace sdl2 {
     using RendererPtr = std::unique_ptr<SDL_Renderer, SDL_Deleter>;
     using WindowPtr   = std::unique_ptr<SDL_Window,   SDL_Deleter>;
     using RWopsPtr    = std::unique_ptr<SDL_RWops,    SDL_Deleter>;
+
+    inline bool SDL_RectIsWithinRect(SDL_Rect source, SDL_Rect destination) {
+        return source.x >= destination.x && source.y >= destination.y && source.x + source.w <= destination.x + destination.w && source.y + source.h <= destination.y + destination.h;
+    }
 }

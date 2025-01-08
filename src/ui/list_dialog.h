@@ -4,11 +4,21 @@
 
 using namespace std;
 
+struct ScrollButtonsConfig {
+    SDL_Rect topRect;
+    SDL_Rect upRect;
+    SDL_Rect downRect;
+    SDL_Rect bottomRect;
+};
+
 struct ListDialogConfig {  
     vector<string> labels;
     function<void(int)> onItemSelected;
     SDL_Rect listBoxRect;
     SDL_Rect selectedItemRect;
+    SDL_Color normalTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    SDL_Color selectedTextColor = {0xFF, 0xFF, 0x00, 0xFF};
+    ScrollButtonsConfig scrollButtons;
 };
 
 class ListDialog : public Dialog {
@@ -29,7 +39,7 @@ public:
     ~ListDialog();
 
     void Draw() override;
-    void HandleEvent(SDL_Event* event);
+    void HandleEvent(SDL_Event* event) override;
 
     void OnItemSelected(int index);
     int GetSelectedIndex() const { return selectedIndex; }

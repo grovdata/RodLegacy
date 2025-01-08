@@ -95,8 +95,45 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         labels.push_back(car->GetModel().name);
     }
 
+    SDL_Rect bounds = {36, 26, 260, 136};
+    SDL_Rect listBoxRect = {39, 40, 242, 80};    
+    SDL_Rect topRect = {37, 27, 246, 95};
+    SDL_Rect bottomRect = {37, 123, 246, 40};
+    SDL_Rect selectedItemRect = {39, 123, 242, 12};
+    
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    vector<DialogButtonConfig> buttons = {
+        {"Switch it", SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, true, 0},
+        {"Sell it", SDL_Rect{bounds.x + 14 + buttonWidth + 2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, false, 1},
+        {"Forget it", SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, false, 2}
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.buttons = buttons;
+    dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        if (buttonIndex == 2) { // Forget it
+            carSelectDialog->Hide();
+        }
+    };
+    
+
+    ListDialogConfig listDialogConfig;
+    listDialogConfig.labels = labels;
+    listDialogConfig.listBoxRect = listBoxRect;
+    listDialogConfig.selectedItemRect = selectedItemRect;
+    listDialogConfig.onItemSelected = [this](int selectedIndex) {
+        Car* selectedCar = state.GetOwnedCars()[selectedIndex];
+        SDL_Log("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
+               selectedIndex, 
+               selectedCar->GetModel().name.c_str(), 
+               (void*)selectedCar);
+    };
+
     carSelectDialog = std::make_unique<ListDialog>(
-        DialogConfig{SDL_Rect{36, 26, 260, 136}},
+        dialogConfig,
         ListDialogConfig{
             labels,
             [this](int selectedIndex) {
@@ -116,8 +153,18 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             } else {
                 SDL_Log("Garage::ListDialog: Same car selected, ignoring");
             }
+        },
+        listBoxRect,
+        selectedItemRect,
+        {0xFF, 0xFF, 0xFF, 0xFF},
+        {0xFF, 0xFF, 0x00, 0xFF},
+        {
+            {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15},     // top
+            {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15},     // up
+            {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15}, // down
+            {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15}  // bottom
         }
-    );
+    });
 
     InitCarBitmaps();
     
