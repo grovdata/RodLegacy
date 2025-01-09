@@ -62,7 +62,7 @@ public:
     void UpdatePositions();
     void UpdateTires();
     void UpdateWheelAnimation(float speed);
-    void UpdateTextures();
+    void UpdateTextures();  
     void UpdateColor(StandardCarColor newColor);
 
     // Add missing methods

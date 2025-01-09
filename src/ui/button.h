@@ -4,37 +4,34 @@
 #include "../bitmap.h"
 #include "../global.h"
 #include "zone.h"
+#include "rectangle.h"
 
-const int cButtonStandardHeight = 19;
-const int cButtonStandardTextOffsetY = 5;
-// testButton = new Button("Pink slips", 100, 100, 82, cButtonStandardHeight);
-    // testButton2 = new Button("Drag race", 100, 100+cButtonStandardHeight, 82, cButtonStandardHeight);
+struct ButtonConfig {
+    SDL_Rect bounds;
+    std::string text;
+    std::function<void()> onClick;
+    bool defaultChoice;
+    SDL_Color textColor = {0, 0, 0, 255};
+    SDL_Color fillColor = {144, 144, 144, 255};
+    SDL_Color borderColor = {0, 0, 0, 255};
+};
 
 class Button: public IDrawable {
-    private:
-        SDL_Surface *m_Surface, *fontSurface;
-        SDL_Texture *m_Texture, *fontTexture;
-        SDL_Rect m_Rect;
-        std::string text;
-        SDL_Rect bounds;
-        std::function<void()> onClick;
-        bool pressed;
-        bool visible;
+private:
+    ButtonConfig config;
+    std::unique_ptr<Rectangle> background;
+    std::unique_ptr<Bitmap> textBitmap;
+    bool pressed;
+    bool visible;
 
-        void CreateButtonSurface();
+    void CreateButtonSurface();
 
-    public:
-        Button(std::string text, int offsetX, int offsetY, int width, int height);
-        Button(const std::string& text, const SDL_Rect& bounds, std::function<void()> onClick);
-        ~Button();
+public:
+    Button(const ButtonConfig& config);
+    ~Button() = default;
 
-        SDL_Texture *GetTexture();
-        SDL_Rect* GetRect();
-
-
-        void Draw();
-        void HandleEvent(SDL_Event* event);
-        bool IsVisible() const { return visible; }
-        void SetVisible(bool visible) { this->visible = visible; }
-        SDL_Rect GetBounds() const { return bounds; }
+    void Draw() override;
+    void HandleEvent(SDL_Event* event);
+    void SetVisible(bool visible) { this->visible = visible; }
+    bool IsVisible() const { return visible; }
 };

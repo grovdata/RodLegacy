@@ -8,39 +8,39 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
 {
     rowHeight = SFont_TextHeight(config.font);
 
-    scrollTopBtn = new Button(
-        "\\",
-        listConfig.scrollButtons.topRect,
-        [this]() {
-            scrollOffset = 0;
-        }
-    );
+    ButtonConfig topConfig;
+    topConfig.text = "\\";
+    topConfig.bounds = listConfig.scrollButtons.topRect;
+    topConfig.onClick = [this]() {
+        scrollOffset = 0;
+    };
+    scrollTopBtn = new Button(topConfig);
 
-    scrollUpBtn = new Button(
-        "<",
-        listConfig.scrollButtons.upRect,
-        [this]() {
-            if (scrollOffset > 0) scrollOffset--;
-        }
-    );
+    ButtonConfig upConfig;
+    upConfig.text = "<";
+    upConfig.bounds = listConfig.scrollButtons.upRect;
+    upConfig.onClick = [this]() {
+        if (scrollOffset > 0) scrollOffset--;
+    };
+    scrollUpBtn = new Button(upConfig);
     
-    scrollDownBtn = new Button(
-        ">", 
-        listConfig.scrollButtons.downRect,
-        [this]() {
-            if (scrollOffset + visibleItems < static_cast<int>(this->listConfig.labels.size())) 
-                scrollOffset++;
-        }
-    );
+    ButtonConfig downConfig;
+    downConfig.text = ">";
+    downConfig.bounds = listConfig.scrollButtons.downRect;
+    downConfig.onClick = [this]() {
+        if (scrollOffset + visibleItems < static_cast<int>(this->listConfig.labels.size())) 
+            scrollOffset++;
+    };
+    scrollDownBtn = new Button(downConfig);
 
-    scrollBottomBtn = new Button(
-        "/",
-        listConfig.scrollButtons.bottomRect,
-        [this]() {
-            scrollOffset = static_cast<int>(this->listConfig.labels.size()) - visibleItems;
-            if (scrollOffset < 0) scrollOffset = 0;
-        }
-    );
+    ButtonConfig bottomConfig;
+    bottomConfig.text = "/";
+    bottomConfig.bounds = listConfig.scrollButtons.bottomRect;
+    bottomConfig.onClick = [this]() {
+        scrollOffset = static_cast<int>(this->listConfig.labels.size()) - visibleItems;
+        if (scrollOffset < 0) scrollOffset = 0;
+    };
+    scrollBottomBtn = new Button(bottomConfig);
     
     // Add scroll buttons to Dialog's button list
     buttons.push_back(scrollTopBtn);
@@ -74,9 +74,9 @@ void ListDialog::Draw() {
         if (static_cast<int>(i) == selectedIndex) {
             textColor = listConfig.selectedTextColor;
         } else if (static_cast<int>(i) == hoverIndex) {
-            textColor = {0xFF, 0xFF, 0xFF, 0xFF};  // White for hover
+            textColor = {255, 255, 255, 255};  // White for hover
         } else {
-            textColor = {0x80, 0x80, 0x80, 0xFF};  // Gray for normal
+            textColor = {0, 0, 0, 255};  // Gray for normal
         }
         
         SFont_Write(mainBitmap->GetSurface(), config.font, itemRect.x, itemRect.y, 
@@ -132,10 +132,16 @@ void ListDialog::HandleEvent(SDL_Event *event) {
 
     // Handle list clicks
     if (event->type == SDL_MOUSEBUTTONDOWN) {
-        int clickedIndex = GetIndexAtPosition(event->button.x, event->button.y);
-        if (clickedIndex >= 0) {
-            selectedIndex = clickedIndex;
-            // Don't call OnItemSelected here - wait for button press
+        // Check if click is within listbox bounds
+        if (event->button.x >= listConfig.listBoxRect.x && 
+            event->button.x <= listConfig.listBoxRect.x + listConfig.listBoxRect.w &&
+            event->button.y >= listConfig.listBoxRect.y &&
+            event->button.y <= listConfig.listBoxRect.y + listConfig.listBoxRect.h) {
+            
+            int clickedIndex = GetIndexAtPosition(event->button.x, event->button.y);
+            if (clickedIndex >= 0) {
+                selectedIndex = clickedIndex;
+            }
         }
     }
 
