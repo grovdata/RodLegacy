@@ -143,11 +143,19 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         SDL_Log("Garage::OnButtonPressed: buttonIndex=%d", buttonIndex);
         switch (buttonIndex) {
-            case 0: // Switch it
-                // Already handled by onItemSelected
+            case 0: { // Switch it
+                int selectedIndex = carSelectDialog->GetSelectedIndex();
+                if (selectedIndex >= 0) {
+                    Car* selectedCar = state.GetOwnedCars()[selectedIndex];
+                    if (selectedCar != state.GetCurrentCar()) {
+                        pendingCar = selectedCar;
+                        StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                    }
+                }
+                carSelectDialog->Hide();
                 break;
+            }
             case 1: // Sell it
-                // TODO: Implement sell functionality
                 carSelectDialog->Hide();
                 break;
             case 2: // Forget it
@@ -161,13 +169,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     listDialogConfig.labels = labels;
     listDialogConfig.listBoxRect = listBoxRect;
     listDialogConfig.selectedItemRect = selectedItemRect;
-    listDialogConfig.onItemSelected = [this](int selectedIndex) {
-        Car* selectedCar = state.GetOwnedCars()[selectedIndex];
-        SDL_Log("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
-               selectedIndex, 
-               selectedCar->GetModel().name.c_str(), 
-               (void*)selectedCar);
-    };
 
     carSelectDialog = std::make_unique<ListDialog>(
         dialogConfig,
