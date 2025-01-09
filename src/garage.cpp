@@ -109,6 +109,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         {"Forget it", SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, false, 2}
     };
 
+    vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{39, 27, 240, 10}, "Your cars", {0xFF, 0xFF, 0xFF, 0xFF}}
+    };
+
     DialogConfig dialogConfig;
     dialogConfig.bounds = bounds;
     dialogConfig.buttons = buttons;
@@ -119,7 +123,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             carSelectDialog->Hide();
         }
     };
-    
+    dialogConfig.texts = texts;
 
     ListDialogConfig listDialogConfig;
     listDialogConfig.labels = labels;

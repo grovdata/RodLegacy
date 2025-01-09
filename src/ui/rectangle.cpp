@@ -16,7 +16,6 @@ void Rectangle::Fill() {
     SDL_Rect border = {config.inset, config.inset, config.rect.w - config.inset * 2, config.rect.h - config.inset * 2};
     SDL_FillRect(s, &border, SDL_MapRGB(s->format, config.borderColor.r, config.borderColor.g, config.borderColor.b));
     
-    
     SDL_Rect inner = {config.inset + 1, config.inset + 1, config.rect.w - config.inset * 2 - 2, config.rect.h - config.inset * 2 - 2};
     SDL_FillRect(s, &inner, SDL_MapRGB(s->format, config.fillColor.r, config.fillColor.g, config.fillColor.b));
     

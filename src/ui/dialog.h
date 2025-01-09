@@ -17,10 +17,17 @@ struct DialogButtonConfig {
     int index = -1;
 };
 
+struct DialogTextConfig {
+    SDL_Rect rect;
+    string text;
+    SDL_Color color;
+};
+
 struct DialogConfig {
     SFont_Font *font;
     SDL_Rect bounds;
     vector<DialogButtonConfig> buttons;
+    vector<DialogTextConfig> texts;
     vector<SDL_Rect> contentAreas;
     function<void(int)> onButtonPressed;
 };

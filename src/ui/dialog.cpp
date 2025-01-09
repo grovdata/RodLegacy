@@ -3,13 +3,21 @@
 Dialog::Dialog(const DialogConfig& config) {    
     this->config = config;
     mainBitmap = new Bitmap(config.bounds.w, config.bounds.h, 32);
+    mainBitmap->SetPosition(config.bounds.x, config.bounds.y);
+    mainBitmap->SetVisible(true);
     for (const auto& contentArea : config.contentAreas) {
         AddContentArea(contentArea);
     }
     
-    for (const auto& buttonCfg : config.buttons) {
-        
+    for (const auto& buttonCfg : config.buttons) {   
         AddButton(buttonCfg);
+    }
+
+     for (auto text : config.texts) {
+        // Clear rect before
+        SFont_Write(mainBitmap->GetSurface(), config.font, text.rect.x, text.rect.y, text.text.c_str());
+        SDL_SetTextureColorMod(mainBitmap->GetTexture(), text.color.r, text.color.g, text.color.b);
+        mainBitmap->UpdateFromSurface();
     }
 }
 
@@ -53,7 +61,6 @@ void Dialog::AddText(const char* text, const SDL_Rect& area) {
 void Dialog::Draw() {
     if (!isVisible) return;
 
-    mainBitmap->Draw();
     
     for (auto rect : contentAreas) {
         rect->Draw();
@@ -62,10 +69,12 @@ void Dialog::Draw() {
     for (auto button : buttons) {
         button->Draw();
     }
+    mainBitmap->Draw();
 }
 
 void Dialog::Show() {
     isVisible = true;
+    mainBitmap->SetVisible(true);
     for (auto rect : contentAreas) {
         rect->SetVisible(true);
     }
@@ -76,6 +85,7 @@ void Dialog::Show() {
 
 void Dialog::Hide() {
     isVisible = false;
+    mainBitmap->SetVisible(false);
     for (auto rect : contentAreas) {
         rect->SetVisible(false);
     }
