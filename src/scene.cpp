@@ -129,6 +129,7 @@ Zone& Scene::GetZone(ZoneId id) {
             return zones[i];
         }
     }
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene::GetZone: Zone not found: %d", id);
     // Need a static Zone object to return in case of failure
     static Zone nullZone(ZONE_NULL, const_cast<char*>(""), new SDL_Rect{0,0,0,0});
     return nullZone;

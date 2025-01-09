@@ -108,3 +108,22 @@ void Dialog::Hide() {
         button->SetVisible(false);
     }
 } 
+
+void Dialog::HandleEvent(SDL_Event* event) {
+    if (!IsVisible()) return;
+
+    // Handle button events
+    for (auto button : buttons) {
+        button->HandleEvent(event);
+    }
+
+    if (event->type == SDL_MOUSEMOTION) {
+        SDL_Point mousePos = {event->motion.x, event->motion.y};
+        for (auto zone : config.zones) {
+            if (zone.IsInsideZone(mousePos.x, mousePos.y)) {
+                config.onZoneHover(zone);
+                break;
+            }
+        }
+    }
+}

@@ -131,12 +131,8 @@ void ListDialog::OnItemSelected(int index) {
 } 
 
 void ListDialog::HandleEvent(SDL_Event *event) {
+    Dialog::HandleEvent(event);
     if (!IsVisible()) return;
-
-    // Handle button events
-    for (auto button : buttons) {
-        button->HandleEvent(event);
-    }
 
     // Handle mouse motion for hover effect
     if (event->type == SDL_MOUSEMOTION) {

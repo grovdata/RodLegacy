@@ -4,6 +4,7 @@
 #include "../SFont.h"
 #include "rectangle.h"
 #include "button.h"
+#include "zone.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -26,7 +27,9 @@ struct DialogConfig {
     vector<DialogTextConfig> texts;
     vector<SDL_Rect> contentAreas;
     vector<SDL_Rect> lines;
+    vector<Zone> zones;
     function<void(int)> onButtonPressed;
+    function<void(Zone&)> onZoneHover;
 };
 
 class Dialog {
@@ -45,7 +48,7 @@ public:
     void AddText(const char* text, const SDL_Rect& area);
     void AddLine(SDL_Rect rect, SDL_Color color);
 
-    virtual void HandleEvent(SDL_Event *event) = 0;
+    virtual void HandleEvent(SDL_Event *event);
     virtual void Draw() = 0;
     virtual void Show();
     virtual void Hide();

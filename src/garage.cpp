@@ -5,7 +5,7 @@
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
 
-    SDL_Rect bottleRect = {7, 161, 8, 24};
+   SDL_Rect bottleRect = {7, 161, 8, 24};
     Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
 
     SDL_Rect newsPaperRect = {15, 158, 44, 25};
@@ -56,6 +56,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect engineRect = {290, 107, 27, 14};
     Zone engine(ZONE_GARAGE_ENGINE, strdup("Pop the hood"), &engineRect);
 
+
+
     zones.push_back(bottle);
     zones.push_back(newsPaper);
     zones.push_back(changeTires);
@@ -94,34 +96,47 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     for (const auto& car : state.GetOwnedCars()) {
         labels.push_back(car->GetModel().name);
     }
-
+    
     SDL_Rect bounds = {36, 26, 260, 136};
+
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
+    
     SDL_Rect listBoxRect = {40, 40, 242, 80};    
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
     SDL_Rect selectedItemRect = {39, 127, 242, 12};
+    SDL_Rect switchItRect = {bounds.x + 14, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect sellItRect = {bounds.x + 90, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {bounds.x + 165, buttonY, buttonWidth, buttonHeight};
     
-    const int buttonWidth = 66;
-    const int buttonHeight = 16;
-    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
+    // Dialog zones
+    Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
+    Zone sellItZone(ZONE_GARAGE_BUTTON_SELL_IT, strdup("Sell it"), &sellItRect);
+    Zone forgetItZone(ZONE_GARAGE_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
+    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("/"), &topRect);
+    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &topRect);
+    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &topRect);
+    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("\\"), &topRect);
+
     vector<ButtonConfig> buttons = {
         {
-            SDL_Rect{bounds.x + 14, buttonY, buttonWidth, buttonHeight},
+            switchItRect,
             "Switch it",
             nullptr,  // onClick will be set by Dialog
             true,     // defaultChoice
             0        // index
         },
         {
-            // 127
-            SDL_Rect{bounds.x + 90, buttonY, buttonWidth, buttonHeight},
+            sellItRect,
             "Sell it",
             nullptr,
             false,
             1
         },
         {
-            SDL_Rect{bounds.x + 165, buttonY, buttonWidth, buttonHeight},
+            forgetItRect,
             "Forget it",
             nullptr,
             false,
@@ -137,14 +152,30 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         {40, 39, 240, 1},
     };
 
+    // Add dialog zones to config
+    vector<Zone> dialogZones = {
+        switchItZone,
+        sellItZone,
+        forgetItZone,
+        scrollTopZone,
+        scrollDownZone,
+        scrollUpZone,
+        scrollBottomZone
+    };
+
     DialogConfig dialogConfig;
     dialogConfig.bounds = bounds;
     dialogConfig.backgroundColor = {0, 208, 0, 255};
     dialogConfig.borderColor = {0, 111, 239, 255};
     dialogConfig.buttons = buttons;
     dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;  // Add the dialog zones here
     dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        SDL_Log("Garage::OnZoneHover: zoneId=%d", zone.GetId());
+        this->hud->SetText(zone.GetText());
+    };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         SDL_Log("Garage::OnButtonPressed: buttonIndex=%d", buttonIndex);
         switch (buttonIndex) {
@@ -208,6 +239,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15}  // bottom
         }
     });
+
+    
 
     InitCarBitmaps();
     
@@ -335,10 +368,12 @@ void Garage::OnFadeComplete() {
 }
 
 void Garage::PushEvent(SDL_Event* event) {
-    Scene::PushEvent(event);
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->HandleEvent(event);
+        return;  // Skip normal zone handling when dialog is visible
     }
+
+    CarScene::PushEvent(event);
 }
 
 void Garage::OnCarAnimationComplete() {
