@@ -27,6 +27,8 @@ struct DialogTextConfig {
 struct DialogConfig {
     SFont_Font *font;
     SDL_Rect bounds;
+    SDL_Color backgroundColor = {0x60, 0x60, 0x60, 0xFF};
+    SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
     vector<DialogButtonConfig> buttons;
     vector<DialogTextConfig> texts;
     vector<SDL_Rect> contentAreas;

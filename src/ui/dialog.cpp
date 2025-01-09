@@ -7,7 +7,7 @@ Dialog::Dialog(const DialogConfig& config) {
 
     mainBitmap->SetVisible(true);
     for (const auto& contentArea : config.contentAreas) {
-        AddContentArea(contentArea);
+        AddContentArea(contentArea, config.backgroundColor, config.borderColor);
     }
     
     for (const auto& buttonCfg : config.buttons) {   

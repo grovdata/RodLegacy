@@ -115,6 +115,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     DialogConfig dialogConfig;
     dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.assets.GetMainFont();
