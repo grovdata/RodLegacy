@@ -76,7 +76,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     // AddButton(scrollUpBtn);
     // AddButton(scrollDownBtn);
     // AddButton(scrollBottomBtn);
-    
+    rowHeight = SFont_TextHeight(config.font);
     PopulateList();
 }
 
@@ -89,17 +89,18 @@ void ListDialog::Draw() {
     
     if (!IsVisible()) return;
 
+    
     // Draw list items
     for (size_t i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {
-        SDL_Rect itemRect = listConfig.selectedItemRect;
-        itemRect.y = listConfig.listBoxRect.y + (i - scrollOffset) * itemRect.h;
+        int itemY = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;
         
         SDL_Color textColor = (static_cast<int>(i) == selectedIndex) 
             ? listConfig.selectedTextColor 
             : listConfig.normalTextColor;
         
-        SFont_Write(mainBitmap->GetSurface(), config.font, itemRect.x, itemRect.y, 
+        SFont_Write(mainBitmap->GetSurface(), config.font, listConfig.listBoxRect.x, itemY, 
                           listConfig.labels[i].c_str());
+        mainBitmap->UpdateFromSurface();
     }
 }
 

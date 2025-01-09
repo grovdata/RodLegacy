@@ -26,6 +26,7 @@ private:
     int selectedIndex = -1;
     int scrollOffset = 0;
     int visibleItems = 10;
+    int rowHeight = 10;
     Button* scrollUpBtn;
     Button* scrollDownBtn;
     Button* scrollTopBtn;

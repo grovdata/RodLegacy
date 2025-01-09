@@ -2,8 +2,9 @@
 
 Dialog::Dialog(const DialogConfig& config) {    
     this->config = config;
-    mainBitmap = new Bitmap(config.bounds.w, config.bounds.h, 32);
-    mainBitmap->SetPosition(config.bounds.x, config.bounds.y);
+    mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
+    mainBitmap->SetPosition(0, 0);
+
     mainBitmap->SetVisible(true);
     for (const auto& contentArea : config.contentAreas) {
         AddContentArea(contentArea);
@@ -60,7 +61,6 @@ void Dialog::AddText(const char* text, const SDL_Rect& area) {
 
 void Dialog::Draw() {
     if (!isVisible) return;
-
     
     for (auto rect : contentAreas) {
         rect->Draw();
