@@ -6,88 +6,64 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     : Dialog(config),         
       listConfig(listConfig)
 {
-
-    // int buttonWidth = 66;
-    // int buttonHeight = 16;
-
-    // Button* switchItButton = new Button(
-    //     "Switch it",
-    //     SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
-    //     [this]() {
-    //         this->config.onButtonPressed(0);
-    //     }
-    // );
-
-    // Button* sellItButton = new Button(
-    //     "Sell it",
-    //     SDL_Rect{bounds.x + 14 + buttonWidth + 2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
-    //     [this]() {
-    //         this->config.onButtonPressed(1);
-    //     }
-    // );
-    
-    // Button* cancelBtn = new Button(
-    //     "Forget it",
-    //     SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight},
-    //     [this]() { 
-    //         this->config.onButtonPressed(2);
-    //         this->Hide();
-    //     }
-    // );
-    
-    // AddButton(switchItButton);
-    // AddButton(sellItButton);
-    // AddButton(cancelBtn);    
-
-    
-    // Button* scrollTopBtn = new Button(
-    //     "\\",
-    //     SDL_Rect{topRect.x + topRect.w + 2, topRect.y + 14, 15, 15},
-    //     [this]() {
-    //         //if (scrollOffset > 0) scrollOffset--;
-    //     }
-    // );
-
-    // Button* scrollUpBtn = new Button(
-    //     "<",
-    //     SDL_Rect{topRect.x + topRect.w + 2, topRect.y + 30, 15, 15},
-    //     [this]() {
-    //         //if (scrollOffset > 0) scrollOffset--;
-    //     }
-    // );
-    
-    // Button* scrollDownBtn = new Button(
-    //     ">", 
-    //     SDL_Rect{topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15},
-    //     [this]() {
-    //         // if (scrollOffset + visibleItems < static_cast<int>(labels.size())) scrollOffset++;
-    //     }
-    // );
-
-    // Button* scrollBottomBtn = new Button(
-    //     "/",
-    //     SDL_Rect{topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15},
-    //     [this]() {
-    //         //if (scrollOffset > 0) scrollOffset--;
-    //     }
-    // );
-    
-    // AddButton(scrollTopBtn);
-    // AddButton(scrollUpBtn);
-    // AddButton(scrollDownBtn);
-    // AddButton(scrollBottomBtn);
     rowHeight = SFont_TextHeight(config.font);
+
+    scrollTopBtn = new Button(
+        "\\",
+        listConfig.scrollButtons.topRect,
+        [this]() {
+            scrollOffset = 0;
+        }
+    );
+
+    scrollUpBtn = new Button(
+        "<",
+        listConfig.scrollButtons.upRect,
+        [this]() {
+            if (scrollOffset > 0) scrollOffset--;
+        }
+    );
+    
+    scrollDownBtn = new Button(
+        ">", 
+        listConfig.scrollButtons.downRect,
+        [this]() {
+            if (scrollOffset + visibleItems < static_cast<int>(this->listConfig.labels.size())) 
+                scrollOffset++;
+        }
+    );
+
+    scrollBottomBtn = new Button(
+        "/",
+        listConfig.scrollButtons.bottomRect,
+        [this]() {
+            scrollOffset = static_cast<int>(this->listConfig.labels.size()) - visibleItems;
+            if (scrollOffset < 0) scrollOffset = 0;
+        }
+    );
+    
+    // Add scroll buttons to Dialog's button list
+    buttons.push_back(scrollTopBtn);
+    buttons.push_back(scrollUpBtn);
+    buttons.push_back(scrollDownBtn);
+    buttons.push_back(scrollBottomBtn);
+
     PopulateList();
 }
 
 ListDialog::~ListDialog() {
-
+    
 }
 
 void ListDialog::Draw() {
     Dialog::Draw();
     
     if (!IsVisible()) return;
+
+    // Clear list box area
+    SDL_Rect clearRect = listConfig.listBoxRect;
+    SDL_FillRect(mainBitmap->GetSurface(), &clearRect, 0);
+    mainBitmap->UpdateFromSurface();
 
     // Draw list items
     for (size_t i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {

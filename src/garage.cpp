@@ -99,7 +99,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect listBoxRect = {39, 40, 242, 80};    
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
-    SDL_Rect selectedItemRect = {39, 123, 242, 12};
+    SDL_Rect selectedItemRect = {39, 126, 242, 12};
     
     const int buttonWidth = 66;
     const int buttonHeight = 16;
@@ -110,7 +110,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
 
     vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{39, 27, 240, 10}, "Your cars", {0xFF, 0xFF, 0xFF, 0xFF}}
+        DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Your cars", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
 
     DialogConfig dialogConfig;
