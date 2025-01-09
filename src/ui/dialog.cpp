@@ -54,7 +54,11 @@ void Dialog::AddContentArea(const SDL_Rect& area, SDL_Color fillColor, SDL_Color
 }
 
 void Dialog::AddButton(const ButtonConfig& buttonConfig) {
-    buttons.push_back(new Button(buttonConfig));
+    ButtonConfig config = buttonConfig;  // Make a copy so we can modify it
+    config.onClick = [this, buttonConfig]() {
+        this->OnButtonPressed(buttonConfig.index);
+    };
+    buttons.push_back(new Button(config));
 }
 
 void Dialog::AddText(const char* text, const SDL_Rect& area) {

@@ -141,8 +141,18 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.assets.GetMainFont();
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
-        if (buttonIndex == 2) { // Forget it
-            carSelectDialog->Hide();
+        SDL_Log("Garage::OnButtonPressed: buttonIndex=%d", buttonIndex);
+        switch (buttonIndex) {
+            case 0: // Switch it
+                // Already handled by onItemSelected
+                break;
+            case 1: // Sell it
+                // TODO: Implement sell functionality
+                carSelectDialog->Hide();
+                break;
+            case 2: // Forget it
+                carSelectDialog->Hide();
+                break;
         }
     };
     dialogConfig.texts = texts;

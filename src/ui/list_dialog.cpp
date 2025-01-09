@@ -68,6 +68,7 @@ void ListDialog::Draw() {
     // Draw list items
     for (size_t i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {
         SDL_Rect itemRect = listConfig.selectedItemRect;
+        itemRect.x = listConfig.listBoxRect.x;
         itemRect.y = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;
         
         SDL_Color textColor;
