@@ -24,6 +24,7 @@ struct ListDialogConfig {
 class ListDialog : public Dialog {
 private:
     int selectedIndex = -1;
+    int hoverIndex = -1;
     int scrollOffset = 0;
     int visibleItems = 10;
     int rowHeight = 10;
@@ -44,4 +45,5 @@ public:
 
     void OnItemSelected(int index);
     int GetSelectedIndex() const { return selectedIndex; }
+    int GetIndexAtPosition(int x, int y) const;
 }; 

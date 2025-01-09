@@ -21,6 +21,7 @@ struct DialogTextConfig {
     SDL_Rect rect;
     string text;
     SDL_Color color;
+    bool centered = false;
 };
 
 struct DialogConfig {

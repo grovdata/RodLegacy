@@ -14,9 +14,14 @@ Dialog::Dialog(const DialogConfig& config) {
         AddButton(buttonCfg);
     }
 
-     for (auto text : config.texts) {
-        // Clear rect before
-        SFont_Write(mainBitmap->GetSurface(), config.font, text.rect.x, text.rect.y, text.text.c_str());
+    for (auto text : config.texts) {
+        int x = text.rect.x;
+        if (text.centered) {
+            int textWidth = SFont_TextWidth(config.font, text.text.c_str());
+            x = text.rect.x + (text.rect.w - textWidth) / 2;
+        }
+        
+        SFont_Write(mainBitmap->GetSurface(), config.font, x, text.rect.y, text.text.c_str());
         SDL_SetTextureColorMod(mainBitmap->GetTexture(), text.color.r, text.color.g, text.color.b);
         mainBitmap->UpdateFromSurface();
     }
