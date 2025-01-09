@@ -25,6 +25,7 @@ struct DialogConfig {
     vector<ButtonConfig> buttons;
     vector<DialogTextConfig> texts;
     vector<SDL_Rect> contentAreas;
+    vector<SDL_Rect> lines;
     function<void(int)> onButtonPressed;
 };
 
@@ -42,6 +43,7 @@ public:
     void AddContentArea(const SDL_Rect& area, SDL_Color fillColor = {0x60, 0x60, 0x60, 0xFF}, SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF});
     void AddButton(const ButtonConfig& buttonCfg);
     void AddText(const char* text, const SDL_Rect& area);
+    void AddLine(SDL_Rect rect, SDL_Color color);
 
     virtual void HandleEvent(SDL_Event *event) = 0;
     virtual void Draw() = 0;

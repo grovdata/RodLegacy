@@ -14,6 +14,10 @@ Dialog::Dialog(const DialogConfig& config) {
         AddButton(buttonCfg);
     }
 
+    for (const auto& lineCfg : config.lines) {
+        AddLine(lineCfg, config.borderColor);
+    }
+
     for (auto text : config.texts) {
         int x = text.rect.x;
         if (text.centered) {
@@ -51,6 +55,11 @@ void Dialog::AddContentArea(const SDL_Rect& area, SDL_Color fillColor, SDL_Color
     config.inset = 1;
     
     contentAreas.push_back(new Rectangle(config));
+}
+
+void Dialog::AddLine(SDL_Rect rect, SDL_Color color) {
+    SDL_FillRect(mainBitmap->GetSurface(), &rect, SDL_MapRGB(mainBitmap->GetSurface()->format, color.r, color.g, color.b));
+    mainBitmap->UpdateFromSurface();
 }
 
 void Dialog::AddButton(const ButtonConfig& buttonConfig) {
