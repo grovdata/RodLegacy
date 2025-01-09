@@ -11,6 +11,9 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     ButtonConfig topConfig;
     topConfig.text = "\\";
     topConfig.bounds = listConfig.scrollButtons.topRect;
+    topConfig.fillColor = config.backgroundColor;
+    topConfig.borderColor = config.borderColor;
+    topConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
     topConfig.onClick = [this]() {
         scrollOffset = 0;
     };
@@ -19,6 +22,9 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     ButtonConfig upConfig;
     upConfig.text = "<";
     upConfig.bounds = listConfig.scrollButtons.upRect;
+    upConfig.fillColor = config.backgroundColor;
+    upConfig.borderColor = config.borderColor;
+    upConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
     upConfig.onClick = [this]() {
         if (scrollOffset > 0) scrollOffset--;
     };
@@ -27,6 +33,9 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     ButtonConfig downConfig;
     downConfig.text = ">";
     downConfig.bounds = listConfig.scrollButtons.downRect;
+    downConfig.fillColor = config.backgroundColor;
+    downConfig.borderColor = config.borderColor;
+    downConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
     downConfig.onClick = [this]() {
         if (scrollOffset + visibleItems < static_cast<int>(this->listConfig.labels.size())) 
             scrollOffset++;
@@ -36,6 +45,9 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     ButtonConfig bottomConfig;
     bottomConfig.text = "/";
     bottomConfig.bounds = listConfig.scrollButtons.bottomRect;
+    bottomConfig.fillColor = config.backgroundColor;
+    bottomConfig.borderColor = config.borderColor;
+    bottomConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
     bottomConfig.onClick = [this]() {
         scrollOffset = static_cast<int>(this->listConfig.labels.size()) - visibleItems;
         if (scrollOffset < 0) scrollOffset = 0;
