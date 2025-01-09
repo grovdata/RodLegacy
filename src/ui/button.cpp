@@ -30,8 +30,8 @@ void Button::CreateButtonSurface() {
     int textY = (config.bounds.h - textHeight) / 2;
 
     SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), textX, textY, config.text.c_str());
-    SDL_SetTextureColorMod(textBitmap->GetTexture(), config.textColor.r, config.textColor.g, config.textColor.b);
     textBitmap->UpdateFromSurface();
+    SDL_SetTextureColorMod(textBitmap->GetTexture(), config.textColor.r, config.textColor.g, config.textColor.b);
 }
 
 void Button::Draw() {

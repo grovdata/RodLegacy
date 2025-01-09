@@ -96,17 +96,37 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     }
 
     SDL_Rect bounds = {36, 26, 260, 136};
-    SDL_Rect listBoxRect = {39, 40, 242, 80};    
+    SDL_Rect listBoxRect = {40, 40, 242, 80};    
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
-    SDL_Rect selectedItemRect = {39, 126, 242, 12};
+    SDL_Rect selectedItemRect = {39, 127, 242, 12};
     
     const int buttonWidth = 66;
     const int buttonHeight = 16;
-    vector<DialogButtonConfig> buttons = {
-        {"Switch it", SDL_Rect{bounds.x + 14, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, true, 0},
-        {"Sell it", SDL_Rect{bounds.x + 14 + buttonWidth + 2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, false, 1},
-        {"Forget it", SDL_Rect{bounds.x + 14 + buttonWidth*2 + 2*2, bounds.y + bounds.h - buttonHeight - 2, buttonWidth, buttonHeight}, false, 2}
+    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
+    vector<ButtonConfig> buttons = {
+        {
+            SDL_Rect{bounds.x + 14, buttonY, buttonWidth, buttonHeight},
+            "Switch it",
+            nullptr,  // onClick will be set by Dialog
+            true,     // defaultChoice
+            0        // index
+        },
+        {
+            // 127
+            SDL_Rect{bounds.x + 90, buttonY, buttonWidth, buttonHeight},
+            "Sell it",
+            nullptr,
+            false,
+            1
+        },
+        {
+            SDL_Rect{bounds.x + 165, buttonY, buttonWidth, buttonHeight},
+            "Forget it",
+            nullptr,
+            false,
+            2
+        }
     };
 
     vector<DialogTextConfig> texts = {

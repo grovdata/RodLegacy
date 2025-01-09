@@ -6,15 +6,22 @@
 #include "zone.h"
 #include "rectangle.h"
 
+static const SDL_Color ButtonDefaultTextColor = {0, 0, 0, 255};
+static const SDL_Color ButtonDefaultFillColor = {144, 144, 144, 255};
+static const SDL_Color ButtonDefaultBorderColor = {0, 0, 0, 255};
+static const SDL_Color ButtonDefaultChoiceColor = {255, 255, 255, 255};
+
 struct ButtonConfig {
     SDL_Rect bounds;
     std::string text;
     std::function<void()> onClick;
-    bool defaultChoice;
-    SDL_Color textColor = {0, 0, 0, 255};
-    SDL_Color fillColor = {144, 144, 144, 255};
-    SDL_Color borderColor = {0, 0, 0, 255};
+    bool defaultChoice = false;
+    int index = -1;  // For dialog button indexing
+    SDL_Color textColor = ButtonDefaultTextColor;
+    SDL_Color fillColor = ButtonDefaultFillColor;
+    SDL_Color borderColor = ButtonDefaultBorderColor;
 };
+
 
 class Button: public IDrawable {
 private:

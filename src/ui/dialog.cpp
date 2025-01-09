@@ -53,16 +53,8 @@ void Dialog::AddContentArea(const SDL_Rect& area, SDL_Color fillColor, SDL_Color
     contentAreas.push_back(new Rectangle(config));
 }
 
-void Dialog::AddButton(DialogButtonConfig dialogButtonCfg) {
-    ButtonConfig config;
-    config.bounds = dialogButtonCfg.rect;
-    config.text = dialogButtonCfg.label;
-    config.defaultChoice = dialogButtonCfg.defaultButton;
-    config.onClick = [this, dialogButtonCfg]() {
-        this->OnButtonPressed(dialogButtonCfg.index);
-    };
-    
-    buttons.push_back(new Button(config));
+void Dialog::AddButton(const ButtonConfig& buttonConfig) {
+    buttons.push_back(new Button(buttonConfig));
 }
 
 void Dialog::AddText(const char* text, const SDL_Rect& area) {

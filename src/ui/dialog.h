@@ -10,13 +10,6 @@
 
 using namespace std;
 
-struct DialogButtonConfig {
-    string label;
-    SDL_Rect rect;
-    bool defaultButton = false;
-    int index = -1;
-};
-
 struct DialogTextConfig {
     SDL_Rect rect;
     string text;
@@ -29,7 +22,7 @@ struct DialogConfig {
     SDL_Rect bounds;
     SDL_Color backgroundColor = {0x60, 0x60, 0x60, 0xFF};
     SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
-    vector<DialogButtonConfig> buttons;
+    vector<ButtonConfig> buttons;
     vector<DialogTextConfig> texts;
     vector<SDL_Rect> contentAreas;
     function<void(int)> onButtonPressed;
@@ -47,7 +40,7 @@ public:
     virtual ~Dialog();
     
     void AddContentArea(const SDL_Rect& area, SDL_Color fillColor = {0x60, 0x60, 0x60, 0xFF}, SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF});
-    void AddButton(DialogButtonConfig buttonCfg);
+    void AddButton(const ButtonConfig& buttonCfg);
     void AddText(const char* text, const SDL_Rect& area);
 
     virtual void HandleEvent(SDL_Event *event) = 0;
