@@ -34,6 +34,7 @@ private:
     Button* scrollBottomBtn;
 
     ListDialogConfig listConfig;
+    SDL_Point mousePos;
 
     void PopulateList();
 public:

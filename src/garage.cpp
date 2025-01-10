@@ -173,7 +173,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.assets.GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
-        SDL_Log("Garage::OnZoneHover: zoneId=%d", zone.GetId());
         this->hud->SetText(zone.GetText());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {

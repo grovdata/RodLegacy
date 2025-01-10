@@ -59,7 +59,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     buttons.push_back(scrollUpBtn);
     buttons.push_back(scrollDownBtn);
     buttons.push_back(scrollBottomBtn);
-
+    SDL_Log("ListDialog::ListDialog: listboxrect.x=%d, listboxrect.y=%d", listConfig.listBoxRect.x, listConfig.listBoxRect.y);
     PopulateList();
 }
 
@@ -134,14 +134,38 @@ void ListDialog::HandleEvent(SDL_Event *event) {
     Dialog::HandleEvent(event);
     if (!IsVisible()) return;
 
-    // Handle mouse motion for hover effect
+    // Handle mouse motion
     if (event->type == SDL_MOUSEMOTION) {
         hoverIndex = GetIndexAtPosition(event->motion.x, event->motion.y);
+        mousePos.x = event->motion.x;
+        mousePos.y = event->motion.y;
+    }
+
+    // Handle mousewheel scrolling when mouse is over listbox
+    if (event->type == SDL_MOUSEWHEEL) {
+        
+        int wheelY = event->wheel.y;
+
+        if (mousePos.x >= listConfig.listBoxRect.x && 
+            mousePos.x <= listConfig.listBoxRect.x + listConfig.listBoxRect.w &&
+            mousePos.y >= listConfig.listBoxRect.y &&
+            mousePos.y <= listConfig.listBoxRect.y + listConfig.listBoxRect.h) {
+            
+            if (wheelY > 0) { // Scroll up
+                if (scrollOffset > 0) {
+                    scrollOffset--;
+                }
+            }
+            else if (wheelY < 0) { // Scroll down
+                if (scrollOffset + visibleItems < static_cast<int>(listConfig.labels.size())) {
+                    scrollOffset++;
+                }
+            }
+        }
     }
 
     // Handle list clicks
     if (event->type == SDL_MOUSEBUTTONDOWN) {
-        // Check if click is within listbox bounds
         if (event->button.x >= listConfig.listBoxRect.x && 
             event->button.x <= listConfig.listBoxRect.x + listConfig.listBoxRect.w &&
             event->button.y >= listConfig.listBoxRect.y &&
