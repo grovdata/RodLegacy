@@ -59,7 +59,6 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     buttons.push_back(scrollUpBtn);
     buttons.push_back(scrollDownBtn);
     buttons.push_back(scrollBottomBtn);
-    SDL_Log("ListDialog::ListDialog: listboxrect.x=%d, listboxrect.y=%d", listConfig.listBoxRect.x, listConfig.listBoxRect.y);
     PopulateList();
 }
 

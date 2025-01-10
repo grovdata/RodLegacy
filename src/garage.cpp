@@ -110,15 +110,20 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect switchItRect = {bounds.x + 14, buttonY, buttonWidth, buttonHeight};
     SDL_Rect sellItRect = {bounds.x + 90, buttonY, buttonWidth, buttonHeight};
     SDL_Rect forgetItRect = {bounds.x + 165, buttonY, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};     // top
+    SDL_Rect scrollUpRect = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};     // up
+    SDL_Rect scrollDownRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15}; // down
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};  // bottom
     
     // Dialog zones
     Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
     Zone sellItZone(ZONE_GARAGE_BUTTON_SELL_IT, strdup("Sell it"), &sellItRect);
     Zone forgetItZone(ZONE_GARAGE_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
-    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("/"), &topRect);
-    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &topRect);
-    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &topRect);
-    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("\\"), &topRect);
+    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("\\"), &scrollTopRect);
+    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &scrollDownRect);
+    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &scrollUpRect);
+    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
 
     vector<ButtonConfig> buttons = {
         {
@@ -176,7 +181,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         this->hud->SetText(zone.GetText());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
-        SDL_Log("Garage::OnButtonPressed: buttonIndex=%d", buttonIndex);
         switch (buttonIndex) {
             case 0: { // Switch it
                 int selectedIndex = carSelectDialog->GetSelectedIndex();
@@ -232,10 +236,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         {0xFF, 0xFF, 0xFF, 0xFF},
         {0xFF, 0xFF, 0x00, 0xFF},
         {
-            {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15},     // top
-            {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15},     // up
-            {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15}, // down
-            {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15}  // bottom
+            scrollTopRect,
+            scrollUpRect,
+            scrollDownRect,
+            scrollBottomRect            
         }
     });
 
