@@ -1,7 +1,6 @@
 #include "dialog.h"
 
-Dialog::Dialog(const DialogConfig& config) {    
-    this->config = config;
+Dialog::Dialog(const DialogConfig& config) : config(config), mainBitmap(nullptr) {    
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
     mainBitmap->SetPosition(0, 0);
 

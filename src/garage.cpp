@@ -243,7 +243,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     });
 
-    
+    InitGameMenuDialog();
 
     InitCarBitmaps();
     
@@ -251,6 +251,73 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     if (state.GetCurrentCar()) {
         carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
     }
+}
+
+void Garage::InitGameMenuDialog() {
+
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+
+
+    SDL_Rect menuDialogRect = {82, 77, 156, 76};
+    
+    SDL_Rect saveGameRect = {92, 94, buttonWidth, buttonHeight};
+    SDL_Rect oldGameRect = {92, 112, buttonWidth, buttonHeight};
+    SDL_Rect newGameRect = {92, 130, buttonWidth, buttonHeight};
+    SDL_Rect quitGameRect = {164, 103, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {164, 121, buttonWidth, buttonHeight};
+
+    Zone saveGameZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Save Game"), &saveGameRect);
+    Zone oldGameZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Old Game"), &oldGameRect);
+    Zone newGameZone(ZONE_GARAGE_MENU_NEW_GAME, strdup("New Game"), &newGameRect);
+    Zone quitGameZone(ZONE_GARAGE_MENU_QUIT_GAME, strdup("Quit"), &quitGameRect);
+    Zone forgetItZone(ZONE_GARAGE_MENU_FORGET_IT, strdup("Forget it"), &forgetItRect);
+
+    vector<Zone> dialogZones = {
+        saveGameZone,
+        oldGameZone,
+        newGameZone,
+        quitGameZone,
+        forgetItZone
+    };
+
+    ButtonConfig saveGameButton = {saveGameRect, "Save Game", nullptr, true, 0};
+    ButtonConfig oldGameButton = {oldGameRect, "Old Game", nullptr, false, 1};
+    ButtonConfig newGameButton = {newGameRect, "New Game", nullptr, false, 2};
+    ButtonConfig quitGameButton = {quitGameRect, "Quit", nullptr, false, 3};
+    ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 4};
+
+    vector<ButtonConfig> buttons = {
+        saveGameButton,
+        oldGameButton,
+        newGameButton,
+        quitGameButton,
+        forgetItButton
+    };
+
+    vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{menuDialogRect.x + 3, menuDialogRect.y + 3, 150, 10}, "Save, Restart, or Quit.", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+
+    vector<SDL_Rect> lines = {
+        {85, 89, 150, 1},
+    };
+
+    
+    DialogConfig menuDialogConfig;
+    menuDialogConfig.bounds = menuDialogRect;
+    menuDialogConfig.backgroundColor = {0, 208, 0, 255};
+    menuDialogConfig.borderColor = {0, 111, 239, 255};
+    menuDialogConfig.texts = texts;
+    menuDialogConfig.buttons = buttons;
+    menuDialogConfig.lines = lines;
+    menuDialogConfig.zones = dialogZones;
+    menuDialogConfig.contentAreas = vector<SDL_Rect>{menuDialogRect};
+    menuDialogConfig.font = state.assets.GetMainFont();
+    menuDialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
+    gameMenuDialog = std::make_unique<Dialog>(menuDialogConfig);
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -293,6 +360,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_CAR_LIST:
         carSelectDialog->Show();
+        break;
+    case ZONE_GARAGE_MENU:
+        gameMenuDialog->Show();
         break;
     default:
         break;
@@ -356,6 +426,10 @@ void Garage::Draw() {
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->Draw();
     }
+
+    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
+        gameMenuDialog->Draw();
+    }
 }
 
 void Garage::OnFadeComplete() {
@@ -373,6 +447,11 @@ void Garage::OnFadeComplete() {
 void Garage::PushEvent(SDL_Event* event) {
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->HandleEvent(event);
+        return;  // Skip normal zone handling when dialog is visible
+    }
+
+    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
+        gameMenuDialog->HandleEvent(event);
         return;  // Skip normal zone handling when dialog is visible
     }
 

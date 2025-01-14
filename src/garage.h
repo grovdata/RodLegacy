@@ -13,11 +13,13 @@ class Garage : public CarScene {
     Car *pendingCar = nullptr;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
-    void UpdateSign();
     std::unique_ptr<ListDialog> carSelectDialog;
-    
+    std::unique_ptr<Dialog> gameMenuDialog;
     // Container for all car bitmaps
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
+
+    void InitGameMenuDialog();
+    void UpdateSign();
 
    public:
     Garage();

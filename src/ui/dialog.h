@@ -40,7 +40,7 @@ protected:
     DialogConfig config;
     bool isVisible = false;
 public:
-    Dialog(const DialogConfig& config);
+    Dialog(const DialogConfig& cfg);
     virtual ~Dialog();
     
     void AddContentArea(const SDL_Rect& area, SDL_Color fillColor = {0x60, 0x60, 0x60, 0xFF}, SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF});
@@ -49,7 +49,7 @@ public:
     void AddLine(SDL_Rect rect, SDL_Color color);
 
     virtual void HandleEvent(SDL_Event *event);
-    virtual void Draw() = 0;
+    virtual void Draw();
     virtual void Show();
     virtual void Hide();
     virtual bool IsVisible() const { return isVisible; }
