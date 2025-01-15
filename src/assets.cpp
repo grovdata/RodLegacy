@@ -35,11 +35,24 @@ void AssetManager::InitFonts() {
 
 void AssetManager::InitGameFiles() {
     fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
-    printf("Disk1 path: %s\n", disk1Path.string().c_str());
-    SrLibStatus srlibver = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
-    if (srlibver != SrLibStatusSuccess) {
-        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + to_string(srlibver) + ")");
+    fs::path disk2Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2]);
+
+    SrLibStatus disk1Status = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
+    if (disk1Status != SrLibStatusSuccess) {
+        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + to_string(disk1Status) + ")");
     }
+
+    SrLibStatus disk2Status = SrLibVerifyChecksum(disk2Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]);
+    if (disk2Status != SrLibStatusSuccess) {
+        throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]) + ", actual checksum: " + to_string(disk2Status) + ")");
+    }
+
+    AdfFileData *srExeData = extract_adf_file_to_memory(disk1Path.string().c_str(), "Street_Rod");
+    srExeData_vec.assign(
+        static_cast<uint8_t*>(srExeData->data),
+        static_cast<uint8_t*>(srExeData->data) + srExeData->size
+    );
+    delete srExeData;
 
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
     
@@ -49,8 +62,7 @@ void AssetManager::InitGameFiles() {
         static_cast<uint8_t*>(libStartData->data) + libStartData->size
     );
     delete libStartData;
-    
-    fs::path disk2Path = ResolvePath("SR1AMIGA_DISK2.adf");
+
     AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "lib.p");
     libPData_vec.assign(
         static_cast<uint8_t*>(libPData->data),
@@ -64,6 +76,7 @@ void AssetManager::InitGameFiles() {
         static_cast<uint8_t*>(srData->data) + srData->size
     );
     delete srData;
+
 }
 
 void AssetManager::InitStockPalettes() {
@@ -124,6 +137,17 @@ void AssetManager::ReadAssets() {
             decals->Crop(cropDecal);
             carDecals = std::move(decals);
         }
+
+        SrLibColor buffer[16 * 16];
+        uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(srExeData_vec.data());
+        SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerWrench, buffer);
+        
+        // Create bitmap for mouse pointer
+        unique_ptr<Bitmap> pointerBitmap = make_unique<Bitmap>();
+        pointerBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 16), 16, 16);
+        pointerBitmap->SetDimensions(16, 16);
+        mousePointers[SrLibAmigaSpriteAssetMousePointerWrench] = std::move(pointerBitmap);
+
     } catch (const std::exception& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to read assets: %s", e.what());
         throw;
@@ -188,6 +212,10 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
 
 Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
+}
+
+Bitmap* AssetManager::GetMousePointer(SrLibAmigaSpriteAsset sprite) {
+    return mousePointers[sprite].get();
 }
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette) {

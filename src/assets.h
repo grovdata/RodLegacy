@@ -48,6 +48,7 @@ public:
     void UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
     Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette);
+    Bitmap* GetMousePointer(SrLibAmigaSpriteAsset sprite);
     Palette GetStockPalette(StockPalette palette);
 
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
@@ -71,6 +72,7 @@ private:
 
     pair<int, vector<BitmapEntry_t>> imageEntries;
     vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
+    map<SrLibAmigaSpriteAsset, unique_ptr<Bitmap>> mousePointers;
 
     Spritesheet* carDecals;
 
@@ -80,6 +82,7 @@ private:
     byte_vector libStartData_vec;
     byte_vector libPData_vec;
     byte_vector srData_vec;
+    byte_vector srExeData_vec;
 
     map<StockPalette, Palette> stockPalettes;
 

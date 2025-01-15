@@ -722,47 +722,74 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                            int width, 
                            int height,
                            SrLibColor* out_buffer) {
+
+    const int startOffset = 0x7AA8;
+    const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;
     
-    // Calculate base color register based on sprite number
-    int color_reg_base = 16 + ((sprite_num & 6) * 2) + 1;  // Sprites paired 0/1, 2/3, etc
-
+    // Debug: Print sprite info
+    printf("Sprite %d (%dx%d)\n", sprite_num, width, height);
+    printf("Color register base: %d\n", 16 + ((sprite_num & 6) * 2) + 1);
+    
     // Process each line
-    const uint16_t* line_data = data;
     for (int y = 0; y < height; y++) {
-        // Get DATA and DATB words for this line
-        uint16_t data = *line_data++;    // DATA word
-        uint16_t datb = *line_data++;    // DATB word
-
-        // Convert from big-endian if needed
-        data = (data >> 8) | (data << 8);
-        datb = (datb >> 8) | (datb << 8);
-
+        // Each line has 2 words: DATA and DATB
+        // Read big-endian 16-bit values manually
+        uint16_t data_word = (byteData[0] << 8) | byteData[1];
+        uint16_t datb_word = (byteData[2] << 8) | byteData[3];
+        byteData += 4;  // Advance to next line
+        
+        printf("Line %2d: [%04X %04X] ", y, data_word, datb_word);
+        
         // Process each pixel in the line
         for (int x = 0; x < width; x++) {
-            int bit_pos = 15 - x;  // Start from MSB
-            int data_bit = (data >> bit_pos) & 1;
-            int datb_bit = (datb >> bit_pos) & 1;
-            int color_idx = (datb_bit << 1) | data_bit;
-
-            SrLibColor* pixel = &out_buffer[y * width + x];
+            // Extract bits from most significant to least significant
+            int bit_pos = 15 - x;
+            int data_bit = (data_word >> bit_pos) & 1;
+            int datb_bit = (datb_word >> bit_pos) & 1;
+            int color_idx = (datb_bit << 1) | data_bit;  // Combine bits to get 0-3 value
             
+            printf("%d", color_idx);  // Debug: print color index
+            
+            SrLibColor* pixel = &out_buffer[y * width + x];
             if (color_idx == 0) {
-                // Transparent pixel
+                // Color 0 is transparent
                 pixel->r = pixel->g = pixel->b = pixel->a = 0;
             } else {
-                // Get color from appropriate register
-                uint16_t palette_color = palette[color_reg_base + color_idx - 1];
+                // Get color from sprite palette registers
+                // Sprites are paired (0/1, 2/3, etc) and share color registers
+                uint16_t palette_color = palette[17 + ((sprite_num & 6) * 2) + color_idx - 1];
                 SrLibColor rgb_color = BitmapParser::GetRGBFromRGB4(palette_color);
                 pixel->r = rgb_color.r;
                 pixel->g = rgb_color.g;
                 pixel->b = rgb_color.b;
-                pixel->a = rgb_color.a;
+                pixel->a = 255;
             }
         }
+        printf("\n");
     }
 
     return 0;
 }
+
+int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer) {
+    uint16_t pal[] = PAL1;
+    
+    switch (sprite) {
+        case SrLibAmigaSpriteAssetMousePointerWrench:
+            return SrLibAmigaSpriteToRGBA(data, pal, 0, 16, 16, out_buffer);
+        case SrLibAmigaSpriteAssetMousePointerHand:
+            return SrLibAmigaSpriteToRGBA(data, pal, 1, 16, 12, out_buffer);
+        case SrLibAmigaSpriteAssetMousePointerPump:
+            return SrLibAmigaSpriteToRGBA(data, pal, 2, 11, 16, out_buffer);
+        case SrLibAmigaSpriteAssetMousePointerRag:
+            return SrLibAmigaSpriteToRGBA(data, pal, 3, 16, 14, out_buffer);
+        case SrLibAmigaSpriteAssetMousePointerThumbsUp:
+            return SrLibAmigaSpriteToRGBA(data, pal, 4, 16, 17, out_buffer);
+        case SrLibAmigaSpriteAssetMousePointerThumbsDown:
+            return SrLibAmigaSpriteToRGBA(data, pal, 5, 16, 17, out_buffer);
+    }
+}
+
 
 // File-based wrapper
 CarMetadata_t* DataParser::SrLibDataReadDataFromFile(const char* filename, int* outCount) {

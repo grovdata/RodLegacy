@@ -430,6 +430,14 @@ void Garage::Draw() {
     if (gameMenuDialog && gameMenuDialog->IsVisible()) {
         gameMenuDialog->Draw();
     }
+
+    //FIXME
+    Bitmap* pointerBitmap = state.assets.GetMousePointer(SrLibAmigaSpriteAssetMousePointerWrench);
+    pointerBitmap->SetPosition(50,50);
+    pointerBitmap->SetVisible(true);
+    pointerBitmap->Draw();
+    pointerBitmap->SaveBitmap(8888);
+
 }
 
 void Garage::OnFadeComplete() {

@@ -681,8 +681,21 @@ class BitmapParser {
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);
 };
 
+/*
+    Amiga sprite functions
+*/
+
+enum SrLibAmigaSpriteAsset {
+    SrLibAmigaSpriteAssetMousePointerWrench = 0,
+    SrLibAmigaSpriteAssetMousePointerHand = 1,
+    SrLibAmigaSpriteAssetMousePointerPump = 2,
+    SrLibAmigaSpriteAssetMousePointerRag = 3,
+    SrLibAmigaSpriteAssetMousePointerThumbsUp = 4,
+    SrLibAmigaSpriteAssetMousePointerThumbsDown = 5,
+};
 
 int SrLibAmigaSpriteToRGBA(const uint16_t* data, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
+int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer);
 
 /*
     Data functions
