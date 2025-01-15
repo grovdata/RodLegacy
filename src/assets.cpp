@@ -69,11 +69,6 @@ void AssetManager::InitGameFiles() {
 void AssetManager::InitStockPalettes() {
     stockPalettes[StockPaletteAmigaDiner] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDiner), true);
     stockPalettes[StockPaletteAmigaGasStation] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaGasStation), true);
-
-    int i = 0;
-    for (auto& pair : stockPalettes[StockPaletteAmigaDiner]) {
-        SDL_Log("Diner palette %d: %d, %d, %d", i++, get<0>(pair), get<1>(pair), get<2>(pair));
-    }
 }
 
 void AssetManager::Init() {
@@ -150,7 +145,7 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
-    vector<Color> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
+    vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
 
     Asset a;
     a.id = index;
@@ -211,7 +206,7 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     Palette basePal = bp.PreparePalette(palData, true);
     
     // Use provided car palette for color ranges
-    vector<Color> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
+    vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
     
     Asset a;
     a.id = index;

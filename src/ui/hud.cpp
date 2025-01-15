@@ -10,8 +10,8 @@ HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex) {
     textBitmap = new Bitmap(GAME_WIDTH, GAME_STATUSBAR_HEIGHT, 32);
     textBitmap->SetVisible(true);
     Palette rgbPal = state.assets.GetStockPalette(palette);
-    Color backgroundColor = rgbPal[backgroundColorIndex];
-    Color fontColor = rgbPal[fontColorIndex];
+    SrLibColor backgroundColor = rgbPal[backgroundColorIndex];
+    SrLibColor fontColor = rgbPal[fontColorIndex];
     
     this->backgroundColor = backgroundColor;
     this->fontColor = fontColor;
@@ -52,9 +52,9 @@ void HUD::SetText(const char *text) {
     
     // Use the stored RGB components directly
     SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 
-        get<0>(fontColor), 
-        get<1>(fontColor), 
-        get<2>(fontColor));
+        fontColor.r, 
+        fontColor.g, 
+        fontColor.b);
     
     // Write the text
     char bankroll[30];
@@ -67,7 +67,7 @@ void HUD::SetText(const char *text) {
 }
 
 void HUD::Clear() {
-    Uint32 sdlColor = SDL_MapRGB(backgroundBitmap->GetSurface()->format, get<0>(backgroundColor), get<1>(backgroundColor), get<2>(backgroundColor));
+    Uint32 sdlColor = SDL_MapRGB(backgroundBitmap->GetSurface()->format, backgroundColor.r, backgroundColor.g, backgroundColor.b);
     SDL_FillRect(textBitmap->GetSurface(), NULL, 0);
     SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarRect, sdlColor);
     SDL_FillRect(backgroundBitmap->GetSurface(), &statusBarMiddleRect, sdlColor);

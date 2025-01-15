@@ -21,8 +21,6 @@ extern "C" {
 }
 
 using namespace std;
-using Color = tuple<uint8_t, uint8_t, uint8_t>;
-using Palette = vector<Color>;
 
 enum SrLibFile {
     SrLibFileAmigaLibStart = 0,
@@ -39,6 +37,16 @@ enum SrLibArchive {
     SrLibArchiveSR2AmigaDisk1 = 2,
     SrLibArchiveSR2AmigaDisk2 = 3,
 };
+
+struct SrLibColor {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+};
+
+using Palette = vector<SrLibColor>;
+const SrLibColor AmigaMaskColor = {128, 16, 0, 255};
 
 extern const char *SrLibFileNames[];
 extern const uint32_t SrLibFileChecksums[];
@@ -330,7 +338,7 @@ enum AmigaLibAsset {
     PHONEBOOK_GUY = 374
 };
 
-const Color AmigaMaskColor = {128, 16, 0};
+
 
 enum StockCarModels {
     CHEVROLET_2DR_COUPE_1940 = 179,
@@ -567,6 +575,9 @@ enum StockPalette {
     StockPaletteAmigaTitleScreen = 3,
 };
 
+
+
+
 // FIXME: Add all stock palettes
 #define RLE       {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
 #define PAL1      {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
@@ -651,7 +662,7 @@ class BitmapParser {
 
     pair<int, vector<BitmapEntry_t>>                ReadEntries(const vector<uint8_t>& data);
 	pair<int, vector<BitmapEntry_t>>                ReadEntries(const string& filename);
-    vector<Color>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
+    vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
     vector<uint8_t>                                 GetPackedData(const vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     vector<uint8_t>                                 UnpackData(const vector<pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const vector<uint8_t> &data);
@@ -661,7 +672,7 @@ class BitmapParser {
 
     Palette                                         PreparePalette(const vector<uint16_t>& palette, bool ehb);
     Palette                                         PrepareCarPalette(const vector<uint16_t>& palette);
-    static Color                                    GetRGBFromRGB4(uint16_t rgb4);
+    static SrLibColor                                    GetRGBFromRGB4(uint16_t rgb4);
     vector<uint16_t>                                GetPalette(SrLibFile location, int index);
     static vector<uint16_t>                         GetStockPalette(StockPalette palette);
     LibAssetType                                    GetAssetType(SrLibFile location, int index);
@@ -671,6 +682,7 @@ class BitmapParser {
 };
 
 
+int SrLibAmigaSpriteToRGBA(const uint16_t* data, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
 
 /*
     Data functions

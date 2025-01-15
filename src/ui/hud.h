@@ -9,8 +9,8 @@ using namespace std;
 
 class HUD: public IDrawable {
    private:
-    Color backgroundColor;
-    Color fontColor;
+    SrLibColor backgroundColor;
+    SrLibColor fontColor;
     
     Bitmap *backgroundBitmap, *textBitmap;
     SDL_Rect statusBarRect, statusBarMiddleRect;

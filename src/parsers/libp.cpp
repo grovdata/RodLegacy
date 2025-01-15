@@ -188,8 +188,9 @@ vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>>& rle, 
     return flat_bp;
 }
 
-std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette) {
-    std::vector<Color> chunkyData(entry.width * entry.height);
+std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data, 
+    BitmapEntry_t entry, const Palette& palette, const Palette& carPalette) {
+    std::vector<SrLibColor> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
 
@@ -207,18 +208,14 @@ std::vector<Color> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data
                 }
 
                 // Select palette based on value range
-                const Palette& selectedPalette = ((value >= 1 && value <= 9 || (value >= 1 + 32 && value <= 9 + 32)) && !carPalette.empty()) ? carPalette : palette;
+                const Palette& selectedPalette = ((value >= 1 && value <= 9 || 
+                    (value >= 1 + 32 && value <= 9 + 32)) && !carPalette.empty()) ? 
+                    carPalette : palette;
                 int pixel_index = (y * entry.width) + (x + i);
                 chunkyData[pixel_index] = selectedPalette[value];
             }
         }
     }
-
-    SavePaletteToPNG(palette, "normalpalette.png");
-    SavePaletteToPNG(carPalette, "carcolors.png");
-
-    // std::cout << "chunky data size: " << chunkyData.size() << std::endl;
-    // Optionally print or process chunkyData further
 
     return chunkyData;
 }
@@ -235,21 +232,14 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) 
     if (ehb) {
         // Add EHB colors
         for (int i = 0; i < palette.size(); i++) {
-            Color color = rval[i];
-            uint8_t r = get<0>(color);
-            uint8_t g = get<1>(color);
-            uint8_t b = get<2>(color);
-            rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
+            SrLibColor color = rval[i];
+            rval.push_back({
+                static_cast<uint8_t>((color.r / 2) & 0xF0),
+                static_cast<uint8_t>((color.g / 2) & 0xF0),
+                static_cast<uint8_t>((color.b / 2) & 0xF0),
+                255
+            });
         }
-    }
-
-    // Print the palette colors
-    for (int i = 0; i < rval.size(); i++) {
-        Color color = rval[i];
-        uint8_t r = get<0>(color);
-        uint8_t g = get<1>(color);
-        uint8_t b = get<2>(color);
-        // cout << "Palette " << i << ": " << static_cast<int>(r) << "," << static_cast<int>(g) << "," << static_cast<int>(b) << endl;
     }
 
     return rval;
@@ -261,7 +251,7 @@ Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
 
     // Add RGB colors from the palette
     for (int i = 0; i < 32; i++) {
-        rval.push_back(make_tuple(0, 0, 0));
+        rval.push_back({0, 0, 0, 255});
     }
 
     for (int i = 0; i < 9; i++) {
@@ -270,39 +260,37 @@ Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
 
     // Add EHB colors
     for (int i = 0; i < palette.size(); i++) {
-        Color color = rval[i];
-        uint8_t r = get<0>(color);
-        uint8_t g = get<1>(color);
-        uint8_t b = get<2>(color);
-        rval.push_back(make_tuple((r / 2) & 0xF0, (g / 2) & 0xF0, (b / 2) & 0xF0));
+        SrLibColor color = rval[i];
+        rval.push_back({
+            static_cast<uint8_t>((color.r / 2) & 0xF0),
+            static_cast<uint8_t>((color.g / 2) & 0xF0),
+            static_cast<uint8_t>((color.b / 2) & 0xF0),
+            255
+        });
     }
 
     return rval;
 }
 
 void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& filename) {
-    // Calculate the size of the PNG image
     const int BLOCK_SIZE = 16;
     const int numColors = palette.size();
     const int imageWidth = BLOCK_SIZE * numColors;
     const int imageHeight = BLOCK_SIZE;
 
-    // Create image data (RGBA format)
     std::vector<unsigned char> image(imageWidth * imageHeight * 4);
     
-    // Fill the image with palette colors
     for (int y = 0; y < imageHeight; y++) {
         for (int x = 0; x < imageWidth; x++) {
-            Color c = palette[x / BLOCK_SIZE];
+            const SrLibColor& c = palette[x / BLOCK_SIZE];
             size_t pos = 4 * (y * imageWidth + x);
-            image[pos + 0] = std::get<0>(c);    // R
-            image[pos + 1] = std::get<1>(c);    // G
-            image[pos + 2] = std::get<2>(c);    // B
-            image[pos + 3] = 255;               // A (fully opaque)
+            image[pos + 0] = c.r;    // R
+            image[pos + 1] = c.g;    // G
+            image[pos + 2] = c.b;    // B
+            image[pos + 3] = c.a;    // A
         }
     }
 
-    // Save using LodePNG C interface
     unsigned char* png;
     size_t pngsize;
     unsigned error = lodepng_encode32(&png, &pngsize, image.data(), imageWidth, imageHeight);
@@ -310,27 +298,22 @@ void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& f
     if (error) {
         std::cerr << "Failed to encode PNG: " << lodepng_error_text(error) << std::endl;
     } else {
-        // Save to file
         error = lodepng_save_file(png, pngsize, filename.c_str());
         if (error) {
             std::cerr << "Failed to save PNG file: " << lodepng_error_text(error) << std::endl;
         }
     }
     
-    // Free the PNG buffer
     free(png);
 }
 
-Color BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
-    uint8_t r = (rgb4 & 0xF00) >> 8;
-    uint8_t g = (rgb4 & 0x0F0) >> 4;
-    uint8_t b = (rgb4 & 0x00F);
-
-    r = r << 4;
-    g = g << 4;
-    b = b << 4;
-
-    return make_tuple(r, g, b);
+SrLibColor BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
+    SrLibColor color;
+    color.r = ((rgb4 & 0xF00) >> 8) << 4;
+    color.g = ((rgb4 & 0x0F0) >> 4) << 4;
+    color.b = (rgb4 & 0x00F) << 4;
+    color.a = 255;  // Fully opaque
+    return color;
 }
 
 vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
@@ -724,6 +707,61 @@ cleanup:
     free(result);
     *outCount = 0;
     return NULL;
+}
+
+// Convert Amiga sprite data to RGBA buffer
+// data: Pointer to sprite data
+// palette: Array of Amiga format colors (0000 rrrrggggbbbb)
+// sprite_num: Sprite number (0-7) to determine color registers
+// width: Sprite width (typically 16)
+// height: Sprite height
+// out_buffer: Pre-allocated RGBA buffer of size width*height
+int SrLibAmigaSpriteToRGBA(const uint16_t* data,
+                           const uint16_t* palette,
+                           int sprite_num,
+                           int width, 
+                           int height,
+                           SrLibColor* out_buffer) {
+    
+    // Calculate base color register based on sprite number
+    int color_reg_base = 16 + ((sprite_num & 6) * 2) + 1;  // Sprites paired 0/1, 2/3, etc
+
+    // Process each line
+    const uint16_t* line_data = data;
+    for (int y = 0; y < height; y++) {
+        // Get DATA and DATB words for this line
+        uint16_t data = *line_data++;    // DATA word
+        uint16_t datb = *line_data++;    // DATB word
+
+        // Convert from big-endian if needed
+        data = (data >> 8) | (data << 8);
+        datb = (datb >> 8) | (datb << 8);
+
+        // Process each pixel in the line
+        for (int x = 0; x < width; x++) {
+            int bit_pos = 15 - x;  // Start from MSB
+            int data_bit = (data >> bit_pos) & 1;
+            int datb_bit = (datb >> bit_pos) & 1;
+            int color_idx = (datb_bit << 1) | data_bit;
+
+            SrLibColor* pixel = &out_buffer[y * width + x];
+            
+            if (color_idx == 0) {
+                // Transparent pixel
+                pixel->r = pixel->g = pixel->b = pixel->a = 0;
+            } else {
+                // Get color from appropriate register
+                uint16_t palette_color = palette[color_reg_base + color_idx - 1];
+                SrLibColor rgb_color = BitmapParser::GetRGBFromRGB4(palette_color);
+                pixel->r = rgb_color.r;
+                pixel->g = rgb_color.g;
+                pixel->b = rgb_color.b;
+                pixel->a = rgb_color.a;
+            }
+        }
+    }
+
+    return 0;
 }
 
 // File-based wrapper

@@ -158,10 +158,10 @@ void Bitmap::Crop(SDL_Rect crop) {
 }
 
 void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
-    Color maskColor = AmigaMaskColor;
-    uint8_t maskR = std::get<0>(maskColor);
-    uint8_t maskG = std::get<1>(maskColor);
-    uint8_t maskB = std::get<2>(maskColor);
+    SrLibColor maskColor = AmigaMaskColor;
+    uint8_t maskR = maskColor.r;
+    uint8_t maskG = maskColor.g;
+    uint8_t maskB = maskColor.b;
 
     SDL_Log("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
     SDL_Log("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s", 
@@ -282,7 +282,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     }
 }
 
-void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, int height, bool isMask) {
+void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask) {
     if (colors.size() != width * height) {
         std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
         return;
@@ -299,9 +299,9 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<Color>& colors, int width, i
     uint32_t* pixels = static_cast<uint32_t*>(surface->pixels);
 
     for (int i = 0; i < width * height; ++i) {
-        uint8_t r = std::get<0>(colors[i]);
-        uint8_t g = std::get<1>(colors[i]);
-        uint8_t b = std::get<2>(colors[i]);
+        uint8_t r = colors[i].r;
+        uint8_t g = colors[i].g;
+        uint8_t b = colors[i].b;
         
         uint8_t a;
         if (isMask) {
