@@ -28,8 +28,7 @@ public:
           currentRow(other.currentRow), currentColumn(other.currentColumn), currentX(other.currentX), currentY(other.currentY), clipRect(other.clipRect) {}
     
     virtual ~Spritesheet() {
-        Bitmap::~Bitmap();
-        SDL_Log("Deleting Spritesheet virtual");
+        Bitmap::~Bitmap();        
     }
     void SelectSprite(int row, int column);
     void UpdateSprite();

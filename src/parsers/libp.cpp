@@ -717,13 +717,14 @@ cleanup:
 // height: Sprite height
 // out_buffer: Pre-allocated RGBA buffer of size width*height
 int SrLibAmigaSpriteToRGBA(const uint16_t* data,
+                           int startOffset,
                            const uint16_t* palette,
                            int sprite_num,
                            int width, 
                            int height,
                            SrLibColor* out_buffer) {
 
-    const int startOffset = 0x7AA8;
+    
     const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;
     
     // Debug: Print sprite info
@@ -773,20 +774,19 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
 
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer) {
     uint16_t pal[] = PAL1;
-    
     switch (sprite) {
         case SrLibAmigaSpriteAssetMousePointerWrench:
-            return SrLibAmigaSpriteToRGBA(data, pal, 0, 16, 16, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 0, 16, 16, out_buffer);
         case SrLibAmigaSpriteAssetMousePointerHand:
-            return SrLibAmigaSpriteToRGBA(data, pal, 1, 16, 12, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AF0, pal, 1, 16, 12, out_buffer);
         case SrLibAmigaSpriteAssetMousePointerPump:
-            return SrLibAmigaSpriteToRGBA(data, pal, 2, 11, 16, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 2, 11, 16, out_buffer);
         case SrLibAmigaSpriteAssetMousePointerRag:
-            return SrLibAmigaSpriteToRGBA(data, pal, 3, 16, 14, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 3, 16, 14, out_buffer);
         case SrLibAmigaSpriteAssetMousePointerThumbsUp:
-            return SrLibAmigaSpriteToRGBA(data, pal, 4, 16, 17, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 4, 16, 17, out_buffer);
         case SrLibAmigaSpriteAssetMousePointerThumbsDown:
-            return SrLibAmigaSpriteToRGBA(data, pal, 5, 16, 17, out_buffer);
+            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 5, 16, 17, out_buffer);
     }
 }
 

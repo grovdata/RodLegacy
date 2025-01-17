@@ -87,6 +87,7 @@ private:
     map<StockPalette, Palette> stockPalettes;
 
     void InitFonts();
+    void InitMousePointers();
     void InitGameFiles();
     void InitStockPalettes();
     fs::path ResolvePath(fs::path relativePath);

@@ -33,6 +33,25 @@ void AssetManager::InitFonts() {
     debugFont = SFont_InitFont(IMG_Load(debugFontPath.string().c_str()));
 }
 
+void AssetManager::InitMousePointers() {
+    SrLibColor buffer[16 * 16];
+    uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(srExeData_vec.data());
+    SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerWrench, buffer);
+    
+    // Create bitmap for mouse pointer
+    unique_ptr<Bitmap> pointerBitmap = make_unique<Bitmap>();
+    pointerBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 16), 16, 16);
+    pointerBitmap->SetDimensions(16, 16);
+    mousePointers[SrLibAmigaSpriteAssetMousePointerWrench] = std::move(pointerBitmap);
+
+    SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerHand, buffer);
+
+    unique_ptr<Bitmap> handBitmap = make_unique<Bitmap>();
+    handBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 12), 16, 12);
+    handBitmap->SetDimensions(16, 12);
+    mousePointers[SrLibAmigaSpriteAssetMousePointerHand] = std::move(handBitmap);
+}
+
 void AssetManager::InitGameFiles() {
     fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
     fs::path disk2Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2]);
@@ -56,7 +75,6 @@ void AssetManager::InitGameFiles() {
 
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
     
-    // Copy binary data to vector
     libStartData_vec.assign(
         static_cast<uint8_t*>(libStartData->data),
         static_cast<uint8_t*>(libStartData->data) + libStartData->size
@@ -77,6 +95,7 @@ void AssetManager::InitGameFiles() {
     );
     delete srData;
 
+    SDL_Log("Found all required Amiga game files.");
 }
 
 void AssetManager::InitStockPalettes() {
@@ -138,15 +157,7 @@ void AssetManager::ReadAssets() {
             carDecals = std::move(decals);
         }
 
-        SrLibColor buffer[16 * 16];
-        uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(srExeData_vec.data());
-        SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerWrench, buffer);
-        
-        // Create bitmap for mouse pointer
-        unique_ptr<Bitmap> pointerBitmap = make_unique<Bitmap>();
-        pointerBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 16), 16, 16);
-        pointerBitmap->SetDimensions(16, 16);
-        mousePointers[SrLibAmigaSpriteAssetMousePointerWrench] = std::move(pointerBitmap);
+        InitMousePointers();
 
     } catch (const std::exception& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to read assets: %s", e.what());

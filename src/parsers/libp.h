@@ -694,7 +694,7 @@ enum SrLibAmigaSpriteAsset {
     SrLibAmigaSpriteAssetMousePointerThumbsDown = 5,
 };
 
-int SrLibAmigaSpriteToRGBA(const uint16_t* data, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
+int SrLibAmigaSpriteToRGBA(const uint16_t* data, int startOffset, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer);
 
 /*
