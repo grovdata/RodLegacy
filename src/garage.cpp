@@ -86,7 +86,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     tiresBubble->SetVisible(false);
     bubbles.push_back(tiresBubble);
 
-    currentPointer = PointerWrench;
+    currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
     signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 

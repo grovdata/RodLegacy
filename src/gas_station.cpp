@@ -71,11 +71,11 @@ void GasStation::Action(ZoneId zone) {
             carBitmap->SetPumpingHandleVisible(true);
             pumpNoHandle->SetVisible(true);
         }
-        currentPointer = PointerFuelPump;
+        currentPointer = SrLibAmigaSpriteAssetMousePointerPump;
     } else if (zone == ZONE_GAS_STATION_RAG) {
-        currentPointer = PointerRag;
+        currentPointer = SrLibAmigaSpriteAssetMousePointerRag;
     } else {
-        currentPointer = PointerHand;
+        currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
     }
 }
 

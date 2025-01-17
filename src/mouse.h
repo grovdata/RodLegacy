@@ -7,19 +7,13 @@
 
 extern SDL_Renderer *renderer;
 
-enum MousePointer { 
-    PointerWrench = 0,
-    PointerHand = 1,
-    PointerFuelPump = 2,
-    PointerRag = 3
-};
 
 class Mouse {
 private:
     SDL_Texture* cursorTexture;
     SDL_Rect rect;
-    MousePointer pointerType = PointerHand;
-    std::map<MousePointer, SDL_Texture*> pointerTextures;
+    SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
+    std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
     
 public:
     Mouse() {
@@ -37,13 +31,13 @@ public:
             SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[type];
             rect.w = info.width;
             rect.h = info.height;
-            MousePointer pointerType = static_cast<MousePointer>(type);
-            pointerTextures[pointerType] = SDL_CreateTextureFromSurface(renderer, bitmap->GetSurface());
-            if (!pointerTextures[pointerType]) {
+
+            pointerTextures[type] = SDL_CreateTextureFromSurface(renderer, bitmap->GetSurface());
+            if (!pointerTextures[type]) {
                 SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create cursor texture: %s", SDL_GetError());
             }
-            if (pointerType == this->pointerType) {
-                cursorTexture = pointerTextures[pointerType];
+            if (type == this->pointerType) {
+                cursorTexture = pointerTextures[type];
             }
         }
     }
@@ -66,17 +60,23 @@ public:
 
         if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT) {
             switch (pointerType) {
-                case PointerHand:
-                    pointerType = PointerWrench;
+                case SrLibAmigaSpriteAssetMousePointerHand:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerWrench;
                     break;
-                case PointerWrench:
-                    pointerType = PointerFuelPump;
+                case SrLibAmigaSpriteAssetMousePointerWrench:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerPump;
                     break;
-                case PointerFuelPump:
-                    pointerType = PointerRag;
+                case SrLibAmigaSpriteAssetMousePointerPump:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerRag;
                     break;
-                case PointerRag:
-                    pointerType = PointerHand;
+                case SrLibAmigaSpriteAssetMousePointerRag:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerThumbsUp;
+                        break;
+                case SrLibAmigaSpriteAssetMousePointerThumbsUp:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerThumbsDown;
+                    break;
+                case SrLibAmigaSpriteAssetMousePointerThumbsDown:
+                    pointerType = SrLibAmigaSpriteAssetMousePointerHand;
                     break;
             }
             cursorTexture = pointerTextures[pointerType];
@@ -87,7 +87,7 @@ public:
         SDL_RenderCopy(renderer, cursorTexture, NULL, &rect);
     }
 
-    void SetPointerType(MousePointer type) {
+    void SetPointerType(SrLibAmigaSpriteAsset type) {
         if (pointerTextures.find(type) != pointerTextures.end()) {
             pointerType = type;
             cursorTexture = pointerTextures[type];

@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
     try {
         state.Init(debugMode);
         mouse.loadPointers(state.assets.GetMousePointers());        
-        mouse.SetPointerType(PointerHand);
+        mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         
     } catch (const AssetLoadError& e) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found", "Failed to find game files! \nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf must be in the same directory as the executable.", win);
@@ -217,7 +217,9 @@ int main(int argc, char *argv[]) {
             ((CarScene*)scene)->DrawMaskAfterCar();
         }
 
+        // This changes type every frame, would be good to only change on scene change
         mouse.SetPointerType(scene->GetPointerType());
+
         mouse.Draw();
 
         timeDelta = SDL_GetTicks64() - timeDelta;

@@ -45,7 +45,7 @@ class Scene {
     SDL_Surface *surface, *fontSurface, *fadeSurface;
     SDL_Texture *texture, *fontTexture, *fadeTexture;
     SDL_Rect m_backgroundRect;
-    MousePointer currentPointer = PointerHand;
+    SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
     string backgroundName;
     vector<Zone> zones;
@@ -70,7 +70,7 @@ class Scene {
 
     SDL_Texture *GetTexture();
 
-    virtual MousePointer GetPointerType() { return currentPointer; }
+    virtual SrLibAmigaSpriteAsset GetPointerType() { return currentPointer; }
 
     void FadeOut();
     void FadeIn();
