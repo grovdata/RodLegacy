@@ -381,7 +381,7 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
 }
 
 fs::path AssetManager::LoadSavedGamePath() {
-    char *prefPath = SDL_GetPrefPath("OpenStreetRod", "StreetRodLegacy");
+    char *prefPath = SDL_GetPrefPath("se.grovdata", "opensr");
     if (!prefPath) {
         return fs::path();
     }
@@ -392,13 +392,15 @@ fs::path AssetManager::LoadSavedGamePath() {
     if (!fs::exists(configPath)) {
         return fs::path();
     }
+
+    SDL_Log("Loaded config file: %s", configPath.c_str());
     
     try {
         std::ifstream config(configPath);
         std::string savedPath;
         std::getline(config, savedPath);
         
-        if (!savedPath.empty() && fs::exists(savedPath)) {
+        if (!savedPath.empty() && fs::exists(savedPath)) {           
             return fs::path(savedPath);
         }
     } catch (...) {
@@ -409,7 +411,7 @@ fs::path AssetManager::LoadSavedGamePath() {
 }
 
 void AssetManager::SaveGamePath(const fs::path& path) {
-    char *prefPath = SDL_GetPrefPath("OpenStreetRod", "StreetRodLegacy");
+    char *prefPath = SDL_GetPrefPath("se.grovdata", "opensr");
     if (!prefPath) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not get preference path to save game location");
         return;
@@ -422,7 +424,7 @@ void AssetManager::SaveGamePath(const fs::path& path) {
         std::ofstream config(configPath, std::ios::out | std::ios::trunc);
         config << path.string();
         
-        SDL_Log("Saved game path to: %s", configPath.string().c_str());
+        SDL_Log("Saved config file to: %s", configPath.string().c_str());
     } catch (const std::exception& e) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game path: %s", e.what());
     }
