@@ -40,7 +40,12 @@ public:
     AssetManager();
     ~AssetManager();
 
-    fs::path FindGameDirectory();
+    // Static methods for game file validation
+    static bool ValidateGamePath(const fs::path& path);
+    static fs::path FindGameDirectory();
+    
+    // Instance methods
+    void SetCustomPath(const std::string& customPath);
     void ReadAssets();
 
     void UpdateAsset(byte_vector& libfile, int index);
@@ -57,7 +62,7 @@ public:
 
     Spritesheet* GetCarDecals();
 
-    void Init();
+    void Init(const fs::path& validatedPath);
     SFont_Font* GetMainFont();
     SFont_Font* GetDebugFont();
 

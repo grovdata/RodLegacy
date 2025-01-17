@@ -4,6 +4,11 @@
 #include "state.h"
 #include "scene.h"
 #include "debug_overlay.h"
+#include <nfd.h>
+#include <nfd_sdl2.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #define BITPLANE_DEPTH 4
 
@@ -53,6 +58,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (NFD_Init() != NFD_OKAY) {
+        SDL_Log("error initializing NFD: %s\n", NFD_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
     if (!win) {
         SDL_Log("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -96,21 +107,50 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    fs::path gamePath;
     try {
-        state.Init(debugMode);
+        gamePath = AssetManager::FindGameDirectory();
+    } catch (const AssetLoadError& e) {
+        nfdu8char_t *outPath = NULL;
+        nfdpickfolderu8args_t args = {0};
+        nfdresult_t result = NFD_PickFolderU8_With(&outPath, &args);
+            
+        if (result == NFD_OKAY) {
+            fs::path selectedPath = fs::path(outPath);
+            if (AssetManager::ValidateGamePath(selectedPath)) {
+                gamePath = selectedPath;
+                NFD_FreePathU8(outPath);
+            } else {
+                SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", 
+                    "Failed to load game files from selected folder.\nPlease ensure SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are present.", win);
+                NFD_FreePathU8(outPath);
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(win);
+                SDL_JoystickClose(controller);
+                Mix_FreeMusic(music);
+                Mix_CloseAudio();
+                SDL_Quit();
+                return 1;
+            }
+        } else {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found", 
+                "Failed to find game files and no folder selected.\nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are required.", win);
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(win);
+            SDL_JoystickClose(controller);
+            Mix_FreeMusic(music);
+            Mix_CloseAudio();
+            SDL_Quit();
+            return 1;
+        }
+    }
+
+    // Now that we have a valid game path, initialize the game state
+    try {
+        state.Init(debugMode, gamePath);
         mouse.loadPointers(state.assets.GetMousePointers());        
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
-        
-    } catch (const AssetLoadError& e) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found", "Failed to find game files! \nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf must be in the same directory as the executable.", win);
-        SDL_Log("Failed to load game assets: %s", e.what());
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(win);
-        SDL_JoystickClose(controller);
-        Mix_FreeMusic(music);
-        Mix_CloseAudio();
-        SDL_Quit();
-        return 1;
+        state.MoveToScene(SCENE_GARAGE);
     } catch (const std::exception& e) {
         SDL_Log("Failed to initialize game state: %s", e.what());
         SDL_DestroyRenderer(renderer);
@@ -120,6 +160,11 @@ int main(int argc, char *argv[]) {
         Mix_CloseAudio();
         SDL_Quit();
         return 1;
+    }
+
+    // Also ensure initial scene is set up for normal initialization path
+    if (!state.GetCurrentScene()) {
+        state.MoveToScene(SCENE_GARAGE);
     }
 
     // Res scaling
@@ -236,6 +281,7 @@ int main(int argc, char *argv[]) {
 
     // delete currentScene;
     
+    NFD_Quit();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);

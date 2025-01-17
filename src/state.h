@@ -16,6 +16,9 @@
 #include <string>
 #include <SDL.h>
 #include <memory>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 class State {
 private:
@@ -43,12 +46,15 @@ private:
     std::unique_ptr<GasStation> gasStation;
     std::unique_ptr<Driving> driving;
 
+    // Remove this later
+    const std::string GetTomlFile();
 
 public:
     State();
     ~State();
 
-    void Init(bool enableDebug);
+    void Init(bool debugMode, const fs::path& gamePath);
+    void InitWithCustomPath(bool debugMode, const std::string& customPath);
 
     int GetBankroll();
 
@@ -70,11 +76,6 @@ public:
 
     CarData carData;
     AssetManager assets;
-    
-    const string GetTomlFile();
-    const string GetDataFile();
-    const string GetLibPFile();
-    const string GetLibStartFile();
     
 };
 

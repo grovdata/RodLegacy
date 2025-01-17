@@ -14,6 +14,10 @@ adflib_dep = adflib_proj.dependency('adf')
 lodepng_proj = subproject('lodepng')
 lodepng_dep = lodepng_proj.get_variable('lodepng_dep')
 
+# Load nativefiledialog-extended
+nfd_proj = subproject('nativefiledialog-extended')
+nfd_dep = nfd_proj.get_variable('nfde_dep')
+
 # C sources
 c_sources = [
     'SFont.c'
@@ -50,7 +54,10 @@ cpp_sources = [
 ]
 
 # Include directories
-inc_dirs = include_directories('include')
+inc_dirs = include_directories(
+    'include',
+    '../subprojects/nativefiledialog-extended-1.2.1/src/include'
+)
 
 # Add compiler flags specific to GCC
 cpp_args = ['-ggdb2', '-O0']
@@ -66,6 +73,7 @@ executable('open_sr',
         sdl2_mixer_dep,
         adflib_dep,
         lodepng_dep,
+        nfd_dep,
     ],
     cpp_args: cpp_args,
     c_args: c_args

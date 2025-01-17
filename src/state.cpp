@@ -6,10 +6,11 @@
 State::State() : bankroll(750) {
 }
 
-void State::Init(bool enableDebug) {
+void State::Init(bool debugMode, const fs::path& gamePath) {
+    this->debugMode = debugMode;
+    assets.SetCustomPath(gamePath.string());
     try {
-        this->debugMode = enableDebug;
-        assets.Init();
+        assets.Init(gamePath);
         assets.ReadAssets();
         pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
@@ -75,18 +76,6 @@ State::~State() {
 
 const string State::GetTomlFile() {
     return "../data/cars.toml";
-}
-
-const string State::GetDataFile() {
-    return "../../streetrod-bins/amiga/SR_disk2/SR_data";
-}
-
-const string State::GetLibPFile() {
-    return "../../streetrod-bins/amiga/SR_disk2/lib.p";
-}
-
-const string State::GetLibStartFile() {
-    return "../../streetrod-bins/amiga/SR_disk1/libstart.p";
 }
 
 int State::GetBankroll() {
