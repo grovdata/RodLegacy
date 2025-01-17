@@ -43,6 +43,7 @@ public:
     // Static methods for game file validation
     static bool ValidateGamePath(const fs::path& path);
     static fs::path FindGameDirectory();
+    static void SaveGamePath(const fs::path& path);
     
     // Instance methods
     void SetCustomPath(const std::string& customPath);
@@ -99,4 +100,8 @@ private:
     void InitStockPalettes();
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette);
+
+    static bool ValidateGamePathQuiet(const fs::path& path);
+    
+    static fs::path LoadSavedGamePath();
 };

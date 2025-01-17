@@ -119,6 +119,7 @@ int main(int argc, char *argv[]) {
             fs::path selectedPath = fs::path(outPath);
             if (AssetManager::ValidateGamePath(selectedPath)) {
                 gamePath = selectedPath;
+                AssetManager::SaveGamePath(selectedPath);
                 NFD_FreePathU8(outPath);
             } else {
                 SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", 

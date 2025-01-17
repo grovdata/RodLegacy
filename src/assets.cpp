@@ -243,41 +243,38 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
 }
 
 fs::path AssetManager::FindGameDirectory() {
-    fs::path basePath;
-    
-    // Check for custom path from environment variable first
-    const char* envPath = SDL_getenv("STREETROD_DATA");
-    if (envPath) {
-        SDL_Log("Using STREETROD_DATA from environment: %s", envPath);
-        basePath = fs::path(envPath);
-        // Check if this path contains the game files
-        if (ValidateGamePath(basePath)) {
-            return basePath;
-        }
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "STREETROD_DATA path does not contain required files");
+    // First try loading from saved config
+    fs::path savedPath = LoadSavedGamePath();
+    if (!savedPath.empty() && ValidateGamePathQuiet(savedPath)) {
+        SDL_Log("Using saved game directory: %s", savedPath.string().c_str());
+        return savedPath;
     }
 
-    // Get the executable base path as fallback
-    char* sdlBasePath = SDL_GetBasePath();
-    if (!sdlBasePath) {
-        throw AssetLoadError("Could not determine base path: " + std::string(SDL_GetError()));
-    }
-    basePath = fs::path(sdlBasePath);
-    SDL_free(sdlBasePath);
-
-    // Check common locations relative to executable
-    std::vector<fs::path> searchPaths = {
-        basePath,                // Executable directory
-        basePath / "data",       // Next to executable
-        basePath / "../data",    // One level up
-        basePath / "../../data", // Two levels up (for build directories)
+    vector<fs::path> searchPaths = {
+        fs::current_path(),
+        fs::current_path() / "..",
+        fs::current_path() / ".." / "..",
     };
 
-    // Search for data directory
+    // Add environment variable path if set
+    const char* envPath = getenv("STREETROD_DATA");
+    if (envPath != nullptr) {
+        searchPaths.push_back(fs::path(envPath));
+    }
+
+    // Check all paths without logging
     for (const auto& path : searchPaths) {
-        if (ValidateGamePath(path)) {
+        if (ValidateGamePathQuiet(path)) {
+            // Save the valid path for future use
+            SaveGamePath(path);
             return path;
         }
+    }
+
+    // If we get here, no valid path was found - now we can log the details
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "No valid game directory found in search paths:");
+    for (const auto& path : searchPaths) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Checked path: %s", path.string().c_str());
     }
 
     throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
@@ -323,6 +320,32 @@ bool AssetManager::ValidateGamePath(const fs::path& path) {
     return false;
 }
 
+bool AssetManager::ValidateGamePathQuiet(const fs::path& path) {
+    // Check for ADF files directly in the path
+    bool hasAdfFiles = fs::exists(path / "SR1AMIGA_DISK1.adf") && 
+                      fs::exists(path / "SR1AMIGA_DISK2.adf");
+    
+    // Check for required directory structure
+    bool hasDataDir = fs::exists(path / "data");
+    bool hasFontDir = fs::exists(path / "data" / "font");
+    bool hasResDir = fs::exists(path / "data" / "res");
+    
+    // Check for required files
+    bool hasFontFile = fs::exists(path / "data" / "font" / "font.png");
+    bool hasIconFile = fs::exists(path / "data" / "res" / "icon.png");
+
+    // Check if all requirements are met
+    if (hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile) {
+        return true;
+    }
+
+    // Also check if ADF files are in data subdirectory
+    hasAdfFiles = fs::exists(path / "data" / "SR1AMIGA_DISK1.adf") && 
+                  fs::exists(path / "data" / "SR1AMIGA_DISK2.adf");
+    
+    return hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile;
+}
+
 void AssetManager::SetCustomPath(const std::string& customPath) {
     fs::path path = fs::path(customPath);
     
@@ -355,5 +378,55 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
         throw AssetLoadError("Required game file not found: " + fullPath.string());
     }
     return fullPath;
+}
+
+fs::path AssetManager::LoadSavedGamePath() {
+    char *prefPath = SDL_GetPrefPath("OpenStreetRod", "StreetRodLegacy");
+    if (!prefPath) {
+        return fs::path();
+    }
+    
+    fs::path configPath = fs::path(prefPath) / "config.txt";
+    SDL_free(prefPath);
+    
+    if (!fs::exists(configPath)) {
+        return fs::path();
+    }
+    
+    try {
+        std::ifstream config(configPath);
+        std::string savedPath;
+        std::getline(config, savedPath);
+        
+        if (!savedPath.empty() && fs::exists(savedPath)) {
+            return fs::path(savedPath);
+        }
+    } catch (...) {
+        // Ignore read errors and continue with search
+    }
+    
+    return fs::path();
+}
+
+void AssetManager::SaveGamePath(const fs::path& path) {
+    char *prefPath = SDL_GetPrefPath("OpenStreetRod", "StreetRodLegacy");
+    if (!prefPath) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not get preference path to save game location");
+        return;
+    }
+    
+    try {
+        fs::path configDir(prefPath);
+        fs::path configPath = configDir / "config.txt";
+        
+        std::ofstream config(configPath, std::ios::out | std::ios::trunc);
+        config << path.string();
+        
+        SDL_Log("Saved game path to: %s", configPath.string().c_str());
+    } catch (const std::exception& e) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game path: %s", e.what());
+    }
+    
+    SDL_free(prefPath);
 }
 
