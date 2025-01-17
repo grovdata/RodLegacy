@@ -14,7 +14,7 @@ private:
     SDL_Rect rect;
     SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
     std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
-    
+     
 public:
     Mouse() {
         SDL_ShowCursor(false);
@@ -89,6 +89,9 @@ public:
 
     void SetPointerType(SrLibAmigaSpriteAsset type) {
         if (pointerTextures.find(type) != pointerTextures.end()) {
+            SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[type];
+            rect.w = info.width;
+            rect.h = info.height;
             pointerType = type;
             cursorTexture = pointerTextures[type];
         }
