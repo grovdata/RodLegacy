@@ -48,7 +48,9 @@ public:
     void UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
     Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette);
-    Bitmap* GetMousePointer(SrLibAmigaSpriteAsset sprite);
+    const std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>>& GetMousePointers() const {
+        return mousePointers;
+    }
     Palette GetStockPalette(StockPalette palette);
 
     pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }

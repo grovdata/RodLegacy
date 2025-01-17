@@ -774,22 +774,9 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
 
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer) {
     uint16_t pal[] = PAL1;
-    switch (sprite) {
-        case SrLibAmigaSpriteAssetMousePointerWrench:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 0, 16, 16, out_buffer);
-        case SrLibAmigaSpriteAssetMousePointerHand:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AF0, pal, 1, 16, 12, out_buffer);
-        case SrLibAmigaSpriteAssetMousePointerPump:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 2, 11, 16, out_buffer);
-        case SrLibAmigaSpriteAssetMousePointerRag:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 3, 16, 14, out_buffer);
-        case SrLibAmigaSpriteAssetMousePointerThumbsUp:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 4, 16, 17, out_buffer);
-        case SrLibAmigaSpriteAssetMousePointerThumbsDown:
-            return SrLibAmigaSpriteToRGBA(data, 0x7AA8, pal, 5, 16, 17, out_buffer);
-    }
+    SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[sprite];
+    return SrLibAmigaSpriteToRGBA(data, info.offset, pal, int(sprite), info.width, info.height, out_buffer);    
 }
-
 
 // File-based wrapper
 CarMetadata_t* DataParser::SrLibDataReadDataFromFile(const char* filename, int* outCount) {

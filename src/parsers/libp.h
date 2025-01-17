@@ -692,7 +692,26 @@ enum SrLibAmigaSpriteAsset {
     SrLibAmigaSpriteAssetMousePointerRag = 3,
     SrLibAmigaSpriteAssetMousePointerThumbsUp = 4,
     SrLibAmigaSpriteAssetMousePointerThumbsDown = 5,
+    SrLibAmigaSpriteAssetCount = 6,
 };
+
+struct SrLibAmigaSpriteInfo {
+    int offset;
+    int width;
+    int height;
+};
+
+const SrLibAmigaSpriteInfo SPRITE_INFO_LOOKUP[] = {
+    // {offset, width, height}
+    {0x7AA8, 16, 16},  // SrLibAmigaSpriteAssetMousePointerWrench
+    {0x7AF0, 16, 12},  // SrLibAmigaSpriteAssetMousePointerHand
+    {0x7B28, 11, 16},  // SrLibAmigaSpriteAssetMousePointerPump
+    {0x7B70, 16, 14},  // SrLibAmigaSpriteAssetMousePointerRag
+    {0x7BB0, 16, 17},  // SrLibAmigaSpriteAssetMousePointerThumbsUp
+    {0x7BFC, 16, 17},  // SrLibAmigaSpriteAssetMousePointerThumbsDown
+};
+
+#define SPRITE_INFO_LOOKUP_COUNT (sizeof(SPRITE_INFO_LOOKUP) / sizeof(SPRITE_INFO_LOOKUP[0]))
 
 int SrLibAmigaSpriteToRGBA(const uint16_t* data, int startOffset, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer);
@@ -736,6 +755,8 @@ enum SrLibStatus {
 
 uint32_t    SrLibCalculateChecksum(const char *filename);
 SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t checksum);
+
+
 
 
 

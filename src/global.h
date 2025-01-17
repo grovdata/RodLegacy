@@ -18,6 +18,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <map>
 
 #include "types.h"
 #include "driver.h"

@@ -34,22 +34,18 @@ void AssetManager::InitFonts() {
 }
 
 void AssetManager::InitMousePointers() {
-    SrLibColor buffer[16 * 16];
     uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(srExeData_vec.data());
-    SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerWrench, buffer);
-    
-    // Create bitmap for mouse pointer
-    unique_ptr<Bitmap> pointerBitmap = make_unique<Bitmap>();
-    pointerBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 16), 16, 16);
-    pointerBitmap->SetDimensions(16, 16);
-    mousePointers[SrLibAmigaSpriteAssetMousePointerWrench] = std::move(pointerBitmap);
 
-    SrLibAmigaSpriteReadMousePointer(srExeData_uint16, SrLibAmigaSpriteAssetMousePointerHand, buffer);
-
-    unique_ptr<Bitmap> handBitmap = make_unique<Bitmap>();
-    handBitmap->LoadBitmapFromChunky(vector<SrLibColor>(buffer, buffer + 16 * 12), 16, 12);
-    handBitmap->SetDimensions(16, 12);
-    mousePointers[SrLibAmigaSpriteAssetMousePointerHand] = std::move(handBitmap);
+    for (int i = 0; i < SrLibAmigaSpriteAssetCount; i++) {
+        SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[i];
+        vector<SrLibColor> buffer(info.width * info.height);
+        SrLibAmigaSpriteAsset pointer = (SrLibAmigaSpriteAsset)i;
+        SrLibAmigaSpriteReadMousePointer(srExeData_uint16, pointer, buffer.data());
+        unique_ptr<Bitmap> mousePointer = make_unique<Bitmap>();
+        mousePointer->LoadBitmapFromChunky(buffer, info.width, info.height);
+        mousePointer->SetDimensions(info.width, info.height);
+        mousePointers[pointer] = std::move(mousePointer);
+    }
 }
 
 void AssetManager::InitGameFiles() {
@@ -223,10 +219,6 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
 
 Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
-}
-
-Bitmap* AssetManager::GetMousePointer(SrLibAmigaSpriteAsset sprite) {
-    return mousePointers[sprite].get();
 }
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette) {

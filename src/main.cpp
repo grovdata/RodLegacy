@@ -98,8 +98,11 @@ int main(int argc, char *argv[]) {
 
     try {
         state.Init(debugMode);
+        mouse.loadPointers(state.assets.GetMousePointers());        
+        mouse.SetPointerType(PointerHand);
+        
     } catch (const AssetLoadError& e) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files!", "Failed to find game files! \nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf must be in the same directory as the executable.", win);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found", "Failed to find game files! \nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf must be in the same directory as the executable.", win);
         SDL_Log("Failed to load game assets: %s", e.what());
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
