@@ -56,7 +56,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect engineRect = {290, 107, 27, 14};
     Zone engine(ZONE_GARAGE_ENGINE, strdup("Pop the hood"), &engineRect);
 
-
+    signRect = {72, 44, 195, 12};
 
     zones.push_back(bottle);
     zones.push_back(newsPaper);
@@ -88,7 +88,16 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
-    signSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    signSurface = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
+    SDL_SetSurfaceBlendMode(signSurface, SDL_BLENDMODE_BLEND);
+
+    // Clear the entire sign area initially
+    SDL_FillRect(signSurface, NULL, SDL_MapRGBA(signSurface->format, 0, 0, 0, 0));
+
+    // Create initial texture
+    signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
+    SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 
     StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 
@@ -327,13 +336,30 @@ SDL_Point Garage::GetCarIdlePosition() {
 }
 
 void Garage::UpdateSign() {
+
+    SDL_Log("Garage::UpdateSign");
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
     snprintf(text, 50, "%s.", m.name.c_str());
-    SFont_Write(signSurface, state.assets.GetMainFont(), 78, 45, text);
+    
+    // Clear the surface
+    Uint32 transparent = SDL_MapRGBA(signSurface->format, 0, 0, 0, 0);
+    SDL_FillRect(signSurface, NULL, transparent);
+    
+    // Write new text
+    int textWidth = SFont_TextWidth(state.assets.GetMainFont(), text);
+    int x = signRect.x + (signRect.w - textWidth) / 2;
+    SFont_Write(signSurface, state.assets.GetMainFont(), x, 45, text);
+    
+    // Destroy old texture if it exists
+    if (signTexture) {
+        SDL_DestroyTexture(signTexture);
+    }
+    
+    // Create new texture
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
+    SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
-    SDL_RenderCopy(renderer, signTexture, NULL, &m_backgroundRect);
 }
 
 void Garage::Action(ZoneId zone) {
@@ -422,6 +448,8 @@ void Garage::Draw() {
     }
 
     DrawDebugZones();
+    
+    SDL_RenderCopy(renderer, signTexture, NULL, NULL);
 
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->Draw();
@@ -430,6 +458,7 @@ void Garage::Draw() {
     if (gameMenuDialog && gameMenuDialog->IsVisible()) {
         gameMenuDialog->Draw();
     }
+
 }
 
 void Garage::OnFadeComplete() {
@@ -503,4 +532,21 @@ CarBitmap* Garage::GetOrCreateCarBitmap(Car* car) {
 
 Garage::~Garage() {
     carBitmaps.clear();
+}
+
+void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+    if (animatingCar && carBitmap) return;
+    
+    // Create initial car bitmap
+    carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
+    carx = -GAME_WIDTH;
+    cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
+    carBitmap->Move({carx, cary});
+    
+    // Update sign for initial car
+    UpdateSign();
+    
+    animatingCar = true;
+    currentAnimationType = animType;
+    //carAnimationTime = 0;
 }

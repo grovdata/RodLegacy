@@ -17,7 +17,7 @@ class Garage : public CarScene {
     std::unique_ptr<Dialog> gameMenuDialog;
     // Container for all car bitmaps
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
-
+    SDL_Rect signRect;
     void InitGameMenuDialog();
     void UpdateSign();
 
@@ -33,6 +33,7 @@ class Garage : public CarScene {
     void Action(ZoneId zone) override;
     void PushEvent(SDL_Event* event) override;
     void Draw() override;
+    void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnCarAnimationComplete() override;
     void OnFadeComplete() override;
 };
