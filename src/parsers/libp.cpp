@@ -207,17 +207,19 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                     }
                 }
 
-                // Select palette based on value range
-                const Palette* selectedPalette = &palette;  // default to main palette
-                bool isInFirstRange = (value >= 1 && value <= 9);
-                bool isInSecondRange = (value >= 33 && value <= 41);  // 1+32 to 9+32
+                // Determine which palette to use
+                bool useLowerRange = value >= 1 && value <= 9;
+                bool useUpperRange = value >= 33 && value <= 41;
+                bool useCarPalette = !carPalette.empty() && (useLowerRange || useUpperRange);
+                const Palette& selectedPalette = useCarPalette ? carPalette : palette;
                 
-                if (isInFirstRange || isInSecondRange) {
-                    selectedPalette = &carPalette;
+                // Ensure value is within bounds of the selected palette
+                if (value >= selectedPalette.size()) {
+                    continue;
                 }
-            
+                
                 int pixel_index = (y * entry.width) + (x + i);
-                chunkyData[pixel_index] = (*selectedPalette)[value];
+                chunkyData[pixel_index] = selectedPalette[value];
             }
         }
     }
