@@ -147,7 +147,7 @@ string Diner::GetOpponentText(Opponent *opponent) {
     return result;
 }
 
-void Diner::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     if (animatingCar && carBitmap) return;
     
     this->currentOpponent = state.GetNextOpponent();

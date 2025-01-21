@@ -21,7 +21,7 @@ class Rectangle: public IDrawable {
         void Fill();
 
     public:          
-        Rectangle(RectangleConfig config = { {0, 0, 0, 255}, {255, 255, 255, 255}, 0 });      
+        Rectangle(RectangleConfig config = { {0, 0, 0, 255}, {255, 255, 255, 255}, {0, 0, 0, 255}, 0 });      
         void Draw();
         void SetVisible(bool visible);
         bool IsWithin(SDL_Rect rect);

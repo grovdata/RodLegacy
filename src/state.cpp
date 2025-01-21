@@ -2,6 +2,7 @@
 #include "diner.h"
 #include "garage.h"
 #include "gas_station.h"
+#include "driving.h"
 
 State::State() : bankroll(750) {
 }
@@ -68,11 +69,7 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
     }
 }
 
-State::~State() {
-    // delete garage;
-    // delete diner;
-    delete this->currentCar;
-}
+State::~State() = default;
 
 const string State::GetTomlFile() {
     return "../data/cars.toml";

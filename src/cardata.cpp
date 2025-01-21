@@ -52,7 +52,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
 
     std::cout << "bitmap w " << bitmap.width << " h" << bitmap.height << std::endl;
 
-    if (index <= CAR_INDEX_COUNT) {
+    if (index <= int(CAR_INDEX_COUNT)) {
         m.index = CAR_INDEX[index];
         std::cout << "Car body ID: " << static_cast<int>(m.index) << std::endl;
     }

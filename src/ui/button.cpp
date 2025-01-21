@@ -71,3 +71,11 @@ void Button::HandleEvent(SDL_Event* event) {
             break;
     }
 }
+
+void Button::SetVisible(bool visible) {
+    this->visible = visible;
+}
+
+bool Button::IsVisible() const {
+    return visible;
+}

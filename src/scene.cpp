@@ -323,7 +323,6 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             t = std::min(1.0, t);
             double easedValue = t * t * t;  // Cubic easing
             
-            SDL_Point idlePos = GetCarIdlePosition();
             int startX = carx;
             int endX = GAME_WIDTH + 50;
             int newX = static_cast<int>(startX + (easedValue * (endX - startX)));

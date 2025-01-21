@@ -78,6 +78,8 @@ public:
                 case SrLibAmigaSpriteAssetMousePointerThumbsDown:
                     pointerType = SrLibAmigaSpriteAssetMousePointerHand;
                     break;
+                default:
+                    break;
             }
             cursorTexture = pointerTextures[pointerType];
         }

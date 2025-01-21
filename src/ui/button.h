@@ -39,6 +39,6 @@ public:
 
     void Draw() override;
     void HandleEvent(SDL_Event* event);
-    void SetVisible(bool visible) { this->visible = visible; }
-    bool IsVisible() const { return visible; }
+    void SetVisible(bool visible) override;
+    bool IsVisible() const;
 };

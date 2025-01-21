@@ -10,6 +10,7 @@
 #include "assets.h"
 #include "roster.h"
 #include "debug_overlay.h"
+#include "racing.h"
 
 #include <set>
 #include <vector>
@@ -45,6 +46,7 @@ private:
     std::unique_ptr<Diner> diner;
     std::unique_ptr<GasStation> gasStation;
     std::unique_ptr<Driving> driving;
+    std::unique_ptr<Racing> racing;
 
     // Remove this later
     const std::string GetTomlFile();

@@ -208,11 +208,16 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                 }
 
                 // Select palette based on value range
-                const Palette& selectedPalette = ((value >= 1 && value <= 9 || 
-                    (value >= 1 + 32 && value <= 9 + 32)) && !carPalette.empty()) ? 
-                    carPalette : palette;
+                const Palette* selectedPalette = &palette;  // default to main palette
+                bool isInFirstRange = (value >= 1 && value <= 9);
+                bool isInSecondRange = (value >= 33 && value <= 41);  // 1+32 to 9+32
+                
+                if (isInFirstRange || isInSecondRange) {
+                    selectedPalette = &carPalette;
+                }
+            
                 int pixel_index = (y * entry.width) + (x + i);
-                chunkyData[pixel_index] = selectedPalette[value];
+                chunkyData[pixel_index] = (*selectedPalette)[value];
             }
         }
     }
@@ -225,13 +230,13 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) 
     Palette rval;
 
     // Add RGB colors from the palette
-    for (int i = 0; i < palette.size(); i++) {
+    for (int i = 0; i < int(palette.size()); i++) {
         rval.push_back(GetRGBFromRGB4(palette[i]));
     }
 
     if (ehb) {
         // Add EHB colors
-        for (int i = 0; i < palette.size(); i++) {
+        for (int i = 0; i < int(palette.size()); i++) {
             SrLibColor color = rval[i];
             rval.push_back({
                 static_cast<uint8_t>((color.r / 2) & 0xF0),
@@ -259,7 +264,7 @@ Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
     }
 
     // Add EHB colors
-    for (int i = 0; i < palette.size(); i++) {
+    for (int i = 0; i < int(palette.size()); i++) {
         SrLibColor color = rval[i];
         rval.push_back({
             static_cast<uint8_t>((color.r / 2) & 0xF0),
@@ -331,7 +336,7 @@ vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const s
     return result;
 }
 
-vector<uint8_t> BitmapParser::ReadImage(const vector<uint8_t>& data, BitmapEntry_t entry, int index, int totalEntriesCount) {
+vector<uint8_t> BitmapParser::ReadImage(const vector<uint8_t>& data, BitmapEntry_t entry, int, int totalEntriesCount) {
     vector<uint8_t> packedData = GetPackedData(data, entry, totalEntriesCount);
     return UnpackData(RLE, entry, packedData);
 }

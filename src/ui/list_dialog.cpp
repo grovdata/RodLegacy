@@ -77,7 +77,7 @@ void ListDialog::Draw() {
     mainBitmap->UpdateFromSurface();
 
     // Draw list items
-    for (size_t i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {
+    for (int i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {
         SDL_Rect itemRect = listConfig.selectedItemRect;
         itemRect.x = listConfig.listBoxRect.x;
         itemRect.y = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;

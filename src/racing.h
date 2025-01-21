@@ -1,3 +1,5 @@
+#pragma once  // Add header guard
+
 /*
 https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/SmallerProjects/OneLoneCoder_RetroArcadeRacer.cpp
 */
@@ -5,7 +7,9 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <iostream>
 #include <string>
 #include <list>
-#include "SDL.h"
+#include <SDL2/SDL.h>
+#include <vector>
+#include "scene.h"
 using namespace std;
 
 
