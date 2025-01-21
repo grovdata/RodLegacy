@@ -534,7 +534,9 @@ Garage::~Garage() {
     carBitmaps.clear();
 }
 
-void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+void Garage::StartAnimateCar(Car*, Driver*, CarAnimationType animType) {
+    
+    
     if (animatingCar && carBitmap) return;
     
     // Create initial car bitmap

@@ -38,7 +38,7 @@ float scaleY = 1.0f;
 
 void ToggleFullScreen(SDL_Window* window, bool currentState) {
     isFullScreen = !currentState;
-    int r = SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     SDL_ShowCursor(currentState);
 }
 
@@ -112,7 +112,14 @@ int main(int argc, char *argv[]) {
         gamePath = AssetManager::FindGameDirectory();
     } catch (const AssetLoadError& e) {
         nfdu8char_t *outPath = NULL;
-        nfdpickfolderu8args_t args = {0};
+        nfdwindowhandle_t nativeWindow;
+        nfdpickfolderu8args_t args = {
+            .defaultPath = nullptr,
+            .parentWindow = nativeWindow
+        };
+        if (!NFD_GetNativeWindowFromSDLWindow(win, &nativeWindow)) {
+            printf("NFD_GetNativeWindowFromSDLWindow failed: %s\n", SDL_GetError());
+        }
         nfdresult_t result = NFD_PickFolderU8_With(&outPath, &args);
             
         if (result == NFD_OKAY) {

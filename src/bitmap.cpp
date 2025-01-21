@@ -197,10 +197,6 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
 
     SDL_PixelFormat *maskFormat = mask->format;
 
-    int copiedPixels = 0;
-    static int debugCount = 0;
-    debugCount = 0;  // Reset debug counter
-
     for (int y = 0; y < rect.h; y++) {
         for (int x = 0; x < rect.w; x++) {
             int maskIdx = y * mask->w + x;
@@ -215,7 +211,6 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
                 Uint8 bgR, bgG, bgB;
                 SDL_GetRGB(bgPixels[bgIdx], surface->format, &bgR, &bgG, &bgB);
                 targetPixels[targetIdx] = SDL_MapRGBA(target->format, bgR, bgG, bgB, 255);
-                copiedPixels++;
             } else {
                 targetPixels[targetIdx] = SDL_MapRGBA(target->format, 0, 0, 0, 0);
             }
@@ -283,7 +278,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
 }
 
 void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask) {
-    if (colors.size() != width * height) {
+    if (int(colors.size()) != width * height) {
         std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
         return;
     }

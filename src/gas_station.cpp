@@ -207,7 +207,7 @@ void GasStation::PushEvent(SDL_Event* event) {
     }
 }
 
-void GasStation::StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) {
+void GasStation::StartAnimateCar(Car *car, Driver*, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
 
     if (car != nullptr && carBitmap == nullptr) {

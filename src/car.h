@@ -22,8 +22,6 @@ class Car {
         bool isFrontBumperStripped;
         bool isBackBumperStripped;
         bool isRoofChopped;
-        bool isMoving;
-        int tuning;
         CarModel model;
         SrLibCarDecal decal;
         CarScoopType scoop;

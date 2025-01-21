@@ -17,7 +17,7 @@ CarData::~CarData() {
 
 void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
     ReadCarsBuiltin(datafilebuf, bitmaps);
-//    ReadCarsFromTomlFile(tomlfile);
+    ReadCarsFromTomlFile(tomlfile);
 }
 
 CarModel CarData::GetModel(char* carModel) {
