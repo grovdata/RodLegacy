@@ -1,0 +1,11 @@
+lodepng_lib = static_library('lodepng',
+    '../../subprojects/lodepng/lodepng.c',
+    include_directories: include_directories('../../subprojects/lodepng'),
+    c_args: ['-DLODEPNG_NO_COMPILE_CPP']
+)
+
+lodepng_dep = declare_dependency(
+    link_with: lodepng_lib,
+    include_directories: include_directories('../../subprojects/lodepng'),
+    compile_args: ['-DLODEPNG_NO_COMPILE_CPP']
+) 

@@ -54,3 +54,6 @@ xcuserdata/
 *.xccheckout
 
 .DS_Store
+
+subprojects/nativefiledialog*
+subprojects/packagecache/

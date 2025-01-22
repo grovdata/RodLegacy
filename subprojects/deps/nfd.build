@@ -1,0 +1,31 @@
+nfd_src = [
+    '../../subprojects/nativefiledialog-extended/src/nfd_common.c',
+]
+
+if host_machine.system() == 'linux'
+    nfd_src += ['../../subprojects/nativefiledialog-extended/src/nfd_gtk.c']
+    nfd_deps = [
+        dependency('gtk+-3.0'),
+        dependency('glib-2.0')
+    ]
+elif host_machine.system() == 'windows'
+    nfd_src += ['../../subprojects/nativefiledialog-extended/src/nfd_win.cpp']
+    nfd_deps = []
+elif host_machine.system() == 'darwin'
+    nfd_src += ['../../subprojects/nativefiledialog-extended/src/nfd_cocoa.m']
+    nfd_deps = dependency('appleframeworks', modules : ['AppKit'])
+endif
+
+nfd_inc = include_directories('../../subprojects/nativefiledialog-extended/src/include')
+
+nfd_lib = static_library('nfd',
+    nfd_src,
+    include_directories: nfd_inc,
+    dependencies: nfd_deps,
+    cpp_args: ['-DNDEBUG']
+)
+
+nfd_dep = declare_dependency(
+    link_with: nfd_lib,
+    include_directories: nfd_inc
+) 
