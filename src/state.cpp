@@ -1,6 +1,7 @@
 #include "state.h"
 #include "diner.h"
 #include "garage.h"
+#include "diner.h"
 #include "gas_station.h"
 #include "driving.h"
 

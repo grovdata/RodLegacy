@@ -124,6 +124,14 @@ CarMetadata_t CarData::GetCarMetadata(int carIndex) {
 }
 
 void CarData::ReadCarsFromTomlFile(string filename) {
+    
+    ifstream file(filename);
+    if (!file.good()) {
+        SDL_Log("Custom cars TOML file %s does not exist, skipping", filename.c_str());
+        return;
+    }
+    file.close();
+
     try {
         const auto data = toml::parse(filename);
         const auto table = toml::find<vector<toml::table>>(data, "cars");
@@ -131,9 +139,9 @@ void CarData::ReadCarsFromTomlFile(string filename) {
             if (!CarIsValid(&car)) {
                 if (MapContainsKey(&car, "id")) {
                     string id = car["id"].as_string();
-                    printf("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
+                    SDL_Log("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
                 } else {
-                    printf("Car section incomplete, proceeding to the next one\n");
+                    SDL_Log("Car section incomplete, proceeding to the next one\n");
                 }
                 continue;
             }
@@ -166,7 +174,6 @@ void CarData::ReadCarsFromTomlFile(string filename) {
     } catch (const toml::type_error &e) {
         cout << e.what() << endl;
     }
-
 }
 
 void CarData::PrintModel(CarModel model) {
