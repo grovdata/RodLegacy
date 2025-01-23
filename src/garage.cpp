@@ -372,6 +372,9 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_GOTO_DINER:
         state.MoveToScene(SCENE_DINER);
         break;
+    case ZONE_GARAGE_NEWSPAPER:
+        state.MoveToScene(SCENE_NEWSPAPER);
+        break;  
     case ZONE_GARAGE_GAS_CAN:
         state.MoveToScene(SCENE_GAS_STATION);
         break;

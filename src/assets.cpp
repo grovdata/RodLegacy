@@ -24,13 +24,15 @@ AssetManager::~AssetManager() {
 
 void AssetManager::InitFonts() {
     fs::path mainFontPath = fontPath / "font.png";
+    fs::path newspaperFontPath = fontPath / "bee.png";
     fs::path debugFontPath = fontPath / "lemon.png";
-    if (!fs::exists(mainFontPath) || !fs::exists(debugFontPath)) {
+    if (!fs::exists(mainFontPath) || !fs::exists(debugFontPath) || !fs::exists(newspaperFontPath)) {
         throw AssetLoadError("Font files not found");
     }
 
     mainFont = SFont_InitFont(IMG_Load(mainFontPath.string().c_str()));
     debugFont = SFont_InitFont(IMG_Load(debugFontPath.string().c_str()));
+    newspaperFont = SFont_InitFont(IMG_Load(newspaperFontPath.string().c_str()));
 }
 
 void AssetManager::InitMousePointers() {
@@ -121,6 +123,10 @@ SFont_Font* AssetManager::GetMainFont() {
 
 SFont_Font* AssetManager::GetDebugFont() {
     return debugFont;
+}
+
+SFont_Font* AssetManager::GetNewspaperFont() {
+    return newspaperFont;
 }
 
 Palette AssetManager::GetStockPalette(StockPalette palette) {

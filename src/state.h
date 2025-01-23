@@ -6,6 +6,7 @@
 #include "diner.h"
 #include "driving.h"
 #include "garage.h"
+#include "newspaper.h"
 #include "gas_station.h"
 #include "assets.h"
 #include "roster.h"
@@ -47,6 +48,7 @@ private:
     std::unique_ptr<GasStation> gasStation;
     std::unique_ptr<Driving> driving;
     std::unique_ptr<Racing> racing;
+    std::unique_ptr<Newspaper> newspaper;
 
     // Remove this later
     const std::string GetTomlFile();

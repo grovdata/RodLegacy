@@ -71,7 +71,7 @@ void Bubble::UpdateText(std::string text) {
     SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);
 
     SDL_Rect rect = bubble->GetPosition();
-    fontRect.x = rect.x; // dynamic
+    fontRect.x = rect.x;
     fontRect.y = rect.y + 6;
     fontRect.w = fontSurface->w;
     fontRect.h = fontSurface->h;

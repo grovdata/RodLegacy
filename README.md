@@ -27,3 +27,4 @@ StreetRod Legacy use these fine libraries:
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
  - [lemon font](https://github.com/cmvnd/fonts)
+ - [ISO88591-8x16 font](https://github.com/epto/epto-fonts)

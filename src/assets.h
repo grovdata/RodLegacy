@@ -66,6 +66,7 @@ public:
     void Init(const fs::path& validatedPath);
     SFont_Font* GetMainFont();
     SFont_Font* GetDebugFont();
+    SFont_Font* GetNewspaperFont();
 
     byte_vector& GetLibPData() { return libPData_vec; }
     byte_vector& GetLibStartData() { return libStartData_vec; }
@@ -86,6 +87,7 @@ private:
 
     SFont_Font* mainFont;
     SFont_Font* debugFont;
+    SFont_Font* newspaperFont;
 
     byte_vector libStartData_vec;
     byte_vector libPData_vec;

@@ -47,7 +47,6 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
-
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
         SDL_Log("Current car tires: %d", this->currentCar->GetTires().assetId);
@@ -57,10 +56,12 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
         diner = std::make_unique<Diner>();
         gasStation = std::make_unique<GasStation>();
         driving = std::make_unique<Driving>();
+        newspaper = std::make_unique<Newspaper>();
 
         garage->Init(debugMode);
         diner->Init(debugMode);
         gasStation->Init(debugMode);
+        newspaper->Init(debugMode);
         //driving->Init();
     } catch (const std::exception& e) {
         SDL_Log("Failed to initialize game state: %s", e.what());
@@ -107,6 +108,9 @@ void State::MoveToScene(SrLibGameScene scene) {
         case SCENE_CRUISING:
         case SCENE_DRIVING:
             this->currentScene = driving.get();
+            break;
+        case SCENE_NEWSPAPER:
+            this->currentScene = newspaper.get();
             break;
     }
 
