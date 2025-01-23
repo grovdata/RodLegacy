@@ -13,6 +13,6 @@ public:
     void Init(SFont_Font *font, int xPos, int yPos, uint32_t textColor);
     ~Label();
 
-    void SetText(string text, bool centered);
+    void SetText(string text, bool centered, int desiredWidth);
     void Draw();
 };

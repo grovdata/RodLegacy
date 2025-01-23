@@ -38,8 +38,8 @@ void Newspaper::Init(bool debugMode) {
     headline.UpdateFromSurface();
     
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
-    date.Init(state.assets.GetMainFont(), 96, 120, dateColor);
-    date.SetText("  June 10, 1963  ", true);
+    date.Init(state.assets.GetMainFont(), 0, 120, dateColor);
+    date.SetText("  June 10, 1963  ", true, GAME_WIDTH);
 
     headingLeft.Init(state.assets.GetNewspaperFont(), 10, 138, dateColor);
     headingLeft.SetText("  LBJ insists: ", true);

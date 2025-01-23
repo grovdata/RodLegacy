@@ -14,14 +14,22 @@ void Label::Init(SFont_Font *font, int xPos, int yPos, uint32_t textColor) {
     SetVisible(true);
 }
 
-void Label::SetText(string text, bool centered) {
+void Label::SetText(string text, bool centered, int desiredWidth = 0) {
     int textWidth = SFont_TextWidth(font, text.c_str());
     int textHeight = SFont_TextHeight(font);
     char buf[50];
-    int x = -10; // TODO: Stupid SFont bug workaround
+    int x = -10; // Base offset for SFont bug workaround
+    
+    // Use the larger of textWidth or desiredWidth
+    int surfaceWidth = (desiredWidth > 0) ? desiredWidth : textWidth;
+    
+    // Calculate centering offset if needed
+    if (centered && desiredWidth > 0) {
+        x += (desiredWidth - textWidth) / 2;
+    }
 
-    surface = SDL_CreateRGBSurface(0, textWidth, textHeight, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    SetDimensions(textWidth, textHeight);
+    surface = SDL_CreateRGBSurface(0, surfaceWidth, textHeight, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    SetDimensions(surfaceWidth, textHeight);
 
     SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
     
