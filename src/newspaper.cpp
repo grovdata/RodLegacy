@@ -42,10 +42,10 @@ void Newspaper::Init(bool debugMode) {
     date.SetText("  June 10, 1963  ", true, GAME_WIDTH);
 
     headingLeft.Init(state.assets.GetNewspaperFont(), 10, 138, dateColor);
-    headingLeft.SetText("  LBJ insists: ", true);
+    headingLeft.SetText("  President insists: ", true, GAME_WIDTH);
 
     headingRight.Init(state.assets.GetNewspaperFont(), 10, 138 + 15, dateColor);
-    headingRight.SetText("  \"No U.S. soldiers in Viet Nam.\" ", true);
+    headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
 }
 
 void Newspaper::Draw() {
