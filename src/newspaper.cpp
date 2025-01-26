@@ -11,9 +11,21 @@ Newspaper::~Newspaper() {
 
 void Newspaper::Init(bool debugMode) {
     Scene::Init(debugMode);
-    exit = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
-    exit.SetPosition(100, 100);
-    exit.SetVisible(false);
+    previous = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    previous.SetPosition(0, 0);
+    SDL_Rect previousRect = {0, 0, 64, 190};
+    previous.Crop(previousRect);
+    previous.SetDimensions(64, 190);
+    previous.UpdateFromSurface();
+    previous.SetVisible(false);
+
+    next = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    next.SetPosition(GAME_WIDTH - 64, 0);
+    SDL_Rect nextRect = {64, 0, 64, 190};
+    next.Crop(nextRect);
+    next.SetDimensions(64, 190);
+    next.UpdateFromSurface();
+    next.SetVisible(false);
 
     // Set headline based on date?
     AmigaLibAsset headlineAsset = NEWSPAPER_NO_SOLDIERS_IN_VIETNAM;
@@ -28,6 +40,7 @@ void Newspaper::Init(bool debugMode) {
         {{0, 0, 145, 24}, {146, 0, 175, 24}},
         {{0, 0, 145, 32}, {146, 0, 175, 32}}
     };
+
     // Temp
     SDL_Rect headlineMaskRect[2];
     headlineMaskRect[0] = masks[headlineAsset - NEWSPAPER_DODGERS_MALIBU][0];
@@ -69,6 +82,8 @@ void Newspaper::Draw() {
     date.Draw();
     headingLeft.Draw();
     headingRight.Draw();
+    previous.Draw();
+    next.Draw();
 }
 
 void Newspaper::PushEvent(SDL_Event *event) {
@@ -80,7 +95,18 @@ void Newspaper::Action(ZoneId zone) {
     if (sceneTransition != SCENE_SOLID) {
         return;
     }
+    if (zone == ZONE_MAGAZINE_AUTO_PARTS) {
+        page = 1;
+    }
+    if (zone == ZONE_MAGAZINE_USED_CARS) {
+        state.MoveToScene(SCENE_GAS_STATION);
+    }
     if (zone == ZONE_MAGAZINE_BACK_TO_GARAGE) {
         state.MoveToScene(SCENE_GARAGE);
-    }
+    } 
+
+    background->SetVisible(page == 0);
+    headline.SetVisible(page == 0);
+    previous.SetVisible(page > 0);
+    next.SetVisible(page > 0);
 }

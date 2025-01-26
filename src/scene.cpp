@@ -163,7 +163,7 @@ void Scene::PushEvent(SDL_Event *event) {
 }
 
 void Scene::Action(ZoneId zone) {
-    printf("Zone was selected: %d \n", zone);
+
 }
 
 void Scene::FadeIn() {
