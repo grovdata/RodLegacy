@@ -50,8 +50,9 @@ cpp_sources = [
     'ui/bubble.cpp',
     'ui/label.cpp',
     'ui/hud.cpp',
-    'ui/dialog.cpp',    
-    'ui/list_dialog.cpp',
+    'dialogs/dialog.cpp',    
+    'dialogs/list_dialog.cpp',
+    'dialogs/colorpicker.cpp',
     'ui/rectangle.cpp',
 ]
 

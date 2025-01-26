@@ -46,6 +46,19 @@ void Newspaper::Init(bool debugMode) {
 
     headingRight.Init(state.assets.GetNewspaperFont(), 10, 138 + 15, dateColor);
     headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
+
+    SDL_Rect autoPartsRect = {0, 0, GAME_WIDTH, 32};
+    Zone autoPartsZone(ZONE_MAGAZINE_AUTO_PARTS, strdup("Auto Parts"), &autoPartsRect);
+
+    SDL_Rect usedCarsRect = {0, 33, GAME_WIDTH, 33};
+    Zone usedCarsZone(ZONE_MAGAZINE_USED_CARS, strdup("Used Cars"), &usedCarsRect);
+
+    SDL_Rect backToGarageRect = {0, 66, GAME_WIDTH, 125};
+    Zone backToGarageZone(ZONE_MAGAZINE_BACK_TO_GARAGE, strdup("Go to the garage"), &backToGarageRect);
+
+    zones.push_back(autoPartsZone);
+    zones.push_back(usedCarsZone);
+    zones.push_back(backToGarageZone);
 }
 
 void Newspaper::Draw() {
@@ -56,4 +69,18 @@ void Newspaper::Draw() {
     date.Draw();
     headingLeft.Draw();
     headingRight.Draw();
+}
+
+void Newspaper::PushEvent(SDL_Event *event) {
+    Scene::PushEvent(event);
+}
+
+void Newspaper::Action(ZoneId zone) {
+    Scene::Action(zone);
+    if (sceneTransition != SCENE_SOLID) {
+        return;
+    }
+    if (zone == ZONE_MAGAZINE_BACK_TO_GARAGE) {
+        state.MoveToScene(SCENE_GARAGE);
+    }
 }

@@ -5,7 +5,7 @@
 #include "mouse.h"
 #include "ui/zone.h"
 #include "ui/bubble.h"
-#include "ui/list_dialog.h"
+#include "dialogs/list_dialog.h"
 #include "carbitmap.h"
 
 class Garage : public CarScene {

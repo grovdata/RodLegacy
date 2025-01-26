@@ -2,9 +2,9 @@
 #include "../global.h"
 #include "../bitmap.h"
 #include "../SFont.h"
-#include "rectangle.h"
-#include "button.h"
-#include "zone.h"
+#include "ui/rectangle.h"
+#include "ui/button.h"
+#include "ui/zone.h"
 #include <vector>
 #include <string>
 #include <memory>

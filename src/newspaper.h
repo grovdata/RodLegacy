@@ -22,7 +22,7 @@ public:
     ~Newspaper();
 
     void Init(bool debugMode);
-
-    
     void Draw() override;
+    void Action(ZoneId zone) override;
+    void PushEvent(SDL_Event *event) override;
 };
