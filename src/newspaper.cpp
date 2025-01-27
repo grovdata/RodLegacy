@@ -1,8 +1,11 @@
 #include "newspaper.h"
 #include "state.h"
 
+const string autoParts = "------------ PARTS ------------";
+const string usedCars = "---------- USED CARS ----------";
+
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
-   
+    page = 0;
 }
 
 Newspaper::~Newspaper() {
@@ -11,6 +14,27 @@ Newspaper::~Newspaper() {
 
 void Newspaper::Init(bool debugMode) {
     Scene::Init(debugMode);
+    InitPageOne();
+    InitPageAds();
+
+    Update();
+    // Common
+
+    SDL_Rect autoPartsRect = {0, 0, GAME_WIDTH, 32};
+    Zone autoPartsZone(ZONE_MAGAZINE_AUTO_PARTS, strdup("Auto Parts"), &autoPartsRect);
+
+    SDL_Rect usedCarsRect = {0, 33, GAME_WIDTH, 33};
+    Zone usedCarsZone(ZONE_MAGAZINE_USED_CARS, strdup("Used Cars"), &usedCarsRect);
+
+    SDL_Rect backToGarageRect = {0, 66, GAME_WIDTH, 125};
+    Zone backToGarageZone(ZONE_MAGAZINE_BACK_TO_GARAGE, strdup("Go to the garage"), &backToGarageRect);
+
+    zones.push_back(autoPartsZone);
+    zones.push_back(usedCarsZone);
+    zones.push_back(backToGarageZone);
+}
+
+void Newspaper::InitPageOne() {
     previous = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
     previous.SetPosition(0, 0);
     SDL_Rect previousRect = {0, 0, 64, 190};
@@ -59,19 +83,32 @@ void Newspaper::Init(bool debugMode) {
 
     headingRight.Init(state.assets.GetNewspaperFont(), 10, 138 + 15, dateColor);
     headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
+}
 
-    SDL_Rect autoPartsRect = {0, 0, GAME_WIDTH, 32};
-    Zone autoPartsZone(ZONE_MAGAZINE_AUTO_PARTS, strdup("Auto Parts"), &autoPartsRect);
+void Newspaper::InitPageAds() {
+    // Ads page 1-x
+    SDL_Rect textAreaRect = {64, 0, 192, 190};
 
-    SDL_Rect usedCarsRect = {0, 33, GAME_WIDTH, 33};
-    Zone usedCarsZone(ZONE_MAGAZINE_USED_CARS, strdup("Used Cars"), &usedCarsRect);
+    adsArea = Bitmap(textAreaRect.w, textAreaRect.h, 32);
+    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 240, 240, 240, 255));
+    adsArea.UpdateFromSurface();
+    adsArea.SetPosition(textAreaRect.x, textAreaRect.y);
+    adsArea.SetVisible(false);
 
-    SDL_Rect backToGarageRect = {0, 66, GAME_WIDTH, 125};
-    Zone backToGarageZone(ZONE_MAGAZINE_BACK_TO_GARAGE, strdup("Go to the garage"), &backToGarageRect);
+    AddDivider(1);
 
-    zones.push_back(autoPartsZone);
-    zones.push_back(usedCarsZone);
-    zones.push_back(backToGarageZone);
+    autoPartsHeader.Init(state.assets.GetMainFont(), 4, 12, 0);
+    autoPartsHeader.SetText(autoParts, false, 184);
+
+    adsArea.UpdateFromSurface();
+
+    AddDivider(31);
+}
+
+void Newspaper::AddDivider(int y) {
+    SDL_Rect dividerRect = {4, y, 184, 1};
+    SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
+    adsArea.UpdateFromSurface();
 }
 
 void Newspaper::Draw() {
@@ -82,8 +119,13 @@ void Newspaper::Draw() {
     date.Draw();
     headingLeft.Draw();
     headingRight.Draw();
+
     previous.Draw();
+    adsArea.Draw();
     next.Draw();
+
+    autoPartsHeader.Draw();
+    usedCarsHeader.Draw();
 }
 
 void Newspaper::PushEvent(SDL_Event *event) {
@@ -99,14 +141,23 @@ void Newspaper::Action(ZoneId zone) {
         page = 1;
     }
     if (zone == ZONE_MAGAZINE_USED_CARS) {
-        state.MoveToScene(SCENE_GAS_STATION);
+        page = 4;
     }
     if (zone == ZONE_MAGAZINE_BACK_TO_GARAGE) {
         state.MoveToScene(SCENE_GARAGE);
     } 
 
+    Update();
+}
+
+void Newspaper::Update() {
     background->SetVisible(page == 0);
     headline.SetVisible(page == 0);
+    headingLeft.SetVisible(page == 0);
+    headingRight.SetVisible(page == 0);
     previous.SetVisible(page > 0);
     next.SetVisible(page > 0);
+    adsArea.SetVisible(page > 0);
+    autoPartsHeader.SetVisible(page == 1);
+    usedCarsHeader.SetVisible(page == 4);
 }
