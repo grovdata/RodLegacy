@@ -37,6 +37,9 @@ typedef enum {
     ZONE_MAGAZINE_AUTO_PARTS,
     ZONE_MAGAZINE_USED_CARS,
     ZONE_MAGAZINE_BACK_TO_GARAGE,
+    ZONE_MAGAZINE_PREVIOUS,
+    ZONE_MAGAZINE_NEXT,
+    ZONE_MAGAZINE_BACK_TO_GARAGE2,
     ZONE_DINER_CALL,
     ZONE_DINER_GOTO_GARAGE,
     ZONE_DINER_ORDER,
@@ -56,20 +59,23 @@ class Zone {
         ZoneId id;
        	char *text;
        	SDL_Rect rect;
+        bool enabled;
     public:
-        Zone(ZoneId id, char *text, SDL_Rect *rect) {
+        Zone(ZoneId id, char *text, SDL_Rect *rect, bool enabled = true) {
             this->id = id;
         	this->text = text;
         	this->rect.x = rect->x;
         	this->rect.y = rect->y;
         	this->rect.w = rect->w;
         	this->rect.h = rect->h;
+            this->enabled = enabled;
         }
         ~Zone() {
 
         }
 
         bool IsInsideZone(int x, int y) {
+            if (!enabled) return false;
         	//printf("Zone %s %d %d %d %d\n", m_text, m_rect.x, m_rect.y, m_rect.x + m_rect.w, m_rect.x + m_rect.h);
         	return (x >= rect.x) && (x <= (rect.x + rect.w)) && (y >= rect.y) && (y <= (rect.y + rect.h));
         }
@@ -80,6 +86,10 @@ class Zone {
 
         void SetText(char *text) {
             this->text = text;
+        }
+
+        void SetEnabled(bool enabled) {
+            this->enabled = enabled;
         }
 
         const SDL_Rect GetRect() {

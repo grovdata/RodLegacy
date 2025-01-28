@@ -83,6 +83,7 @@ class Scene {
 
     void SetZoneText(ZoneId id, char* text);
     void SetZoneRect(ZoneId id, SDL_Rect *rect);
+    void SetZoneEnabled(ZoneId id, bool enabled);
     Zone& GetZone(ZoneId id);
     virtual void DrawDebugUI() {}
 

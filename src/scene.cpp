@@ -123,6 +123,16 @@ void Scene::SetZoneRect(ZoneId id, SDL_Rect *rect) {
     }
 }
 
+void Scene::SetZoneEnabled(ZoneId id, bool enabled) {
+    for (size_t i = 0; i < zones.size(); i++) {
+        Zone& zone = zones.at(i);
+        if (zone.GetId() == id) {
+            zone.SetEnabled(enabled);
+            return;
+        }
+    }
+}
+
 Zone& Scene::GetZone(ZoneId id) {
     for (size_t i = 0; i < zones.size(); i++) {
         if (zones[i].GetId() == id) {

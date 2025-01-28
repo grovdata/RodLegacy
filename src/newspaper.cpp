@@ -29,9 +29,21 @@ void Newspaper::Init(bool debugMode) {
     SDL_Rect backToGarageRect = {0, 66, GAME_WIDTH, 125};
     Zone backToGarageZone(ZONE_MAGAZINE_BACK_TO_GARAGE, strdup("Go to the garage"), &backToGarageRect);
 
+    SDL_Rect previousRect = {0, 0, 64, 190};
+    Zone previousZone(ZONE_MAGAZINE_PREVIOUS, strdup("Previous page"), &previousRect);
+
+    SDL_Rect nextRect = {GAME_WIDTH - 64, 0, 64, 190};
+    Zone nextZone(ZONE_MAGAZINE_NEXT, strdup("Next page"), &nextRect);
+
+    SDL_Rect backToGarage2Rect = {0, 199, GAME_WIDTH, 125};
+    Zone backToGarage2Zone(ZONE_MAGAZINE_BACK_TO_GARAGE2, strdup("Go to the garage"), &backToGarage2Rect);
+
     zones.push_back(autoPartsZone);
     zones.push_back(usedCarsZone);
     zones.push_back(backToGarageZone);
+    zones.push_back(previousZone);
+    zones.push_back(nextZone);
+    zones.push_back(backToGarage2Zone);
 }
 
 void Newspaper::InitPageOne() {
@@ -97,10 +109,13 @@ void Newspaper::InitPageAds() {
 
     AddDivider(1);
 
-    autoPartsHeader.Init(state.assets.GetMainFont(), 4, 12, 0);
+    autoPartsHeader.Init(state.assets.GetMainFont(), 68, 12, 0);
     autoPartsHeader.SetText(autoParts, false, 184);
 
     adsArea.UpdateFromSurface();
+
+    test.Init(state.assets.GetMainFont(), 68, 32, 0);
+    test.SetText("1940 Chevrolet 2-dr coupe. Auto.\nRuns good. $400", false, 184);
 
     AddDivider(31);
 }
@@ -126,6 +141,7 @@ void Newspaper::Draw() {
 
     autoPartsHeader.Draw();
     usedCarsHeader.Draw();
+    test.Draw();
 }
 
 void Newspaper::PushEvent(SDL_Event *event) {
@@ -159,5 +175,12 @@ void Newspaper::Update() {
     next.SetVisible(page > 0);
     adsArea.SetVisible(page > 0);
     autoPartsHeader.SetVisible(page == 1);
+    test.SetVisible(page == 1);
     usedCarsHeader.SetVisible(page == 4);
+
+    SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, page == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_USED_CARS, page == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_BACK_TO_GARAGE, page == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, page > 0);
+    SetZoneEnabled(ZONE_MAGAZINE_NEXT, page > 0);
 }

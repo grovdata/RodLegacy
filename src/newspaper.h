@@ -14,12 +14,15 @@ private:
 
     Bitmap adsArea;
 
+    // Page 0
     Label date;
     Label headingLeft;
     Label headingRight;
     
+    // Page 1-x
     Label autoPartsHeader;
     Label usedCarsHeader;
+    Label test;
 
     int page = 0;
 
