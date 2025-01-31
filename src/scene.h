@@ -58,6 +58,7 @@ class Scene {
     bool debugEnabled;
     
     Uint8 fadeAlpha = 255;
+    Uint64 lastActionTime = 0;
     
     virtual void ToggleDebugMode();
     virtual void DrawDebugZones();

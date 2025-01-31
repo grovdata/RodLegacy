@@ -167,13 +167,14 @@ void Scene::PushEvent(SDL_Event *event) {
         return;
     }
     ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
-    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP &&
+        SDL_GetTicks64() - lastActionTime > 200) {
         Action(z);
     }        
 }
 
 void Scene::Action(ZoneId zone) {
-
+    lastActionTime = SDL_GetTicks64();
 }
 
 void Scene::FadeIn() {
