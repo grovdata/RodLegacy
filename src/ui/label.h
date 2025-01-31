@@ -20,5 +20,4 @@ public:
     
     void Init(SFont_Font* font, int xPos, int yPos, uint32_t textColor);
     void SetText(string text, bool centered = false, int desiredWidth = 0);
-    virtual void Draw();
 };

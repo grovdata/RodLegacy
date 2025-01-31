@@ -49,7 +49,7 @@ void Label::SetText(string text, bool centered, int desiredWidth) {
     // Render each line
     int yOffset = 0;
     for (const auto& line : textLines) {
-        int x = -10; // Base offset for SFont bug workaround
+        int x = 0; // Base offset for SFont bug workaround
         
         if (centered && desiredWidth > 0) {
             int lineWidth = SFont_TextWidth(font, line.c_str());
@@ -67,9 +67,4 @@ void Label::SetText(string text, bool centered, int desiredWidth) {
     uint8_t g = (textColor >> 8) & 0xFF;
     uint8_t b = textColor & 0xFF;
     SDL_SetTextureColorMod(texture, r, g, b);
-}
-
-void Label::Draw() {
-    Bitmap::Draw();
-    SDL_RenderCopy(renderer, texture, NULL, &rect);
 }
