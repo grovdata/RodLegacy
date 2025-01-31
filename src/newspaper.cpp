@@ -153,15 +153,34 @@ void Newspaper::Action(ZoneId zone) {
     if (sceneTransition != SCENE_SOLID) {
         return;
     }
-    if (zone == ZONE_MAGAZINE_AUTO_PARTS) {
-        page = 1;
+
+    switch (zone) { 
+        case ZONE_MAGAZINE_AUTO_PARTS:
+            page = 1;
+            break;
+        case ZONE_MAGAZINE_USED_CARS:
+            page = 4;
+            break;
+        case ZONE_MAGAZINE_BACK_TO_GARAGE:
+            state.MoveToScene(SCENE_GARAGE);
+            break;
+        case ZONE_MAGAZINE_PREVIOUS:
+            if (page > 0) {
+                page--;
+            } else {
+                page = 6;
+            }
+            break;
+        case ZONE_MAGAZINE_NEXT:
+            if (page < 6) {
+                page++;
+            } else {
+                page = 0;
+            }
+            break;
     }
-    if (zone == ZONE_MAGAZINE_USED_CARS) {
-        page = 4;
-    }
-    if (zone == ZONE_MAGAZINE_BACK_TO_GARAGE) {
-        state.MoveToScene(SCENE_GARAGE);
-    } 
+
+    SDL_Log("Page: %d", page);
 
     Update();
 }
@@ -174,8 +193,10 @@ void Newspaper::Update() {
     previous.SetVisible(page > 0);
     next.SetVisible(page > 0);
     adsArea.SetVisible(page > 0);
+    
     autoPartsHeader.SetVisible(page == 1);
     test.SetVisible(page == 1);
+    
     usedCarsHeader.SetVisible(page == 4);
 
     SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, page == 0);
