@@ -536,6 +536,17 @@ void SrLibDataCleanupCarString(char* str) {
     }
 }
 
+// 0xA849C
+vector<string> SrLibReadStrings(const uint8_t* data, int offset, size_t dataSize) {
+    vector<string> result;
+    const char* ptr = (const char*)data + offset;
+    while (ptr < (const char*)data + dataSize) {
+        result.push_back(string(ptr));
+        ptr += strlen(ptr) + 1;
+    }
+    return result;
+}
+
 /// @brief Reads info about cars and parts from data file (SR_data)
 /// @param data Pointer to data buffer
 /// @param dataSize Size of data buffer
