@@ -17,7 +17,6 @@ namespace fs = std::filesystem;
 
 #define FONT "../data/font/font.png"
 #define DEBUG_FONT "../data/font/lemon.png"
-#define TUNE "../data/snd/sr1_ost.ogg"
 
 #define ICON "../data/res/icon.png"
 #define APP_TITLE "OpenSR"
@@ -88,7 +87,7 @@ int main(int argc, char *argv[]) {
             SDL_GetError());
         return 0;
     }
-    Mix_Music *music = Mix_LoadMUS(TUNE);
+    //Mix_Music *music = Mix_LoadMUS(TUNE);
     //Mix_PlayMusic(music, 1);
 
     // Gamepad / joystick
@@ -134,8 +133,7 @@ int main(int argc, char *argv[]) {
                 NFD_FreePathU8(outPath);
                 SDL_DestroyRenderer(renderer);
                 SDL_DestroyWindow(win);
-                SDL_JoystickClose(controller);
-                Mix_FreeMusic(music);
+                SDL_JoystickClose(controller);                
                 Mix_CloseAudio();
                 SDL_Quit();
                 return 1;
@@ -145,8 +143,7 @@ int main(int argc, char *argv[]) {
                 "Failed to find game files and no folder selected.\nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are required.", win);
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
-            SDL_JoystickClose(controller);
-            Mix_FreeMusic(music);
+            SDL_JoystickClose(controller);            
             Mix_CloseAudio();
             SDL_Quit();
             return 1;
@@ -164,7 +161,6 @@ int main(int argc, char *argv[]) {
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
         SDL_JoystickClose(controller);
-        Mix_FreeMusic(music);
         Mix_CloseAudio();
         SDL_Quit();
         return 1;
@@ -294,7 +290,6 @@ int main(int argc, char *argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_JoystickClose(controller);
-    Mix_FreeMusic(music);
     Mix_CloseAudio();
     SDL_Quit();
 
