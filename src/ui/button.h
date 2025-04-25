@@ -41,4 +41,6 @@ public:
     void HandleEvent(SDL_Event* event);
     void SetVisible(bool visible) override;
     bool IsVisible() const;
+    bool IsDefaultChoice() const { return config.defaultChoice; }
+    void SimulateClick();
 };

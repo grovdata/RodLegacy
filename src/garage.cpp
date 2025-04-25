@@ -329,15 +329,19 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0:
+                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Save Game");
                 // state.SaveGame();
                 break;
             case 1:
+                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Load Game");
                 // state.LoadGame();
                 break;
             case 2:
+                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: New Game");
                 // state.NewGame();
                 break;
             case 3:
+                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Quit Game");
                 // state.QuitGame();
                 break;
             case 4:

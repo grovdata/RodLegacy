@@ -79,3 +79,13 @@ void Button::SetVisible(bool visible) {
 bool Button::IsVisible() const {
     return visible;
 }
+
+void Button::SimulateClick() {
+    if (!visible || !config.onClick) return;
+    
+    pressed = true;
+    CreateButtonSurface();
+    config.onClick();
+    pressed = false;
+    CreateButtonSurface();
+}

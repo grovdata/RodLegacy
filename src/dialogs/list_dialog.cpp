@@ -177,10 +177,34 @@ void ListDialog::HandleEvent(SDL_Event *event) {
         }
     }
 
-    // Handle escape key
+    // Handle keyboard events
     if (event->type == SDL_KEYDOWN) {
         if (event->key.keysym.sym == SDLK_ESCAPE) {
             Hide();
+        }
+        else if (event->key.keysym.sym == SDLK_RETURN && selectedIndex >= 0) {
+            // If Enter is pressed and an item is selected, trigger the selection
+            OnItemSelected(selectedIndex);
+        }
+        else if (event->key.keysym.sym == SDLK_UP) {
+            // Move selection up
+            if (selectedIndex > 0) {
+                selectedIndex--;
+                // Ensure the selected item is visible
+                if (selectedIndex < scrollOffset) {
+                    scrollOffset = selectedIndex;
+                }
+            }
+        }
+        else if (event->key.keysym.sym == SDLK_DOWN) {
+            // Move selection down
+            if (selectedIndex < static_cast<int>(listConfig.labels.size()) - 1) {
+                selectedIndex++;
+                // Ensure the selected item is visible
+                if (selectedIndex >= scrollOffset + visibleItems) {
+                    scrollOffset = selectedIndex - visibleItems + 1;
+                }
+            }
         }
     }
 }

@@ -116,6 +116,17 @@ void Dialog::HandleEvent(SDL_Event* event) {
         button->HandleEvent(event);
     }
 
+    // Handle Enter key for default button
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_RETURN) {
+        // Find the default button
+        for (auto button : buttons) {
+            if (button->IsDefaultChoice()) {
+                button->SimulateClick();
+                break;
+            }
+        }
+    }
+
     if (event->type == SDL_MOUSEMOTION) {
         SDL_Point mousePos = {event->motion.x, event->motion.y};
         for (auto zone : config.zones) {
