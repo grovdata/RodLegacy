@@ -326,6 +326,25 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
+    menuDialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0:
+                // state.SaveGame();
+                break;
+            case 1:
+                // state.LoadGame();
+                break;
+            case 2:
+                // state.NewGame();
+                break;
+            case 3:
+                // state.QuitGame();
+                break;
+            case 4:
+                gameMenuDialog->Hide();
+                break;
+        }
+    };
     gameMenuDialog = std::make_unique<Dialog>(menuDialogConfig);
 }
 
@@ -443,16 +462,15 @@ void Garage::Draw() {
         SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
         SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
-   
     
-
-    for (auto b : bubbles) {
-        b->Draw();
-    }
 
     DrawDebugZones();
     
     SDL_RenderCopy(renderer, signTexture, NULL, NULL);
+
+    for (auto b : bubbles) {
+        b->Draw();
+    }
 
     if (carSelectDialog && carSelectDialog->IsVisible()) {
         carSelectDialog->Draw();
