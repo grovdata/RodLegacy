@@ -2,6 +2,7 @@
 #include "state.h"
 #include "assets.h"
 #include "state.h"
+#include "engine_bay.h"
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
 
@@ -254,6 +255,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     InitGameMenuDialog();
 
+    engineDialog = std::unique_ptr<Dialog>(EngineBay::CreateDialog(state));
+
     InitCarBitmaps();
     
     // Set initial car bitmap
@@ -385,6 +388,26 @@ void Garage::UpdateSign() {
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 }
 
+void Garage::ShowDialogExclusive(Dialog* dialog) {
+    // Hide all dialogs first
+    if (carSelectDialog && carSelectDialog->IsVisible()) {
+        carSelectDialog->Hide();
+    }
+    
+    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
+        gameMenuDialog->Hide();
+    }
+    
+    if (engineDialog && engineDialog->IsVisible()) {
+        engineDialog->Hide();
+    }
+    
+    // Show the requested dialog
+    if (dialog) {
+        dialog->Show();
+    }
+}
+
 void Garage::Action(ZoneId zone) {
     if (sceneTransition != SCENE_SOLID) {
         return;
@@ -411,10 +434,13 @@ void Garage::Action(ZoneId zone) {
         bubbles[2]->SetVisible(true);
         break;
     case ZONE_GARAGE_CAR_LIST:
-        carSelectDialog->Show();
+        ShowDialogExclusive(carSelectDialog.get());
         break;
     case ZONE_GARAGE_MENU:
-        gameMenuDialog->Show();
+        ShowDialogExclusive(gameMenuDialog.get());
+        break;
+    case ZONE_GARAGE_ENGINE:
+        ShowDialogExclusive(engineDialog.get());
         break;
     default:
         break;
@@ -484,6 +510,9 @@ void Garage::Draw() {
         gameMenuDialog->Draw();
     }
 
+    if (engineDialog && engineDialog->IsVisible()) {
+        engineDialog->Draw();
+    }
 }
 
 void Garage::OnFadeComplete() {

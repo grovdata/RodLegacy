@@ -15,11 +15,15 @@ class Garage : public CarScene {
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
     std::unique_ptr<Dialog> gameMenuDialog;
+    std::unique_ptr<Dialog> engineDialog;
     // Container for all car bitmaps
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
     void UpdateSign();
+
+    // Helper method to show dialogs in a mutually exclusive way
+    void ShowDialogExclusive(Dialog* dialog);
 
    public:
     Garage();
