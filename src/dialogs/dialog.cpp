@@ -7,6 +7,7 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     extraBitmaps = map<string, Bitmap*>();
 
     mainBitmap->SetVisible(true);
+    
     for (const auto& contentArea : config.contentAreas) {
         AddContentArea(contentArea, config.backgroundColor, config.borderColor);
     }
@@ -30,6 +31,18 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
         SDL_SetTextureColorMod(mainBitmap->GetTexture(), text.color.r, text.color.g, text.color.b);
         mainBitmap->UpdateFromSurface();
     }
+    
+    // Copy background image if provided
+    if (config.useBackgroundImage && config.backgroundBitmap != nullptr) {
+        // Create a new bitmap and copy the contents from the source bitmap
+        backgroundBitmap = new Bitmap();
+        *backgroundBitmap = config.backgroundBitmap;
+        
+        // Set the position and dimensions to match the dialog bounds
+        backgroundBitmap->SetPosition(config.bounds.x, config.bounds.y);
+        backgroundBitmap->SetDimensions(config.bounds.w, config.bounds.h);
+        backgroundBitmap->SetVisible(true);
+    }
 }
 
 Dialog::~Dialog() {
@@ -39,6 +52,9 @@ Dialog::~Dialog() {
     }
     for (auto button : buttons) {
         delete button;
+    }
+    if (backgroundBitmap) {
+        delete backgroundBitmap;
     }
 }
 
@@ -84,6 +100,11 @@ void Dialog::AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect&
 void Dialog::Draw() {
     if (!isVisible) return;
     
+    // Draw background image first if available
+    if (backgroundBitmap && backgroundBitmap->IsVisible()) {
+        backgroundBitmap->Draw();
+    }
+    
     for (auto rect : contentAreas) {
         rect->Draw();
     }
@@ -92,8 +113,8 @@ void Dialog::Draw() {
         button->Draw();
     }
 
-    for (const auto& [name, bitmap] : extraBitmaps) {
-        bitmap->Draw();
+    for (auto bitmap : extraBitmaps) {
+        bitmap.second->Draw();
     }
 
     mainBitmap->Draw();
@@ -108,6 +129,9 @@ void Dialog::Show() {
     for (auto button : buttons) {
         button->SetVisible(true);
     }
+    if (backgroundBitmap) {
+        backgroundBitmap->SetVisible(true);
+    }
 }
 
 void Dialog::Hide() {
@@ -118,6 +142,9 @@ void Dialog::Hide() {
     }
     for (auto button : buttons) {
         button->SetVisible(false);
+    }
+    if (backgroundBitmap) {
+        backgroundBitmap->SetVisible(false);
     }
 } 
 

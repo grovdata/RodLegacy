@@ -29,6 +29,11 @@ struct DialogConfig {
     vector<SDL_Rect> contentAreas;
     vector<SDL_Rect> lines;
     vector<Zone> zones;
+    
+    // Background image options
+    Bitmap* backgroundBitmap = nullptr;
+    bool useBackgroundImage = false;  // Whether to use the background image
+    
     function<void(int)> onButtonPressed;
     function<void(Zone&)> onZoneHover;
 };
@@ -41,6 +46,10 @@ protected:
     vector<Rectangle*> contentAreas;
     DialogConfig config;
     bool isVisible = false;
+    
+    // Background image
+    Bitmap* backgroundBitmap = nullptr;
+    
 public:
     Dialog(const DialogConfig& cfg);
     virtual ~Dialog();
@@ -49,6 +58,7 @@ public:
     void AddButton(const ButtonConfig& buttonCfg);
     void AddText(const char* text, const SDL_Rect& area);
     void AddLine(SDL_Rect rect, SDL_Color color);
+
     void AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect& area);
 
     virtual void HandleEvent(SDL_Event *event);

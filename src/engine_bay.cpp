@@ -4,14 +4,13 @@
 Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
     // sidebar index 295, 324 when tuning
-
  
     const int buttonWidth = 39;
     const int buttonHeight = 9;
 
-
     SDL_Rect engineBayRect = {24, 0, 224, 190};
-    
+    SDL_Rect engineBayFillRect = {28, 3, 216, 184};
+
     SDL_Rect tuneRect = {231, 20, buttonWidth, buttonHeight};
     SDL_Rect partsRect = {231, 79, buttonWidth, buttonHeight};
     SDL_Rect doneRect = {231, 139, buttonWidth, buttonHeight};
@@ -44,13 +43,17 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     
     DialogConfig engineDialogConfig;
     engineDialogConfig.bounds = engineBayRect;
-    engineDialogConfig.backgroundColor = {0, 208, 0, 255};
-    engineDialogConfig.borderColor = {0, 111, 239, 255};
+    // TODO: Unsure it should be flat out black
+    engineDialogConfig.backgroundColor = {0, 0, 0, 255};
+    engineDialogConfig.borderColor = {0, 0, 0, 0};
     engineDialogConfig.buttons = buttons;
     engineDialogConfig.lines = lines;
     engineDialogConfig.zones = dialogZones;
-    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayRect};
+    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect};
     engineDialogConfig.font = state.assets.GetMainFont();
+    engineDialogConfig.useBackgroundImage = true;
+    engineDialogConfig.backgroundBitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME});
+    
     
     // Set up the callback in the config
     engineDialogConfig.onButtonPressed = buttonCallback;
