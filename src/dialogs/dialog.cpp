@@ -4,6 +4,8 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
     mainBitmap->SetPosition(0, 0);
 
+    extraBitmaps = map<string, Bitmap*>();
+
     mainBitmap->SetVisible(true);
     for (const auto& contentArea : config.contentAreas) {
         AddContentArea(contentArea, config.backgroundColor, config.borderColor);
@@ -73,6 +75,12 @@ void Dialog::AddText(const char* text, const SDL_Rect& area) {
     SFont_Write(mainBitmap->GetSurface(), config.font, area.x, area.y, text);
 }
 
+void Dialog::AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect& area) {
+    bitmap->SetPosition(area.x, area.y);
+    bitmap->SetVisible(true);
+    extraBitmaps[bitmapName] = bitmap;
+}
+
 void Dialog::Draw() {
     if (!isVisible) return;
     
@@ -83,6 +91,11 @@ void Dialog::Draw() {
     for (auto button : buttons) {
         button->Draw();
     }
+
+    for (const auto& [name, bitmap] : extraBitmaps) {
+        bitmap->Draw();
+    }
+
     mainBitmap->Draw();
 }
 
@@ -131,7 +144,9 @@ void Dialog::HandleEvent(SDL_Event* event) {
         SDL_Point mousePos = {event->motion.x, event->motion.y};
         for (auto zone : config.zones) {
             if (zone.IsInsideZone(mousePos.x, mousePos.y)) {
-                config.onZoneHover(zone);
+                if (config.onZoneHover) {
+                    config.onZoneHover(zone);
+                }
                 break;
             }
         }

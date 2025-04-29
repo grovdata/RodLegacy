@@ -1,13 +1,13 @@
 #include "state.h"
 #include "engine_bay.h"
 
-Dialog* EngineBay::CreateDialog(State& state) {
+Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
     // sidebar index 295, 324 when tuning
 
  
-    const int buttonWidth = 61;
-    const int buttonHeight = 31;
+    const int buttonWidth = 39;
+    const int buttonHeight = 9;
 
 
     SDL_Rect engineBayRect = {24, 0, 224, 190};
@@ -52,23 +52,8 @@ Dialog* EngineBay::CreateDialog(State& state) {
     engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayRect};
     engineDialogConfig.font = state.assets.GetMainFont();
     
-    // Set up the callbacks in the config
-    engineDialogConfig.onButtonPressed = [](int buttonIndex) {
-        switch (buttonIndex) {
-            case 0:
-                SDL_Log("Garage::engineDialogConfig::onButtonPressed: Tune");
-                // Handle tune action
-                break;
-            case 1:
-                SDL_Log("Garage::engineDialogConfig::onButtonPressed: Parts");
-                // Handle parts action
-                break;
-            case 2:
-                SDL_Log("Garage::engineDialogConfig::onButtonPressed: Done");
-                // Handle done action
-                break;
-        }
-    };
+    // Set up the callback in the config
+    engineDialogConfig.onButtonPressed = buttonCallback;
     
     // Create and return the dialog
     return new Dialog(engineDialogConfig);

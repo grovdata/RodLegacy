@@ -6,6 +6,7 @@
 #include "ui/button.h"
 #include "ui/zone.h"
 #include <vector>
+#include <map>
 #include <string>
 #include <memory>
 
@@ -35,6 +36,7 @@ struct DialogConfig {
 class Dialog {
 protected:
     Bitmap *mainBitmap;
+    map<string, Bitmap*> extraBitmaps;
     vector<Button*> buttons;
     vector<Rectangle*> contentAreas;
     DialogConfig config;
@@ -47,6 +49,7 @@ public:
     void AddButton(const ButtonConfig& buttonCfg);
     void AddText(const char* text, const SDL_Rect& area);
     void AddLine(SDL_Rect rect, SDL_Color color);
+    void AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect& area);
 
     virtual void HandleEvent(SDL_Event *event);
     virtual void Draw();

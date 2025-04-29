@@ -255,7 +255,24 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     InitGameMenuDialog();
 
-    engineDialog = std::unique_ptr<Dialog>(EngineBay::CreateDialog(state));
+    engineDialog = std::unique_ptr<Dialog>(EngineBay::CreateDialog(
+        state,
+        [this](int buttonIndex) {
+            switch (buttonIndex) {
+                case 0: // Tune
+                    //state.SetGameState(GAME_STATE_TUNE);
+                    break;
+                case 1: // Parts
+                    //state.SetGameState(GAME_STATE_PARTS);
+                    break;
+                case 2: // Done
+                    //state.SetGameState(GAME_STATE_GARAGE);
+                    engineDialog->Hide();
+                    SetActiveDialog(nullptr);
+                    break;
+            }
+        }
+    ));
 
     InitCarBitmaps();
     
@@ -388,26 +405,6 @@ void Garage::UpdateSign() {
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 }
 
-void Garage::ShowDialogExclusive(Dialog* dialog) {
-    // Hide all dialogs first
-    if (carSelectDialog && carSelectDialog->IsVisible()) {
-        carSelectDialog->Hide();
-    }
-    
-    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
-        gameMenuDialog->Hide();
-    }
-    
-    if (engineDialog && engineDialog->IsVisible()) {
-        engineDialog->Hide();
-    }
-    
-    // Show the requested dialog
-    if (dialog) {
-        dialog->Show();
-    }
-}
-
 void Garage::Action(ZoneId zone) {
     if (sceneTransition != SCENE_SOLID) {
         return;
@@ -434,13 +431,13 @@ void Garage::Action(ZoneId zone) {
         bubbles[2]->SetVisible(true);
         break;
     case ZONE_GARAGE_CAR_LIST:
-        ShowDialogExclusive(carSelectDialog.get());
+        SetActiveDialog((Dialog*)carSelectDialog.get());
         break;
     case ZONE_GARAGE_MENU:
-        ShowDialogExclusive(gameMenuDialog.get());
+        SetActiveDialog((Dialog*)gameMenuDialog.get());        
         break;
     case ZONE_GARAGE_ENGINE:
-        ShowDialogExclusive(engineDialog.get());
+        SetActiveDialog((Dialog*)engineDialog.get());
         break;
     default:
         break;
@@ -502,16 +499,8 @@ void Garage::Draw() {
         b->Draw();
     }
 
-    if (carSelectDialog && carSelectDialog->IsVisible()) {
-        carSelectDialog->Draw();
-    }
-
-    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
-        gameMenuDialog->Draw();
-    }
-
-    if (engineDialog && engineDialog->IsVisible()) {
-        engineDialog->Draw();
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->Draw();
     }
 }
 
@@ -528,13 +517,8 @@ void Garage::OnFadeComplete() {
 }
 
 void Garage::PushEvent(SDL_Event* event) {
-    if (carSelectDialog && carSelectDialog->IsVisible()) {
-        carSelectDialog->HandleEvent(event);
-        return;  // Skip normal zone handling when dialog is visible
-    }
-
-    if (gameMenuDialog && gameMenuDialog->IsVisible()) {
-        gameMenuDialog->HandleEvent(event);
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->HandleEvent(event);
         return;  // Skip normal zone handling when dialog is visible
     }
 

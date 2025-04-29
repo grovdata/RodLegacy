@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dialogs/dialog.h"
+#include <functional>
 
 class DialogFactory {
 public:
@@ -13,7 +14,10 @@ enum EngineBayState {
     ENGINE_BAY_TUNING
 };
 
+// Callback type for EngineBay button events
+using ButtonCallback = std::function<void(int buttonIndex)>;
+
 class EngineBay : public DialogFactory {
 public:
-    static Dialog* CreateDialog(State& state);
+    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback = nullptr);
 };

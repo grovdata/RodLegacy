@@ -161,6 +161,20 @@ void Scene::Draw() {
     hud->Draw();
 }
 
+void Scene::SetActiveDialog(Dialog *dialog) {
+    activeDialog = dialog;
+    if (activeDialog != nullptr) {
+        for (auto bubble : bubbles) {
+            bubble->SetVisible(false);
+        }
+        activeDialog->Show();
+    }
+}
+
+Dialog *Scene::GetActiveDialog() {
+    return activeDialog;
+}
+
 void Scene::PushEvent(SDL_Event *event) {
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();

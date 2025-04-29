@@ -5,6 +5,7 @@
 #include "ui/button.h"
 #include "ui/bubble.h"
 #include "ui/hud.h"
+#include "dialogs/dialog.h"
 #include "mouse.h"
 #include "assets.h"
 #include "bitmap.h"
@@ -41,6 +42,7 @@ class Scene {
     StockPalette palette;
     Bitmap *background;
     HUD *hud;
+    Dialog *activeDialog = nullptr;
 
     SDL_Surface *surface, *fontSurface, *fadeSurface;
     SDL_Texture *texture, *fontTexture, *fadeTexture;
@@ -81,6 +83,9 @@ class Scene {
     virtual void Action(ZoneId zone);
     virtual void Draw();
     virtual void PushEvent(SDL_Event *event);
+
+    virtual Dialog *GetActiveDialog();
+    virtual void SetActiveDialog(Dialog *dialog);
 
     void SetZoneText(ZoneId id, char* text);
     void SetZoneRect(ZoneId id, SDL_Rect *rect);

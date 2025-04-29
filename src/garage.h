@@ -22,9 +22,6 @@ class Garage : public CarScene {
     void InitGameMenuDialog();
     void UpdateSign();
 
-    // Helper method to show dialogs in a mutually exclusive way
-    void ShowDialogExclusive(Dialog* dialog);
-
    public:
     Garage();
     ~Garage();

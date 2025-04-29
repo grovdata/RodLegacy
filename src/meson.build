@@ -39,6 +39,7 @@ cpp_sources = [
     'driving.cpp',
     'racing.cpp',
     'garage.cpp',
+    'engine_bay.cpp',
     'newspaper.cpp',
     'gas_station.cpp',
     'assets.cpp',
