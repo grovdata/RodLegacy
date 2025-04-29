@@ -7,6 +7,7 @@
 #include "ui/zone.h"
 #include <vector>
 #include <map>
+
 #include <string>
 #include <memory>
 
@@ -17,6 +18,11 @@ struct DialogTextConfig {
     string text;
     SDL_Color color;
     bool centered = false;
+};
+
+struct DialogBitmap {
+    Bitmap* bitmap;
+    SDL_Rect rect;
 };
 
 struct DialogConfig {
@@ -30,9 +36,9 @@ struct DialogConfig {
     vector<SDL_Rect> lines;
     vector<Zone> zones;
     
-    // Background image options
-    Bitmap* backgroundBitmap = nullptr;
-    bool useBackgroundImage = false;  // Whether to use the background image
+    DialogBitmap backgroundBitmap = {nullptr, {0, 0, 0, 0}};
+    bool useBackgroundImage = false;
+    map<string, DialogBitmap> extraBitmaps;
     
     function<void(int)> onButtonPressed;
     function<void(Zone&)> onZoneHover;
@@ -58,8 +64,6 @@ public:
     void AddButton(const ButtonConfig& buttonCfg);
     void AddText(const char* text, const SDL_Rect& area);
     void AddLine(SDL_Rect rect, SDL_Color color);
-
-    void AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect& area);
 
     virtual void HandleEvent(SDL_Event *event);
     virtual void Draw();

@@ -10,10 +10,11 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
     SDL_Rect engineBayRect = {24, 0, 224, 190};
     SDL_Rect engineBayFillRect = {28, 3, 216, 184};
+    SDL_Rect sidebarRect = {225, 1, 71, 190};
 
-    SDL_Rect tuneRect = {231, 20, buttonWidth, buttonHeight};
-    SDL_Rect partsRect = {231, 79, buttonWidth, buttonHeight};
-    SDL_Rect doneRect = {231, 139, buttonWidth, buttonHeight};
+    SDL_Rect tuneRect = {242, 31, buttonWidth, buttonHeight};
+    SDL_Rect partsRect = {242, 90, buttonWidth, buttonHeight};
+    SDL_Rect doneRect = {242, 150, buttonWidth, buttonHeight};
     
     Zone tuneZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Parts"), &partsRect);
@@ -35,25 +36,33 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
         doneButton,
     };
 
-
-    vector<SDL_Rect> lines = {
-        {85, 89, 150, 1},
-    };
-
     
     DialogConfig engineDialogConfig;
     engineDialogConfig.bounds = engineBayRect;
     // TODO: Unsure it should be flat out black
     engineDialogConfig.backgroundColor = {0, 0, 0, 255};
+    // engineDialogConfig.backgroundColor = {244, 244, 0, 255};
     engineDialogConfig.borderColor = {0, 0, 0, 0};
     engineDialogConfig.buttons = buttons;
-    engineDialogConfig.lines = lines;
     engineDialogConfig.zones = dialogZones;
-    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect};
+    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect, sidebarRect};
     engineDialogConfig.font = state.assets.GetMainFont();
     engineDialogConfig.useBackgroundImage = true;
-    engineDialogConfig.backgroundBitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME});
-    
+    engineDialogConfig.backgroundBitmap.bitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME});
+    engineDialogConfig.extraBitmaps = {
+        {"button_sidebar", 
+            {
+                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
+                {225, 0, 71, 190}
+            }
+        },
+        {"enginetest_v6", 
+            {
+                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
+                {60, 40, 192, 181}
+            }
+        }
+    };
     
     // Set up the callback in the config
     engineDialogConfig.onButtonPressed = buttonCallback;

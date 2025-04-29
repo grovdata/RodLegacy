@@ -4,8 +4,6 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
     mainBitmap->SetPosition(0, 0);
 
-    extraBitmaps = map<string, Bitmap*>();
-
     mainBitmap->SetVisible(true);
     
     for (const auto& contentArea : config.contentAreas) {
@@ -33,15 +31,22 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     }
     
     // Copy background image if provided
-    if (config.useBackgroundImage && config.backgroundBitmap != nullptr) {
+    if (config.useBackgroundImage && config.backgroundBitmap.bitmap != nullptr) {
         // Create a new bitmap and copy the contents from the source bitmap
         backgroundBitmap = new Bitmap();
-        *backgroundBitmap = config.backgroundBitmap;
+        *backgroundBitmap = config.backgroundBitmap.bitmap;
         
         // Set the position and dimensions to match the dialog bounds
-        backgroundBitmap->SetPosition(config.bounds.x, config.bounds.y);
-        backgroundBitmap->SetDimensions(config.bounds.w, config.bounds.h);
+        backgroundBitmap->SetPosition(config.backgroundBitmap.rect.x, config.backgroundBitmap.rect.y);
+        backgroundBitmap->SetDimensions(config.backgroundBitmap.rect.w, config.backgroundBitmap.rect.h);
         backgroundBitmap->SetVisible(true);
+    }
+
+    for (const auto& extraBitmap : config.extraBitmaps) {
+        extraBitmaps[extraBitmap.first] = new Bitmap();
+        *extraBitmaps[extraBitmap.first] = extraBitmap.second.bitmap;
+        extraBitmaps[extraBitmap.first]->SetPosition(extraBitmap.second.rect.x, extraBitmap.second.rect.y);
+        extraBitmaps[extraBitmap.first]->SetVisible(true);
     }
 }
 
@@ -91,12 +96,6 @@ void Dialog::AddText(const char* text, const SDL_Rect& area) {
     SFont_Write(mainBitmap->GetSurface(), config.font, area.x, area.y, text);
 }
 
-void Dialog::AddBitmap(Bitmap *bitmap, const string& bitmapName, const SDL_Rect& area) {
-    bitmap->SetPosition(area.x, area.y);
-    bitmap->SetVisible(true);
-    extraBitmaps[bitmapName] = bitmap;
-}
-
 void Dialog::Draw() {
     if (!isVisible) return;
     
@@ -109,13 +108,14 @@ void Dialog::Draw() {
         rect->Draw();
     }
     
+    for (auto bitmap : extraBitmaps) {
+        bitmap.second->Draw();
+    }
+
     for (auto button : buttons) {
         button->Draw();
     }
 
-    for (auto bitmap : extraBitmaps) {
-        bitmap.second->Draw();
-    }
 
     mainBitmap->Draw();
 }
@@ -132,6 +132,9 @@ void Dialog::Show() {
     if (backgroundBitmap) {
         backgroundBitmap->SetVisible(true);
     }
+    for (auto bitmap : extraBitmaps) {
+        bitmap.second->SetVisible(true);
+    }
 }
 
 void Dialog::Hide() {
@@ -145,6 +148,9 @@ void Dialog::Hide() {
     }
     if (backgroundBitmap) {
         backgroundBitmap->SetVisible(false);
+    }
+    for (auto bitmap : extraBitmaps) {
+        bitmap.second->SetVisible(false);
     }
 } 
 
