@@ -8,13 +8,14 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     const int buttonWidth = 39;
     const int buttonHeight = 9;
 
-    SDL_Rect engineBayRect = {24, 0, 224, 190};
-    SDL_Rect engineBayFillRect = {28, 3, 216, 184};
-    SDL_Rect sidebarRect = {225, 1, 71, 190};
+    SDL_Rect engineBayRect = {24, 0, 200, 189};
+    SDL_Rect engineBayFillRect = {28, 4, 193, 181};
+    SDL_Rect sidebarRect = {225, 1, 71, 189};
+    SDL_Rect gapRect = {223, 0, 2, 187};
 
-    SDL_Rect tuneRect = {242, 31, buttonWidth, buttonHeight};
-    SDL_Rect partsRect = {242, 90, buttonWidth, buttonHeight};
-    SDL_Rect doneRect = {242, 150, buttonWidth, buttonHeight};
+    SDL_Rect tuneRect = {243, 31, buttonWidth, buttonHeight};
+    SDL_Rect partsRect = {243, 90, buttonWidth, buttonHeight};
+    SDL_Rect doneRect = {243, 150, buttonWidth, buttonHeight};
     
     Zone tuneZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Parts"), &partsRect);
@@ -45,10 +46,14 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     engineDialogConfig.borderColor = {0, 0, 0, 0};
     engineDialogConfig.buttons = buttons;
     engineDialogConfig.zones = dialogZones;
-    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect, sidebarRect};
+    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect, sidebarRect, gapRect};
     engineDialogConfig.font = state.assets.GetMainFont();
     engineDialogConfig.useBackgroundImage = true;
     engineDialogConfig.backgroundBitmap.bitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME});
+    engineDialogConfig.backgroundBitmap.rect = engineBayRect;
+
+   // AssetId engineAssetId = state.GetCurrentCar()->GetEngine().assetId;
+    
     engineDialogConfig.extraBitmaps = {
         {"button_sidebar", 
             {

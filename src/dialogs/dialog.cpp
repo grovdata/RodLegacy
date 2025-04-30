@@ -100,7 +100,7 @@ void Dialog::Draw() {
     if (!isVisible) return;
     
     // Draw background image first if available
-    if (backgroundBitmap && backgroundBitmap->IsVisible()) {
+    if (backgroundBitmap != nullptr) {
         backgroundBitmap->Draw();
     }
     
