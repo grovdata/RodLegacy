@@ -141,7 +141,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             "Switch it",
             nullptr,  // onClick will be set by Dialog
             true,     // defaultChoice
-            0        // index
+            0        // index            
         },
         {
             sellItRect,
@@ -310,11 +310,45 @@ void Garage::InitGameMenuDialog() {
         forgetItZone
     };
 
-    ButtonConfig saveGameButton = {saveGameRect, "Save Game", nullptr, true, 0};
-    ButtonConfig oldGameButton = {oldGameRect, "Old Game", nullptr, false, 1};
-    ButtonConfig newGameButton = {newGameRect, "New Game", nullptr, false, 2};
-    ButtonConfig quitGameButton = {quitGameRect, "Quit", nullptr, false, 3};
-    ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 4};
+    ButtonConfig saveGameButton = {
+        saveGameRect,
+        "Save Game",
+        nullptr,
+        true,
+        0        
+    };
+
+    ButtonConfig oldGameButton = {
+        oldGameRect,
+        "Old Game",
+        nullptr,
+        false,
+        1
+    };
+
+    ButtonConfig newGameButton = {
+        newGameRect,
+        "New Game",
+        nullptr,
+        false,
+        2
+    };
+
+    ButtonConfig quitGameButton = {
+        quitGameRect,
+        "Quit",
+        nullptr,
+        false,
+        3
+    };
+
+    ButtonConfig forgetItButton = {
+        forgetItRect,
+        "Forget it",
+        nullptr,
+        false,
+        4
+    };
 
     vector<ButtonConfig> buttons = {
         saveGameButton,

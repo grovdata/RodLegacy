@@ -9,7 +9,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     const int buttonHeight = 9;
 
     SDL_Rect engineBayRect = {24, 0, 200, 189};
-    SDL_Rect engineBayFillRect = {28, 4, 193, 181};
+    SDL_Rect engineBayFillRect = {18, 4, 193, 181};
     SDL_Rect sidebarRect = {225, 1, 71, 189};
     SDL_Rect gapRect = {223, 0, 2, 187};
 
@@ -27,9 +27,44 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
         doneZone,
     };
 
-    ButtonConfig tuneButton = {tuneRect, "Tune", nullptr, true, 0};
-    ButtonConfig partsButton = {partsRect, "Parts", nullptr, false, 1};
-    ButtonConfig doneButton = {doneRect, "Done", nullptr, false, 2};
+    // Get the button bitmap
+    Bitmap* buttonBitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS});
+
+    ButtonConfig tuneButton = {
+        tuneRect,
+        "Tune",
+        nullptr,
+        true,
+        0,
+        ButtonDefaultTextColor,
+        ButtonDefaultFillColor,
+        ButtonDefaultBorderColor,
+        {buttonBitmap, {18, 31, buttonWidth, buttonHeight}}
+    };
+
+    ButtonConfig partsButton = {
+        partsRect,
+        "Parts",
+        nullptr,
+        false,
+        1,
+        ButtonDefaultTextColor,
+        ButtonDefaultFillColor,
+        ButtonDefaultBorderColor,
+        {buttonBitmap, {18, 90, buttonWidth, buttonHeight}}
+    };
+
+    ButtonConfig doneButton = {
+        doneRect,
+        "Done",
+        nullptr,
+        false,
+        2,
+        ButtonDefaultTextColor,
+        ButtonDefaultFillColor,
+        ButtonDefaultBorderColor,
+        {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}
+    };
     
     vector<ButtonConfig> buttons = {
         tuneButton,
@@ -65,6 +100,12 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
             {
                 state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
                 {60, 40, 192, 181}
+            }
+        },
+        {"engine_wire_attached", 
+            {
+                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
+                {162, 149, 40, 21}
             }
         }
     };
