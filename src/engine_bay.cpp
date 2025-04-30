@@ -9,7 +9,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     const int buttonHeight = 9;
 
     SDL_Rect engineBayRect = {24, 0, 200, 189};
-    SDL_Rect engineBayFillRect = {18, 4, 193, 181};
+    SDL_Rect engineBayFillRect = {28, 4, 193, 181};
     SDL_Rect sidebarRect = {225, 1, 71, 189};
     SDL_Rect gapRect = {223, 0, 2, 187};
 
