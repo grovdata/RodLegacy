@@ -83,32 +83,29 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     engineDialogConfig.zones = dialogZones;
     engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect, sidebarRect, gapRect};
     engineDialogConfig.font = state.assets.GetMainFont();
-    engineDialogConfig.useBackgroundImage = true;
-    engineDialogConfig.backgroundBitmap.bitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME});
-    engineDialogConfig.backgroundBitmap.rect = engineBayRect;
-
-   // AssetId engineAssetId = state.GetCurrentCar()->GetEngine().assetId;
-    
-    engineDialogConfig.extraBitmaps = {
-        {"button_sidebar", 
-            {
-                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
-                {225, 0, 71, 190}
-            }
-        },
-        {"enginetest_v6", 
-            {
-                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
-                {60, 40, 192, 181}
-            }
-        },
-        {"engine_wire_attached", 
-            {
-                state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
-                {162, 149, 40, 21}
-            }
-        }
+    engineDialogConfig.bitmaps["background"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
+        engineBayRect,
+        0
     };
+    engineDialogConfig.bitmaps["button_sidebar"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
+        {225, 0, 71, 190},
+        1,
+    };
+
+    engineDialogConfig.bitmaps["enginetest_v6"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
+        {60, 40, 192, 181},
+        2
+    };
+
+    engineDialogConfig.bitmaps["engine_wire_attached"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
+        {162, 149, 40, 21},
+        2
+    };
+
     
     // Set up the callback in the config
     engineDialogConfig.onButtonPressed = buttonCallback;

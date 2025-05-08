@@ -18,7 +18,7 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
         AddLine(lineCfg, config.borderColor);
     }
 
-    for (auto text : config.texts) {
+    for (const auto& text : config.texts) {
         int x = text.rect.x;
         if (text.centered) {
             int textWidth = SFont_TextWidth(config.font, text.text.c_str());
@@ -29,25 +29,7 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
         SDL_SetTextureColorMod(mainBitmap->GetTexture(), text.color.r, text.color.g, text.color.b);
         mainBitmap->UpdateFromSurface();
     }
-    
-    // Copy background image if provided
-    if (config.useBackgroundImage && config.backgroundBitmap.bitmap != nullptr) {
-        // Create a new bitmap and copy the contents from the source bitmap
-        backgroundBitmap = new Bitmap();
-        *backgroundBitmap = config.backgroundBitmap.bitmap;
-        
-        // Set the position and dimensions to match the dialog bounds
-        backgroundBitmap->SetPosition(config.backgroundBitmap.rect.x, config.backgroundBitmap.rect.y);
-        backgroundBitmap->SetDimensions(config.backgroundBitmap.rect.w, config.backgroundBitmap.rect.h);
-        backgroundBitmap->SetVisible(true);
-    }
-
-    for (const auto& extraBitmap : config.extraBitmaps) {
-        extraBitmaps[extraBitmap.first] = new Bitmap();
-        *extraBitmaps[extraBitmap.first] = extraBitmap.second.bitmap;
-        extraBitmaps[extraBitmap.first]->SetPosition(extraBitmap.second.rect.x, extraBitmap.second.rect.y);
-        extraBitmaps[extraBitmap.first]->SetVisible(true);
-    }
+    bitmaps = config.bitmaps;
 }
 
 Dialog::~Dialog() {
@@ -57,9 +39,6 @@ Dialog::~Dialog() {
     }
     for (auto button : buttons) {
         delete button;
-    }
-    if (backgroundBitmap) {
-        delete backgroundBitmap;
     }
 }
 
@@ -98,18 +77,14 @@ void Dialog::AddText(const char* text, const SDL_Rect& area) {
 
 void Dialog::Draw() {
     if (!isVisible) return;
-    
-    // Draw background image first if available
-    if (backgroundBitmap != nullptr) {
-        backgroundBitmap->Draw();
-    }
-    
+
     for (auto rect : contentAreas) {
         rect->Draw();
     }
-    
-    for (auto bitmap : extraBitmaps) {
-        bitmap.second->Draw();
+
+    // TODO: z-ordering
+    for (auto bitmap : bitmaps) {
+        bitmap.second.bitmap->Draw();
     }
 
     for (auto button : buttons) {
@@ -129,11 +104,8 @@ void Dialog::Show() {
     for (auto button : buttons) {
         button->SetVisible(true);
     }
-    if (backgroundBitmap) {
-        backgroundBitmap->SetVisible(true);
-    }
-    for (auto bitmap : extraBitmaps) {
-        bitmap.second->SetVisible(true);
+    for (auto bitmap : bitmaps) {
+        bitmap.second.bitmap->SetVisible(true);
     }
 }
 
@@ -146,11 +118,8 @@ void Dialog::Hide() {
     for (auto button : buttons) {
         button->SetVisible(false);
     }
-    if (backgroundBitmap) {
-        backgroundBitmap->SetVisible(false);
-    }
-    for (auto bitmap : extraBitmaps) {
-        bitmap.second->SetVisible(false);
+    for (auto bitmap : bitmaps) {
+        bitmap.second.bitmap->SetVisible(false);
     }
 } 
 

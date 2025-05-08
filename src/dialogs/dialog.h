@@ -23,6 +23,7 @@ struct DialogTextConfig {
 struct DialogBitmap {
     Bitmap* bitmap;
     SDL_Rect rect;
+    int zOrder = 0;
 };
 
 struct DialogConfig {
@@ -36,9 +37,7 @@ struct DialogConfig {
     vector<SDL_Rect> lines;
     vector<Zone> zones;
     
-    DialogBitmap backgroundBitmap = {nullptr, {0, 0, 0, 0}};
-    bool useBackgroundImage = false;
-    map<string, DialogBitmap> extraBitmaps;
+    map<string, DialogBitmap> bitmaps;
     
     function<void(int)> onButtonPressed;
     function<void(Zone&)> onZoneHover;
@@ -47,15 +46,12 @@ struct DialogConfig {
 class Dialog {
 protected:
     Bitmap *mainBitmap;
-    map<string, Bitmap*> extraBitmaps;
+    map<string, DialogBitmap> bitmaps;
     vector<Button*> buttons;
     vector<Rectangle*> contentAreas;
     DialogConfig config;
     bool isVisible = false;
-    
-    // Background image
-    Bitmap* backgroundBitmap = nullptr;
-    
+
 public:
     Dialog(const DialogConfig& cfg);
     virtual ~Dialog();
