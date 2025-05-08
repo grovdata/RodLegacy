@@ -30,6 +30,14 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
         mainBitmap->UpdateFromSurface();
     }
     bitmaps = config.bitmaps;
+<<<<<<< HEAD
+=======
+    for (const auto& bitmap : config.bitmaps) {
+        bitmap.second.bitmap->SetPosition(bitmap.second.rect.x, bitmap.second.rect.y);
+        bitmap.second.bitmap->SetDimensions(bitmap.second.rect.w, bitmap.second.rect.h);
+        bitmap.second.bitmap->SetVisible(true);
+    }
+>>>>>>> 7e4d9b4 (Use generic bitmap handling, prepare for z-order)
 }
 
 Dialog::~Dialog() {
@@ -82,15 +90,21 @@ void Dialog::Draw() {
         rect->Draw();
     }
 
-    // TODO: z-ordering
-    for (auto bitmap : bitmaps) {
-        bitmap.second.bitmap->Draw();
+    // Sort in z-order
+    vector<DialogBitmap> sortedBitmaps;
+    for (const auto& bitmap : bitmaps) {
+        sortedBitmaps.push_back(bitmap.second);
+    }
+    sort(sortedBitmaps.begin(), sortedBitmaps.end(),
+        [](const auto& a, const auto& b) { return a.zOrder < b.zOrder; });
+    
+    for (const auto& bitmap : sortedBitmaps) {
+        bitmap.bitmap->Draw();
     }
 
     for (auto button : buttons) {
         button->Draw();
     }
-
 
     mainBitmap->Draw();
 }

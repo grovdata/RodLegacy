@@ -39,7 +39,7 @@ void Button::CropBitmapFromSource() {
 
 void Button::CreateButtonSurface() {
     // Create background rectangle
-    RectangleConfig rectConfig;
+    RectangleConfig rectConfig{};
     rectConfig.rect = config.bounds;
     rectConfig.fillColor = pressed ? SDL_Color{255, 255, 255, 255} : config.fillColor;
     rectConfig.borderColor = config.defaultChoice ? SDL_Color{255, 255, 255, 255} : config.borderColor;

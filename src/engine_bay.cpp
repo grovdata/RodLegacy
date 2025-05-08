@@ -94,7 +94,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
         1,
     };
 
-    engineDialogConfig.bitmaps["enginetest_v6"] = {
+    engineDialogConfig.bitmaps["engine_test_v6"] = {
         state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
         {60, 40, 192, 181},
         2
@@ -103,7 +103,13 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     engineDialogConfig.bitmaps["engine_wire_attached"] = {
         state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
         {162, 149, 40, 21},
-        2
+        3
+    };
+
+    engineDialogConfig.bitmaps["bolt1"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT}),
+        {162, 180, 8, 12},
+        3
     };
 
     
