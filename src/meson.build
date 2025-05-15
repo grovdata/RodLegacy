@@ -72,6 +72,7 @@ cpp_sources = [
     'state.cpp',
     'types.cpp',
     'bitmap.cpp',
+    'animated_bitmap.cpp',
     'spritesheet.cpp',
     'scene.cpp',
     'car.cpp',

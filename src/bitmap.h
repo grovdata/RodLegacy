@@ -23,6 +23,7 @@ class Bitmap {
         bool isVisible;
         SDL_Texture *texture;
         SDL_Surface *surface;
+        SDL_Rect sourceRect;
     public:
         Bitmap();
         Bitmap(int width, int height, int depth);
@@ -38,12 +39,16 @@ class Bitmap {
         void     AlignAbove(Bitmap *dest);
 
         void     Crop(SDL_Rect crop);
-        void     SetDimensions(int width, int height);
-        SDL_Rect GetPosition();
-        void     SetPosition(int x, int y);
 
-        bool     IsVisible() const { return isVisible; }
-        void     SetVisible(bool visible);
+        virtual void     SetDimensions(int width, int height);
+        SDL_Rect GetPosition();
+
+        virtual void     SetPosition(int x, int y);
+        void     SetSourceRect(const SDL_Rect& rect);
+
+        virtual bool     IsVisible() const { return isVisible; }
+
+        virtual void     SetVisible(bool visible);
 
         virtual void Draw();
 

@@ -11,10 +11,12 @@ Bitmap::Bitmap() {
     texture = NULL;
     isVisible = true;
     rect = {0, 0, 0, 0};
+    sourceRect = {0, 0, 0, 0};  // Initialize to empty rect
 }
 
 Bitmap::Bitmap(int width, int height, int depth) {
     rect = {0, 0, width, height};
+    sourceRect = {0, 0, width, height};  // Initialize to full bitmap size
     surface = SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     texture = SDL_CreateTextureFromSurface(renderer, surface);
 }
@@ -243,6 +245,7 @@ void Bitmap::LoadBitmap(string filename) {
     rect.y = 0;
     rect.w = surface->w;
     rect.h = surface->h;
+    sourceRect = {0, 0, surface->w, surface->h};  // Initialize to full bitmap size
 }
 
 void Bitmap::LoadSurface(SDL_Surface* src) {
@@ -270,6 +273,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     rect.y = 0;
     rect.w = surface->w;
     rect.h = surface->h;
+    sourceRect = {0, 0, surface->w, surface->h};  // Initialize to full bitmap size
 
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
@@ -321,6 +325,8 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
     } else {
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
+
+    sourceRect = {0, 0, width, height};  // Initialize to full bitmap size
 }
 
 void Bitmap::SaveBitmap(int index) {
@@ -352,10 +358,17 @@ void Bitmap::SaveBitmap(int index) {
     SDL_FreeSurface(rgbaSurface);
 }
 
+void Bitmap::SetSourceRect(const SDL_Rect& rect) {
+    sourceRect = rect;
+}
 
 void Bitmap::Draw() {
     if (isVisible && texture != NULL) {
-        SDL_RenderCopy(renderer, texture, NULL, &rect);
+        if (sourceRect.w > 0 && sourceRect.h > 0) {
+            SDL_RenderCopy(renderer, texture, &sourceRect, &rect);
+        } else {
+            SDL_RenderCopy(renderer, texture, NULL, &rect);
+        }
     }
 }
 
