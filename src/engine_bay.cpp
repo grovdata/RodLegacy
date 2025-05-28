@@ -132,15 +132,15 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     Bitmap* engineTuneAnimationFlywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
     Bitmap* engineTuneAnimationCam = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
 
-    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, {0, 0, 176, 106});
-    engineTuneAnimation->SetAnimationFrames(88, 53, 2, 2);
-    engineTuneAnimation->SetSpeed(0.1f);
+    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, {0, 0, 85, 53});
+    engineTuneAnimation->SetAnimationFrames({{0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}});
+    engineTuneAnimation->SetSpeed(0.5f);
     engineTuneAnimation->SetLoop(true);
     engineTuneAnimation->Play();
 
     engineDialogConfig.bitmaps["engine_tune_animation"] = {
         engineTuneAnimation,
-        {0, 0, 176, 106},
+        {0, 0, 85, 53},
         5
     };
 

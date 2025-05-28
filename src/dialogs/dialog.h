@@ -1,6 +1,7 @@
 #pragma once
 #include "../global.h"
 #include "../bitmap.h"
+#include "../animated_bitmap.h"
 #include "../SFont.h"
 #include "ui/rectangle.h"
 #include "ui/button.h"

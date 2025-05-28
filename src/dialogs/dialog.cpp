@@ -98,6 +98,14 @@ void Dialog::Draw() {
     sort(sortedBitmaps.begin(), sortedBitmaps.end(),
         [](const auto& a, const auto& b) { return a.zOrder < b.zOrder; });
     
+    // Update animations
+    for (const auto& bitmap : sortedBitmaps) {
+        if (auto* animBitmap = dynamic_cast<AnimatedBitmap*>(bitmap.bitmap)) {
+            animBitmap->Update(1.0f/60.0f);  // Assume 60 FPS
+        }
+    }
+    
+    // Draw bitmaps
     for (const auto& bitmap : sortedBitmaps) {
         bitmap.bitmap->Draw();
     }
