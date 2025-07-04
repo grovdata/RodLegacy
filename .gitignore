@@ -57,3 +57,7 @@ xcuserdata/
 
 subprojects/nativefiledialog*
 subprojects/packagecache/
+
+env
+venv
+*.idea
