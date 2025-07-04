@@ -287,43 +287,24 @@ fs::path AssetManager::FindGameDirectory() {
 }
 
 bool AssetManager::ValidateGamePath(const fs::path& path) {
-    // Check for ADF files directly in the path
-    bool hasAdfFiles = fs::exists(path / "SR1AMIGA_DISK1.adf") && 
-                      fs::exists(path / "SR1AMIGA_DISK2.adf");
-    
-    // Check for required directory structure
-    bool hasDataDir = fs::exists(path / "data");
-    bool hasFontDir = fs::exists(path / "data" / "font");
-    bool hasResDir = fs::exists(path / "data" / "res");
-    
-    // Check for required files
-    bool hasFontFile = fs::exists(path / "data" / "font" / "font.png");
-    bool hasIconFile = fs::exists(path / "data" / "res" / "icon.png");
+    vector<fs::path> gameFiles = {
+        "SR1AMIGA_DISK1.adf",
+        "SR1AMIGA_DISK2.adf",
+        "data/font/font.png",
+        "data/font/bee.png",
+        "data/res/icon.png"
+    };
 
-    // Check if all requirements are met
-    if (hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile) {
-        SDL_Log("Found valid game directory at: %s", path.string().c_str());
-        return true;
+    bool hasAllFiles = true;
+
+    for (const auto& file : gameFiles) {
+        if (!fs::exists(path / file)) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing file: %s", (path / file).string().c_str());
+            hasAllFiles = false;
+        }
     }
 
-    // If not found directly, check if ADF files are in data subdirectory
-    hasAdfFiles = fs::exists(path / "data" / "SR1AMIGA_DISK1.adf") && 
-                 fs::exists(path / "data" / "SR1AMIGA_DISK2.adf");
-    
-    if (hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile) {
-        SDL_Log("Found valid game directory with ADFs in data subdirectory: %s", path.string().c_str());
-        return true;
-    }
-
-    // Log what's missing for debugging purposes
-    if (!hasAdfFiles) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing ADF files");
-    if (!hasDataDir) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing data directory");
-    if (!hasFontDir) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing font directory");
-    if (!hasResDir) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing res directory");
-    if (!hasFontFile) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing font.png");
-    if (!hasIconFile) SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing icon.png");
-    
-    return false;
+    return hasAllFiles;
 }
 
 bool AssetManager::ValidateGamePathQuiet(const fs::path& path) {
