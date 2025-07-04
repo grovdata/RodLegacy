@@ -55,7 +55,7 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
         garage = std::make_unique<Garage>();
         diner = std::make_unique<Diner>();
         gasStation = std::make_unique<GasStation>();
-        driving = std::make_unique<Driving>();
+        //driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
 
         garage->Init(debugMode);
