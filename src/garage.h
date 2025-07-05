@@ -16,7 +16,6 @@ class Garage : public CarScene {
     std::unique_ptr<ListDialog> carSelectDialog;
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> engineDialog;
-    // Container for all car bitmaps
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
@@ -26,7 +25,7 @@ class Garage : public CarScene {
     Garage();
     ~Garage();
     
-    void InitCarBitmaps();  // Create bitmaps for all owned cars
+    void InitCarBitmaps();
     CarBitmap* GetOrCreateCarBitmap(Car* car);
 
     SDL_Point GetCarIdlePosition() override;

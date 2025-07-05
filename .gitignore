@@ -55,8 +55,10 @@ xcuserdata/
 
 .DS_Store
 
-subprojects/nativefiledialog*
+# Subprojects - exclude source code and build artifacts, keep only .wrap files
 subprojects/packagecache/
+subprojects/*/
+!subprojects/*.wrap
 
 env
 venv

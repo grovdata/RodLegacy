@@ -51,10 +51,13 @@ void GasStation::Init(bool initialDebugMode) {
     attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
     attendant->SetDimensions(47, 47);
     attendant->SelectSprite(0, 0);
+    attendant->SelectSprite(0, 0);
     attendant->SetPosition(200, 90);
     attendant->SetVisible(true);
     
     initStartTime = SDL_GetTicks64();
+    
+    InitCurrentCarBitmap();
 }
 
 void GasStation::Action(ZoneId zone) {
@@ -211,11 +214,14 @@ void GasStation::StartAnimateCar(Car *car, Driver*, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
 
     if (car != nullptr && carBitmap == nullptr) {
-        carBitmap = new CarBitmap(car, nullptr, car->GetColor());        
-        carx = -GAME_WIDTH;
-        //cary = offscreenPos.y;
-        animatingCar = true;
-        currentAnimationType = animType;
+        carBitmap = GetOrCreateCurrentCarBitmap();
+        if (carBitmap) {
+            carx = -GAME_WIDTH;
+            cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
+            carBitmap->Move({carx, cary});
+            animatingCar = true;
+            currentAnimationType = animType;
+        }
     }
 }
 
@@ -224,6 +230,23 @@ void GasStation::OnCarAnimationComplete() {
     carBitmap->SetGasCapRemoved(true);
     carBitmap->SetPumpingHandleVisible(true);
 }
+
+void GasStation::InitCurrentCarBitmap() {
+    // Create bitmap for current car
+    if (state.GetCurrentCar()) {
+        currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
+        carBitmap = currentCarBitmap.get();
+    }
+}
+
+CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
+    if (!currentCarBitmap && state.GetCurrentCar()) {
+        currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
+    }
+    return currentCarBitmap.get();
+}
+
+
 
 void GasStation::OnFadeComplete() {
     if (initialDelay) {

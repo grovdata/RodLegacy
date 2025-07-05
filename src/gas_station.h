@@ -21,6 +21,9 @@ class GasStation : public CarScene {
     Bitmap* maskBitmap;
     Bitmap* pumpNoHandle;
     GasStationState sceneState = GAS_STATION_IDLE;
+    std::unique_ptr<CarBitmap> currentCarBitmap;
+    void InitCurrentCarBitmap();
+    CarBitmap* GetOrCreateCurrentCarBitmap();
 
    public:
     GasStation();
