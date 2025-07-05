@@ -23,9 +23,10 @@ AssetManager::~AssetManager() {
 }
 
 void AssetManager::InitFonts() {
-    fs::path mainFontPath = fontPath / "font.png";
-    fs::path newspaperFontPath = fontPath / "bee.png";
-    fs::path debugFontPath = fontPath / "lemon.png";
+    fs::path mainFontPath = dataPath / "font.png";
+    fs::path newspaperFontPath = dataPath / "bee.png";
+    fs::path debugFontPath = dataPath / "lemon.png";
+    SDL_Log("Looking for fonts in: %s", dataPath.c_str());
     if (!fs::exists(mainFontPath) || !fs::exists(debugFontPath) || !fs::exists(newspaperFontPath)) {
         throw AssetLoadError("Font files not found");
     }
@@ -104,9 +105,10 @@ void AssetManager::InitStockPalettes() {
 void AssetManager::Init(const fs::path& validatedPath) {
     try {
         gameBasePath = validatedPath;        
-        dataPath = gameBasePath / "data";
-        fontPath = gameBasePath / "data" / "font";
+        dataPath = gameBasePath;  // All game files are directly in the game directory
         SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
+        SDL_Log("Data path: %s", dataPath.string().c_str());
+        SDL_Log("Data path empty? %s", dataPath.empty() ? "YES" : "NO");
     } catch (const AssetLoadError& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
         throw;
@@ -251,7 +253,7 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
 fs::path AssetManager::FindGameDirectory() {
     // First try loading from saved config
     fs::path savedPath = LoadSavedGamePath();
-    if (!savedPath.empty() && ValidateGamePathQuiet(savedPath)) {
+    if (!savedPath.empty() && ValidateGamePath(savedPath)) {
         SDL_Log("Using saved game directory: %s", savedPath.string().c_str());
         return savedPath;
     }
@@ -268,9 +270,8 @@ fs::path AssetManager::FindGameDirectory() {
         searchPaths.push_back(fs::path(envPath));
     }
 
-    // Check all paths without logging
     for (const auto& path : searchPaths) {
-        if (ValidateGamePathQuiet(path)) {
+        if (ValidateGamePath(path)) {
             // Save the valid path for future use
             SaveGamePath(path);
             return path;
@@ -290,9 +291,10 @@ bool AssetManager::ValidateGamePath(const fs::path& path) {
     vector<fs::path> gameFiles = {
         "SR1AMIGA_DISK1.adf",
         "SR1AMIGA_DISK2.adf",
-        "data/font/font.png",
-        "data/font/bee.png",
-        "data/res/icon.png"
+        "font.png",
+        "bee.png",
+        "lemon.png",
+        "icon.png"
     };
 
     bool hasAllFiles = true;
@@ -307,32 +309,6 @@ bool AssetManager::ValidateGamePath(const fs::path& path) {
     return hasAllFiles;
 }
 
-bool AssetManager::ValidateGamePathQuiet(const fs::path& path) {
-    // Check for ADF files directly in the path
-    bool hasAdfFiles = fs::exists(path / "SR1AMIGA_DISK1.adf") && 
-                      fs::exists(path / "SR1AMIGA_DISK2.adf");
-    
-    // Check for required directory structure
-    bool hasDataDir = fs::exists(path / "data");
-    bool hasFontDir = fs::exists(path / "data" / "font");
-    bool hasResDir = fs::exists(path / "data" / "res");
-    
-    // Check for required files
-    bool hasFontFile = fs::exists(path / "data" / "font" / "font.png");
-    bool hasIconFile = fs::exists(path / "data" / "res" / "icon.png");
-
-    // Check if all requirements are met
-    if (hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile) {
-        return true;
-    }
-
-    // Also check if ADF files are in data subdirectory
-    hasAdfFiles = fs::exists(path / "data" / "SR1AMIGA_DISK1.adf") && 
-                  fs::exists(path / "data" / "SR1AMIGA_DISK2.adf");
-    
-    return hasAdfFiles && hasDataDir && hasFontDir && hasResDir && hasFontFile && hasIconFile;
-}
-
 void AssetManager::SetCustomPath(const std::string& customPath) {
     fs::path path = fs::path(customPath);
     
@@ -341,16 +317,6 @@ void AssetManager::SetCustomPath(const std::string& customPath) {
     }
     
     gameBasePath = path;
-    dataPath = gameBasePath / "data";
-    fontPath = gameBasePath / "data" / "font";
-    
-    // Create directories if needed
-    if (!fs::exists(dataPath)) {
-        fs::create_directory(dataPath);
-    }
-    if (!fs::exists(fontPath)) {
-        fs::create_directories(fontPath);
-    }
     
     SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
     

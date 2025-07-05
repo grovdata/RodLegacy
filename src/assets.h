@@ -75,7 +75,6 @@ public:
 private:
     fs::path gameBasePath;
     fs::path dataPath;
-    fs::path fontPath;
 
     BitmapParser bp;
 
@@ -103,7 +102,6 @@ private:
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette);
 
-    static bool ValidateGamePathQuiet(const fs::path& path);
-    
+
     static fs::path LoadSavedGamePath();
 };
