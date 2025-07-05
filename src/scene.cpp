@@ -179,15 +179,30 @@ Dialog *Scene::GetActiveDialog() {
 }
 
 void Scene::PushEvent(SDL_Event *event) {
+    // Handle debug toggle
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
         return;
     }
-    ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
-    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP &&
-        SDL_GetTicks64() - lastActionTime > 200) {
-        Action(z);
-    }        
+    
+    // If there's an active dialog, pass the event to it first
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->HandleEvent(event);
+        return; // Dialog gets priority
+    }
+    
+    // Handle mouse events for scene zones
+    if (event->type == SDL_MOUSEMOTION) {
+        ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
+        // Could add hover effects here if needed
+    }
+    
+    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+        if (SDL_GetTicks64() - lastActionTime > 200) {
+            ZoneId z = CheckMouseHover(event->button.x, event->button.y);
+            Action(z);
+        }
+    }
 }
 
 void Scene::Action(ZoneId zone) {
@@ -247,6 +262,24 @@ void Scene::UpdateDebugInfo() {
         debugOverlay->Clear();
         debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
         debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));
+    }
+}
+
+void Scene::AddGamepadDebugInfo(const Mouse& mouse) {
+    SDL_Log("AddGamepadDebugInfo called - debugOverlay: %s, debugMode: %s", 
+            debugOverlay ? "EXISTS" : "NULL", debugMode ? "ENABLED" : "DISABLED");
+    
+    if (!debugOverlay) {
+        SDL_Log("No debug overlay available");
+        return;
+    }
+    
+    std::vector<std::string> gamepadLines = mouse.GetGamepadDebugLines();
+    SDL_Log("Got %zu gamepad debug lines", gamepadLines.size());
+    
+    for (const auto& line : gamepadLines) {
+        debugOverlay->AddLine(line);
+        SDL_Log("Added debug line: %s", line.c_str());
     }
 }
 

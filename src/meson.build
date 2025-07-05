@@ -102,6 +102,7 @@ c_sources = [
 # C++ sources
 cpp_sources = [
     'main.cpp',
+    'mouse.cpp',
     'parsers/adf.c',
     'state.cpp',
     'types.cpp',

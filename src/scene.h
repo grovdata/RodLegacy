@@ -86,9 +86,13 @@ class Scene {
     void SetZoneRect(ZoneId id, SDL_Rect *rect);
     void SetZoneEnabled(ZoneId id, bool enabled);
     Zone& GetZone(ZoneId id);
+    const std::vector<Zone>& GetZones() const { return zones; }
     virtual void DrawDebugUI() {}
 
     virtual void UpdateDebugInfo();
+
+    // Debug methods
+    void AddGamepadDebugInfo(const Mouse& mouse);
 };
 
 enum class CarAnimationType {

@@ -11,6 +11,8 @@
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
 #include <filesystem>
+#include <fstream>
+#include <cstring>
 
 namespace fs = std::filesystem;
 
@@ -18,9 +20,6 @@ namespace fs = std::filesystem;
 
 #define WINDOW_WIDTH (GAME_WIDTH * 4)
 #define WINDOW_HEIGHT (GAME_HEIGHT * 4)
-
-#define FONT "../data/font/font.png"
-#define DEBUG_FONT "../data/font/lemon.png"
 
 #define ICON "../data/res/icon.png"
 #define APP_TITLE "OpenSR"
@@ -41,6 +40,59 @@ const Uint64 SCREENSHOT_COOLDOWN_MS = 500; // 500ms cooldown
 
 float scaleX = 1.0f;
 float scaleY = 1.0f;
+
+bool IsSteamDeck() {
+    // Method 1: Check Steam Deck specific environment variables
+    const char* steamDeck = getenv("STEAM_DECK");
+    if (steamDeck && strcmp(steamDeck, "1") == 0) {
+        return true;
+    }
+    
+    // Method 2: Check for Steam Deck specific hardware
+    const char* hardware = getenv("HARDWARE");
+    if (hardware && strcmp(hardware, "steamdeck") == 0) {
+        return true;
+    }
+    
+    // Method 3: Check for Steam Deck specific platform
+    const char* platform = getenv("PLATFORM");
+    if (platform && strcmp(platform, "steamdeck") == 0) {
+        return true;
+    }
+    
+    // Method 4: Check for Steam Deck specific device model
+    const char* deviceModel = getenv("DEVICE_MODEL");
+    if (deviceModel && strstr(deviceModel, "steamdeck") != nullptr) {
+        return true;
+    }
+    
+    // Method 5: Check for Steam Deck specific user agent
+    const char* userAgent = getenv("HTTP_USER_AGENT");
+    if (userAgent && strstr(userAgent, "SteamDeck") != nullptr) {
+        return true;
+    }
+    
+    // Method 6: Check for Steam Deck specific file paths
+    if (fs::exists("/sys/devices/virtual/dmi/id/product_name")) {
+        std::ifstream productFile("/sys/devices/virtual/dmi/id/product_name");
+        std::string productName;
+        if (std::getline(productFile, productName)) {
+            if (productName.find("Steam Deck") != std::string::npos) {
+                return true;
+            }
+        }
+    }
+    
+    // Method 7: Check for Steam Deck specific joystick/gamepad
+    if (SDL_NumJoysticks() > 0) {
+        const char* joystickName = SDL_JoystickNameForIndex(0);
+        if (joystickName && strstr(joystickName, "Steam Deck") != nullptr) {
+            return true;
+        }
+    }
+    
+    return false;
+}
 
 void ToggleFullScreen(SDL_Window* window, bool currentState) {
     isFullScreen = !currentState;
@@ -114,6 +166,18 @@ int main(int argc, char* argv[]) {
             debugMode = true;
         }
     }
+
+    // Check if running on Steam Deck
+    bool isSteamDeck = IsSteamDeck();
+    if (isSteamDeck) {
+        SDL_Log("Steam Deck detected - optimizing for handheld experience");
+        // Enable gamepad mode by default on Steam Deck
+        mouse.SetGamepadActive(true);
+    } else {
+        SDL_Log("Running on desktop/laptop system");
+    }
+    
+    SDL_Log("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
@@ -262,6 +326,15 @@ int main(int argc, char* argv[]) {
                     break;
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
+                        case SDLK_F1:
+                            // F1 toggles debug mode
+                            debugMode = !debugMode;
+                            SDL_Log("Debug mode toggled: %s", debugMode ? "ENABLED" : "DISABLED");
+                            // Reinitialize the current scene with new debug mode
+                            if (state.GetCurrentScene()) {
+                                state.GetCurrentScene()->Init(debugMode);
+                            }
+                            break;
                         case SDLK_LEFT:
                             break;
                         case SDLK_RIGHT:
@@ -277,7 +350,13 @@ int main(int argc, char* argv[]) {
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {
                         case SDLK_g:
-                            state.MoveToScene(SCENE_GARAGE);
+                            if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
+                                // Ctrl+G toggles gamepad mode
+                                mouse.SetGamepadActive(!mouse.IsGamepadActive());
+                                SDL_Log("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
+                            } else {
+                                state.MoveToScene(SCENE_GARAGE);
+                            }
                             break;
                         case SDLK_d:
                             state.MoveToScene(SCENE_DINER);
@@ -304,14 +383,26 @@ int main(int argc, char* argv[]) {
                     break;
                 case SDL_MOUSEMOTION:
                 case SDL_MOUSEBUTTONUP:
-                    mouse.Update(&event);
-                    break;
                 case SDL_JOYAXISMOTION:
-                    // handle
+                case SDL_JOYBUTTONDOWN:
+                case SDL_JOYBUTTONUP:
+                case SDL_JOYHATMOTION:
+                    mouse.Update(&event, state.GetCurrentScene());
                     break;
                 default:
                     break;
             }
+        }
+
+        // Update gamepad input (separate from event polling)
+        mouse.UpdateGamepad(state.GetCurrentScene());
+        
+        // Add gamepad debug info to scene
+        if (state.GetCurrentScene()) {
+            SDL_Log("Adding gamepad debug info to scene");
+            state.GetCurrentScene()->AddGamepadDebugInfo(mouse);
+        } else {
+            SDL_Log("No current scene available for gamepad debug info");
         }
 
         SDL_RenderClear(renderer);

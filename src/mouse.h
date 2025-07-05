@@ -4,9 +4,12 @@
 
 #include "global.h"
 #include "bitmap.h"
+#include "ui/zone.h"
+#include <vector>
 
 extern SDL_Renderer *renderer;
 
+class Scene; // Forward declaration
 
 class Mouse {
 private:
@@ -14,7 +17,48 @@ private:
     SDL_Rect rect;
     SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
     std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
-     
+    
+    // Gamepad support
+    bool gamepadActive = false;
+    bool dPadPressed = false;
+    Uint32 lastDPadTime = 0;
+    const Uint32 DPAD_REPEAT_DELAY = 200; // ms between D-pad repeats
+    
+    // D-pad navigation
+    enum class DPadDirection {
+        NONE,
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT
+    };
+    DPadDirection lastDPadDirection = DPadDirection::NONE;
+    
+    // Gamepad debug info
+    struct GamepadDebugInfo {
+        bool connected = false;
+        Sint16 leftX = 0;
+        Sint16 leftY = 0;
+        Uint8 hatState = 0;
+        bool buttonA = false;
+        bool buttonB = false;
+        bool buttonX = false;
+        bool buttonY = false;
+        bool buttonLB = false;
+        bool buttonRB = false;
+        std::string lastAction = "";
+    };
+    GamepadDebugInfo gamepadDebug;
+    
+    // Find closest zone to current mouse position
+    ZoneId FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY);
+    
+    // Calculate distance between two points
+    float CalculateDistance(int x1, int y1, int x2, int y2);
+    
+    // Jump to closest zone in specified direction
+    void JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction);
+    
 public:
     Mouse() {
         SDL_ShowCursor(false);
@@ -52,38 +96,8 @@ public:
         cursorTexture = nullptr;
     }
 
-    void Update(SDL_Event *event) {
-        if (event->type == SDL_MOUSEMOTION) {
-            rect.x = event->motion.x;
-            rect.y = event->motion.y;
-        }
-
-        if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT) {
-            switch (pointerType) {
-                case SrLibAmigaSpriteAssetMousePointerHand:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerWrench;
-                    break;
-                case SrLibAmigaSpriteAssetMousePointerWrench:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerPump;
-                    break;
-                case SrLibAmigaSpriteAssetMousePointerPump:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerRag;
-                    break;
-                case SrLibAmigaSpriteAssetMousePointerRag:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerThumbsUp;
-                        break;
-                case SrLibAmigaSpriteAssetMousePointerThumbsUp:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerThumbsDown;
-                    break;
-                case SrLibAmigaSpriteAssetMousePointerThumbsDown:
-                    pointerType = SrLibAmigaSpriteAssetMousePointerHand;
-                    break;
-                default:
-                    break;
-            }
-            cursorTexture = pointerTextures[pointerType];
-        }
-    }
+    void Update(SDL_Event *event, Scene* scene = nullptr);
+    void UpdateGamepad(Scene* scene);
 
     void Draw() {
         SDL_RenderCopy(renderer, cursorTexture, NULL, &rect);
@@ -98,6 +112,17 @@ public:
             cursorTexture = pointerTextures[type];
         }
     }
+    
+    // Gamepad methods
+    void SetGamepadActive(bool active) { gamepadActive = active; }
+    bool IsGamepadActive() const { return gamepadActive; }
+    
+    // Jump to closest zone (for D-pad navigation)
+    void JumpToClosestZone(Scene* scene);
+    
+    // Debug methods
+    const GamepadDebugInfo& GetGamepadDebugInfo() const { return gamepadDebug; }
+    std::vector<std::string> GetGamepadDebugLines() const;
 };
 
 #endif

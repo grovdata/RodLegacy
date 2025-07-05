@@ -80,7 +80,7 @@ class Zone {
 
         }
 
-        bool IsInsideZone(int x, int y) {
+        bool IsInsideZone(int x, int y) const {
             if (!enabled) return false;
         	//printf("Zone %s %d %d %d %d\n", m_text, m_rect.x, m_rect.y, m_rect.x + m_rect.w, m_rect.x + m_rect.h);
         	return (x >= rect.x) && (x <= (rect.x + rect.w)) && (y >= rect.y) && (y <= (rect.y + rect.h));
@@ -98,7 +98,7 @@ class Zone {
             this->enabled = enabled;
         }
 
-        const SDL_Rect GetRect() {
+        const SDL_Rect GetRect() const {
             return rect;
         }
 
@@ -109,7 +109,7 @@ class Zone {
             this->rect.h = rect->h;
         }
 
-        ZoneId GetId() {
+        ZoneId GetId() const {
             return id;
         }
 
