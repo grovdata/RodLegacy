@@ -4,20 +4,14 @@ project('streetrod_legacy', ['cpp', 'c'],
     'warning_level=2',
     'cpp_std=c++17', # needed for fs::path maybe rewrite
     'buildtype=debug',
+    'default_library=static', # Build dependencies as static libraries
   ]
 )
 
 # Dependencies
-sdl2_dep = dependency('sdl2')
+sdl2_dep = dependency('sdl2', static: true)
 
-
-# OSX
-#sdl2_image_dep = dependency('sdl2_image')
-#sdl2_mixer_dep = dependency('sdl2_mixer')
-
-# Linux
-sdl2_image_dep = dependency('SDL2_image')
-sdl2_mixer_dep = dependency('SDL2_mixer')
+# Platform-specific SDL2 dependencies will be handled in src/meson.build
 
 
 subdir('src') 
