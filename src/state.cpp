@@ -10,7 +10,6 @@ State::State() : bankroll(750) {
 
 void State::Init(bool debugMode, const fs::path& gamePath) {
     this->debugMode = debugMode;
-    assets.SetCustomPath(gamePath.string());
     try {
         assets.Init(gamePath);
         assets.ReadAssets();

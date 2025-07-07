@@ -2,6 +2,10 @@
 #include "engine_bay.h"
 #include "animated_bitmap.h"
 
+Dialog* EngineBay::CreateTuneDialog(State& state, ButtonCallback buttonCallback) {
+
+}
+
 Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
     // sidebar index 295, 324 when tuning
@@ -18,9 +22,9 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     SDL_Rect partsRect = {243, 90, buttonWidth, buttonHeight};
     SDL_Rect doneRect = {243, 150, buttonWidth, buttonHeight};
     
-    Zone tuneZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Tune"), &tuneRect);
-    Zone partsZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Parts"), &partsRect);
-    Zone doneZone(ZONE_GARAGE_MENU_NEW_GAME, strdup("Done"), &doneRect);
+    Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
+    Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
+    Zone doneZone(ZONE_GARAGE_ENGINE_OVERVIEW_DONE, strdup("Done"), &doneRect);
 
     vector<Zone> dialogZones = {
         tuneZone,

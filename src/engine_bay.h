@@ -3,10 +3,8 @@
 #include "dialogs/dialog.h"
 #include <functional>
 
-class DialogFactory {
-public:
-    static Dialog* CreateDialog(State& state);
-};
+// Define ButtonCallback type for consistency
+using ButtonCallback = std::function<void(int)>;
 
 enum EngineBayState {
     ENGINE_BAY_OVERVIEW,
@@ -14,10 +12,14 @@ enum EngineBayState {
     ENGINE_BAY_TUNING
 };
 
-// Callback type for EngineBay button events
-using ButtonCallback = std::function<void(int buttonIndex)>;
-
-class EngineBay : public DialogFactory {
+class EngineBay {
 public:
-    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback = nullptr);
+    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback);
+    static Dialog* CreateTuneDialog(State& state, ButtonCallback buttonCallback);
+    
+private:
+    static void SetupOverviewState(Dialog* dialog);
+    static void SetupTuningState(Dialog* dialog);
+    static void OnButtonPressed(Dialog* dialog, int buttonIndex);
+    static EngineBayState currentState;
 };

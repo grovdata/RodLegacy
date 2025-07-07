@@ -109,14 +109,14 @@ void AssetManager::Init(const fs::path& validatedPath) {
         SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
         SDL_Log("Data path: %s", dataPath.string().c_str());
         SDL_Log("Data path empty? %s", dataPath.empty() ? "YES" : "NO");
+        InitFonts();
+        InitGameFiles();
+        InitStockPalettes();
     } catch (const AssetLoadError& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
         throw;
     }
 
-    InitFonts();
-    InitGameFiles();
-    InitStockPalettes();
 }
 
 SFont_Font* AssetManager::GetMainFont() {
