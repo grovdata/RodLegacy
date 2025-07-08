@@ -15,6 +15,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -27,6 +28,7 @@ jobs:
         # Run the build inside the container
         docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
           cd /project &&
+          meson subprojects update &&
           meson setup builddir --cross-file /cross-mingw.txt &&
           cd builddir &&
           ninja
