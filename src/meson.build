@@ -46,7 +46,7 @@ if host_machine.system() == 'linux'
             'svg=disabled',
             'use_imageio=disabled',
             'tests=disabled',
-            'test=disabled'
+            'test=false'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -57,7 +57,7 @@ if host_machine.system() == 'linux'
             'flac=disabled',
             'mpg123=disabled',
             'opus=disabled',
-            'test=disabled',
+            'test=false',
             'samples=disabled'
         ]
     )
@@ -78,7 +78,7 @@ elif host_machine.system() == 'windows'
             'svg=disabled',
             'use_imageio=disabled',
             'tests=disabled',
-            'test=disabled'
+            'test=false'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -89,7 +89,7 @@ elif host_machine.system() == 'windows'
             'flac=disabled',
             'mpg123=disabled',
             'opus=disabled',
-            'test=disabled',
+            'test=false',
             'samples=disabled'
         ]
     )
