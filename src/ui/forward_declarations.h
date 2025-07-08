@@ -16,7 +16,7 @@ class HUD;
 class Bitmap;
 class AnimatedBitmap;
 class Car;
-class Driver;
+struct Driver;
 class CarBitmap;
 class DebugOverlay;
 class Dialog; 

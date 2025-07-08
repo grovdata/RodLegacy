@@ -20,17 +20,40 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build Windows executable
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build Docker image
       run: |
-        # Build the Docker image for Windows cross-compilation
-        docker build -f Dockerfile.win32 -t streetrod-win32-builder .
-        
-        # Run the build inside the container
+        # Build the Docker image for Windows cross-compilation with caching
+        docker buildx build --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
+
+    - name: Update subprojects
+      run: |
+        # Update subprojects in the container
         docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
           cd /project &&
-          meson subprojects update &&
-          meson setup builddir --cross-file /cross-mingw.txt &&
-          cd builddir &&
+          meson subprojects update
+        "
+
+    - name: Configure build
+      run: |
+        # Configure the build with meson
+        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+          cd /project &&
+          meson setup builddir --cross-file /cross-mingw.txt
+        "
+
+    - name: Compile project
+      run: |
+        # Compile the project with ninja
+        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+          cd /project/builddir &&
           ninja
         "
 
