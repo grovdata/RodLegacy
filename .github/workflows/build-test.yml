@@ -31,7 +31,7 @@ jobs:
     - name: Build Docker image
       run: |
         # Build the Docker image for Windows cross-compilation with caching
-        docker buildx build --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
+        docker buildx build --load --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
 
     - name: Update subprojects
       run: |
