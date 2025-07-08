@@ -1,9 +1,13 @@
 #include "state.h"
+#include "scene.h"
+#include "car.h"
 #include "diner.h"
 #include "garage.h"
-#include "diner.h"
 #include "gas_station.h"
 #include "driving.h"
+#include "newspaper.h"
+#include "racing.h"
+#include "debug_overlay.h"
 
 State::State() : bankroll(750) {
 }

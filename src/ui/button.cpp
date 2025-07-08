@@ -1,11 +1,18 @@
 #include "button.h"
 #include "rectangle.h"
 #include "../state.h"
+#include "../bitmap.h"
+#include "zone.h"
+#include "../SFont.h"
 
 Button::Button(const ButtonConfig& config) 
-    : config(config), pressed(false), visible(true)
+    : config(config), pressed(false), visible(true), background(nullptr)
 {
     CreateButtonSurface();
+}
+
+Button::~Button() {
+    delete background;
 }
 
 void Button::CropBitmapFromSource() {
@@ -46,7 +53,7 @@ void Button::CreateButtonSurface() {
     rectConfig.borderColor = config.defaultChoice ? SDL_Color{255, 255, 255, 255} : config.borderColor;
     rectConfig.inset = 1;
     
-    background = std::make_unique<Rectangle>(rectConfig);
+    background = new Rectangle(rectConfig);
     background->SetVisible(true);
 
     // Create text bitmap or use provided bitmap

@@ -1,8 +1,11 @@
 #include "scene.h"
 #include "state.h"
 #include "ui/zone.h"
+#include "ui/button.h"
+#include "ui/bubble.h"
+#include "ui/hud.h"
+#include "dialogs/dialog.h"
 #include "assets.h"
-#include "state.h"
 
 Scene::Scene(Asset backgroundAsset, StockPalette palette) {
     this->isSetup = false;

@@ -1,17 +1,9 @@
 #pragma once
 #include "global.h"
-#include "scene.h"
-#include "car.h"
-#include "cardata.h"
-#include "diner.h"
-#include "driving.h"
-#include "garage.h"
-#include "newspaper.h"
-#include "gas_station.h"
+#include "parsers/libp.h"  // For SrLibGameScene
 #include "assets.h"
 #include "roster.h"
-#include "debug_overlay.h"
-#include "racing.h"
+#include "cardata.h"
 
 #include <set>
 #include <vector>
@@ -21,6 +13,16 @@
 #include <filesystem>
 
 namespace fs = std::filesystem;
+
+// Forward declarations
+class Scene;
+class Car;
+class Diner;
+class Driving;
+class Garage;
+class Newspaper;
+class GasStation;
+class Racing;
 
 class State {
 private:

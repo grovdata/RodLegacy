@@ -3,6 +3,14 @@
 #include "parsers/libp.h"
 #include <SDL.h>
 
+class IDrawable {
+    protected:
+        bool visible;
+    public:
+        virtual ~IDrawable() = default;
+        virtual void Draw() = 0;
+        virtual void SetVisible(bool visible) = 0;
+};
 
 struct CarModel {
     // For custom cars

@@ -8,14 +8,7 @@ enum BitmapAlign {
     BitmapAlignTop
 };
 
-class IDrawable {
-    protected:
-        bool visible;
-    public:
-        virtual ~IDrawable() = default;
-        virtual void Draw() = 0;
-        virtual void SetVisible(bool visible) = 0;
-};
+
 
 class Bitmap {
     protected:

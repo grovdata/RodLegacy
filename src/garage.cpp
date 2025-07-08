@@ -1,5 +1,7 @@
 #include "garage.h"
 #include "state.h"
+#include "ui/hud.h"
+#include "ui/bubble.h"
 #include "assets.h"
 #include "state.h"
 #include "engine_bay.h"

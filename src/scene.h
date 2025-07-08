@@ -1,17 +1,14 @@
 #pragma once
 
 #include "global.h"
-#include "ui/zone.h"
-#include "ui/button.h"
-#include "ui/bubble.h"
-#include "ui/hud.h"
-#include "dialogs/dialog.h"
+#include "ui/forward_declarations.h"
 #include "mouse.h"
-#include "assets.h"
+#include "parsers/libp.h"
 #include "bitmap.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
-#include "parsers/libp.h"
+#include <vector>
+#include <memory>
 
 typedef enum {
     SCENE_BLACK,

@@ -1,5 +1,7 @@
 #include "diner.h"
 #include "state.h"
+#include "ui/hud.h"
+#include "ui/bubble.h"
 #include "cardata.h"
 #include "debug_overlay.h"
 

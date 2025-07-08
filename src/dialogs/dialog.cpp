@@ -1,4 +1,10 @@
 #include "dialog.h"
+#include "../ui/rectangle.h"
+#include "../ui/button.h"
+#include "../bitmap.h"
+#include "../animated_bitmap.h"
+#include "ui/zone.h"
+#include <vector>
 
 Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config) {
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);

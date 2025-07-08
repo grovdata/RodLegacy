@@ -1,16 +1,21 @@
 #pragma once
 #include "../global.h"
-#include "../bitmap.h"
-#include "../animated_bitmap.h"
 #include "../SFont.h"
-#include "ui/rectangle.h"
-#include "ui/button.h"
-#include "ui/zone.h"
+#include "../ui/zone.h"  // For ZoneId
+#include "../ui/rectangle.h"
+#include "../assets.h"   // For Asset
+#include "../ui/button_config.h"  // For ButtonConfig
 #include <vector>
 #include <map>
-
 #include <string>
 #include <memory>
+#include <functional>
+
+// Forward declarations
+//class Rectangle;
+class Button;
+class Bitmap;
+class AnimatedBitmap;
 
 struct DialogTextConfig {
     SDL_Rect rect;
