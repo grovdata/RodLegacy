@@ -12,14 +12,15 @@ RUN apt update && apt install -y \
     pkg-config \
     cmake \
     autoconf automake libtool \
-    libogg-dev libvorbis-dev
+    libogg-dev libvorbis-dev imagemagick
 
 # Create virtual environment and install latest meson
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN . /opt/venv/bin/activate && \
     pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir meson
+    pip install --no-cache-dir meson && \
+    pip install --no-cache-dir pillow
 
 # Build SDL2 for MinGW (targeting Windows XP)
 WORKDIR /opt

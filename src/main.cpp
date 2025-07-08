@@ -75,12 +75,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+#ifndef _WIN32
+    // Load icon from file (only on non-Windows platforms)
     SDL_Surface *icon = IMG_Load(ICON);
     if (icon == NULL) {
         printf("Could not load icon");
     } else {
         SDL_SetWindowIcon(win, icon);
+        SDL_FreeSurface(icon);
     }
+#endif
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_RenderSetIntegerScale(renderer, SDL_TRUE);

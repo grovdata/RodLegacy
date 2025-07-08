@@ -1,0 +1,7 @@
+// Windows Resource File for OpenSR
+// This file defines the application icon
+
+#include <windows.h>
+
+// Application icon
+IDI_ICON1 ICON "src/icon.ico" 
