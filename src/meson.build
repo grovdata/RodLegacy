@@ -51,16 +51,7 @@ if host_machine.system() == 'linux'
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
 
-    sdl2_mixer_proj = subproject('sdl2_mixer',
-        default_options: [
-            'default_library=static',
-            'flac=disabled',
-            'mpg123=disabled',
-            'opus=disabled',
-            'test=false',
-            'samples=false'
-        ]
-    )
+    sdl2_mixer_proj = subproject('sdl2_mixer')
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
 elif host_machine.system() == 'darwin'
     # macOS: Use system libraries (easier to manage on macOS)
@@ -83,16 +74,7 @@ elif host_machine.system() == 'windows'
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
 
-    sdl2_mixer_proj = subproject('sdl2_mixer',
-        default_options: [
-            'default_library=static',
-            'flac=disabled',
-            'mpg123=disabled',
-            'opus=disabled',
-            'test=false',
-            'samples=false'
-        ]
-    )
+    sdl2_mixer_proj = subproject('sdl2_mixer')
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
 else
     error('Unsupported platform: ' + host_machine.system())
