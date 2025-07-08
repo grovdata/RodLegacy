@@ -47,10 +47,6 @@ if host_machine.system() == 'linux'
             'use_imageio=disabled',
             'tests=disabled',
             'test=disabled'
-        ],
-        cmake_options: [
-            '-DSDLIMAGE_TESTS=OFF',
-            '-DSDLIMAGE_TESTS_INSTALL=OFF'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -61,11 +57,8 @@ if host_machine.system() == 'linux'
             'flac=disabled',
             'mpg123=disabled',
             'opus=disabled',
-            'test=disabled'
-        ],
-        cmake_options: [
-            '-DSDL2MIXER_SAMPLES=OFF',
-            '-DSDL2MIXER_SAMPLES_INSTALL=OFF'
+            'test=disabled',
+            'samples=disabled'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
@@ -86,10 +79,6 @@ elif host_machine.system() == 'windows'
             'use_imageio=disabled',
             'tests=disabled',
             'test=disabled'
-        ],
-        cmake_options: [
-            '-DSDLIMAGE_TESTS=OFF',
-            '-DSDLIMAGE_TESTS_INSTALL=OFF'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -100,11 +89,8 @@ elif host_machine.system() == 'windows'
             'flac=disabled',
             'mpg123=disabled',
             'opus=disabled',
-            'test=disabled'
-        ],
-        cmake_options: [
-            '-DSDL2MIXER_SAMPLES=OFF',
-            '-DSDL2MIXER_SAMPLES_INSTALL=OFF'
+            'test=disabled',
+            'samples=disabled'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
