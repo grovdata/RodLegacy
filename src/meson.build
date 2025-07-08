@@ -58,7 +58,7 @@ if host_machine.system() == 'linux'
             'mpg123=disabled',
             'opus=disabled',
             'test=false',
-            'samples=disabled'
+            'samples=false'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
@@ -90,7 +90,7 @@ elif host_machine.system() == 'windows'
             'mpg123=disabled',
             'opus=disabled',
             'test=false',
-            'samples=disabled'
+            'samples=false'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
