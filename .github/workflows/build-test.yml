@@ -1,0 +1,50 @@
+name: Build Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Windows executable
+      run: |
+        # Build the Docker image for Windows cross-compilation
+        docker build -f Dockerfile.win32 -t streetrod-win32-builder .
+        
+        # Run the build inside the container
+        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+          cd /project &&
+          meson setup builddir --cross-file /cross-mingw.txt &&
+          cd builddir &&
+          ninja
+        "
+
+    - name: Verify executable
+      run: |
+        if [ -f "builddir/src/open_sr.exe" ]; then
+          echo "✅ Windows executable built successfully!"
+          ls -la builddir/src/open_sr.exe
+        else
+          echo "❌ Windows executable not found!"
+          exit 1
+        fi
+
+    - name: Upload executable for testing
+      uses: actions/upload-artifact@v4
+      with:
+        name: open_sr.exe
+        path: builddir/src/open_sr.exe
+        retention-days: 7 
