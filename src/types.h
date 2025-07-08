@@ -3,19 +3,18 @@
 #include "parsers/libp.h"
 #include <SDL.h>
 
-using namespace std;
 
 struct CarModel {
     // For custom cars
-    string id;
-    string filename;
+    std::string id;
+    std::string filename;
 
     // Currently not known where this is defined
     int baseSpeed;
     
     // From SR_data
     int year;
-    string name;
+    std::string name;
     CarVendor_t vendor;
     BitmapOffset_t offsets;
     

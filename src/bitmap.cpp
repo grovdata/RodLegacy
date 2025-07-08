@@ -4,7 +4,6 @@ extern "C" {
 #include "lodepng.h"
 }
 
-using namespace std;
 
 Bitmap::Bitmap() {
     surface = NULL;
@@ -230,7 +229,7 @@ void Bitmap::SetVisible(bool visible) {
     this->isVisible = visible;
 }
 
-void Bitmap::LoadBitmap(string filename) {
+void Bitmap::LoadBitmap(std::string filename) {
     surface = IMG_Load(strdup(filename.c_str()));
     //SDL_SetColorKey(surface, 0, SDL_MapRGB(surface->format, 0, 0, 0));
     if (surface == NULL) {

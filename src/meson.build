@@ -128,7 +128,7 @@ inc_dirs = include_directories(
 )
 
 # Add compiler flags specific to GCC
-cpp_args = ['-ggdb2', '-O0']
+cpp_args = ['-ggdb2', '-O0', '-std=c++17', '-D_HAS_STD_BYTE=0', '-D_GLIBCXX_USE_CXX11_ABI=0']
 c_args = ['-ggdb2', '-O0']
 
 # Add SDL_MAIN_HANDLED only for Windows builds

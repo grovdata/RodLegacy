@@ -2,8 +2,8 @@
 #include "../state.h"
 #include "../parsers/libp.h"
 
-Bubble::Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
-    string filename = "";
+Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
+    std::string filename = "";
 
     AmigaLibAsset bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
     switch (style) {
@@ -60,7 +60,7 @@ void Bubble::Draw() {
 
 }
 
-void Bubble::UpdateText(std::string text) {
+void Bubble::UpdateText(std::string& text) {
     SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
     
     char buf[50];

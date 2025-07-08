@@ -142,8 +142,8 @@ void Diner::DrawMaskAfterCar() {
     CarScene::DrawMaskAfterCar();
 }
 
-string Diner::GetOpponentText(Opponent *opponent) {
-    string result = opponent->driver.name + "    " + opponent->car->GetModel().name;
+std::string Diner::GetOpponentText(Opponent *opponent) {
+    std::string result = opponent->driver.name + "    " + opponent->car->GetModel().name;
     return result;
 }
 
@@ -153,8 +153,8 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     this->currentOpponent = state.GetNextOpponent();
     if (!currentOpponent) return;
     
-    string oppoText = GetOpponentText(currentOpponent);
-    string opponentId = currentOpponent->driver.name;
+    std::string oppoText = GetOpponentText(currentOpponent);
+    std::string opponentId = currentOpponent->driver.name;
     
     hud->SetText(strdup(oppoText.c_str()));
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));

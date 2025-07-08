@@ -135,7 +135,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &scrollUpRect);
     Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
 
-    vector<ButtonConfig> buttons = {
+    std::vector<ButtonConfig> buttons = {
         {
             switchItRect,
             "Switch it",
@@ -159,16 +159,16 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     };
 
-    vector<DialogTextConfig> texts = {
+    std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Your cars", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
 
-    vector<SDL_Rect> lines = {
+    std::vector<SDL_Rect> lines = {
         {40, 39, 240, 1},
     };
 
     // Add dialog zones to config
-    vector<Zone> dialogZones = {
+    std::vector<Zone> dialogZones = {
         switchItZone,
         sellItZone,
         forgetItZone,
@@ -185,7 +185,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.buttons = buttons;
     dialogConfig.lines = lines;
     dialogConfig.zones = dialogZones;  // Add the dialog zones here
-    dialogConfig.contentAreas = vector<SDL_Rect>{topRect, bottomRect};
+    dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.assets.GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
@@ -302,7 +302,7 @@ void Garage::InitGameMenuDialog() {
     Zone quitGameZone(ZONE_GARAGE_MENU_QUIT_GAME, strdup("Quit"), &quitGameRect);
     Zone forgetItZone(ZONE_GARAGE_MENU_FORGET_IT, strdup("Forget it"), &forgetItRect);
 
-    vector<Zone> dialogZones = {
+    std::vector<Zone> dialogZones = {
         saveGameZone,
         oldGameZone,
         newGameZone,
@@ -350,7 +350,7 @@ void Garage::InitGameMenuDialog() {
         4
     };
 
-    vector<ButtonConfig> buttons = {
+    std::vector<ButtonConfig> buttons = {
         saveGameButton,
         oldGameButton,
         newGameButton,
@@ -358,11 +358,11 @@ void Garage::InitGameMenuDialog() {
         forgetItButton
     };
 
-    vector<DialogTextConfig> texts = {
+    std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{menuDialogRect.x + 3, menuDialogRect.y + 3, 150, 10}, "Save, Restart, or Quit.", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
 
-    vector<SDL_Rect> lines = {
+    std::vector<SDL_Rect> lines = {
         {85, 89, 150, 1},
     };
 
@@ -375,7 +375,7 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.buttons = buttons;
     menuDialogConfig.lines = lines;
     menuDialogConfig.zones = dialogZones;
-    menuDialogConfig.contentAreas = vector<SDL_Rect>{menuDialogRect};
+    menuDialogConfig.contentAreas = std::vector<SDL_Rect>{menuDialogRect};
     menuDialogConfig.font = state.assets.GetMainFont();
     menuDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());

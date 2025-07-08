@@ -13,8 +13,8 @@ class CarData {
         bool MapContainsKey(toml::table *table, const char *key);
 
         DataParser dp;
-        string datafile;
-        string tomlfile;
+        std::string datafile;
+        std::string tomlfile;
 
     public:
         CarData();
@@ -22,7 +22,7 @@ class CarData {
 
         CarMetadata_t GetCarMetadata(int carIndex);
         
-        void ReadEntries(std::vector<uint8_t> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps);
+        void ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
 
         /// @brief Finds a model in car data array
         /// @param modelId
@@ -34,8 +34,8 @@ class CarData {
 
         void PrintModel(CarModel model);
 
-        void ReadCarsBuiltin(std::vector<unsigned char>, pair<int, vector<BitmapEntry_t>> bitmaps);
-        void ReadCarsFromTomlFile(string filename);
+        void ReadCarsBuiltin(std::vector<unsigned char>, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
+        void ReadCarsFromTomlFile(std::string filename);
         CarModel GetRandomModel();
 };
 

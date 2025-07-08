@@ -2,6 +2,7 @@
 
 #include "../bitmap.h"
 #include "../utils.h"
+#include <memory>
 
 struct RectangleConfig {
     SDL_Rect rect;

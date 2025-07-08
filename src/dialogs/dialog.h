@@ -12,11 +12,9 @@
 #include <string>
 #include <memory>
 
-using namespace std;
-
 struct DialogTextConfig {
     SDL_Rect rect;
-    string text;
+    std::string text;
     SDL_Color color;
     bool centered = false;
 };
@@ -32,24 +30,24 @@ struct DialogConfig {
     SDL_Rect bounds;
     SDL_Color backgroundColor = {0x60, 0x60, 0x60, 0xFF};
     SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
-    vector<ButtonConfig> buttons;
-    vector<DialogTextConfig> texts;
-    vector<SDL_Rect> contentAreas;
-    vector<SDL_Rect> lines;
-    vector<Zone> zones;
+    std::vector<ButtonConfig> buttons;
+    std::vector<DialogTextConfig> texts;
+    std::vector<SDL_Rect> contentAreas;
+    std::vector<SDL_Rect> lines;
+    std::vector<Zone> zones;
     
-    map<string, DialogBitmap> bitmaps;
+    std::map<std::string, DialogBitmap> bitmaps;
     
-    function<void(int)> onButtonPressed;
-    function<void(Zone&)> onZoneHover;
+    std::function<void(int)> onButtonPressed;
+    std::function<void(Zone&)> onZoneHover;
 };
 
 class Dialog {
 protected:
     Bitmap *mainBitmap;
-    map<string, DialogBitmap> bitmaps;
-    vector<Button*> buttons;
-    vector<Rectangle*> contentAreas;
+    std::map<std::string, DialogBitmap> bitmaps;
+    std::vector<Button*> buttons;
+    std::vector<Rectangle*> contentAreas;
     DialogConfig config;
     bool isVisible = false;
 

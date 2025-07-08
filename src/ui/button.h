@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include "../bitmap.h"
 #include "../global.h"
 #include "zone.h"

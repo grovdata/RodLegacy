@@ -13,8 +13,6 @@
 #include "debug_overlay.h"
 #include "parsers/libp.h"
 
-using namespace std;
-
 typedef enum {
     SCENE_BLACK,
     SCENE_SOLID,
@@ -49,11 +47,11 @@ class Scene {
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
-    string backgroundName;
-    vector<Zone> zones;
-    vector<Button> buttons;
-    vector<SDL_Texture*> textures;
-    vector<Bubble*> bubbles;
+    std::string backgroundName;
+    std::vector<Zone> zones;
+    std::vector<Button> buttons;
+    std::vector<SDL_Texture*> textures;
+    std::vector<Bubble*> bubbles;
 
     DebugOverlay* debugOverlay;
     bool debugMode;
@@ -67,7 +65,7 @@ class Scene {
 
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
-    Scene(string backgroundName);
+    Scene(std::string backgroundName);
     ~Scene();
     void Init(bool debugMode);
 

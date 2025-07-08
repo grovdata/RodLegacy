@@ -1,4 +1,5 @@
 #include "button.h"
+#include "rectangle.h"
 #include "../state.h"
 
 Button::Button(const ButtonConfig& config) 

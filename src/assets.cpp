@@ -41,10 +41,10 @@ void AssetManager::InitMousePointers() {
 
     for (int i = 0; i < SrLibAmigaSpriteAssetCount; i++) {
         SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[i];
-        vector<SrLibColor> buffer(info.width * info.height);
+        std::vector<SrLibColor> buffer(info.width * info.height);
         SrLibAmigaSpriteAsset pointer = (SrLibAmigaSpriteAsset)i;
         SrLibAmigaSpriteReadMousePointer(srExeData_uint16, pointer, buffer.data());
-        unique_ptr<Bitmap> mousePointer = make_unique<Bitmap>();
+        std::unique_ptr<Bitmap> mousePointer = std::make_unique<Bitmap>();
         mousePointer->LoadBitmapFromChunky(buffer, info.width, info.height);
         mousePointer->SetDimensions(info.width, info.height);
         mousePointers[pointer] = std::move(mousePointer);
@@ -57,12 +57,12 @@ void AssetManager::InitGameFiles() {
 
     SrLibStatus disk1Status = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
     if (disk1Status != SrLibStatusSuccess) {
-        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + to_string(disk1Status) + ")");
+        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + std::to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + std::to_string(disk1Status) + ")");
     }
 
     SrLibStatus disk2Status = SrLibVerifyChecksum(disk2Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]);
     if (disk2Status != SrLibStatusSuccess) {
-        throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (expected checksum: " + to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]) + ", actual checksum: " + to_string(disk2Status) + ")");
+        throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (expected checksum: " + std::to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]) + ", actual checksum: " + std::to_string(disk2Status) + ")");
     }
 
     AdfFileData *srExeData = extract_adf_file_to_memory(disk1Path.string().c_str(), "Street_Rod");
@@ -173,10 +173,10 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
 /// @param carPalette
 void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
-    vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
+    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
+    std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
-    vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
 
     Asset a;
     a.id = index;
@@ -186,22 +186,22 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     bool isMask = a.type == LibAssetMask;
 
     if (a.type == LibAssetSpritesheet) {
-        pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
-        unique_ptr<Spritesheet> spriteSheet = make_unique<Spritesheet>(info.first, info.second);
+        std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
+        std::unique_ptr<Spritesheet> spriteSheet = std::make_unique<Spritesheet>(info.first, info.second);
         spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask);
         spriteSheet->SetDimensions(b.width, b.height);
-        imageAssets.push_back(make_pair(a, std::move(spriteSheet)));
+        imageAssets.push_back(std::make_pair(a, std::move(spriteSheet)));
     } else {
-        unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
+        std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
         bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
         bitmap->SetDimensions(b.width, b.height);
-        imageAssets.push_back(make_pair(a, std::move(bitmap)));
+        imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
     }
 }
 
 
 void AssetManager::UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette) {
-    vector<uint16_t> carPalette = GetStandardCarColor(palette);
+    std::vector<uint16_t> carPalette = GetStandardCarColor(palette);
     Palette newPalette = bp.PrepareCarPalette(carPalette);
     UpdateAsset(libfile, index, newPalette); // Update the asset with the new color
 }
@@ -221,33 +221,33 @@ Spritesheet* AssetManager::GetCarDecals() {
     return this->carDecals;
 }
 
-Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette) {
+Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const std::vector<uint16_t>& carPalette) {
     // Always create a new asset with the custom palette
     UpdateAssetWithPalette(libfile, asset.id, carPalette);
     return imageAssets.back().second.get();  // Return the newly created asset
 }
 
-void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette) {
+void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette) {
     BitmapEntry_t b = imageEntries.second[index];
-    vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
+    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
+    std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     
     // Convert car palette to RGB format
     Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
     Palette basePal = bp.PreparePalette(palData, true);
     
     // Use provided car palette for color ranges
-    vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
     
     Asset a;
     a.id = index;
     a.location = SrLibFileAmigaLibP;
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
     
-    unique_ptr<Bitmap> bitmap = make_unique<Bitmap>();
+    std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
     bitmap->SetDimensions(b.width, b.height);
-    imageAssets.push_back(make_pair(a, std::move(bitmap)));
+    imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
 }
 
 fs::path AssetManager::FindGameDirectory() {
@@ -258,7 +258,7 @@ fs::path AssetManager::FindGameDirectory() {
         return savedPath;
     }
 
-    vector<fs::path> searchPaths = {
+    std::vector<fs::path> searchPaths = {
         fs::current_path(),
         fs::current_path() / "..",
         fs::current_path() / ".." / "..",
@@ -288,7 +288,7 @@ fs::path AssetManager::FindGameDirectory() {
 }
 
 bool AssetManager::ValidateGamePath(const fs::path& path) {
-    vector<fs::path> gameFiles = {
+    std::vector<fs::path> gameFiles = {
         "SR1AMIGA_DISK1.adf",
         "SR1AMIGA_DISK2.adf",
         "font.png",

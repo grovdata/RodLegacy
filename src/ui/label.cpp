@@ -16,16 +16,16 @@ void Label::Init(SFont_Font *font, int xPos, int yPos, uint32_t textColor) {
     SetVisible(true);
 }
 
-void Label::splitIntoLines(const string& text) {
+void Label::splitIntoLines(const std::string& text) {
     textLines.clear();
     std::istringstream stream(text);
-    string line;
+    std::string line;
     while (std::getline(stream, line)) {
         textLines.push_back(line);
     }
 }
 
-void Label::SetText(string text, bool centered, int desiredWidth) {
+void Label::SetText(std::string text, bool centered, int desiredWidth) {
     splitIntoLines(text);
     
     // Calculate total height and maximum width

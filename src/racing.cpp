@@ -20,17 +20,17 @@ Racing::Racing() {
 		pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
 		//pixels = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, GAME_WIDTH, GAME_RACING_HEIGHT);
 		// Define track
-		vecTrack.push_back(make_pair(0.0f, 10.0f));		// Short section for start/finish line
-		vecTrack.push_back(make_pair(0.0f, 200.0f));
-		vecTrack.push_back(make_pair(1.0f, 200.0f));
-		vecTrack.push_back(make_pair(0.0f, 400.0f));
-		vecTrack.push_back(make_pair(-1.0f, 100.0f));
-		vecTrack.push_back(make_pair(0.0f, 200.0f));
-		vecTrack.push_back(make_pair(-1.0f, 200.0f));
-		vecTrack.push_back(make_pair(1.0f, 200.0f));
-		vecTrack.push_back(make_pair(0.0f, 200.0f));
-		vecTrack.push_back(make_pair(0.2f, 500.0f));
-		vecTrack.push_back(make_pair(0.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(0.0f, 10.0f));		// Short section for start/finish line
+		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(1.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(0.0f, 400.0f));
+		vecTrack.push_back(std::make_pair(-1.0f, 100.0f));
+		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(-1.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(1.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(0.2f, 500.0f));
+		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
 
 		// Calculate total track distance, so we can set lap times
 		for (auto t : vecTrack)

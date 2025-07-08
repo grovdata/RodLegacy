@@ -47,7 +47,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
     Zone doneZone(ZONE_GARAGE_ENGINE_OVERVIEW_DONE, strdup("Done"), &doneRect);
 
-    vector<Zone> dialogZones = {
+    std::vector<Zone> dialogZones = {
         tuneZone,
         partsZone,
         doneZone,
@@ -92,7 +92,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
         {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}
     };
     
-    vector<ButtonConfig> buttons = {
+    std::vector<ButtonConfig> buttons = {
         tuneButton,
         partsButton,
         doneButton,
@@ -107,7 +107,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
     engineDialogConfig.borderColor = {0, 0, 0, 0};
     engineDialogConfig.buttons = buttons;
     engineDialogConfig.zones = dialogZones;
-    engineDialogConfig.contentAreas = vector<SDL_Rect>{engineBayFillRect, sidebarRect, gapRect};
+    engineDialogConfig.contentAreas = std::vector<SDL_Rect>{engineBayFillRect, sidebarRect, gapRect};
     engineDialogConfig.font = state.assets.GetMainFont();
     engineDialogConfig.bitmaps["background"] = {
         state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),

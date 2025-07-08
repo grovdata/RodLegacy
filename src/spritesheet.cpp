@@ -47,7 +47,7 @@ void Spritesheet::UpdateSprite() {
 }
 
 void Spritesheet::Print() {
-    cout << "SelectSprite " << currentX << "," << currentY << ": [" << clipRect.x << "," << clipRect.y << ", " << clipRect.w << ", " << clipRect.h << "]" << endl;
+    std::cout << "SelectSprite " << currentX << "," << currentY << ": [" << clipRect.x << "," << clipRect.y << ", " << clipRect.w << ", " << clipRect.h << "]" << std::endl;
 }
 
 void Spritesheet::Draw() {

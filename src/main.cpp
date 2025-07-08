@@ -1,4 +1,9 @@
 #include "global.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "mouse.h"
 #include "parsers/libp.h"
 #include "state.h"
@@ -6,11 +11,6 @@
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
 #include <filesystem>
-
-#ifdef _WIN32
-#include <windows.h>
-#define SDL_MAIN_HANDLED
-#endif
 
 namespace fs = std::filesystem;
 

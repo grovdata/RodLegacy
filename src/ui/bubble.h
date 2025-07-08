@@ -7,8 +7,6 @@
 
 // TODO: More flexible speech bubbles with 9-patch?
 
-using namespace std;
-
 typedef enum {
     BUBBLE_LEFT,
     BUBBLE_RIGHT,
@@ -25,11 +23,11 @@ class Bubble: public IDrawable {
         SDL_Rect fontRect;
         Bitmap *bubble;
 
-        void UpdateText(string text);
+        void UpdateText(std::string& text);
 
 
     public:
-        Bubble(string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss);
+        Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss);
         ~Bubble();
         virtual void Draw() override;
         virtual void SetVisible(bool visible) override;

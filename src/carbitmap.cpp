@@ -66,7 +66,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     byte_vector& libFile = state.assets.GetLibPData();
     
     // Load original body
-    vector<uint16_t> carPalette = GetStandardCarColor(color);
+    std::vector<uint16_t> carPalette = GetStandardCarColor(color);
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
     auto* originalAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (originalAsset) {
@@ -306,7 +306,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;
     CarModel model = car->GetModel();
     
-    vector<uint16_t> carPalette = GetStandardCarColor(newColor);
+    std::vector<uint16_t> carPalette = GetStandardCarColor(newColor);
     
     // Reload bitmap with new palette
     Asset carAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index};

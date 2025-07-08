@@ -1,8 +1,8 @@
 #include "newspaper.h"
 #include "state.h"
 
-const string autoParts = "------------ PARTS ------------";
-const string usedCars = "---------- USED CARS ----------";
+const std::string autoParts = "------------ PARTS ------------";
+const std::string usedCars = "---------- USED CARS ----------";
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
     page = 0;

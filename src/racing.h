@@ -10,8 +10,6 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <SDL2/SDL.h>
 #include <vector>
 #include "scene.h"
-using namespace std;
-
 
 class Racing {
 
@@ -37,9 +35,9 @@ private:
 	float fPlayerCurvature = 0.0f;			// Accumulation of player curvature
 	float fSpeed = 0.0f;			// Current player speed
 
-	vector<pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
+	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
 
-	list<float> listLapTimes;		// List of previous lap times
+	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
 
 	// Move to generic

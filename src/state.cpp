@@ -13,7 +13,7 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
     try {
         assets.Init(gamePath);
         assets.ReadAssets();
-        pair<int, vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
+        std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
         carData.ReadEntries(assets.GetSrData(), GetTomlFile(), entries);
 
@@ -72,7 +72,7 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
 
 State::~State() = default;
 
-const string State::GetTomlFile() {
+const std::string State::GetTomlFile() {
     return "../data/cars.toml";
 }
 

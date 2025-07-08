@@ -8,8 +8,6 @@
 
 #include "carcolor.h"
 
-using namespace std;
-
 const char *SrLibFileNames[] = {
     "lib.start",
     "lib.p",
@@ -86,8 +84,8 @@ void SrLibDebugBitplanes(const uint8_t* data, int width, int height, int depth) 
 /// @brief Read metadata about bitmaps in library file
 /// @param filename
 /// @return Map of int (total entries) and BitmapEntry_t metadata struct
-pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const vector<uint8_t>& data) {
-    vector<BitmapEntry_t> result;
+std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::vector<uint8_t>& data) {
+    std::vector<BitmapEntry_t> result;
     VectorReader reader(data);
     
     uint16_t totalEntriesCount = reader.ReadUint16BE();
@@ -107,36 +105,36 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const vector<uint8_t>
         result.push_back(newEntry);
     }
     
-    return pair<int, vector<BitmapEntry_t>>(totalEntriesCount, result);
+    return std::pair<int, std::vector<BitmapEntry_t>>(totalEntriesCount, result);
 }
 
-vector<uint8_t> BitmapParser::GetPackedData(const vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
+std::vector<uint8_t> BitmapParser::GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
     int headerSize = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount);
     int fileOffset = headerSize + bitmapEntry.offset;
     
     if (fileOffset + bitmapEntry.sizePacked > (int)data.size()) {
-        throw runtime_error("Can't read data because offset is larger than data size.");
+        throw std::runtime_error("Can't read data because offset is larger than data size.");
     }
     
-    return vector<uint8_t>(
+    return std::vector<uint8_t>(
         data.begin() + fileOffset,
         data.begin() + fileOffset + bitmapEntry.sizePacked
     );
 }
 
-vector<uint8_t> BitmapParser::UnpackData(const vector<pair<int, uint8_t>>& rle, const BitmapEntry_t& sprite, const vector<uint8_t>& data) {
+std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, uint8_t>>& rle, const BitmapEntry_t& sprite, const std::vector<uint8_t>& data) {
     int p = 0;
     int width = sprite.width / 8;
     int height = sprite.height;
     int depth = sprite.depth;
     size_t size_expected = (sprite.width * sprite.height * sprite.depth) / 8;
 
-    vector<uint8_t> flat_bp;
+    std::vector<uint8_t> flat_bp;
 
     int pos = 0;
 
     if (rle.size() != 16) {
-        cout << "No valid RLE table!" << endl;
+        std::cout << "No valid RLE table!" << std::endl;
         return flat_bp;
     }
 
@@ -228,7 +226,7 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
 }
 
 // Converts 12bit palette to RGB and adds EHB colors needed for the Amiga graphics
-Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) {
+Palette BitmapParser::PreparePalette(const std::vector<uint16_t>& palette, bool ehb) {
     Palette rval;
 
     // Add RGB colors from the palette
@@ -253,7 +251,7 @@ Palette BitmapParser::PreparePalette(const vector<uint16_t>& palette, bool ehb) 
 }
 
 // Creates a black palette except for color 1-10 (car shades) and EHB counterparts
-Palette BitmapParser::PrepareCarPalette(const vector<uint16_t>& palette) {
+Palette BitmapParser::PrepareCarPalette(const std::vector<uint16_t>& palette) {
     Palette rval;
 
     // Add RGB colors from the palette
@@ -323,9 +321,9 @@ SrLibColor BitmapParser::GetRGBFromRGB4(uint16_t rgb4) {
     return color;
 }
 
-vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const string& filename) {
-    vector<pair<BitmapEntry_t, vector<uint8_t>>> result;
-    pair<int, vector<BitmapEntry_t>> entries = ReadEntries(filename);
+std::vector<std::pair<BitmapEntry_t, std::vector<uint8_t>>> BitmapParser::ReadAllImages(const std::string& filename) {
+    std::vector<std::pair<BitmapEntry_t, std::vector<uint8_t>>> result;
+    std::pair<int, std::vector<BitmapEntry_t>> entries = ReadEntries(filename);
 
     // for (int i = 0; i < entries.second.size(); i++) {
     //     auto b = entries.second[i];
@@ -338,8 +336,8 @@ vector<pair<BitmapEntry_t, vector<uint8_t>>> BitmapParser::ReadAllImages(const s
     return result;
 }
 
-vector<uint8_t> BitmapParser::ReadImage(const vector<uint8_t>& data, BitmapEntry_t entry, int, int totalEntriesCount) {
-    vector<uint8_t> packedData = GetPackedData(data, entry, totalEntriesCount);
+std::vector<uint8_t> BitmapParser::ReadImage(const std::vector<uint8_t>& data, BitmapEntry_t entry, int, int totalEntriesCount) {
+    std::vector<uint8_t> packedData = GetPackedData(data, entry, totalEntriesCount);
     return UnpackData(RLE, entry, packedData);
 }
 
@@ -368,7 +366,7 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
 }
 
 // Return rows, columns for spritesheet
-pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
+std::pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
@@ -376,24 +374,24 @@ pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
                 case CAR_TIRES_BRAND:
                 case CAR_TIRES_RACING:
                 case CAR_TIRES_STOCK:
-                    return make_pair(1, 4);
+                    return std::make_pair(1, 4);
                 case PHONEBOOK_GUY:
-                    return make_pair(2, 5);
+                    return std::make_pair(2, 5);
                 case DECALS:
-                    return make_pair(2, 4);
+                    return std::make_pair(2, 4);
                 case GUS_GAS_ATTENDANT:
-                    return make_pair(1, 4);
+                    return std::make_pair(1, 4);
                 default:
-                    return make_pair(0, 0);
+                    return std::make_pair(0, 0);
             }
         }
 
         default:
-            return make_pair(0, 0);
+            return std::make_pair(0, 0);
     }
 }
 
-vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
+std::vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
     switch (palette) {
         case StockPaletteAmigaDiner:
             return PAL1;
@@ -404,7 +402,7 @@ vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
     }
 }
 
-vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
+std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
@@ -427,23 +425,23 @@ vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
 }
 
 // File-based wrapper for ReadEntries
-pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filename) {
+std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::string& filename) {
     // Read file into vector
-    ifstream file(filename, ios::binary | ios::ate);
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file) {
-        cerr << "File error: Unable to open file " << filename << endl;
-        return make_pair(0, vector<BitmapEntry_t>());
+        std::cerr << "File error: Unable to open file " << filename << std::endl;
+        return std::make_pair(0, std::vector<BitmapEntry_t>());
     }
     
     // Get file size and create vector
-    streamsize size = file.tellg();
-    file.seekg(0, ios::beg);
-    vector<uint8_t> buffer(size);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(size);
     
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        cerr << "File error: Unable to read file " << filename << endl;
-        return make_pair(0, vector<BitmapEntry_t>());
+       std::cerr << "File error: Unable to read file " << filename << std::endl;
+        return std::make_pair(0, std::vector<BitmapEntry_t>());
     }
     
     // Use the new vector-based implementation
@@ -451,23 +449,23 @@ pair<int, vector<BitmapEntry_t>> BitmapParser::ReadEntries(const string& filenam
 }
 
 // File-based wrapper for GetPackedData
-vector<uint8_t> BitmapParser::GetPackedData(const string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
+std::vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
     // Read file into vector
-    ifstream file(filename, ios::binary | ios::ate);
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file) {
-        cerr << "File error: Unable to open file " << filename << endl;
-        return vector<uint8_t>();
+        std::cerr << "File error: Unable to open file " << filename << std::endl;
+        return std::vector<uint8_t>();
     }
     
     // Get file size and create vector
-    streamsize size = file.tellg();
-    file.seekg(0, ios::beg);
-    vector<uint8_t> buffer(size);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(size);
     
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        cerr << "File error: Unable to read file " << filename << endl;
-        return vector<uint8_t>();
+        std::cerr << "File error: Unable to read file " << filename << std::endl;
+        return std::vector<uint8_t>();
     }
     
     // Use the new vector-based implementation
@@ -475,23 +473,23 @@ vector<uint8_t> BitmapParser::GetPackedData(const string& filename, const Bitmap
 }
 
 // File-based wrapper for ReadImage
-vector<uint8_t> BitmapParser::ReadImage(const string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
+std::vector<uint8_t> BitmapParser::ReadImage(const std::string& filename, BitmapEntry_t entry, int index, int totalEntriesCount) {
     // Read file into vector
-    ifstream file(filename, ios::binary | ios::ate);
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file) {
-        cerr << "File error: Unable to open file " << filename << endl;
-        return vector<uint8_t>();
+        std::cerr << "File error: Unable to open file " << filename << std::endl;
+        return std::vector<uint8_t>();
     }
     
     // Get file size and create vector
-    streamsize size = file.tellg();
-    file.seekg(0, ios::beg);
-    vector<uint8_t> buffer(size);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(size);
     
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        cerr << "File error: Unable to read file " << filename << endl;
-        return vector<uint8_t>();
+        std::cerr << "File error: Unable to read file " << filename << std::endl;
+        return std::vector<uint8_t>();
     }
     
     // Use the new vector-based implementation
@@ -537,11 +535,11 @@ void SrLibDataCleanupCarString(char* str) {
 }
 
 // 0xA849C
-vector<string> SrLibReadStrings(const uint8_t* data, int offset, size_t dataSize) {
-    vector<string> result;
+std::vector<std::string> SrLibReadStrings(const uint8_t* data, int offset, size_t dataSize) {
+    std::vector<std::string> result;
     const char* ptr = (const char*)data + offset;
     while (ptr < (const char*)data + dataSize) {
-        result.push_back(string(ptr));
+        result.push_back(std::string(ptr));
         ptr += strlen(ptr) + 1;
     }
     return result;

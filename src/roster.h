@@ -5,8 +5,6 @@
 #include "car.h"
 #include "cardata.h"
 
-using namespace std;
-
 class Opponent {
     public:
     Driver driver;
@@ -22,9 +20,9 @@ class Opponent {
 
 class Roster {
     private:
-        vector<string> stockDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
-        vector<Opponent> opponents;
-        vector<Opponent>::iterator currentOpponent;
+        std::vector<std::string> stockDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
+        std::vector<Opponent> opponents;
+        std::vector<Opponent>::iterator currentOpponent;
         Driver GenerateRandomDriver(int preferredCarIndex);
     public:
         Roster();

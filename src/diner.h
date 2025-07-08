@@ -23,7 +23,7 @@ class Diner: public CarScene {
     bool exitingCar;
     double waitTimer;
 
-    string GetOpponentText(Opponent *opponent);
+    std::string GetOpponentText(Opponent *opponent);
 
     // Add a map to store opponent car bitmaps
     std::map<std::string, std::unique_ptr<CarBitmap>> opponentCarBitmaps;

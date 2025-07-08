@@ -52,13 +52,13 @@ public:
     void UpdateAsset(byte_vector& libfile, int index, Palette& carPalette);
     void UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette);
     Bitmap* GetBitmapAsset(const Asset& asset);
-    Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const vector<uint16_t>& carPalette);
+    Bitmap* GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const std::vector<uint16_t>& carPalette);
     const std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>>& GetMousePointers() const {
         return mousePointers;
     }
     Palette GetStockPalette(StockPalette palette);
 
-    pair<int, vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
+    std::pair<int, std::vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
     Spritesheet* GetCarDecals();
 
@@ -77,9 +77,9 @@ private:
 
     BitmapParser bp;
 
-    pair<int, vector<BitmapEntry_t>> imageEntries;
-    vector<pair<Asset, unique_ptr<Bitmap>>> imageAssets;
-    map<SrLibAmigaSpriteAsset, unique_ptr<Bitmap>> mousePointers;
+    std::pair<int, std::vector<BitmapEntry_t>> imageEntries;
+    std::vector<std::pair<Asset, std::unique_ptr<Bitmap>>> imageAssets;
+    std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>> mousePointers;
 
     Spritesheet* carDecals;
 
@@ -92,14 +92,14 @@ private:
     byte_vector srData_vec;
     byte_vector srExeData_vec;
 
-    map<StockPalette, Palette> stockPalettes;
+    std::map<StockPalette, Palette> stockPalettes;
 
     void InitFonts();
     void InitMousePointers();
     void InitGameFiles();
     void InitStockPalettes();
     fs::path ResolvePath(fs::path relativePath);
-    void UpdateAssetWithPalette(byte_vector& libfile, int index, const vector<uint16_t>& carPalette);
+    void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
 
 
     static fs::path LoadSavedGamePath();

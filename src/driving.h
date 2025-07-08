@@ -7,12 +7,11 @@
 
 #include <vector>
 
-using namespace std;
 
 class Driving: public Scene {
    private:
 
-    vector<Bitmap*> interior;
+    std::vector<Bitmap*> interior;
     Racing *racing;
 
     SDL_Event *lastEvent;

@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <cstdint>
-using namespace std;
 
 enum StandardCarColor {
     CarColorRed,
@@ -36,4 +35,4 @@ enum StandardCarColor {
 // TODO: The King colors
 
 
-vector<uint16_t> GetStandardCarColor(StandardCarColor col);
+std::vector<uint16_t> GetStandardCarColor(StandardCarColor col);

@@ -6,7 +6,6 @@
 #include <fstream>
 #include <SDL.h>
 #include "parsers/libp.h"
-using namespace std;
 
 CarData::CarData() {
 }
@@ -15,7 +14,7 @@ CarData::~CarData() {
 
 }
 
-void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, string tomlfile, pair<int, vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
     ReadCarsBuiltin(datafilebuf, bitmaps);
     ReadCarsFromTomlFile(tomlfile);
 }
@@ -69,7 +68,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
 }
 
 bool CarData::CarIsValid(toml::table *table) {
-    vector<string> mandatoryKeys = {"id", "index", "vendor", "name", "year", "baseSpeed", "width", "height", "rearWheelX", "rearWheelY", "gasCapX", "gasCapY", "frontWheelX", "frontWheelY", "driverX", "driverY"};
+    std::vector<std::string> mandatoryKeys = {"id", "index", "vendor", "name", "year", "baseSpeed", "width", "height", "rearWheelX", "rearWheelY", "gasCapX", "gasCapY", "frontWheelX", "frontWheelY", "driverX", "driverY"};
 
     for (const auto& key : mandatoryKeys) {
         if (table->find(key) == table->end()) {
@@ -86,7 +85,7 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
     return search != table->end();
 }
 
-void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, pair<int, vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
     int metadataCount;
 
     // Convert vector<unsigned char> to unsigned char*
@@ -123,9 +122,9 @@ CarMetadata_t CarData::GetCarMetadata(int carIndex) {
     return carMetadata[index];
 }
 
-void CarData::ReadCarsFromTomlFile(string filename) {
+void CarData::ReadCarsFromTomlFile(std::string filename) {
     
-    ifstream file(filename);
+    std::ifstream file(filename);
     if (!file.good()) {
         SDL_Log("Custom cars TOML file %s does not exist, skipping", filename.c_str());
         return;
@@ -134,11 +133,11 @@ void CarData::ReadCarsFromTomlFile(string filename) {
 
     try {
         const auto data = toml::parse(filename);
-        const auto table = toml::find<vector<toml::table>>(data, "cars");
+        const auto table = toml::find<std::vector<toml::table>>(data, "cars");
         for (auto car : table) {
             if (!CarIsValid(&car)) {
                 if (MapContainsKey(&car, "id")) {
-                    string id = car["id"].as_string();
+                    std::string id = car["id"].as_string();
                     SDL_Log("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
                 } else {
                     SDL_Log("Car section incomplete, proceeding to the next one\n");
@@ -172,7 +171,7 @@ void CarData::ReadCarsFromTomlFile(string filename) {
             allCarModels.insert(newModel);
         }
     } catch (const toml::type_error &e) {
-        cout << e.what() << endl;
+        std::cout << e.what() << std::endl;
     }
 }
 

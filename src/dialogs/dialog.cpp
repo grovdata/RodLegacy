@@ -88,7 +88,7 @@ void Dialog::Draw() {
     }
 
     // Sort in z-order
-    vector<DialogBitmap> sortedBitmaps;
+    std::vector<DialogBitmap> sortedBitmaps;
     for (const auto& bitmap : bitmaps) {
         sortedBitmaps.push_back(bitmap.second);
     }

@@ -2,8 +2,6 @@
 #include "dialog.h"
 #include <functional>
 
-using namespace std;
-
 struct ScrollButtonsConfig {
     SDL_Rect topRect;
     SDL_Rect upRect;
@@ -12,8 +10,8 @@ struct ScrollButtonsConfig {
 };
 
 struct ListDialogConfig {  
-    vector<string> labels;
-    function<void(int)> onItemSelected;
+    std::vector<std::string> labels;
+    std::function<void(int)> onItemSelected;
     SDL_Rect listBoxRect;
     SDL_Rect selectedItemRect;
     SDL_Color normalTextColor = {0xFF, 0xFF, 0xFF, 0xFF};

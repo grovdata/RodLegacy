@@ -5,8 +5,6 @@
 #include "../parsers/libp.h"
 #include "../bitmap.h"
 
-using namespace std;
-
 class HUD: public IDrawable {
    private:
     SrLibColor backgroundColor;
