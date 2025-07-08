@@ -45,7 +45,8 @@ if host_machine.system() == 'linux'
             'webp=disabled',
             'svg=disabled',
             'use_imageio=disabled',
-            'tests=disabled'
+            'tests=disabled',
+            'test=disabled'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -55,7 +56,8 @@ if host_machine.system() == 'linux'
             'default_library=static',
             'flac=disabled',
             'mpg123=disabled',
-            'opus=disabled'
+            'opus=disabled',
+            'test=disabled'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
@@ -74,7 +76,8 @@ elif host_machine.system() == 'windows'
             'webp=disabled',
             'svg=disabled',
             'use_imageio=disabled',
-            'tests=disabled'
+            'tests=disabled',
+            'test=disabled'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -84,7 +87,8 @@ elif host_machine.system() == 'windows'
             'default_library=static',
             'flac=disabled',
             'mpg123=disabled',
-            'opus=disabled'
+            'opus=disabled',
+            'test=disabled'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
