@@ -1,0 +1,253 @@
+FROM debian:bullseye
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install essential tools
+RUN apt update && apt install -y \
+    build-essential \
+    python3 python3-pip python3-venv \
+    git wget unzip curl \
+    ninja-build meson \
+    mingw-w64 gcc-mingw-w64 g++-mingw-w64 \
+    pkg-config \
+    cmake \
+    autoconf automake libtool \
+    libogg-dev libvorbis-dev
+
+# Create virtual environment and install latest meson
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN . /opt/venv/bin/activate && \
+    pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir meson
+
+# Build SDL2 for MinGW (targeting Windows XP)
+WORKDIR /opt
+RUN wget https://github.com/libsdl-org/SDL/releases/download/release-2.32.2/SDL2-2.32.2.tar.gz
+RUN tar -xzf SDL2-2.32.2.tar.gz
+RUN rm SDL2-2.32.2.tar.gz
+
+RUN cd SDL2-2.32.2 && \
+    mkdir build-mingw && cd build-mingw && \
+    cmake .. \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DCMAKE_FIND_ROOT_PATH=/usr/i686-w64-mingw32 \
+      -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+      -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+      -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+      -DCMAKE_INSTALL_PREFIX=/opt/sdl2-mingw \
+      -DCMAKE_INSTALL_LIBDIR=/opt/sdl2-mingw/lib \
+      -DCMAKE_INSTALL_INCLUDEDIR=/opt/sdl2-mingw/include \
+      -DSDL_STATIC=ON \
+      -DSDL_SHARED=OFF \
+      -DSDL_STATIC_PIC=ON \
+      -DSDL_MAIN=ON \
+      -DSDL_TEST=OFF \
+      -DSDL_ATOMIC=OFF \
+      -DSDL_AUDIO=ON \
+      -DSDL_VIDEO=ON \
+      -DSDL_RENDER=ON \
+      -DSDL_EVENTS=ON \
+      -DSDL_JOYSTICK=ON \
+      -DSDL_HAPTIC=OFF \
+      -DSDL_POWER=OFF \
+      -DSDL_THREADS=ON \
+      -DSDL_TIMERS=ON \
+      -DSDL_FILE=ON \
+      -DSDL_LOADSO=ON \
+      -DSDL_CPUINFO=OFF \
+      -DSDL_FILESYSTEM=OFF \
+      -DSDL_DLOPEN=ON \
+      -DSDL_SENSOR=OFF \
+      -DSDL_LOCALE=OFF \
+      -DSDL_MISC=OFF \
+      -DSDL_VIDEO_VULKAN=OFF \
+      -DSDL_VIDEO_METAL=OFF \
+      -DSDL_VIDEO_OPENGL=OFF \
+      -DSDL_VIDEO_OPENGLES=OFF \
+      -DSDL_VIDEO_OPENGLES2=OFF \
+      -DSDL_VIDEO_DIRECTFB=OFF \
+      -DSDL_VIDEO_DRIVER_WINDOWS=ON \
+      -DSDL_VIDEO_DRIVER_X11=OFF \
+      -DSDL_VIDEO_DRIVER_WAYLAND=OFF \
+      -DSDL_VIDEO_DRIVER_COCOA=OFF \
+      -DSDL_AUDIO_DRIVER_WINMM=ON \
+      -DSDL_AUDIO_DRIVER_PULSE=OFF \
+      -DSDL_AUDIO_DRIVER_ALSA=OFF \
+      -DSDL_AUDIO_DRIVER_COREAUDIO=OFF \
+      -DSDL_JOYSTICK_DRIVER_WINDOWS=ON \
+      -DSDL_JOYSTICK_DRIVER_LINUX=OFF \
+      -DSDL_JOYSTICK_DRIVER_COCOA=OFF \
+      -DSDL_HAPTIC_DRIVER_WINDOWS=OFF \
+      -DSDL_HAPTIC_DRIVER_LINUX=OFF \
+      -DSDL_HAPTIC_DRIVER_COCOA=OFF \
+      -DSDL_POWER_DRIVER_WINDOWS=OFF \
+      -DSDL_POWER_DRIVER_LINUX=OFF \
+      -DSDL_POWER_DRIVER_COCOA=OFF \
+      -DSDL_THREAD_PTHREAD=OFF \
+      -DSDL_THREAD_WINDOWS=ON \
+      -DSDL_TIMER_WINDOWS=ON \
+      -DSDL_TIMER_UNIX=OFF \
+      -DSDL_FILE_WINDOWS=ON \
+      -DSDL_FILE_UNIX=OFF \
+      -DSDL_LOADSO_WINDOWS=ON \
+      -DSDL_LOADSO_UNIX=OFF \
+      -DSDL_CPUINFO_UNIX=OFF \
+      -DSDL_FILESYSTEM_WINDOWS=OFF \
+      -DSDL_FILESYSTEM_UNIX=OFF \
+      -DSDL_DLOPEN_UNIX=OFF \
+      -DSDL_SENSOR_WINDOWS=OFF \
+      -DSDL_SENSOR_UNIX=OFF \
+      -DSDL_LOCALE_UNIX=OFF \
+      -DSDL_MISC_UNIX=OFF \
+      -DCMAKE_C_FLAGS="-march=i686 -D_WIN32_WINNT=0x0501 -static-libgcc -static-libstdc++" \
+      -DCMAKE_CXX_FLAGS="-march=i686 -std=c++17 -D_WIN32_WINNT=0x0501 -static-libgcc -static-libstdc++" && \
+    make -j$(nproc) && \
+    make install
+
+# Build OGG for MinGW
+WORKDIR /opt
+RUN wget https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
+RUN tar -xzf libogg-1.3.5.tar.gz
+RUN rm libogg-1.3.5.tar.gz
+
+RUN cd libogg-1.3.5 && \
+    ./configure \
+      --host=i686-w64-mingw32 \
+      --prefix=/opt/sdl2-mingw \
+      --disable-shared --enable-static && \
+    make -j$(nproc) && \
+    make install
+
+# Build Vorbis for MinGW
+RUN wget https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
+RUN tar -xzf libvorbis-1.3.7.tar.gz
+RUN rm libvorbis-1.3.7.tar.gz
+
+RUN cd libvorbis-1.3.7 && \
+    ./configure \
+      --host=i686-w64-mingw32 \
+      --prefix=/opt/sdl2-mingw \
+      --disable-shared --enable-static \
+      --with-ogg=/opt/sdl2-mingw \
+      CPPFLAGS="-I/opt/sdl2-mingw/include" \
+      LDFLAGS="-L/opt/sdl2-mingw/lib" && \
+    make -j$(nproc) && \
+    make install
+
+# Create pkg-config file for SDL2
+RUN mkdir -p /opt/sdl2-mingw/lib/pkgconfig && \
+    cat > /opt/sdl2-mingw/lib/pkgconfig/sdl2.pc <<'EOF'
+prefix=/opt/sdl2-mingw
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: sdl2
+Description: Simple DirectMedia Layer is a cross-platform multimedia library designed to provide low level access to audio, keyboard, mouse, joystick, 3D hardware via OpenGL, and 2D video framebuffer.
+Version: 2.32.2
+Requires:
+Requires.private:
+Conflicts:
+Libs: -L${libdir} -lSDL2 -lm -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid -lsetupapi -lhid -static-libgcc -static-libstdc++
+Libs.private: -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid -lsetupapi -lhid -static-libgcc -static-libstdc++
+Cflags: -I${includedir} -I${includedir}/SDL2 -Dmain=SDL_main
+EOF
+
+# Create pkg-config file for SDL2main
+RUN cat > /opt/sdl2-mingw/lib/pkgconfig/sdl2main.pc <<'EOF'
+prefix=/opt/sdl2-mingw
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: sdl2main
+Description: SDL2 main entry point library for Windows
+Version: 2.32.2
+Requires: sdl2
+Conflicts:
+Libs: -L${libdir}
+Cflags: -I${includedir} -I${includedir}/SDL2 -Dmain=SDL_main
+EOF
+
+# Create pkg-config file for OGG
+RUN cat > /opt/sdl2-mingw/lib/pkgconfig/ogg.pc <<'EOF'
+prefix=/opt/sdl2-mingw
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: ogg
+Description: ogg is a library for manipulating ogg bitstreams
+Version: 1.3.5
+Requires:
+Conflicts:
+Libs: -L${libdir} -logg
+Cflags: -I${includedir}
+EOF
+
+# Create pkg-config file for Vorbis
+RUN cat > /opt/sdl2-mingw/lib/pkgconfig/vorbis.pc <<'EOF'
+prefix=/opt/sdl2-mingw
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: vorbis
+Description: vorbis is the primary Ogg Vorbis library
+Version: 1.3.7
+Requires: ogg
+Conflicts:
+Libs: -L${libdir} -lvorbis -lm
+Cflags: -I${includedir}
+EOF
+
+# Create pkg-config file for VorbisFile
+RUN cat > /opt/sdl2-mingw/lib/pkgconfig/vorbisfile.pc <<'EOF'
+prefix=/opt/sdl2-mingw
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: vorbisfile
+Description: vorbisfile is a library that provides a convenient high-level API for decoding and basic manipulation of all Vorbis I audio streams
+Version: 1.3.7
+Requires: vorbis
+Conflicts:
+Libs: -L${libdir} -lvorbisfile
+Cflags: -I${includedir}
+EOF
+
+# Create cross file for Meson
+RUN cat > /cross-mingw.txt <<'EOF'
+[binaries]
+c = 'i686-w64-mingw32-gcc'
+cpp = 'i686-w64-mingw32-g++'
+ar = 'i686-w64-mingw32-ar'
+strip = 'i686-w64-mingw32-strip'
+pkgconfig = 'pkg-config'
+windres = 'i686-w64-mingw32-windres'
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86'
+cpu = 'i686'
+endian = 'little'
+
+[paths]
+prefix = '/opt/sdl2-mingw'
+
+[properties]
+c_args = ['-march=i686', '-D_WIN32_WINNT=0x0501', '-static-libgcc', '-static-libstdc++', '-I/opt/sdl2-mingw/include']
+cpp_args = ['-march=i686', '-std=c++17', '-D_WIN32_WINNT=0x0501', '-static-libgcc', '-static-libstdc++', '-I/opt/sdl2-mingw/include']
+pkg_config_libdir = '/opt/sdl2-mingw/lib/pkgconfig'
+PKG_CONFIG_PATH = '/opt/sdl2-mingw/lib/pkgconfig'
+EOF
+
+# Set working dir for user project
+WORKDIR /project
+
+CMD ["/bin/bash"]

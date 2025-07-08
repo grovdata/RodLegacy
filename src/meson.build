@@ -17,11 +17,11 @@ lodepng_proj = subproject('lodepng',
 )
 lodepng_dep = lodepng_proj.get_variable('lodepng_dep')
 
-# Load nativefiledialog-extended
-nfd_proj = subproject('nativefiledialog-extended',
+# Load tinyfiledialogs
+tinyfiledialogs_proj = subproject('tinyfiledialogs',
     default_options: ['default_library=static']
 )
-nfd_dep = nfd_proj.get_variable('nfde_dep')
+tinyfiledialogs_dep = tinyfiledialogs_proj.get_variable('tinyfiledialogs_dep')
 
 # Platform-specific SDL2 dependencies
 if host_machine.system() == 'linux'
@@ -34,7 +34,8 @@ if host_machine.system() == 'linux'
             'tif=disabled',
             'webp=disabled',
             'svg=disabled',
-            'use_imageio=disabled'
+            'use_imageio=disabled',
+            'tests=disabled'
         ]
     )
     sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
@@ -53,9 +54,30 @@ elif host_machine.system() == 'darwin'
     sdl2_image_dep = dependency('sdl2_image', static: true)
     sdl2_mixer_dep = dependency('sdl2_mixer', static: true)
 elif host_machine.system() == 'windows'
-    # Windows: Use system libraries (easier to manage on Windows)
-    sdl2_image_dep = dependency('sdl2_image', static: true)
-    sdl2_mixer_dep = dependency('sdl2_mixer', static: true)
+    # Windows: Use subprojects for static linking (for cross-compilation)
+    sdl2_image_proj = subproject('sdl2_image',
+        default_options: [
+            'default_library=static',
+            'avif=disabled',
+            'jxl=disabled',
+            'tif=disabled',
+            'webp=disabled',
+            'svg=disabled',
+            'use_imageio=disabled',
+            'tests=disabled'
+        ]
+    )
+    sdl2_image_dep = sdl2_image_proj.get_variable('sdl2_image_dep')
+
+    sdl2_mixer_proj = subproject('sdl2_mixer',
+        default_options: [
+            'default_library=static',
+            'flac=disabled',
+            'mpg123=disabled',
+            'opus=disabled'
+        ]
+    )
+    sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
 else
     error('Unsupported platform: ' + host_machine.system())
 endif
@@ -102,13 +124,18 @@ cpp_sources = [
 
 # Include directories
 inc_dirs = include_directories(
-    'include',
-    '../subprojects/nativefiledialog-extended-1.2.1/src/include'
+    'include'
 )
 
 # Add compiler flags specific to GCC
 cpp_args = ['-ggdb2', '-O0']
 c_args = ['-ggdb2', '-O0']
+
+# Add SDL_MAIN_HANDLED only for Windows builds
+if host_machine.system() == 'windows'
+    cpp_args += ['-DSDL_MAIN_HANDLED']
+    c_args += ['-DSDL_MAIN_HANDLED']
+endif
 
 
 executable('open_sr',
@@ -120,7 +147,7 @@ executable('open_sr',
         sdl2_mixer_dep,
         adflib_dep,
         lodepng_dep,
-        nfd_dep,
+        tinyfiledialogs_dep,
     ],
     cpp_args: cpp_args,
     c_args: c_args,

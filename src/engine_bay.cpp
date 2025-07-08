@@ -2,16 +2,37 @@
 #include "engine_bay.h"
 #include "animated_bitmap.h"
 
+const int buttonWidth = 39;
+const int buttonHeight = 9;
+
 Dialog* EngineBay::CreateTuneDialog(State& state, ButtonCallback buttonCallback) {
 
+    DialogConfig tuneDialogConfig;
+
+    Bitmap* engineTuneAnimationBelt = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
+    Bitmap* engineTuneAnimationPistonLeft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
+    Bitmap* engineTuneAnimationPistonRight = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
+    Bitmap* engineTuneAnimationCrank = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
+    Bitmap* engineTuneAnimationFlywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
+    Bitmap* engineTuneAnimationCam = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
+
+    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, {0, 0, 85, 53});
+    engineTuneAnimation->SetAnimationFrames({{0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}});
+    engineTuneAnimation->SetSpeed(0.5f);
+    engineTuneAnimation->SetLoop(true);
+    engineTuneAnimation->Play();
+
+    tuneDialogConfig.bitmaps["engine_tune_animation"] = {
+        engineTuneAnimation,
+        {0, 0, 85, 53},
+        5
+    };
 }
 
 Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
     // sidebar index 295, 324 when tuning
  
-    const int buttonWidth = 39;
-    const int buttonHeight = 9;
 
     SDL_Rect engineBayRect = {24, 0, 200, 189};
     SDL_Rect engineBayFillRect = {28, 4, 193, 181};
@@ -129,24 +150,7 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
         3
     };
 
-    Bitmap* engineTuneAnimationBelt = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
-    Bitmap* engineTuneAnimationPistonLeft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
-    Bitmap* engineTuneAnimationPistonRight = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
-    Bitmap* engineTuneAnimationCrank = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
-    Bitmap* engineTuneAnimationFlywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
-    Bitmap* engineTuneAnimationCam = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
-
-    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, {0, 0, 85, 53});
-    engineTuneAnimation->SetAnimationFrames({{0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}});
-    engineTuneAnimation->SetSpeed(0.5f);
-    engineTuneAnimation->SetLoop(true);
-    engineTuneAnimation->Play();
-
-    engineDialogConfig.bitmaps["engine_tune_animation"] = {
-        engineTuneAnimation,
-        {0, 0, 85, 53},
-        5
-    };
+ 
 
     // Set up the callback in the config
     engineDialogConfig.onButtonPressed = buttonCallback;

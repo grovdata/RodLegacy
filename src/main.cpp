@@ -4,9 +4,13 @@
 #include "state.h"
 #include "scene.h"
 #include "debug_overlay.h"
-#include <nfd.h>
-#include <nfd_sdl2.h>
+#include "tinyfiledialogs.h"
 #include <filesystem>
+
+#ifdef _WIN32
+#include <windows.h>
+#define SDL_MAIN_HANDLED
+#endif
 
 namespace fs = std::filesystem;
 
@@ -41,7 +45,13 @@ void ToggleFullScreen(SDL_Window* window, bool currentState) {
     SDL_ShowCursor(currentState);
 }
 
-int main(int argc, char *argv[]) {
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = 1;
+    char* argv[] = { "open_sr.exe", nullptr };
+#else
+int main(int argc, char* argv[]) {
+#endif
 
     bool debugMode = false;
     for (int i = 1; i < argc; i++) {
@@ -57,11 +67,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (NFD_Init() != NFD_OKAY) {
-        SDL_Log("error initializing NFD: %s\n", NFD_GetError());
-        SDL_Quit();
-        return 1;
-    }
+    // tinyfiledialogs doesn't require initialization
 
     if (!win) {
         SDL_Log("error creating window: %s\n", SDL_GetError());
@@ -110,27 +116,16 @@ int main(int argc, char *argv[]) {
     try {
         gamePath = AssetManager::FindGameDirectory();
     } catch (const AssetLoadError& e) {
-        nfdu8char_t *outPath = NULL;
-        nfdwindowhandle_t nativeWindow;
-        nfdpickfolderu8args_t args = {
-            .defaultPath = nullptr,
-            .parentWindow = nativeWindow
-        };
-        if (!NFD_GetNativeWindowFromSDLWindow(win, &nativeWindow)) {
-            printf("NFD_GetNativeWindowFromSDLWindow failed: %s\n", SDL_GetError());
-        }
-        nfdresult_t result = NFD_PickFolderU8_With(&outPath, &args);
+        const char* selectedPath = tinyfd_selectFolderDialog("Select game data folder", nullptr);
             
-        if (result == NFD_OKAY) {
-            fs::path selectedPath = fs::path(outPath);
-            if (AssetManager::ValidateGamePath(selectedPath)) {
-                gamePath = selectedPath;
-                AssetManager::SaveGamePath(selectedPath);
-                NFD_FreePathU8(outPath);
+        if (selectedPath != nullptr) {
+            fs::path gameDataPath = fs::path(selectedPath);
+            if (AssetManager::ValidateGamePath(gameDataPath)) {
+                gamePath = gameDataPath;
+                AssetManager::SaveGamePath(gameDataPath);
             } else {
                 SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", 
                     "Failed to load game files from selected folder.\nPlease ensure SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are present.", win);
-                NFD_FreePathU8(outPath);
                 SDL_DestroyRenderer(renderer);
                 SDL_DestroyWindow(win);
                 SDL_JoystickClose(controller);                
@@ -285,7 +280,7 @@ int main(int argc, char *argv[]) {
 
     // delete currentScene;
     
-    NFD_Quit();
+    // tinyfiledialogs doesn't require cleanup
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
