@@ -1,7 +1,0 @@
-[wrap-git]
-url = https://git.code.sf.net/p/tinyfiledialogs/code
-revision = master
-depth = 1
-
-[provide]
-tinyfiledialogs = tinyfiledialogs_dep 
