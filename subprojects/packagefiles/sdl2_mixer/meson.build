@@ -1,3 +1,5 @@
+project('sdl2_mixer', 'c')
+
 cmake = import('cmake')
 
 sdl2_mixer_proj = cmake.subproject('sdl2_mixer',
