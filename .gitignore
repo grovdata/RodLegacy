@@ -60,7 +60,6 @@ subprojects/packagecache/
 subprojects/*/
 !subprojects/*.wrap
 !subprojects/sdl2_mixer.wrap
-!subprojects/meson.build
 !subprojects/packagefiles/
 !subprojects/packagefiles/sdl2_mixer/
 !subprojects/packagefiles/sdl2_mixer/meson.build
