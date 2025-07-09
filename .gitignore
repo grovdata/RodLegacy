@@ -41,6 +41,8 @@ src/*.bmp
 src/*.o
 src/parsers/*.o
 
+data/res/icon.ico
+
 output/*
 
 research/parsers/data
