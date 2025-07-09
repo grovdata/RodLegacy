@@ -273,6 +273,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                     SetActiveDialog(nullptr);
                     break;
             }
+        },
+        [this](Zone& zone) {
+            this->hud->SetText(zone.GetText());
         }
     ));
 

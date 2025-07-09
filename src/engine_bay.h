@@ -3,8 +3,9 @@
 #include "dialogs/dialog.h"
 #include <functional>
 
-// Define ButtonCallback type for consistency
+// Define callback types for consistency
 using ButtonCallback = std::function<void(int)>;
+using ZoneHoverCallback = std::function<void(Zone&)>;
 
 enum EngineBayState {
     ENGINE_BAY_OVERVIEW,
@@ -14,8 +15,8 @@ enum EngineBayState {
 
 class EngineBay {
 public:
-    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback);
-    static Dialog* CreateTuneDialog(State& state, ButtonCallback buttonCallback);
+    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
+    static Dialog* CreateTuneDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
     
 private:
     static void SetupOverviewState(Dialog* dialog);

@@ -5,7 +5,7 @@
 const int buttonWidth = 39;
 const int buttonHeight = 9;
 
-Dialog* EngineBay::CreateTuneDialog(State& state, ButtonCallback buttonCallback) {
+Dialog* EngineBay::CreateTuneDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback) {
 
     DialogConfig tuneDialogConfig;
 
@@ -29,7 +29,7 @@ Dialog* EngineBay::CreateTuneDialog(State& state, ButtonCallback buttonCallback)
     };
 }
 
-Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
+Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback) {
 
     // sidebar index 295, 324 when tuning
  
@@ -152,8 +152,16 @@ Dialog* EngineBay::CreateDialog(State& state, ButtonCallback buttonCallback) {
 
  
 
-    // Set up the callback in the config
+    // Set up the callbacks in the config
     engineDialogConfig.onButtonPressed = buttonCallback;
+    if (zoneHoverCallback) {
+        engineDialogConfig.onZoneHover = zoneHoverCallback;
+    } else {
+        // Default zone hover behavior - just log it
+        engineDialogConfig.onZoneHover = [](Zone& zone) {
+            SDL_Log("Engine Bay Zone Hover: %s (Zone ID: %d)", zone.GetText(), zone.GetId());
+        };
+    }
     
     // Create and return the dialog
     return new Dialog(engineDialogConfig);
