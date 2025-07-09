@@ -1,10 +1,6 @@
 name: Build Windows Release
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   release:
     types: [ published ]
 
@@ -63,7 +59,10 @@ jobs:
       run: |
         mkdir -p release
         cp builddir/src/open_sr.exe release/
-        cp -r data release/
+        cp -r data/font/font.png release/
+        cp -r data/font/bee.png release/
+        cp -r data/font/lemon.png release/
+        cp -r data/res/icon.png release/
         echo "Street Rod Legacy Windows Build" > release/README.txt
         echo "=================================" >> release/README.txt
         echo "" >> release/README.txt
@@ -77,7 +76,7 @@ jobs:
         echo "- Ctrl+F: Toggle fullscreen" >> release/README.txt
         echo "- Escape: Exit game" >> release/README.txt
 
-    - name: Create zip file
+    - name: Create zip file for release
       run: |
         cd release
         zip -r ../streetrod-legacy-windows.zip .
@@ -87,13 +86,10 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: streetrod-legacy-windows
-        path: |
-          streetrod-legacy-windows.zip
-          release/open_sr.exe
+        path: release/
         retention-days: 30
 
-    - name: Create Release (on tag)
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: streetrod-legacy-windows.zip
