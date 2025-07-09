@@ -12,17 +12,17 @@ ogg_dep = dependency('ogg')
 vorbis_dep = dependency('vorbis')
 vorbisfile_dep = dependency('vorbisfile')
 
-flac_dep = dependency('libflac', required: get_option('flac'))
+flac_dep = dependency('libflac', required: get_option('flac').enabled())
 if flac_dep.found()
   feature_args += '-DMUSIC_FLAC_LIBFLAC'
 endif
 
-mpg123_dep = dependency('mpg123', required: get_option('mpg123'))
+mpg123_dep = dependency('mpg123', required: get_option('mpg123').enabled())
 if mpg123_dep.found()
   feature_args += '-DMUSIC_MP3_MPG123'
 endif
 
-opus_dep = dependency('opusfile', required: get_option('opus'))
+opus_dep = dependency('opusfile', required: get_option('opus').enabled())
 if opus_dep.found()
   feature_args += '-DMUSIC_OPUS'
 endif
