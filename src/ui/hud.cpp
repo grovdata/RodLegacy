@@ -62,8 +62,7 @@ void HUD::SetText(const char *text) {
     SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 2, 0, bankroll);
     SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 100, 0, text);
     
-    textBitmap->UpdateFromSurface();
-    textBitmap->SaveBitmap(666);
+    textBitmap->UpdateFromSurface();    
 }
 
 void HUD::Clear() {

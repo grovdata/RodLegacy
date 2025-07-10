@@ -71,4 +71,6 @@ public:
     virtual void Hide();
     virtual bool IsVisible() const { return isVisible; }
     void OnButtonPressed(int index);
+
+    DialogBitmap* GetBitmap(const std::string& id);
 }; 

@@ -148,6 +148,14 @@ void Dialog::Hide() {
     }
 } 
 
+DialogBitmap* Dialog::GetBitmap(const std::string& id) {
+    auto it = bitmaps.find(id);
+    if (it != bitmaps.end()) {
+        return &(it->second);
+    }
+    return nullptr;
+}
+
 void Dialog::HandleEvent(SDL_Event* event) {
     if (!IsVisible()) return;
 

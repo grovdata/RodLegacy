@@ -257,19 +257,24 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     InitGameMenuDialog();
 
-    engineDialog = std::unique_ptr<Dialog>(EngineBay::CreateDialog(
-        state,
+    engineBay = std::make_unique<EngineBay>(state,
         [this](int buttonIndex) {
             switch (buttonIndex) {
                 case 0: // Tune
-                    //state.SetGameState(GAME_STATE_TUNE);
+                    if (engineBay->GetCurrentState() == ENGINE_BAY_OVERVIEW) {
+                        engineBay->SwitchToState(ENGINE_BAY_TUNING);
+                        SetActiveDialog(engineBay->GetDialog());
+                    } else {
+                        engineBay->SwitchToState(ENGINE_BAY_OVERVIEW);
+                        SetActiveDialog(engineBay->GetDialog());
+                    }
                     break;
                 case 1: // Parts
                     //state.SetGameState(GAME_STATE_PARTS);
                     break;
                 case 2: // Done
                     //state.SetGameState(GAME_STATE_GARAGE);
-                    engineDialog->Hide();
+                    engineBay->GetDialog()->Hide();
                     SetActiveDialog(nullptr);
                     break;
             }
@@ -277,8 +282,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         [this](Zone& zone) {
             this->hud->SetText(zone.GetText());
         }
-    ));
-
+    );
+    
     InitCarBitmaps();
     
     // Set initial car bitmap
@@ -476,7 +481,7 @@ void Garage::Action(ZoneId zone) {
         SetActiveDialog((Dialog*)gameMenuDialog.get());        
         break;
     case ZONE_GARAGE_ENGINE:
-        SetActiveDialog((Dialog*)engineDialog.get());
+        SetActiveDialog((Dialog*)engineBay->GetDialog());
         break;
     default:
         break;
@@ -544,14 +549,16 @@ void Garage::Draw() {
 }
 
 void Garage::OnFadeComplete() {
-    if (initialDelay) {
-        fadeCompleteTime = SDL_GetTicks64();
-    } else {
-        // Start car animation only once after fade
-        if (!animatingCar && !carBitmap) {
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-            animatingCar = true;
-        }
+    CarScene::OnFadeComplete();
+}
+
+void Garage::SetActiveDialog(Dialog *dialog) {
+    // Call the base class implementation
+    CarScene::SetActiveDialog(dialog);
+    
+    // If this is the engine bay dialog, restore the correct visibility
+    if (dialog == engineBay->GetDialog()) {
+        engineBay->OnDialogShown();
     }
 }
 

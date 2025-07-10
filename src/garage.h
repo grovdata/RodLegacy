@@ -7,6 +7,7 @@
 #include "ui/bubble.h"
 #include "dialogs/list_dialog.h"
 #include "carbitmap.h"
+#include "engine_bay.h"
 
 class Garage : public CarScene {
    private:
@@ -15,7 +16,7 @@ class Garage : public CarScene {
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
     std::unique_ptr<Dialog> gameMenuDialog;
-    std::unique_ptr<Dialog> engineDialog;
+    std::unique_ptr<EngineBay> engineBay;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
@@ -33,6 +34,7 @@ class Garage : public CarScene {
     void Action(ZoneId zone) override;
     void PushEvent(SDL_Event* event) override;
     void Draw() override;
+    void SetActiveDialog(Dialog *dialog) override;
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnCarAnimationComplete() override;
     void OnFadeComplete() override;

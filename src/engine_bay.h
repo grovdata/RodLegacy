@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dialogs/dialog.h"
+#include "state.h"
 #include <functional>
 
 // Define callback types for consistency
@@ -9,18 +10,22 @@ using ZoneHoverCallback = std::function<void(Zone&)>;
 
 enum EngineBayState {
     ENGINE_BAY_OVERVIEW,
-    ENGINE_BAY_PART_SELECT,
     ENGINE_BAY_TUNING
 };
 
 class EngineBay {
-public:
-    static Dialog* CreateDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
-    static Dialog* CreateTuneDialog(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
-    
 private:
-    static void SetupOverviewState(Dialog* dialog);
-    static void SetupTuningState(Dialog* dialog);
-    static void OnButtonPressed(Dialog* dialog, int buttonIndex);
-    static EngineBayState currentState;
+    Dialog* engineDialog;
+    Dialog* tuneDialog;
+    State* state;
+    EngineBayState currentState;
+
+public:
+    EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
+    ~EngineBay();
+    
+    Dialog* GetDialog();
+    void SwitchToState(EngineBayState newState);
+    EngineBayState GetCurrentState() const { return currentState; }
+    void OnDialogShown(); // Call this after dialog->Show() to restore correct visibility
 };
