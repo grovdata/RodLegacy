@@ -23,6 +23,7 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     SDL_Rect advanceRect = {143, 9, 10, 11};
     SDL_Rect tuningGadgetRect = {98, 9, 56, 11};
     SDL_Rect beltAnimationRect = {65, 37, 85, 53};
+    SDL_Rect leftPistonRect = {52, 68, 42, 55};
     
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
@@ -144,6 +145,28 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     tuningConfig.bitmaps["engine_tune_animation"] = {
         engineTuneAnimation,
         beltAnimationRect
+    };
+
+    Bitmap* leftPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
+    AnimatedBitmap *leftPistonAnimation = new AnimatedBitmap(leftPiston, leftPistonRect);
+    leftPistonAnimation->SetAnimationFrames({
+        {0, 0, 42, 55},
+        {42, 0, 42, 55},
+        {84, 0, 42, 55},
+        {126, 0, 42, 55},
+        {0, 55, 42, 55},
+        {42, 55, 42, 55},
+        {84, 55, 42, 55},
+        {126, 55, 42, 55},
+        }
+        );
+    leftPistonAnimation->SetSpeed(0.5f);
+    leftPistonAnimation->SetLoop(true);
+    leftPistonAnimation->Play();
+
+    tuningConfig.bitmaps["left_piston_animation"] = {
+        leftPistonAnimation,
+        leftPistonRect
     };
 
 
