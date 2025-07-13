@@ -702,6 +702,7 @@ class BitmapParser {
     std::vector<uint16_t>                                GetPalette(SrLibFile location, int index);
     static std::vector<uint16_t>                         GetStockPalette(StockPalette palette);
     LibAssetType                                    GetAssetType(SrLibFile location, int index);
+    bool                                            IsTransparent(SrLibFile location, int index);
 
     std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);

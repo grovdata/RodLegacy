@@ -5,8 +5,11 @@
 const int buttonWidth = 39;
 const int buttonHeight = 9;
 
-EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback) 
+EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback)
     : state(&state), currentState(ENGINE_BAY_OVERVIEW) {
+
+    // Initial level
+    this->tuneLevel = tuneLevel;
     
     // Common dialog configuration
     SDL_Rect engineBayRect = {24, 0, 200, 189};
@@ -28,6 +31,7 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     SDL_Rect crankRect = {80, 122, 71, 33};
     SDL_Rect flywheelRect = {150,122,43,34};
     SDL_Rect camRect = {96,110,38,14};
+    SDL_Rect tuneKnobRect = {0, 0, 16, 10};
 
 
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
@@ -44,15 +48,67 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     Bitmap* buttonBitmapDone = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE});
     
     std::vector<ButtonConfig> overviewButtons = {
-        {tuneRect, "Tune", nullptr, true, 0, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmap, {18, 31, buttonWidth, buttonHeight}}},
-        {partsRect, "Parts", nullptr, false, 1, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmap, {18, 90, buttonWidth, buttonHeight}}},
-        {doneRect, "Done", nullptr, false, 2, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}}
+        {
+            .bounds = tuneRect,
+            .text = "Tune",
+            .onClick = nullptr,
+            .defaultChoice = true,
+            .index = 0,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
+            .invisible = false,
+            .bitmapConfig = {buttonBitmap, {18, 31, buttonWidth, buttonHeight}}
+        },
+        {
+            .bounds = partsRect,
+            .text = "Parts",
+            .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 1,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
+            .invisible = false,
+            .bitmapConfig = {buttonBitmap, {18, 90, buttonWidth, buttonHeight}}
+        },
+        {
+            .bounds = doneRect,
+            .text = "Done",
+            .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 2,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
+            .invisible = false,
+            .bitmapConfig = {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}
+        }
     };
 
-    std::vector<ButtonConfig> tuningButtons = {
-        {retardRect, "Retard", nullptr, true, 0, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {98, 9, 10, 11}}},
-        {advanceRect, "Advance", nullptr, false, 1, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {143, 9, 10, 11}}},
-        {doneRect, "Done", nullptr, false, 2, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}}
+    std::vector<ButtonConfig> tuningButtons;
+    tuningButtons = {
+        {
+            .bounds = retardRect,
+            .text = "Retard",
+            .onClick = nullptr,
+            .invisible = true,
+            .bitmapConfig = {buttonBitmapDone, {98, 9, 10, 11}}
+        },
+        {
+            .bounds = advanceRect,
+            .text = "Advance",
+            .onClick = nullptr,
+            .invisible = true,
+            .bitmapConfig = {buttonBitmapDone, {143, 9, 10, 11}}
+        },
+        {
+            .bounds = doneRect,
+            .text = "Done",
+            .onClick = nullptr,
+            .invisible = false,
+            .bitmapConfig = {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}
+        }
     };
 
     // Common callback setup
@@ -238,6 +294,14 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
         camRect,
         5
     };
+
+    Bitmap* tuneKnob = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_TUNE_INDICATOR});
+    tuningConfig.bitmaps["tune_knob"] = {
+        .bitmap = tuneKnob,
+        .rect = tuneKnobRect,
+        .zOrder = 5
+    };
+
 
     tuneDialog = new Dialog(tuningConfig);
 }

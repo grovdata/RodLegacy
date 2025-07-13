@@ -24,7 +24,7 @@ class Bitmap {
 
         void     LoadBitmap(std::string filename);
         void     LoadSurface(SDL_Surface* src);
-        void     LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask = false);
+        void     LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask = false, bool opaque = false);
         void     SaveBitmap(int index);
         void     CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect);
 

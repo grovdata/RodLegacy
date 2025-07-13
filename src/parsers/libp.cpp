@@ -365,6 +365,23 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
     }
 }
 
+bool BitmapParser::IsTransparent(SrLibFile location, int index) {
+    switch (location) {
+        case SrLibFileAmigaLibP: {
+            case ENGINE_CRANK_ANIMATION:
+            case ENGINE_FLYWHEEL_ANIMATION:
+            case ENGINE_BELT_ANIMATION:
+            case ENGINE_CAM_ANIMATION:
+            case ENGINE_PISTON_LEFT_ANIMATION:
+            case ENGINE_PISTON_RIGHT_ANIMATION:
+               return false;
+            default:
+                return true;
+        }
+    }
+    return true;
+}
+
 // Return rows, columns for spritesheet
 std::pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
     switch (location) {

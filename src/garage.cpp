@@ -257,7 +257,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
     InitGameMenuDialog();
 
-    engineBay = std::make_unique<EngineBay>(state,
+    engineBay = std::make_unique<EngineBay>(
+        3, // TODO: Send level for the car
+        state,
         [this](int buttonIndex) {
             switch (buttonIndex) {
                 case 0: // Tune

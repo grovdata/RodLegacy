@@ -24,6 +24,7 @@ struct ButtonConfig {
     SDL_Color textColor = ButtonDefaultTextColor;
     SDL_Color fillColor = ButtonDefaultFillColor;
     SDL_Color borderColor = ButtonDefaultBorderColor;
+    bool invisible = false;  // If true, button won't display any graphics but can still be clicked
 
     // Optional bitmap configuration
     struct {

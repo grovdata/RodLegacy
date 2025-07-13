@@ -280,7 +280,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     }
 }
 
-void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask) {
+void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask, bool opaque) {
     if (int(colors.size()) != width * height) {
         std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
         return;
@@ -309,7 +309,11 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
             r = g = b = 0;  // Set color to black for mask pixels
         } else {
             // Normal bitmap behavior: first pixel transparent, rest opaque
-            a = (r == 0 && g == 0 && b == 0) ? 0 : 255;
+            if (opaque) {
+                a = 255;
+            } else {
+                a = (r == 0 && g == 0 && b == 0) ? 0 : 255;
+            }
         }
 
         pixels[i] = SDL_MapRGBA(surface->format, r, g, b, a);

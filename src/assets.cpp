@@ -184,16 +184,17 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
 
     bool isMask = a.type == LibAssetMask;
+    bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
 
     if (a.type == LibAssetSpritesheet) {
         std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
         std::unique_ptr<Spritesheet> spriteSheet = std::make_unique<Spritesheet>(info.first, info.second);
-        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask);
+        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
         spriteSheet->SetDimensions(b.width, b.height);
         imageAssets.push_back(std::make_pair(a, std::move(spriteSheet)));
     } else {
         std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
-        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
         bitmap->SetDimensions(b.width, b.height);
         imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
     }

@@ -19,9 +19,10 @@ private:
     Dialog* tuneDialog;
     State* state;
     EngineBayState currentState;
+    int tuneLevel = 0;
 
 public:
-    EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
+    EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
     ~EngineBay();
     
     Dialog* GetDialog();
