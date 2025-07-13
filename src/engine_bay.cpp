@@ -24,6 +24,7 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     SDL_Rect tuningGadgetRect = {98, 9, 56, 11};
     SDL_Rect beltAnimationRect = {65, 37, 85, 53};
     SDL_Rect leftPistonRect = {52, 68, 42, 55};
+    SDL_Rect rightPistonRect = {135, 68, 41, 54};
     
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
@@ -149,17 +150,18 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
 
     Bitmap* leftPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
     AnimatedBitmap *leftPistonAnimation = new AnimatedBitmap(leftPiston, leftPistonRect);
-    leftPistonAnimation->SetAnimationFrames({
-        {0, 0, 42, 55},
-        {42, 0, 42, 55},
-        {84, 0, 42, 55},
-        {126, 0, 42, 55},
-        {0, 55, 42, 55},
-        {42, 55, 42, 55},
-        {84, 55, 42, 55},
-        {126, 55, 42, 55},
-        }
-        );
+    // leftPistonAnimation->SetAnimationFrames({
+    //     {0, 0, 42, 55},
+    //     {42, 0, 42, 55},
+    //     {84, 0, 42, 55},
+    //     {126, 0, 42, 55},
+    //     {0, 55, 42, 55},
+    //     {42, 55, 42, 55},
+    //     {84, 55, 42, 55},
+    //     {126, 55, 42, 55},
+    //     }
+    //     );
+    leftPistonAnimation->SetAnimationFrames(42, 55, 4, 2);
     leftPistonAnimation->SetSpeed(0.5f);
     leftPistonAnimation->SetLoop(true);
     leftPistonAnimation->Play();
@@ -168,6 +170,30 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
         leftPistonAnimation,
         leftPistonRect
     };
+
+    Bitmap* rightPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
+    AnimatedBitmap *rightPistonAnimation = new AnimatedBitmap(rightPiston, rightPistonRect);
+    // rightPistonAnimation->SetAnimationFrames({
+    //     {0, 0, 41, 54},
+    //     {41, 0, 41, 54},
+    //     {83, 0, 41, 54},
+    //     {123, 0, 41, 54},
+    //     {0, 54, 41, 54},
+    //     {41, 54, 41, 54},
+    //     {83, 54, 41, 54},
+    //     {123, 54, 41, 54},
+    //     }
+    //     );
+    rightPistonAnimation->SetAnimationFrames(41, 54, 4, 2);
+    rightPistonAnimation->SetSpeed(0.5f);
+    rightPistonAnimation->SetLoop(true);
+    rightPistonAnimation->Play();
+
+    tuningConfig.bitmaps["right_piston_animation"] = {
+        rightPistonAnimation,
+        rightPistonRect
+    };
+
 
 
 
