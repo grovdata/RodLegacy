@@ -279,6 +279,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                     engineBay->GetDialog()->Hide();
                     SetActiveDialog(nullptr);
                     break;
+                case 99: // Special case: just update dialog (used by tuning Done button)
+                    SetActiveDialog(engineBay->GetDialog());
+                    break;
             }
         },
         [this](Zone& zone) {

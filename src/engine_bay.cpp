@@ -21,6 +21,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect tuneRect = {243, 31, buttonWidth, buttonHeight};
     SDL_Rect partsRect = {243, 90, buttonWidth, buttonHeight};
     SDL_Rect doneRect = {243, 150, buttonWidth, buttonHeight};
+    SDL_Rect doneRectTune = partsRect;
 
     SDL_Rect engineBackdropRect = {34,31,168,152};
     SDL_Rect retardRect = {98, 9, 10, 11};
@@ -40,9 +41,10 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     Zone doneZone(ZONE_GARAGE_ENGINE_OVERVIEW_DONE, strdup("Done"), &doneRect);
     Zone retardZone(ZONE_GARAGE_ENGINE_OVERVIEW_RETARD, strdup("Retard"), &retardRect);
     Zone advanceZone(ZONE_GARAGE_ENGINE_OVERVIEW_ADVANCE, strdup("Advance"), &advanceRect);
+    Zone doneTuneZone(ZONE_GARAGE_ENGINE_TUNE_DONE, strdup("Done"), &partsRect);
 
     std::vector<Zone> engineDialogZones = {tuneZone, partsZone, doneZone};
-    std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneZone};
+    std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
     // Common button configuration
     Bitmap* buttonBitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS});
@@ -58,7 +60,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .textColor = ButtonDefaultTextColor,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
-            .invisible = false,
+            .invisible = true,
             .bitmapConfig = {buttonBitmap, {18, 31, buttonWidth, buttonHeight}}
         },
         {
@@ -70,7 +72,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .textColor = ButtonDefaultTextColor,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
-            .invisible = false,
+            .invisible = true,
             .bitmapConfig = {buttonBitmap, {18, 90, buttonWidth, buttonHeight}}
         },
         {
@@ -82,7 +84,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .textColor = ButtonDefaultTextColor,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
-            .invisible = false,
+            .invisible = true,
             .bitmapConfig = {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}
         }
     };
@@ -114,7 +116,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .bitmapConfig = {buttonBitmapDone, {143, 9, 10, 11}}
         },
         {
-            .bounds = doneRect,
+            .bounds = doneRectTune,
             .text = "Done",
             .onClick = nullptr,
             .defaultChoice = false,
@@ -122,7 +124,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .textColor = ButtonDefaultTextColor,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
-            .invisible = false,
+            .invisible = true,
             .bitmapConfig = {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}
         }
     };
@@ -160,11 +162,13 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             SetKnobPosition(this->tuneLevel + 1);
             // Don't call original callback for Advance button
         } else if (buttonIndex == 2) { // Done button
-            SDL_Log("Done button pressed - this should dismiss the dialog");
-            // Only call original callback for Done button
+            SDL_Log("Done button pressed - switching back to overview");
+            // Switch back to overview dialog
+            SwitchToState(ENGINE_BAY_OVERVIEW);
+            SDL_Log("Current state after switch: %d", this->currentState);
+            // Call original callback with a special index to just update the dialog
             if (buttonCallback) {
-                SDL_Log("Calling original buttonCallback for Done button");
-                buttonCallback(buttonIndex);
+                buttonCallback(99); // Special index to just update dialog without state change
             }
         } else {
             SDL_Log("Unknown button index: %d", buttonIndex);
