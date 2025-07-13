@@ -25,7 +25,11 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     SDL_Rect beltAnimationRect = {65, 37, 85, 53};
     SDL_Rect leftPistonRect = {52, 68, 42, 55};
     SDL_Rect rightPistonRect = {135, 68, 41, 54};
-    
+    SDL_Rect crankRect = {80, 122, 71, 33};
+    SDL_Rect flywheelRect = {150,122,43,34};
+    SDL_Rect camRect = {96,110,38,14};
+
+
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
     Zone doneZone(ZONE_GARAGE_ENGINE_OVERVIEW_DONE, strdup("Done"), &doneRect);
@@ -168,7 +172,8 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
 
     tuningConfig.bitmaps["left_piston_animation"] = {
         leftPistonAnimation,
-        leftPistonRect
+        leftPistonRect,
+        5
     };
 
     Bitmap* rightPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
@@ -191,11 +196,48 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
 
     tuningConfig.bitmaps["right_piston_animation"] = {
         rightPistonAnimation,
-        rightPistonRect
+        rightPistonRect,
+        5
     };
 
+    Bitmap* crank = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
+    AnimatedBitmap *crankAnimation = new AnimatedBitmap(crank, crankRect);
+    crankAnimation->SetAnimationFrames(71, 33, 2, 2);
+    crankAnimation->SetSpeed(0.5f);
+    crankAnimation->SetLoop(true);
+    crankAnimation->Play();
 
+    tuningConfig.bitmaps["crank_animation"] = {
+        crankAnimation,
+        crankRect,
+        5
+    };
 
+    Bitmap* flywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
+    AnimatedBitmap *flywheelAnimation = new AnimatedBitmap(flywheel, flywheelRect);
+    flywheelAnimation->SetAnimationFrames(43, 34, 2, 2);
+    flywheelAnimation->SetSpeed(0.5f);
+    flywheelAnimation->SetLoop(true);
+    flywheelAnimation->Play();
+
+    tuningConfig.bitmaps["flywheel_animation"] = {
+        flywheelAnimation,
+        flywheelRect,
+        5
+    };
+
+    Bitmap* camshaft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
+    AnimatedBitmap *camshaftAnimation = new AnimatedBitmap(camshaft, camRect);
+    camshaftAnimation->SetAnimationFrames(39, 14, 4, 2);
+    camshaftAnimation->SetSpeed(0.5f);
+    camshaftAnimation->SetLoop(true);
+    camshaftAnimation->Play();
+
+    tuningConfig.bitmaps["cam_animation"] = {
+        camshaftAnimation,
+        camRect,
+        5
+    };
 
     tuneDialog = new Dialog(tuningConfig);
 }
