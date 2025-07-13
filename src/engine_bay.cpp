@@ -10,6 +10,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     // Initial level
     this->tuneLevel = tuneLevel;
+    this->engineSpeed = tuneLevel;
     
     // Common dialog configuration
     SDL_Rect engineBayRect = {24, 0, 200, 189};
@@ -395,6 +396,25 @@ void EngineBay::SetKnobPosition(int level) {
     if (level > 12) level = 12;
     
     tuneLevel = level;
+    engineSpeed = level * 0.0625f;
+
+    // Update animation speeds for all engine animations
+    // Higher tune level = faster animations, so use inverse of engineSpeed for frame duration
+    const char* animationNames[] = {
+        "engine_tune_animation", "left_piston_animation", "right_piston_animation",
+        "crank_animation", "flywheel_animation", "cam_animation"
+    };
+    
+    for (const char* name : animationNames) {
+        DialogBitmap* bitmap = tuneDialog->GetBitmap(name);
+        if (bitmap && bitmap->bitmap) {
+            if (AnimatedBitmap* anim = dynamic_cast<AnimatedBitmap*>(bitmap->bitmap)) {
+                // Invert the speed: higher engineSpeed = lower frameDuration = faster animation
+                float frameDuration = 1.0f - engineSpeed;
+                anim->SetSpeed(frameDuration);
+            }
+        }
+    }
 
     DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
     if (knobBitmap) {

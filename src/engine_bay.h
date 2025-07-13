@@ -20,6 +20,7 @@ private:
     State* state;
     EngineBayState currentState;
     int tuneLevel = 0;
+    float engineSpeed = 0.0f;
 
 public:
     EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr);
