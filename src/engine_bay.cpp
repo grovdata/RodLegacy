@@ -391,38 +391,16 @@ void EngineBay::OnDialogShown() {
 }
 
 void EngineBay::SetKnobPosition(int level) {
-    SDL_Log("SetKnobPosition called with level: %d", level);
     if (level < 0) level = 0;
     if (level > 12) level = 12;
     
     tuneLevel = level;
-    SDL_Log("tuneLevel updated to: %d", tuneLevel);
-    
-    // Get the knob bitmap from the tuning dialog
-    if (tuneDialog) {
-        SDL_Log("tuneDialog exists, looking for tune_knob bitmap");
-        DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
-        if (knobBitmap) {
-            SDL_Log("Found knobBitmap");
-            if (knobBitmap->bitmap) {
-                SDL_Log("knobBitmap->bitmap exists");
-                // Calculate new position based on level
-                // Assuming the knob moves horizontally from left to right
-                // You'll need to adjust these values based on your UI layout
-                int baseX = 108;  // Starting X position
-                int baseY = 22;   // Y position (unchanged)
-                int maxOffset = 40;  // Maximum horizontal movement
-                
-                int newX = baseX + (level * maxOffset / 12);
-                SDL_Log("Setting knob position to: (%d, %d)", newX, baseY);
-                knobBitmap->bitmap->SetPosition(newX, baseY);
-            } else {
-                SDL_Log("knobBitmap->bitmap is null");
-            }
-        } else {
-            SDL_Log("Could not find tune_knob bitmap");
-        }
-    } else {
-        SDL_Log("tuneDialog is null");
+
+    DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
+    if (knobBitmap) {
+        int baseX = 108;  // Starting X position
+        int baseY = 22;   // Y position (unchanged)
+        int newX = baseX + (level * 2);
+        knobBitmap->bitmap->SetPosition(newX, baseY);
     }
 }
