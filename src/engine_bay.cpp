@@ -31,7 +31,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect crankRect = {80, 122, 71, 33};
     SDL_Rect flywheelRect = {150,122,43,34};
     SDL_Rect camRect = {96,110,38,14};
-    SDL_Rect tuneKnobRect = {0, 0, 16, 10};
+    SDL_Rect tuneKnobRect = {124, 22, 16, 10};
 
 
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
@@ -92,6 +92,11 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .bounds = retardRect,
             .text = "Retard",
             .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 0,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
             .invisible = true,
             .bitmapConfig = {buttonBitmapDone, {98, 9, 10, 11}}
         },
@@ -99,6 +104,11 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .bounds = advanceRect,
             .text = "Advance",
             .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 1,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
             .invisible = true,
             .bitmapConfig = {buttonBitmapDone, {143, 9, 10, 11}}
         },
@@ -106,18 +116,62 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .bounds = doneRect,
             .text = "Done",
             .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 2,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
             .invisible = false,
             .bitmapConfig = {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}
         }
     };
 
+    // Debug: Log the tuning button indices
+    SDL_Log("Tuning buttons created:");
+    for (size_t i = 0; i < tuningButtons.size(); i++) {
+        SDL_Log("  Button %zu: %s (index: %d)", i, tuningButtons[i].text.c_str(), tuningButtons[i].index);
+    }
+
     // Common callback setup
     auto buttonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
+        SDL_Log("=== OVERVIEW BUTTON CALLBACK ===");
+        SDL_Log("Overview button index: %d", buttonIndex);
         if (buttonIndex == 0) { // Tune button - handled by caller
+            SDL_Log("Tune button pressed in overview");
         }
         if (buttonCallback) {
+            SDL_Log("Calling original buttonCallback from overview");
             buttonCallback(buttonIndex);
         }
+        SDL_Log("=== END OVERVIEW BUTTON CALLBACK ===");
+    };
+    
+    // Tuning-specific callback setup
+    auto tuningButtonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
+        SDL_Log("=== TUNING BUTTON CALLBACK ===");
+        SDL_Log("tunelevel %d, buttonIndex: %d", this->tuneLevel, buttonIndex);
+        if (buttonIndex == 0) { // Retard button
+            SDL_Log("Retard button pressed - decreasing tune level");
+            SetKnobPosition(this->tuneLevel - 1);
+            // Don't call original callback for Retard button
+        } else if (buttonIndex == 1) { // Advance button
+            SDL_Log("Advance button pressed - increasing tune level");
+            SetKnobPosition(this->tuneLevel + 1);
+            // Don't call original callback for Advance button
+        } else if (buttonIndex == 2) { // Done button
+            SDL_Log("Done button pressed - this should dismiss the dialog");
+            // Only call original callback for Done button
+            if (buttonCallback) {
+                SDL_Log("Calling original buttonCallback for Done button");
+                buttonCallback(buttonIndex);
+            }
+        } else {
+            SDL_Log("Unknown button index: %d", buttonIndex);
+            if (buttonCallback) {
+                buttonCallback(buttonIndex);
+            }
+        }
+        SDL_Log("=== END TUNING BUTTON CALLBACK ===");
     };
     
     auto zoneHoverWrapper = zoneHoverCallback ? zoneHoverCallback : [](Zone& zone) {
@@ -174,6 +228,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // Update buttons for tuning dialog
     tuningConfig.buttons = tuningButtons;
     tuningConfig.zones = tuneDialogZones;
+    tuningConfig.onButtonPressed = tuningButtonCallbackWrapper;
     
     // Replace sidebar and content bitmaps for tuning
     tuningConfig.bitmaps.clear();
@@ -297,13 +352,16 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* tuneKnob = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_TUNE_INDICATOR});
     tuningConfig.bitmaps["tune_knob"] = {
-        .bitmap = tuneKnob,
-        .rect = tuneKnobRect,
-        .zOrder = 5
+        tuneKnob,
+        tuneKnobRect,
+        5
     };
 
 
     tuneDialog = new Dialog(tuningConfig);
+    
+    // Set initial knob position
+    SetKnobPosition(tuneLevel);
 }
 
 EngineBay::~EngineBay() {
@@ -330,4 +388,41 @@ Dialog* EngineBay::GetDialog() {
 
 void EngineBay::OnDialogShown() {
     // No need to restore visibility since we're using separate dialogs
+}
+
+void EngineBay::SetKnobPosition(int level) {
+    SDL_Log("SetKnobPosition called with level: %d", level);
+    if (level < 0) level = 0;
+    if (level > 12) level = 12;
+    
+    tuneLevel = level;
+    SDL_Log("tuneLevel updated to: %d", tuneLevel);
+    
+    // Get the knob bitmap from the tuning dialog
+    if (tuneDialog) {
+        SDL_Log("tuneDialog exists, looking for tune_knob bitmap");
+        DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
+        if (knobBitmap) {
+            SDL_Log("Found knobBitmap");
+            if (knobBitmap->bitmap) {
+                SDL_Log("knobBitmap->bitmap exists");
+                // Calculate new position based on level
+                // Assuming the knob moves horizontally from left to right
+                // You'll need to adjust these values based on your UI layout
+                int baseX = 108;  // Starting X position
+                int baseY = 22;   // Y position (unchanged)
+                int maxOffset = 40;  // Maximum horizontal movement
+                
+                int newX = baseX + (level * maxOffset / 12);
+                SDL_Log("Setting knob position to: (%d, %d)", newX, baseY);
+                knobBitmap->bitmap->SetPosition(newX, baseY);
+            } else {
+                SDL_Log("knobBitmap->bitmap is null");
+            }
+        } else {
+            SDL_Log("Could not find tune_knob bitmap");
+        }
+    } else {
+        SDL_Log("tuneDialog is null");
+    }
 }

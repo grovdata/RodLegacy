@@ -30,4 +30,5 @@ public:
     void ResetToOverview();
     EngineBayState GetCurrentState() const { return currentState; }
     void OnDialogShown(); // Call this after dialog->Show() to restore correct visibility
+    void SetKnobPosition(int level);
 };

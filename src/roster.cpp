@@ -81,7 +81,17 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     } else {
         car->SetDecal((SrLibCarDecal)stickerDist(gen));
     }
-    
+
+    // Tuning level is divided into 13 steps
+    std::uniform_int_distribution<> tuningDist(0, 12);
+    std::uniform_int_distribution<> optimalTuningDist(0, 3);
+    if (optimalTuningDist(gen) == 0) {
+        // 9 is the optimal tuning
+        car->SetTuneLevel(9);
+    } else {
+        car->SetTuneLevel(tuningDist(gen));
+    }
+
     car->SetTires((CarWheelType)tireDist(gen));
     car->SetScoop((CarScoopType)scoopDist(gen));
     // Introduce a 50% chance to not have a scoop at all

@@ -87,7 +87,7 @@ void Button::CreateButtonSurface() {
 }
 
 void Button::Draw() {
-    if (!visible) return;
+    if (!visible || config.invisible) return;
     background->Draw();
     textBitmap->Draw();
 }

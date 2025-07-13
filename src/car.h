@@ -26,6 +26,7 @@ class Car {
         SrLibCarDecal decal;
         CarScoopType scoop;
         StandardCarColor color;
+        int tuneLevel = 9;
 
         Part gearbox;
         Part tires;
@@ -44,12 +45,16 @@ class Car {
         bool IsBumpersStripped() const { return isFrontBumperStripped && isBackBumperStripped; }
         void SetBumpersStripped(bool stripped) { isFrontBumperStripped = stripped; isBackBumperStripped = stripped; }
 
-        // Part getters
         Part GetGearbox() const { return gearbox; }
         Part GetTires() const { return tires; }
         Part GetEngine() const { return engine; }
         Part GetCarburator() const { return carburator; }
         Part GetManifold() const { return manifold; }
+        int GetTuneLevel() const { return tuneLevel; }
+        CarModel GetModel();
+        SrLibCarDecal GetDecal();
+        CarScoopType GetScoop() const { return scoop; }
+        StandardCarColor GetColor() const { return color; }
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; }
         void SetTires(CarWheelType type);
@@ -59,8 +64,6 @@ class Car {
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
-        CarModel GetModel();
-        SrLibCarDecal GetDecal();
-        CarScoopType GetScoop() const { return scoop; }
-        StandardCarColor GetColor() const { return color; }
+        void SetTuneLevel(const int level) { this->tuneLevel = level; }
+
 };
