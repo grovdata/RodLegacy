@@ -481,6 +481,7 @@ void Garage::Action(ZoneId zone) {
         SetActiveDialog((Dialog*)gameMenuDialog.get());        
         break;
     case ZONE_GARAGE_ENGINE:
+        engineBay->ResetToOverview();
         SetActiveDialog((Dialog*)engineBay->GetDialog());
         break;
     default:

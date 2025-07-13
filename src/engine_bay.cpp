@@ -18,8 +18,11 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     SDL_Rect partsRect = {243, 90, buttonWidth, buttonHeight};
     SDL_Rect doneRect = {243, 150, buttonWidth, buttonHeight};
 
+    SDL_Rect engineBackdropRect = {34,31,168,152};
     SDL_Rect retardRect = {98, 9, 10, 11};
     SDL_Rect advanceRect = {143, 9, 10, 11};
+    SDL_Rect tuningGadgetRect = {98, 9, 56, 11};
+    SDL_Rect beltAnimationRect = {65, 37, 85, 53};
     
     Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
     Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
@@ -41,10 +44,9 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
     };
 
     std::vector<ButtonConfig> tuningButtons = {
-        // {tuneRect, "Retard", nullptr, true, 0, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {18, 31, buttonWidth, buttonHeight}}},
-        // {partsRect, "Advance", nullptr, false, 1, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {18, 90, buttonWidth, buttonHeight}}},
-        // Done buttons is in the middle of the sidebar
-        {partsRect, "Done", nullptr, false, 2, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}}
+        {retardRect, "Retard", nullptr, true, 0, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {98, 9, 10, 11}}},
+        {advanceRect, "Advance", nullptr, false, 1, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {143, 9, 10, 11}}},
+        {doneRect, "Done", nullptr, false, 2, ButtonDefaultTextColor, ButtonDefaultFillColor, ButtonDefaultBorderColor, {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}}
     };
 
     // Common callback setup
@@ -121,10 +123,19 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
         state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE}),
         {225, 0, 71, 190}, 1
     };
+    tuningConfig.bitmaps["tuning_gadget"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNE_GADGET}),
+        tuningGadgetRect
+    };
+
+    tuningConfig.bitmaps["engine_backdrop"] = {
+        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNING_SCREEN}),
+        engineBackdropRect
+    };
 
     // Create animated engine tune bitmap
     Bitmap* engineTuneAnimationBelt = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
-    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, {0, 0, 85, 53});
+    AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, beltAnimationRect);
     engineTuneAnimation->SetAnimationFrames({{0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}});
     engineTuneAnimation->SetSpeed(0.5f);
     engineTuneAnimation->SetLoop(true);
@@ -132,8 +143,10 @@ EngineBay::EngineBay(State& state, ButtonCallback buttonCallback, ZoneHoverCallb
 
     tuningConfig.bitmaps["engine_tune_animation"] = {
         engineTuneAnimation,
-        {0, 0, 85, 53}, 5
+        beltAnimationRect
     };
+
+
 
     tuneDialog = new Dialog(tuningConfig);
 }
@@ -149,6 +162,11 @@ void EngineBay::SwitchToState(EngineBayState newState) {
     
     SDL_Log("EngineBay::SwitchToState: %d -> %d", currentState, newState);
     currentState = newState;
+}
+
+void EngineBay::ResetToOverview() {
+    currentState = ENGINE_BAY_OVERVIEW;
+    SDL_Log("EngineBay::ResetToOverview: Reset to overview state");
 }
 
 Dialog* EngineBay::GetDialog() {

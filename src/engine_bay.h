@@ -26,6 +26,7 @@ public:
     
     Dialog* GetDialog();
     void SwitchToState(EngineBayState newState);
+    void ResetToOverview();
     EngineBayState GetCurrentState() const { return currentState; }
     void OnDialogShown(); // Call this after dialog->Show() to restore correct visibility
 };

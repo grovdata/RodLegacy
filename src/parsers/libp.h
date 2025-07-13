@@ -359,6 +359,8 @@ enum AmigaLibAsset {
     //
     GARAGE_SCREEN = 365,
     //
+    ENGINE_TUNE_GADGET = 369,
+    //
     PHONEBOOK_GUY = 374
 };
 
