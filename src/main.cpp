@@ -203,6 +203,7 @@ int main(int argc, char* argv[]) {
 
                 case SDL_QUIT:
                     close_requested = true;
+                    SDL_Log("Quitting");
                     break;
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {

@@ -409,10 +409,13 @@ void Garage::InitGameMenuDialog() {
                 SDL_Log("Garage::MenuDialogConfig::onButtonPressed: New Game");
                 // state.NewGame();
                 break;
-            case 3:
+            case 3: {
                 SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Quit Game");
-                // state.QuitGame();
+                SDL_Event event = {};
+                event.type = SDL_QUIT;
+                SDL_PushEvent(&event);
                 break;
+            }
             case 4:
                 gameMenuDialog->Hide();
                 break;
