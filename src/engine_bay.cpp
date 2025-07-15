@@ -345,6 +345,9 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     tuneDialog = new Dialog(tuningConfig);
     
+    // Create parts dialog
+    InitPartsDialog();
+    
     // Set initial knob position
     SetKnobPosition(tuneLevel);
 }
@@ -368,7 +371,15 @@ void EngineBay::ResetToOverview() {
 }
 
 Dialog* EngineBay::GetDialog() {
-    return (currentState == ENGINE_BAY_TUNING) ? tuneDialog : engineDialog;
+    switch (currentState) {
+        case ENGINE_BAY_TUNING:
+            return tuneDialog;
+        case ENGINE_BAY_PARTS:
+            return partsDialog.get();
+        case ENGINE_BAY_OVERVIEW:
+        default:
+            return engineDialog;
+    }
 }
 
 void EngineBay::OnDialogShown() {
@@ -407,4 +418,119 @@ void EngineBay::SetKnobPosition(int level) {
         int newX = baseX + (level * 2);
         knobBitmap->bitmap->SetPosition(newX, baseY);
     }
+}
+
+void EngineBay::InitPartsDialog() {
+    // Parts dialog configuration
+    SDL_Rect partsDialogRect = {36, 26, 260, 136};
+    SDL_Rect partsListRect = {40, 40, 242, 80};
+    SDL_Rect topRect = {37, 27, 246, 95};
+    SDL_Rect bottomRect = {37, 123, 246, 40};
+    SDL_Rect selectedPartRect = {39, 127, 242, 12};
+    
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    const int buttonY = partsDialogRect.y + partsDialogRect.h - buttonHeight - 8;
+
+    SDL_Rect changeRect = {partsDialogRect.x + 34, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {partsDialogRect.x + 135, buttonY, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + partsDialogRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + partsDialogRect.h - 15, 15, 15};
+    
+    // Sample parts list (you can replace this with actual parts from the car/state)
+    std::vector<std::string> partsLabels = {
+        "Engine Block",
+        "Carburetor",
+        "Exhaust",
+        "Transmission",
+        "Tires",
+        "Brakes",
+        "Suspension",
+        "Radiator",
+        "Battery",
+        "Alternator",
+        "Starter",
+        "Fuel Pump"
+    };
+
+
+
+    
+    std::vector<ButtonConfig> partsButtons = {
+        {
+            .bounds = changeRect,
+            .text = "Change",
+            .onClick = nullptr,
+            .defaultChoice = true,
+            .index = 0,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
+            .invisible = false,
+            .bitmapConfig = {nullptr, {0, 0, 0, 0}}
+        },
+        {
+            .bounds = forgetItRect,
+            .text = "Forget it",
+            .onClick = nullptr,
+            .defaultChoice = false,
+            .index = 1,
+            .textColor = ButtonDefaultTextColor,
+            .fillColor = ButtonDefaultFillColor,
+            .borderColor = ButtonDefaultBorderColor,
+            .invisible = false,
+            .bitmapConfig = {nullptr, {0, 0, 0, 0}}
+        }
+    };
+    
+    std::vector<DialogTextConfig> partsTexts = {
+        DialogTextConfig{SDL_Rect{28, 30, 193, 10}, "Spare parts", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    
+    std::vector<SDL_Rect> partsLines = {
+        {40, 39, 240, 1},
+    };
+    
+    DialogConfig partsDialogConfig;
+    partsDialogConfig.bounds = partsDialogRect;
+    partsDialogConfig.backgroundColor = {0, 208, 0, 255};
+    partsDialogConfig.borderColor = {0, 111, 239, 255};
+    partsDialogConfig.buttons = partsButtons;
+    partsDialogConfig.texts = partsTexts;
+    partsDialogConfig.lines = partsLines;
+    partsDialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
+    partsDialogConfig.font = state->assets.GetMainFont();
+    partsDialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: // Change
+                SDL_Log("Change part selected");
+                break;
+            case 1: // Forget it
+                SDL_Log("Forget it selected");
+                // Switch back to overview
+                SwitchToState(ENGINE_BAY_OVERVIEW);
+                break;
+        }
+    };
+    
+    ListDialogConfig listConfig;
+    listConfig.labels = partsLabels;
+    listConfig.listBoxRect = partsListRect;
+    listConfig.selectedItemRect = selectedPartRect;
+    listConfig.normalTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    listConfig.selectedTextColor = {0xFF, 0xFF, 0x00, 0xFF};
+    listConfig.scrollButtons = {
+        scrollTopRect,
+        scrollUpRect,
+        scrollDownRect,
+        scrollBottomRect
+    };
+    listConfig.onItemSelected = [this](int selectedIndex) {
+        SDL_Log("Parts dialog: Selected part index=%d", selectedIndex);
+    };
+    
+    partsDialog = std::make_unique<ListDialog>(partsDialogConfig, listConfig);
 }

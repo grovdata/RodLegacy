@@ -272,7 +272,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                     }
                     break;
                 case 1: // Parts
-                    //state.SetGameState(GAME_STATE_PARTS);
+                    engineBay->SwitchToState(ENGINE_BAY_PARTS);
+                    SetActiveDialog(engineBay->GetDialog());
                     break;
                 case 2: // Done
                     //state.SetGameState(GAME_STATE_GARAGE);

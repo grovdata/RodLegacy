@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dialogs/dialog.h"
+#include "dialogs/list_dialog.h"
 #include "state.h"
 #include <functional>
 
@@ -10,13 +11,15 @@ using ZoneHoverCallback = std::function<void(Zone&)>;
 
 enum EngineBayState {
     ENGINE_BAY_OVERVIEW,
-    ENGINE_BAY_TUNING
+    ENGINE_BAY_TUNING,
+    ENGINE_BAY_PARTS
 };
 
 class EngineBay {
 private:
     Dialog* engineDialog;
     Dialog* tuneDialog;
+    std::unique_ptr<ListDialog> partsDialog;
     State* state;
     EngineBayState currentState;
     int tuneLevel = 0;
@@ -32,4 +35,5 @@ public:
     EngineBayState GetCurrentState() const { return currentState; }
     void OnDialogShown(); // Call this after dialog->Show() to restore correct visibility
     void SetKnobPosition(int level);
+    void InitPartsDialog();
 };
