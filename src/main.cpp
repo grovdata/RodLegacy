@@ -35,6 +35,9 @@ Uint64 startTime = SDL_GetTicks64();
 
 Mouse mouse;
 bool isFullScreen = false;
+int screenshotCounter = 1;
+Uint64 lastScreenshotTime = 0;
+const Uint64 SCREENSHOT_COOLDOWN_MS = 500; // 500ms cooldown
 
 float scaleX = 1.0f;
 float scaleY = 1.0f;
@@ -43,6 +46,58 @@ void ToggleFullScreen(SDL_Window* window, bool currentState) {
     isFullScreen = !currentState;
     SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     SDL_ShowCursor(currentState);
+}
+
+void TakeScreenshot() {
+    Uint64 currentTime = SDL_GetTicks64();
+    
+    // Check cooldown
+    if (currentTime - lastScreenshotTime < SCREENSHOT_COOLDOWN_MS) {
+        return; // Still in cooldown period
+    }
+    
+    lastScreenshotTime = currentTime;
+    
+    // Get the actual window size
+    int windowWidth, windowHeight;
+    SDL_GetWindowSize(win, &windowWidth, &windowHeight);
+    
+    // Create a surface to hold the pixel data
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
+                                               0x00FF0000,  // Red mask
+                                               0x0000FF00,  // Green mask
+                                               0x000000FF,  // Blue mask
+                                               0xFF000000); // Alpha mask
+    
+    if (!surface) {
+        SDL_Log("Failed to create surface for screenshot: %s", SDL_GetError());
+        return;
+    }
+    
+    // Read pixels from the renderer
+    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, 
+                            surface->pixels, surface->pitch) != 0) {
+        SDL_Log("Failed to read pixels for screenshot: %s", SDL_GetError());
+        SDL_FreeSurface(surface);
+        return;
+    }
+    
+    // Find next available counter value
+    while (fs::exists("screenshot_" + std::to_string(screenshotCounter) + ".png")) {
+        screenshotCounter++;
+    }
+    
+    // Generate filename with counter
+    std::string filename = "screenshot_" + std::to_string(screenshotCounter++) + ".png";
+    
+    // Save the surface as PNG
+    if (IMG_SavePNG(surface, filename.c_str()) != 0) {
+        SDL_Log("Failed to save screenshot: %s", SDL_GetError());
+    } else {
+        SDL_Log("Screenshot saved: %s", filename.c_str());
+    }
+    
+    SDL_FreeSurface(surface);
 }
 
 #ifdef _WIN32
@@ -211,6 +266,9 @@ int main(int argc, char* argv[]) {
                             break;
                         case SDLK_RIGHT:
                             break;
+                        case SDLK_F5:
+                            TakeScreenshot();
+                            break;
 
                         default:
                             break;
@@ -235,6 +293,9 @@ int main(int argc, char* argv[]) {
                         case SDLK_LEFT:
                             break;
                         case SDLK_RIGHT:
+                            break;
+                        case SDLK_F5:
+                            TakeScreenshot();
                             break;
 
                         default:
