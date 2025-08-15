@@ -121,9 +121,10 @@ void Newspaper::InitPageAds() {
 }
 
 void Newspaper::AddDivider(int y) {
-    SDL_Rect dividerRect = {4, y, 184, 1};
-    SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-    adsArea.UpdateFromSurface();
+    // Crashing here
+    // SDL_Rect dividerRect = {4, y, 184, 1};
+    // SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
+    // adsArea.UpdateFromSurface();
 }
 
 void Newspaper::Draw() {
