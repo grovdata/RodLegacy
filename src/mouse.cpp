@@ -387,8 +387,8 @@ void Mouse::JumpToClosestZone(Scene* scene) {
     const std::vector<Zone>& zones = scene->GetZones();
     if (zones.empty()) {
         // No zones available, jump to center of screen
-        rect.x = (320 - rect.w) / 2;
-        rect.y = (200 - rect.h) / 2;
+        rect.x = (GAME_WIDTH - rect.w) / 2;
+        rect.y = (GAME_HEIGHT - rect.h) / 2;
         return;
     }
     
@@ -399,8 +399,8 @@ void Mouse::JumpToClosestZone(Scene* scene) {
     
     if (closestZone == ZONE_NULL) {
         // No suitable zone found, jump to center of screen
-        rect.x = (320 - rect.w) / 2;
-        rect.y = (200 - rect.h) / 2;
+        rect.x = (GAME_WIDTH - rect.w) / 2;
+        rect.y = (GAME_HEIGHT - rect.h) / 2;
         return;
     }
     
