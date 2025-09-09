@@ -25,4 +25,5 @@
 #include "SFont.h"
 #include "utils.h"
 
+extern SDL_Window *win;
 extern SDL_Renderer *renderer;
