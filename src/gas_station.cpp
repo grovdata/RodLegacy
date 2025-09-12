@@ -55,7 +55,7 @@ void GasStation::Init(bool initialDebugMode) {
     Bitmap* attendantSheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
     SDL_Rect attendantRect = {200, 90, 47, 47};
     auto attendantAnim = new AnimatedBitmap(attendantSheet, attendantRect);
-    attendantAnim->SetAnimationFrames(47, 47, 2, 2); // 2x2 grid
+    attendantAnim->SetAnimationFrames(47, 47, 4, 1); // 2x2 grid
     attendantAnim->SetSpeed(0.5f); // 0.5s per frame
     attendantAnim->SetLoop(true);
     attendantAnim->Play();
