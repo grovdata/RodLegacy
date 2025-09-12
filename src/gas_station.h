@@ -17,9 +17,6 @@ class GasStation : public CarScene {
    private:
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
-    Spritesheet* attendant;
-    Bitmap* maskBitmap;
-    Bitmap* pumpNoHandle;
     GasStationState sceneState = GAS_STATION_IDLE;
     std::unique_ptr<CarBitmap> currentCarBitmap;
     void InitCurrentCarBitmap();

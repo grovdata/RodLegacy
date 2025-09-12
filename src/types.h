@@ -12,6 +12,64 @@ class IDrawable {
         virtual void SetVisible(bool visible) = 0;
 };
 
+struct DrawableEntry {
+    std::string id;
+    std::shared_ptr<IDrawable> drawable;
+};
+
+class IDrawableContainer {
+    protected:
+        std::vector<DrawableEntry> drawables;
+
+    public:
+        virtual ~IDrawableContainer() = default;
+
+        void AddDrawable(const std::string& id, const std::shared_ptr<IDrawable> &drawable) {
+            drawables.push_back({id, drawable});
+        }
+
+        void RemoveDrawable(const std::string& id) {
+            drawables.erase(
+                std::remove_if(drawables.begin(), drawables.end(),
+                    [&id](const DrawableEntry& entry) { return entry.id == id; }),
+                drawables.end()
+            );
+        }
+
+        std::shared_ptr<IDrawable> GetDrawable(const std::string& id) {
+            for (const auto& entry : drawables) {
+                if (entry.id == id) {
+                    return entry.drawable;
+                }
+            }
+            return nullptr;
+        }
+
+        void DrawAll() {
+            for (const auto& entry : drawables) {
+                if (entry.drawable) {
+                    entry.drawable->Draw();
+                }
+            }
+        }
+
+        void SetAllVisible(bool visible) {
+            for (const auto& entry : drawables) {
+                if (entry.drawable) {
+                    entry.drawable->SetVisible(visible);
+                }
+            }
+        }
+
+        void Clear() {
+            drawables.clear();
+        }
+
+        size_t GetDrawableCount() const {
+            return drawables.size();
+        }
+};
+
 struct CarModel {
     // For custom cars
     std::string id;

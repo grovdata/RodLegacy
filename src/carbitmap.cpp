@@ -331,3 +331,7 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
     SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
     baseBitmap->UpdateFromSurface();
 }
+
+void CarBitmap::SetShadowVisible(bool visible) {
+    shadow.SetVisible(visible);
+}

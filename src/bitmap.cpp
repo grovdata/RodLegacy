@@ -20,6 +20,31 @@ Bitmap::Bitmap(int width, int height, int depth) {
     texture = SDL_CreateTextureFromSurface(renderer, surface);
 }
 
+Bitmap::Bitmap(const Bitmap& other) {
+    // Initialize members
+    surface = nullptr;
+    texture = nullptr;
+    isVisible = other.isVisible;
+    rect = other.rect;
+    sourceRect = other.sourceRect;
+    
+    // Copy surface if it exists
+    if (other.surface) {
+        surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
+                                            other.surface->w,
+                                            other.surface->h,
+                                            other.surface->format->BitsPerPixel,
+                                            other.surface->pitch,
+                                            other.surface->format->Rmask,
+                                            other.surface->format->Gmask,
+                                            other.surface->format->Bmask,
+                                            other.surface->format->Amask);
+        if (surface) {
+            texture = SDL_CreateTextureFromSurface(renderer, surface);
+        }
+    }
+}
+
 Bitmap::~Bitmap() {
     if (texture) {
         SDL_DestroyTexture(texture);

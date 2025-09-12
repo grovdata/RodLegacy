@@ -1,6 +1,8 @@
 #include "gas_station.h"
 #include "state.h"
 #include "parsers/libp.h"
+#include "animated_bitmap.h"
+#include <memory>
 double carAnimationTimeGasStation = 0;
 
 GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_SCREEN}) {
@@ -36,24 +38,28 @@ void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
     // Create a mask for gas pump
-    maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
+    auto maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
     maskedBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
     background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
 
-    
-    pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
+    // Add pump no handle to container
+    auto pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
     pumpNoHandle->SetPosition(56, 114);
     pumpNoHandle->SetVisible(true);
+    AddDrawable("pump_no_handle", std::shared_ptr<IDrawable>(pumpNoHandle));
 
-    attendant = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
-    attendant->SetDimensions(47, 47);
-    attendant->SelectSprite(0, 0);
-    attendant->SelectSprite(0, 0);
-    attendant->SetPosition(200, 90);
-    attendant->SetVisible(true);
+    // Add attendant as AnimatedBitmap to container
+    Bitmap* attendantSheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
+    SDL_Rect attendantRect = {200, 90, 47, 47};
+    auto attendantAnim = new AnimatedBitmap(attendantSheet, attendantRect);
+    attendantAnim->SetAnimationFrames(47, 47, 2, 2); // 2x2 grid
+    attendantAnim->SetSpeed(0.5f); // 0.5s per frame
+    attendantAnim->SetLoop(true);
+    attendantAnim->Play();
+    AddDrawable("attendant", std::shared_ptr<IDrawable>(attendantAnim));
     
     initStartTime = SDL_GetTicks64();
     
@@ -64,7 +70,10 @@ void GasStation::Action(ZoneId zone) {
     if (carBitmap){
         carBitmap->SetGasCapRemoved(false);
         carBitmap->SetPumpingHandleVisible(false);
-        pumpNoHandle->SetVisible(false);
+        auto pumpNoHandle = std::dynamic_pointer_cast<Bitmap>(GetDrawable("pump_no_handle"));
+        if (pumpNoHandle) {
+            pumpNoHandle->SetVisible(false);
+        }
     }
     
     if (zone == ZONE_GAS_STATION_PUMP) {
@@ -72,7 +81,10 @@ void GasStation::Action(ZoneId zone) {
             sceneState = GAS_STATION_HANDLEOFF;
             carBitmap->SetGasCapRemoved(true);
             carBitmap->SetPumpingHandleVisible(true);
-            pumpNoHandle->SetVisible(true);
+            auto pumpNoHandle = std::dynamic_pointer_cast<Bitmap>(GetDrawable("pump_no_handle"));
+            if (pumpNoHandle) {
+                pumpNoHandle->SetVisible(true);
+            }
         }
         currentPointer = SrLibAmigaSpriteAssetMousePointerPump;
     } else if (zone == ZONE_GAS_STATION_RAG) {
@@ -95,6 +107,12 @@ void GasStation::Draw() {
 
     UpdateCarAnimation(deltaTime);
 
+    // Update attendant animation
+    auto attendant = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("attendant"));
+    if (attendant) {
+        attendant->Update(deltaTime);
+    }
+
     Scene::Draw();
 
     // Wait 2s
@@ -107,17 +125,16 @@ void GasStation::Draw() {
         return;
     }
 
-
-    attendant->Draw();
+    // Draw all drawables in the container
+    DrawAll();
+    
+    // Draw car bitmap separately since it's not in the container
     if (carBitmap != nullptr) {
-        SDL_Point p;
-        p.x = carx; p.y = cary;
-        carBitmap->Move(p);
         carBitmap->Draw();
     }
+    
     SDL_Rect rect = {0, 107, 312, 69};
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
-    pumpNoHandle->Draw();
 
     DrawDebugZones();
 }
@@ -126,6 +143,13 @@ void GasStation::UpdateCarAnimation(double deltaTime) {
     CarScene::UpdateCarAnimation(deltaTime);
     if (!animatingCar) {
         return;
+    }
+
+    // Move car bitmap to current position
+    if (carBitmap != nullptr) {
+        SDL_Point p;
+        p.x = carx; p.y = cary;
+        carBitmap->Move(p);
     }
 
     CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
@@ -218,7 +242,6 @@ void GasStation::StartAnimateCar(Car *car, Driver*, CarAnimationType animType) {
         if (carBitmap) {
             carx = -GAME_WIDTH;
             cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
-            carBitmap->Move({carx, cary});
             animatingCar = true;
             currentAnimationType = animType;
         }
@@ -236,12 +259,17 @@ void GasStation::InitCurrentCarBitmap() {
     if (state.GetCurrentCar()) {
         currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
         carBitmap = currentCarBitmap.get();
+        // Hide car shadow in gas station
+        if (carBitmap) carBitmap->SetShadowVisible(false);
     }
 }
 
 CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
     if (!currentCarBitmap && state.GetCurrentCar()) {
         currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
+        carBitmap = currentCarBitmap.get();
+        // Hide car shadow in gas station
+        if (carBitmap) carBitmap->SetShadowVisible(false);
     }
     return currentCarBitmap.get();
 }

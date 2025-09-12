@@ -19,7 +19,7 @@ typedef enum {
 
 class Car;
 
-class Scene {
+class Scene: public IDrawableContainer {
    private:
 
     ZoneId CheckMouseHover(int x, int y);
@@ -39,8 +39,8 @@ class Scene {
     HUD *hud;
     Dialog *activeDialog = nullptr;
 
-    SDL_Surface *surface, *fontSurface, *fadeSurface;
-    SDL_Texture *texture, *fontTexture, *fadeTexture;
+    SDL_Surface *surface, *fadeSurface;
+    SDL_Texture *texture, *fadeTexture;
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
