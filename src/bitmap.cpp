@@ -329,7 +329,7 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
         uint8_t a;
         if (isMask) {
             // For masks: preserve original colors, make fully opaque
-            a = 255;  // Keep mask pixels opaque so we can see the actual colors
+            a = 255;
         } else {
             // Normal bitmap behavior: first pixel transparent, rest opaque
             if (opaque) {

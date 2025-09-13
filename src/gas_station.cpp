@@ -34,6 +34,15 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP,
     // Hud color text index 18
 }
 
+GasStation::~GasStation() {
+    if (roadMaskSurface) {
+        SDL_FreeSurface(roadMaskSurface);
+    }
+    if (roadMaskTexture) {
+        SDL_DestroyTexture(roadMaskTexture);
+    }
+}
+
 void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
@@ -44,6 +53,19 @@ void GasStation::Init(bool initialDebugMode) {
     background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
+    
+    // Create road mask to hide car wheels below y=175 (similar to diner scene)
+    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 15, 32, 0, 0, 0, 0);
+    if (roadMaskSurface) {
+        SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+        roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
+        SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
+        SDL_Log("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}", 
+                roadMaskSrcRect.x, roadMaskSrcRect.y, roadMaskSrcRect.w, roadMaskSrcRect.h,
+                roadMaskDestRect.x, roadMaskDestRect.y, roadMaskDestRect.w, roadMaskDestRect.h);
+    } else {
+        SDL_Log("Failed to create road mask surface");
+    }
 
     // Add pump no handle to container
     auto pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
@@ -133,10 +155,24 @@ void GasStation::Draw() {
         carBitmap->Draw();
     }
     
+    DrawDebugZones();
+}
+
+void GasStation::DrawMaskAfterCar() {
+    // Draw the gas pump mask
     SDL_Rect rect = {0, 107, 312, 69};
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
-
-    DrawDebugZones();
+    
+    if (roadMaskSurface && roadMaskTexture) {
+        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
+        SDL_DestroyTexture(roadMaskTexture);  // Clean up old texture
+        roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
+        SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+    }
+    
+    // Call parent implementation for any additional mask effects
+    CarScene::DrawMaskAfterCar();
 }
 
 void GasStation::UpdateCarAnimation(double deltaTime) {
