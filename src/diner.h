@@ -13,6 +13,9 @@ class Diner: public CarScene {
     SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
 
+    sdl2::SurfacePtr maskedScreenBackground;
+    sdl2::TexturePtr maskedScreenBackgroundTexture;
+
     int guySpriteX;
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};

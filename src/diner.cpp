@@ -62,6 +62,39 @@ void Diner::Init(bool debugMode) {
         AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
     }
 
+    if (!GetDrawable("waitressLeft")) {
+        Bitmap* waitressLeftBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_LEFT});
+        
+        SDL_Rect waitressLeftRect = {25, 68, 40, 41};
+        auto waitressLeftAnim = new AnimatedBitmap(waitressLeftBitmap, waitressLeftRect);
+        waitressLeftAnim->SetAnimationFrames(40, 41, 6, 2);
+        waitressLeftAnim->SetSpeed(0.2f); // 0.4s per frame (similar to original 400ms cycle)
+        waitressLeftAnim->SetLoop(true);
+        waitressLeftAnim->Play();
+        AddDrawable("waitressLeft", std::shared_ptr<IDrawable>(waitressLeftAnim));
+    }
+    
+    if (!GetDrawable("waitressRight")) {
+        Bitmap* waitressRightBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
+        
+        SDL_Rect waitressRightRect = {90, 68, 40, 41};
+        auto waitressRightAnim = new AnimatedBitmap(waitressRightBitmap, waitressRightRect);
+        waitressRightAnim->SetAnimationFrames(40, 41, 6, 2);
+        waitressRightAnim->SetSpeed(0.2f); // 0.4s per frame (similar to original 400ms cycle)
+        waitressRightAnim->SetLoop(true);
+        waitressRightAnim->Play();
+        AddDrawable("waitressRight", std::shared_ptr<IDrawable>(waitressRightAnim));
+    }
+
+    // Create masked screen background (similar to gas station)
+    Bitmap* screenMaskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
+    if (screenMaskBitmap) {
+        maskedScreenBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 256, 41, 32, SDL_PIXELFORMAT_RGBA8888));
+        background->CreateMask(screenMaskBitmap->GetSurface(), maskedScreenBackground.get(), {0, 68, 256, 41});
+        maskedScreenBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedScreenBackground.get()));
+        SDL_SetTextureBlendMode(maskedScreenBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
+    }
+
     hud->SetVisible(true);
 
     initStartTime = SDL_GetTicks64();
@@ -101,10 +134,20 @@ void Diner::Draw() {
 
     UpdateCarAnimation(deltaTime);
 
-    // Update phonebook guy animation
+    // Update animations - declare variables once for the entire method
     auto phonebookGuy = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("phonebook_guy"));
     if (phonebookGuy) {
         phonebookGuy->Update(deltaTime);
+    }
+
+    auto waitressLeft = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressLeft"));
+    if (waitressLeft) {
+        waitressLeft->Update(deltaTime);
+    }
+
+    auto waitressRight = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressRight"));
+    if (waitressRight) {
+        waitressRight->Update(deltaTime);
     }
 
     Scene::Draw();
@@ -123,7 +166,26 @@ void Diner::Draw() {
             animatingCar = true;
         }
         // Still draw everything else while waiting
-        DrawAll(); // Draw all drawables in the container (including phonebook guy)
+        
+        // Draw waitress animations first (before mask)
+        if (waitressLeft) {
+            waitressLeft->Draw();
+        }
+        if (waitressRight) {
+            waitressRight->Draw();
+        }
+        
+        // Draw the masked screen background (to mask parts of waitress animation)
+        if (maskedScreenBackgroundTexture) {
+            SDL_Rect screenMaskRect = {0, 68, 256, 41};
+            SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
+        }
+        
+        // Draw other drawables (phonebook guy, etc.)
+        if (phonebookGuy) {
+            phonebookGuy->Draw();
+        }
+        
         for (auto b : bubbles) {
             b->Draw();
         }
@@ -133,7 +195,24 @@ void Diner::Draw() {
         return;
     }
 
-    DrawAll();
+    // Draw waitress animations first (before mask)
+    if (waitressLeft) {
+        waitressLeft->Draw();
+    }
+    if (waitressRight) {
+        waitressRight->Draw();
+    }
+
+    // Draw the masked screen background (to mask parts of waitress animation)
+    if (maskedScreenBackgroundTexture) {
+        SDL_Rect screenMaskRect = {0, 68, 256, 41};
+        SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
+    }
+
+    // Draw other drawables (phonebook guy, etc.)
+    if (phonebookGuy) {
+        phonebookGuy->Draw();
+    }
 
     if (carBitmap != nullptr) {
         carBitmap->Move({carx, cary});
@@ -151,12 +230,14 @@ void Diner::Draw() {
 }
 
 void Diner::DrawMaskAfterCar() {
+    // Draw the road mask (for car)
     if (roadMaskSurface && roadMaskTexture) {
         SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
         SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
     }
+    
     CarScene::DrawMaskAfterCar();
 }
 

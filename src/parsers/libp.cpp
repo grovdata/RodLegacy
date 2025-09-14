@@ -352,8 +352,11 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
                 case PHONEBOOK_GUY:
                 case DECALS:
                 case GUS_GAS_ATTENDANT:
+                case DINER_WAITRESS_ANIM_LEFT:
+                case DINER_WAITRESS_ANIM_RIGHT:
                     return LibAssetSpritesheet;
                 case GUS_GAS_MASK:
+                case DINER_SCREEN_MASK:
                     return LibAssetMask;
                 default:
                     return LibAssetRegular;
