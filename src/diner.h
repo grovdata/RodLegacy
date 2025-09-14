@@ -37,6 +37,18 @@ class Diner: public CarScene {
     double lastFrameTime;
     double currentTime;
 
+    // Waitress animation state
+    enum WaitressState {
+        WAITRESS_ENTERING,
+        WAITRESS_PAUSED,
+        WAITRESS_EXITING,
+        WAITRESS_HIDDEN
+    };
+    WaitressState waitressState = WAITRESS_ENTERING;
+    double waitressAnimTime = 0.0;
+    double waitressPauseTime = 2.0; // 2 second pause
+    double waitressSpeed = 100.0; // pixels per second
+
     public:
         Diner();
         ~Diner();
@@ -52,6 +64,7 @@ class Diner: public CarScene {
 
         void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
         void UpdateAnimation(double deltaTime);
+        void UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight);
 
 
         void UpdateDebugInfo() override;

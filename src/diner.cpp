@@ -68,21 +68,23 @@ void Diner::Init(bool debugMode) {
         SDL_Rect waitressLeftRect = {25, 68, 40, 41};
         auto waitressLeftAnim = new AnimatedBitmap(waitressLeftBitmap, waitressLeftRect);
         waitressLeftAnim->SetAnimationFrames(40, 41, 6, 2);
-        waitressLeftAnim->SetSpeed(0.2f); // 0.4s per frame (similar to original 400ms cycle)
+        waitressLeftAnim->SetSpeed(0.2f);
         waitressLeftAnim->SetLoop(true);
         waitressLeftAnim->Play();
+        waitressLeftAnim->SetVisible(false); // Start hidden
         AddDrawable("waitressLeft", std::shared_ptr<IDrawable>(waitressLeftAnim));
     }
     
     if (!GetDrawable("waitressRight")) {
         Bitmap* waitressRightBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
         
-        SDL_Rect waitressRightRect = {90, 68, 40, 41};
+        SDL_Rect waitressRightRect = {-40, 68, 40, 41}; // Start off-screen left
         auto waitressRightAnim = new AnimatedBitmap(waitressRightBitmap, waitressRightRect);
         waitressRightAnim->SetAnimationFrames(40, 41, 6, 2);
-        waitressRightAnim->SetSpeed(0.2f); // 0.4s per frame (similar to original 400ms cycle)
+        waitressRightAnim->SetSpeed(0.2f);
         waitressRightAnim->SetLoop(true);
         waitressRightAnim->Play();
+        waitressRightAnim->SetVisible(true); // Start visible for entering
         AddDrawable("waitressRight", std::shared_ptr<IDrawable>(waitressRightAnim));
     }
 
@@ -149,6 +151,9 @@ void Diner::Draw() {
     if (waitressRight) {
         waitressRight->Update(deltaTime);
     }
+
+    // Update waitress sequence animation
+    UpdateWaitressSequence(deltaTime, waitressLeft, waitressRight);
 
     Scene::Draw();
     if (!isSetup) {
@@ -369,8 +374,77 @@ void Diner::OnSceneExit() {
     cary = 0;
     currentOpponent = nullptr;
     
+    // Reset waitress animation state
+    waitressState = WAITRESS_ENTERING;
+    waitressAnimTime = 0.0;
+    
     // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
+}
+
+void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight) {
+    if (!waitressLeft || !waitressRight) return;
+    
+    waitressAnimTime += deltaTime;
+    
+    switch (waitressState) {
+        case WAITRESS_ENTERING: {
+            // Move waitress right from -40 to 195
+            double progress = waitressAnimTime * waitressSpeed;
+            int currentX = -40 + (int)progress;
+            
+            if (currentX >= 195) {
+                // Reached target position, switch to pause
+                waitressRight->SetPosition(195, 68);
+                waitressState = WAITRESS_PAUSED;
+                waitressAnimTime = 0.0;
+            } else {
+                waitressRight->SetPosition(currentX, 68);
+            }
+            break;
+        }
+        
+        case WAITRESS_PAUSED: {
+            // Wait for pause duration
+            if (waitressAnimTime >= waitressPauseTime) {
+                // Switch to left animation and start exiting
+                waitressRight->SetVisible(false);
+                waitressLeft->SetVisible(true);
+                waitressLeft->SetPosition(195, 68);
+                waitressState = WAITRESS_EXITING;
+                waitressAnimTime = 0.0;
+            }
+            break;
+        }
+        
+        case WAITRESS_EXITING: {
+            // Move waitress left from 195 to off-screen left
+            double progress = waitressAnimTime * waitressSpeed;
+            int currentX = 195 - (int)progress;
+            
+            if (currentX <= -40) {
+                // Exited screen, hide and reset
+                waitressLeft->SetVisible(false);
+                waitressLeft->SetPosition(25, 68); // Reset to original position
+                waitressRight->SetPosition(-40, 68); // Reset to start position
+                waitressRight->SetVisible(true);
+                waitressState = WAITRESS_HIDDEN;
+                waitressAnimTime = 0.0;
+            } else {
+                waitressLeft->SetPosition(currentX, 68);
+            }
+            break;
+        }
+        
+        case WAITRESS_HIDDEN: {
+            // Wait a bit before starting the sequence again
+            if (waitressAnimTime >= 5.0) { // 5 second delay before repeating
+                waitressState = WAITRESS_ENTERING;
+                waitressAnimTime = 0.0;
+            }
+            break;
+        }
+    }
 }
 
 void Diner::OnFadeComplete() {
