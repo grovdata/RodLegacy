@@ -1,7 +1,6 @@
 #pragma once
 
 #include "scene.h"
-#include "spritesheet.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
 class Opponent;

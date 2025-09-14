@@ -36,6 +36,10 @@ class IDrawableContainer {
             );
         }
 
+        void ClearDrawables() {
+            drawables.clear();
+        }
+
         std::shared_ptr<IDrawable> GetDrawable(const std::string& id) {
             for (const auto& entry : drawables) {
                 if (entry.id == id) {

@@ -44,15 +44,23 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    // Add phonebook guy as AnimatedBitmap to container
-    Bitmap* phonebookGuySheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
-    SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
-    auto phonebookGuyAnim = new AnimatedBitmap(phonebookGuySheet, phonebookGuyRect);
-    phonebookGuyAnim->SetAnimationFrames(40, 62, 5, 2); // 2x1 grid (assuming 2 frames)
-    phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
-    phonebookGuyAnim->SetLoop(true);
-    phonebookGuyAnim->Play();
-    AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
+    // Add phonebook guy as AnimatedBitmap to container (only if not already added)
+    if (!GetDrawable("phonebook_guy")) {
+        Bitmap* phonebookGuySheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
+        
+        SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
+        auto phonebookGuyAnim = new AnimatedBitmap(phonebookGuySheet, phonebookGuyRect);
+        // PHONEBOOK_GUY is 2 rows, 5 columns according to libp.cpp
+        // Calculate frame size: width/5, height/2
+        int frameWidth = phonebookGuySheet->GetSurface()->w / 5;
+        int frameHeight = phonebookGuySheet->GetSurface()->h / 2;
+        phonebookGuyAnim->SetAnimationFrames(frameWidth, frameHeight, 5, 2); // 5 columns, 2 rows
+        phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
+        phonebookGuyAnim->SetLoop(true);
+        phonebookGuyAnim->Play();
+        
+        AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
+    }
 
     hud->SetVisible(true);
 
