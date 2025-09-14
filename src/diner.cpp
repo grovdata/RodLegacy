@@ -17,11 +17,10 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
 void Diner::Init(bool debugMode) {
     CarScene::Init(debugMode);
 
-    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
-    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-    SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
-    textures.push_back(roadMaskTexture);
+    roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
+    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+    roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+    SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
 
     SDL_Rect orderRect = {132, 53, 27, 9};
     Zone order(ZONE_DINER_ORDER, strdup("Order"), &orderRect);
@@ -56,8 +55,7 @@ void Diner::Init(bool debugMode) {
 }
 
 Diner::~Diner() {    
-    SDL_FreeSurface(roadMaskSurface);
-    SDL_DestroyTexture(roadMaskTexture);
+    // Smart pointers will automatically clean up
     opponentCarBitmaps.clear();
     carBitmap = nullptr;
 }
@@ -138,9 +136,12 @@ void Diner::Draw() {
 }
 
 void Diner::DrawMaskAfterCar() {
-    SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-    SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+    if (roadMaskSurface && roadMaskTexture) {
+        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+        SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
+    }
     CarScene::DrawMaskAfterCar();
 }
 

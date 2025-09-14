@@ -11,8 +11,8 @@ class Diner: public CarScene {
     Spritesheet *phonebookGuy;
     Spritesheet *waitress;
 
-    SDL_Surface *roadMaskSurface;
-    SDL_Texture *roadMaskTexture;
+    sdl2::SurfacePtr roadMaskSurface;
+    sdl2::TexturePtr roadMaskTexture;
     SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
 
