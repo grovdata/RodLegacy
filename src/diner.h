@@ -8,8 +8,6 @@ class Opponent;
 
 class Diner: public CarScene {
    private:
-    Spritesheet *phonebookGuy;
-    Spritesheet *waitress;
 
     sdl2::SurfacePtr roadMaskSurface;
     sdl2::TexturePtr roadMaskTexture;

@@ -4,6 +4,7 @@
 #include "ui/bubble.h"
 #include "cardata.h"
 #include "debug_overlay.h"
+#include "animated_bitmap.h"
 
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
@@ -43,11 +44,15 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
-    phonebookGuy->SetPosition(189, 65);
-    phonebookGuy->SetDimensions(38, 60);
-    phonebookGuy->SetVisible(true);
-    phonebookGuy->SelectSprite(0, 0);
+    // Add phonebook guy as AnimatedBitmap to container
+    Bitmap* phonebookGuySheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
+    SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
+    auto phonebookGuyAnim = new AnimatedBitmap(phonebookGuySheet, phonebookGuyRect);
+    phonebookGuyAnim->SetAnimationFrames(40, 62, 5, 2); // 2x1 grid (assuming 2 frames)
+    phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
+    phonebookGuyAnim->SetLoop(true);
+    phonebookGuyAnim->Play();
+    AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
 
     hud->SetVisible(true);
 
@@ -88,6 +93,12 @@ void Diner::Draw() {
 
     UpdateCarAnimation(deltaTime);
 
+    // Update phonebook guy animation
+    auto phonebookGuy = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("phonebook_guy"));
+    if (phonebookGuy) {
+        phonebookGuy->Update(deltaTime);
+    }
+
     Scene::Draw();
     if (!isSetup) {
         Init(debugMode);
@@ -104,7 +115,7 @@ void Diner::Draw() {
             animatingCar = true;
         }
         // Still draw everything else while waiting
-        phonebookGuy->Draw();
+        DrawAll(); // Draw all drawables in the container (including phonebook guy)
         for (auto b : bubbles) {
             b->Draw();
         }
@@ -114,11 +125,7 @@ void Diner::Draw() {
         return;
     }
 
-    if (elapsed % 400 == 0) {
-        phonebookGuy->CycleNextSprite();
-    }
-
-    phonebookGuy->Draw();
+    DrawAll();
 
     if (carBitmap != nullptr) {
         carBitmap->Move({carx, cary});
