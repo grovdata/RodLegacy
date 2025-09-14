@@ -389,13 +389,15 @@ void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBit
     
     switch (waitressState) {
         case WAITRESS_ENTERING: {
-            // Move waitress right from -40 to 195
+            // Move waitress right from -40 to 208
             double progress = waitressAnimTime * waitressSpeed;
             int currentX = -40 + (int)progress;
             
-            if (currentX >= 195) {
+            if (currentX >= 208) {
                 // Reached target position, switch to pause
-                waitressRight->SetPosition(195, 68);
+                waitressRight->SetPosition(208, 68);
+                waitressRight->SetFrame(10); // Set to frame 11 for pause
+                waitressRight->Stop(); // Stop animation during pause
                 waitressState = WAITRESS_PAUSED;
                 waitressAnimTime = 0.0;
             } else {
@@ -410,7 +412,8 @@ void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBit
                 // Switch to left animation and start exiting
                 waitressRight->SetVisible(false);
                 waitressLeft->SetVisible(true);
-                waitressLeft->SetPosition(195, 68);
+                waitressLeft->SetPosition(208, 68);
+                waitressLeft->Play(); // Restart animation for exiting
                 waitressState = WAITRESS_EXITING;
                 waitressAnimTime = 0.0;
             }
@@ -418,9 +421,9 @@ void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBit
         }
         
         case WAITRESS_EXITING: {
-            // Move waitress left from 195 to off-screen left
+            // Move waitress left from 208 to off-screen left
             double progress = waitressAnimTime * waitressSpeed;
-            int currentX = 195 - (int)progress;
+            int currentX = 208 - (int)progress;
             
             if (currentX <= -40) {
                 // Exited screen, hide and reset
@@ -439,6 +442,7 @@ void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBit
         case WAITRESS_HIDDEN: {
             // Wait a bit before starting the sequence again
             if (waitressAnimTime >= 5.0) { // 5 second delay before repeating
+                waitressRight->Play(); // Restart animation for entering
                 waitressState = WAITRESS_ENTERING;
                 waitressAnimTime = 0.0;
             }
