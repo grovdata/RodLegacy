@@ -17,8 +17,8 @@ class GasStation : public CarScene {
    private:
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
-    SDL_Surface *roadMaskSurface;
-    SDL_Texture *roadMaskTexture;
+    sdl2::SurfacePtr roadMaskSurface;
+    sdl2::TexturePtr roadMaskTexture;
     SDL_Rect roadMaskSrcRect  = {0, 175, 320, 15}; // Mask from y=175 down, 15 pixels high
     SDL_Rect roadMaskDestRect = {0, 0, 320, 15};
     GasStationState sceneState = GAS_STATION_IDLE;
@@ -43,5 +43,7 @@ class GasStation : public CarScene {
 
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnFadeComplete() override;
+    void FadeOut() override;
+    void OnSceneExit() override;
 
 };

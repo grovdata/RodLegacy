@@ -241,6 +241,27 @@ void Scene::OnFadeComplete() {
     }
 }
 
+void Scene::OnSceneExit() {
+    // Base implementation - can be overridden by derived classes
+    // This is called when the scene is being exited via hotkeys or other means
+}
+
+void CarScene::OnSceneExit() {
+    // Reset common car animation state
+    carAnimationTime = 0;
+    carExitAnimationTime = 0;
+    waitTimer = 0;
+    exitingCar = false;
+    isPaused = false;
+    needsNewAnimation = true;
+    animatingCar = false;
+    carBitmap = nullptr;  // This ensures no car is visible when re-entering
+    initialDelay = true;
+    
+    // Call parent implementation
+    Scene::OnSceneExit();
+}
+
 void Scene::UpdateDebugInfo() {
     // Base implementation - can be overridden by derived classes
     if (debugOverlay) {

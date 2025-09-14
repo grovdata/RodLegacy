@@ -255,6 +255,27 @@ void Diner::PushEvent(SDL_Event *event) {
     }
 }
 
+void Diner::FadeOut() {
+    // Reset animation state during fade out (safer than during hotkey press)
+    OnSceneExit();
+    
+    // Call parent implementation
+    Scene::FadeOut();
+}
+
+void Diner::OnSceneExit() {
+    initialDelay = true;
+    animatingCar = false;
+    exitingCar = false;
+    carBitmap = nullptr;
+    carx = 0;
+    cary = 0;
+    currentOpponent = nullptr;
+    
+    // Call parent CarScene implementation (which handles common animation state)
+    CarScene::OnSceneExit();
+}
+
 void Diner::OnFadeComplete() {
     if (initialDelay) {
         fadeCompleteTime = SDL_GetTicks64();

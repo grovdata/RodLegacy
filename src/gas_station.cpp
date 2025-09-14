@@ -35,12 +35,7 @@ GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP,
 }
 
 GasStation::~GasStation() {
-    if (roadMaskSurface) {
-        SDL_FreeSurface(roadMaskSurface);
-    }
-    if (roadMaskTexture) {
-        SDL_DestroyTexture(roadMaskTexture);
-    }
+    // Smart pointers will automatically clean up
 }
 
 void GasStation::Init(bool initialDebugMode) {
@@ -55,11 +50,11 @@ void GasStation::Init(bool initialDebugMode) {
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
     
     // Create road mask to hide car wheels below y=175 (similar to diner scene)
-    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 15, 32, 0, 0, 0, 0);
+    roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 15, 32, 0, 0, 0, 0));
     if (roadMaskSurface) {
-        SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-        roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-        SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
+        SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+        SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
         SDL_Log("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}", 
                 roadMaskSrcRect.x, roadMaskSrcRect.y, roadMaskSrcRect.w, roadMaskSrcRect.h,
                 roadMaskDestRect.x, roadMaskDestRect.y, roadMaskDestRect.w, roadMaskDestRect.h);
@@ -164,11 +159,10 @@ void GasStation::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
     
     if (roadMaskSurface && roadMaskTexture) {
-        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-        SDL_DestroyTexture(roadMaskTexture);  // Clean up old texture
-        roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-        SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
-        SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+        SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
     }
     
     // Call parent implementation for any additional mask effects
@@ -312,14 +306,24 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
 
 
 
+void GasStation::OnSceneExit() {
+    // Reset gas station specific state if needed
+    sceneState = GAS_STATION_IDLE;
+    
+    // Call parent CarScene implementation (which handles common animation state)
+    CarScene::OnSceneExit();
+}
+
+void GasStation::FadeOut() {
+    // Call exit handler when fading out
+    OnSceneExit();
+    
+    // Call parent implementation
+    Scene::FadeOut();
+}
+
 void GasStation::OnFadeComplete() {
     if (initialDelay) {
         fadeCompleteTime = SDL_GetTicks64();
-    } else {
-        // Start car animation only once after fade
-        if (!animatingCar && !carBitmap) {
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-            animatingCar = true;
-        }
     }
 }

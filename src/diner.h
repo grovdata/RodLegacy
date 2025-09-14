@@ -59,4 +59,6 @@ class Diner: public CarScene {
         void PushEvent(SDL_Event *event) override;
 
         void OnFadeComplete() override;
+        void OnSceneExit() override;
+        void FadeOut() override;
 };

@@ -70,10 +70,11 @@ class Scene: public IDrawableContainer {
 
     virtual SrLibAmigaSpriteAsset GetPointerType() { return currentPointer; }
 
-    void FadeOut();
+    virtual void FadeOut();
     void FadeIn();
     void PrepareFadeIn();
     virtual void OnFadeComplete();
+    virtual void OnSceneExit();
 
     virtual void Action(ZoneId zone);
     virtual void Draw();
@@ -131,6 +132,7 @@ public:
     virtual void UpdateDebugInfo() override;
     virtual void PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;
+    virtual void OnSceneExit() override;
 
     CarBitmap *carBitmap;
     bool animatingCar = false;
