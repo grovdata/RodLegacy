@@ -1,6 +1,7 @@
 #include "driving.h"
 #include "state.h"
 #include "parsers/libp.h"
+#include "parsers/carcolor.h"
 
 Driving::Driving() : Scene() {
     // Create racing component
@@ -28,23 +29,34 @@ void Driving::Init(bool debugMode) {
     roof->SetVisible(true);
     AddDrawable("roof", std::shared_ptr<IDrawable>(roof));
 
-    // Load hood
-    auto hood = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD});
+    // Load hood with current car's color
+    auto hood = [&]() {        
+        StandardCarColor carColor = state.GetCurrentCar()->GetColor();
+        std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+        byte_vector& libFile = state.assets.GetLibPData();
+        return state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, carPalette);    
+    }();
     hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     hood->SetVisible(true);
     AddDrawable("hood", std::shared_ptr<IDrawable>(hood));
 
     // Load mirror stem
-    auto mirrorStem = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
-    mirrorStem->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
-    mirrorStem->SetVisible(true);
-    AddDrawable("mirror_stem", std::shared_ptr<IDrawable>(mirrorStem));
+    // auto mirrorStem = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
+    // mirrorStem->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
+    // mirrorStem->SetVisible(true);
+    // AddDrawable("mirror_stem", std::shared_ptr<IDrawable>(mirrorStem));
 
     // Load mirror
     auto mirror = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_BOX});
-    mirror->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
+    mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
     AddDrawable("mirror", std::shared_ptr<IDrawable>(mirror));
+
+    // Load plush dice
+    auto plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
+    plushDice->SetPosition(259, 45);
+    plushDice->SetVisible(true);
+    AddDrawable("plush_dice", std::shared_ptr<IDrawable>(plushDice));
 }
 
 Driving::~Driving() {
@@ -80,6 +92,9 @@ void Driving::Draw() {
     
     auto mirror = GetDrawable("mirror");
     if (mirror) mirror->Draw();
+
+    auto plushDice = GetDrawable("plush_dice");
+    if (plushDice) plushDice->Draw();
 }
 
 void Driving::PushEvent(SDL_Event *event) {
