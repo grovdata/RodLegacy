@@ -4,15 +4,16 @@
 #include "bitmap.h"
 #include "spritesheet.h"
 #include "racing.h"
+#include "types.h"
 
 #include <vector>
+#include <memory>
 
 
 class Driving: public Scene {
    private:
 
-    std::vector<Bitmap*> interior;
-    Racing *racing;
+    std::unique_ptr<Racing> racing;
 
     SDL_Event *lastEvent;
     SDL_Rect roadRect = {0, 14, GAME_WIDTH, GAME_RACING_HEIGHT};
@@ -26,6 +27,8 @@ class Driving: public Scene {
     public:
         Driving();
         ~Driving();
+
+        void Init(bool debugMode) override;
 
         // MousePointer GetPointerType() override;
 

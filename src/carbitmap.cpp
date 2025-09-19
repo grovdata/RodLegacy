@@ -62,7 +62,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     this->car = car;
     this->currentColor = color;
     
-   CarModel model = car->GetModel();
+    CarModel model = car->GetModel();
     byte_vector& libFile = state.assets.GetLibPData();
     
     // Load original body

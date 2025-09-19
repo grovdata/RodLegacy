@@ -292,6 +292,9 @@ int main(int argc, char* argv[]) {
                                 ToggleFullScreen(win, isFullScreen);
                             }
                             break;
+                        case SDLK_r:
+                            state.MoveToScene(SCENE_DRIVING);
+                            break;
                         case SDLK_ESCAPE:
                             close_requested = true;
                             break;

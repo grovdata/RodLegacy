@@ -63,8 +63,9 @@ class Scene: public IDrawableContainer {
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     Scene(std::string backgroundName);
+    Scene(); // No background constructor
     ~Scene();
-    void Init(bool debugMode);
+    virtual void Init(bool debugMode);
 
     SDL_Texture *GetTexture();
 

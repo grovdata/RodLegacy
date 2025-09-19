@@ -1,61 +1,53 @@
 #include "driving.h"
 #include "state.h"
+#include "parsers/libp.h"
 
-Driving::Driving() : Scene("") {
-    Bitmap *dashboard;
-    Bitmap *pillar;
-    Bitmap *roof;
-    Bitmap *hood;
-    Bitmap *mirrorStem;
-    Bitmap *mirror;
+Driving::Driving() : Scene() {
+    // Create racing component
+    racing = std::make_unique<Racing>();
+}
 
-    dashboard = new Bitmap();
-    dashboard->LoadBitmap("../data/res/lib_p_11.gif");
+void Driving::Init(bool debugMode) {
+    Scene::Init(debugMode);
+    
+    // Load dashboard using asset system
+    auto dashboard = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1});
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
+    AddDrawable("dashboard", std::shared_ptr<IDrawable>(dashboard));
 
-    pillar = new Bitmap();
-    pillar->LoadBitmap("../data/res/lib_p_18.gif");
+    // Load pillar (windshield beam)
+    auto pillar = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
     pillar->AlignAbove(dashboard);
     pillar->SetVisible(true);
+    AddDrawable("pillar", std::shared_ptr<IDrawable>(pillar));
 
-    roof = new Bitmap();
-    roof->LoadBitmap("../data/res/lib_p_20.gif");
+    // Load roof (ceiling)
+    auto roof = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CEILING});
     roof->AlignAbove(pillar);
     roof->SetVisible(true);
+    AddDrawable("roof", std::shared_ptr<IDrawable>(roof));
 
-    hood = new Bitmap();
-    hood->LoadBitmap("../data/res/lib_p_19.gif");
+    // Load hood
+    auto hood = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD});
     hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     hood->SetVisible(true);
+    AddDrawable("hood", std::shared_ptr<IDrawable>(hood));
 
-    mirrorStem = new Bitmap();
-    mirrorStem->LoadBitmap("../data/res/lib_p_41.gif");
+    // Load mirror stem
+    auto mirrorStem = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
     mirrorStem->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     mirrorStem->SetVisible(true);
+    AddDrawable("mirror_stem", std::shared_ptr<IDrawable>(mirrorStem));
 
-    mirror = new Bitmap();
-    mirror->LoadBitmap("../data/res/lib_p_42.gif");
+    // Load mirror
+    auto mirror = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_BOX});
     mirror->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     mirror->SetVisible(true);
-
-    // Order is important for rendering
-    interior.push_back(roof);
-    interior.push_back(pillar);
-    interior.push_back(hood);
-    interior.push_back(dashboard);
-
-    racing = new Racing();
-
+    AddDrawable("mirror", std::shared_ptr<IDrawable>(mirror));
 }
 
 Driving::~Driving() {
-    for (auto b : interior) {
-        delete b;
-    }
-
-    delete racing;
-
     SDL_RemoveTimer(timerID);
 }
 
@@ -67,12 +59,27 @@ void Driving::Draw() {
     Scene::Draw();
 
     roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
-
     SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
 
-    for (auto b : interior) {
-        b->Draw();
-    }
+    // Draw all interior elements using drawable system
+    // Order is important for rendering (back to front)
+    auto roof = GetDrawable("roof");
+    if (roof) roof->Draw();
+    
+    auto pillar = GetDrawable("pillar");
+    if (pillar) pillar->Draw();
+    
+    auto hood = GetDrawable("hood");
+    if (hood) hood->Draw();
+    
+    auto dashboard = GetDrawable("dashboard");
+    if (dashboard) dashboard->Draw();
+    
+    auto mirrorStem = GetDrawable("mirror_stem");
+    if (mirrorStem) mirrorStem->Draw();
+    
+    auto mirror = GetDrawable("mirror");
+    if (mirror) mirror->Draw();
 }
 
 void Driving::PushEvent(SDL_Event *event) {
