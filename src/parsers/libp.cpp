@@ -417,6 +417,8 @@ std::vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
             return PAL1;
         case StockPaletteAmigaGasStation:
             return PAL_GAS;
+        case StockPaletteAmigaDriving:
+            return PAL_DRIVING;
         default:
             return PAL1;
     }
@@ -433,9 +435,17 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 case GUS_GAS_PUMP2:
                 case GUS_GAS_PUMP3:
                 case GUS_GAS_PUMP_FILLING:
-                    return PAL_GAS;
+                    return PAL_GAS;                
                 default:
-                    return PAL1;
+                    // Use driving palette for entries <= 176, main palette for entries > 176
+                    if (index >= 45 && index <= 80) {
+                        return PAL_DRIVING_LOW;
+                    }
+                    if (index <= 176) {
+                        return PAL_DRIVING;
+                    } else {
+                        return PAL1;
+                    }
             }
         }
 

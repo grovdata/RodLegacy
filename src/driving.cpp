@@ -57,6 +57,14 @@ void Driving::Init(bool debugMode) {
     plushDice->SetPosition(259, 45);
     plushDice->SetVisible(true);
     AddDrawable("plush_dice", std::shared_ptr<IDrawable>(plushDice));
+
+    // Load wheel left hand 1
+    auto wheelLeftHand1 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_1});
+    wheelLeftHand1->SetPosition(72, 144);
+    wheelLeftHand1->SetVisible(true);
+    AddDrawable("wheel_left_hand_1", std::shared_ptr<IDrawable>(wheelLeftHand1));
+
+    // Load wheel right hand 1
 }
 
 Driving::~Driving() {
@@ -95,6 +103,9 @@ void Driving::Draw() {
 
     auto plushDice = GetDrawable("plush_dice");
     if (plushDice) plushDice->Draw();
+
+    auto wheelLeftHand1 = GetDrawable("wheel_left_hand_1");
+    if (wheelLeftHand1) wheelLeftHand1->Draw();
 }
 
 void Driving::PushEvent(SDL_Event *event) {
