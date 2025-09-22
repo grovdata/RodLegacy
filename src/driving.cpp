@@ -103,6 +103,26 @@ void Driving::Init(bool debugMode) {
     wheelRightHand4->SetVisible(false);
     AddDrawable("wheel_right_hand_4", std::shared_ptr<IDrawable>(wheelRightHand4));
 
+    auto wheelTurningLeft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT});
+    wheelTurningLeft->SetPosition(120, 144);
+    wheelTurningLeft->SetVisible(false);
+    AddDrawable("wheel_turning_left", std::shared_ptr<IDrawable>(wheelTurningLeft));
+
+    auto wheelTurningRight = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT});
+    wheelTurningRight->SetPosition(120, 144);
+    wheelTurningRight->SetVisible(false);
+    AddDrawable("wheel_turning_right", std::shared_ptr<IDrawable>(wheelTurningRight));
+
+    auto wheelTurningLeftOpposite = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT_OPPOSITE_1});
+    wheelTurningLeftOpposite->SetPosition(72, 144);
+    wheelTurningLeftOpposite->SetVisible(false);
+    AddDrawable("wheel_turning_left_opposite", std::shared_ptr<IDrawable>(wheelTurningLeftOpposite));
+
+    auto wheelTurningRightOpposite = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_1});
+    wheelTurningRightOpposite->SetPosition(216, 144);
+    wheelTurningRightOpposite->SetVisible(false);
+    AddDrawable("wheel_turning_right_opposite", std::shared_ptr<IDrawable>(wheelTurningRightOpposite));
+
     SetState(DRIVING_STATE_NORMAL);
 }
 
@@ -131,6 +151,14 @@ void Driving::SetState(DrivingState state) {
     if (rightHand3) rightHand3->SetVisible(false);
     auto rightHand4 = GetDrawable("wheel_right_hand_4");
     if (rightHand4) rightHand4->SetVisible(false);
+    auto wheelTurningLeft = GetDrawable("wheel_turning_left");
+    if (wheelTurningLeft) wheelTurningLeft->SetVisible(false);
+    auto wheelTurningRight = GetDrawable("wheel_turning_right");
+    if (wheelTurningRight) wheelTurningRight->SetVisible(false);
+    auto wheelTurningLeftOpposite = GetDrawable("wheel_turning_left_opposite");
+    if (wheelTurningLeftOpposite) wheelTurningLeftOpposite->SetVisible(false);
+    auto wheelTurningRightOpposite = GetDrawable("wheel_turning_right_opposite");
+    if (wheelTurningRightOpposite) wheelTurningRightOpposite->SetVisible(false);
 
     this->currentState = state;
     switch (state) {
@@ -145,11 +173,15 @@ void Driving::SetState(DrivingState state) {
             rightHand2->SetVisible(true);
             rightHand3->SetVisible(true);
             rightHand4->SetVisible(true);
+            wheelTurningLeft->SetVisible(true);
+            wheelTurningLeftOpposite->SetVisible(true);
             break;
         case DRIVING_STATE_TURNING_RIGHT:
             leftHand2->SetVisible(true);
             leftHand3->SetVisible(true);
             leftHand4->SetVisible(true);
+            wheelTurningRight->SetVisible(true);
+            wheelTurningRightOpposite->SetVisible(true);
             break;
     }
 }
@@ -206,6 +238,18 @@ void Driving::Draw() {
 
     auto wheelRightHand4 = GetDrawable("wheel_right_hand_4");
     if (wheelRightHand4) wheelRightHand4->Draw();
+
+    auto wheelTurningLeft = GetDrawable("wheel_turning_left");
+    if (wheelTurningLeft) wheelTurningLeft->Draw();
+
+    auto wheelTurningRight = GetDrawable("wheel_turning_right");
+    if (wheelTurningRight) wheelTurningRight->Draw();
+
+    auto wheelTurningLeftOpposite = GetDrawable("wheel_turning_left_opposite");
+    if (wheelTurningLeftOpposite) wheelTurningLeftOpposite->Draw();
+
+    auto wheelTurningRightOpposite = GetDrawable("wheel_turning_right_opposite");
+    if (wheelTurningRightOpposite) wheelTurningRightOpposite->Draw();
 }
 
 void Driving::PushEvent(SDL_Event *event) {
