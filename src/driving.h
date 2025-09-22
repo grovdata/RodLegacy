@@ -9,6 +9,12 @@
 #include <vector>
 #include <memory>
 
+enum DrivingState {
+    DRIVING_STATE_NORMAL,
+    DRIVING_STATE_SHIFTING,
+    DRIVING_STATE_TURNING_LEFT,
+    DRIVING_STATE_TURNING_RIGHT    
+};
 
 class Driving: public Scene {
    private:
@@ -21,6 +27,7 @@ class Driving: public Scene {
 
     SDL_TimerID timerID;
 
+    DrivingState currentState = DRIVING_STATE_NORMAL;
 
     static Uint32 AnimationTimerCallback(Uint32 interval, void* param);
 
@@ -41,5 +48,5 @@ class Driving: public Scene {
         void Draw() override;
         void PushEvent(SDL_Event *event) override;
 
-
+        void SetState(DrivingState state);
 };
