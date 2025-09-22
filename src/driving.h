@@ -29,6 +29,23 @@ class Driving: public Scene {
 
     DrivingState currentState = DRIVING_STATE_NORMAL;
 
+    // Wheel drawable references (raw pointers - lifetime managed by drawable container)
+    Bitmap* wheelLeftHand1;
+    Bitmap* wheelLeftHand2;
+    Bitmap* wheelLeftHand3;
+    Bitmap* wheelLeftHand4;
+    Bitmap* wheelRightHand1;
+    Bitmap* wheelRightHand2;
+    Bitmap* wheelRightHand3;
+    Bitmap* wheelRightHand4;
+    Bitmap* wheelTurningLeft;
+    Bitmap* wheelTurningRight;
+    Bitmap* wheelTurningLeftOpposite;
+    Bitmap* wheelTurningRightOpposite;
+
+private:
+    void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
+
     static Uint32 AnimationTimerCallback(Uint32 interval, void* param);
 
     public:
