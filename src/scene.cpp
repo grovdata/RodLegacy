@@ -375,6 +375,10 @@ void CarScene::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
 }
 
+void CarScene::DrawExtra() {
+    DrawMaskAfterCar();
+}
+
 void CarScene::UpdateDebugInfo() {
     if (!debugMode) return;
     Scene::UpdateDebugInfo();

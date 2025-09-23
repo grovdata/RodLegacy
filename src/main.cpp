@@ -328,12 +328,7 @@ int main(int argc, char* argv[]) {
 
 
         scene->Draw();
-
-        // This is hacky, we can do better
-        SrLibGameScene gameScene = state.GetCurrentGameScene();
-        if (gameScene != SCENE_DRIVING && gameScene != SCENE_CRUISING && gameScene != SCENE_NEWSPAPER) {
-            ((CarScene*)scene)->DrawMaskAfterCar();
-        }
+        scene->DrawExtra();
 
         // This changes type every frame, would be good to only change on scene change
         mouse.SetPointerType(scene->GetPointerType());

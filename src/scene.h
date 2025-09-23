@@ -79,6 +79,7 @@ class Scene: public IDrawableContainer {
 
     virtual void Action(ZoneId zone);
     virtual void Draw();
+    virtual void DrawExtra() {} // Override in derived classes for additional drawing
     virtual void PushEvent(SDL_Event *event);
 
     virtual Dialog *GetActiveDialog();
@@ -128,6 +129,7 @@ public:
     CarScene(Asset backgroundAsset);
     virtual void Init(bool debugMode);
     virtual void DrawMaskAfterCar();
+    virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
