@@ -6,6 +6,8 @@
 Driving::Driving() : Scene() {
     // Create racing component
     racing = std::make_unique<Racing>();
+    roadTexture = nullptr;
+    lastEvent = nullptr;
 }
 
 void Driving::Init(bool debugMode) {
@@ -56,7 +58,27 @@ void Driving::Init(bool debugMode) {
     auto plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
     plushDice->SetPosition(259, 45);
     plushDice->SetVisible(true);
-    AddDrawable("plush_dice", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice1", std::shared_ptr<IDrawable>(plushDice));
+
+    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2});
+    plushDice->SetPosition(259, 45);
+    plushDice->SetVisible(false);
+    AddDrawable("plush_dice2", std::shared_ptr<IDrawable>(plushDice));
+
+    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3});
+    plushDice->SetPosition(259, 45);
+    plushDice->SetVisible(false);
+    AddDrawable("plush_dice3", std::shared_ptr<IDrawable>(plushDice));
+
+    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4});
+    plushDice->SetPosition(259, 45);
+    plushDice->SetVisible(false);
+    AddDrawable("plush_dice4", std::shared_ptr<IDrawable>(plushDice));
+
+    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5});
+    plushDice->SetPosition(259, 45);
+    plushDice->SetVisible(false);
+    AddDrawable("plush_dice5", std::shared_ptr<IDrawable>(plushDice));
 
     // Load wheel left hand 1
     wheelLeftHand1 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_1});
@@ -127,7 +149,14 @@ void Driving::Init(bool debugMode) {
 }
 
 Driving::~Driving() {
-    SDL_RemoveTimer(timerID);
+    // Timer no longer used
+    // SDL_RemoveTimer(timerID);
+    
+    // Clean up road texture
+    if (roadTexture) {
+        SDL_DestroyTexture(roadTexture);
+        roadTexture = nullptr;
+    }
 }
 
 void Driving::AddWheelDrawable(const std::string& id, Bitmap* bitmap) {
@@ -135,7 +164,8 @@ void Driving::AddWheelDrawable(const std::string& id, Bitmap* bitmap) {
 }
 
 void Driving::Start() {
-    timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
+    // Timer no longer needed as racing is updated in Draw() method
+    // timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
 }
 
 void Driving::SetState(DrivingState state) {
@@ -182,8 +212,29 @@ void Driving::SetState(DrivingState state) {
 void Driving::Draw() {
     Scene::Draw();
 
-    roadTexture = SDL_CreateTextureFromSurface(renderer, racing->GetSurface());
-    SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
+    // Update racing simulation
+    if (racing) {
+        // Get frame delta time in seconds, with a reasonable maximum to prevent huge jumps
+        float deltaTime = state.GetElapsedTime() / 1000.0f;
+        if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
+        
+        racing->Draw(deltaTime, lastEvent);
+        
+        // Get the updated racing surface and create texture
+        SDL_Surface* racingSurface = racing->GetSurface();
+        if (racingSurface) {
+            // Destroy old texture if it exists
+            if (roadTexture) {
+                SDL_DestroyTexture(roadTexture);
+            }
+            
+            // Create new texture from racing surface
+            roadTexture = SDL_CreateTextureFromSurface(renderer, racingSurface);
+            if (roadTexture) {
+                SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
+            }
+        }
+    }
 
     // Draw all interior elements using drawable system
     DrawAll();
@@ -202,6 +253,9 @@ void Driving::PushEvent(SDL_Event *event) {
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_TURNING_RIGHT);
                 break;
+            case SDLK_UP:
+                // UP key is handled by racing logic for acceleration
+                break;
         }
     } else if (event->type == SDL_KEYUP) {
         switch (event->key.keysym.sym) {
@@ -209,13 +263,16 @@ void Driving::PushEvent(SDL_Event *event) {
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_NORMAL);
                 break;
+            case SDLK_UP:
+                // UP key is handled by racing logic for acceleration
+                break;
         }
     }
 }
 
-Uint32 Driving::AnimationTimerCallback(Uint32 interval, void* param) {
-    Driving* d = static_cast<Driving*>(param);
-    d->racing->Draw(state.GetElapsedTime() / 1000.0f, d->lastEvent);
-    //d->lastEvent = NULL;
-    return interval;
-}
+// Timer callback no longer needed - racing is updated in Draw() method
+// Uint32 Driving::AnimationTimerCallback(Uint32 interval, void* param) {
+//     Driving* d = static_cast<Driving*>(param);
+//     d->racing->Draw(state.GetElapsedTime() / 1000.0f, d->lastEvent);
+//     return interval;
+// }

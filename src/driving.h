@@ -25,8 +25,6 @@ class Driving: public Scene {
     SDL_Rect roadRect = {0, 14, GAME_WIDTH, GAME_RACING_HEIGHT};
     SDL_Texture *roadTexture;
 
-    SDL_TimerID timerID;
-
     DrivingState currentState = DRIVING_STATE_NORMAL;
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
@@ -45,8 +43,6 @@ class Driving: public Scene {
 
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
-
-    static Uint32 AnimationTimerCallback(Uint32 interval, void* param);
 
     public:
         Driving();

@@ -96,8 +96,8 @@ class Scene: public IDrawableContainer {
 
 enum class CarAnimationType {
     OPPONENT_CONTINUOUS,  // For Diner: Cars drive in, wait, drive out, repeat
-    SINGLE_CAR_DRIVE,    // For Gas Station: Car drives in to idle position and stops
-    SINGLE_CAR_REVERSE   // For future use: Car reverses into position
+    SINGLE_CAR_DRIVE,    // Car driving in to idle position and stopping
+    SINGLE_CAR_REVERSE   // Car reversing out of screen
 };
 
 class CarScene: public Scene {
