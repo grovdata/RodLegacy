@@ -225,6 +225,12 @@ void Driving::LoadTrackData() {
             }
         }
         
+        // Load track data into racing component
+        if (racing) {
+            printf("Loading track data into racing component...\n");
+            racing->LoadTrackData(srExeData, SR_TRACK_ROAD_RACE);
+        }
+        
         printf("================================\n");
     } else {
         printf("Failed to load Street Rod track data from AssetManager executable data.\n");
@@ -339,6 +345,20 @@ void Driving::PushEvent(SDL_Event *event) {
                 break;
             case SDLK_UP:
                 // UP key is handled by racing logic for acceleration
+                break;
+            case SDLK_1:
+                // Switch to Road Race track
+                if (racing) {
+                    printf("Switching to Road Race track\n");
+                    racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_ROAD_RACE);
+                }
+                break;
+            case SDLK_2:
+                // Switch to Drag Race track
+                if (racing) {
+                    printf("Switching to Drag Race track\n");
+                    racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_DRAG_RACE);
+                }
                 break;
         }
     } else if (event->type == SDL_KEYUP) {
