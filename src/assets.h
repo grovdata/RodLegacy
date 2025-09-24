@@ -70,6 +70,7 @@ public:
     byte_vector& GetLibPData() { return libPData_vec; }
     byte_vector& GetLibStartData() { return libStartData_vec; }
     byte_vector& GetSrData() { return srData_vec; }
+    byte_vector& GetSrExeData() { return srExeData_vec; }
 
 private:
     fs::path gameBasePath;

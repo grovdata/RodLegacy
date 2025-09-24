@@ -2,15 +2,24 @@
 #include "state.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
+#include <fstream>
+#include <vector>
+#include <cstring>
 
 Driving::Driving() : Scene() {
+    printf("Driving::Driving() constructor called\n");
     // Create racing component
     racing = std::make_unique<Racing>();
     roadTexture = nullptr;
     lastEvent = nullptr;
+    
+    // Initialize track reader
+    trackReader = std::make_unique<TrackReader>();
+    printf("Driving constructor completed - trackReader created\n");
 }
 
 void Driving::Init(bool debugMode) {
+    printf("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
     
     // Load dashboard using asset system
@@ -146,6 +155,81 @@ void Driving::Init(bool debugMode) {
     AddWheelDrawable("wheel_turning_right_opposite", wheelTurningRightOpposite);
 
     SetState(DRIVING_STATE_NORMAL);
+    
+    // Load track data for debugging/development
+    LoadTrackData();
+}
+
+void Driving::LoadTrackData() {
+    printf("Driving::LoadTrackData() called\n");
+    
+    // Check if trackReader exists
+    if (!trackReader) {
+        printf("ERROR: trackReader is null!\n");
+        return;
+    }
+    
+    // Check if AssetManager has executable data (where track data is stored)
+    byte_vector& srExeData = state.assets.GetSrExeData();
+    printf("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
+    
+    if (srExeData.empty()) {
+        printf("ERROR: AssetManager SrExeData is empty!\n");
+        return;
+    }
+    
+    // Load Street Rod executable data from AssetManager
+    if (trackReader->LoadTrackData(srExeData)) {
+        printf("=== Street Rod Track Data Loaded ===\n");
+        
+        // Load road race track
+        printf("Extracting road race track coordinates...\n");
+        auto roadRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_ROAD_RACE, 500);
+        printf("Found %zu road race segments\n", roadRaceSegments.size());
+        if (!roadRaceSegments.empty()) {
+            auto analysis = trackReader->AnalyzeTrack(roadRaceSegments);
+            printf("Road Race Track:\n");
+            printf("  Segments: %d\n", analysis.segmentCount);
+            printf("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
+            printf("  Length: %.1f units\n", analysis.totalLength);
+            printf("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
+            printf("  Unique sprites: %zu\n", analysis.uniqueSprites.size());
+        }
+        
+        // Load drag race track
+        printf("Extracting drag race track coordinates...\n");
+        auto dragRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_DRAG_RACE, 200);
+        printf("Found %zu drag race segments\n", dragRaceSegments.size());
+        if (!dragRaceSegments.empty()) {
+            auto analysis = trackReader->AnalyzeTrack(dragRaceSegments);
+            printf("Drag Race Track:\n");
+            printf("  Segments: %d\n", analysis.segmentCount);
+            printf("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
+            printf("  Length: %.1f units\n", analysis.totalLength);
+            printf("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
+        }
+        
+        // Load roadside sprites
+        printf("Extracting roadside sprites...\n");
+        auto roadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
+        printf("Found %zu roadside sprite records\n", roadsideSprites.size());
+        if (!roadsideSprites.empty()) {
+            printf("Roadside Sprites: %zu records\n", roadsideSprites.size());
+            
+            // Show first few sprites for debugging
+            for (size_t i = 0; i < std::min<size_t>(5, roadsideSprites.size()); ++i) {
+                const auto& sprite = roadsideSprites[i];
+                printf("  %s at pos %d, %s at pos %d\n",
+                    TrackReader::GetSpriteName(sprite.spriteId1), sprite.trackPosition1,
+                    TrackReader::GetSpriteName(sprite.spriteId2), sprite.trackPosition2);
+            }
+        }
+        
+        printf("================================\n");
+    } else {
+        printf("Failed to load Street Rod track data from AssetManager executable data.\n");
+        printf("Make sure the Street Rod executable is properly loaded.\n");
+    }
 }
 
 Driving::~Driving() {

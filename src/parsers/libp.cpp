@@ -5,6 +5,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <set>
+#include <cmath>
+#include <algorithm>
 
 #include "carcolor.h"
 
@@ -989,4 +992,188 @@ SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t expected_checksum
 
     printf("File signature verified successfully\n");
     return SrLibStatusSuccess;
+}
+
+// TrackReader implementation
+bool TrackReader::LoadTrackData(const std::string& binaryPath) {
+    std::ifstream file(binaryPath, std::ios::binary);
+    if (!file.is_open()) {
+        return false;
+    }
+    
+    // Get file size
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    // Read entire file into memory
+    binaryData.resize(fileSize);
+    file.read(reinterpret_cast<char*>(binaryData.data()), fileSize);
+    file.close();
+    
+    dataLoaded = true;
+    return true;
+}
+
+bool TrackReader::LoadTrackData(const std::vector<uint8_t>& binaryData) {
+    // Copy the binary data
+    this->binaryData = binaryData;
+    dataLoaded = !binaryData.empty();
+    return dataLoaded;
+}
+
+std::vector<SrTrackCoordSegment> TrackReader::ExtractTrackCoordinates(SrTrackType trackType, int maxSegments) {
+    std::vector<SrTrackCoordSegment> segments;
+    
+    if (!dataLoaded || binaryData.empty()) {
+        return segments;
+    }
+    
+    // Determine offset based on track type
+    uint32_t offset = (trackType == SR_TRACK_ROAD_RACE) ? SR_TRACK_ROAD_RACE_OFFSET : SR_TRACK_DRAG_RACE_OFFSET;
+    
+    // Check if offset is valid
+    if (offset + 12 > binaryData.size()) {
+        return segments;
+    }
+    
+    // Extract segments
+    for (int i = 0; i < maxSegments; ++i) {
+        size_t segmentOffset = offset + (i * 12); // 12 bytes per segment
+        
+        // Check bounds
+        if (segmentOffset + 12 > binaryData.size()) {
+            break;
+        }
+        
+        SrTrackCoordSegment segment;
+        segment.xStart = ReadBigEndian16(binaryData.data(), segmentOffset);
+        segment.xEnd = ReadBigEndian16(binaryData.data(), segmentOffset + 2);
+        segment.yStart = ReadBigEndian16(binaryData.data(), segmentOffset + 4);
+        segment.yEnd = ReadBigEndian16(binaryData.data(), segmentOffset + 6);
+        segment.sprite1 = ReadBigEndian16(binaryData.data(), segmentOffset + 8);
+        segment.sprite2 = ReadBigEndian16(binaryData.data(), segmentOffset + 10);
+        
+        // Scale coordinates for 320x200 screen
+        ScaleCoordinates(segment);
+        
+        // Basic validation - stop if coordinates are unreasonable
+        if (std::abs(static_cast<int>(segment.xStart)) > 400 || std::abs(static_cast<int>(segment.xEnd)) > 400 || 
+            std::abs(static_cast<int>(segment.yStart)) > 400 || std::abs(static_cast<int>(segment.yEnd)) > 400) {
+            break;
+        }
+        
+        segments.push_back(segment);
+    }
+    
+    return segments;
+}
+
+std::vector<SrRoadSideSpriteRecord> TrackReader::ExtractRoadSideSprites(uint32_t offset, int maxRecords) {
+    std::vector<SrRoadSideSpriteRecord> sprites;
+    
+    if (!dataLoaded || binaryData.empty()) {
+        return sprites;
+    }
+    
+    // Check if offset is valid
+    if (offset + 8 > binaryData.size()) {
+        return sprites;
+    }
+    
+    // Extract sprite records
+    for (int i = 0; i < maxRecords; ++i) {
+        size_t recordOffset = offset + (i * 8); // 8 bytes per record
+        
+        // Check bounds
+        if (recordOffset + 8 > binaryData.size()) {
+            break;
+        }
+        
+        SrRoadSideSpriteRecord record;
+        record.spriteId1 = ReadBigEndianU16(binaryData.data(), recordOffset);
+        record.trackPosition1 = ReadBigEndianU16(binaryData.data(), recordOffset + 2);
+        record.spriteId2 = ReadBigEndianU16(binaryData.data(), recordOffset + 4);
+        record.trackPosition2 = ReadBigEndianU16(binaryData.data(), recordOffset + 6);
+        
+        // Scale positions for screen coordinates
+        ScaleSpritePosition(record);
+        
+        // Basic validation - stop if positions are unreasonable
+        if (record.trackPosition1 > 5000 || record.trackPosition2 > 5000) {
+            break;
+        }
+        
+        sprites.push_back(record);
+    }
+    
+    return sprites;
+}
+
+const char* TrackReader::GetSpriteName(uint16_t spriteId) {
+    switch (spriteId) {
+        case SR_SPRITE_RACING_CLOUDS: return "Clouds";
+        case SR_SPRITE_RACING_MOUNTAINS: return "Mountains";
+        case SR_SPRITE_RACING_SIGN_COUNTRY_LINE: return "Country Line Sign";
+        case SR_SPRITE_RACING_SIGN_GARAGE: return "Garage Sign";
+        case SR_SPRITE_RACING_SIGN_GUS_GAS: return "Gus Gas Sign";
+        case SR_SPRITE_RACING_DRIVE_IN: return "Drive-In";
+        case SR_SPRITE_RACING_PALM_TREE: return "Palm Tree";
+        case SR_SPRITE_RACING_ROAD_POSTS: return "Road Posts (alt)";
+        case SR_SPRITE_RACING_SIGN_ROAD_WORK_AHEAD: return "Road Work Ahead Sign";
+        case SR_SPRITE_RACING_BUSH: return "Bush";
+        case SR_SPRITE_RACING_TELEPHONE_POLE: return "Telephone Pole";
+        case SR_SPRITE_RACING_TREE_31: return "Tree 31";
+        case SR_SPRITE_RACING_TREE_32: return "Tree 32";
+        case SR_SPRITE_RACING_ROAD_POSTS_33: return "Road Posts";
+        case SR_SPRITE_RACING_UNKNOWN_18: return "Unknown 18";
+        case SR_SPRITE_RACING_UNKNOWN_19: return "Unknown 19";
+        case SR_SPRITE_RACING_UNKNOWN_20: return "Unknown 20";
+        default: return "Unknown Sprite";
+    }
+}
+
+TrackReader::TrackAnalysis TrackReader::AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments) {
+    TrackAnalysis analysis = {};
+    analysis.segmentCount = segments.size();
+    
+    if (segments.empty()) {
+        return analysis;
+    }
+    
+    // Initialize bounds
+    analysis.minX = analysis.maxX = static_cast<int>(segments[0].xStart);
+    analysis.minY = analysis.maxY = static_cast<int>(segments[0].yStart);
+    
+    std::set<uint16_t> spriteSet;
+    
+    for (const auto& segment : segments) {
+        // Update bounds with explicit casting to int
+        analysis.minX = std::min({analysis.minX, static_cast<int>(segment.xStart), static_cast<int>(segment.xEnd)});
+        analysis.maxX = std::max({analysis.maxX, static_cast<int>(segment.xStart), static_cast<int>(segment.xEnd)});
+        analysis.minY = std::min({analysis.minY, static_cast<int>(segment.yStart), static_cast<int>(segment.yEnd)});
+        analysis.maxY = std::max({analysis.maxY, static_cast<int>(segment.yStart), static_cast<int>(segment.yEnd)});
+        
+        // Calculate segment length
+        int dx = segment.xEnd - segment.xStart;
+        int dy = segment.yEnd - segment.yStart;
+        float length = sqrt(dx * dx + dy * dy);
+        analysis.totalLength += length;
+        
+        // Check if curved (non-zero movement)
+        if (dx != 0 || dy != 0) {
+            analysis.curvedSegments++;
+        } else {
+            analysis.straightSegments++;
+        }
+        
+        // Collect sprites
+        if (segment.sprite1 != 0) spriteSet.insert(segment.sprite1);
+        if (segment.sprite2 != 0) spriteSet.insert(segment.sprite2);
+    }
+    
+    // Convert sprite set to vector
+    analysis.uniqueSprites.assign(spriteSet.begin(), spriteSet.end());
+    
+    return analysis;
 }

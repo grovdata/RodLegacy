@@ -5,6 +5,7 @@
 #include "spritesheet.h"
 #include "racing.h"
 #include "types.h"
+#include "parsers/libp.h"
 
 #include <vector>
 #include <memory>
@@ -20,6 +21,7 @@ class Driving: public Scene {
    private:
 
     std::unique_ptr<Racing> racing;
+    std::unique_ptr<TrackReader> trackReader;
 
     SDL_Event *lastEvent;
     SDL_Rect roadRect = {0, 14, GAME_WIDTH, GAME_RACING_HEIGHT};
@@ -43,6 +45,7 @@ class Driving: public Scene {
 
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
+    void LoadTrackData();
 
     public:
         Driving();

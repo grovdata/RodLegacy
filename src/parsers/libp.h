@@ -129,7 +129,7 @@ enum AmigaLibAsset {
 	RACING_HOOD = 19,
 	RACING_CEILING = 20,
 	RACING_PALM_TREE = 21,
-	RACING_UNKNOWN_THING1 = 22,
+	RACING_ROAD_POST = 22,
 	RACING_UNKNOWN_THING2 = 23,
     RACING_SIGN_ROAD_WORK_AHEAD = 24,
     RACING_BUSH = 25,
@@ -430,6 +430,81 @@ enum AmigaLibAsset {
 };
 
 
+
+// Track data structures based on Street Rod binary analysis
+enum SrTrackType {
+    SR_TRACK_ROAD_RACE = 0,  // Complex curved course at 0xE000
+    SR_TRACK_DRAG_RACE = 1   // Straight drag strip at 0xDD00
+};
+
+enum SrRoadSideSprite {
+    SR_SPRITE_RACING_CLOUDS = 12,
+    SR_SPRITE_RACING_MOUNTAINS = 13,
+    SR_SPRITE_RACING_SIGN_COUNTRY_LINE = 14,
+    SR_SPRITE_RACING_SIGN_GARAGE = 15,
+    SR_SPRITE_RACING_SIGN_GUS_GAS = 16,
+    SR_SPRITE_RACING_DRIVE_IN = 17,
+    SR_SPRITE_RACING_UNKNOWN_18 = 18,
+    SR_SPRITE_RACING_UNKNOWN_19 = 19,
+    SR_SPRITE_RACING_UNKNOWN_20 = 20,
+    SR_SPRITE_RACING_PALM_TREE = 21,
+    SR_SPRITE_RACING_ROAD_POSTS = 22,    // Alternative road posts at 0x10EC1
+    SR_SPRITE_RACING_SIGN_ROAD_WORK_AHEAD = 24,
+    SR_SPRITE_RACING_BUSH = 25,
+    SR_SPRITE_RACING_TELEPHONE_POLE = 30, // Main roadside sprite at 0x10021
+    SR_SPRITE_RACING_TREE_31 = 31,
+    SR_SPRITE_RACING_TREE_32 = 32,
+    SR_SPRITE_RACING_ROAD_POSTS_33 = 33   // Primary road posts (appears with telephone poles)
+};
+
+// Track coordinate segment (12 bytes) - raw storage format from binary
+struct SrTrackCoordSegment {
+    int16_t xStart;    // Start X coordinate (scale by 1/16 for 320x200 screen)
+    int16_t xEnd;      // End X coordinate
+    int16_t yStart;    // Start Y coordinate 
+    int16_t yEnd;      // End Y coordinate
+    int16_t sprite1;   // First sprite ID (usually 0)
+    int16_t sprite2;   // Second sprite ID or environment marker
+};
+
+// Roadside sprite placement (8 bytes) - environmental decoration format
+struct SrRoadSideSpriteRecord {
+    uint16_t spriteId1;      // First sprite ID
+    uint16_t trackPosition1; // Position along track (scale by 1/16)
+    uint16_t spriteId2;      // Second sprite ID  
+    uint16_t trackPosition2; // Position along track
+};
+
+// TrackSegment C structure (26 bytes) - runtime format used by game engine
+struct SrTrackSegment {
+    int16_t commandStart;   // Racing command/instruction start
+    int16_t commandEnd;     // Racing command/instruction end
+    int16_t commandOffset;  // Offset for commands
+    int16_t opCode;         // Operation code for segment type
+    int16_t trapXMin;       // Collision detection X minimum
+    int16_t trapXMax;       // Collision detection X maximum  
+    int16_t trapYMin;       // Collision detection Y minimum
+    int16_t trapYMax;       // Collision detection Y maximum
+    int16_t flags;          // Segment flags (bit 1 = end-of-chain)
+    uint8_t triggerFlag;    // Trigger conditions
+    uint8_t padding[13];    // Padding to 26 bytes total
+    
+    // Check if this segment ends the chain
+    bool IsEndOfChain() const { return (flags & 2) != 0; }
+    
+    // Get bounding box for collision detection
+    void GetBoundingBox(int16_t& minX, int16_t& minY, int16_t& maxX, int16_t& maxY) const {
+        minX = trapXMin; minY = trapYMin;
+        maxX = trapXMax; maxY = trapYMax;
+    }
+};
+
+// Track data offsets in Street Rod binary
+constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
+constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 
+constexpr uint32_t SR_ROADSIDE_SPRITES_OFFSET = 0x10021;    // Roadside sprite placements
+constexpr uint32_t SR_ROAD_POSTS_OFFSET = 0x10EC1;          // Road posts area
+constexpr uint16_t SR_COORDINATE_SCALE_FACTOR = 16;         // Divide coordinates by this for screen coords
 
 enum StockCarModels {
     CHEVROLET_2DR_COUPE_1940 = 179,
@@ -837,6 +912,65 @@ class CarQuery {
         static bool SrLibQueryCanStripBumpers(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
+};
+
+// Track data reader class for loading Street Rod track data
+class TrackReader {
+private:
+    std::vector<uint8_t> binaryData;
+    bool dataLoaded = false;
+    
+    // Helper to read big-endian 16-bit value
+    int16_t ReadBigEndian16(const uint8_t* data, size_t offset) const {
+        return (static_cast<int16_t>(data[offset]) << 8) | data[offset + 1];
+    }
+    
+    // Helper to read big-endian 16-bit unsigned value  
+    uint16_t ReadBigEndianU16(const uint8_t* data, size_t offset) const {
+        return (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+    }
+
+public:
+    // Load Street Rod binary data from file
+    bool LoadTrackData(const std::string& binaryPath);
+    
+    // Load Street Rod binary data from memory (AssetManager)
+    bool LoadTrackData(const std::vector<uint8_t>& binaryData);
+    
+    // Extract raw coordinate segments from track
+    std::vector<SrTrackCoordSegment> ExtractTrackCoordinates(SrTrackType trackType, int maxSegments = 500);
+    
+    // Extract roadside sprite placements
+    std::vector<SrRoadSideSpriteRecord> ExtractRoadSideSprites(uint32_t offset = SR_ROADSIDE_SPRITES_OFFSET, int maxRecords = 200);
+    
+    // Convert coordinate segment to screen coordinates
+    static void ScaleCoordinates(SrTrackCoordSegment& segment) {
+        segment.xStart /= SR_COORDINATE_SCALE_FACTOR;
+        segment.xEnd /= SR_COORDINATE_SCALE_FACTOR;
+        segment.yStart /= SR_COORDINATE_SCALE_FACTOR;
+        segment.yEnd /= SR_COORDINATE_SCALE_FACTOR;
+    }
+    
+    // Convert sprite position to screen coordinates
+    static void ScaleSpritePosition(SrRoadSideSpriteRecord& record) {
+        record.trackPosition1 /= SR_COORDINATE_SCALE_FACTOR;
+        record.trackPosition2 /= SR_COORDINATE_SCALE_FACTOR;
+    }
+    
+    // Get sprite name for debugging
+    static const char* GetSpriteName(uint16_t spriteId);
+    
+    // Analyze track for statistics
+    struct TrackAnalysis {
+        int segmentCount;
+        int curvedSegments;
+        int straightSegments;
+        float totalLength;
+        int minX, maxX, minY, maxY;
+        std::vector<uint16_t> uniqueSprites;
+    };
+    
+    TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
