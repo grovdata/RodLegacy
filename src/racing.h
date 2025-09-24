@@ -35,6 +35,10 @@ private:
 	float fPlayerCurvature = 0.0f;			// Accumulation of player curvature
 	float fSpeed = 0.0f;			// Current player speed
 
+	// Timing management
+	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
+	bool firstUpdate = true;		// Flag to handle first update
+
 	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
 
 	std::list<float> listLapTimes;		// List of previous lap times

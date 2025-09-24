@@ -19,17 +19,17 @@ Racing::Racing() {
         #endif
 		pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
 		//pixels = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, GAME_WIDTH, GAME_RACING_HEIGHT);
-		// Define track
+		// Define track - moderate curvature values for balanced turns
 		vecTrack.push_back(std::make_pair(0.0f, 10.0f));		// Short section for start/finish line
 		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
-		vecTrack.push_back(std::make_pair(1.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(0.15f, 200.0f));		// Moderate right turn
 		vecTrack.push_back(std::make_pair(0.0f, 400.0f));
-		vecTrack.push_back(std::make_pair(-1.0f, 100.0f));
+		vecTrack.push_back(std::make_pair(-0.15f, 100.0f));	// Moderate left turn
 		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
-		vecTrack.push_back(std::make_pair(-1.0f, 200.0f));
-		vecTrack.push_back(std::make_pair(1.0f, 200.0f));
+		vecTrack.push_back(std::make_pair(-0.2f, 200.0f));		// Medium left turn
+		vecTrack.push_back(std::make_pair(0.2f, 200.0f));		// Medium right turn
 		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
-		vecTrack.push_back(std::make_pair(0.2f, 500.0f));
+		vecTrack.push_back(std::make_pair(0.1f, 500.0f));		// Gentle long turn
 		vecTrack.push_back(std::make_pair(0.0f, 200.0f));
 
 		// Calculate total track distance, so we can set lap times
@@ -43,58 +43,74 @@ Racing::Racing() {
 	}
 
 void Racing::Draw(float fElapsedTime, SDL_Event *event) {
+	// Calculate proper delta time
+	Uint64 currentTime = SDL_GetTicks64();
+	float deltaTime = 0.0f;
+	
+	if (firstUpdate) {
+		deltaTime = 1.0f / 60.0f; // Default to 60 FPS on first update
+		firstUpdate = false;
+	} else {
+		deltaTime = (currentTime - lastUpdateTime) / 1000.0f;
+		// Cap delta time to prevent huge jumps
+		if (deltaTime > 0.1f) deltaTime = 0.1f; // Max 100ms
+		if (deltaTime < 0.0f) deltaTime = 1.0f / 60.0f; // Fallback to 60 FPS
+	}
+	lastUpdateTime = currentTime;
+
 	// Handle control input
 	int nCarDirection = 0;
 
 	// Car Curvature is accumulated left/right input, but inversely proportional to speed
 	// i.e. it is harder to turn at high speed
 
-
 	bool goLeft = false;
 	bool goRight = false;
 	bool accelerate = false;
 
-    if (event != NULL && (event->type == SDL_KEYDOWN)) {
-        goLeft  = event->key.keysym.sym == SDLK_LEFT;
-		goRight = event->key.keysym.sym == SDLK_RIGHT;
-		accelerate = event->key.keysym.sym == SDLK_UP;
+	// Check current keyboard state for sustained input (like holding keys)
+	const Uint8* keyboardState = SDL_GetKeyboardState(NULL);
+	if (keyboardState) {
+		goLeft = keyboardState[SDL_SCANCODE_LEFT];
+		goRight = keyboardState[SDL_SCANCODE_RIGHT];
+		accelerate = keyboardState[SDL_SCANCODE_UP];
 	}
 
 	if (accelerate)
-		fSpeed += 2.0f * fElapsedTime;
+		fSpeed += 2.0f * deltaTime;
 	else
-		fSpeed -= 1.0f * fElapsedTime;
+		fSpeed -= 1.0f * deltaTime;
 
 	if (goLeft)
 	{
-		fPlayerCurvature -= 0.7f * fElapsedTime * (1.0f - fSpeed / 2.0f);
+		fPlayerCurvature -= 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
 		nCarDirection = -1;
 	}
 
 	if (goRight)
 	{
-		fPlayerCurvature += 0.7f * fElapsedTime * (1.0f - fSpeed / 2.0f);
+		fPlayerCurvature += 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
 		nCarDirection = +1;
 	}
 
 	// If car curvature is too different to track curvature, slow down
 	// as car has gone off track
 	if (fabs(fPlayerCurvature - fTrackCurvature) >= 0.8f)
-		fSpeed -= 5.0f * fElapsedTime;
+		fSpeed -= 5.0f * deltaTime;
 
 	// Clamp Speed
 	if (fSpeed < 0.0f)	fSpeed = 0.0f;
 	if (fSpeed > 1.0f)	fSpeed = 1.0f;
 
 	// Move car along track according to car speed
-	fDistance += (70.0f * fSpeed) * fElapsedTime;
+	fDistance += (70.0f * fSpeed) * deltaTime;
 
 	// Get Point on track
 	float fOffset = 0;
 	int nTrackSection = 0;
 
 	// Lap Timing and counting
-	fCurrentLapTime += fElapsedTime;
+	fCurrentLapTime += deltaTime;
 	if (fDistance >= fTrackDistance)
 	{
 		fDistance -= fTrackDistance;
@@ -110,15 +126,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		nTrackSection++;
 	}
 
-	// Interpolate towards target track curvature
+	// Interpolate towards target track curvature more smoothly
 	float fTargetCurvature = vecTrack[nTrackSection - 1].first;
-	float fTrackCurveDiff = (fTargetCurvature - fCurvature) * fElapsedTime * fSpeed;
+	float fTrackCurveDiff = (fTargetCurvature - fCurvature) * deltaTime * 0.5f; // Reduced interpolation speed
 
 	// Accumulate player curvature
 	fCurvature += fTrackCurveDiff;
 
-	// Accumulate track curvature
-	fTrackCurvature += (fCurvature) * fElapsedTime * fSpeed;
+	// Accumulate track curvature more gradually
+	fTrackCurvature += (fCurvature) * deltaTime * fSpeed * 0.7f;
 
 	// Draw sky
 	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++)
@@ -140,7 +156,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		return;
 	}
 
-	SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
+	// Debug logging disabled to improve performance
+	// SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
 
 	// Draw Track - Each row is split into grass, clip-board and track
 	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++) {
@@ -150,20 +167,20 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			float fPerspective = (float)y / (GAME_RACING_HEIGHT/2.0f);
 			float fRoadWidth = 0.1f + fPerspective * 0.8f; // Min 10% Max 90%
 			float fClipWidth = fRoadWidth * 0.15f;
-			float fMidLineWidth = fRoadWidth * 0.1;
+			float fMidLineWidth = fRoadWidth * 0.03;
 			fRoadWidth *= 0.5f;	// Halve it as track is symmetrical around center of track, but offset...
 
 			// ...depending on where the middle point is, which is defined by the current
-			// track curvature.
-			float fMiddlePoint = 0.5f + fCurvature * powf((1.0f - fPerspective), 3);
+			// track curvature. Balanced curvature effect.
+			float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
 
 			// Work out segment boundaries
 			int nLeftGrass = (fMiddlePoint - fRoadWidth - fClipWidth) * GAME_WIDTH;
 			int nLeftClip = (fMiddlePoint - fRoadWidth) * GAME_WIDTH;
 			int nRightClip = (fMiddlePoint + fRoadWidth) * GAME_WIDTH;
 			int nRightGrass = (fMiddlePoint + fRoadWidth + fClipWidth) * GAME_WIDTH;
-			int nLeftMidline = (fMiddlePoint - fMidLineWidth);
-			int nRightMidline = (fMiddlePoint + fMidLineWidth);
+			int nLeftMidline = (fMiddlePoint - fMidLineWidth) * GAME_WIDTH;
+			int nRightMidline = (fMiddlePoint + fMidLineWidth) * GAME_WIDTH;
 
 			int nRow = GAME_RACING_HEIGHT / 2 + y;
 
@@ -183,8 +200,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 				PutPixel(pixels, x, nRow, nClipColour);
 			if (x >= nLeftClip && x < nRightClip)
 				PutPixel(pixels, x, nRow, nRoadColour);
-			if (x >= 0 && x < nRightMidline)
-				PutPixel(pixels, x, nRow, yellow);
+			// Draw dashed center line instead of continuous
+			if (x >= nLeftMidline && x < nRightMidline) {
+				// Create dash pattern based on distance and perspective
+				float dashPhase = -fDistance * 0.3f + y * 0.3f; // Higher multiplier for shorter dashes
+				bool drawDash = sinf(dashPhase) > 0.7f; // Higher threshold for longer gaps between dashes
+				if (drawDash) {
+					PutPixel(pixels, x, nRow, yellow);
+				}
+			}
 			if (x >= nRightClip && x < nRightGrass)
 				PutPixel(pixels, x, nRow, nClipColour);
 			if (x >= nRightGrass && x < GAME_WIDTH)
