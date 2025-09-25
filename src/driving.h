@@ -43,9 +43,16 @@ class Driving: public Scene {
     Bitmap* wheelTurningLeftOpposite;
     Bitmap* wheelTurningRightOpposite;
 
+    // Dice animation state
+    int currentDiceIndex = 0;          // Current visible dice (0-4)
+    float diceAnimationTimer = 0.0f;   // Timer for dice animation
+    bool diceAnimationForward = true;  // Direction: true = forward (1→5), false = backward (5→1)
+    static constexpr float DICE_ANIMATION_INTERVAL = 1.5f; // Change dice every 1.5s when moving
+
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
     void LoadTrackData();
+    void UpdateDiceAnimation(float deltaTime, bool carIsMoving);
 
     public:
         Driving();

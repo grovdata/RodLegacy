@@ -93,4 +93,7 @@ public:
     // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
+    
+    // Get current car speed for animations
+    float GetSpeed() const { return fSpeed; }
 };

@@ -70,22 +70,22 @@ void Driving::Init(bool debugMode) {
     AddDrawable("plush_dice1", std::shared_ptr<IDrawable>(plushDice));
 
     plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2});
-    plushDice->SetPosition(259, 45);
+    plushDice->SetPosition(253, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice2", std::shared_ptr<IDrawable>(plushDice));
 
     plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3});
-    plushDice->SetPosition(259, 45);
+    plushDice->SetPosition(250, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice3", std::shared_ptr<IDrawable>(plushDice));
 
     plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4});
-    plushDice->SetPosition(259, 45);
+    plushDice->SetPosition(267, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice4", std::shared_ptr<IDrawable>(plushDice));
 
     plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5});
-    plushDice->SetPosition(259, 45);
+    plushDice->SetPosition(274, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice5", std::shared_ptr<IDrawable>(plushDice));
 
@@ -299,6 +299,69 @@ void Driving::SetState(DrivingState state) {
     }
 }
 
+void Driving::UpdateDiceAnimation(float deltaTime, bool carIsMoving) {
+    if (!carIsMoving) {
+        // Reset timer when car is not moving - dice stop
+        diceAnimationTimer = 0.0f;
+        
+        // Reset to dice 1 (neutral position) when car stops
+        if (currentDiceIndex != 0) {
+            // Hide current dice
+            std::string currentDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
+            auto currentDiceDrawable = GetDrawable(currentDiceName);
+            if (currentDiceDrawable) {
+                currentDiceDrawable->SetVisible(false);
+            }
+            
+            // Set to dice 1 (index 0) and show it
+            currentDiceIndex = 0;
+            diceAnimationForward = true; // Reset direction to forward for next movement
+            
+            std::string neutralDiceName = "plush_dice1";
+            auto neutralDiceDrawable = GetDrawable(neutralDiceName);
+            if (neutralDiceDrawable) {
+                neutralDiceDrawable->SetVisible(true);
+            }
+        }
+        return;
+    }
+    
+    // Update animation timer only when car is moving
+    diceAnimationTimer += deltaTime;
+    
+    // Check if it's time to change dice
+    if (diceAnimationTimer >= DICE_ANIMATION_INTERVAL) {
+        diceAnimationTimer = 0.0f; // Reset timer
+        
+        // Hide current dice
+        std::string currentDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
+        auto currentDiceDrawable = GetDrawable(currentDiceName);
+        if (currentDiceDrawable) {
+            currentDiceDrawable->SetVisible(false);
+        }
+        
+        // Move to next dice with bidirectional cycling
+        if (diceAnimationForward) {
+            currentDiceIndex++;
+            if (currentDiceIndex >= 4) { // Reached dice 5 (index 4)
+                diceAnimationForward = false; // Start going backward
+            }
+        } else {
+            currentDiceIndex--;
+            if (currentDiceIndex <= 0) { // Reached dice 1 (index 0)
+                diceAnimationForward = true; // Start going forward again
+            }
+        }
+        
+        // Show new dice
+        std::string newDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
+        auto newDiceDrawable = GetDrawable(newDiceName);
+        if (newDiceDrawable) {
+            newDiceDrawable->SetVisible(true);
+        }
+    }
+}
+
 void Driving::Draw() {
     Scene::Draw();
 
@@ -309,6 +372,10 @@ void Driving::Draw() {
         if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
         
         racing->Draw(deltaTime, lastEvent);
+        
+        // Update dice animation based on car movement
+        bool carIsMoving = racing->GetSpeed() > 0.1f; // Consider car moving if speed > 0.1
+        UpdateDiceAnimation(deltaTime, carIsMoving);
         
         // Get the updated racing surface and create texture
         SDL_Surface* racingSurface = racing->GetSurface();
