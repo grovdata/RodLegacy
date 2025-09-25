@@ -64,6 +64,8 @@ private:
 	std::unique_ptr<Bitmap> treeSprite;
 	std::unique_ptr<Bitmap> bushSprite;
 	std::unique_ptr<Bitmap> roadPostSprite;
+	std::unique_ptr<Bitmap> mountainSprite;
+	std::unique_ptr<Bitmap> cloudSprite;
 
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time

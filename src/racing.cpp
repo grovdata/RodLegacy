@@ -102,8 +102,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 
 	// If car curvature is too different to track curvature, slow down
 	// as car has gone off track
-	if (fabs(fPlayerCurvature - fTrackCurvature) >= 0.8f)
-		fSpeed -= 5.0f * deltaTime;
+	// if (fabs(fPlayerCurvature - fTrackCurvature) >= 0.8f)
+	// 	fSpeed -= 5.0f * deltaTime;
 
 	// Clamp Speed
 	if (fSpeed < 0.0f)	fSpeed = 0.0f;
@@ -175,8 +175,74 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		return;
 	}
 
+
 	// Debug logging disabled to improve performance
 	// SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
+
+	// Draw cloud layer with parallax scrolling based on track curvature
+	if (cloudSprite && cloudSprite->GetSurface()) {
+		SDL_Surface* cloudSurface = cloudSprite->GetSurface();
+		int startY = 0;
+		
+		// Calculate horizontal offset based on player curvature (steering input) for parallax effect
+		// Clouds move only when player is actually steering, not just following track curves
+		int cloudOffset = (int)(fPlayerCurvature * 50.0f) % (cloudSurface->w);
+		if (cloudOffset < 0) cloudOffset += cloudSurface->w; // Ensure positive offset
+		
+		// Draw clouds with wrapping - draw twice to handle wrap-around seamlessly
+		for (int pass = 0; pass < 2; pass++) {
+			int drawX = -cloudOffset + (pass * cloudSurface->w);
+			
+			// Only draw if this pass is visible on screen
+			if (drawX < GAME_WIDTH && (drawX + cloudSurface->w) > 0) {
+				for (int y = 0; y < cloudSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
+					for (int x = 0; x < cloudSurface->w; x++) {
+						int screenX = drawX + x;
+						if (screenX >= 0 && screenX < GAME_WIDTH) {
+							// Get pixel from cloud sprite
+							Uint32* cloudPixels = (Uint32*)cloudSurface->pixels;
+							Uint32 pixel = cloudPixels[y * cloudSurface->w + x];
+							
+							// Convert to SDL_Color
+							Uint8 r, g, b, a;
+							SDL_GetRGBA(pixel, cloudSurface->format, &r, &g, &b, &a);
+							
+							// Only draw non-transparent pixels
+							if (a > 0) {
+								SDL_Color cloudColor = {r, g, b, a};
+								PutPixel(pixels, screenX, startY + y, cloudColor);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Draw mountain horizon as background using PutPixel during locked surface
+	if (mountainSprite && mountainSprite->GetSurface()) {
+		SDL_Surface* mountainSurface = mountainSprite->GetSurface();
+		int startY = 47;
+		
+		// Copy mountain pixels to the racing surface
+		for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
+			for (int x = 0; x < mountainSurface->w && x < GAME_WIDTH; x++) {
+				// Get pixel from mountain sprite
+				Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
+				Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
+				
+				// Convert to SDL_Color
+				Uint8 r, g, b, a;
+				SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
+				
+				// Only draw non-transparent pixels
+				if (a > 0) {
+					SDL_Color mountainColor = {r, g, b, a};
+					PutPixel(pixels, x, startY + y, mountainColor);
+				}
+			}
+		}
+	}
 
 	// Draw Track - Each row is split into grass, clip-board and track
 	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++) {
@@ -243,34 +309,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		}
 	}
 
-	// Draw track info overlay (debug) - before unlocking surface
-	// Draw background for text
-	for (int y = 5; y < 25; y++) {
-		for (int x = 5; x < 200; x++) {
-			PutPixel(pixels, x, y, black);
-		}
-	}
-	
-	// Draw simple text indicator
-	if (currentTrackType == SR_TRACK_ROAD_RACE) {
-		// Draw "ROAD" indicator (green bars)
-		for (int x = 10; x < 50; x++) {
-			PutPixel(pixels, x, 10, green);
-			PutPixel(pixels, x, 15, green);
-		}
-	} else {
-		// Draw "DRAG" indicator (red bars)
-		for (int x = 10; x < 50; x++) {
-			PutPixel(pixels, x, 10, red);
-			PutPixel(pixels, x, 15, red);
-		}
-	}
-	
-	// Show track segment count as yellow dots
-	int segmentCount = vecTrack.size();
-	for (int i = 0; i < segmentCount && i < 100; i++) {
-		PutPixel(pixels, 60 + i, 10, yellow);
-	}
+	// Debug overlays removed for clean racing view
 	
 	SDL_UnlockSurface(pixels);
 	
@@ -480,8 +519,12 @@ void Racing::CheckForSpriteEncounters(float currentDistance) {
             int spriteKey = (i * 2); // Unique key for sprite 1 in this record
             if (passedSprites.find(spriteKey) == passedSprites.end()) {
                 passedSprites.insert(spriteKey);
-                printf("🏁 PASSED: %s at position %.1f (distance: %.1f)\n", 
-                       TrackReader::GetSpriteName(sprite.spriteId1), spritePos1, currentDistance);
+                printf("🏁 PASSED: %s (ID:%d, Hex:0x%02X, Bin:", 
+                       TrackReader::GetSpriteName(sprite.spriteId1), sprite.spriteId1, sprite.spriteId1);
+                for (int bit = 7; bit >= 0; bit--) {
+                    printf("%d", (sprite.spriteId1 >> bit) & 1);
+                }
+                printf(", LEFT SIDE) at position %.1f (distance: %.1f)\n", spritePos1, currentDistance);
             }
         }
         
@@ -490,8 +533,12 @@ void Racing::CheckForSpriteEncounters(float currentDistance) {
             int spriteKey = (i * 2) + 1; // Unique key for sprite 2 in this record
             if (passedSprites.find(spriteKey) == passedSprites.end()) {
                 passedSprites.insert(spriteKey);
-                printf("🏁 PASSED: %s at position %.1f (distance: %.1f)\n", 
-                       TrackReader::GetSpriteName(sprite.spriteId2), spritePos2, currentDistance);
+                printf("🏁 PASSED: %s (ID:%d, Hex:0x%02X, Bin:", 
+                       TrackReader::GetSpriteName(sprite.spriteId2), sprite.spriteId2, sprite.spriteId2);
+                for (int bit = 7; bit >= 0; bit--) {
+                    printf("%d", (sprite.spriteId2 >> bit) & 1);
+                }
+                printf(", RIGHT SIDE) at position %.1f (distance: %.1f)\n", spritePos2, currentDistance);
             }
         }
     }
@@ -752,6 +799,30 @@ void Racing::LoadSpriteBitmaps() {
         }
     } else {
         printf("Racing: Failed to load road post sprite\n");
+    }
+    
+    // Load mountain sprite (asset ID 13) for horizon
+    auto* mountainAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_MOUNTAINS});
+    if (mountainAsset) {
+        mountainSprite = std::make_unique<Bitmap>(*mountainAsset);
+        if (mountainSprite->GetSurface()) {
+            printf("Racing: Loaded mountain sprite (%dx%d)\n", 
+                   mountainSprite->GetSurface()->w, mountainSprite->GetSurface()->h);
+        }
+    } else {
+        printf("Racing: Failed to load mountain sprite\n");
+    }
+    
+    // Load cloud sprite (asset ID 12) for sky with parallax scrolling
+    auto* cloudAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CLOUDS});
+    if (cloudAsset) {
+        cloudSprite = std::make_unique<Bitmap>(*cloudAsset);
+        if (cloudSprite->GetSurface()) {
+            printf("Racing: Loaded cloud sprite (%dx%d)\n", 
+                   cloudSprite->GetSurface()->w, cloudSprite->GetSurface()->h);
+        }
+    } else {
+        printf("Racing: Failed to load cloud sprite\n");
     }
 }
 
