@@ -948,56 +948,54 @@ void Racing::DrawRearviewMirror(int mirrorLevel) {
         SDL_Rect dstRect = {242, 9 + mirrorLevel, 76, 11};
         SDL_BlitSurface(horizonSprite, &srcRect, pixels, &dstRect);
         
-        // Draw mini road below horizon sprite - match main road style  
-        int horizonStartY = mirrorLevel;        // Where horizon sprite starts
-        int horizonEndY = horizonStartY + 11 - 1;   // Where horizon sprite ends (last pixel)
-        int roadStartY = horizonEndY;           // Start road right after horizon
-        int mirrorBottom = 9 + 21;                  // Bottom of mirror (Y=30)
-        int roadHeight = mirrorBottom - roadStartY;
+        // Draw mini road below horizon sprite
+        const int MIRROR_X = 242;
+        const int MIRROR_Y = 9;
+        const int MIRROR_WIDTH = 76;
+        const int MIRROR_HEIGHT = 21;
         
-        static int debugCount = 0;
-        if (debugCount < 3) {
-            printf("Mirror layout: Horizon Y=%d-%d, Road Y=%d-%d (height=%d)\n", 
-                   horizonStartY, horizonEndY, roadStartY, mirrorBottom-1, roadHeight);
-            debugCount++;
-        }
+        int roadStartY = mirrorLevel + 11; // Start after horizon sprite
+        int roadEndY = MIRROR_Y + MIRROR_HEIGHT; // Bottom of mirror
         
-        if (roadHeight > 0) {
-            for (int y = roadStartY; y < mirrorBottom; y++) {
-                for (int x = 242; x < 242 + 76; x++) {
-                    SDL_Color roadColor;
-                    
-                    // Calculate road width - wider at bottom (perspective)
-                    float perspective = (float)(y - roadStartY) / roadHeight;
-                    int roadWidth = (int)(30 + perspective * 40); // 30px to 70px wide
-                    
-                    // Apply reverse curvature for rearview mirror
-                    float reverseCurvature = -fCurvature; // Opposite of main road curvature
-                    int curveOffset = (int)(reverseCurvature * perspective * 20.0f); // Stronger effect toward bottom
-                    
-                    int roadLeft = 242 + (76 - roadWidth) / 2 + curveOffset;
-                    int roadRight = roadLeft + roadWidth;
+        if (roadStartY < roadEndY) {
+            float roadHeight = (float)(roadEndY - roadStartY);
+            
+            for (int y = roadStartY; y < roadEndY; y++) {
+                // Calculate perspective (0.0 at top, 1.0 at bottom)
+                float perspective = (y - roadStartY) / roadHeight;
+                
+                // Road width with perspective (narrower at top, wider at bottom)
+                float roadWidthRatio = 0.4f + perspective * 0.5f; // 40% to 90% of mirror width
+                int roadWidth = (int)(MIRROR_WIDTH * roadWidthRatio);
+                
+                // Apply reverse curvature (opposite of main road for rearview)
+                int curveShift = (int)(-fCurvature * perspective * 20.0f);
+                
+                // Calculate road boundaries
+                int roadCenter = MIRROR_X + MIRROR_WIDTH / 2 + curveShift;
+                int roadLeft = roadCenter - roadWidth / 2;
+                int roadRight = roadCenter + roadWidth / 2;
+                
+                // Draw the row
+                for (int x = MIRROR_X; x < MIRROR_X + MIRROR_WIDTH; x++) {
+                    Uint32 color;
                     
                     if (x >= roadLeft && x <= roadRight) {
                         // Road surface - black
-                        roadColor = {0, 0, 0, 255};
+                        color = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
                         
-                        // Yellow center line - follows the curve and animated dashes
-                        int centerX = 242 + 76/2 + curveOffset;
-                        if (x >= centerX-1 && x <= centerX+1) {
-                            // Create moving dash pattern like main road
-                            float dashPhase = -fDistance * 0.3f + y * 0.3f; // Exact same formula as main road
-                            bool drawDash = sinf(dashPhase) > 0.7f; // Same threshold as main road
-                            if (drawDash) {
-                                roadColor = {255, 255, 0, 255};
+                        // Animated center line dashes
+                        if (abs(x - roadCenter) <= 1) {
+                            float dashPhase = -fDistance * 0.3f + y * 0.3f;
+                            if (sinf(dashPhase) > 0.7f) {
+                                color = SDL_MapRGBA(pixels->format, 255, 255, 0, 255);
                             }
                         }
                     } else {
-                        // Grass on sides - green
-                        roadColor = {0, 119, 0, 255};
+                        // Grass - green
+                        color = SDL_MapRGBA(pixels->format, 0, 119, 0, 255);
                     }
                     
-                    Uint32 color = SDL_MapRGBA(pixels->format, roadColor.r, roadColor.g, roadColor.b, roadColor.a);
                     Uint32* pixelPtr = (Uint32*)((Uint8*)pixels->pixels + y * pixels->pitch + x * pixels->format->BytesPerPixel);
                     *pixelPtr = color;
                 }
