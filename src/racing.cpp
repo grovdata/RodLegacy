@@ -179,15 +179,22 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// Debug logging disabled to improve performance
 	// SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
 
-	// Draw cloud layer with parallax scrolling based on track curvature
+	// Draw cloud layer with parallax scrolling based on steering while moving
 	if (cloudSprite && cloudSprite->GetSurface()) {
 		SDL_Surface* cloudSurface = cloudSprite->GetSurface();
 		int startY = 0;
 		
-		// Calculate horizontal offset based on player curvature (steering input) for parallax effect
-		// Clouds move only when player is actually steering, not just following track curves
-		int cloudOffset = (int)(fPlayerCurvature * 50.0f) % (cloudSurface->w);
-		if (cloudOffset < 0) cloudOffset += cloudSurface->w; // Ensure positive offset
+		// Calculate horizontal offset with gradual decay when not turning
+		static float cloudVelocity = 0.0f;
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning
+			cloudVelocity = fPlayerCurvature * fSpeed * 5.0f; // Much slower
+		} else {
+			cloudVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
+		}
+		static float cloudOffsetAccum = 0.0f;
+		cloudOffsetAccum += cloudVelocity * deltaTime;
+		int cloudOffset = (int)cloudOffsetAccum % (cloudSurface->w);
+		if (cloudOffset < 0) cloudOffset += cloudSurface->w;
 		
 		// Draw clouds with wrapping - draw twice to handle wrap-around seamlessly
 		for (int pass = 0; pass < 2; pass++) {
@@ -219,26 +226,48 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		}
 	}
 
-	// Draw mountain horizon as background using PutPixel during locked surface
+	// Draw mountain horizon as background with parallax scrolling based on car velocity
 	if (mountainSprite && mountainSprite->GetSurface()) {
 		SDL_Surface* mountainSurface = mountainSprite->GetSurface();
 		int startY = 47;
 		
-		// Copy mountain pixels to the racing surface
-		for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
-			for (int x = 0; x < mountainSurface->w && x < GAME_WIDTH; x++) {
-				// Get pixel from mountain sprite
-				Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
-				Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
-				
-				// Convert to SDL_Color
-				Uint8 r, g, b, a;
-				SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
-				
-				// Only draw non-transparent pixels
-				if (a > 0) {
-					SDL_Color mountainColor = {r, g, b, a};
-					PutPixel(pixels, x, startY + y, mountainColor);
+		// Calculate horizontal offset with gradual decay when not turning
+		static float mountainVelocity = 0.0f;
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning
+			mountainVelocity = fPlayerCurvature * fSpeed * 2.5f; // Much slower than clouds
+		} else {
+			mountainVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
+		}
+		static float mountainOffsetAccum = 0.0f;
+		mountainOffsetAccum += mountainVelocity * deltaTime;
+		int scrollOffset = (int)mountainOffsetAccum % mountainSurface->w;
+		if (scrollOffset < 0) scrollOffset += mountainSurface->w;
+		
+		// Draw mountains with wrapping - draw twice to handle wrap-around seamlessly
+		for (int pass = 0; pass < 2; pass++) {
+			int drawX = -scrollOffset + (pass * mountainSurface->w);
+			
+			// Only draw if this pass is visible on screen
+			if (drawX < GAME_WIDTH && (drawX + mountainSurface->w) > 0) {
+				for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
+					for (int x = 0; x < mountainSurface->w; x++) {
+						int screenX = drawX + x;
+						if (screenX >= 0 && screenX < GAME_WIDTH) {
+							// Get pixel from mountain sprite
+							Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
+							Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
+							
+							// Convert to SDL_Color
+							Uint8 r, g, b, a;
+							SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
+							
+							// Only draw non-transparent pixels
+							if (a > 0) {
+								SDL_Color mountainColor = {r, g, b, a};
+								PutPixel(pixels, screenX, startY + y, mountainColor);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -250,10 +279,12 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 
 			// Perspective is used to modify the width of the track row segments
 			float fPerspective = (float)y / (GAME_RACING_HEIGHT/2.0f);
-			float fRoadWidth = 0.1f + fPerspective * 0.8f; // Min 10% Max 90%
-			float fClipWidth = fRoadWidth * 0.15f;
+			// Original Street Rod: horizon width 68px, bottom width 313px out of 320px screen
+			// Need much wider road: horizon 21%, bottom 98% (before halving)
+			float fRoadWidth = 0.21f + fPerspective * 0.98f; // Min 21% Max 98% to match original
+			float fClipWidth = 0.0f; // Remove clip border - no red/white stripes
 			float fMidLineWidth = fRoadWidth * 0.03;
-			fRoadWidth *= 0.5f;	// Halve it as track is symmetrical around center of track, but offset...
+			fRoadWidth *= 0.8f;	// Halve it as track is symmetrical around center of track, but offset...
 
 			// ...depending on where the middle point is, which is defined by the current
 			// track curvature. Balanced curvature effect.
@@ -274,15 +305,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
 			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
 
-			// Road color depends on track type - make differences obvious
-			SDL_Color nRoadColour;
-			if (currentTrackType == SR_TRACK_ROAD_RACE) {
-				nRoadColour = grey;  // Road race = grey road
-			} else if (currentTrackType == SR_TRACK_DRAG_RACE) {
-				nRoadColour = red;   // Drag race = red road  
-			} else {
-				nRoadColour = black; // Fallback = black road
-			}
+			// Road color - always black like original Street Rod
+			SDL_Color nRoadColour = black;
 
 			// Draw the row segments
 			if (x >= 0 && x < nLeftGrass)
@@ -640,46 +664,89 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
     // Convert distance to screen Y position (perspective)
     if (distance < 0) return; // Don't draw sprites behind us
     
-    float perspective = 1.0f - (distance / 200.0f); // Normalize to 0-1 range
+    float perspective = 1.0f - (distance / 100.0f); // Reduce distance scaling for better perspective range
     if (perspective <= 0) return;
     
     int screenY = static_cast<int>((GAME_RACING_HEIGHT / 2) + perspective * (GAME_RACING_HEIGHT / 2));
     if (screenY >= GAME_RACING_HEIGHT) return;
     
-    // Calculate road width at this perspective
-    float fRoadWidth = 0.1f + perspective * 0.8f;
-    fRoadWidth *= 0.5f;
+    // Calculate road width at this perspective (same as road rendering)
+    float fRoadWidth = 0.21f + perspective * 0.98f;
+    fRoadWidth *= 0.8f;
     
     // Middle point with curvature effect
     float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
     
-    // Calculate sprite position (left or right side of road)
+    // Calculate sprite position (clearly off the road - at roadside)
     int spriteX;
     if (leftSide) {
-        spriteX = static_cast<int>((fMiddlePoint - fRoadWidth - 0.1f) * GAME_WIDTH);
+        spriteX = static_cast<int>((fMiddlePoint - fRoadWidth - 0.05f) * GAME_WIDTH); // Just left of road edge
     } else {
-        spriteX = static_cast<int>((fMiddlePoint + fRoadWidth + 0.1f) * GAME_WIDTH);
+        spriteX = static_cast<int>((fMiddlePoint + fRoadWidth + 0.05f) * GAME_WIDTH); // Just right of road edge
     }
     
-    // Choose the appropriate sprite bitmap
+    // Choose the appropriate sprite bitmap and handle animation
     Bitmap* spriteBitmap = nullptr;
+    SDL_Rect animFrameRect = {0, 0, 0, 0}; // For animated sprites
+    bool useAnimation = false;
+    spriteId = 32;
+    
+    // Check if this sprite has animation data (don't override spriteId)
+    const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(spriteId);
+    
     switch (spriteId) {
-        case 30: // Telephone Pole
+        case 30: // Telephone Pole (RACING_TELEPHONE_POLES)
             spriteBitmap = telephonePoleSprite.get();
             break;
         case 33: // Road Posts
         case 22: // Road Posts (alt)
             spriteBitmap = roadPostSprite.get();
             break;
-        case 31: // Tree 31
-        case 32: // Tree 32
+        case 31: // Tree 31 (RACING_TREE1) - use TREE2 sprite for consistency
             spriteBitmap = treeSprite.get();
             break;
-        case 25: // Bush
+        case 32: // Tree 32 (RACING_TREE2) - ANIMATED!
+            spriteBitmap = treeSprite.get();
+            if (animInfo && animInfo->frameCount > 1) {
+                // Precomputed distance thresholds for each frame (11 frames total)
+                // Last frame appears much earlier due to large size jump (50x48 -> 77x76)
+                static const float frameDistances[] = {
+                    100.0f, 85.0f, 75.0f, 65.0f, 55.0f, 47.0f, 40.0f, 35.0f, 32.0f, 28.0f, 24.0f
+                };
+                
+                uint8_t frame = 0;
+                for (int i = 0; i < animInfo->frameCount; i++) {
+                    if (distance <= frameDistances[i]) {
+                        frame = i;
+                    }
+                }
+                frame = std::min(frame, static_cast<uint8_t>(animInfo->frameCount - 1));
+                
+                SpriteRect frameRect = GetAnimationFrameRect(animInfo, frame);
+                // Convert SpriteRect to SDL_Rect manually
+                animFrameRect = {
+                    static_cast<int>(frameRect.x),
+                    static_cast<int>(frameRect.y),
+                    static_cast<int>(frameRect.w),
+                    static_cast<int>(frameRect.h)
+                };
+                useAnimation = true;
+                
+                // Debug output for tree animation
+                static int debugCount = 0;
+                if (debugCount < 20) {
+                    printf("Tree #%d: distance=%.1f, perspective=%.3f, frame=%d/%d, rect=(%d,%d,%d,%d)\n", 
+                           spriteId, distance, perspective, frame, animInfo->frameCount,
+                           animFrameRect.x, animFrameRect.y, animFrameRect.w, animFrameRect.h);
+                    debugCount++;
+                }
+            }
+            break;
+        case 25: // Bush (RACING_BUSH)
             spriteBitmap = bushSprite.get();
             break;
         default:
-            // Use road posts as default for unknown sprites instead of colored sticks
+            // Use road posts as default for unknown sprites
             spriteBitmap = roadPostSprite.get();
             break;
     }
@@ -688,48 +755,61 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
         SDL_Surface* spriteSurface = spriteBitmap->GetSurface();
         // Bitmap sprite rendering active
         
-        // Calculate scaled sprite dimensions based on perspective
-        float scale = perspective * 0.5f + 0.2f; // Scale from 0.2 to 0.7
-        int scaledWidth = static_cast<int>(spriteSurface->w * scale);
-        int scaledHeight = static_cast<int>(spriteSurface->h * scale);
+        // Determine source rectangle (animation frame or full sprite)
+        SDL_Rect srcRect;
+        if (useAnimation) {
+            // Use the specific animation frame
+            srcRect = animFrameRect;
+        } else {
+            // Use the entire sprite
+            srcRect = {0, 0, spriteSurface->w, spriteSurface->h};
+        }
+        
+        // Use sprite frames at their intended pixel dimensions (no scaling)
+        int spriteWidth = srcRect.w;
+        int spriteHeight = srcRect.h;
         
         // Center the sprite horizontally and place it on the ground
-        int drawX = spriteX - scaledWidth / 2;
-        int drawY = screenY - scaledHeight;
+        int drawX = spriteX - spriteWidth / 2;
+        int drawY = screenY - spriteHeight;
         
-        // Draw the scaled sprite bitmap
-        SDL_Rect srcRect = {0, 0, spriteSurface->w, spriteSurface->h};
-        SDL_Rect dstRect = {drawX, drawY, scaledWidth, scaledHeight};
+        // Set up destination rectangle (1:1 pixel mapping)
+        SDL_Rect dstRect = {drawX, drawY, spriteWidth, spriteHeight};
         
-        // Clamp destination rectangle to screen bounds
+        // Store original source rectangle for proper clamping with animation frames
+        SDL_Rect originalSrcRect = srcRect;
+        
+        // Clamp destination rectangle to screen bounds (1:1 pixel mapping, no scaling)
         if (dstRect.x < 0) {
-            srcRect.x = -dstRect.x;
-            srcRect.w += dstRect.x;
+            int leftClip = -dstRect.x;
+            srcRect.x = originalSrcRect.x + leftClip;
+            srcRect.w = originalSrcRect.w - leftClip;
             dstRect.w += dstRect.x;
             dstRect.x = 0;
         }
         if (dstRect.x + dstRect.w > GAME_WIDTH) {
             int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
-            srcRect.w -= overflow;
+            srcRect.w = originalSrcRect.w - overflow;
             dstRect.w -= overflow;
         }
         if (dstRect.y < 0) {
-            srcRect.y = -dstRect.y;
-            srcRect.h += dstRect.y;
+            int topClip = -dstRect.y;
+            srcRect.y = originalSrcRect.y + topClip;
+            srcRect.h = originalSrcRect.h - topClip;
             dstRect.h += dstRect.y;
             dstRect.y = 0;
         }
         if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
             int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
-            srcRect.h -= overflow;
+            srcRect.h = originalSrcRect.h - overflow;
             dstRect.h -= overflow;
         }
         
         // Only draw if there's something visible
         if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
-            int result = SDL_BlitScaled(spriteBitmap->GetSurface(), &srcRect, pixels, &dstRect);
+            int result = SDL_BlitSurface(spriteBitmap->GetSurface(), &srcRect, pixels, &dstRect);
             if (result != 0) {
-                printf("SDL_BlitScaled failed: %s\n", SDL_GetError());
+                printf("SDL_BlitSurface failed: %s\n", SDL_GetError());
             }
         }
     } else {
@@ -765,16 +845,16 @@ void Racing::LoadSpriteBitmaps() {
         printf("Racing: Failed to load telephone pole sprite\n");
     }
     
-    // Load tree sprite (asset ID 31)
-    auto* treeAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TREE1});
+    // Load tree sprite (asset ID 32 - RACING_TREE2 for animation)
+    auto* treeAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TREE2});
     if (treeAsset) {
         treeSprite = std::make_unique<Bitmap>(*treeAsset);
         if (treeSprite->GetSurface()) {
-            printf("Racing: Loaded tree sprite (%dx%d)\n", 
+            printf("Racing: Loaded tree sprite RACING_TREE2 (%dx%d)\n", 
                    treeSprite->GetSurface()->w, treeSprite->GetSurface()->h);
         }
     } else {
-        printf("Racing: Failed to load tree sprite\n");
+        printf("Racing: Failed to load tree sprite RACING_TREE2\n");
     }
     
     // Load bush sprite (asset ID 25)
@@ -829,4 +909,5 @@ void Racing::LoadSpriteBitmaps() {
 SDL_Surface* Racing::GetSurface() {
 	return pixels;
 }
+
 

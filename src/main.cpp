@@ -406,12 +406,12 @@ int main(int argc, char* argv[]) {
         mouse.UpdateGamepad(state.GetCurrentScene());
         
         // Add gamepad debug info to scene
-        if (state.GetCurrentScene()) {
-            SDL_Log("Adding gamepad debug info to scene");
-            state.GetCurrentScene()->AddGamepadDebugInfo(mouse);
-        } else {
-            SDL_Log("No current scene available for gamepad debug info");
-        }
+        // if (state.GetCurrentScene()) {
+        //     SDL_Log("Adding gamepad debug info to scene");
+        //     state.GetCurrentScene()->AddGamepadDebugInfo(mouse);
+        // } else {
+        //     SDL_Log("No current scene available for gamepad debug info");
+        // }
 
         SDL_RenderClear(renderer);
 

@@ -49,22 +49,13 @@ void Mouse::Update(SDL_Event *event, Scene* scene) {
 }
 
 void Mouse::UpdateGamepad(Scene* scene) {
-    SDL_Log("UpdateGamepad called - gamepadActive: %s, scene: %s", 
-            gamepadActive ? "true" : "false", scene ? "EXISTS" : "NULL");
-    
-    if (!gamepadActive || !scene) {
-        SDL_Log("UpdateGamepad early return - gamepadActive: %s, scene: %s", 
-                gamepadActive ? "true" : "false", scene ? "EXISTS" : "NULL");
-        return;
-    }
-    
+
     Uint32 currentTime = SDL_GetTicks();
     
     // Check D-pad input (hat or axes)
     SDL_Joystick* joystick = SDL_JoystickOpen(0);
     if (!joystick) {
         gamepadDebug.connected = false;
-        SDL_Log("No joystick detected at index 0");
         return;
     }
     
@@ -162,7 +153,7 @@ void Mouse::UpdateGamepad(Scene* scene) {
         
         // Check if there's an active dialog - if so, try to dismiss it
         Dialog* activeDialog = scene->GetActiveDialog();
-        if (activeDialog && activeDialog->IsVisible()) {
+        if (activeDialog) {
             // Try to dismiss dialog with B button
             SDL_Event keyEvent;
             keyEvent.type = SDL_KEYDOWN;

@@ -499,6 +499,54 @@ struct SrTrackSegment {
     }
 };
 
+// Custom rectangle type for frame definitions
+struct SpriteRect {
+    int16_t x, y;        // Position in sprite sheet
+    uint16_t w, h;       // Dimensions of frame
+};
+
+// Animation metadata for sprites with multiple frames
+struct SpriteAnimationInfo {
+    uint16_t spriteId;           // The sprite asset ID
+    uint8_t frameCount;          // Total number of frames
+    uint16_t animationSpeed;     // Milliseconds per frame (0 = static)
+    bool isLooping;              // Whether animation loops
+    const SpriteRect* frames;    // Array of frame rectangles
+};
+
+// Frame definitions for animated sprites
+// Frame definitions ordered from smallest to largest for intuitive distance-based animation
+static const SpriteRect RACING_TREE2_FRAMES[] = {
+    {10, 139, 8, 7}, {0, 137, 10, 9}, {56, 133, 11, 11}, {68, 133, 14, 13}, {0, 122, 16, 15}, {15, 122, 19, 17}, {34, 122, 22, 20}, {56, 108, 26, 25}, {47, 76, 34, 32}, {0, 76, 48, 46}, {0, 0, 77, 76}
+};
+
+// Animation data for known animated sprites
+static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
+    // Roadside objects
+    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES}    
+};
+
+// Helper function to get animation info for a sprite
+inline const SpriteAnimationInfo* GetSpriteAnimationInfo(uint16_t spriteId) {
+    for (const auto& info : SPRITE_ANIMATIONS) {
+        if (info.spriteId == spriteId) {
+            return &info;
+        }
+    }
+    return nullptr; // No animation info found
+}
+
+// Helper function to get frame rectangle for animation frame
+inline SpriteRect GetAnimationFrameRect(const SpriteAnimationInfo* info, uint8_t frameIndex) {
+    if (!info || frameIndex >= info->frameCount || !info->frames) {
+        return {0, 0, 0, 0}; // Invalid frame
+    }
+    
+    return info->frames[frameIndex];
+}
+
+// Note: Convert SpriteRect to SDL_Rect manually in implementation files when needed
+
 // Track data offsets in Street Rod binary
 constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
 constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 
