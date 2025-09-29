@@ -20,9 +20,9 @@ Racing::Racing() {
             const Uint32 bmask = 0x00ff0000;
             const Uint32 amask = 0xff000000;
         #endif
-		pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
-		
-		// Initialize track reader
+	pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
+	
+	// Initialize track reader
 		trackReader = std::make_unique<TrackReader>();
 		
 		// Load sprite bitmaps for roadside objects
@@ -48,6 +48,10 @@ Racing::Racing() {
 
 
 	}
+
+Racing::~Racing() {
+	// Destructor - cleanup if needed
+}
 
 void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// Calculate proper delta time
@@ -366,6 +370,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// 	DrawString(10, j, disp_time(l));
 	// 	j++;
 	// }
+	
+	// Draw rearview mirror as the absolute last thing (after all sprites)
+	DrawRearviewMirror();
 
 //		return true;
 }
@@ -905,6 +912,43 @@ void Racing::LoadSpriteBitmaps() {
         }
     } else {
         printf("Racing: Failed to load cloud sprite\n");
+    }
+    
+    // Load rearview mirror horizon sprite (asset ID 82)
+    auto* rearviewAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HORIZON_REARVIEWMIRROR});
+    if (rearviewAsset) {
+        rearviewMirrorSprite = std::make_unique<Bitmap>(*rearviewAsset);
+        if (rearviewMirrorSprite->GetSurface()) {
+            printf("Racing: Loaded rearview mirror sprite (%dx%d)\n", 
+                   rearviewMirrorSprite->GetSurface()->w, rearviewMirrorSprite->GetSurface()->h);
+        }
+    } else {
+        printf("Racing: Failed to load rearview mirror sprite\n");
+    }
+}
+
+void Racing::DrawRearviewMirror() {
+    static int callCount = 0;
+    if (callCount < 3) {
+        printf("DrawRearviewMirror called #%d - drawing red rectangle at 242,9 (racing coords)\n", callCount++);
+    }
+    
+    // Draw a fully opaque red rectangle for testing - adjust Y for racing surface
+    // Original coordinates: 242,23 (screen coords) -> 242,9 (racing surface coords)  
+    SDL_Rect mirrorRect = {242, 9, 76, 21}; // Y=23-14=9 (racing surface offset)
+    Uint32 redColor = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
+    SDL_FillRect(pixels, &mirrorRect, redColor);
+    
+    // Add horizon sprite if available
+    if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
+        SDL_Surface* horizonSprite = rearviewMirrorSprite->GetSurface();
+        
+        // Clip horizon sprite to 1,0 - 77,11 and position at bottom of mirror
+        SDL_Rect srcRect = {1, 0, 76, 11}; // Adjusted to fit in 76px width
+        int mirrorStartY = 9 + 17; // Position at mirrorRect.y + 17
+        SDL_Rect dstRect = {242, mirrorStartY, 76, 11};
+        
+        SDL_BlitSurface(horizonSprite, &srcRect, pixels, &dstRect);
     }
 }
 

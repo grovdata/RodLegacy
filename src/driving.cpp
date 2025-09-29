@@ -58,7 +58,7 @@ void Driving::Init(bool debugMode) {
     // AddDrawable("mirror_stem", std::shared_ptr<IDrawable>(mirrorStem));
 
     // Load mirror
-    auto mirror = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_BOX});
+    auto mirror = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_REARVIEWMIRROR_FRAME});
     mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
     AddDrawable("mirror", std::shared_ptr<IDrawable>(mirror));

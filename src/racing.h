@@ -66,6 +66,7 @@ private:
 	std::unique_ptr<Bitmap> roadPostSprite;
 	std::unique_ptr<Bitmap> mountainSprite;
 	std::unique_ptr<Bitmap> cloudSprite;
+	std::unique_ptr<Bitmap> rearviewMirrorSprite;
 
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
@@ -83,10 +84,12 @@ private:
 	void DrawRoadsideSprites(float currentDistance);
 	void DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide);
 	void LoadSpriteBitmaps();
+	void DrawRearviewMirror();
 
 public:
 
     Racing();
+    ~Racing();
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
     
