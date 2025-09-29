@@ -84,7 +84,7 @@ private:
 	void DrawRoadsideSprites(float currentDistance);
 	void DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide);
 	void LoadSpriteBitmaps();
-	void DrawRearviewMirror();
+	void DrawRearviewMirror(int mirrorLevel);
 
 public:
 

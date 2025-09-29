@@ -372,7 +372,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// }
 	
 	// Draw rearview mirror as the absolute last thing (after all sprites)
-	DrawRearviewMirror();
+	DrawRearviewMirror(12);
 
 //		return true;
 }
@@ -927,28 +927,29 @@ void Racing::LoadSpriteBitmaps() {
     }
 }
 
-void Racing::DrawRearviewMirror() {
-    static int callCount = 0;
-    if (callCount < 3) {
-        printf("DrawRearviewMirror called #%d - drawing red rectangle at 242,9 (racing coords)\n", callCount++);
-    }
+void Racing::DrawRearviewMirror(int mirrorLevel) {
     
     // Draw a fully opaque red rectangle for testing - adjust Y for racing surface
     // Original coordinates: 242,23 (screen coords) -> 242,9 (racing surface coords)  
     SDL_Rect mirrorRect = {242, 9, 76, 21}; // Y=23-14=9 (racing surface offset)
-    Uint32 redColor = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
-    SDL_FillRect(pixels, &mirrorRect, redColor);
+    Uint32 black = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
+    SDL_FillRect(pixels, &mirrorRect, black);
     
     // Add horizon sprite if available
     if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
         SDL_Surface* horizonSprite = rearviewMirrorSprite->GetSurface();
         
-        // Clip horizon sprite to 1,0 - 77,11 and position at bottom of mirror
-        SDL_Rect srcRect = {1, 0, 76, 11}; // Adjusted to fit in 76px width
-        int mirrorStartY = 9 + 17; // Position at mirrorRect.y + 17
-        SDL_Rect dstRect = {242, mirrorStartY, 76, 11};
+        // Set clipping rectangle to mirror bounds
+        SDL_Rect clipRect = {242, 9, 76, 21};
+        SDL_SetClipRect(pixels, &clipRect);
         
+        // Draw horizon sprite - SDL will automatically clip it
+        SDL_Rect srcRect = {1, 0, 76, 11};
+        SDL_Rect dstRect = {242, 9 + mirrorLevel, 76, 11};
         SDL_BlitSurface(horizonSprite, &srcRect, pixels, &dstRect);
+        
+        // Remove clipping
+        SDL_SetClipRect(pixels, nullptr);
     }
 }
 
