@@ -93,11 +93,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		fPlayerCurvature -= 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
 		nCarDirection = -1;
 	}
-
-	if (goRight)
+	else if (goRight)
 	{
 		fPlayerCurvature += 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
 		nCarDirection = +1;
+	}
+	else
+	{
+		// Decay player curvature when not actively turning
+		fPlayerCurvature *= (1.0f - 2.0f * deltaTime); // Decay to zero over ~0.5 seconds
 	}
 
 	// If car curvature is too different to track curvature, slow down
@@ -147,13 +151,12 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			fTargetCurvature = vecTrack[segmentIndex].first;
 		}
 	}
-	float fTrackCurveDiff = (fTargetCurvature - fCurvature) * deltaTime * 0.5f; // Reduced interpolation speed
-
-	// Accumulate player curvature
-	fCurvature += fTrackCurveDiff;
-
-	// Accumulate track curvature more gradually
-	fTrackCurvature += (fCurvature) * deltaTime * fSpeed * 0.7f;
+	// Only update track curvature when moving
+	if (fSpeed > 0.01f) {
+		float fTrackCurveDiff = (fTargetCurvature - fCurvature) * deltaTime * 0.5f; // Reduced interpolation speed
+		fCurvature += fTrackCurveDiff;
+		fTrackCurvature += (fCurvature) * deltaTime * fSpeed * 0.7f;
+	}
 
 	// Draw sky
 	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++)
@@ -186,7 +189,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		
 		// Calculate horizontal offset with gradual decay when not turning
 		static float cloudVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
 			cloudVelocity = fPlayerCurvature * fSpeed * 5.0f; // Much slower
 		} else {
 			cloudVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
@@ -233,7 +236,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		
 		// Calculate horizontal offset with gradual decay when not turning
 		static float mountainVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
 			mountainVelocity = fPlayerCurvature * fSpeed * 2.5f; // Much slower than clouds
 		} else {
 			mountainVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
@@ -305,8 +308,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
 			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
 
-			// Road color - always black like original Street Rod
-			SDL_Color nRoadColour = black;
+            SDL_Color nRoadColour = black;
 
 			// Draw the row segments
 			if (x >= 0 && x < nLeftGrass)
