@@ -19,7 +19,7 @@ typedef enum {
 
 class Car;
 
-class Scene {
+class Scene: public IDrawableContainer {
    private:
 
     ZoneId CheckMouseHover(int x, int y);
@@ -39,8 +39,8 @@ class Scene {
     HUD *hud;
     Dialog *activeDialog = nullptr;
 
-    SDL_Surface *surface, *fontSurface, *fadeSurface;
-    SDL_Texture *texture, *fontTexture, *fadeTexture;
+    SDL_Surface *surface, *fadeSurface;
+    SDL_Texture *texture, *fadeTexture;
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
@@ -63,20 +63,23 @@ class Scene {
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     Scene(std::string backgroundName);
+    Scene(); // No background constructor
     ~Scene();
-    void Init(bool debugMode);
+    virtual void Init(bool debugMode);
 
     SDL_Texture *GetTexture();
 
     virtual SrLibAmigaSpriteAsset GetPointerType() { return currentPointer; }
 
-    void FadeOut();
+    virtual void FadeOut();
     void FadeIn();
     void PrepareFadeIn();
     virtual void OnFadeComplete();
+    virtual void OnSceneExit();
 
     virtual void Action(ZoneId zone);
     virtual void Draw();
+    virtual void DrawExtra() {} // Override in derived classes for additional drawing
     virtual void PushEvent(SDL_Event *event);
 
     virtual Dialog *GetActiveDialog();
@@ -97,8 +100,8 @@ class Scene {
 
 enum class CarAnimationType {
     OPPONENT_CONTINUOUS,  // For Diner: Cars drive in, wait, drive out, repeat
-    SINGLE_CAR_DRIVE,    // For Gas Station: Car drives in to idle position and stops
-    SINGLE_CAR_REVERSE   // For future use: Car reverses into position
+    SINGLE_CAR_DRIVE,    // Car driving in to idle position and stopping
+    SINGLE_CAR_REVERSE   // Car reversing out of screen
 };
 
 class CarScene: public Scene {
@@ -130,11 +133,13 @@ public:
     CarScene(Asset backgroundAsset);
     virtual void Init(bool debugMode);
     virtual void DrawMaskAfterCar();
+    virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
     virtual void PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;
+    virtual void OnSceneExit() override;
 
     CarBitmap *carBitmap;
     bool animatingCar = false;

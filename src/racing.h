@@ -7,9 +7,13 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <iostream>
 #include <string>
 #include <list>
+#include <set>
+#include <memory>
 #include <SDL2/SDL.h>
 #include <vector>
 #include "scene.h"
+#include "parsers/libp.h"
+#include "bitmap.h"
 
 class Racing {
 
@@ -35,17 +39,61 @@ private:
 	float fPlayerCurvature = 0.0f;			// Accumulation of player curvature
 	float fSpeed = 0.0f;			// Current player speed
 
+	// Timing management
+	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
+	bool firstUpdate = true;		// Flag to handle first update
+
 	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
+	
+	// Street Rod track data integration
+	std::unique_ptr<TrackReader> trackReader;
+	std::vector<SrTrackCoordSegment> currentTrackSegments;
+	std::vector<SrRoadSideSpriteRecord> currentRoadsideSprites;
+	SrTrackType currentTrackType = SR_TRACK_ROAD_RACE;
+	
+	// Sprite tracking for logging
+	std::set<int> passedSprites;  // Track which sprites we've already passed
+	float lastLoggedDistance = -1.0f;
+	
+	// Track progress logging
+	float lastProgressLogDistance = -1.0f;
+	int lastLoggedSegment = -1;
+	
+	// Sprite bitmaps for rendering
+	std::unique_ptr<Bitmap> telephonePoleSprite;
+	std::unique_ptr<Bitmap> treeSprite;
+	std::unique_ptr<Bitmap> bushSprite;
+	std::unique_ptr<Bitmap> roadPostSprite;
+	std::unique_ptr<Bitmap> mountainSprite;
+	std::unique_ptr<Bitmap> cloudSprite;
 
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
 
 	// Move to generic
 	void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
+	
+	// Street Rod track integration methods
+	void LoadStreetRodTrack(const std::vector<uint8_t>& binaryData, SrTrackType trackType);
+	void ConvertTrackCoordinatesToRacing();
+	float CalculateSegmentCurvature(const SrTrackCoordSegment& segment1, const SrTrackCoordSegment& segment2);
+	float CalculateSegmentLength(const SrTrackCoordSegment& segment);
+	void CheckForSpriteEncounters(float currentDistance);
+	void LogTrackProgress(float currentDistance, int currentSegment);
+	void DrawRoadsideSprites(float currentDistance);
+	void DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide);
+	void LoadSpriteBitmaps();
 
 public:
 
     Racing();
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
+    
+    // Street Rod track loading
+    void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
+    void SetTrackType(SrTrackType trackType);
+    
+    // Get current car speed for animations
+    float GetSpeed() const { return fSpeed; }
 };

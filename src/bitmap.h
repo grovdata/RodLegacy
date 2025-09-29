@@ -2,6 +2,7 @@
 
 #include "global.h"
 #include "parsers/libp.h"
+#include "types.h"
 
 enum BitmapAlign {
     BitmapAlignBottom,
@@ -10,7 +11,7 @@ enum BitmapAlign {
 
 
 
-class Bitmap {
+class Bitmap : public IDrawable {
     protected:
         SDL_Rect rect;
         bool isVisible;
@@ -20,6 +21,7 @@ class Bitmap {
     public:
         Bitmap();
         Bitmap(int width, int height, int depth);
+        Bitmap(const Bitmap& other);  // Copy constructor
         virtual ~Bitmap();
 
         void     LoadBitmap(std::string filename);
@@ -41,9 +43,9 @@ class Bitmap {
 
         virtual bool     IsVisible() const { return isVisible; }
 
-        virtual void     SetVisible(bool visible);
+        virtual void     SetVisible(bool visible) override;
 
-        virtual void Draw();
+        virtual void Draw() override;
 
         //Remove later
         SDL_Surface* GetSurface();

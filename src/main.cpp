@@ -27,8 +27,8 @@ namespace fs = std::filesystem;
 // speed in pixels/second
 #define SPEED (300)
 
-SDL_Window *win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
-SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+SDL_Window *win = nullptr;
+SDL_Renderer *renderer = nullptr;
 SDL_Joystick *controller = NULL;
 Uint64 startTime = SDL_GetTicks64();
 
@@ -186,13 +186,24 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // tinyfiledialogs doesn't require initialization
-
+    // Create window after SDL_Init
+    win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
     if (!win) {
         SDL_Log("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
+
+    // Create renderer with proper flags
+    renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) {
+        SDL_Log("error creating renderer: %s\n", SDL_GetError());
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 1;
+    }
+
+    // tinyfiledialogs doesn't require initialization
 
 #ifndef _WIN32
     // Load icon from file (only on non-Windows platforms)
@@ -228,12 +239,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!renderer) {
-        printf("error creating renderer: %s\n", SDL_GetError());
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 1;
-    }
 
     fs::path gamePath;
     try {
@@ -366,6 +371,9 @@ int main(int argc, char* argv[]) {
                                 ToggleFullScreen(win, isFullScreen);
                             }
                             break;
+                        case SDLK_r:
+                            state.MoveToScene(SCENE_DRIVING);
+                            break;
                         case SDLK_ESCAPE:
                             close_requested = true;
                             break;
@@ -411,12 +419,7 @@ int main(int argc, char* argv[]) {
 
 
         scene->Draw();
-
-        // This is hacky, we can do better
-        SrLibGameScene gameScene = state.GetCurrentGameScene();
-        if (gameScene != SCENE_DRIVING && gameScene != SCENE_CRUISING && gameScene != SCENE_NEWSPAPER) {
-            ((CarScene*)scene)->DrawMaskAfterCar();
-        }
+        scene->DrawExtra();
 
         // This changes type every frame, would be good to only change on scene change
         mouse.SetPointerType(scene->GetPointerType());

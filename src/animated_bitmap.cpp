@@ -14,11 +14,11 @@ AnimatedBitmap::~AnimatedBitmap() {
 void AnimatedBitmap::Draw() {
     if (!IsVisible()) return;
 
-    if (animation.frameCount > 1) {
+    // Only draw if we have animation frames - don't call Bitmap::Draw()
+    if (animation.frameCount > 0 && animation.currentFrame < animation.frameRects.size() && texture != NULL) {
         SDL_Rect srcRect = animation.frameRects[animation.currentFrame];
-        SetSourceRect(srcRect);
+        SDL_RenderCopy(renderer, texture, &srcRect, &rect);
     }
-    Bitmap::Draw();
 }
 
 void AnimatedBitmap::SetPosition(int x, int y) {
@@ -85,6 +85,7 @@ void AnimatedBitmap::SetAnimationFrames(const std::vector<SDL_Rect>& frames) {
 void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int columns, int rows) {
     animation.frameRects.clear();
     animation.frameCount = columns * rows;
+    animation.currentFrame = 0; // Reset to first frame
     
     for (int y = 0; y < rows; y++) {
         for (int x = 0; x < columns; x++) {
@@ -96,5 +97,10 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
             };
             animation.frameRects.push_back(frame);
         }
+    }
+    
+    // Immediately set the source rect to the first frame
+    if (animation.frameCount > 0) {
+        SetSourceRect(animation.frameRects[0]);
     }
 } 

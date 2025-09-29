@@ -74,6 +74,7 @@ public:
     // Gas station methods
     void SetGasCapRemoved(bool removed);
     void SetPumpingHandleVisible(bool visible);
+    void SetShadowVisible(bool visible);
     
     bool IsGasCapRemoved() const { return gasCapRemoved; }
     bool IsPumpingHandleVisible() const { return pumpingHandleVisible; }

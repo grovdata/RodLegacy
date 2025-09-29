@@ -17,9 +17,10 @@ class GasStation : public CarScene {
    private:
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
-    Spritesheet* attendant;
-    Bitmap* maskBitmap;
-    Bitmap* pumpNoHandle;
+    sdl2::SurfacePtr roadMaskSurface;
+    sdl2::TexturePtr roadMaskTexture;
+    SDL_Rect roadMaskSrcRect  = {0, 175, 320, 15}; // Mask from y=175 down, 15 pixels high
+    SDL_Rect roadMaskDestRect = {0, 0, 320, 15};
     GasStationState sceneState = GAS_STATION_IDLE;
     std::unique_ptr<CarBitmap> currentCarBitmap;
     void InitCurrentCarBitmap();
@@ -27,12 +28,14 @@ class GasStation : public CarScene {
 
    public:
     GasStation();
+    ~GasStation();
     void Init(bool initialDebugMode) override;
 
     SDL_Point GetCarIdlePosition() override;
 
     void Action(ZoneId zone) override;
     void Draw() override;
+    void DrawMaskAfterCar() override;
     void UpdateCarAnimation(double deltaTime) override;
     void OnCarAnimationComplete() override;
     void UpdateDebugInfo() override;
@@ -40,5 +43,7 @@ class GasStation : public CarScene {
 
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnFadeComplete() override;
+    void FadeOut() override;
+    void OnSceneExit() override;
 
 };

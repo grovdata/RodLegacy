@@ -1,20 +1,20 @@
 #pragma once
 
 #include "scene.h"
-#include "spritesheet.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
 class Opponent;
 
 class Diner: public CarScene {
    private:
-    Spritesheet *phonebookGuy;
-    Spritesheet *waitress;
 
-    SDL_Surface *roadMaskSurface;
-    SDL_Texture *roadMaskTexture;
+    sdl2::SurfacePtr roadMaskSurface;
+    sdl2::TexturePtr roadMaskTexture;
     SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10}; //200-45-11};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
+
+    sdl2::SurfacePtr maskedScreenBackground;
+    sdl2::TexturePtr maskedScreenBackgroundTexture;
 
     int guySpriteX;
     int guySpriteY;
@@ -37,6 +37,18 @@ class Diner: public CarScene {
     double lastFrameTime;
     double currentTime;
 
+    // Waitress animation state
+    enum WaitressState {
+        WAITRESS_ENTERING,
+        WAITRESS_PAUSED,
+        WAITRESS_EXITING,
+        WAITRESS_HIDDEN
+    };
+    WaitressState waitressState = WAITRESS_ENTERING;
+    double waitressAnimTime = 0.0;
+    double waitressPauseTime = 2.0; // 2 second pause
+    double waitressSpeed = 100.0; // pixels per second
+
     public:
         Diner();
         ~Diner();
@@ -52,6 +64,7 @@ class Diner: public CarScene {
 
         void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
         void UpdateAnimation(double deltaTime);
+        void UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight);
 
 
         void UpdateDebugInfo() override;
@@ -59,4 +72,6 @@ class Diner: public CarScene {
         void PushEvent(SDL_Event *event) override;
 
         void OnFadeComplete() override;
+        void OnSceneExit() override;
+        void FadeOut() override;
 };

@@ -4,6 +4,7 @@
 #include "ui/bubble.h"
 #include "cardata.h"
 #include "debug_overlay.h"
+#include "animated_bitmap.h"
 
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
@@ -17,11 +18,10 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
 void Diner::Init(bool debugMode) {
     CarScene::Init(debugMode);
 
-    roadMaskSurface = SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0);
-    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-    SDL_SetTextureBlendMode(roadMaskTexture, SDL_BLENDMODE_NONE);
-    textures.push_back(roadMaskTexture);
+    roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
+    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+    roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+    SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
 
     SDL_Rect orderRect = {132, 53, 27, 9};
     Zone order(ZONE_DINER_ORDER, strdup("Order"), &orderRect);
@@ -44,11 +44,58 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(guyBubble);
 
-    phonebookGuy = (Spritesheet*)state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
-    phonebookGuy->SetPosition(189, 65);
-    phonebookGuy->SetDimensions(38, 60);
-    phonebookGuy->SetVisible(true);
-    phonebookGuy->SelectSprite(0, 0);
+    // Add phonebook guy as AnimatedBitmap to container (only if not already added)
+    if (!GetDrawable("phonebook_guy")) {
+        Bitmap* phonebookGuySheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
+        
+        SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
+        auto phonebookGuyAnim = new AnimatedBitmap(phonebookGuySheet, phonebookGuyRect);
+        // PHONEBOOK_GUY is 2 rows, 5 columns according to libp.cpp
+        // Calculate frame size: width/5, height/2
+        int frameWidth = phonebookGuySheet->GetSurface()->w / 5;
+        int frameHeight = phonebookGuySheet->GetSurface()->h / 2;
+        phonebookGuyAnim->SetAnimationFrames(frameWidth, frameHeight, 5, 2); // 5 columns, 2 rows
+        phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
+        phonebookGuyAnim->SetLoop(true);
+        phonebookGuyAnim->Play();
+        
+        AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
+    }
+
+    if (!GetDrawable("waitressLeft")) {
+        Bitmap* waitressLeftBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_LEFT});
+        
+        SDL_Rect waitressLeftRect = {25, 68, 40, 41};
+        auto waitressLeftAnim = new AnimatedBitmap(waitressLeftBitmap, waitressLeftRect);
+        waitressLeftAnim->SetAnimationFrames(40, 41, 6, 2);
+        waitressLeftAnim->SetSpeed(0.2f);
+        waitressLeftAnim->SetLoop(true);
+        waitressLeftAnim->Play();
+        waitressLeftAnim->SetVisible(false); // Start hidden
+        AddDrawable("waitressLeft", std::shared_ptr<IDrawable>(waitressLeftAnim));
+    }
+    
+    if (!GetDrawable("waitressRight")) {
+        Bitmap* waitressRightBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
+        
+        SDL_Rect waitressRightRect = {-40, 68, 40, 41}; // Start off-screen left
+        auto waitressRightAnim = new AnimatedBitmap(waitressRightBitmap, waitressRightRect);
+        waitressRightAnim->SetAnimationFrames(40, 41, 6, 2);
+        waitressRightAnim->SetSpeed(0.2f);
+        waitressRightAnim->SetLoop(true);
+        waitressRightAnim->Play();
+        waitressRightAnim->SetVisible(true); // Start visible for entering
+        AddDrawable("waitressRight", std::shared_ptr<IDrawable>(waitressRightAnim));
+    }
+
+    // Create masked screen background (similar to gas station)
+    Bitmap* screenMaskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
+    if (screenMaskBitmap) {
+        maskedScreenBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 256, 41, 32, SDL_PIXELFORMAT_RGBA8888));
+        background->CreateMask(screenMaskBitmap->GetSurface(), maskedScreenBackground.get(), {0, 68, 256, 41});
+        maskedScreenBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedScreenBackground.get()));
+        SDL_SetTextureBlendMode(maskedScreenBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
+    }
 
     hud->SetVisible(true);
 
@@ -56,8 +103,7 @@ void Diner::Init(bool debugMode) {
 }
 
 Diner::~Diner() {    
-    SDL_FreeSurface(roadMaskSurface);
-    SDL_DestroyTexture(roadMaskTexture);
+    // Smart pointers will automatically clean up
     opponentCarBitmaps.clear();
     carBitmap = nullptr;
 }
@@ -90,6 +136,25 @@ void Diner::Draw() {
 
     UpdateCarAnimation(deltaTime);
 
+    // Update animations - declare variables once for the entire method
+    auto phonebookGuy = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("phonebook_guy"));
+    if (phonebookGuy) {
+        phonebookGuy->Update(deltaTime);
+    }
+
+    auto waitressLeft = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressLeft"));
+    if (waitressLeft) {
+        waitressLeft->Update(deltaTime);
+    }
+
+    auto waitressRight = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressRight"));
+    if (waitressRight) {
+        waitressRight->Update(deltaTime);
+    }
+
+    // Update waitress sequence animation
+    UpdateWaitressSequence(deltaTime, waitressLeft, waitressRight);
+
     Scene::Draw();
     if (!isSetup) {
         Init(debugMode);
@@ -106,7 +171,26 @@ void Diner::Draw() {
             animatingCar = true;
         }
         // Still draw everything else while waiting
-        phonebookGuy->Draw();
+        
+        // Draw waitress animations first (before mask)
+        if (waitressLeft) {
+            waitressLeft->Draw();
+        }
+        if (waitressRight) {
+            waitressRight->Draw();
+        }
+        
+        // Draw the masked screen background (to mask parts of waitress animation)
+        if (maskedScreenBackgroundTexture) {
+            SDL_Rect screenMaskRect = {0, 68, 256, 41};
+            SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
+        }
+        
+        // Draw other drawables (phonebook guy, etc.)
+        if (phonebookGuy) {
+            phonebookGuy->Draw();
+        }
+        
         for (auto b : bubbles) {
             b->Draw();
         }
@@ -116,11 +200,24 @@ void Diner::Draw() {
         return;
     }
 
-    if (elapsed % 400 == 0) {
-        phonebookGuy->CycleNextSprite();
+    // Draw waitress animations first (before mask)
+    if (waitressLeft) {
+        waitressLeft->Draw();
+    }
+    if (waitressRight) {
+        waitressRight->Draw();
     }
 
-    phonebookGuy->Draw();
+    // Draw the masked screen background (to mask parts of waitress animation)
+    if (maskedScreenBackgroundTexture) {
+        SDL_Rect screenMaskRect = {0, 68, 256, 41};
+        SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
+    }
+
+    // Draw other drawables (phonebook guy, etc.)
+    if (phonebookGuy) {
+        phonebookGuy->Draw();
+    }
 
     if (carBitmap != nullptr) {
         carBitmap->Move({carx, cary});
@@ -138,9 +235,14 @@ void Diner::Draw() {
 }
 
 void Diner::DrawMaskAfterCar() {
-    SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface, &roadMaskDestRect);
-    roadMaskTexture = SDL_CreateTextureFromSurface(renderer, roadMaskSurface);
-    SDL_RenderCopy(renderer, roadMaskTexture, NULL, &roadMaskSrcRect);
+    // Draw the road mask (for car)
+    if (roadMaskSurface && roadMaskTexture) {
+        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+        SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
+        SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
+    }
+    
     CarScene::DrawMaskAfterCar();
 }
 
@@ -251,6 +353,100 @@ void Diner::PushEvent(SDL_Event *event) {
                     carBitmap->ToggleChoppedRoof();
                 }
                 break;
+        }
+    }
+}
+
+void Diner::FadeOut() {
+    // Reset animation state during fade out (safer than during hotkey press)
+    OnSceneExit();
+    
+    // Call parent implementation
+    Scene::FadeOut();
+}
+
+void Diner::OnSceneExit() {
+    initialDelay = true;
+    animatingCar = false;
+    exitingCar = false;
+    carBitmap = nullptr;
+    carx = 0;
+    cary = 0;
+    currentOpponent = nullptr;
+    
+    // Reset waitress animation state
+    waitressState = WAITRESS_ENTERING;
+    waitressAnimTime = 0.0;
+    
+    // Call parent CarScene implementation (which handles common animation state)
+    CarScene::OnSceneExit();
+}
+
+void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight) {
+    if (!waitressLeft || !waitressRight) return;
+    
+    waitressAnimTime += deltaTime;
+    
+    switch (waitressState) {
+        case WAITRESS_ENTERING: {
+            // Move waitress right from -40 to 208
+            double progress = waitressAnimTime * waitressSpeed;
+            int currentX = -40 + (int)progress;
+            
+            if (currentX >= 208) {
+                // Reached target position, switch to pause
+                waitressRight->SetPosition(208, 68);
+                waitressRight->SetFrame(10); // Set to frame 11 for pause
+                waitressRight->Stop(); // Stop animation during pause
+                waitressState = WAITRESS_PAUSED;
+                waitressAnimTime = 0.0;
+            } else {
+                waitressRight->SetPosition(currentX, 68);
+            }
+            break;
+        }
+        
+        case WAITRESS_PAUSED: {
+            // Wait for pause duration
+            if (waitressAnimTime >= waitressPauseTime) {
+                // Switch to left animation and start exiting
+                waitressRight->SetVisible(false);
+                waitressLeft->SetVisible(true);
+                waitressLeft->SetPosition(208, 68);
+                waitressLeft->Play(); // Restart animation for exiting
+                waitressState = WAITRESS_EXITING;
+                waitressAnimTime = 0.0;
+            }
+            break;
+        }
+        
+        case WAITRESS_EXITING: {
+            // Move waitress left from 208 to off-screen left
+            double progress = waitressAnimTime * waitressSpeed;
+            int currentX = 208 - (int)progress;
+            
+            if (currentX <= -40) {
+                // Exited screen, hide and reset
+                waitressLeft->SetVisible(false);
+                waitressLeft->SetPosition(25, 68); // Reset to original position
+                waitressRight->SetPosition(-40, 68); // Reset to start position
+                waitressRight->SetVisible(true);
+                waitressState = WAITRESS_HIDDEN;
+                waitressAnimTime = 0.0;
+            } else {
+                waitressLeft->SetPosition(currentX, 68);
+            }
+            break;
+        }
+        
+        case WAITRESS_HIDDEN: {
+            // Wait a bit before starting the sequence again
+            if (waitressAnimTime >= 5.0) { // 5 second delay before repeating
+                waitressRight->Play(); // Restart animation for entering
+                waitressState = WAITRESS_ENTERING;
+                waitressAnimTime = 0.0;
+            }
+            break;
         }
     }
 }

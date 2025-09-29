@@ -62,7 +62,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     this->car = car;
     this->currentColor = color;
     
-   CarModel model = car->GetModel();
+    CarModel model = car->GetModel();
     byte_vector& libFile = state.assets.GetLibPData();
     
     // Load original body
@@ -330,4 +330,8 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
     // Overlay the part
     SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
     baseBitmap->UpdateFromSurface();
+}
+
+void CarBitmap::SetShadowVisible(bool visible) {
+    shadow.SetVisible(visible);
 }

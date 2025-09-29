@@ -20,6 +20,31 @@ Bitmap::Bitmap(int width, int height, int depth) {
     texture = SDL_CreateTextureFromSurface(renderer, surface);
 }
 
+Bitmap::Bitmap(const Bitmap& other) {
+    // Initialize members
+    surface = nullptr;
+    texture = nullptr;
+    isVisible = other.isVisible;
+    rect = other.rect;
+    sourceRect = other.sourceRect;
+    
+    // Copy surface if it exists
+    if (other.surface) {
+        surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
+                                            other.surface->w,
+                                            other.surface->h,
+                                            other.surface->format->BitsPerPixel,
+                                            other.surface->pitch,
+                                            other.surface->format->Rmask,
+                                            other.surface->format->Gmask,
+                                            other.surface->format->Bmask,
+                                            other.surface->format->Amask);
+        if (surface) {
+            texture = SDL_CreateTextureFromSurface(renderer, surface);
+        }
+    }
+}
+
 Bitmap::~Bitmap() {
     if (texture) {
         SDL_DestroyTexture(texture);
@@ -303,10 +328,8 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
         
         uint8_t a;
         if (isMask) {
-            // For masks: any non-zero pixel becomes transparent (alpha = 0)
-            // Zero pixels become opaque black (alpha = 255)
-            a = (r || g || b) ? 0 : 255;
-            r = g = b = 0;  // Set color to black for mask pixels
+            // For masks: preserve original colors, make fully opaque
+            a = 255;
         } else {
             // Normal bitmap behavior: first pixel transparent, rest opaque
             if (opaque) {

@@ -24,6 +24,15 @@ Scene::Scene(std::string backgroundName) {
     debugMode = false;
 }
 
+Scene::Scene() {
+    this->isSetup = false;
+    this->backgroundName = "";
+    // Set backgroundAsset to an invalid/empty state
+    this->backgroundAsset = {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)0};
+    debugOverlay = nullptr;
+    debugMode = false;
+}
+
 Scene::~Scene() {
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
@@ -41,8 +50,14 @@ void Scene::Init(bool initialDebugMode) {
     if (debugMode) {
         debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
     }
-    background = state.assets.GetBitmapAsset(backgroundAsset);
-    background->SetVisible(true);
+    
+    // Only load background if we have a valid asset or filename
+    if (backgroundAsset.id != 0) {
+        background = state.assets.GetBitmapAsset(backgroundAsset);
+        background->SetVisible(true);
+    } else {
+        background = nullptr;
+    }
     sceneTransition = SCENE_SOLID;
     surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
                                     0x00FF0000,
@@ -50,6 +65,10 @@ void Scene::Init(bool initialDebugMode) {
                                     0x000000FF,
                                     0xFF000000);
     if (backgroundName == "") {
+        // Fill with black if no background
+        if (!background) {
+            SDL_FillRect(surface, nullptr, SDL_MapRGB(surface->format, 0, 0, 0));
+        }
     } else {
         SDL_Surface *img = IMG_Load(backgroundName.c_str());
         SDL_Rect destRect = {0, 0, img->w, img->h};
@@ -153,7 +172,9 @@ SDL_Texture *Scene::GetTexture() {
 }
 
 void Scene::Draw() {
-    background->Draw();
+    if (background) {
+        background->Draw();
+    }
     SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
 
     if (debugMode) {
@@ -254,6 +275,27 @@ void Scene::OnFadeComplete() {
         sceneTransition = SCENE_SOLID;
         // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
     }
+}
+
+void Scene::OnSceneExit() {
+    // Base implementation - can be overridden by derived classes
+    // This is called when the scene is being exited via hotkeys or other means
+}
+
+void CarScene::OnSceneExit() {
+    // Reset common car animation state
+    carAnimationTime = 0;
+    carExitAnimationTime = 0;
+    waitTimer = 0;
+    exitingCar = false;
+    isPaused = false;
+    needsNewAnimation = true;
+    animatingCar = false;
+    carBitmap = nullptr;  // This ensures no car is visible when re-entering
+    initialDelay = true;
+    
+    // Call parent implementation
+    Scene::OnSceneExit();
 }
 
 void Scene::UpdateDebugInfo() {
@@ -364,6 +406,10 @@ SDL_Point CarScene::GetCarIdlePosition() {
 
 void CarScene::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
+}
+
+void CarScene::DrawExtra() {
+    DrawMaskAfterCar();
 }
 
 void CarScene::UpdateDebugInfo() {

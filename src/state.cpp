@@ -58,14 +58,14 @@ void State::Init(bool debugMode, const fs::path& gamePath) {
         garage = std::make_unique<Garage>();
         diner = std::make_unique<Diner>();
         gasStation = std::make_unique<GasStation>();
-        //driving = std::make_unique<Driving>();
+        driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
 
         garage->Init(debugMode);
         diner->Init(debugMode);
         gasStation->Init(debugMode);
         newspaper->Init(debugMode);
-        //driving->Init();
+        driving->Init(debugMode);
     } catch (const std::exception& e) {
         SDL_Log("Failed to initialize game state: %s", e.what());
         // Clean up any resources that were allocated before the exception

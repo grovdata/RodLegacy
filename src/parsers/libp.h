@@ -129,7 +129,7 @@ enum AmigaLibAsset {
 	RACING_HOOD = 19,
 	RACING_CEILING = 20,
 	RACING_PALM_TREE = 21,
-	RACING_UNKNOWN_THING1 = 22,
+	RACING_ROAD_POST = 22,
 	RACING_UNKNOWN_THING2 = 23,
     RACING_SIGN_ROAD_WORK_AHEAD = 24,
     RACING_BUSH = 25,
@@ -152,22 +152,85 @@ enum AmigaLibAsset {
     RACING_UNKNOWN_BOX = 42,
     RACING_SIGN_TRY_VEGAS_GAMBLER = 43,
     RACING_SIGN_PLAY_BLOCKOUT = 44,
-    RACING_RACING_TACHOMETER = 45,
+    RACING_RACING_CLOCK_11_10 = 45,
     RACING_GEARBOX_AUTO = 46,
     RACING_GEARBOX_MANUAL_3SPEED = 47,
     RACING_GEARBOX_MANUAL_4SPEED = 48,
 	RACING_GEARBOX_KNOB_3SPEED = 49,
 	RACING_GEARBOX_KNOB_4SPEED = 50,
-	RACING_UNKNOWN_THING4 = 51,
+	RACING_GEARBOX_KNOB_AUTOMATIC = 51,
 	RACING_WHEEL_LEFT_DETAIL = 52,
 	RACING_WHEEL_RIGHT_DETAIL = 53,
-	//
+    RACING_WHEEL_LEFT_DETAIL2 = 54,
+    RACING_WHEEL_RIGHT_DETAIL2 = 55,
+    RACING_WHEEL_CENTER_CENTERED = 56,    
+    RACING_WHEEL_LEFT_HAND_1 = 57,
+    RACING_WHEEL_RIGHT_HAND_1 = 58,
+    RACING_WHEEL_RIGHT_HAND_2 = 59,
+    RACING_WHEEL_CENTER_TURNING_LEFT_OPPOSITE_1 = 60,
+    RACING_WHEEL_CENTER_TURNING_LEFT = 61,
+    RACING_WHEEL_RIGHT_HAND_3 = 62,
+    RACING_WHEEL_RIGHT_HAND_4 = 63,
+    RACING_WHEEL_LEFT_HAND_2 = 64,
+    RACING_WHEEL_LEFT_HAND_3 = 65,
+    RACING_WHEEL_LEFT_HAND_4 = 66,
+    RACING_WHEEL_CENTER_TURNING_RIGHT = 67,
+    RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_1 = 68,
+    RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_2 = 69,
+    RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_3 = 70,
+    RACING_RIGHT_HAND_SHIFTING = 71,
+	RACING_WHEEL_LEFT_DETAIL4 = 72,
     RACING_RACING_DICE1 = 73,
     RACING_RACING_DICE2 = 74,
     RACING_RACING_DICE3 = 75,
     RACING_RACING_DICE4 = 76,
     RACING_RACING_DICE5 = 77,
-    //
+    RACING_RACING_CLOCK_11_50 = 78,
+    RACING_RACING_CLOCK_01_32 = 79,
+    RACING_RACING_CLOCK_02_55 = 80,
+    RACING_HORIZON_1 = 81,
+    RACING_HORIZON_2 = 82,
+    RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE = 83,
+    RACING_OPPONENT_CAR_CHEVY_REAR_SIDE = 84, // Looks like Impala
+    RACING_OPPONENT_CAR_CHEVY_REAR_1 = 85,
+    RACING_OPPONENT_CAR_CHEVY_REAR_2 = 86,
+    RACING_OPPONENT_CAR_CHEVY_REAR_3 = 87,
+    RACING_OPPONENT_CAR_CHEVY_REAR_4 = 88,
+    RACING_OPPONENT_CAR_CHEVY_REAR_5 = 89,
+    RACING_OPPONENT_CAR_CHEVY_REAR_6 = 90,
+    RACING_OPPONENT_CAR_CHEVY_REAR_7 = 91,
+    RACING_OPPONENT_CAR_CHEVY_BEHIND_1 = 92,
+    RACING_OPPONENT_CAR_CHEVY_BEHIND_2 = 93,
+    RACING_OPPONENT_CAR_CHEVY_BEHIND_3 = 94,
+    RACING_OPPONENT_CAR_CHEVY_BEHIND_4 = 95,
+    RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE = 96, // ?? Need to verify
+    RACING_RED_LIGHTS = 97,
+    RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE = 98,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_SIDE = 99, // Looks like Bel Air
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_1 = 100,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_2 = 101,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_3 = 102,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_4 = 103,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_5 = 104,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_6 = 105,
+    RACING_OPPONENT_CAR_CHRYSLER_REAR_7 = 106,
+    RACING_OPPONENT_CAR_CHRYSLER_BEHIND_1 = 107,
+    RACING_OPPONENT_CAR_CHRYSLER_BEHIND_2 = 108,
+    RACING_OPPONENT_CAR_CHRYSLER_BEHIND_3 = 109,
+    RACING_OPPONENT_CAR_CHRYSLER_BEHIND_4 = 110,
+    RACING_OPPONENT_CAR_COP_FRONT_SIDE = 111,
+    RACING_OPPONENT_CAR_COP_REAR_SIDE = 112,
+    RACING_OPPONENT_CAR_COP_REAR_1 = 113,
+    RACING_OPPONENT_CAR_COP_REAR_2 = 114,
+    RACING_OPPONENT_CAR_COP_REAR_3 = 115,
+    RACING_OPPONENT_CAR_COP_REAR_4 = 116,
+    RACING_OPPONENT_CAR_COP_REAR_5 = 117,
+    RACING_OPPONENT_CAR_COP_REAR_6 = 118,
+    RACING_OPPONENT_CAR_COP_REAR_7 = 119,
+    RACING_OPPONENT_CAR_COP_BEHIND_1 = 120,
+    RACING_OPPONENT_CAR_COP_BEHIND_2 = 121,
+    RACING_OPPONENT_CAR_COP_BEHIND_3 = 122,
+    RACING_OPPONENT_CAR_COP_BEHIND_4 = 123,
     RACING_RACING_SPEEDING_TICKET = 124,
     RACING_RACING_SPEEDING_TICKET_COP_HAND = 125,
     //
@@ -324,7 +387,9 @@ enum AmigaLibAsset {
     ENGINE_MANIFOLD4 = 331,
     ENGINE_MANIFOLD5 = 332,
     ENGINE_MANIFOLD6 = 333,  
-    //
+    DINER_SCREEN_MASK = 334,
+    DINER_WAITRESS_ANIM_LEFT = 335,
+    DINER_WAITRESS_ANIM_RIGHT = 336,
     GUS_GAS_ATTENDANT = 337,
     GUS_GAS_PUMP2 = 338,
     GUS_GAS_PUMP3 = 339,
@@ -365,6 +430,81 @@ enum AmigaLibAsset {
 };
 
 
+
+// Track data structures based on Street Rod binary analysis
+enum SrTrackType {
+    SR_TRACK_ROAD_RACE = 0,  // Complex curved course at 0xE000
+    SR_TRACK_DRAG_RACE = 1   // Straight drag strip at 0xDD00
+};
+
+enum SrRoadSideSprite {
+    SR_SPRITE_RACING_CLOUDS = 12,
+    SR_SPRITE_RACING_MOUNTAINS = 13,
+    SR_SPRITE_RACING_SIGN_COUNTRY_LINE = 14,
+    SR_SPRITE_RACING_SIGN_GARAGE = 15,
+    SR_SPRITE_RACING_SIGN_GUS_GAS = 16,
+    SR_SPRITE_RACING_DRIVE_IN = 17,
+    SR_SPRITE_RACING_UNKNOWN_18 = 18,
+    SR_SPRITE_RACING_UNKNOWN_19 = 19,
+    SR_SPRITE_RACING_UNKNOWN_20 = 20,
+    SR_SPRITE_RACING_PALM_TREE = 21,
+    SR_SPRITE_RACING_ROAD_POSTS = 22,    // Alternative road posts at 0x10EC1
+    SR_SPRITE_RACING_SIGN_ROAD_WORK_AHEAD = 24,
+    SR_SPRITE_RACING_BUSH = 25,
+    SR_SPRITE_RACING_TELEPHONE_POLE = 30, // Main roadside sprite at 0x10021
+    SR_SPRITE_RACING_TREE_31 = 31,
+    SR_SPRITE_RACING_TREE_32 = 32,
+    SR_SPRITE_RACING_ROAD_POSTS_33 = 33   // Primary road posts (appears with telephone poles)
+};
+
+// Track coordinate segment (12 bytes) - raw storage format from binary
+struct SrTrackCoordSegment {
+    int16_t xStart;    // Start X coordinate (scale by 1/16 for 320x200 screen)
+    int16_t xEnd;      // End X coordinate
+    int16_t yStart;    // Start Y coordinate 
+    int16_t yEnd;      // End Y coordinate
+    int16_t sprite1;   // First sprite ID (usually 0)
+    int16_t sprite2;   // Second sprite ID or environment marker
+};
+
+// Roadside sprite placement (8 bytes) - environmental decoration format
+struct SrRoadSideSpriteRecord {
+    uint16_t spriteId1;      // First sprite ID
+    uint16_t trackPosition1; // Position along track (scale by 1/16)
+    uint16_t spriteId2;      // Second sprite ID  
+    uint16_t trackPosition2; // Position along track
+};
+
+// TrackSegment C structure (26 bytes) - runtime format used by game engine
+struct SrTrackSegment {
+    int16_t commandStart;   // Racing command/instruction start
+    int16_t commandEnd;     // Racing command/instruction end
+    int16_t commandOffset;  // Offset for commands
+    int16_t opCode;         // Operation code for segment type
+    int16_t trapXMin;       // Collision detection X minimum
+    int16_t trapXMax;       // Collision detection X maximum  
+    int16_t trapYMin;       // Collision detection Y minimum
+    int16_t trapYMax;       // Collision detection Y maximum
+    int16_t flags;          // Segment flags (bit 1 = end-of-chain)
+    uint8_t triggerFlag;    // Trigger conditions
+    uint8_t padding[13];    // Padding to 26 bytes total
+    
+    // Check if this segment ends the chain
+    bool IsEndOfChain() const { return (flags & 2) != 0; }
+    
+    // Get bounding box for collision detection
+    void GetBoundingBox(int16_t& minX, int16_t& minY, int16_t& maxX, int16_t& maxY) const {
+        minX = trapXMin; minY = trapYMin;
+        maxX = trapXMax; maxY = trapYMax;
+    }
+};
+
+// Track data offsets in Street Rod binary
+constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
+constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 
+constexpr uint32_t SR_ROADSIDE_SPRITES_OFFSET = 0x10021;    // Roadside sprite placements
+constexpr uint32_t SR_ROAD_POSTS_OFFSET = 0x10EC1;          // Road posts area
+constexpr uint16_t SR_COORDINATE_SCALE_FACTOR = 16;         // Divide coordinates by this for screen coords
 
 enum StockCarModels {
     CHEVROLET_2DR_COUPE_1940 = 179,
@@ -599,15 +739,19 @@ enum StockPalette {
     StockPaletteAmigaGasStation = 1,
     StockPaletteAmigaJukebox = 2,
     StockPaletteAmigaTitleScreen = 3,
+    StockPaletteAmigaDriving = 4,
 };
 
 
 
 
 // FIXME: Add all stock palettes
-#define RLE       {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
-#define PAL1      {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
-#define PAL_GAS   {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00B0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x0F96, 0x0C63}
+#define RLE         {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
+#define PAL1        {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
+#define PAL_GAS     {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00B0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x0F96, 0x0C63}
+#define PAL_DRIVING {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F0C, 0x0B0A, 0x0F0C, 0x0F0C, 0x0EEE, 0x052F, 0x0FE0, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA}
+// Same as PAL_DRIVING, but some colors are swapped using copperlists
+#define PAL_DRIVING_LOW {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F96, 0x0D94, 0x0D62, 0x0A50, 0x0EEE, 0x0841, 0x0730, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA};
 #define CAR_INDEX ((int[]){179, 183, 187, 191, 194, 197, 200, 204, 206, 210, 214, 216, 220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268}) // King: 272
 #define CAR_INDEX_COUNT sizeof(CAR_INDEX) / sizeof(int)
 #define CAR_PLAYER_MODEL_COUNT 25
@@ -768,6 +912,65 @@ class CarQuery {
         static bool SrLibQueryCanStripBumpers(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
+};
+
+// Track data reader class for loading Street Rod track data
+class TrackReader {
+private:
+    std::vector<uint8_t> binaryData;
+    bool dataLoaded = false;
+    
+    // Helper to read big-endian 16-bit value
+    int16_t ReadBigEndian16(const uint8_t* data, size_t offset) const {
+        return (static_cast<int16_t>(data[offset]) << 8) | data[offset + 1];
+    }
+    
+    // Helper to read big-endian 16-bit unsigned value  
+    uint16_t ReadBigEndianU16(const uint8_t* data, size_t offset) const {
+        return (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+    }
+
+public:
+    // Load Street Rod binary data from file
+    bool LoadTrackData(const std::string& binaryPath);
+    
+    // Load Street Rod binary data from memory (AssetManager)
+    bool LoadTrackData(const std::vector<uint8_t>& binaryData);
+    
+    // Extract raw coordinate segments from track
+    std::vector<SrTrackCoordSegment> ExtractTrackCoordinates(SrTrackType trackType, int maxSegments = 500);
+    
+    // Extract roadside sprite placements
+    std::vector<SrRoadSideSpriteRecord> ExtractRoadSideSprites(uint32_t offset = SR_ROADSIDE_SPRITES_OFFSET, int maxRecords = 200);
+    
+    // Convert coordinate segment to screen coordinates
+    static void ScaleCoordinates(SrTrackCoordSegment& segment) {
+        segment.xStart /= SR_COORDINATE_SCALE_FACTOR;
+        segment.xEnd /= SR_COORDINATE_SCALE_FACTOR;
+        segment.yStart /= SR_COORDINATE_SCALE_FACTOR;
+        segment.yEnd /= SR_COORDINATE_SCALE_FACTOR;
+    }
+    
+    // Convert sprite position to screen coordinates
+    static void ScaleSpritePosition(SrRoadSideSpriteRecord& record) {
+        record.trackPosition1 /= SR_COORDINATE_SCALE_FACTOR;
+        record.trackPosition2 /= SR_COORDINATE_SCALE_FACTOR;
+    }
+    
+    // Get sprite name for debugging
+    static const char* GetSpriteName(uint16_t spriteId);
+    
+    // Analyze track for statistics
+    struct TrackAnalysis {
+        int segmentCount;
+        int curvedSegments;
+        int straightSegments;
+        float totalLength;
+        int minX, maxX, minY, maxY;
+        std::vector<uint16_t> uniqueSprites;
+    };
+    
+    TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
