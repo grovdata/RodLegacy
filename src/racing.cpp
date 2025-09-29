@@ -291,7 +291,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 				PutPixel(pixels, x, nRow, nClipColour);
 			if (x >= nLeftClip && x < nRightClip)
 				PutPixel(pixels, x, nRow, nRoadColour);
-			// Draw dashed center line instead of continuous
+			// Draw dashed center line
 			if (x >= nLeftMidline && x < nRightMidline) {
 				// Create dash pattern based on distance and perspective
 				float dashPhase = -fDistance * 0.3f + y * 0.3f; // Higher multiplier for shorter dashes
@@ -450,7 +450,7 @@ void Racing::ConvertTrackCoordinatesToRacing() {
         if (scaledLength < 5.0f) scaledLength = 5.0f; // Reduced minimum segment length
         
         // Scale curvature more aggressively to make track differences visible
-        float scaledCurvature = curvature * 0.5f;  // Increased from 0.1f
+        float scaledCurvature = curvature * 0.8f;  // Increased from 0.1f
         if (scaledCurvature > 0.4f) scaledCurvature = 0.4f;   // Increased limits
         if (scaledCurvature < -0.4f) scaledCurvature = -0.4f;
         
