@@ -35,9 +35,11 @@ private:
 	float fTrackCurvature = 0.0f;	// Accumulation of track curvature
 	float fTrackDistance = 0.0f;	// Total distance of track
 
-	float fCarPos = 0.0f;			// Current car position
+	float fCarPos = 0.0f;			// Current car position (-1.0 to 1.0, 0 = center)
 	float fPlayerCurvature = 0.0f;			// Accumulation of player curvature
 	float fSpeed = 0.0f;			// Current player speed
+	bool bCrashed = false;			// Whether the car has crashed
+	float fCrashRecoveryTime = 0.0f;	// Time to recover from crash
 
 	// Timing management
 	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
@@ -85,6 +87,8 @@ private:
 	void DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide);
 	void LoadSpriteBitmaps();
 	void DrawRearviewMirror(int mirrorLevel);
+	bool CheckCarCollisionWithSprite(float spriteDistance, bool leftSide);
+	void HandleCrash();
 
 public:
 

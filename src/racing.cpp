@@ -72,6 +72,20 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// Handle control input
 	int nCarDirection = 0;
 
+	// Handle crash recovery
+	if (bCrashed) {
+		fCrashRecoveryTime -= deltaTime;
+		if (fCrashRecoveryTime <= 0.0f) {
+			bCrashed = false;
+			fSpeed = 0.0f;
+			fCarPos *= 0.5f; // Move car back toward center
+		} else {
+			// During crash, no control and car slows down
+			fSpeed -= 3.0f * deltaTime;
+			if (fSpeed < 0.0f) fSpeed = 0.0f;
+		}
+	}
+
 	// Car Curvature is accumulated left/right input, but inversely proportional to speed
 	// i.e. it is harder to turn at high speed
 
@@ -81,37 +95,39 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 
 	// Check current keyboard state for sustained input (like holding keys)
 	const Uint8* keyboardState = SDL_GetKeyboardState(NULL);
-	if (keyboardState) {
+	if (keyboardState && !bCrashed) {
 		goLeft = keyboardState[SDL_SCANCODE_LEFT];
 		goRight = keyboardState[SDL_SCANCODE_RIGHT];
 		accelerate = keyboardState[SDL_SCANCODE_UP];
 	}
 
-	if (accelerate)
+	if (accelerate && !bCrashed)
 		fSpeed += 2.0f * deltaTime;
 	else
 		fSpeed -= 1.0f * deltaTime;
 
-	if (goLeft)
-	{
-		fPlayerCurvature -= 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
-		nCarDirection = -1;
-	}
-	else if (goRight)
-	{
-		fPlayerCurvature += 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
-		nCarDirection = +1;
-	}
-	else
-	{
-		// Decay player curvature when not actively turning
-		fPlayerCurvature *= (1.0f - 2.0f * deltaTime); // Decay to zero over ~0.5 seconds
+	// Update player curvature (steering input)
+	if (!bCrashed) {
+		if (goLeft) {
+			fPlayerCurvature -= 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
+			nCarDirection = -1;
+		}
+		else if (goRight) {
+			fPlayerCurvature += 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
+			nCarDirection = +1;
+		}
+		// No auto-centering - player must steer to stay on road
 	}
 
-	// If car curvature is too different to track curvature, slow down
-	// as car has gone off track
-	// if (fabs(fPlayerCurvature - fTrackCurvature) >= 0.8f)
-	// 	fSpeed -= 5.0f * deltaTime;
+	// Calculate car position relative to road center
+	// In first-person view, difference between player and track curvature = off-road amount
+	fCarPos = fPlayerCurvature - fTrackCurvature;
+
+	// Check if car is too far off road (crash condition)
+	// When steering doesn't match the road curve, you go off-road
+	if (!bCrashed && fabs(fCarPos) > 1.2f && fSpeed > 0.3f) {
+		HandleCrash();
+	}
 
 	// Clamp Speed
 	if (fSpeed < 0.0f)	fSpeed = 0.0f;
@@ -293,9 +309,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			float fMidLineWidth = fRoadWidth * 0.03;
 			fRoadWidth *= 0.8f;	// Halve it as track is symmetrical around center of track, but offset...
 
-			// ...depending on where the middle point is, which is defined by the current
-			// track curvature. Balanced curvature effect.
-			float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
+		// ...depending on where the middle point is, which is defined by the current
+		// track curvature. Balanced curvature effect.
+		float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
+		
+		// Shift road laterally based on car position (first-person view)
+		// This is a simple horizontal shift, not a curve
+		// When fCarPos is positive (turning right), road shifts left (you see more grass on left)
+		// When fCarPos is negative (turning left), road shifts right (you see more grass on right)
+		fMiddlePoint -= fCarPos * 0.25f; // Linear shift, no perspective effect
 
 			// Work out segment boundaries
 			int nLeftGrass = (fMiddlePoint - fRoadWidth - fClipWidth) * GAME_WIDTH;
@@ -312,7 +334,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
 			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
 
-            SDL_Color nRoadColour = black;
+            // Flash red if crashed
+            SDL_Color nRoadColour = bCrashed ? SDL_Color{170, 0, 0, 255} : black;
 
 			// Draw the row segments
 			if (x >= 0 && x < nLeftGrass)
@@ -339,7 +362,32 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		}
 	}
 
-	// Debug overlays removed for clean racing view
+	// Draw off-road indicator bar at bottom of screen
+	// Shows how far off-road the car is (player curvature vs track curvature)
+	int indicatorY = GAME_RACING_HEIGHT - 5;
+	int centerX = GAME_WIDTH / 2;
+	
+	// Draw center line (road center)
+	for (int y = indicatorY - 8; y < indicatorY; y++) {
+		PutPixel(pixels, centerX, y, white);
+	}
+	
+	// Draw car position indicator
+	int carIndicatorX = centerX + (int)(fCarPos * 50.0f); // Scale for visibility
+	SDL_Color carColor = bCrashed ? SDL_Color{255, 0, 0, 255} : 
+	                     (fabs(fCarPos) > 1.0f) ? SDL_Color{255, 165, 0, 255} : // Orange warning
+	                     SDL_Color{0, 255, 0, 255}; // Green = safe
+	
+	// Draw car indicator (larger dot)
+	for (int dy = -3; dy <= 3; dy++) {
+		for (int dx = -3; dx <= 3; dx++) {
+			int px = carIndicatorX + dx;
+			int py = indicatorY - 4 + dy;
+			if (px >= 0 && px < GAME_WIDTH && py >= 0 && py < GAME_RACING_HEIGHT) {
+				PutPixel(pixels, px, py, carColor);
+			}
+		}
+	}
 	
 	SDL_UnlockSurface(pixels);
 	
@@ -656,6 +704,13 @@ void Racing::DrawRoadsideSprites(float currentDistance) {
             float distance = spritePos1 - currentDistance;
             if (distance >= -50.0f && distance <= VISIBLE_DISTANCE) {
                 DrawSpriteIndicator(distance, sprite.spriteId1, true); // true = left side
+                
+                // Check collision with sprite (when sprite is very close)
+                if (!bCrashed && distance >= -5.0f && distance <= 10.0f) {
+                    if (CheckCarCollisionWithSprite(distance, true)) {
+                        HandleCrash();
+                    }
+                }
             }
         }
         
@@ -664,6 +719,13 @@ void Racing::DrawRoadsideSprites(float currentDistance) {
             float distance = spritePos2 - currentDistance;
             if (distance >= -50.0f && distance <= VISIBLE_DISTANCE) {
                 DrawSpriteIndicator(distance, sprite.spriteId2, false); // false = right side
+                
+                // Check collision with sprite (when sprite is very close)
+                if (!bCrashed && distance >= -5.0f && distance <= 10.0f) {
+                    if (CheckCarCollisionWithSprite(distance, false)) {
+                        HandleCrash();
+                    }
+                }
             }
         }
     }
@@ -685,6 +747,9 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
     
     // Middle point with curvature effect
     float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
+    
+    // Shift road laterally based on car position (must match road rendering)
+    fMiddlePoint -= fCarPos * 0.25f; // Linear shift, no perspective effect
     
     // Calculate sprite position (clearly off the road - at roadside)
     int spriteX;
@@ -717,16 +782,17 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
         case 32: // Tree 32 (RACING_TREE2) - ANIMATED!
             spriteBitmap = treeSprite.get();
             if (animInfo && animInfo->frameCount > 1) {
-                // Precomputed distance thresholds for each frame (11 frames total)
-                // Last frame appears much earlier due to large size jump (50x48 -> 77x76)
+                // Distance thresholds for each frame transition (11 frames total)
+                // Frame 0 = smallest (far away), Frame 10 = largest (close up)
                 static const float frameDistances[] = {
-                    100.0f, 85.0f, 75.0f, 65.0f, 55.0f, 47.0f, 40.0f, 35.0f, 32.0f, 28.0f, 24.0f
+                    100.0f, 85.0f, 70.0f, 58.0f, 48.0f, 40.0f, 33.0f, 27.0f, 22.0f, 18.0f, 0.0f
                 };
                 
                 uint8_t frame = 0;
                 for (int i = 0; i < animInfo->frameCount; i++) {
-                    if (distance <= frameDistances[i]) {
+                    if (distance < frameDistances[i]) {
                         frame = i;
+                        break;
                     }
                 }
                 frame = std::min(frame, static_cast<uint8_t>(animInfo->frameCount - 1));
@@ -984,9 +1050,9 @@ void Racing::DrawRearviewMirror(int mirrorLevel) {
                         // Road surface - black
                         color = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
                         
-                        // Animated center line dashes
+                        // Animated center line dashes (opposite direction for rearview)
                         if (abs(x - roadCenter) <= 1) {
-                            float dashPhase = -fDistance * 0.3f + y * 0.3f;
+                            float dashPhase = fDistance * 0.3f + y * 0.3f; // Positive fDistance for reverse
                             if (sinf(dashPhase) > 0.7f) {
                                 color = SDL_MapRGBA(pixels->format, 255, 255, 0, 255);
                             }
@@ -1005,6 +1071,37 @@ void Racing::DrawRearviewMirror(int mirrorLevel) {
         // Remove clipping
         SDL_SetClipRect(pixels, nullptr);
     }
+}
+
+bool Racing::CheckCarCollisionWithSprite(float spriteDistance, bool leftSide) {
+    // Check if car trajectory will hit the roadside sprite
+    // In first-person view, fCarPos = fPlayerCurvature - fTrackCurvature
+    // Negative fCarPos = drifting left, Positive = drifting right
+    
+    const float COLLISION_THRESHOLD = 0.8f; // How far off-road before hitting sprites
+    const float COLLISION_DISTANCE = 5.0f; // Must be within this distance
+    
+    if (spriteDistance > COLLISION_DISTANCE) return false;
+    
+    // Check if car is drifting toward the sprite's side
+    if (leftSide && fCarPos < -COLLISION_THRESHOLD) {
+        return true; // Drifting left into left-side sprite
+    }
+    
+    if (!leftSide && fCarPos > COLLISION_THRESHOLD) {
+        return true; // Drifting right into right-side sprite
+    }
+    
+    return false;
+}
+
+void Racing::HandleCrash() {
+    if (bCrashed) return; // Already crashed
+    
+    bCrashed = true;
+    fCrashRecoveryTime = 2.0f; // 2 second crash recovery time
+    
+    printf("💥 CRASH! Speed: %.2f, Car Position: %.2f\n", fSpeed, fCarPos);
 }
 
 SDL_Surface* Racing::GetSurface() {
