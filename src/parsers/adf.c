@@ -1,20 +1,21 @@
 #include "adflib.h"
 #include "adf.h"
+#include <stdlib.h>
 
 struct AdfDevice* adf_mount_device(const char* filename, int readonly) {
-    return adfMountDev(filename, readonly);
+    return adfDevOpen(filename, readonly ? ADF_ACCESS_MODE_READONLY : ADF_ACCESS_MODE_READWRITE);
 }
 
 void adf_unmount_device(struct AdfDevice* dev) {
-    adfUnMountDev(dev);
+    adfDevClose(dev);
 }
 
 struct AdfVolume* adf_mount_volume(struct AdfDevice* dev, int vol_num, int readonly) {
-    return adfMount(dev, vol_num, readonly);
+    return adfVolMount(dev, vol_num, readonly ? ADF_ACCESS_MODE_READONLY : ADF_ACCESS_MODE_READWRITE);
 }
 
 void adf_unmount_volume(struct AdfVolume* vol) {
-    adfUnMount(vol);
+    adfVolUnMount(vol);
 }
 
 struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char *file_to_extract) {
@@ -27,17 +28,26 @@ struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char 
     size_t current_pos = 0;
 
     // Initialize ADFlib
-    adfEnvInitDefault();
+    adfLibInit();
 
-    // Mount device
-    if (!(dev = adfMountDev(adf_path, TRUE))) {
-        fprintf(stderr, "Cannot mount ADF file: %s\n", adf_path);
+    // Open device
+    dev = adfDevOpen(adf_path, ADF_ACCESS_MODE_READONLY);
+    if (!dev) {
+        fprintf(stderr, "Cannot open ADF file: %s\n", adf_path);
         goto cleanup;
     }
 
-    // Mount volume (assuming volume 0)
-    if (!(vol = adfMount(dev, 0, TRUE))) {
-        fprintf(stderr, "Cannot mount volume\n");
+    // Mount device
+    ADF_RETCODE rc = adfDevMount(dev);
+    if (rc != ADF_RC_OK) {
+        fprintf(stderr, "Cannot mount ADF device: %s\n", adf_path);
+        goto cleanup;
+    }
+
+    // Mount volume
+    vol = adfVolMount(dev, 0, ADF_ACCESS_MODE_READONLY);
+    if (!vol) {
+        fprintf(stderr, "Cannot mount volume from ADF: %s\n", adf_path);
         goto cleanup;
     }
 
@@ -59,7 +69,7 @@ struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char 
 
     // Read entire file into memory
     current_pos = 0;
-    while (!adfEndOfFile(file)) {
+    while (!adfFileAtEOF(file)) {
         unsigned n = adfFileRead(file, total_size - current_pos, buffer + current_pos);
         if (n == 0) break;
         current_pos += n;
@@ -78,9 +88,12 @@ struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char 
 cleanup:
     if (buffer) free(buffer);
     if (file) adfFileClose(file);
-    if (vol) adfUnMount(vol);
-    if (dev) adfUnMountDev(dev);
-    adfEnvCleanUp();
+    if (vol) adfVolUnMount(vol);
+    if (dev) {
+        adfDevUnMount(dev);
+        adfDevClose(dev);
+    }
+    adfLibCleanUp();
 
     return result;
 }

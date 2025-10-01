@@ -66,33 +66,44 @@ void AssetManager::InitGameFiles() {
     }
 
     AdfFileData *srExeData = extract_adf_file_to_memory(disk1Path.string().c_str(), "Street_Rod");
+    if (!srExeData) {
+        throw AssetLoadError("Failed to extract Street_Rod executable from ADF");
+    }
     srExeData_vec.assign(
         static_cast<uint8_t*>(srExeData->data),
         static_cast<uint8_t*>(srExeData->data) + srExeData->size
     );
-    delete srExeData;
+    free_adf_file_data(srExeData);
 
     AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
-    
+    if (!libStartData) {
+        throw AssetLoadError("Failed to extract libstart.p from ADF");
+    }
     libStartData_vec.assign(
         static_cast<uint8_t*>(libStartData->data),
         static_cast<uint8_t*>(libStartData->data) + libStartData->size
     );
-    delete libStartData;
+    free_adf_file_data(libStartData);
 
     AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "lib.p");
+    if (!libPData) {
+        throw AssetLoadError("Failed to extract lib.p from ADF");
+    }
     libPData_vec.assign(
         static_cast<uint8_t*>(libPData->data),
         static_cast<uint8_t*>(libPData->data) + libPData->size
     );
-    delete libPData;
+    free_adf_file_data(libPData);
     
     AdfFileData *srData = extract_adf_file_to_memory(disk2Path.string().c_str(), "SR_Data");
+    if (!srData) {
+        throw AssetLoadError("Failed to extract SR_Data from ADF");
+    }
     srData_vec.assign(
         static_cast<uint8_t*>(srData->data),
         static_cast<uint8_t*>(srData->data) + srData->size
     );
-    delete srData;
+    free_adf_file_data(srData);
 
     SDL_Log("Found all required Amiga game files.");
 }
