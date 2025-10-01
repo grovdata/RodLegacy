@@ -99,6 +99,7 @@ private:
 	// Overhead sign rendering (pseudo-3D trapezoids)
 	void DrawOverheadSigns(float currentDistance);
 	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
+	void DrawOverheadSignBitmaps(float currentDistance);
 
 public:
 
