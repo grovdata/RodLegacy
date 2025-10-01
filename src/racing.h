@@ -69,6 +69,12 @@ private:
 	std::unique_ptr<Bitmap> mountainSprite;
 	std::unique_ptr<Bitmap> cloudSprite;
 	std::unique_ptr<Bitmap> rearviewMirrorSprite;
+	
+	// Overhead sign sprites (rendered as pseudo-3D trapezoids spanning the road)
+	std::unique_ptr<Bitmap> signCountryLineSprite;  // ID 14 - finish line
+	std::unique_ptr<Bitmap> signRoute69Sprite;      // ID 33
+	std::unique_ptr<Bitmap> signCityLimitsSprite;   // ID 34
+	std::unique_ptr<Bitmap> signExit48Sprite;       // ID 35
 
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
@@ -89,6 +95,10 @@ private:
 	void DrawRearviewMirror(int mirrorLevel);
 	bool CheckCarCollisionWithSprite(float spriteDistance, bool leftSide);
 	void HandleCrash();
+	
+	// Overhead sign rendering (pseudo-3D trapezoids)
+	void DrawOverheadSigns(float currentDistance);
+	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
 
 public:
 

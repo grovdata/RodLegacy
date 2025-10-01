@@ -389,6 +389,10 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		}
 	}
 	
+	// Draw overhead signs LAST (after clouds, mountains, road, indicators)
+	// This ensures arch posts are visible in sky AND yellow ground is on top of road
+	DrawOverheadSigns(fDistance);
+	
 	SDL_UnlockSurface(pixels);
 	
 	// Draw sprite bitmaps after unlocking the surface
@@ -887,21 +891,6 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
                 printf("SDL_BlitSurface failed: %s\n", SDL_GetError());
             }
         }
-    } else {
-        // Fallback to simple colored indicator for unknown sprites or if bitmap failed to load
-        // Using fallback rendering for unmapped sprites
-        
-        SDL_Color spriteColor = yellow; // Unknown sprites
-        int spriteHeight = static_cast<int>(perspective * 20.0f + 3.0f); // Scale with distance
-        for (int y = 0; y < spriteHeight && (screenY - y) >= (GAME_RACING_HEIGHT / 2); y++) {
-            if (spriteX >= 0 && spriteX < GAME_WIDTH) {
-                PutPixel(pixels, spriteX, screenY - y, spriteColor);
-                // Make wider for closer sprites
-                if (perspective > 0.5f && spriteX + 1 < GAME_WIDTH) {
-                    PutPixel(pixels, spriteX + 1, screenY - y, spriteColor);
-                }
-            }
-        }
     }
 }
 
@@ -990,6 +979,34 @@ void Racing::LoadSpriteBitmaps() {
         }
     } else {
         printf("Racing: Failed to load rearview mirror sprite\n");
+    }
+    
+    // Load overhead sign sprites (these are rendered as pseudo-3D trapezoids)
+    // Discovery: Original game renders these as trapezoids ABOVE the road, not as blitted sprites
+    printf("Racing: Loading overhead sign sprites...\n");
+    
+    auto* countryLineAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTRY_LINE});
+    if (countryLineAsset) {
+        signCountryLineSprite = std::make_unique<Bitmap>(*countryLineAsset);
+        printf("Racing: Loaded COUNTRY LINE sign (ID 14) - finish line arch\n");
+    }
+    
+    auto* route69Asset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_ROUTE_69});
+    if (route69Asset) {
+        signRoute69Sprite = std::make_unique<Bitmap>(*route69Asset);
+        printf("Racing: Loaded ROUTE 69 sign (ID 33) - overhead arch\n");
+    }
+    
+    auto* cityLimitsAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_CITY_LIMITS});
+    if (cityLimitsAsset) {
+        signCityLimitsSprite = std::make_unique<Bitmap>(*cityLimitsAsset);
+        printf("Racing: Loaded CITY LIMITS sign (ID 34) - overhead arch\n");
+    }
+    
+    auto* exit48Asset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_EXIT_48});
+    if (exit48Asset) {
+        signExit48Sprite = std::make_unique<Bitmap>(*exit48Asset);
+        printf("Racing: Loaded EXIT 48 sign (ID 35) - overhead arch\n");
     }
 }
 
@@ -1108,4 +1125,263 @@ SDL_Surface* Racing::GetSurface() {
 	return pixels;
 }
 
+// Overhead Sign Rendering Implementation
+// Based on reverse engineering of Street Rod Amiga assembly code
+//
+// KEY DISCOVERY: Overhead signs are ARCH STRUCTURES that the player drives UNDER!
+// They consist of vertical posts on road edges + horizontal bar + sign bitmap on bar.
+//
+// Original Amiga Implementation:
+// - Track data contains flag $0005 for special segments (overhead arches)
+// - Dispatcher routes to handlers based on segment index
+// - Handlers render multiple trapezoids:
+//   1. Left vertical post (trapezoid at left road edge)
+//   2. Right vertical post (trapezoid at right road edge)
+//   3. Horizontal bar connecting posts at top
+//   4. Sign bitmap rendered ON the horizontal bar
+// - Uses same polygon renderer (SECSTRT_26 → LAB_0296 → Amiga Blitter)
+//
+// Overhead Arch Signs (verified in-game):
+//   ID 14: COUNTRY LINE (last arch = finish line)
+//   ID 33: ROUTE 69
+//   ID 34: CITY LIMITS
+//   ID 35: EXIT 48
+//
+// Arch Structure:
+//   [SIGN TEXT]
+//   ============  <- horizontal bar (trapezoid)
+//   |          |  <- vertical posts (trapezoids)
+//   |   ROAD   |
+//   |          |
+//  YOU DRIVE UNDER THIS!
 
+void Racing::DrawOverheadSigns(float currentDistance) {
+    // NOTE: We need track segment data with flags to detect $0005 (overhead arch) segments
+    // For now, hardcode test positions based on typical track layout
+    // TODO: Parse track flags from binary data to detect actual overhead sign positions
+    
+    // Estimated overhead sign positions (distance along track)
+    // These would normally come from track data with flag $0005
+    struct OverheadSign {
+        float position;
+        uint16_t signId;
+    };
+    
+    // Example positions - replace with actual track data parsing
+    static const OverheadSign signs[] = {
+        {150.0f, 33},  // ROUTE 69
+        {350.0f, 34},  // CITY LIMITS
+        {550.0f, 35},  // EXIT 48
+        {fTrackDistance * 0.95f, 14}, // COUNTRY LINE near finish
+    };
+    
+    const float VISIBLE_DISTANCE = 300.0f;
+    
+    for (const auto& sign : signs) {
+        float distance = sign.position - currentDistance;
+        
+        // Handle wraparound for lap completion
+        if (distance < -fTrackDistance / 2) {
+            distance += fTrackDistance;
+        }
+        
+        // Only draw if sign is ahead and visible
+        if (distance > 0 && distance <= VISIBLE_DISTANCE) {
+            DrawOverheadSignTrapezoid(distance, sign.signId);
+        }
+    }
+}
+
+void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
+    // Get the appropriate sign sprite
+    Bitmap* signBitmap = nullptr;
+    const char* signName = "Unknown";
+    
+    switch (signId) {
+        case 14: // COUNTRY LINE (finish)
+            signBitmap = signCountryLineSprite.get();
+            signName = "COUNTRY LINE";
+            break;
+        case 33: // ROUTE 69
+            signBitmap = signRoute69Sprite.get();
+            signName = "ROUTE 69";
+            break;
+        case 34: // CITY LIMITS
+            signBitmap = signCityLimitsSprite.get();
+            signName = "CITY LIMITS";
+            break;
+        case 35: // EXIT 48
+            signBitmap = signExit48Sprite.get();
+            signName = "EXIT 48";
+            break;
+        default:
+            return;
+    }
+    
+    if (!signBitmap || !signBitmap->GetSurface()) {
+        return; // Sign sprite not loaded
+    }
+    
+    // Calculate perspective for this distance
+    // Allow arches to be visible from further away
+    float perspective = 1.0f - (distance / 200.0f);
+    if (perspective <= 0 || perspective > 1.0f) return;
+    
+    // Original Amiga approach: Draw an ARCH structure with posts and horizontal bar
+    // Structure:
+    //   [SIGN TEXT]
+    //   ============  <- horizontal bar
+    //   |          |  <- vertical posts on each side
+    //   |   ROAD   |
+    
+    int horizonY = GAME_RACING_HEIGHT / 2;
+    int roadBottomY = horizonY + (int)(perspective * (GAME_RACING_HEIGHT / 2));
+    
+    // Calculate road width at this perspective
+    float fRoadWidth = 0.21f + perspective * 0.98f;
+    fRoadWidth *= 0.8f;
+    
+    // Middle point with curvature effect (same as road)
+    float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
+    fMiddlePoint -= fCarPos * 0.25f; // Shift with car position
+    
+    // Calculate post positions at road edges
+    int roadCenterX = (int)(fMiddlePoint * GAME_WIDTH);
+    int roadWidthPixels = (int)(fRoadWidth * GAME_WIDTH);
+    int leftPostX = roadCenterX - roadWidthPixels;
+    int rightPostX = roadCenterX + roadWidthPixels;
+    
+    // Post dimensions scale with perspective
+    // Posts need to be TALL arches you drive under!
+    int postWidth = (int)(8.0f * perspective + 3.0f); // 3-11 pixels wide
+    int postHeight = (int)(120.0f * perspective + 30.0f); // 30-150 pixels tall (MUCH taller!)
+    int barHeight = (int)(12.0f * perspective + 4.0f); // 4-16 pixels tall
+    
+    // Minimum visible size - allow tiny arches in distance
+    if (postHeight < 3) return;
+    
+    // Position arch above road
+    int archTopY = roadBottomY - postHeight;
+    int barTopY = archTopY;
+    int barBottomY = barTopY + barHeight;
+    
+    SDL_Color archColor = {255, 0, 0, 255}; // RED for arch structure
+    SDL_Color yellowGroundColor = {255, 255, 0, 255}; // YELLOW ground marking
+    
+    // NOTE: Surface is already locked by caller
+    
+    // Draw YELLOW GROUND SURFACE under the arch (road marking)
+    // This is a warning zone painted on the road BEFORE the arch
+    // Zone ENDS at the arch position (where you pass under it)
+    // TODO: Extract exact zone start/end distances from track data flag $0005
+    
+    // Yellow zone ends where arch posts are (at roadBottomY perspective)
+    // and extends backwards on the road surface
+    int zoneEndY = roadBottomY;  // End AT the arch
+    int zoneStartY = zoneEndY - (int)(20.0f * perspective + 10.0f); // Shorter zone: 10-30px
+    
+    for (int y = zoneStartY; y <= zoneEndY && y >= horizonY && y < GAME_RACING_HEIGHT; y++) {
+        // Calculate road width at THIS scanline's perspective
+        float linePerspective = (float)(y - horizonY) / (float)(GAME_RACING_HEIGHT / 2);
+        float lineRoadWidth = (0.21f + linePerspective * 0.98f) * 0.8f;
+        float lineMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - linePerspective), 2.5f);
+        lineMiddlePoint -= fCarPos * 0.25f;
+        
+        int lineCenterX = (int)(lineMiddlePoint * GAME_WIDTH);
+        int lineWidthPixels = (int)(lineRoadWidth * GAME_WIDTH);
+        int lineLeftX = lineCenterX - lineWidthPixels;
+        int lineRightX = lineCenterX + lineWidthPixels;
+        
+        // Draw yellow marking across road width
+        for (int x = lineLeftX; x <= lineRightX && x >= 0 && x < GAME_WIDTH; x++) {
+            PutPixel(pixels, x, y, yellowGroundColor);
+        }
+    }
+    
+    // Draw LEFT POST (vertical trapezoid)
+    for (int y = archTopY; y < roadBottomY && y < GAME_RACING_HEIGHT; y++) {
+        // Draw posts even ABOVE horizon (into sky area) for tall arches!
+        if (y >= 0) {  // Only check screen bounds, not horizon
+            // Slight perspective taper
+            float postPerspective = (float)(y - archTopY) / (float)postHeight;
+            int width = (int)(postWidth * (1.0f + postPerspective * 0.3f));
+            for (int x = leftPostX; x < leftPostX + width && x >= 0 && x < GAME_WIDTH; x++) {
+                PutPixel(pixels, x, y, archColor);
+            }
+        }
+    }
+    
+    // Draw RIGHT POST (vertical trapezoid)
+    for (int y = archTopY; y < roadBottomY && y < GAME_RACING_HEIGHT; y++) {
+        // Draw posts even ABOVE horizon (into sky area) for tall arches!
+        if (y >= 0) {  // Only check screen bounds, not horizon
+            float postPerspective = (float)(y - archTopY) / (float)postHeight;
+            int width = (int)(postWidth * (1.0f + postPerspective * 0.3f));
+            for (int x = rightPostX - width; x < rightPostX && x >= 0 && x < GAME_WIDTH; x++) {
+                PutPixel(pixels, x, y, archColor);
+            }
+        }
+    }
+    
+    // Draw HORIZONTAL BAR connecting the posts
+    for (int y = barTopY; y < barBottomY && y >= 0 && y < GAME_RACING_HEIGHT; y++) {
+        for (int x = leftPostX; x <= rightPostX && x >= 0 && x < GAME_WIDTH; x++) {
+            PutPixel(pixels, x, y, archColor);
+        }
+    }
+    
+    // Draw SIGN BITMAP on the horizontal bar (centered)
+    SDL_Surface* signSurface = signBitmap->GetSurface();
+    int signWidth = (int)(signSurface->w * perspective * 0.8f);
+    int signHeight = (int)(signSurface->h * perspective * 0.8f);
+    
+    // Clamp sign size to fit on bar
+    int maxSignWidth = rightPostX - leftPostX - 10;
+    if (signWidth > maxSignWidth) signWidth = maxSignWidth;
+    if (signHeight > barHeight) signHeight = barHeight;
+    
+    if (signWidth > 5 && signHeight > 3) {
+        int signX = roadCenterX - signWidth / 2;
+        int signY = barTopY + (barHeight - signHeight) / 2;
+        
+        SDL_Rect srcRect = {0, 0, signSurface->w, signSurface->h};
+        SDL_Rect dstRect = {signX, signY, signWidth, signHeight};
+        
+        // Clip to screen and bar bounds
+        if (dstRect.x < 0) {
+            int clip = -dstRect.x;
+            srcRect.x += (int)((float)clip / perspective);
+            srcRect.w -= (int)((float)clip / perspective);
+            dstRect.w += dstRect.x;
+            dstRect.x = 0;
+        }
+        if (dstRect.x + dstRect.w > GAME_WIDTH) {
+            int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
+            srcRect.w -= (int)((float)overflow / perspective);
+            dstRect.w -= overflow;
+        }
+        
+        if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
+            SDL_BlitScaled(signSurface, &srcRect, pixels, &dstRect);
+            
+            // Debug: Log arch rendering details
+            static int lastLoggedSign = -1;
+            static int frameCount = 0;
+            frameCount++;
+            if ((signId != lastLoggedSign && distance < 100.0f) || frameCount % 60 == 0) {
+                printf("🏛️  RED ARCH: %s at distance %.1f (perspective %.3f)\n", signName, distance, perspective);
+                printf("    Posts: Left=%d Right=%d, width=%dpx, HEIGHT=%dpx 🔺\n", 
+                       leftPostX, rightPostX, postWidth, postHeight);
+                printf("    Arch spans: y=%d (top) to y=%d (road), total %dpx tall\n", 
+                       archTopY, roadBottomY, roadBottomY - archTopY);
+                printf("    Bar: y=%d-%d (height=%dpx)\n", barTopY, barBottomY, barHeight);
+                printf("    Yellow zone: y=%d to y=%d (%dpx) - warning area before arch\n", 
+                       zoneStartY, zoneEndY, zoneEndY - zoneStartY);
+                printf("    Horizon: y=%d, RoadBottom/Arch: y=%d\n", horizonY, roadBottomY);
+                lastLoggedSign = signId;
+            }
+        }
+    }
+    
+    // NOTE: Surface will be unlocked by caller
+}
