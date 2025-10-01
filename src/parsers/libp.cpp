@@ -1114,7 +1114,7 @@ const char* TrackReader::GetSpriteName(uint16_t spriteId) {
     switch (spriteId) {
         case SR_SPRITE_RACING_CLOUDS: return "Clouds";
         case SR_SPRITE_RACING_MOUNTAINS: return "Mountains";
-        case SR_SPRITE_RACING_SIGN_COUNTRY_LINE: return "Country Line Sign";
+        case SR_SPRITE_RACING_SIGN_COUNTY_LINE: return "Country Line Sign";
         case SR_SPRITE_RACING_SIGN_GARAGE: return "Garage Sign";
         case SR_SPRITE_RACING_SIGN_GUS_GAS: return "Gus Gas Sign";
         case SR_SPRITE_RACING_DRIVE_IN: return "Drive-In";

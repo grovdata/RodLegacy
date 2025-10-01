@@ -121,7 +121,7 @@ enum AmigaLibAsset {
     RACING_INTERIOR_1 = 11,
     RACING_CLOUDS = 12,
     RACING_MOUNTAINS = 13,
-    RACING_SIGN_COUNTRY_LINE = 14,
+    RACING_SIGN_COUNTY_LINE = 14,
     RACING_SIGN_GARAGE = 15,
     RACING_SIGN_GUS_GAS = 16,
     RACING_DRIVE_IN = 17,
@@ -440,7 +440,7 @@ enum SrTrackType {
 enum SrRoadSideSprite {
     SR_SPRITE_RACING_CLOUDS = 12,
     SR_SPRITE_RACING_MOUNTAINS = 13,
-    SR_SPRITE_RACING_SIGN_COUNTRY_LINE = 14,
+    SR_SPRITE_RACING_SIGN_COUNTY_LINE = 14,
     SR_SPRITE_RACING_SIGN_GARAGE = 15,
     SR_SPRITE_RACING_SIGN_GUS_GAS = 16,
     SR_SPRITE_RACING_DRIVE_IN = 17,
@@ -520,10 +520,14 @@ static const SpriteRect RACING_TREE2_FRAMES[] = {
     {10, 139, 8, 7}, {0, 137, 10, 9}, {56, 133, 11, 11}, {68, 133, 14, 13}, {0, 122, 16, 15}, {15, 122, 19, 17}, {34, 122, 22, 20}, {56, 108, 26, 25}, {47, 76, 34, 32}, {0, 76, 48, 46}, {0, 0, 77, 76}
 };
 
+static const SpriteRect RACING_SIGN_COUNTY_LINE_FRAMES[] = {
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}    
+};
+
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
-    // Roadside objects
-    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES}    
+    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},    
+    {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES}
 };
 
 // Helper function to get animation info for a sprite

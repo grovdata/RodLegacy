@@ -988,7 +988,7 @@ void Racing::LoadSpriteBitmaps() {
     // Discovery: Original game renders these as trapezoids ABOVE the road, not as blitted sprites
     printf("Racing: Loading overhead sign sprites...\n");
     
-    auto* countryLineAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTRY_LINE});
+    auto* countryLineAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTY_LINE});
     if (countryLineAsset) {
         signCountryLineSprite = std::make_unique<Bitmap>(*countryLineAsset);
         printf("Racing: Loaded COUNTRY LINE sign (ID 14) - finish line arch\n");
@@ -1220,6 +1220,9 @@ void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
         default:
             return;
     }
+
+    // Until all frames added
+    signBitmap = signCountryLineSprite.get();
     
     if (!signBitmap || !signBitmap->GetSurface()) {
         return; // Sign sprite not loaded
@@ -1354,7 +1357,7 @@ void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
 }
 
 void Racing::DrawOverheadSignBitmaps(float currentDistance) {
-    // Draw sign bitmaps on unlocked surface (same positions as DrawOverheadSigns)
+    // Draw sign bitmaps using frame-based scaling (like trees)
     // This must match the arch positions calculated in DrawOverheadSigns
     
     struct OverheadSign {
@@ -1367,7 +1370,7 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
         {150.0f, 33},  // ROUTE 69
         {350.0f, 34},  // CITY LIMITS
         {550.0f, 35},  // EXIT 48
-        {fTrackDistance * 0.95f, 14}, // COUNTRY LINE near finish
+        {fTrackDistance * 0.95f, 14}, // COUNTY LINE near finish
     };
     
     const float VISIBLE_DISTANCE = 300.0f;
@@ -1382,16 +1385,10 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
         
         // Only draw if sign is ahead and visible
         if (distance > 0 && distance <= VISIBLE_DISTANCE) {
-            // Get the appropriate sign sprite
-            Bitmap* signBitmap = nullptr;
-            
-            switch (sign.signId) {
-                case 14: signBitmap = signCountryLineSprite.get(); break;
-                case 33: signBitmap = signRoute69Sprite.get(); break;
-                case 34: signBitmap = signCityLimitsSprite.get(); break;
-                case 35: signBitmap = signExit48Sprite.get(); break;
-                default: continue;
-            }
+            // TODO: Use different sprites when frames are added for all signs
+            // For now, always use COUNTY LINE sprite with frames
+            Bitmap* signBitmap = signCountryLineSprite.get();
+            const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(RACING_SIGN_COUNTY_LINE);
             
             if (!signBitmap || !signBitmap->GetSurface()) {
                 continue;
@@ -1411,50 +1408,80 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
             fMiddlePoint -= fCarPos * 0.25f;
             
             int roadCenterX = (int)(fMiddlePoint * GAME_WIDTH);
-            int roadWidthPixels = (int)(fRoadWidth * GAME_WIDTH);
-            int leftPostX = roadCenterX - roadWidthPixels;
-            int rightPostX = roadCenterX + roadWidthPixels;
-            
             int postHeight = (int)(120.0f * perspective + 30.0f);
             int barHeight = (int)(12.0f * perspective + 4.0f);
-            
             int archTopY = roadBottomY - postHeight;
             int barTopY = archTopY;
             
-            // Draw sign bitmap on horizontal bar
-            SDL_Surface* signSurface = signBitmap->GetSurface();
-            int signWidth = (int)(signSurface->w * perspective * 0.8f);
-            int signHeight = (int)(signSurface->h * perspective * 0.8f);
+            // Use frame-based rendering if animation info exists
+            SDL_Rect srcRect = {0, 0, 0, 0};
             
-            int maxSignWidth = rightPostX - leftPostX - 10;
-            if (signWidth > maxSignWidth) signWidth = maxSignWidth;
-            if (signHeight > barHeight) signHeight = barHeight;
+            if (animInfo && animInfo->frameCount > 1) {
+                // Select frame based on distance (11 frames, far to near)
+                // Increased distances so larger frames appear earlier
+                // Frame 0 = smallest (far away, distance >= 200)
+                // Frame 10 = largest (very close, distance < 60)
+                static const float frameDistances[] = {
+                    200.0f, 180.0f, 160.0f, 140.0f, 120.0f, 100.0f, 85.0f, 70.0f, 60.0f, 50.0f, 0.0f
+                };
+                
+                uint8_t frame = 0;
+                for (int i = 0; i < animInfo->frameCount; i++) {
+                    if (distance >= frameDistances[i]) {
+                        frame = i;
+                        break; // Found the first threshold we exceed
+                    }
+                }
+                
+                SpriteRect frameRect = GetAnimationFrameRect(animInfo, frame);
+                srcRect = {
+                    static_cast<int>(frameRect.x),
+                    static_cast<int>(frameRect.y),
+                    static_cast<int>(frameRect.w),
+                    static_cast<int>(frameRect.h)
+                };
+            } else {
+                // No animation, use full sprite
+                SDL_Surface* surface = signBitmap->GetSurface();
+                srcRect = {0, 0, surface->w, surface->h};
+            }
             
-            if (signWidth > 5 && signHeight > 3) {
-                int signX = roadCenterX - signWidth / 2;
-                int signY = barTopY + (barHeight - signHeight) / 2;
-                
-                SDL_Rect srcRect = {0, 0, signSurface->w, signSurface->h};
-                SDL_Rect dstRect = {signX, signY, signWidth, signHeight};
-                
-                // Clip to screen bounds
-                if (dstRect.x < 0) {
-                    int clip = -dstRect.x;
-                    srcRect.x += (int)((float)clip / perspective);
-                    srcRect.w -= (int)((float)clip / perspective);
-                    dstRect.w += dstRect.x;
-                    dstRect.x = 0;
-                }
-                if (dstRect.x + dstRect.w > GAME_WIDTH) {
-                    int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
-                    srcRect.w -= (int)((float)overflow / perspective);
-                    dstRect.w -= overflow;
-                }
-                
-                if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
-                    // Blit sign bitmap (surface is unlocked now, so this works!)
-                    SDL_BlitScaled(signSurface, &srcRect, pixels, &dstRect);
-                }
+            // Position sign centered on horizontal bar (1:1 pixel mapping, no scaling)
+            int signX = roadCenterX - srcRect.w / 2;
+            int signY = barTopY + (barHeight - srcRect.h) / 2;
+            
+            SDL_Rect dstRect = {signX, signY, srcRect.w, srcRect.h};
+            
+            // Clip to screen bounds
+            SDL_Rect originalSrcRect = srcRect;
+            if (dstRect.x < 0) {
+                int leftClip = -dstRect.x;
+                srcRect.x = originalSrcRect.x + leftClip;
+                srcRect.w = originalSrcRect.w - leftClip;
+                dstRect.w += dstRect.x;
+                dstRect.x = 0;
+            }
+            if (dstRect.x + dstRect.w > GAME_WIDTH) {
+                int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
+                srcRect.w = originalSrcRect.w - overflow;
+                dstRect.w -= overflow;
+            }
+            if (dstRect.y < 0) {
+                int topClip = -dstRect.y;
+                srcRect.y = originalSrcRect.y + topClip;
+                srcRect.h = originalSrcRect.h - topClip;
+                dstRect.h += dstRect.y;
+                dstRect.y = 0;
+            }
+            if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
+                int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
+                srcRect.h = originalSrcRect.h - overflow;
+                dstRect.h -= overflow;
+            }
+            
+            if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
+                // Blit sign frame at 1:1 scale (no SDL_BlitScaled!)
+                SDL_BlitSurface(signBitmap->GetSurface(), &srcRect, pixels, &dstRect);
             }
         }
     }
