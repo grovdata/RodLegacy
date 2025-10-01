@@ -14,6 +14,7 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include "scene.h"
 #include "parsers/libp.h"
 #include "bitmap.h"
+#include "ui/hud.h"
 
 class Racing {
 
@@ -27,7 +28,7 @@ private:
 	SDL_Color darkGreen = { 0, 119, 0, 255 };
 	SDL_Color grey = { 200, 200, 200, 255 };
 
-
+	HUD* hud;
 	SDL_Surface* pixels;
 
 	float fDistance = 0.0f;			// Distance car has travelled around track

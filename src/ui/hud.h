@@ -21,4 +21,6 @@ class HUD: public IDrawable {
     void Draw() override;
     void SetVisible(bool visible) override;
     void SetText(const char *text);
+    void SetTextOnly(const char *text); // Text without bankroll display
+    void AddText(int x, int y, const char *text); // Add additional text at specific position (relative to HUD)
 };

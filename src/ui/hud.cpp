@@ -65,6 +65,35 @@ void HUD::SetText(const char *text) {
     textBitmap->UpdateFromSurface();    
 }
 
+void HUD::SetTextOnly(const char *text) {
+    Clear();
+    
+    // Use the stored RGB components directly
+    SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 
+        fontColor.r, 
+        fontColor.g, 
+        fontColor.b);
+    
+    // Write the text without bankroll
+    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 2, 0, text);
+    
+    textBitmap->UpdateFromSurface();    
+}
+
+void HUD::AddText(int x, int y, const char *text) {
+    // Add additional text at a specific position (doesn't clear)
+    // Use the stored RGB components directly
+    SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 
+        fontColor.r, 
+        fontColor.g, 
+        fontColor.b);
+    
+    // Write the text at the specified position
+    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), x, y, text);
+    
+    textBitmap->UpdateFromSurface();    
+}
+
 void HUD::Clear() {
     Uint32 sdlColor = SDL_MapRGB(backgroundBitmap->GetSurface()->format, backgroundColor.r, backgroundColor.g, backgroundColor.b);
     SDL_FillRect(textBitmap->GetSurface(), NULL, 0);

@@ -111,6 +111,7 @@ void AssetManager::InitGameFiles() {
 void AssetManager::InitStockPalettes() {
     stockPalettes[StockPaletteAmigaDiner] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDiner), true);
     stockPalettes[StockPaletteAmigaGasStation] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaGasStation), true);
+    stockPalettes[StockPaletteAmigaDriving] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDriving), true);
 }
 
 void AssetManager::Init(const fs::path& validatedPath) {

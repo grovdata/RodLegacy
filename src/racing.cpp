@@ -22,6 +22,11 @@ Racing::Racing() {
         #endif
 	pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
 	
+	// Initialize HUD
+	// Palette indices: 4 = 0x0333 (dark gray #303030), 24 = 0x0A94 (tan #a09040)
+	hud = new HUD(StockPaletteAmigaDriving, 4, 24);
+	hud->SetVisible(true);
+	
 	// Initialize track reader
 		trackReader = std::make_unique<TrackReader>();
 		
@@ -50,7 +55,7 @@ Racing::Racing() {
 	}
 
 Racing::~Racing() {
-	// Destructor - cleanup if needed
+	delete hud;
 }
 
 void Racing::Draw(float fElapsedTime, SDL_Event *event) {
@@ -428,6 +433,27 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	
 	// Draw rearview mirror as the absolute last thing (after all sprites)
 	DrawRearviewMirror(6); // Lower value to leave room for mini road
+
+	// Update and draw HUD
+	// Convert fDistance from track units to miles (using scale factor from track analysis)
+	// Scale factor: 2.200 feet per segment = 0.000417 miles per unit
+	float distanceInMiles = fDistance * 0.000417f;
+	
+	// Convert fSpeed to mph (currently in arbitrary units, need to calibrate)
+	// For now, use a reasonable scaling factor
+	int speedMph = static_cast<int>(fSpeed * 10.0f); // Adjust multiplier as needed
+	
+	// Format HUD text with fixed-width fields to prevent jumping
+	char hudText[128];
+	snprintf(hudText, sizeof(hudText), "Distance:%5.2f miles  Speed:%3d mph", 
+	         distanceInMiles, speedMph);
+	
+	hud->Clear();
+	// Add Gear text at position (6, 0) relative to HUD bar (absolute screen pos 6, 191)
+	hud->AddText(6, 0, "Gear: D");
+	// Main text starts after Gear text (around X=55 to leave space)
+	hud->AddText(55, 0, hudText);
+	hud->Draw();
 
 //		return true;
 }
