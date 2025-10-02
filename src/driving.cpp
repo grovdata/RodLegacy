@@ -259,6 +259,9 @@ void Driving::Start() {
 }
 
 void Driving::SetState(DrivingState state) {
+    // Check if Layer 2 (dashboard) is visible
+    bool dashVisible = racing ? racing->IsLayer2Visible() : true;
+    
     // Hide all wheel elements first
     wheelLeftHand1->SetVisible(false);
     wheelLeftHand2->SetVisible(false);
@@ -274,32 +277,42 @@ void Driving::SetState(DrivingState state) {
     wheelTurningRightOpposite->SetVisible(false);
 
     this->currentState = state;
-    switch (state) {
-        case DRIVING_STATE_NORMAL:
-            // Show default hand positions
-            wheelLeftHand1->SetVisible(true);
-            wheelRightHand1->SetVisible(true);
-            break;
-        case DRIVING_STATE_SHIFTING:
-            break;
-        case DRIVING_STATE_TURNING_LEFT:
-            wheelRightHand2->SetVisible(true);
-            wheelRightHand3->SetVisible(true);
-            wheelRightHand4->SetVisible(true);
-            wheelTurningLeft->SetVisible(true);
-            wheelTurningLeftOpposite->SetVisible(true);
-            break;
-        case DRIVING_STATE_TURNING_RIGHT:
-            wheelLeftHand2->SetVisible(true);
-            wheelLeftHand3->SetVisible(true);
-            wheelLeftHand4->SetVisible(true);
-            wheelTurningRight->SetVisible(true);
-            wheelTurningRightOpposite->SetVisible(true);
-            break;
+    
+    // Only show wheels if Layer 2 is visible
+    if (dashVisible) {
+        switch (state) {
+            case DRIVING_STATE_NORMAL:
+                // Show default hand positions
+                wheelLeftHand1->SetVisible(true);
+                wheelRightHand1->SetVisible(true);
+                break;
+            case DRIVING_STATE_SHIFTING:
+                break;
+            case DRIVING_STATE_TURNING_LEFT:
+                wheelRightHand2->SetVisible(true);
+                wheelRightHand3->SetVisible(true);
+                wheelRightHand4->SetVisible(true);
+                wheelTurningLeft->SetVisible(true);
+                wheelTurningLeftOpposite->SetVisible(true);
+                break;
+            case DRIVING_STATE_TURNING_RIGHT:
+                wheelLeftHand2->SetVisible(true);
+                wheelLeftHand3->SetVisible(true);
+                wheelLeftHand4->SetVisible(true);
+                wheelTurningRight->SetVisible(true);
+                wheelTurningRightOpposite->SetVisible(true);
+                break;
+        }
     }
 }
 
 void Driving::UpdateDiceAnimation(float deltaTime, bool carIsMoving) {
+    // Check if Layer 2 (dashboard) is visible - don't animate if hidden
+    bool dashVisible = racing ? racing->IsLayer2Visible() : true;
+    if (!dashVisible) {
+        return;
+    }
+    
     if (!carIsMoving) {
         // Reset timer when car is not moving - dice stop
         diceAnimationTimer = 0.0f;
@@ -373,9 +386,60 @@ void Driving::Draw() {
         
         racing->Draw(deltaTime, lastEvent);
         
-        // Update dice animation based on car movement
+        // Control dashboard drawable visibility based on Layer 2 (Dash/HUD)
+        // Only update visibility when it changes to avoid interfering with animations
+        bool dashVisible = racing->IsLayer2Visible();
+        if (dashVisible != lastLayer2Visible) {
+            auto setDrawableVisibility = [this](const std::string& name, bool visible) {
+                auto drawable = GetDrawable(name);
+                if (drawable) {
+                    drawable->SetVisible(visible);
+                }
+            };
+            
+            // Static elements (always controlled by layer visibility)
+            setDrawableVisibility("dashboard", dashVisible);
+            setDrawableVisibility("pillar", dashVisible);
+            setDrawableVisibility("roof", dashVisible);
+            setDrawableVisibility("hood", dashVisible);
+            setDrawableVisibility("mirror", dashVisible);
+            
+            // Animated elements - only hide when layer is hidden
+            // When showing, let the animation logic control individual visibility
+            if (!dashVisible) {
+                // Hide all wheel elements
+                setDrawableVisibility("wheel_left_hand_1", false);
+                setDrawableVisibility("wheel_left_hand_2", false);
+                setDrawableVisibility("wheel_left_hand_3", false);
+                setDrawableVisibility("wheel_left_hand_4", false);
+                setDrawableVisibility("wheel_right_hand_1", false);
+                setDrawableVisibility("wheel_right_hand_2", false);
+                setDrawableVisibility("wheel_right_hand_3", false);
+                setDrawableVisibility("wheel_right_hand_4", false);
+                setDrawableVisibility("wheel_turning_left", false);
+                setDrawableVisibility("wheel_turning_right", false);
+                setDrawableVisibility("wheel_turning_left_opposite", false);
+                setDrawableVisibility("wheel_turning_right_opposite", false);
+                // Hide all dice elements
+                for (int i = 1; i <= 5; i++) {
+                    setDrawableVisibility("plush_dice" + std::to_string(i), false);
+                }
+            } else {
+                // When showing again, restore the current animation state
+                SetState(currentState); // Restore wheel animation state
+                // Dice visibility will be restored by UpdateDiceAnimation on next frame
+                std::string currentDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
+                setDrawableVisibility(currentDiceName, true);
+            }
+            
+            lastLayer2Visible = dashVisible;
+        }
+        
+        // Update dice animation based on car movement (after visibility check)
         bool carIsMoving = racing->GetSpeed() > 0.1f; // Consider car moving if speed > 0.1
-        UpdateDiceAnimation(deltaTime, carIsMoving);
+        if (dashVisible) { // Only animate if layer is visible
+            UpdateDiceAnimation(deltaTime, carIsMoving);
+        }
         
         // Get the updated racing surface and create texture
         SDL_Surface* racingSurface = racing->GetSurface();
@@ -425,6 +489,24 @@ void Driving::PushEvent(SDL_Event *event) {
                 if (racing) {
                     printf("Switching to Drag Race track\n");
                     racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_DRAG_RACE);
+                }
+                break;
+            case SDLK_F1:
+                // Toggle Layer 0 (Road + roadside objects + arches)
+                if (racing) {
+                    racing->ToggleLayer0();
+                }
+                break;
+            case SDLK_F2:
+                // Toggle Layer 1 (Mirror)
+                if (racing) {
+                    racing->ToggleLayer1();
+                }
+                break;
+            case SDLK_F3:
+                // Toggle Layer 2 (Dash/HUD)
+                if (racing) {
+                    racing->ToggleLayer2();
                 }
                 break;
         }

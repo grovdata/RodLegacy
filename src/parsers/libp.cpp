@@ -1058,8 +1058,10 @@ std::vector<SrTrackCoordSegment> TrackReader::ExtractTrackCoordinates(SrTrackTyp
         ScaleCoordinates(segment);
         
         // Basic validation - stop if coordinates are unreasonable
-        if (std::abs(static_cast<int>(segment.xStart)) > 400 || std::abs(static_cast<int>(segment.xEnd)) > 400 || 
-            std::abs(static_cast<int>(segment.yStart)) > 400 || std::abs(static_cast<int>(segment.yEnd)) > 400) {
+        // Increased limits to allow full track data (original Street Rod tracks can have larger coordinates)
+        if (std::abs(static_cast<int>(segment.xStart)) > 2000 || std::abs(static_cast<int>(segment.xEnd)) > 2000 || 
+            std::abs(static_cast<int>(segment.yStart)) > 2000 || std::abs(static_cast<int>(segment.yEnd)) > 2000) {
+            printf("Track segment %d has coordinates outside reasonable range, stopping extraction\n", i);
             break;
         }
         
