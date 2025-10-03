@@ -6,6 +6,12 @@
 #include "parsers/adf.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
+#include "embedded_loader.h"
+
+// Generated embedded resources
+extern "C" {
+    #include "embedded_resources.h"
+}
 
 AssetManager::AssetManager() : carDecals(nullptr) {
 
@@ -20,20 +26,58 @@ AssetManager::~AssetManager() {
         SDL_FreeSurface(debugFont->Surface);
         free(debugFont);
     }
+    if (newspaperFont) {
+        SDL_FreeSurface(newspaperFont->Surface);
+        free(newspaperFont);
+    }
 }
 
 void AssetManager::InitFonts() {
-    fs::path mainFontPath = dataPath / "font.png";
-    fs::path newspaperFontPath = dataPath / "bee.png";
-    fs::path debugFontPath = dataPath / "lemon.png";
-    SDL_Log("Looking for fonts in: %s", dataPath.c_str());
-    if (!fs::exists(mainFontPath) || !fs::exists(debugFontPath) || !fs::exists(newspaperFontPath)) {
-        throw AssetLoadError("Font files not found");
+    SDL_Log("Loading fonts from embedded resources");
+    
+    // Load main font from embedded data
+    SDL_Surface* mainFontSurface = LoadSurfaceFromMemory(
+        embedded_font_png, 
+        embedded_font_png_len
+    );
+    if (!mainFontSurface) {
+        throw AssetLoadError("Failed to load embedded main font");
     }
-
-    mainFont = SFont_InitFont(IMG_Load(mainFontPath.string().c_str()));
-    debugFont = SFont_InitFont(IMG_Load(debugFontPath.string().c_str()));
-    newspaperFont = SFont_InitFont(IMG_Load(newspaperFontPath.string().c_str()));
+    mainFont = SFont_InitFont(mainFontSurface);
+    if (!mainFont) {
+        SDL_FreeSurface(mainFontSurface);
+        throw AssetLoadError("Failed to initialize main font");
+    }
+    
+    // Load newspaper font from embedded data
+    SDL_Surface* newspaperFontSurface = LoadSurfaceFromMemory(
+        embedded_bee_png,
+        embedded_bee_png_len
+    );
+    if (!newspaperFontSurface) {
+        throw AssetLoadError("Failed to load embedded newspaper font");
+    }
+    newspaperFont = SFont_InitFont(newspaperFontSurface);
+    if (!newspaperFont) {
+        SDL_FreeSurface(newspaperFontSurface);
+        throw AssetLoadError("Failed to initialize newspaper font");
+    }
+    
+    // Load debug font from embedded data
+    SDL_Surface* debugFontSurface = LoadSurfaceFromMemory(
+        embedded_lemon_png,
+        embedded_lemon_png_len
+    );
+    if (!debugFontSurface) {
+        throw AssetLoadError("Failed to load embedded debug font");
+    }
+    debugFont = SFont_InitFont(debugFontSurface);
+    if (!debugFont) {
+        SDL_FreeSurface(debugFontSurface);
+        throw AssetLoadError("Failed to initialize debug font");
+    }
+    
+    SDL_Log("All fonts loaded successfully from embedded resources");
 }
 
 void AssetManager::InitMousePointers() {

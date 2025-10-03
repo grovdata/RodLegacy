@@ -164,6 +164,24 @@ if host_machine.system() == 'windows'
     cpp_sources += app_res
 endif
 
+# Generate embedded resources (fonts)
+python3 = find_program('python3')
+embedded_resources = custom_target('embedded_resources',
+    input: [
+        '../data/font/font.png',
+        '../data/font/bee.png',
+        '../data/font/lemon.png'
+    ],
+    output: ['embedded_resources.h', 'embedded_resources.c'],
+    command: [
+        python3,
+        '@SOURCE_ROOT@/scripts/embed_resources.py',
+        '@INPUT@',
+        '@OUTDIR@'
+    ],
+    build_by_default: true
+)
+
 # Include directories
 inc_dirs = include_directories(
     'include'
@@ -181,7 +199,7 @@ endif
 
 
 executable('open_sr',
-    sources: c_sources + cpp_sources,
+    sources: c_sources + cpp_sources + [embedded_resources],
     include_directories: inc_dirs,
     dependencies: [
         sdl2_dep,
