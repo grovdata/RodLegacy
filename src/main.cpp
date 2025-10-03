@@ -10,9 +10,15 @@
 #include "scene.h"
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
+#include "embedded_loader.h"
 #include <filesystem>
 #include <fstream>
 #include <cstring>
+
+// Generated embedded resources
+extern "C" {
+    #include "embedded_resources.h"
+}
 
 namespace fs = std::filesystem;
 
@@ -21,7 +27,6 @@ namespace fs = std::filesystem;
 #define WINDOW_WIDTH (GAME_WIDTH * 4)
 #define WINDOW_HEIGHT (GAME_HEIGHT * 4)
 
-#define ICON "../data/res/icon.png"
 #define APP_TITLE "OpenSR"
 
 // speed in pixels/second
@@ -206,10 +211,10 @@ int main(int argc, char* argv[]) {
     // tinyfiledialogs doesn't require initialization
 
 #ifndef _WIN32
-    // Load icon from file (only on non-Windows platforms)
-    SDL_Surface *icon = IMG_Load(ICON);
+    // Load icon from embedded data (only on non-Windows platforms)
+    SDL_Surface *icon = LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len);
     if (icon == NULL) {
-        printf("Could not load icon");
+        SDL_Log("Could not load embedded icon");
     } else {
         SDL_SetWindowIcon(win, icon);
         SDL_FreeSurface(icon);

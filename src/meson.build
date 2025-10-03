@@ -164,13 +164,14 @@ if host_machine.system() == 'windows'
     cpp_sources += app_res
 endif
 
-# Generate embedded resources (fonts)
+# Generate embedded resources (fonts + icon)
 python3 = find_program('python3')
 embedded_resources = custom_target('embedded_resources',
     input: [
         '../data/font/font.png',
         '../data/font/bee.png',
-        '../data/font/lemon.png'
+        '../data/font/lemon.png',
+        '../data/res/icon.png'
     ],
     output: ['embedded_resources.h', 'embedded_resources.c'],
     command: [
