@@ -395,6 +395,11 @@ void Driving::Draw() {
 
     // Draw all interior elements using drawable system
     DrawAll();
+    
+    // Draw tachometer needle on top of dashboard
+    if (racing) {
+        racing->DrawTachometerNeedleToRenderer(renderer);
+    }
 }
 
 void Driving::PushEvent(SDL_Event *event) {

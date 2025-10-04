@@ -82,12 +82,13 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		fCrashRecoveryTime -= deltaTime;
 		if (fCrashRecoveryTime <= 0.0f) {
 			bCrashed = false;
+			velocity = 1500; // Reset to idle RPM
 			fSpeed = 0.0f;
 			fCarPos *= 0.5f; // Move car back toward center
 		} else {
-			// During crash, no control and car slows down
-			fSpeed -= 3.0f * deltaTime;
-			if (fSpeed < 0.0f) fSpeed = 0.0f;
+			// During crash, no control and car slows down (faster than normal deceleration)
+			velocity -= static_cast<int16_t>(deceleration * 2.0f);
+			if (velocity < 1500) velocity = 1500;
 		}
 	}
 
@@ -104,12 +105,24 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		goLeft = keyboardState[SDL_SCANCODE_LEFT];
 		goRight = keyboardState[SDL_SCANCODE_RIGHT];
 		accelerate = keyboardState[SDL_SCANCODE_UP];
+		
+		// Handle gear shifting (with debounce)
+		bool shiftUpNow = keyboardState[SDL_SCANCODE_A] || keyboardState[SDL_SCANCODE_PAGEUP];
+		bool shiftDownNow = keyboardState[SDL_SCANCODE_Z] || keyboardState[SDL_SCANCODE_PAGEDOWN];
+		
+		if (shiftUpNow && !shiftUpPressed) {
+			ShiftGear(1);
+		}
+		if (shiftDownNow && !shiftDownPressed) {
+			ShiftGear(-1);
+		}
+		
+		shiftUpPressed = shiftUpNow;
+		shiftDownPressed = shiftDownNow;
 	}
 
-	if (accelerate && !bCrashed)
-		fSpeed += 2.0f * deltaTime;
-	else
-		fSpeed -= 1.0f * deltaTime;
+	// Update physics with new system
+	UpdatePhysics(deltaTime, accelerate);
 
 	// Update player curvature (steering input)
 	if (!bCrashed) {
@@ -128,9 +141,17 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// In first-person view, difference between player and track curvature = off-road amount
 	fCarPos = fPlayerCurvature - fTrackCurvature;
 
+	// Decrease grace period timer
+	if (raceStartGracePeriod > 0.0f) {
+		raceStartGracePeriod -= deltaTime;
+	}
+	
 	// Check if car is too far off road (crash condition)
 	// When steering doesn't match the road curve, you go off-road
-	if (!bCrashed && fabs(fCarPos) > 1.2f && fSpeed > 0.3f) {
+	// Add grace period at race start to prevent immediate crashes
+	if (!bCrashed && fabs(fCarPos) > 1.2f && fSpeed > 0.3f && raceStartGracePeriod <= 0.0f) {
+		SDL_Log("⚠️  Crash triggered! fCarPos=%.3f, fPlayerCurv=%.3f, fTrackCurv=%.3f, fSpeed=%.3f",
+		        fCarPos, fPlayerCurvature, fTrackCurvature, fSpeed);
 		HandleCrash();
 	}
 
@@ -139,7 +160,11 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	if (fSpeed > 1.0f)	fSpeed = 1.0f;
 
 	// Move car along track according to car speed
-	fDistance += (70.0f * fSpeed) * deltaTime;
+	// Higher gears = faster track progress at same RPM
+	// Calculate effective speed based on velocity and gear ratio
+	int16_t currentRatio = gearRatios[currentGear];
+	float gearMultiplier = 100.0f / currentRatio; // Higher gear (lower ratio) = faster
+	fDistance += (105.0f * fSpeed * gearMultiplier) * deltaTime;
 	
 	// Check for sprite encounters
 	CheckForSpriteEncounters(fDistance);
@@ -188,14 +213,14 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		for (int x = 0; x < GAME_WIDTH; x++)
 			PutPixel(pixels, x, y, black);
 
-	// Draw Scenery - our hills are a rectified sine wave, where the phase is adjusted by the
-	// accumulated track curvature
-	for (int x = 0; x < GAME_WIDTH; x++)
-	{
-		int nHillHeight = (int)(fabs(sinf(x * 0.01f + fTrackCurvature) * 16.0f));
-//			for (int y = (GAME_RACING_HEIGHT / 2) - nHillHeight; y < GAME_RACING_HEIGHT / 2; y++)
-//				PutPixel(pixels, x, y, yellow);
-	}
+	// Draw Scenery - commented out for performance
+	// Hills would be a rectified sine wave, where the phase is adjusted by accumulated track curvature
+	// for (int x = 0; x < GAME_WIDTH; x++)
+	// {
+	// 	int nHillHeight = (int)(fabs(sinf(x * 0.01f + fTrackCurvature) * 16.0f));
+	// 	for (int y = (GAME_RACING_HEIGHT / 2) - nHillHeight; y < GAME_RACING_HEIGHT / 2; y++)
+	// 		PutPixel(pixels, x, y, yellow);
+	// }
 
 	if (SDL_LockSurface(pixels) != 0) {
 		// Handle error: Unable to lock surface
@@ -302,7 +327,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	}
 
 	// Draw Track - Each row is split into grass, clip-board and track
-	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++) {
+	// Render from horizon to bottom of screen (inclusive)
+	for (int y = 0; y <= GAME_RACING_HEIGHT / 2; y++) {
 		for (int x = 0; x < GAME_WIDTH; x++) {
 
 			// Perspective is used to modify the width of the track row segments
@@ -439,18 +465,32 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// Scale factor: 2.200 feet per segment = 0.000417 miles per unit
 	float distanceInMiles = fDistance * 0.000417f;
 	
-	// Convert fSpeed to mph (currently in arbitrary units, need to calibrate)
-	// For now, use a reasonable scaling factor
-	int speedMph = static_cast<int>(fSpeed * 10.0f); // Adjust multiplier as needed
+	// Convert velocity to mph
+	// Speed depends on both RPM (velocity) and gear ratio
+	// Higher gear = faster at same RPM
+	// Reuse gearMultiplier calculated earlier for distance
+	int speedMph = static_cast<int>((velocity / 70.0f) * gearMultiplier);
+	
+	// Format gear display
+	char gearText[32];
+	if (isAutomatic) {
+		snprintf(gearText, sizeof(gearText), "Gear: D");
+	} else {
+		snprintf(gearText, sizeof(gearText), "Gear: %d", currentGear + 1);
+	}
 	
 	// Format HUD text with fixed-width fields to prevent jumping
 	char hudText[128];
-	snprintf(hudText, sizeof(hudText), "Distance:%5.2f miles  Speed:%3d mph", 
-	         distanceInMiles, speedMph);
+	const char* warning = "";
+	if (transmissionDamage > 0) {
+		warning = " ⚠️ OVER-REV!";
+	}
+	snprintf(hudText, sizeof(hudText), "Distance:%5.2f miles  Speed:%3d mph  RPM:%4d%s", 
+	         distanceInMiles, speedMph, rpm, warning);
 	
 	hud->Clear();
 	// Add Gear text at position (6, 0) relative to HUD bar (absolute screen pos 6, 191)
-	hud->AddText(6, 0, "Gear: D");
+	hud->AddText(6, 0, gearText);
 	// Main text starts after Gear text (around X=55 to leave space)
 	hud->AddText(55, 0, hudText);
 	hud->Draw();
@@ -1142,12 +1182,357 @@ bool Racing::CheckCarCollisionWithSprite(float spriteDistance, bool leftSide) {
 }
 
 void Racing::HandleCrash() {
-    if (bCrashed) return; // Already crashed
-    
-    bCrashed = true;
-    fCrashRecoveryTime = 2.0f; // 2 second crash recovery time
-    
-    printf("💥 CRASH! Speed: %.2f, Car Position: %.2f\n", fSpeed, fCarPos);
+	if (bCrashed) return; // Already crashed
+	
+	bCrashed = true;
+	fCrashRecoveryTime = 2.0f; // 2 second crash recovery time
+	
+	SDL_Log("💥 CRASH! Speed: %.2f, Car Position: %.2f", fSpeed, fCarPos);
+}
+
+// ============================================================================
+// PHYSICS IMPLEMENTATION
+// Based on Street Rod assembly code analysis (racing.md lines 49084-49620)
+// ============================================================================
+
+void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
+	// Constants from assembly analysis
+	const int16_t MIN_SPEED = 1500;           // Idle RPM
+	const int16_t MAX_SPEED_MANUAL = 7000;    // Max over-rev
+	const int16_t MAX_SPEED_AUTO = 5690;      // Auto transmission limit
+	
+	// Original game ran at ~60 FPS (racing.md line 49: "60 FPS on 7MHz 68000")
+	// Scale our per-frame values to match that timing
+	const float TARGET_FPS = 60.0f;
+	const float frameScale = deltaTime * TARGET_FPS;  // 1.0 at 60fps, 0.5 at 120fps, etc.
+	
+	// Initialize intermediate on first update (matches original game: velocity * gear_ratio)
+	static bool initialized = false;
+	if (!initialized) {
+		intermediate = (velocity * gearRatios[currentGear]) / 100;
+		initialized = true;
+		SDL_Log("🏁 Physics initialized: velocity=%d, intermediate=%d, gear=%d (target: %.0f fps)", 
+		        velocity, intermediate, currentGear + 1, TARGET_FPS);
+	}
+	
+	// Original game logic from assembly (racing.md lines 1106-1111):
+	// - Acceleration is added to INTERMEDIATE (constant per frame @ 60fps)
+	// - Deceleration is subtracted from VELOCITY (not intermediate!)
+	int16_t currentRatio = gearRatios[currentGear];
+	
+	if (accelerating && !bCrashed) {
+		// ADD.W D0,19424(A4) - add acceleration to intermediate
+		// Scale by frameScale to maintain consistent timing
+		intermediate += static_cast<int16_t>(acceleration * frameScale);
+	}
+	
+	// Calculate velocity from intermediate BEFORE applying deceleration
+	// velocity = intermediate / gear_ratio
+	velocity = (intermediate * 100) / currentRatio;
+	
+	// Apply deceleration to VELOCITY (not intermediate) - matches original
+	if (!accelerating && !bCrashed) {
+		// SUB.W D4,19410(A4) - subtract deceleration from velocity
+		// Scale by frameScale for frame-rate independence
+		velocity -= static_cast<int16_t>(deceleration * frameScale);
+		// Recalculate intermediate to stay in sync
+		intermediate = (velocity * currentRatio) / 100;
+	}
+	
+	// Crash recovery - faster deceleration applied to velocity
+	if (bCrashed) {
+		velocity -= static_cast<int16_t>(deceleration * 2.0f * frameScale);
+		intermediate = (velocity * currentRatio) / 100;
+	}
+	
+	// Clamp velocity
+	if (velocity < MIN_SPEED) {
+		velocity = MIN_SPEED;
+		// Also clamp intermediate to match
+		intermediate = (velocity * currentRatio) / 100;
+	}
+	
+	int16_t maxSpeed = isAutomatic ? MAX_SPEED_AUTO : MAX_SPEED_MANUAL;
+	if (velocity > maxSpeed) {
+		velocity = maxSpeed;
+		// Also clamp intermediate to match
+		intermediate = (velocity * currentRatio) / 100;
+	}
+	
+	// Update RPM (same as velocity in this game)
+	UpdateRPM();
+	
+	// Check for transmission damage
+	UpdateTransmissionDamage();
+	
+	// Auto downshift if needed (checks RPM internally)
+	if (isAutomatic || rpm < 2500) {
+		AutoDownshift();
+	}
+	
+	// Update display speed (normalized 0-1 for compatibility)
+	fSpeed = (velocity - MIN_SPEED) / static_cast<float>(MAX_SPEED_MANUAL - MIN_SPEED);
+	if (fSpeed < 0.0f) fSpeed = 0.0f;
+	if (fSpeed > 1.0f) fSpeed = 1.0f;
+}
+
+void Racing::ShiftGear(int direction) {
+	if (isAutomatic) return; // Can't manually shift automatic
+	
+	int16_t newGear = currentGear + direction;
+	
+	// Clamp to valid gear range
+	if (newGear < 0) newGear = 0;
+	if (newGear > maxGear) newGear = maxGear;
+	
+	if (newGear != currentGear) {
+		int16_t oldGear = currentGear;
+		int16_t oldRPM = rpm;
+		int16_t oldRatio = gearRatios[currentGear];
+		int16_t newRatio = gearRatios[newGear];
+		
+		// When shifting, keep intermediate constant and recalculate velocity
+		// This simulates the car maintaining its road speed while engine RPM changes
+		// From real physics: RPM = wheel_speed * gear_ratio
+		// When gear ratio decreases (shift UP), RPM decreases
+		// new_velocity = old_velocity * (new_ratio / old_ratio)
+		velocity = (velocity * newRatio) / oldRatio;
+		
+		// Recalculate intermediate for new gear
+		intermediate = (velocity * newRatio) / 100;
+		
+		currentGear = newGear;
+		UpdateRPM();
+		
+		SDL_Log("⚙️  SHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
+		        oldGear + 1, currentGear + 1,
+		        oldRatio / 100.0f, newRatio / 100.0f,
+		        oldRPM, rpm);
+	}
+}
+
+void Racing::UpdateRPM() {
+	// In Street Rod, velocity IS the engine RPM
+	// The gear ratios affect how fast the car moves, not the displayed RPM
+	// RPM is simply the current velocity value
+	rpm = velocity;
+	
+	// Clamp RPM to reasonable range
+	if (rpm < 1500) rpm = 1500;
+	if (rpm > 7000) rpm = 7000;
+}
+
+void Racing::UpdateTransmissionDamage() {
+	const int16_t REDLINE = 5700;
+	const int16_t DANGER_ZONE = 6000;    // Damage starts here, not at redline
+	const int16_t DAMAGE_SPEED_THRESH = 6200;
+	
+	if (velocity >= DANGER_ZONE) {
+		// Damage increases faster at higher speeds
+		int16_t damageRate = 1;
+		if (velocity >= DAMAGE_SPEED_THRESH) {
+			damageRate = (velocity / 1000) - 4; // More damage at very high RPM
+		}
+		transmissionDamage += damageRate;
+		
+		// Calculate damage threshold based on current speed
+		// More forgiving - need to stay over-revved longer to blow transmission
+		int16_t damageThreshold = (velocity / 100) + 50;
+		
+		if (transmissionDamage > damageThreshold) {
+			// TRANSMISSION BLOWN - RACE OVER
+			bCrashed = true;
+			fCrashRecoveryTime = 5.0f; // Longer recovery for transmission failure
+			velocity = 0;
+			fSpeed = 0.0f;
+			SDL_Log("💥 TRANSMISSION FAILURE! Over-revved at %d RPM (damage: %d/%d)", 
+			        rpm, transmissionDamage, damageThreshold);
+		} else if (transmissionDamage > damageThreshold / 2) {
+			// Warning - getting close to failure
+			static int warningCount = 0;
+			if (warningCount % 60 == 0) {
+				SDL_Log("⚠️  WARNING: Transmission damage at %d/%d (RPM: %d)", 
+				       transmissionDamage, damageThreshold, rpm);
+			}
+			warningCount++;
+		}
+	} else {
+		// Reset damage when below danger zone
+		transmissionDamage = 0;
+	}
+}
+
+void Racing::AutoDownshift() {
+	const int16_t LOW_RPM_THRESH = 2000;
+	
+	// Auto downshift when RPM is too low for current gear
+	if (rpm < LOW_RPM_THRESH && currentGear > 0) {
+		currentGear--;
+		SDL_Log("⚙️  AUTO DOWNSHIFT: Gear %d (RPM was %d)", currentGear + 1, rpm);
+		UpdateRPM();
+	}
+}
+
+void Racing::DrawTachometerNeedle() {
+	// Tachometer needle specifications
+	// NOTE: Coordinates are for full game screen (200px), but racing surface is only 120px tall!
+	// Tachometer at Y=129 is BELOW the racing surface, in the dash area
+	const int NEEDLE_CENTER_X = 145;
+	const int NEEDLE_CENTER_Y = 129;
+	
+	// Check if tachometer is within racing surface bounds
+	if (NEEDLE_CENTER_Y >= GAME_RACING_HEIGHT) {
+		static bool warned = false;
+		if (!warned) {
+			SDL_Log("⚠️  Tachometer Y=%d is beyond racing surface height %d!", 
+			        NEEDLE_CENTER_Y, GAME_RACING_HEIGHT);
+			SDL_Log("   Tachometer needs to be drawn on a different surface (dash/HUD)");
+			warned = true;
+		}
+		return; // Can't draw beyond surface bounds
+	}
+	
+	// Needle end positions at different RPM ranges
+	const int RPM_0_X = 130;      // 0 RPM (actually 1500 idle)
+	const int RPM_0_Y = 138;
+	
+	const int RPM_REDLINE_X = 166; // 5700 RPM (start of redline)
+	const int RPM_REDLINE_Y = 129;
+	
+	const int RPM_MAX_X = 154;     // 7000+ RPM (max redline)
+	const int RPM_MAX_Y = 142;
+	
+	// Needle color #604000 = brown/orange
+	SDL_Color needleColor = {96, 64, 0, 255};
+	
+	// Calculate needle position based on current RPM
+	// RPM range: 1500 (idle) to 7000 (over-rev)
+	const float RPM_MIN = 1500.0f;
+	const float RPM_REDLINE = 5700.0f;
+	const float RPM_MAX = 7000.0f;
+	
+	int needleEndX, needleEndY;
+	
+	if (rpm <= RPM_REDLINE) {
+		// Interpolate between 0 RPM position and redline position
+		float t = (rpm - RPM_MIN) / (RPM_REDLINE - RPM_MIN);
+		t = std::max(0.0f, std::min(1.0f, t)); // Clamp to [0, 1]
+		
+		needleEndX = static_cast<int>(RPM_0_X + (RPM_REDLINE_X - RPM_0_X) * t);
+		needleEndY = static_cast<int>(RPM_0_Y + (RPM_REDLINE_Y - RPM_0_Y) * t);
+	} else {
+		// Interpolate between redline and max redline position
+		float t = (rpm - RPM_REDLINE) / (RPM_MAX - RPM_REDLINE);
+		t = std::max(0.0f, std::min(1.0f, t)); // Clamp to [0, 1]
+		
+		needleEndX = static_cast<int>(RPM_REDLINE_X + (RPM_MAX_X - RPM_REDLINE_X) * t);
+		needleEndY = static_cast<int>(RPM_REDLINE_Y + (RPM_MAX_Y - RPM_REDLINE_Y) * t);
+	}
+	
+	// Draw the needle using Bresenham's line algorithm
+	int dx = abs(needleEndX - NEEDLE_CENTER_X);
+	int dy = abs(needleEndY - NEEDLE_CENTER_Y);
+	int sx = NEEDLE_CENTER_X < needleEndX ? 1 : -1;
+	int sy = NEEDLE_CENTER_Y < needleEndY ? 1 : -1;
+	int err = dx - dy;
+	
+	int x = NEEDLE_CENTER_X;
+	int y = NEEDLE_CENTER_Y;
+	
+	while (true) {
+		PutPixel(pixels, x, y, needleColor);
+		
+		if (x == needleEndX && y == needleEndY) break;
+		
+		int e2 = 2 * err;
+		if (e2 > -dy) {
+			err -= dy;
+			x += sx;
+		}
+		if (e2 < dx) {
+			err += dx;
+			y += sy;
+		}
+	}
+	
+	// Draw a small circle at the pivot point for better visibility
+	for (int dy = -1; dy <= 1; dy++) {
+		for (int dx = -1; dx <= 1; dx++) {
+			PutPixel(pixels, NEEDLE_CENTER_X + dx, NEEDLE_CENTER_Y + dy, needleColor);
+		}
+	}
+}
+
+void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
+	if (!renderer) return;
+	
+	// Tachometer needle specifications (full screen coordinates)
+	const int NEEDLE_CENTER_X = 145;
+	const int NEEDLE_CENTER_Y = 129;
+	
+	// Needle end positions for CLOCKWISE sweep (from original game)
+	const int RPM_IDLE_X = 130;       // 1500 RPM (idle) - 7 o'clock position
+	const int RPM_IDLE_Y = 138;
+	
+	const int RPM_NOON_X = 145;       // ~3600 RPM - 12 o'clock position (straight up)
+	const int RPM_NOON_Y = 115;
+	
+	const int RPM_REDLINE_X = 166;    // 5700 RPM (redline) - 3 o'clock position
+	const int RPM_REDLINE_Y = 129;
+	
+	const int RPM_MAX_X = 160;        // 7000 RPM (max over-rev) - 5 o'clock position
+	const int RPM_MAX_Y = 144;
+	
+	// Needle color #604000 = brown/orange
+	SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
+	
+	// Calculate needle position based on current RPM
+	const float RPM_MIN = 1500.0f;
+	const float RPM_NOON = 3600.0f;   // 12 o'clock position
+	const float RPM_REDLINE = 5700.0f;
+	const float RPM_MAX = 7000.0f;
+	
+	int needleEndX, needleEndY;
+	
+	if (rpm <= RPM_NOON) {
+		// Segment 1: Idle (7 o'clock) to Noon (12 o'clock) - CLOCKWISE UP
+		float t = (rpm - RPM_MIN) / (RPM_NOON - RPM_MIN);
+		t = std::max(0.0f, std::min(1.0f, t));
+		
+		needleEndX = static_cast<int>(RPM_IDLE_X + (RPM_NOON_X - RPM_IDLE_X) * t);
+		needleEndY = static_cast<int>(RPM_IDLE_Y + (RPM_NOON_Y - RPM_IDLE_Y) * t);
+	} else if (rpm <= RPM_REDLINE) {
+		// Segment 2: Noon (12 o'clock) to Redline (3 o'clock) - CLOCKWISE RIGHT
+		float t = (rpm - RPM_NOON) / (RPM_REDLINE - RPM_NOON);
+		t = std::max(0.0f, std::min(1.0f, t));
+		
+		needleEndX = static_cast<int>(RPM_NOON_X + (RPM_REDLINE_X - RPM_NOON_X) * t);
+		needleEndY = static_cast<int>(RPM_NOON_Y + (RPM_REDLINE_Y - RPM_NOON_Y) * t);
+	} else {
+		// Segment 3: Redline (3 o'clock) to Max (5 o'clock) - CLOCKWISE DOWN
+		float t = (rpm - RPM_REDLINE) / (RPM_MAX - RPM_REDLINE);
+		t = std::max(0.0f, std::min(1.0f, t));
+		
+		needleEndX = static_cast<int>(RPM_REDLINE_X + (RPM_MAX_X - RPM_REDLINE_X) * t);
+		needleEndY = static_cast<int>(RPM_REDLINE_Y + (RPM_MAX_Y - RPM_REDLINE_Y) * t);
+	}
+	
+	// Draw the needle line
+	SDL_RenderDrawLine(renderer, NEEDLE_CENTER_X, NEEDLE_CENTER_Y, needleEndX, needleEndY);
+	
+	// Draw a small circle at the pivot point
+	for (int dy = -1; dy <= 1; dy++) {
+		for (int dx = -1; dx <= 1; dx++) {
+			SDL_RenderDrawPoint(renderer, NEEDLE_CENTER_X + dx, NEEDLE_CENTER_Y + dy);
+		}
+	}
+	
+	// Debug: log needle position
+	static int logCounter = 0;
+	if (logCounter++ % 30 == 0) {
+		SDL_Log("🎯 Tachometer: RPM=%d, Needle=(%d,%d), Gear=%d", 
+		        rpm, needleEndX, needleEndY, currentGear + 1);
+	}
 }
 
 SDL_Surface* Racing::GetSurface() {
@@ -1366,18 +1751,18 @@ void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
     static int lastLoggedSign = -1;
     static int frameCount = 0;
     frameCount++;
-    if ((signId != lastLoggedSign && distance < 100.0f) || frameCount % 60 == 0) {
-        printf("🏛️  RED ARCH: %s at distance %.1f (perspective %.3f)\n", signName, distance, perspective);
-        printf("    Posts: Left=%d Right=%d, width=%dpx, HEIGHT=%dpx 🔺\n", 
-               leftPostX, rightPostX, postWidth, postHeight);
-        printf("    Arch spans: y=%d (top) to y=%d (road), total %dpx tall\n", 
-               archTopY, roadBottomY, roadBottomY - archTopY);
-        printf("    Bar: y=%d-%d (height=%dpx)\n", barTopY, barBottomY, barHeight);
-        printf("    Yellow zone: y=%d to y=%d (%dpx)\n", 
-               zoneStartY, zoneEndY, zoneEndY - zoneStartY);
-        printf("    Horizon: y=%d, RoadBottom/Arch: y=%d\n", horizonY, roadBottomY);
-        lastLoggedSign = signId;
-    }
+    // if ((signId != lastLoggedSign && distance < 100.0f) || frameCount % 60 == 0) {
+    //     printf("🏛️  RED ARCH: %s at distance %.1f (perspective %.3f)\n", signName, distance, perspective);
+    //     printf("    Posts: Left=%d Right=%d, width=%dpx, HEIGHT=%dpx 🔺\n", 
+    //            leftPostX, rightPostX, postWidth, postHeight);
+    //     printf("    Arch spans: y=%d (top) to y=%d (road), total %dpx tall\n", 
+    //            archTopY, roadBottomY, roadBottomY - archTopY);
+    //     printf("    Bar: y=%d-%d (height=%dpx)\n", barTopY, barBottomY, barHeight);
+    //     printf("    Yellow zone: y=%d to y=%d (%dpx)\n", 
+    //            zoneStartY, zoneEndY, zoneEndY - zoneStartY);
+    //     printf("    Horizon: y=%d, RoadBottom/Arch: y=%d\n", horizonY, roadBottomY);
+    //     lastLoggedSign = signId;
+    // }
     
     // NOTE: Surface will be unlocked by caller, then sign bitmap will be drawn separately
 }

@@ -3,6 +3,7 @@
 #define GAME_WIDTH 320
 #define GAME_HEIGHT 200
 #define GAME_RACING_HEIGHT 120
+#define GAME_RACING_HORIZON 60  // Fixed horizon position (where sky meets road)
 #define GAME_STATUSBAR_HEIGHT 10
 #define GAME_FPS 60
 

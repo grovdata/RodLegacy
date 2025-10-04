@@ -41,10 +41,27 @@ private:
 	float fSpeed = 0.0f;			// Current player speed
 	bool bCrashed = false;			// Whether the car has crashed
 	float fCrashRecoveryTime = 0.0f;	// Time to recover from crash
+	
+	// Physics variables (based on Street Rod assembly analysis)
+	int16_t velocity = 1500;		// Current velocity/RPM value (1500 = idle, 5700 = redline)
+	int16_t intermediate = 0;		// velocity * gear_ratio (represents road speed, preserved across shifts)
+	int16_t rpm = 1500;				// Current engine RPM (same as velocity - this IS the engine speed)
+	int16_t currentGear = 0;		// Current gear (0 = 1st, 1 = 2nd, 2 = 3rd, 3 = 4th)
+	int16_t maxGear = 3;			// Maximum gear (3 = 4-speed transmission)
+	int16_t gearRatios[4] = {280, 190, 135, 100};  // Gear ratios scaled by 100 (2.80, 1.90, 1.35, 1.00)
+	int16_t transmissionDamage = 0;	// Over-rev damage accumulator
+	bool isAutomatic = false;		// Transmission type
+	float acceleration = 15.0f;		// Acceleration rate (added to intermediate per frame @ 60fps)
+	float deceleration = 10.0f;		// Deceleration rate (subtracted from velocity per frame @ 60fps)
+	
+	// Input state
+	bool shiftUpPressed = false;	// Track shift up button state
+	bool shiftDownPressed = false;	// Track shift down button state
 
 	// Timing management
 	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
 	bool firstUpdate = true;		// Flag to handle first update
+	float raceStartGracePeriod = 3.0f;	// Grace period at race start (no crashes)
 
 	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
 	
@@ -101,6 +118,16 @@ private:
 	void DrawOverheadSigns(float currentDistance);
 	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
 	void DrawOverheadSignBitmaps(float currentDistance);
+	
+	// Physics methods
+	void UpdatePhysics(float deltaTime, bool accelerating);
+	void ShiftGear(int direction);
+	void UpdateRPM();
+	void UpdateTransmissionDamage();
+	void AutoDownshift();
+	
+	// Tachometer rendering
+	void DrawTachometerNeedle();
 
 public:
 
@@ -109,10 +136,20 @@ public:
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
     
+    // Tachometer (public - called by Driving scene to draw on top of dashboard)
+    void DrawTachometerNeedleToRenderer(SDL_Renderer* renderer);
+    
     // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
     
     // Get current car speed for animations
     float GetSpeed() const { return fSpeed; }
+    
+    // Get physics state
+    int16_t GetCurrentGear() const { return currentGear; }
+    int16_t GetRPM() const { return rpm; }
+    int16_t GetVelocity() const { return velocity; }
+    bool IsTransmissionDamaged() const { return transmissionDamage > 0; }
+    
 };
