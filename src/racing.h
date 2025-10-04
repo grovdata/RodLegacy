@@ -45,11 +45,6 @@ private:
 	// Timing management
 	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
 	bool firstUpdate = true;		// Flag to handle first update
-	
-	// Layer visibility toggles
-	bool layerRoadVisible = true;		// Layer 0: Road + roadside objects + arches
-	bool layerMirrorVisible = true;		// Layer 1: Rearview mirror
-	bool layerDashVisible = true;		// Layer 2: Car dash/HUD
 
 	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
 	
@@ -106,14 +101,6 @@ private:
 	void DrawOverheadSigns(float currentDistance);
 	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
 	void DrawOverheadSignBitmaps(float currentDistance);
-	
-	// Layer rendering methods
-	void DrawLayer0_Road(float deltaTime, int nTrackSection);
-	void DrawLayer1_Mirror();
-	void DrawLayer2_Dash(float distanceInMiles, int speedMph, int nTrackSection);
-	
-	// Input handling
-	void HandleLayerToggleInput(SDL_Event* event);
 
 public:
 
@@ -128,12 +115,4 @@ public:
     
     // Get current car speed for animations
     float GetSpeed() const { return fSpeed; }
-    
-    // Layer visibility controls
-    void ToggleLayer0() { layerRoadVisible = !layerRoadVisible; printf("Layer 0 (Road): %s\n", layerRoadVisible ? "VISIBLE" : "HIDDEN"); }
-    void ToggleLayer1() { layerMirrorVisible = !layerMirrorVisible; printf("Layer 1 (Mirror): %s\n", layerMirrorVisible ? "VISIBLE" : "HIDDEN"); }
-    void ToggleLayer2() { layerDashVisible = !layerDashVisible; printf("Layer 2 (Dash/HUD): %s\n", layerDashVisible ? "VISIBLE" : "HIDDEN"); }
-    
-    // Layer visibility getters
-    bool IsLayer2Visible() const { return layerDashVisible; }
 };

@@ -1,5 +1,0 @@
----
-alwaysApply: true
----
-- Use SDL_log instead of printf
-- Prefer SDL equivalents of stdlib functions in general

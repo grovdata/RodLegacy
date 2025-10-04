@@ -58,15 +58,7 @@ Racing::~Racing() {
 	delete hud;
 }
 
-void Racing::HandleLayerToggleInput(SDL_Event* event) {
-	// Note: Layer toggle input is now handled in Driving::PushEvent()
-	// using F1, F2, F3 keys (1 and 2 were already used for track switching)
-	// This function is kept for compatibility but not used
-}
-
 void Racing::Draw(float fElapsedTime, SDL_Event *event) {
-	// Note: Layer toggle input handled in Driving scene (F1/F2/F3 keys)
-	
 	// Calculate proper delta time
 	Uint64 currentTime = SDL_GetTicks64();
 	float deltaTime = 0.0f;
@@ -142,13 +134,12 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		HandleCrash();
 	}
 
-	// Clamp Speed (1.0 internal units = 80 mph display)
+	// Clamp Speed
 	if (fSpeed < 0.0f)	fSpeed = 0.0f;
 	if (fSpeed > 1.0f)	fSpeed = 1.0f;
 
 	// Move car along track according to car speed
-	// Adjusted for full 1020 segment tracks (was 70.0f for 678 segments)
-	fDistance += (105.0f * fSpeed) * deltaTime;
+	fDistance += (70.0f * fSpeed) * deltaTime;
 	
 	// Check for sprite encounters
 	CheckForSpriteEncounters(fDistance);
@@ -192,20 +183,279 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		fTrackCurvature += (fCurvature) * deltaTime * fSpeed * 0.7f;
 	}
 
-	// ========================================================================
-	// LAYERED RENDERING
-	// Press F1, F2, F3 to toggle layers on/off for debugging
-	// F1 = Road layer, F2 = Mirror layer, F3 = Dash/HUD layer
-	// ========================================================================
+	// Draw sky
+	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++)
+		for (int x = 0; x < GAME_WIDTH; x++)
+			PutPixel(pixels, x, y, black);
+
+	// Draw Scenery - our hills are a rectified sine wave, where the phase is adjusted by the
+	// accumulated track curvature
+	for (int x = 0; x < GAME_WIDTH; x++)
+	{
+		int nHillHeight = (int)(fabs(sinf(x * 0.01f + fTrackCurvature) * 16.0f));
+//			for (int y = (GAME_RACING_HEIGHT / 2) - nHillHeight; y < GAME_RACING_HEIGHT / 2; y++)
+//				PutPixel(pixels, x, y, yellow);
+	}
+
+	if (SDL_LockSurface(pixels) != 0) {
+		// Handle error: Unable to lock surface
+		SDL_Log("Unable to lock surface: %s", SDL_GetError());
+		return;
+	}
+
+
+	// Debug logging disabled to improve performance
+	// SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
+
+	// Draw cloud layer with parallax scrolling based on steering while moving
+	if (cloudSprite && cloudSprite->GetSurface()) {
+		SDL_Surface* cloudSurface = cloudSprite->GetSurface();
+		int startY = 0;
+		
+		// Calculate horizontal offset with gradual decay when not turning
+		static float cloudVelocity = 0.0f;
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
+			cloudVelocity = fPlayerCurvature * fSpeed * 5.0f; // Much slower
+		} else {
+			cloudVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
+		}
+		static float cloudOffsetAccum = 0.0f;
+		cloudOffsetAccum += cloudVelocity * deltaTime;
+		int cloudOffset = (int)cloudOffsetAccum % (cloudSurface->w);
+		if (cloudOffset < 0) cloudOffset += cloudSurface->w;
+		
+		// Draw clouds with wrapping - draw twice to handle wrap-around seamlessly
+		for (int pass = 0; pass < 2; pass++) {
+			int drawX = -cloudOffset + (pass * cloudSurface->w);
+			
+			// Only draw if this pass is visible on screen
+			if (drawX < GAME_WIDTH && (drawX + cloudSurface->w) > 0) {
+				for (int y = 0; y < cloudSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
+					for (int x = 0; x < cloudSurface->w; x++) {
+						int screenX = drawX + x;
+						if (screenX >= 0 && screenX < GAME_WIDTH) {
+							// Get pixel from cloud sprite
+							Uint32* cloudPixels = (Uint32*)cloudSurface->pixels;
+							Uint32 pixel = cloudPixels[y * cloudSurface->w + x];
+							
+							// Convert to SDL_Color
+							Uint8 r, g, b, a;
+							SDL_GetRGBA(pixel, cloudSurface->format, &r, &g, &b, &a);
+							
+							// Only draw non-transparent pixels
+							if (a > 0) {
+								SDL_Color cloudColor = {r, g, b, a};
+								PutPixel(pixels, screenX, startY + y, cloudColor);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Draw mountain horizon as background with parallax scrolling based on car velocity
+	if (mountainSprite && mountainSprite->GetSurface()) {
+		SDL_Surface* mountainSurface = mountainSprite->GetSurface();
+		int startY = 47;
+		
+		// Calculate horizontal offset with gradual decay when not turning
+		static float mountainVelocity = 0.0f;
+		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
+			mountainVelocity = fPlayerCurvature * fSpeed * 2.5f; // Much slower than clouds
+		} else {
+			mountainVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
+		}
+		static float mountainOffsetAccum = 0.0f;
+		mountainOffsetAccum += mountainVelocity * deltaTime;
+		int scrollOffset = (int)mountainOffsetAccum % mountainSurface->w;
+		if (scrollOffset < 0) scrollOffset += mountainSurface->w;
+		
+		// Draw mountains with wrapping - draw twice to handle wrap-around seamlessly
+		for (int pass = 0; pass < 2; pass++) {
+			int drawX = -scrollOffset + (pass * mountainSurface->w);
+			
+			// Only draw if this pass is visible on screen
+			if (drawX < GAME_WIDTH && (drawX + mountainSurface->w) > 0) {
+				for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
+					for (int x = 0; x < mountainSurface->w; x++) {
+						int screenX = drawX + x;
+						if (screenX >= 0 && screenX < GAME_WIDTH) {
+							// Get pixel from mountain sprite
+							Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
+							Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
+							
+							// Convert to SDL_Color
+							Uint8 r, g, b, a;
+							SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
+							
+							// Only draw non-transparent pixels
+							if (a > 0) {
+								SDL_Color mountainColor = {r, g, b, a};
+								PutPixel(pixels, screenX, startY + y, mountainColor);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Draw Track - Each row is split into grass, clip-board and track
+	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++) {
+		for (int x = 0; x < GAME_WIDTH; x++) {
+
+			// Perspective is used to modify the width of the track row segments
+			float fPerspective = (float)y / (GAME_RACING_HEIGHT/2.0f);
+			// Original Street Rod: horizon width 68px, bottom width 313px out of 320px screen
+			// Need much wider road: horizon 21%, bottom 98% (before halving)
+			float fRoadWidth = 0.21f + fPerspective * 0.98f; // Min 21% Max 98% to match original
+			float fClipWidth = 0.0f; // Remove clip border - no red/white stripes
+			float fMidLineWidth = fRoadWidth * 0.03;
+			fRoadWidth *= 0.8f;	// Halve it as track is symmetrical around center of track, but offset...
+
+		// ...depending on where the middle point is, which is defined by the current
+		// track curvature. Balanced curvature effect.
+		float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
+		
+		// Shift road laterally based on car position (first-person view)
+		// This is a simple horizontal shift, not a curve
+		// When fCarPos is positive (turning right), road shifts left (you see more grass on left)
+		// When fCarPos is negative (turning left), road shifts right (you see more grass on right)
+		fMiddlePoint -= fCarPos * 0.25f; // Linear shift, no perspective effect
+
+			// Work out segment boundaries
+			int nLeftGrass = (fMiddlePoint - fRoadWidth - fClipWidth) * GAME_WIDTH;
+			int nLeftClip = (fMiddlePoint - fRoadWidth) * GAME_WIDTH;
+			int nRightClip = (fMiddlePoint + fRoadWidth) * GAME_WIDTH;
+			int nRightGrass = (fMiddlePoint + fRoadWidth + fClipWidth) * GAME_WIDTH;
+			int nLeftMidline = (fMiddlePoint - fMidLineWidth) * GAME_WIDTH;
+			int nRightMidline = (fMiddlePoint + fMidLineWidth) * GAME_WIDTH;
+
+			int nRow = GAME_RACING_HEIGHT / 2 + y;
+
+			// Using periodic oscillatory functions to give lines, where the phase is controlled
+			// by the distance around the track. These take some fine tuning to give the right "feel"
+			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
+			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
+
+            // Flash red if crashed
+            SDL_Color nRoadColour = bCrashed ? SDL_Color{170, 0, 0, 255} : black;
+
+			// Draw the row segments
+			if (x >= 0 && x < nLeftGrass)
+				PutPixel(pixels, x, nRow, nGrassColour);
+			if (x >= nLeftGrass && x < nLeftClip)
+				PutPixel(pixels, x, nRow, nClipColour);
+			if (x >= nLeftClip && x < nRightClip)
+				PutPixel(pixels, x, nRow, nRoadColour);
+			// Draw dashed center line
+			if (x >= nLeftMidline && x < nRightMidline) {
+				// Create dash pattern based on distance and perspective
+				float dashPhase = -fDistance * 0.3f + y * 0.3f; // Higher multiplier for shorter dashes
+				bool drawDash = sinf(dashPhase) > 0.7f; // Higher threshold for longer gaps between dashes
+				if (drawDash) {
+					PutPixel(pixels, x, nRow, yellow);
+				}
+			}
+			if (x >= nRightClip && x < nRightGrass)
+				PutPixel(pixels, x, nRow, nClipColour);
+			if (x >= nRightGrass && x < GAME_WIDTH)
+				PutPixel(pixels, x, nRow, nGrassColour);
+
+
+		}
+	}
+
+	// Draw off-road indicator bar at bottom of screen
+	// Shows how far off-road the car is (player curvature vs track curvature)
+	int indicatorY = GAME_RACING_HEIGHT - 5;
+	int centerX = GAME_WIDTH / 2;
 	
-	// Calculate HUD data
+	// Draw center line (road center)
+	for (int y = indicatorY - 8; y < indicatorY; y++) {
+		PutPixel(pixels, centerX, y, white);
+	}
+	
+	// Draw car position indicator
+	int carIndicatorX = centerX + (int)(fCarPos * 50.0f); // Scale for visibility
+	SDL_Color carColor = bCrashed ? SDL_Color{255, 0, 0, 255} : 
+	                     (fabs(fCarPos) > 1.0f) ? SDL_Color{255, 165, 0, 255} : // Orange warning
+	                     SDL_Color{0, 255, 0, 255}; // Green = safe
+	
+	// Draw car indicator (larger dot)
+	for (int dy = -3; dy <= 3; dy++) {
+		for (int dx = -3; dx <= 3; dx++) {
+			int px = carIndicatorX + dx;
+			int py = indicatorY - 4 + dy;
+			if (px >= 0 && px < GAME_WIDTH && py >= 0 && py < GAME_RACING_HEIGHT) {
+				PutPixel(pixels, px, py, carColor);
+			}
+		}
+	}
+	
+	// Draw overhead signs LAST (after clouds, mountains, road, indicators)
+	// This ensures arch posts are visible in sky AND yellow ground is on top of road
+	DrawOverheadSigns(fDistance);
+	
+	SDL_UnlockSurface(pixels);
+	
+	// Draw sprite bitmaps after unlocking the surface
+	DrawRoadsideSprites(fDistance);
+	
+	// Draw overhead sign bitmaps after unlocking
+	DrawOverheadSignBitmaps(fDistance);
+
+	// Draw Car - car position on road is proportional to difference between
+	// current accumulated track curvature, and current accumulated player curvature
+	// i.e. if they are similar, the car will be in the middle of the track
+	// fCarPos = fPlayerCurvature - fTrackCurvature;
+	// int nCarPos = GAME_WIDTH / 2 + ((int)(GAME_WIDTH * fCarPos) / 2.0) - 7; // Offset for sprite
+
+	// auto disp_time = [](float t) // Little lambda to turn floating point seconds into minutes:seconds:millis string
+	// {
+	// 	int nMinutes = t / 60.0f;
+	// 	int nSeconds = t - (nMinutes * 60.0f);
+	// 	int nMilliSeconds = (t - (float)nSeconds) * 1000.0f;
+	// 	return to_wstring(nMinutes) + L"." + to_wstring(nSeconds) + L":" + to_wstring(nMilliSeconds);
+	// };
+
+	// Display current laptime
+	// DrawString(10, 8, disp_time(fCurrentLapTime));
+
+	// Display last 5 lap times
+	// int j = 10;
+	// for (auto l : listLapTimes)
+	// {
+	// 	DrawString(10, j, disp_time(l));
+	// 	j++;
+	// }
+	
+	// Draw rearview mirror as the absolute last thing (after all sprites)
+	DrawRearviewMirror(6); // Lower value to leave room for mini road
+
+	// Update and draw HUD
+	// Convert fDistance from track units to miles (using scale factor from track analysis)
+	// Scale factor: 2.200 feet per segment = 0.000417 miles per unit
 	float distanceInMiles = fDistance * 0.000417f;
-	int speedMph = static_cast<int>(fSpeed * 80.0f);
 	
-	// Render layers in order (back to front)
-	DrawLayer0_Road(deltaTime, nTrackSection);   // Layer 0: Road + roadside + arches
-	DrawLayer1_Mirror();                         // Layer 1: Rearview mirror
-	DrawLayer2_Dash(distanceInMiles, speedMph, nTrackSection); // Layer 2: HUD/dash
+	// Convert fSpeed to mph (currently in arbitrary units, need to calibrate)
+	// For now, use a reasonable scaling factor
+	int speedMph = static_cast<int>(fSpeed * 10.0f); // Adjust multiplier as needed
+	
+	// Format HUD text with fixed-width fields to prevent jumping
+	char hudText[128];
+	snprintf(hudText, sizeof(hudText), "Distance:%5.2f miles  Speed:%3d mph", 
+	         distanceInMiles, speedMph);
+	
+	hud->Clear();
+	// Add Gear text at position (6, 0) relative to HUD bar (absolute screen pos 6, 191)
+	hud->AddText(6, 0, "Gear: D");
+	// Main text starts after Gear text (around X=55 to leave space)
+	hud->AddText(55, 0, hudText);
+	hud->Draw();
+
+//		return true;
 }
 
 void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
@@ -246,8 +496,7 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
     
     if (trackReader && trackReader->LoadTrackData(binaryData)) {
         // Extract track coordinates 
-        // Road Race: 1020 segments ($03FC), Drag Race: 600 segments ($0258)
-        int maxSegments = (trackType == SR_TRACK_ROAD_RACE) ? 1020 : 600;
+        int maxSegments = (trackType == SR_TRACK_ROAD_RACE) ? 500 : 200;
         currentTrackSegments = trackReader->ExtractTrackCoordinates(trackType, maxSegments);
         
         printf("Loaded %zu track segments\n", currentTrackSegments.size());
@@ -1262,214 +1511,4 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
             }
         }
     }
-}
-
-// ============================================================================
-// LAYER RENDERING METHODS
-// ============================================================================
-
-void Racing::DrawLayer0_Road(float deltaTime, int nTrackSection) {
-	// Layer 0: Road + roadside objects + overhead arches
-	if (!layerRoadVisible) return;
-	
-	// Draw sky
-	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++)
-		for (int x = 0; x < GAME_WIDTH; x++)
-			PutPixel(pixels, x, y, black);
-
-	// Draw Scenery - our hills are a rectified sine wave, where the phase is adjusted by the
-	// accumulated track curvature
-	for (int x = 0; x < GAME_WIDTH; x++)
-	{
-		int nHillHeight = (int)(fabs(sinf(x * 0.01f + fTrackCurvature) * 16.0f));
-//			for (int y = (GAME_RACING_HEIGHT / 2) - nHillHeight; y < GAME_RACING_HEIGHT / 2; y++)
-//				PutPixel(pixels, x, y, yellow);
-	}
-
-	if (SDL_LockSurface(pixels) != 0) {
-		SDL_Log("Unable to lock surface: %s", SDL_GetError());
-		return;
-	}
-
-	// Draw cloud layer with parallax scrolling based on steering while moving
-	if (cloudSprite && cloudSprite->GetSurface()) {
-		SDL_Surface* cloudSurface = cloudSprite->GetSurface();
-		int startY = 0;
-		
-		static float cloudVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) {
-			cloudVelocity = fPlayerCurvature * fSpeed * 5.0f;
-		} else {
-			cloudVelocity *= 0.85f;
-		}
-		static float cloudOffsetAccum = 0.0f;
-		cloudOffsetAccum += cloudVelocity * deltaTime;
-		int cloudOffset = (int)cloudOffsetAccum % (cloudSurface->w);
-		if (cloudOffset < 0) cloudOffset += cloudSurface->w;
-		
-		for (int pass = 0; pass < 2; pass++) {
-			int drawX = -cloudOffset + (pass * cloudSurface->w);
-			
-			if (drawX < GAME_WIDTH && (drawX + cloudSurface->w) > 0) {
-				for (int y = 0; y < cloudSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
-					for (int x = 0; x < cloudSurface->w; x++) {
-						int screenX = drawX + x;
-						if (screenX >= 0 && screenX < GAME_WIDTH) {
-							Uint32* cloudPixels = (Uint32*)cloudSurface->pixels;
-							Uint32 pixel = cloudPixels[y * cloudSurface->w + x];
-							
-							Uint8 r, g, b, a;
-							SDL_GetRGBA(pixel, cloudSurface->format, &r, &g, &b, &a);
-							
-							if (a > 0) {
-								SDL_Color cloudColor = {r, g, b, a};
-								PutPixel(pixels, screenX, startY + y, cloudColor);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Draw mountain horizon as background with parallax scrolling
-	if (mountainSprite && mountainSprite->GetSurface()) {
-		SDL_Surface* mountainSurface = mountainSprite->GetSurface();
-		int startY = 47;
-		
-		static float mountainVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) {
-			mountainVelocity = fPlayerCurvature * fSpeed * 2.5f;
-		} else {
-			mountainVelocity *= 0.85f;
-		}
-		static float mountainOffsetAccum = 0.0f;
-		mountainOffsetAccum += mountainVelocity * deltaTime;
-		int scrollOffset = (int)mountainOffsetAccum % mountainSurface->w;
-		if (scrollOffset < 0) scrollOffset += mountainSurface->w;
-		
-		for (int pass = 0; pass < 2; pass++) {
-			int drawX = -scrollOffset + (pass * mountainSurface->w);
-			
-			if (drawX < GAME_WIDTH && (drawX + mountainSurface->w) > 0) {
-				for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
-					for (int x = 0; x < mountainSurface->w; x++) {
-						int screenX = drawX + x;
-						if (screenX >= 0 && screenX < GAME_WIDTH) {
-							Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
-							Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
-							
-							Uint8 r, g, b, a;
-							SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
-							
-							if (a > 0) {
-								SDL_Color mountainColor = {r, g, b, a};
-								PutPixel(pixels, screenX, startY + y, mountainColor);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Draw Track - Each row is split into grass, clip-board and track
-	// Render from horizon to bottom of screen (inclusive)
-	for (int y = 0; y <= GAME_RACING_HEIGHT / 2; y++) {
-		for (int x = 0; x < GAME_WIDTH; x++) {
-			float fPerspective = (float)y / (GAME_RACING_HEIGHT/2.0f);
-			float fRoadWidth = 0.21f + fPerspective * 0.98f;
-			float fClipWidth = 0.0f;
-			float fMidLineWidth = fRoadWidth * 0.03;
-			fRoadWidth *= 0.8f;
-
-			float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
-			fMiddlePoint -= fCarPos * 0.25f;
-
-			int nLeftGrass = (fMiddlePoint - fRoadWidth - fClipWidth) * GAME_WIDTH;
-			int nLeftClip = (fMiddlePoint - fRoadWidth) * GAME_WIDTH;
-			int nRightClip = (fMiddlePoint + fRoadWidth) * GAME_WIDTH;
-			int nRightGrass = (fMiddlePoint + fRoadWidth + fClipWidth) * GAME_WIDTH;
-			int nLeftMidline = (fMiddlePoint - fMidLineWidth) * GAME_WIDTH;
-			int nRightMidline = (fMiddlePoint + fMidLineWidth) * GAME_WIDTH;
-
-			int nRow = GAME_RACING_HEIGHT / 2 + y;
-
-			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
-			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
-			SDL_Color nRoadColour = bCrashed ? SDL_Color{170, 0, 0, 255} : black;
-
-			if (x >= 0 && x < nLeftGrass)
-				PutPixel(pixels, x, nRow, nGrassColour);
-			if (x >= nLeftGrass && x < nLeftClip)
-				PutPixel(pixels, x, nRow, nClipColour);
-			if (x >= nLeftClip && x < nRightClip)
-				PutPixel(pixels, x, nRow, nRoadColour);
-			if (x >= nLeftMidline && x < nRightMidline) {
-				float dashPhase = -fDistance * 0.3f + y * 0.3f;
-				bool drawDash = sinf(dashPhase) > 0.7f;
-				if (drawDash) {
-					PutPixel(pixels, x, nRow, yellow);
-				}
-			}
-			if (x >= nRightClip && x < nRightGrass)
-				PutPixel(pixels, x, nRow, nClipColour);
-			if (x >= nRightGrass && x < GAME_WIDTH)
-				PutPixel(pixels, x, nRow, nGrassColour);
-		}
-	}
-
-	// Draw off-road indicator bar
-	int indicatorY = GAME_RACING_HEIGHT - 5;
-	int centerX = GAME_WIDTH / 2;
-	
-	for (int y = indicatorY - 8; y < indicatorY; y++) {
-		PutPixel(pixels, centerX, y, white);
-	}
-	
-	int carIndicatorX = centerX + (int)(fCarPos * 50.0f);
-	SDL_Color carColor = bCrashed ? SDL_Color{255, 0, 0, 255} : 
-	                     (fabs(fCarPos) > 1.0f) ? SDL_Color{255, 165, 0, 255} :
-	                     SDL_Color{0, 255, 0, 255};
-	
-	for (int dy = -3; dy <= 3; dy++) {
-		for (int dx = -3; dx <= 3; dx++) {
-			int px = carIndicatorX + dx;
-			int py = indicatorY - 4 + dy;
-			if (px >= 0 && px < GAME_WIDTH && py >= 0 && py < GAME_RACING_HEIGHT) {
-				PutPixel(pixels, px, py, carColor);
-			}
-		}
-	}
-	
-	// Draw overhead signs
-	DrawOverheadSigns(fDistance);
-	
-	SDL_UnlockSurface(pixels);
-	
-	// Draw sprite bitmaps and overhead sign bitmaps (after unlocking surface)
-	DrawRoadsideSprites(fDistance);
-	DrawOverheadSignBitmaps(fDistance);
-}
-
-void Racing::DrawLayer1_Mirror() {
-	// Layer 1: Rearview mirror contents
-	if (!layerMirrorVisible) return;
-	
-	DrawRearviewMirror(6);
-}
-
-void Racing::DrawLayer2_Dash(float distanceInMiles, int speedMph, int nTrackSection) {
-	// Layer 2: Car dash/HUD
-	if (!layerDashVisible) return;
-	
-	// Format HUD text
-	char hudText[128];
-	snprintf(hudText, sizeof(hudText), "Distance:%5.2f mi  Speed:%3d mph  Seg:%d of %zu", 
-	         distanceInMiles, speedMph, nTrackSection, vecTrack.size());
-	
-	hud->Clear();
-	hud->AddText(6, 0, "Gear: D");
-	hud->AddText(55, 0, hudText);
-	hud->Draw();
 }

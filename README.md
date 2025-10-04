@@ -2,13 +2,6 @@
 
 Street Rod Legacy is a reimplementation of the classic Street Rod game for modern systems.
 
-# Goals
-
-- Re-implement the Amiga version to modern platforms
-- Combine the best gameplay (MS-DOS version) with the best graphics and sound (Amiga version)
-- Use cars from Street Rod Data Disk, also known as the Special Edition
-- Improve race framerate performance
-
 # Progress
 
 - [x] Garage
