@@ -1621,7 +1621,7 @@ void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
     // Yellow zone ends where arch posts are (at roadBottomY perspective)
     // and extends backwards on the road surface
     int zoneEndY = roadBottomY;  // End AT the arch
-    int zoneStartY = zoneEndY - (int)(20.0f * perspective + 10.0f); // Shorter zone: 10-30px
+    int zoneStartY = zoneEndY - (int)(perspective + 2.5f); // Shorter zone: 10-30px
     
     for (int y = zoneStartY; y <= zoneEndY && y >= horizonY && y < GAME_RACING_HEIGHT; y++) {
         // Calculate road width at THIS scanline's perspective
