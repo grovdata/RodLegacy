@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+
+- Use SDL2 logging and stdlib equivalents in game code, except in libp.h libp.cpp which should not require SDL
+- Do not use emojis in logging messages
