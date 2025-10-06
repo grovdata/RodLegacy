@@ -127,6 +127,10 @@ private:
 	void AutoUpshift();
 	void AutoDownshift();
 	
+	// Gauge needle helper
+	void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, 
+	                     float value, float minValue, float maxValue);
+	
 public:
 
     Racing();
@@ -134,8 +138,9 @@ public:
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
     
-    // Tachometer (public - called by Driving scene to draw on top of dashboard)
+    // Gauges (public - called by Driving scene to draw on top of dashboard)
     void DrawTachometerNeedleToRenderer(SDL_Renderer* renderer);
+    void DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer);
     
     // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);

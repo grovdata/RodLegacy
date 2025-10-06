@@ -1419,35 +1419,46 @@ void Racing::AutoDownshift() {
 	}
 }
 
-void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
+void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, 
+                              float value, float minValue, float maxValue) {
 	if (!renderer) return;
 	
-	// Tachometer needle specifications
-	const int NEEDLE_CENTER_X = 145;
-	const int NEEDLE_CENTER_Y = 129;
 	const int NEEDLE_RADIUS = 14;
-	const int CENTERPOINT_RADIUS = 5; // 7x6 pixel centerpoint ~ 4 pixel radius
+	const int CENTERPOINT_RADIUS = 5; // Clear space for centerpoint decoration
 	
-	// RPM range and angle sweep (clockwise from 7 o'clock to 5 o'clock)
-	const float RPM_MIN = 1500.0f;
-	const float RPM_MAX = 7000.0f;
+	// Angle sweep: clockwise from 7 o'clock (240°) to 5 o'clock (300°) = 240° sweep
 	const float START_ANGLE = 240.0f * M_PI / 180.0f;  // 7 o'clock position
 	const float SWEEP_ANGLE = -240.0f * M_PI / 180.0f; // 240° clockwise
 	
-	// Calculate needle angle based on current RPM
-	float t = (rpm - RPM_MIN) / (RPM_MAX - RPM_MIN);
+	// Calculate needle angle based on value
+	float t = (value - minValue) / (maxValue - minValue);
 	t = std::max(0.0f, std::min(1.0f, t));
 	float angle = START_ANGLE + SWEEP_ANGLE * t;
 	
 	// Calculate needle start position (outside centerpoint) and end position
-	int needleStartX = NEEDLE_CENTER_X + static_cast<int>(CENTERPOINT_RADIUS * cos(angle));
-	int needleStartY = NEEDLE_CENTER_Y - static_cast<int>(CENTERPOINT_RADIUS * sin(angle));
-	int needleEndX = NEEDLE_CENTER_X + static_cast<int>(NEEDLE_RADIUS * cos(angle));
-	int needleEndY = NEEDLE_CENTER_Y - static_cast<int>(NEEDLE_RADIUS * sin(angle));
+	int needleStartX = centerX + static_cast<int>(CENTERPOINT_RADIUS * cos(angle));
+	int needleStartY = centerY - static_cast<int>(CENTERPOINT_RADIUS * sin(angle));
+	int needleEndX = centerX + static_cast<int>(NEEDLE_RADIUS * cos(angle));
+	int needleEndY = centerY - static_cast<int>(NEEDLE_RADIUS * sin(angle));
 	
-	// Draw the needle (brown/orange color #604000) starting outside centerpoint
+	// Draw the needle (brown/orange color #604000)
 	SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
 	SDL_RenderDrawLine(renderer, needleStartX, needleStartY, needleEndX, needleEndY);
+}
+
+void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
+	// Tachometer: center at (145, 129), range 1500-7000 RPM
+	DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(rpm), 1500.0f, 7000.0f);
+}
+
+void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
+	// Speedometer: center at (196, 129), range 0-140 MPH
+	// Calculate MPH from RPM and gear ratio
+	int16_t currentRatio = gearRatios[currentGear];
+	float gearMultiplier = 100.0f / currentRatio;
+	float speedMph = (velocity / 70.0f) * gearMultiplier;
+	
+	DrawGaugeNeedle(renderer, 196, 129, speedMph, 0.0f, 140.0f);
 }
 
 SDL_Surface* Racing::GetSurface() {
