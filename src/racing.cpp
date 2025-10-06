@@ -106,10 +106,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 		goRight = keyboardState[SDL_SCANCODE_RIGHT];
 		accelerate = keyboardState[SDL_SCANCODE_UP];
 		
-		// Handle gear shifting (with debounce)
-		bool shiftUpNow = keyboardState[SDL_SCANCODE_A] || keyboardState[SDL_SCANCODE_PAGEUP];
-		bool shiftDownNow = keyboardState[SDL_SCANCODE_Z] || keyboardState[SDL_SCANCODE_PAGEDOWN];
+		// Handle gear shifting (original game controls: Space=up, Space+Down=down)
+		bool spacePressed = keyboardState[SDL_SCANCODE_SPACE];
+		bool downPressed = keyboardState[SDL_SCANCODE_DOWN];
 		
+		// Determine shift intention based on combination
+		bool shiftUpNow = spacePressed && !downPressed;      // Space alone = shift up
+		bool shiftDownNow = spacePressed && downPressed;     // Space + Down = shift down
+		
+		// Trigger shift on press (with debounce)
 		if (shiftUpNow && !shiftUpPressed) {
 			ShiftGear(1);
 		}
@@ -1197,9 +1202,10 @@ void Racing::HandleCrash() {
 
 void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
 	// Constants from assembly analysis
-	const int16_t MIN_SPEED = 1500;           // Idle RPM
-	const int16_t MAX_SPEED_MANUAL = 7000;    // Max over-rev
-	const int16_t MAX_SPEED_AUTO = 5690;      // Auto transmission limit
+	// NOTE: velocity variable represents engine RPM, not road speed
+	const int16_t MIN_RPM = 1500;           // Idle RPM
+	const int16_t MAX_RPM_MANUAL = 7000;    // Max over-rev
+	const int16_t MAX_RPM_AUTO = 5690;      // Auto transmission limit
 	
 	// Original game ran at ~60 FPS (racing.md line 49: "60 FPS on 7MHz 68000")
 	// Scale our per-frame values to match that timing
@@ -1245,16 +1251,16 @@ void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
 		intermediate = (velocity * currentRatio) / 100;
 	}
 	
-	// Clamp velocity
-	if (velocity < MIN_SPEED) {
-		velocity = MIN_SPEED;
+	// Clamp velocity (RPM)
+	if (velocity < MIN_RPM) {
+		velocity = MIN_RPM;
 		// Also clamp intermediate to match
 		intermediate = (velocity * currentRatio) / 100;
 	}
 	
-	int16_t maxSpeed = isAutomatic ? MAX_SPEED_AUTO : MAX_SPEED_MANUAL;
-	if (velocity > maxSpeed) {
-		velocity = maxSpeed;
+	int16_t maxRpm = isAutomatic ? MAX_RPM_AUTO : MAX_RPM_MANUAL;
+	if (velocity > maxRpm) {
+		velocity = maxRpm;
 		// Also clamp intermediate to match
 		intermediate = (velocity * currentRatio) / 100;
 	}
@@ -1265,13 +1271,17 @@ void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
 	// Check for transmission damage
 	UpdateTransmissionDamage();
 	
-	// Auto downshift if needed (checks RPM internally)
-	if (isAutomatic || rpm < 2500) {
+	// Automatic transmission logic
+	if (isAutomatic) {
+		AutoUpshift();   // Shift up near redline
+		AutoDownshift(); // Shift down at low RPM
+	} else if (rpm < 2500) {
+		// Manual transmission can still auto-downshift at very low RPM (stall prevention)
 		AutoDownshift();
 	}
 	
 	// Update display speed (normalized 0-1 for compatibility)
-	fSpeed = (velocity - MIN_SPEED) / static_cast<float>(MAX_SPEED_MANUAL - MIN_SPEED);
+	fSpeed = (velocity - MIN_RPM) / static_cast<float>(MAX_RPM_MANUAL - MIN_RPM);
 	if (fSpeed < 0.0f) fSpeed = 0.0f;
 	if (fSpeed > 1.0f) fSpeed = 1.0f;
 }
@@ -1325,17 +1335,17 @@ void Racing::UpdateRPM() {
 void Racing::UpdateTransmissionDamage() {
 	const int16_t REDLINE = 5700;
 	const int16_t DANGER_ZONE = 6000;    // Damage starts here, not at redline
-	const int16_t DAMAGE_SPEED_THRESH = 6200;
+	const int16_t DAMAGE_RPM_THRESH = 6200;
 	
 	if (velocity >= DANGER_ZONE) {
-		// Damage increases faster at higher speeds
+		// Damage increases faster at higher RPM
 		int16_t damageRate = 1;
-		if (velocity >= DAMAGE_SPEED_THRESH) {
+		if (velocity >= DAMAGE_RPM_THRESH) {
 			damageRate = (velocity / 1000) - 4; // More damage at very high RPM
 		}
 		transmissionDamage += damageRate;
 		
-		// Calculate damage threshold based on current speed
+		// Calculate damage threshold based on current RPM
 		// More forgiving - need to stay over-revved longer to blow transmission
 		int16_t damageThreshold = (velocity / 100) + 50;
 		
@@ -1362,104 +1372,50 @@ void Racing::UpdateTransmissionDamage() {
 	}
 }
 
+void Racing::AutoUpshift() {
+	// For automatic transmission: shift up before hitting redline
+	const int16_t AUTO_UPSHIFT_RPM = 5400;  // Shift at ~5400 RPM (300 below redline)
+	
+	// Only upshift if we have more gears available
+	if (rpm >= AUTO_UPSHIFT_RPM && currentGear < maxGear) {
+		int16_t oldGear = currentGear;
+		int16_t oldRPM = rpm;
+		int16_t oldRatio = gearRatios[currentGear];
+		int16_t newRatio = gearRatios[currentGear + 1];
+		
+		// Apply gear shift logic
+		velocity = (velocity * newRatio) / oldRatio;
+		intermediate = (velocity * newRatio) / 100;
+		currentGear++;
+		UpdateRPM();
+		
+		SDL_Log("⚙️  AUTO UPSHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
+		        oldGear + 1, currentGear + 1,
+		        oldRatio / 100.0f, newRatio / 100.0f,
+		        oldRPM, rpm);
+	}
+}
+
 void Racing::AutoDownshift() {
 	const int16_t LOW_RPM_THRESH = 2000;
 	
 	// Auto downshift when RPM is too low for current gear
 	if (rpm < LOW_RPM_THRESH && currentGear > 0) {
+		int16_t oldGear = currentGear;
+		int16_t oldRPM = rpm;
+		int16_t oldRatio = gearRatios[currentGear];
+		int16_t newRatio = gearRatios[currentGear - 1];
+		
+		// Apply gear shift logic
+		velocity = (velocity * newRatio) / oldRatio;
+		intermediate = (velocity * newRatio) / 100;
 		currentGear--;
-		SDL_Log("⚙️  AUTO DOWNSHIFT: Gear %d (RPM was %d)", currentGear + 1, rpm);
 		UpdateRPM();
-	}
-}
-
-void Racing::DrawTachometerNeedle() {
-	// Tachometer needle specifications
-	// NOTE: Coordinates are for full game screen (200px), but racing surface is only 120px tall!
-	// Tachometer at Y=129 is BELOW the racing surface, in the dash area
-	const int NEEDLE_CENTER_X = 145;
-	const int NEEDLE_CENTER_Y = 129;
-	
-	// Check if tachometer is within racing surface bounds
-	if (NEEDLE_CENTER_Y >= GAME_RACING_HEIGHT) {
-		static bool warned = false;
-		if (!warned) {
-			SDL_Log("⚠️  Tachometer Y=%d is beyond racing surface height %d!", 
-			        NEEDLE_CENTER_Y, GAME_RACING_HEIGHT);
-			SDL_Log("   Tachometer needs to be drawn on a different surface (dash/HUD)");
-			warned = true;
-		}
-		return; // Can't draw beyond surface bounds
-	}
-	
-	// Needle end positions at different RPM ranges
-	const int RPM_0_X = 130;      // 0 RPM (actually 1500 idle)
-	const int RPM_0_Y = 138;
-	
-	const int RPM_REDLINE_X = 166; // 5700 RPM (start of redline)
-	const int RPM_REDLINE_Y = 129;
-	
-	const int RPM_MAX_X = 154;     // 7000+ RPM (max redline)
-	const int RPM_MAX_Y = 142;
-	
-	// Needle color #604000 = brown/orange
-	SDL_Color needleColor = {96, 64, 0, 255};
-	
-	// Calculate needle position based on current RPM
-	// RPM range: 1500 (idle) to 7000 (over-rev)
-	const float RPM_MIN = 1500.0f;
-	const float RPM_REDLINE = 5700.0f;
-	const float RPM_MAX = 7000.0f;
-	
-	int needleEndX, needleEndY;
-	
-	if (rpm <= RPM_REDLINE) {
-		// Interpolate between 0 RPM position and redline position
-		float t = (rpm - RPM_MIN) / (RPM_REDLINE - RPM_MIN);
-		t = std::max(0.0f, std::min(1.0f, t)); // Clamp to [0, 1]
 		
-		needleEndX = static_cast<int>(RPM_0_X + (RPM_REDLINE_X - RPM_0_X) * t);
-		needleEndY = static_cast<int>(RPM_0_Y + (RPM_REDLINE_Y - RPM_0_Y) * t);
-	} else {
-		// Interpolate between redline and max redline position
-		float t = (rpm - RPM_REDLINE) / (RPM_MAX - RPM_REDLINE);
-		t = std::max(0.0f, std::min(1.0f, t)); // Clamp to [0, 1]
-		
-		needleEndX = static_cast<int>(RPM_REDLINE_X + (RPM_MAX_X - RPM_REDLINE_X) * t);
-		needleEndY = static_cast<int>(RPM_REDLINE_Y + (RPM_MAX_Y - RPM_REDLINE_Y) * t);
-	}
-	
-	// Draw the needle using Bresenham's line algorithm
-	int dx = abs(needleEndX - NEEDLE_CENTER_X);
-	int dy = abs(needleEndY - NEEDLE_CENTER_Y);
-	int sx = NEEDLE_CENTER_X < needleEndX ? 1 : -1;
-	int sy = NEEDLE_CENTER_Y < needleEndY ? 1 : -1;
-	int err = dx - dy;
-	
-	int x = NEEDLE_CENTER_X;
-	int y = NEEDLE_CENTER_Y;
-	
-	while (true) {
-		PutPixel(pixels, x, y, needleColor);
-		
-		if (x == needleEndX && y == needleEndY) break;
-		
-		int e2 = 2 * err;
-		if (e2 > -dy) {
-			err -= dy;
-			x += sx;
-		}
-		if (e2 < dx) {
-			err += dx;
-			y += sy;
-		}
-	}
-	
-	// Draw a small circle at the pivot point for better visibility
-	for (int dy = -1; dy <= 1; dy++) {
-		for (int dx = -1; dx <= 1; dx++) {
-			PutPixel(pixels, NEEDLE_CENTER_X + dx, NEEDLE_CENTER_Y + dy, needleColor);
-		}
+		SDL_Log("⚙️  AUTO DOWNSHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
+		        oldGear + 1, currentGear + 1,
+		        oldRatio / 100.0f, newRatio / 100.0f,
+		        oldRPM, rpm);
 	}
 }
 
@@ -1519,20 +1475,6 @@ void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
 	
 	// Draw the needle line
 	SDL_RenderDrawLine(renderer, NEEDLE_CENTER_X, NEEDLE_CENTER_Y, needleEndX, needleEndY);
-	
-	// Draw a small circle at the pivot point
-	for (int dy = -1; dy <= 1; dy++) {
-		for (int dx = -1; dx <= 1; dx++) {
-			SDL_RenderDrawPoint(renderer, NEEDLE_CENTER_X + dx, NEEDLE_CENTER_Y + dy);
-		}
-	}
-	
-	// Debug: log needle position
-	static int logCounter = 0;
-	if (logCounter++ % 30 == 0) {
-		SDL_Log("🎯 Tachometer: RPM=%d, Needle=(%d,%d), Gear=%d", 
-		        rpm, needleEndX, needleEndY, currentGear + 1);
-	}
 }
 
 SDL_Surface* Racing::GetSurface() {

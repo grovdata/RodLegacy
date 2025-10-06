@@ -124,11 +124,9 @@ private:
 	void ShiftGear(int direction);
 	void UpdateRPM();
 	void UpdateTransmissionDamage();
+	void AutoUpshift();
 	void AutoDownshift();
 	
-	// Tachometer rendering
-	void DrawTachometerNeedle();
-
 public:
 
     Racing();
