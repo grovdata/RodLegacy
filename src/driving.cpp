@@ -7,7 +7,7 @@
 #include <cstring>
 
 Driving::Driving() : Scene() {
-    printf("Driving::Driving() constructor called\n");
+    SDL_Log("Driving::Driving() constructor called\n");
     // Create racing component
     racing = std::make_unique<Racing>();
     roadTexture = nullptr;
@@ -15,11 +15,11 @@ Driving::Driving() : Scene() {
     
     // Initialize track reader
     trackReader = std::make_unique<TrackReader>();
-    printf("Driving constructor completed - trackReader created\n");
+    SDL_Log("Driving constructor completed - trackReader created\n");
 }
 
 void Driving::Init(bool debugMode) {
-    printf("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
+    SDL_Log("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
     
     // Load dashboard using asset system
@@ -161,65 +161,65 @@ void Driving::Init(bool debugMode) {
 }
 
 void Driving::LoadTrackData() {
-    printf("Driving::LoadTrackData() called\n");
+    SDL_Log("Driving::LoadTrackData() called\n");
     
     // Check if trackReader exists
     if (!trackReader) {
-        printf("ERROR: trackReader is null!\n");
+        SDL_Log("ERROR: trackReader is null!\n");
         return;
     }
     
     // Check if AssetManager has executable data (where track data is stored)
     byte_vector& srExeData = state.assets.GetSrExeData();
-    printf("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
+    SDL_Log("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
     
     if (srExeData.empty()) {
-        printf("ERROR: AssetManager SrExeData is empty!\n");
+        SDL_Log("ERROR: AssetManager SrExeData is empty!\n");
         return;
     }
     
     // Load Street Rod executable data from AssetManager
     if (trackReader->LoadTrackData(srExeData)) {
-        printf("=== Street Rod Track Data Loaded ===\n");
+        SDL_Log("=== Street Rod Track Data Loaded ===\n");
         
         // Load road race track
-        printf("Extracting road race track coordinates...\n");
+        SDL_Log("Extracting road race track coordinates...\n");
         auto roadRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_ROAD_RACE, 500);
-        printf("Found %zu road race segments\n", roadRaceSegments.size());
+        SDL_Log("Found %zu road race segments\n", roadRaceSegments.size());
         if (!roadRaceSegments.empty()) {
             auto analysis = trackReader->AnalyzeTrack(roadRaceSegments);
-            printf("Road Race Track:\n");
-            printf("  Segments: %d\n", analysis.segmentCount);
-            printf("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
-            printf("  Length: %.1f units\n", analysis.totalLength);
-            printf("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
-            printf("  Unique sprites: %zu\n", analysis.uniqueSprites.size());
+            SDL_Log("Road Race Track:\n");
+            SDL_Log("  Segments: %d\n", analysis.segmentCount);
+            SDL_Log("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
+            SDL_Log("  Length: %.1f units\n", analysis.totalLength);
+            SDL_Log("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
+            SDL_Log("  Unique sprites: %zu\n", analysis.uniqueSprites.size());
         }
         
         // Load drag race track
-        printf("Extracting drag race track coordinates...\n");
+        SDL_Log("Extracting drag race track coordinates...\n");
         auto dragRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_DRAG_RACE, 200);
-        printf("Found %zu drag race segments\n", dragRaceSegments.size());
+        SDL_Log("Found %zu drag race segments\n", dragRaceSegments.size());
         if (!dragRaceSegments.empty()) {
             auto analysis = trackReader->AnalyzeTrack(dragRaceSegments);
-            printf("Drag Race Track:\n");
-            printf("  Segments: %d\n", analysis.segmentCount);
-            printf("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
-            printf("  Length: %.1f units\n", analysis.totalLength);
-            printf("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
+            SDL_Log("Drag Race Track:\n");
+            SDL_Log("  Segments: %d\n", analysis.segmentCount);
+            SDL_Log("  Curved: %d, Straight: %d\n", analysis.curvedSegments, analysis.straightSegments);
+            SDL_Log("  Length: %.1f units\n", analysis.totalLength);
+            SDL_Log("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
         }
         
         // Load roadside sprites
-        printf("Extracting roadside sprites...\n");
+        SDL_Log("Extracting roadside sprites...\n");
         auto roadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
-        printf("Found %zu roadside sprite records\n", roadsideSprites.size());
+        SDL_Log("Found %zu roadside sprite records\n", roadsideSprites.size());
         if (!roadsideSprites.empty()) {
-            printf("Roadside Sprites: %zu records\n", roadsideSprites.size());
+            SDL_Log("Roadside Sprites: %zu records\n", roadsideSprites.size());
             
             // Show first few sprites for debugging
             for (size_t i = 0; i < std::min<size_t>(5, roadsideSprites.size()); ++i) {
                 const auto& sprite = roadsideSprites[i];
-                printf("  %s at pos %d, %s at pos %d\n",
+                SDL_Log("  %s at pos %d, %s at pos %d\n",
                     TrackReader::GetSpriteName(sprite.spriteId1), sprite.trackPosition1,
                     TrackReader::GetSpriteName(sprite.spriteId2), sprite.trackPosition2);
             }
@@ -227,14 +227,23 @@ void Driving::LoadTrackData() {
         
         // Load track data into racing component
         if (racing) {
-            printf("Loading track data into racing component...\n");
+            SDL_Log("Loading track data into racing component...\n");
             racing->LoadTrackData(srExeData, SR_TRACK_ROAD_RACE);
+            
+            // Configure racing physics based on current car's transmission
+            Car* currentCar = state.GetCurrentCar();
+            if (currentCar) {
+                // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
+                bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                racing->SetTransmissionType(isAutomatic);
+                SDL_Log("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
+            }
         }
         
-        printf("================================\n");
+        SDL_Log("================================\n");
     } else {
-        printf("Failed to load Street Rod track data from AssetManager executable data.\n");
-        printf("Make sure the Street Rod executable is properly loaded.\n");
+        SDL_Log("Failed to load Street Rod track data from AssetManager executable data.\n");
+        SDL_Log("Make sure the Street Rod executable is properly loaded.\n");
     }
 }
 
@@ -398,7 +407,14 @@ void Driving::Draw() {
     
     // Draw gauge needles on top of dashboard
     if (racing) {
-        racing->DrawTachometerNeedleToRenderer(renderer);
+        // Only draw tachometer for manual transmission cars
+        // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
+        Car* currentCar = state.GetCurrentCar();
+        bool isAutomatic = (currentCar && currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+        
+        if (!isAutomatic) {
+            racing->DrawTachometerNeedleToRenderer(renderer);
+        }
         racing->DrawSpeedometerNeedleToRenderer(renderer);
     }
 }
@@ -422,15 +438,29 @@ void Driving::PushEvent(SDL_Event *event) {
             case SDLK_1:
                 // Switch to Road Race track
                 if (racing) {
-                    printf("Switching to Road Race track\n");
+                    SDL_Log("Switching to Road Race track\n");
                     racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_ROAD_RACE);
+                    
+                    // Update transmission type
+                    Car* currentCar = state.GetCurrentCar();
+                    if (currentCar) {
+                        bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                        racing->SetTransmissionType(isAutomatic);
+                    }
                 }
                 break;
             case SDLK_2:
                 // Switch to Drag Race track
                 if (racing) {
-                    printf("Switching to Drag Race track\n");
+                    SDL_Log("Switching to Drag Race track\n");
                     racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_DRAG_RACE);
+                    
+                    // Update transmission type
+                    Car* currentCar = state.GetCurrentCar();
+                    if (currentCar) {
+                        bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                        racing->SetTransmissionType(isAutomatic);
+                    }
                 }
                 break;
         }

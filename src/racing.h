@@ -146,6 +146,9 @@ public:
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
     
+    // Car configuration
+    void SetTransmissionType(bool automatic) { isAutomatic = automatic; }
+    
     // Get current car speed for animations
     float GetSpeed() const { return fSpeed; }
     
@@ -154,5 +157,6 @@ public:
     int16_t GetRPM() const { return rpm; }
     int16_t GetVelocity() const { return velocity; }
     bool IsTransmissionDamaged() const { return transmissionDamage > 0; }
+    bool IsAutomatic() const { return isAutomatic; }
     
 };
