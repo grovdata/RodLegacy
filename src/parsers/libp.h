@@ -152,7 +152,7 @@ enum AmigaLibAsset {
     RACING_REARVIEWMIRROR_FRAME = 42,
     RACING_SIGN_TRY_VEGAS_GAMBLER = 43,
     RACING_SIGN_PLAY_BLOCKOUT = 44,
-    RACING_RACING_CLOCK_11_10 = 45,
+    RACING_RACING_CLOCK_11_10 = 45,    // Clock for automatic transmission (cruising in town)
     RACING_GEARBOX_AUTO = 46,
     RACING_GEARBOX_MANUAL_3SPEED = 47,
     RACING_GEARBOX_MANUAL_4SPEED = 48,
@@ -185,9 +185,9 @@ enum AmigaLibAsset {
     RACING_RACING_DICE3 = 75,
     RACING_RACING_DICE4 = 76,
     RACING_RACING_DICE5 = 77,
-    RACING_RACING_CLOCK_11_50 = 78,
-    RACING_RACING_CLOCK_01_32 = 79,
-    RACING_RACING_CLOCK_02_55 = 80,
+    RACING_RACING_CLOCK_11_50 = 78,    // Clock for automatic transmission (Road Race)
+    RACING_RACING_CLOCK_01_32 = 79,    // Clock for automatic transmission (Drag Race)
+    RACING_RACING_CLOCK_02_55 = 80,    // Clock for automatic transmission (unknown mode)
     RACING_HORIZON_1 = 81,
     RACING_HORIZON_REARVIEWMIRROR = 82,
     RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE = 83,
@@ -946,11 +946,49 @@ int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset
 void SrLibDataCleanupCarString(char* str);
 void SrLibDataFreeClassified(ClassifiedEntry_t* entry);
 
+// Transmission types enum
+enum SrTransmissionType {
+    SR_TRANS_AUTO_GM = 0,
+    SR_TRANS_AUTO_FORD = 1,
+    SR_TRANS_AUTO_CHRYSLER = 2,
+    SR_TRANS_3SPD_GM = 3,
+    SR_TRANS_3SPD_FORD = 4,
+    SR_TRANS_3SPD_CHRYSLER = 5,
+    SR_TRANS_4SPD_GM = 6,
+    SR_TRANS_4SPD_FORD = 7,
+    SR_TRANS_4SPD_CHRYSLER = 8,
+    SR_TRANS_4SPD_UNIVERSAL = 9,
+    SR_TRANS_RACING_GM = 10,
+    SR_TRANS_RACING_FORD = 11,
+    SR_TRANS_RACING_CHRYSLER = 12,
+    SR_TRANS_COUNT = 13
+};
+
+// Transmission data structure
+struct SrTransmissionData {
+    char name[32];           // Transmission name (e.g., "Trnsmsn 4-spd. GM.")
+    uint16_t price;          // Price in dollars
+    uint8_t num_gears;       // Number of gears (1=auto, 3, or 4)
+    uint8_t brand;           // 0=universal, 1=GM, 2=Ford, 4=Chrysler
+    int16_t gear_ratios[4];  // Gear ratios as scaled integers
+    uint16_t scale_factor;   // Scaling factor (100, 256, etc.)
+    
+    // Helper: Get actual ratio as float (for display/debugging)
+    float GetRatio(int gear) const {
+        if (gear < 0 || gear >= 4) return 0.0f;
+        return static_cast<float>(gear_ratios[gear]) / static_cast<float>(scale_factor);
+    }
+};
+
 class DataParser {
     public:
         CarMetadata_t*         SrLibDataReadDataFromFile(const char* filename, int* outCount);
         CarMetadata_t*         SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
         int                    GetCarIndex(AmigaLibAsset asset);
+        
+        // New: Transmission data parsing
+        std::vector<SrTransmissionData> ParseTransmissions(const std::vector<uint8_t>& srDataFile);
+        std::vector<SrTransmissionData> ParseTransmissions(const std::string& filename);
 };
 
 

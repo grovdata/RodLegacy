@@ -62,6 +62,12 @@ void Driving::Init(bool debugMode) {
     mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
     AddDrawable("mirror", std::shared_ptr<IDrawable>(mirror));
+    
+    // Load clock for automatic transmission cars (will overlap tachometer)
+    auto clock = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_CLOCK_11_50});
+    clock->SetPosition(120, 115);
+    clock->SetVisible(false); // Will be shown only for automatic transmission
+    AddDrawable("clock", std::shared_ptr<IDrawable>(clock));
 
     // Load plush dice
     auto plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
@@ -402,16 +408,21 @@ void Driving::Draw() {
         }
     }
 
+    // Update clock visibility based on transmission type
+    Car* currentCar = state.GetCurrentCar();
+    bool isAutomatic = (currentCar && currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+    
+    auto clockDrawable = GetDrawable("clock");
+    if (clockDrawable) {
+        clockDrawable->SetVisible(isAutomatic);
+    }
+    
     // Draw all interior elements using drawable system
     DrawAll();
     
     // Draw gauge needles on top of dashboard
     if (racing) {
         // Only draw tachometer for manual transmission cars
-        // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
-        Car* currentCar = state.GetCurrentCar();
-        bool isAutomatic = (currentCar && currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
-        
         if (!isAutomatic) {
             racing->DrawTachometerNeedleToRenderer(renderer);
         }
