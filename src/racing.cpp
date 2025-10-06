@@ -1422,59 +1422,32 @@ void Racing::AutoDownshift() {
 void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
 	if (!renderer) return;
 	
-	// Tachometer needle specifications (full screen coordinates)
+	// Tachometer needle specifications
 	const int NEEDLE_CENTER_X = 145;
 	const int NEEDLE_CENTER_Y = 129;
+	const int NEEDLE_RADIUS = 14;
+	const int CENTERPOINT_RADIUS = 5; // 7x6 pixel centerpoint ~ 4 pixel radius
 	
-	// Needle end positions for CLOCKWISE sweep (from original game)
-	const int RPM_IDLE_X = 130;       // 1500 RPM (idle) - 7 o'clock position
-	const int RPM_IDLE_Y = 138;
-	
-	const int RPM_NOON_X = 145;       // ~3600 RPM - 12 o'clock position (straight up)
-	const int RPM_NOON_Y = 115;
-	
-	const int RPM_REDLINE_X = 166;    // 5700 RPM (redline) - 3 o'clock position
-	const int RPM_REDLINE_Y = 129;
-	
-	const int RPM_MAX_X = 160;        // 7000 RPM (max over-rev) - 5 o'clock position
-	const int RPM_MAX_Y = 144;
-	
-	// Needle color #604000 = brown/orange
-	SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
-	
-	// Calculate needle position based on current RPM
+	// RPM range and angle sweep (clockwise from 7 o'clock to 5 o'clock)
 	const float RPM_MIN = 1500.0f;
-	const float RPM_NOON = 3600.0f;   // 12 o'clock position
-	const float RPM_REDLINE = 5700.0f;
 	const float RPM_MAX = 7000.0f;
+	const float START_ANGLE = 240.0f * M_PI / 180.0f;  // 7 o'clock position
+	const float SWEEP_ANGLE = -240.0f * M_PI / 180.0f; // 240° clockwise
 	
-	int needleEndX, needleEndY;
+	// Calculate needle angle based on current RPM
+	float t = (rpm - RPM_MIN) / (RPM_MAX - RPM_MIN);
+	t = std::max(0.0f, std::min(1.0f, t));
+	float angle = START_ANGLE + SWEEP_ANGLE * t;
 	
-	if (rpm <= RPM_NOON) {
-		// Segment 1: Idle (7 o'clock) to Noon (12 o'clock) - CLOCKWISE UP
-		float t = (rpm - RPM_MIN) / (RPM_NOON - RPM_MIN);
-		t = std::max(0.0f, std::min(1.0f, t));
-		
-		needleEndX = static_cast<int>(RPM_IDLE_X + (RPM_NOON_X - RPM_IDLE_X) * t);
-		needleEndY = static_cast<int>(RPM_IDLE_Y + (RPM_NOON_Y - RPM_IDLE_Y) * t);
-	} else if (rpm <= RPM_REDLINE) {
-		// Segment 2: Noon (12 o'clock) to Redline (3 o'clock) - CLOCKWISE RIGHT
-		float t = (rpm - RPM_NOON) / (RPM_REDLINE - RPM_NOON);
-		t = std::max(0.0f, std::min(1.0f, t));
-		
-		needleEndX = static_cast<int>(RPM_NOON_X + (RPM_REDLINE_X - RPM_NOON_X) * t);
-		needleEndY = static_cast<int>(RPM_NOON_Y + (RPM_REDLINE_Y - RPM_NOON_Y) * t);
-	} else {
-		// Segment 3: Redline (3 o'clock) to Max (5 o'clock) - CLOCKWISE DOWN
-		float t = (rpm - RPM_REDLINE) / (RPM_MAX - RPM_REDLINE);
-		t = std::max(0.0f, std::min(1.0f, t));
-		
-		needleEndX = static_cast<int>(RPM_REDLINE_X + (RPM_MAX_X - RPM_REDLINE_X) * t);
-		needleEndY = static_cast<int>(RPM_REDLINE_Y + (RPM_MAX_Y - RPM_REDLINE_Y) * t);
-	}
+	// Calculate needle start position (outside centerpoint) and end position
+	int needleStartX = NEEDLE_CENTER_X + static_cast<int>(CENTERPOINT_RADIUS * cos(angle));
+	int needleStartY = NEEDLE_CENTER_Y - static_cast<int>(CENTERPOINT_RADIUS * sin(angle));
+	int needleEndX = NEEDLE_CENTER_X + static_cast<int>(NEEDLE_RADIUS * cos(angle));
+	int needleEndY = NEEDLE_CENTER_Y - static_cast<int>(NEEDLE_RADIUS * sin(angle));
 	
-	// Draw the needle line
-	SDL_RenderDrawLine(renderer, NEEDLE_CENTER_X, NEEDLE_CENTER_Y, needleEndX, needleEndY);
+	// Draw the needle (brown/orange color #604000) starting outside centerpoint
+	SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
+	SDL_RenderDrawLine(renderer, needleStartX, needleStartY, needleEndX, needleEndY);
 }
 
 SDL_Surface* Racing::GetSurface() {
@@ -1799,7 +1772,7 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
                 srcRect = {0, 0, surface->w, surface->h};
             }
             
-            // Position sign centered on horizontal bar (1:1 pixel mapping, no scaling)
+            // Position sign centered on horizontal bar
             int signX = roadCenterX - srcRect.w / 2;
             int signY = barTopY + (barHeight - srcRect.h) / 2;
             
@@ -1832,8 +1805,7 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
                 dstRect.h -= overflow;
             }
             
-            if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
-                // Blit sign frame at 1:1 scale (no SDL_BlitScaled!)
+            if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {                
                 SDL_BlitSurface(signBitmap->GetSurface(), &srcRect, pixels, &dstRect);
             }
         }
