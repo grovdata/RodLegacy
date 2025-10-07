@@ -22,8 +22,13 @@ void Driving::Init(bool debugMode) {
     SDL_Log("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
     
-    // Load dashboard using asset system
-    auto dashboard = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1});
+    
+    auto dashboard = [&]() {        
+        StandardCarColor carColor = state.GetCurrentCar()->GetColor();
+        std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+        byte_vector& libFile = state.assets.GetLibPData();
+        return state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, carPalette);    
+    }();
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
     AddDrawable("dashboard", std::shared_ptr<IDrawable>(dashboard));
@@ -242,6 +247,7 @@ void Driving::LoadTrackData() {
                 // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
                 bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                 racing->SetTransmissionType(isAutomatic);
+                racing->SetTransmissionType(false);
                 SDL_Log("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
             }
         }
@@ -409,8 +415,7 @@ void Driving::Draw() {
     }
 
     // Update clock visibility based on transmission type
-    Car* currentCar = state.GetCurrentCar();
-    bool isAutomatic = (currentCar && currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+    bool isAutomatic = racing && racing->IsAutomatic();
     
     auto clockDrawable = GetDrawable("clock");
     if (clockDrawable) {

@@ -190,10 +190,13 @@ std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, u
 }
 
 std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data, 
-    BitmapEntry_t entry, const Palette& palette, const Palette& carPalette) {
+    BitmapEntry_t entry, const Palette& palette, const Palette& carPalette, int assetIndex) {
     std::vector<SrLibColor> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
+    
+    // Special handling for dashboard and hood - only replace magenta placeholder colors
+    bool useMagentaDetection = (assetIndex == 11 || assetIndex == 19);  // RACING_INTERIOR_1, RACING_HOOD
 
     for (int y = 0; y < entry.height; ++y) {
         for (int x = 0; x < entry.width; x += 8) {
@@ -211,7 +214,20 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                 // Determine which palette to use
                 bool useLowerRange = value >= 1 && value <= 9;
                 bool useUpperRange = value >= 33 && value <= 41;
-                bool useCarPalette = !carPalette.empty() && (useLowerRange || useUpperRange);
+                bool useCarPalette = false;
+                
+                if (!carPalette.empty() && (useLowerRange || useUpperRange)) {
+                    if (useMagentaDetection && value < palette.size()) {
+                        // For dashboard/hood: only replace magenta colors
+                        const SrLibColor& baseColor = palette[value];
+                        // Magenta has high red (>128) and blue (>128), but low green (<64)
+                        useCarPalette = (baseColor.r > 128 && baseColor.b > 128 && baseColor.g < 64);
+                    } else {
+                        // For other car bitmaps: replace all colors in range 1-9 or 33-41
+                        useCarPalette = true;
+                    }
+                }
+                
                 const Palette& selectedPalette = useCarPalette ? carPalette : palette;
                 
                 // Ensure value is within bounds of the selected palette

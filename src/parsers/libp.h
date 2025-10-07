@@ -884,7 +884,7 @@ class BitmapParser {
 
     std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::vector<uint8_t>& data);
 	std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::string& filename);
-    std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {});
+    std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1);
     std::vector<uint8_t>                                 GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     std::vector<uint8_t>                                 GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     std::vector<uint8_t>                                 UnpackData(const std::vector<std::pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const std::vector<uint8_t> &data);

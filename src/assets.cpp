@@ -232,7 +232,7 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
     Palette pal = bp.PreparePalette(palData, true);
-    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette, index);
 
     Asset a;
     a.id = index;
@@ -294,7 +294,7 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     Palette basePal = bp.PreparePalette(palData, true);
     
     // Use provided car palette for color ranges
-    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette, index);
     
     Asset a;
     a.id = index;
