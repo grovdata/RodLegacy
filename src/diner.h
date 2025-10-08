@@ -48,6 +48,8 @@ class Diner: public CarScene {
     double waitressAnimTime = 0.0;
     double waitressPauseTime = 2.0; // 2 second pause
     double waitressSpeed = 100.0; // pixels per second
+    bool engineSoundStarted = false;
+    double debugWaitTimer = 0.0;
 
     public:
         Diner();
@@ -63,11 +65,14 @@ class Diner: public CarScene {
         // void SetStatusBar(char *text) override;
 
         void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
+        void UpdateCarAnimation(double deltaTime) override;
         void UpdateAnimation(double deltaTime);
         void UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight);
 
 
         void UpdateDebugInfo() override;
+        void OnCarAnimationComplete() override;
+        void OnCarExitComplete() override;
 
         void PushEvent(SDL_Event *event) override;
 
