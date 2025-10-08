@@ -630,21 +630,32 @@ void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType
     
     SDL_Log("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
     
-    // Call parent method to start engine sound and set up animation
-    CarScene::StartAnimateCar(car, driver, animType);
-    
-    // Garage-specific setup
-    // Create initial car bitmap
+    // Garage-specific setup BEFORE calling parent
+    // Create/get car bitmap
     carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
-    carx = -GAME_WIDTH;
     cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
+    
+    // Set initial position based on animation type
+    if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
+        // Reverse: start at idle position (car is already visible)
+        SDL_Point idlePos = GetCarIdlePosition();
+        carx = idlePos.x;
+        SDL_Log("Garage::StartAnimateCar - Reverse animation, car at idle x=%d", carx);
+    } else {
+        // Drive in: start off-screen left
+        carx = -GAME_WIDTH;
+        SDL_Log("Garage::StartAnimateCar - Drive in animation, car off-screen x=%d", carx);
+    }
+    
     carBitmap->Move({carx, cary});
+    
+    // Call parent method to start engine sound and set up animation
+    // Parent will NOT override our position for reverse animations
+    CarScene::StartAnimateCar(car, driver, animType);
     
     // Update sign for initial car
     UpdateSign();
     
-    // Set animation state (carAnimationTime is reset by parent)
-    animatingCar = true;
     currentAnimationType = animType;
     SDL_Log("Garage::StartAnimateCar - Animation started");
 }

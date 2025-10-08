@@ -419,7 +419,17 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         if (carBitmap == nullptr) {
             carBitmap = new CarBitmap(car, driver, car->GetColor());
         }
-        carx = -GAME_WIDTH;
+        
+        // Set initial position based on animation type
+        if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
+            // Reverse: start at idle position (car is already visible)
+            SDL_Point idlePos = GetCarIdlePosition();
+            carx = idlePos.x;
+        } else {
+            // Forward: start off-screen left
+            carx = -GAME_WIDTH;
+        }
+        
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
         carBitmap->Move({carx, cary});
         carAnimationTime = 0;  // Reset animation timer
