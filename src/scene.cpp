@@ -380,17 +380,23 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         audioManager->StopLoop(0);
         SDL_Log("StartAnimateCar: Stopped existing audio");
         
+        // Reset engine start timer
+        waitingForEngineStart = false;
+        engineStartTimer = 0;
+        
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
-            // Reverse out: play engine start sample, then loop at constant pitch
+            // Reverse out: play engine start sample FIRST, then loop after delay
             // Engine start: 2000 bytes at 11186 Hz = ~179ms duration
             SDL_Log("StartAnimateCar: Playing ENGINE_START sample for reverse");
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
             
-            // Start loop after a short delay (engine start sample duration)
-            // For now, start immediately - the queue will play them in sequence
-            SDL_Log("StartAnimateCar: Starting ENGINE_LOOP for reverse at period 605");
-            audioManager->UpdateEnginePeriod(605);  // Set period BEFORE starting
-            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+            // Set flag to wait for engine start to finish
+            waitingForEngineStart = true;
+            engineStartTimer = 0;
+            
+            // Pre-configure the engine loop period (will start after delay)
+            audioManager->UpdateEnginePeriod(605);
+            SDL_Log("StartAnimateCar: Will start ENGINE_LOOP after %.3fs", ENGINE_START_DURATION);
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
             // Driving in: start at high pitch (period 320), drop to low (period 800)
             SDL_Log("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 320");
@@ -472,11 +478,27 @@ int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
 void CarScene::UpdateCarAnimation(double deltaTime) {
     // SDL_Log("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
     //         isPaused, exitingCar, animatingCar);
+    
+    // Handle engine start delay (for reverse out)
+    if (waitingForEngineStart) {
+        engineStartTimer += deltaTime;
+        if (engineStartTimer >= ENGINE_START_DURATION) {
+            // Engine start sample finished, now start the loop
+            waitingForEngineStart = false;
+            if (audioManager) {
+                SDL_Log("UpdateCarAnimation: Engine start finished, starting loop at period 605");
+                audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+            }
+        } else {
+            // Still waiting for engine start sample to finish - don't move car yet
+            return;
+        }
+    }
             
     if (!isPaused) {
         if (exitingCar) {            
             carExitAnimationTime += deltaTime;
-            const double exitDuration = 2.5;
+            const double exitDuration = 3.5;  // Slowed down from 2.5
             
             double t = carExitAnimationTime / exitDuration;
             t = std::min(1.0, t);
@@ -522,7 +544,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
         } else if (animatingCar) {
             // SDL_Log("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
             carAnimationTime += deltaTime;
-            const double duration = 2.0;
+            const double duration = 3.0;  // Slowed down from 2.0
             double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
             
             SDL_Point idlePos = GetCarIdlePosition();

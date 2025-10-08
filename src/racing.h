@@ -30,9 +30,10 @@ private:
 	SDL_Color darkGreen = { 0, 119, 0, 255 };
 	SDL_Color grey = { 200, 200, 200, 255 };
 
-	HUD* hud;
-	SDL_Surface* pixels;
-	AudioManager* audioManager;
+	HUD* hud = nullptr;
+	SDL_Surface* pixels = nullptr;
+	AudioManager* audioManager = nullptr;
+	bool engineSoundStarted = false;  // Track if engine sound has been started for this race
 
 	float fDistance = 0.0f;			// Distance car has travelled around track
 	float fCurvature = 0.0f;		// Current track curvature, lerped between track sections

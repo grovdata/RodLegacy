@@ -7,7 +7,7 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <cmath>
 #include <memory>
 
-Racing::Racing() : audioManager(nullptr) {
+Racing::Racing() {
         #if SDL_BYTEORDER == SDL_BIG_ENDIAN
             const Uint32 rmask = 0xff000000;
             const Uint32 gmask = 0x00ff0000;
@@ -54,14 +54,7 @@ Racing::Racing() : audioManager(nullptr) {
 Racing::Racing(AudioManager* audioMgr) : Racing() {
 	audioManager = audioMgr;
 	SDL_Log("Racing: Audio manager initialized (%p)", audioManager);
-	
-	// Start engine sound for racing
-	if (audioManager) {
-		int channel = audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);  // Louder for testing
-		SDL_Log("Racing: Engine sound started on channel %d", channel);
-	} else {
-		SDL_Log("Racing: ERROR - audioManager is NULL!");
-	}
+	// Note: Don't start engine sound here - it's started in the first Draw() call
 }
 
 Racing::~Racing() {
@@ -71,7 +64,10 @@ Racing::~Racing() {
 		SDL_Log("Racing: Engine sound stopped");
 	}
 	
-	delete hud;
+	if (hud) {
+		delete hud;
+		hud = nullptr;
+	}
 	// Note: audioManager is not owned by Racing, so don't delete it
 }
 
@@ -83,6 +79,13 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	if (firstUpdate) {
 		deltaTime = 1.0f / 60.0f; // Default to 60 FPS on first update
 		firstUpdate = false;
+		
+		// Start engine sound on first draw (when race actually begins)
+		if (audioManager && !engineSoundStarted) {
+			audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
+			SDL_Log("Racing: Engine sound started");
+			engineSoundStarted = true;
+		}
 	} else {
 		deltaTime = (currentTime - lastUpdateTime) / 1000.0f;
 		// Cap delta time to prevent huge jumps

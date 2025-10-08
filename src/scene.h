@@ -110,9 +110,12 @@ private:
     double carAnimationTime = 0;
     double carExitAnimationTime = 0;
     double waitTimer = 0;
+    double engineStartTimer = 0;  // Timer for engine start sample duration
     bool exitingCar = false;
+    bool waitingForEngineStart = false;  // True when playing engine start sample
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
+    const double ENGINE_START_DURATION = 0.179;  // Engine start sample duration in seconds
     bool isPaused = false;
 
 protected:

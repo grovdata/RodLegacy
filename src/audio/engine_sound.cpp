@@ -40,6 +40,10 @@ bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
     // Store the obtained audio spec for later use
     audioSpec = obtained;
     
+    // Initialize to a safe default frequency (period 320 = 11186 Hz)
+    // This prevents high-pitched glitch if callback runs before UpdateEnginePeriod is called
+    currentFreqMultiplier = 0.699f;  // 11186 Hz / 16000 Hz
+    
     // Create audio stream for resampling (pitch shifting)
     audioStream = SDL_NewAudioStream(
         AUDIO_S8, 1, 16000,           // Source: 8-bit signed mono at 16000Hz (our sample rate)
@@ -53,7 +57,8 @@ bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
         return false;
     }
     
-    SDL_Log("Engine sound initialized: %zu bytes, device freq=%d", baseSample.size(), obtained.freq);
+    SDL_Log("Engine sound initialized: %zu bytes, device freq=%d, initial mult=%.3f", 
+            baseSample.size(), obtained.freq, currentFreqMultiplier);
     return true;
 }
 
@@ -72,10 +77,10 @@ void EngineSound::Shutdown() {
 void EngineSound::Start() {
     if (playing || audioDevice == 0) return;
     
+    SDL_Log("EngineSound::Start - freqMult=%.3f", currentFreqMultiplier);
     playing = true;
     samplePosition = 0;
     SDL_PauseAudioDevice(audioDevice, 0);  // Unpause
-    SDL_Log("Engine sound started");
 }
 
 void EngineSound::Stop() {
@@ -97,6 +102,7 @@ void EngineSound::UpdatePeriod(int16_t period) {
     // Then calculate multiplier relative to base sample rate (16000 Hz)
     float frequency = 3579545.0f / period;
     currentFreqMultiplier = frequency / 16000.0f;
+    // SDL_Log("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
 }
 
 void EngineSound::SetVolume(float volume) {
