@@ -45,6 +45,8 @@ private:
 	float fSpeed = 0.0f;			// Current player speed
 	bool bCrashed = false;			// Whether the car has crashed
 	float fCrashRecoveryTime = 0.0f;	// Time to recover from crash
+	bool bShowCrashOverlay = false;		// Whether to show crash overlay
+	float fCrashOverlayTime = 0.0f;		// Time crash overlay has been shown
 	
 	// Physics variables (based on Street Rod assembly analysis)
 	int16_t velocity = 1500;		// Current velocity/RPM value (1500 = idle, 5700 = redline)
@@ -200,5 +202,9 @@ public:
     int16_t GetVelocity() const { return velocity; }
     bool IsTransmissionDamaged() const { return transmissionDamage > 0; }
     bool IsAutomatic() const { return isAutomatic; }
+    
+    // Crash overlay state
+    bool ShouldShowCrashOverlay() const { return bShowCrashOverlay; }
+    void HideCrashOverlay() { bShowCrashOverlay = false; }
     
 };

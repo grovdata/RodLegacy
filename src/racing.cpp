@@ -100,8 +100,16 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// Handle crash recovery
 	if (bCrashed) {
 		fCrashRecoveryTime -= deltaTime;
+		if (bShowCrashOverlay) {
+			fCrashOverlayTime += deltaTime;
+			// Hide overlay after 3 seconds
+			if (fCrashOverlayTime >= 3.0f) {
+				bShowCrashOverlay = false;
+			}
+		}
 		if (fCrashRecoveryTime <= 0.0f) {
 			bCrashed = false;
+			bShowCrashOverlay = false; // Hide overlay when crash recovery is complete
 			velocity = 1500; // Reset to idle RPM
 			fSpeed = 0.0f;
 			fCarPos *= 0.5f; // Move car back toward center
@@ -1217,6 +1225,8 @@ void Racing::HandleCrash() {
 	
 	bCrashed = true;
 	fCrashRecoveryTime = 2.0f; // 2 second crash recovery time
+	bShowCrashOverlay = true; // Show crash overlay
+	fCrashOverlayTime = 0.0f; // Reset overlay timer
 	
 	SDL_Log("💥 CRASH! Speed: %.2f, Car Position: %.2f", fSpeed, fCarPos);
 }
@@ -2201,3 +2211,4 @@ void Racing::DrawOpponent() {
         SDL_BlitSurface(spriteSurface, &srcRect, pixels, &dstRect);
     }
 }
+

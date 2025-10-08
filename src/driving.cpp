@@ -167,6 +167,17 @@ void Driving::Init(bool debugMode) {
 
     SetState(DRIVING_STATE_NORMAL);
     
+    // Load crash overlay bitmap with current car's color palette
+    StandardCarColor carColor = state.GetCurrentCar()->GetColor();
+    std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+    byte_vector& libFile = state.assets.GetLibPData();
+    auto crashOverlayAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, carPalette);
+    if (crashOverlayAsset) {
+        crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
+        crashOverlayBitmap->SetVisible(false); // Initially hidden
+        crashOverlayBitmap->SetPosition(0, 18);
+    }
+    
     // Load track data for debugging/development
     LoadTrackData();
 }
@@ -321,6 +332,9 @@ void Driving::SetState(DrivingState state) {
             wheelTurningRight->SetVisible(true);
             wheelTurningRightOpposite->SetVisible(true);
             break;
+        case DRIVING_STATE_CRASHED:
+            // All wheels are already hidden, do nothing
+            break;
     }
 }
 
@@ -437,6 +451,27 @@ void Driving::Draw() {
         }
         racing->DrawSpeedometerNeedleToRenderer(renderer);
     }
+    
+    // Handle crash state - set proper driving state
+    bool isCrashed = racing && racing->ShouldShowCrashOverlay();
+    
+    // Only change state when crash state changes
+    if (isCrashed != lastCrashState) {
+        if (isCrashed) {
+            SetState(DRIVING_STATE_CRASHED);
+        } else {
+            SetState(DRIVING_STATE_NORMAL);
+        }
+        lastCrashState = isCrashed;
+    }
+    
+    // Handle crash overlay
+    if (isCrashed) {
+        DrawCrashOverlay();
+    } else if (crashOverlayBitmap && crashOverlayBitmap->IsVisible()) {
+        // Hide crash overlay when crash is over
+        crashOverlayBitmap->SetVisible(false);
+    }
 }
 
 void Driving::PushEvent(SDL_Event *event) {
@@ -503,3 +538,11 @@ void Driving::PushEvent(SDL_Event *event) {
 //     d->racing->Draw(state.GetElapsedTime() / 1000.0f, d->lastEvent);
 //     return interval;
 // }
+
+void Driving::DrawCrashOverlay() {
+    // Show the crash overlay bitmap
+    if (crashOverlayBitmap) {
+        crashOverlayBitmap->SetVisible(true);
+        crashOverlayBitmap->Draw();
+    }
+}

@@ -196,7 +196,7 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
     int planeSize = (entry.width / 8) * entry.height;
     
     // Special handling for dashboard and hood - only replace magenta placeholder colors
-    bool useMagentaDetection = (assetIndex == 11 || assetIndex == 19);  // RACING_INTERIOR_1, RACING_HOOD
+    bool useMagentaDetection = (assetIndex == 3 || assetIndex == 11 || assetIndex == 19);  // RACING_INTERIOR_1, RACING_HOOD
 
     for (int y = 0; y < entry.height; ++y) {
         for (int x = 0; x < entry.width; x += 8) {
