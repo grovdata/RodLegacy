@@ -125,6 +125,8 @@ cpp_sources = [
     'parsers/carcolor.cpp',
     'roster.cpp',
     'debug_overlay.cpp',
+    'audio/audio_manager.cpp',
+    'audio/engine_sound.cpp',
     'ui/button.cpp',
     'ui/bubble.cpp',
     'ui/label.cpp',

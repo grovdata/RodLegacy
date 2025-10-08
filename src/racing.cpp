@@ -7,8 +7,7 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <cmath>
 #include <memory>
 
-Racing::Racing() {
-
+Racing::Racing() : audioManager(nullptr) {
         #if SDL_BYTEORDER == SDL_BIG_ENDIAN
             const Uint32 rmask = 0xff000000;
             const Uint32 gmask = 0x00ff0000;
@@ -50,12 +49,30 @@ Racing::Racing() {
 
 		listLapTimes = { 0,0,0,0,0 };
 		fCurrentLapTime = 0.0f;
-
-
 	}
 
+Racing::Racing(AudioManager* audioMgr) : Racing() {
+	audioManager = audioMgr;
+	SDL_Log("Racing: Audio manager initialized (%p)", audioManager);
+	
+	// Start engine sound for racing
+	if (audioManager) {
+		int channel = audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);  // Louder for testing
+		SDL_Log("Racing: Engine sound started on channel %d", channel);
+	} else {
+		SDL_Log("Racing: ERROR - audioManager is NULL!");
+	}
+}
+
 Racing::~Racing() {
+	// Stop engine sound when exiting race
+	if (audioManager) {
+		audioManager->StopLoop(0);  // Channel 0 is engine sound
+		SDL_Log("Racing: Engine sound stopped");
+	}
+	
 	delete hud;
+	// Note: audioManager is not owned by Racing, so don't delete it
 }
 
 void Racing::Draw(float fElapsedTime, SDL_Event *event) {
@@ -436,6 +453,12 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	
 	// Draw overhead sign bitmaps after unlocking
 	DrawOverheadSignBitmaps(fDistance);
+	
+	// Update and draw opponent
+	if (opponentActive) {
+		UpdateOpponent(deltaTime);
+		DrawOpponent();
+	}
 
 	// Draw Car - car position on road is proportional to difference between
 	// current accumulated track curvature, and current accumulated player curvature
@@ -1268,6 +1291,11 @@ void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
 	// Update RPM (same as velocity in this game)
 	UpdateRPM();
 	
+	// Update engine sound pitch
+	if (audioManager) {
+		audioManager->UpdateEnginePitch(rpm);
+	}
+	
 	// Check for transmission damage
 	UpdateTransmissionDamage();
 	
@@ -1820,5 +1848,353 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
                 SDL_BlitSurface(signBitmap->GetSurface(), &srcRect, pixels, &dstRect);
             }
         }
+    }
+}
+
+// ============================================================================
+// OPPONENT CAR IMPLEMENTATION
+// ============================================================================
+
+// Helper to load opponent sprite with modified palette (palette index 7 = car color)
+std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
+    byte_vector& libFile = state.assets.GetLibPData();
+    BitmapParser bp;
+    
+    // Get the bitmap entry and raw image data
+    auto imageEntries = state.assets.GetImageEntries();
+    BitmapEntry_t entry = imageEntries.second[spriteId];
+    std::vector<uint8_t> data = bp.ReadImage(libFile, entry, spriteId, imageEntries.first);
+    
+    // Get the original palette
+    std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, spriteId);
+    
+    // Modify palette index 7 to be the opponent's car color
+    std::vector<uint16_t> opponentCarPalette = GetStandardCarColor(opponentColor);
+    if (opponentCarPalette.size() > 7) {
+        palData[7] = opponentCarPalette[7];  // Replace palette index 7 with opponent's color
+    }
+    
+    // Convert modified palette and create bitmap
+    Palette pal = bp.PreparePalette(palData, true);
+    Palette emptyCarPalette;  // No car palette replacement needed
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, entry, pal, emptyCarPalette, spriteId);
+    
+    std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
+    bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height);
+    bitmap->SetDimensions(entry.width, entry.height);
+    
+    return bitmap;
+}
+
+void Racing::LoadOpponentCarSprites() {
+    printf("Racing: Loading opponent car sprites (Type=%d, Color=%d)...\n", 
+           opponentCarType, static_cast<int>(opponentColor));
+    
+    // Load sprites with palette index 7 modified to opponent's car color
+    
+    // Only load sprites for the specific car type to save memory
+    switch (opponentCarType) {
+        case 0: // Chevy
+            printf("Racing: Loading Chevy opponent sprites...\n");
+            opponentChevyFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE);
+            opponentChevyRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_REAR_SIDE);
+            
+            for (int i = 0; i < 7; i++) {
+                opponentChevyRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_REAR_1 + i);
+            }
+            
+            for (int i = 0; i < 4; i++) {
+                opponentChevyBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_BEHIND_1 + i);
+            }
+            break;
+            
+        case 1: // Chrysler
+            printf("Racing: Loading Chrysler opponent sprites...\n");
+            opponentChryslerFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE);
+            opponentChryslerRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_REAR_SIDE);
+            
+            for (int i = 0; i < 7; i++) {
+                opponentChryslerRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_REAR_1 + i);
+            }
+            
+            for (int i = 0; i < 4; i++) {
+                opponentChryslerBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_BEHIND_1 + i);
+            }
+            break;
+            
+        case 2: // Cop
+            printf("Racing: Loading Cop opponent sprites...\n");
+            opponentCopFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_FRONT_SIDE);
+            opponentCopRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_REAR_SIDE);
+            
+            for (int i = 0; i < 7; i++) {
+                opponentCopRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_REAR_1 + i);
+            }
+            
+            for (int i = 0; i < 4; i++) {
+                opponentCopBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_BEHIND_1 + i);
+            }
+            break;
+            
+        default:
+            printf("Racing: Unknown opponent car type %d, defaulting to Chevy\n", opponentCarType);
+            opponentCarType = 0;
+            LoadOpponentCarSprites(); // Recursively load with corrected type
+            return;
+    }
+    
+    printf("Racing: Opponent car sprites loaded successfully\n");
+}
+
+void Racing::InitializeOpponent() {
+    printf("Racing: Initializing opponent...\n");
+    
+    // Get current opponent from state
+    Opponent* opponent = state.GetCurrentOpponent();
+    if (!opponent || !opponent->car) {
+        printf("Racing: No opponent found, disabling opponent\n");
+        opponentActive = false;
+        return;
+    }
+    
+    // Set opponent properties
+    opponentActive = true;
+    opponentDistance = 0.0f;   // Start at same position as player (fair start)
+    opponentSpeed = 0.2f;      // Start at low speed so player can catch up
+    opponentCarPos = 0.0f;     // Start in center of road
+    
+    // Get opponent car color
+    opponentColor = opponent->car->GetColor();
+    
+    // Determine opponent car sprite type based on car vendor
+    CarModel opponentModel = opponent->car->GetModel();
+    CarVendor_t vendor = opponentModel.vendor;
+    
+    // Map vendor to opponent sprite type
+    // 0 = Chevy sprites (GM cars)
+    // 1 = Chrysler sprites (Chrysler/Dodge/Plymouth/Valiant cars)
+    // Cop (type 2) ignored for now as requested
+    switch (vendor) {
+        case CarVendorGM:  // GM = Chevrolet, Oldsmobile, Pontiac
+            opponentCarType = 0;
+            break;
+        case CarVendorChrysler:  // Chrysler = Dodge, Plymouth, Valiant
+            opponentCarType = 1;
+            break;
+        case CarVendorFord:  // Ford, Mercury, Thunderbird
+        case CarVendorCustom:
+        case CarVendorUnknown:
+        default:
+            // Default to Chevy sprites for Ford and other vendors
+            opponentCarType = 0;
+            break;
+    }
+    
+    printf("Racing: Opponent initialized - Type=%d, Color=%d\n", opponentCarType, static_cast<int>(opponentColor));
+    
+    // Load opponent sprites with the correct color
+    LoadOpponentCarSprites();
+}
+
+void Racing::UpdateOpponent(float deltaTime) {
+    if (!opponentActive) return;
+    
+    // Simple opponent AI: follow track with slight speed variation
+    // Keep opponent at moderate speed so player can catch up
+    const float OPPONENT_BASE_SPEED = 0.25f; // Slower - around 25% of max speed
+    const float OPPONENT_SKILL_VARIATION = 0.1f; // Allow for some variation (±5%)
+    
+    // Update opponent speed with some variation (simulates different driving skill)
+    static float skillTimer = 0.0f;
+    skillTimer += deltaTime;
+    if (skillTimer > 4.0f) { // Change speed every 4 seconds
+        skillTimer = 0.0f;
+        // Random variation between -0.5 and +0.5, scaled by OPPONENT_SKILL_VARIATION
+        float randomFactor = ((rand() % 100) / 100.0f) - 0.5f;
+        opponentSpeed = OPPONENT_BASE_SPEED + randomFactor * OPPONENT_SKILL_VARIATION;
+        
+        // Clamp to reasonable range (15-40% speed)
+        if (opponentSpeed < 0.15f) opponentSpeed = 0.15f;
+        if (opponentSpeed > 0.4f) opponentSpeed = 0.4f;
+    }
+    
+    // Move opponent along track (using same speed scaling as player)
+    opponentDistance += (105.0f * opponentSpeed) * deltaTime;
+    
+    // Handle lap completion
+    if (opponentDistance >= fTrackDistance) {
+        opponentDistance -= fTrackDistance;
+    }
+    
+    // Simple steering for opponent (follow track curvature with some variation)
+    // Opponent tries to stay near center with slight lateral movement
+    float targetCarPos = 0.0f; // Try to stay in center
+    opponentCarPos += (targetCarPos - opponentCarPos) * deltaTime * 2.0f;
+}
+
+void Racing::DrawOpponent() {
+    if (!opponentActive) return;
+    
+    // Calculate relative distance between player and opponent
+    float relativeDistance = opponentDistance - fDistance;
+    
+    // Handle wraparound for lap completion
+    if (relativeDistance > fTrackDistance / 2) {
+        relativeDistance -= fTrackDistance;
+    } else if (relativeDistance < -fTrackDistance / 2) {
+        relativeDistance += fTrackDistance;
+    }
+    
+    // Only draw if opponent is visible (within reasonable distance)
+    const float MAX_VISIBLE_DISTANCE = 200.0f;
+    if (fabs(relativeDistance) > MAX_VISIBLE_DISTANCE) {
+        return;
+    }
+    
+    // Determine which sprite to show based on relative position
+    // Note: REAR_1 = biggest (closest), REAR_7 = smallest (farthest)
+    // Distance thresholds are tight to keep opponent visible in windshield (not hidden by dashboard)
+    Bitmap* spriteToShow = nullptr;
+    
+    if (relativeDistance < -35.0f) {
+        // Player is far behind opponent - show REAR_7 to REAR_5 (smallest views)
+        // Tight distance range so opponent stays visible in windshield
+        float distRange = (-relativeDistance - 35.0f) / 20.0f; // 0.0 at -35, 1.0 at -55
+        distRange = std::min(1.0f, std::max(0.0f, distRange));
+        int rearFrame = 6 - static_cast<int>(distRange * 2.0f); // REAR_7 (6) to REAR_5 (4)
+        rearFrame = std::max(4, std::min(6, rearFrame));
+        
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
+            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
+            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+        }
+    } else if (relativeDistance < -20.0f) {
+        // Player is moderately behind - show REAR_5 to REAR_3 (medium views)
+        float distRange = (-relativeDistance - 20.0f) / 15.0f; // 0.0 at -20, 1.0 at -35
+        distRange = std::min(1.0f, std::max(0.0f, distRange));
+        int rearFrame = 4 - static_cast<int>(distRange * 2.0f); // REAR_5 (4) to REAR_3 (2)
+        rearFrame = std::max(2, std::min(4, rearFrame));
+        
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
+            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
+            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+        }
+    } else if (relativeDistance < -12.0f) {
+        // Player is getting closer - show REAR_3 to REAR_2
+        float distRange = (-relativeDistance - 12.0f) / 8.0f; // 0.0 at -12, 1.0 at -20
+        distRange = std::min(1.0f, std::max(0.0f, distRange));
+        int rearFrame = 2 - static_cast<int>(distRange); // REAR_3 (2) to REAR_2 (1)
+        rearFrame = std::max(1, std::min(2, rearFrame));
+        
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
+            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
+            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+        }
+    } else if (relativeDistance < -8.0f) {
+        // Player is close behind - show REAR_1 (biggest rear view)
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyRear[0].get(); break; // REAR_1 is index 0
+            case 1: spriteToShow = opponentChryslerRear[0].get(); break;
+            case 2: spriteToShow = opponentCopRear[0].get(); break;
+        }
+    } else if (relativeDistance < -3.0f) {
+        // Player is very close behind opponent - show REAR_SIDE (angled rear view)
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyRearSide.get(); break;
+            case 1: spriteToShow = opponentChryslerRearSide.get(); break;
+            case 2: spriteToShow = opponentCopRearSide.get(); break;
+        }
+    } else if (relativeDistance < 8.0f) {
+        // Player is beside opponent - show FRONT_SIDE view
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyFrontSide.get(); break;
+            case 1: spriteToShow = opponentChryslerFrontSide.get(); break;
+            case 2: spriteToShow = opponentCopFrontSide.get(); break;
+        }
+    } else {
+        // Player is ahead of opponent - show opponent BEHIND
+        // Use BEHIND_1 to BEHIND_4 based on distance (getting smaller)
+        float distRange = (relativeDistance - 8.0f) / 30.0f; // 0.0 at 8, 1.0 at 38
+        int behindFrame = std::min(3, std::max(0, static_cast<int>(distRange * 4.0f)));
+        
+        switch (opponentCarType) {
+            case 0: spriteToShow = opponentChevyBehind[behindFrame].get(); break;
+            case 1: spriteToShow = opponentChryslerBehind[behindFrame].get(); break;
+            case 2: spriteToShow = opponentCopBehind[behindFrame].get(); break;
+        }
+    }
+    
+    if (!spriteToShow || !spriteToShow->GetSurface()) {
+        return;
+    }
+    
+    // Calculate screen position for opponent
+    // Use similar perspective calculation as roadside sprites
+    float distance = fabs(relativeDistance);
+    float perspective = 1.0f - (distance / 100.0f);
+    if (perspective <= 0 || perspective > 1.0f) return;
+    
+    int horizonY = GAME_RACING_HEIGHT / 2;
+    int screenY = horizonY + static_cast<int>(perspective * (GAME_RACING_HEIGHT / 2));
+    if (screenY >= GAME_RACING_HEIGHT) return;
+    
+    // Calculate road width and position at this perspective
+    float fRoadWidth = 0.21f + perspective * 0.98f;
+    fRoadWidth *= 0.8f;
+    
+    float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
+    fMiddlePoint -= fCarPos * 0.25f; // Shift with player car position
+    
+    // Add opponent's lateral position offset
+    fMiddlePoint += opponentCarPos * 0.2f;
+    
+    int screenX = static_cast<int>(fMiddlePoint * GAME_WIDTH);
+    
+    // Get sprite dimensions
+    SDL_Surface* spriteSurface = spriteToShow->GetSurface();
+    int spriteWidth = spriteSurface->w;
+    int spriteHeight = spriteSurface->h;
+    
+    // Position sprite centered horizontally and on the ground
+    int drawX = screenX - spriteWidth / 2;
+    int drawY = screenY - spriteHeight;
+    
+    // Set up destination rectangle
+    SDL_Rect dstRect = {drawX, drawY, spriteWidth, spriteHeight};
+    SDL_Rect srcRect = {0, 0, spriteWidth, spriteHeight};
+    
+    // Clamp to screen bounds
+    SDL_Rect originalSrcRect = srcRect;
+    if (dstRect.x < 0) {
+        int leftClip = -dstRect.x;
+        srcRect.x = originalSrcRect.x + leftClip;
+        srcRect.w = originalSrcRect.w - leftClip;
+        dstRect.w += dstRect.x;
+        dstRect.x = 0;
+    }
+    if (dstRect.x + dstRect.w > GAME_WIDTH) {
+        int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
+        srcRect.w = originalSrcRect.w - overflow;
+        dstRect.w -= overflow;
+    }
+    if (dstRect.y < 0) {
+        int topClip = -dstRect.y;
+        srcRect.y = originalSrcRect.y + topClip;
+        srcRect.h = originalSrcRect.h - topClip;
+        dstRect.h += dstRect.y;
+        dstRect.y = 0;
+    }
+    if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
+        int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
+        srcRect.h = originalSrcRect.h - overflow;
+        dstRect.h -= overflow;
+    }
+    
+    // Draw the opponent car sprite
+    if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
+        SDL_BlitSurface(spriteSurface, &srcRect, pixels, &dstRect);
     }
 }

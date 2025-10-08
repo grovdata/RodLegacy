@@ -13,8 +13,10 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include <vector>
 #include "scene.h"
 #include "parsers/libp.h"
+#include "parsers/carcolor.h"
 #include "bitmap.h"
 #include "ui/hud.h"
+#include "audio/audio_manager.h"
 
 class Racing {
 
@@ -30,6 +32,7 @@ private:
 
 	HUD* hud;
 	SDL_Surface* pixels;
+	AudioManager* audioManager;
 
 	float fDistance = 0.0f;			// Distance car has travelled around track
 	float fCurvature = 0.0f;		// Current track curvature, lerped between track sections
@@ -93,6 +96,31 @@ private:
 	std::unique_ptr<Bitmap> signRoute69Sprite;      // ID 33
 	std::unique_ptr<Bitmap> signCityLimitsSprite;   // ID 34
 	std::unique_ptr<Bitmap> signExit48Sprite;       // ID 35
+	
+	// Opponent car sprites (3 car types: Chevy, Chrysler, Cop)
+	// Each car type has: FRONT_SIDE, REAR_SIDE, REAR_1-7, BEHIND_1-4
+	std::unique_ptr<Bitmap> opponentChevyFrontSide;
+	std::unique_ptr<Bitmap> opponentChevyRearSide;
+	std::unique_ptr<Bitmap> opponentChevyRear[7];     // REAR_1 to REAR_7
+	std::unique_ptr<Bitmap> opponentChevyBehind[4];   // BEHIND_1 to BEHIND_4
+	
+	std::unique_ptr<Bitmap> opponentChryslerFrontSide;
+	std::unique_ptr<Bitmap> opponentChryslerRearSide;
+	std::unique_ptr<Bitmap> opponentChryslerRear[7];
+	std::unique_ptr<Bitmap> opponentChryslerBehind[4];
+	
+	std::unique_ptr<Bitmap> opponentCopFrontSide;
+	std::unique_ptr<Bitmap> opponentCopRearSide;
+	std::unique_ptr<Bitmap> opponentCopRear[7];
+	std::unique_ptr<Bitmap> opponentCopBehind[4];
+	
+	// Opponent state
+	bool opponentActive = false;
+	float opponentDistance = 0.0f;         // Opponent's distance along track
+	float opponentSpeed = 0.5f;            // Opponent's speed (0-1)
+	float opponentCarPos = 0.0f;           // Opponent's lateral position
+	int opponentCarType = 0;               // 0=Chevy, 1=Chrysler, 2=Cop
+	StandardCarColor opponentColor = CarColorRed;  // Opponent's car color
 
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
@@ -119,6 +147,12 @@ private:
 	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
 	void DrawOverheadSignBitmaps(float currentDistance);
 	
+	// Opponent car management (internal methods)
+	void LoadOpponentCarSprites();
+	std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);  // Load sprite with modified palette index 7
+	void UpdateOpponent(float deltaTime);
+	void DrawOpponent();
+	
 	// Physics methods
 	void UpdatePhysics(float deltaTime, bool accelerating);
 	void ShiftGear(int direction);
@@ -134,6 +168,7 @@ private:
 public:
 
     Racing();
+    Racing(AudioManager* audioMgr);
     ~Racing();
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
@@ -148,6 +183,12 @@ public:
     
     // Car configuration
     void SetTransmissionType(bool automatic) { isAutomatic = automatic; }
+    
+    // Opponent configuration
+    void InitializeOpponent();  // Initialize opponent from current state
+    void SetOpponentActive(bool active) { opponentActive = active; }
+    void SetOpponentCarType(int carType) { opponentCarType = carType; }
+    void SetOpponentColor(StandardCarColor color) { opponentColor = color; }
     
     // Get current car speed for animations
     float GetSpeed() const { return fSpeed; }

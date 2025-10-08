@@ -18,6 +18,9 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
 void Diner::Init(bool debugMode) {
     CarScene::Init(debugMode);
 
+    // Set audio manager for engine sound
+    SetAudioManager(state.assets.GetAudioManager());
+
     roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
     SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
     roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));

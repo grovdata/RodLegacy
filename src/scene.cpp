@@ -370,12 +370,36 @@ void CarScene::Init(bool debugMode) {
 //}
 
 void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
-    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d)", animatingCar);
-    SDL_Log("CarScene::StartAnimateCar - Type: %d", animType);
+    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d, type=%d)", animatingCar, animType);
 
     currentAnimationType = animType;
     
-    // For reverse animation, we want to use the existing bitmap
+    // Stop any existing audio and restart for this animation
+    if (audioManager) {
+        // Always stop first to ensure clean restart
+        audioManager->StopLoop(0);
+        SDL_Log("StartAnimateCar: Stopped existing audio");
+        
+        if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
+            // Reverse out: play engine start sample, then loop at constant pitch
+            // Engine start: 2000 bytes at 11186 Hz = ~179ms duration
+            SDL_Log("StartAnimateCar: Playing ENGINE_START sample for reverse");
+            audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
+            
+            // Start loop after a short delay (engine start sample duration)
+            // For now, start immediately - the queue will play them in sequence
+            SDL_Log("StartAnimateCar: Starting ENGINE_LOOP for reverse at period 605");
+            audioManager->UpdateEnginePeriod(605);  // Set period BEFORE starting
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+        } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
+            // Driving in: start at high pitch (period 320), drop to low (period 800)
+            SDL_Log("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 320");
+            audioManager->UpdateEnginePeriod(320);  // Set period BEFORE starting (fixes high-pitch glitch)
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+        }
+    }
+    
+    // For reverse animation with existing bitmap, just start the animation
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
         SDL_Log("StartAnimateCar: Starting reverse animation with existing bitmap");
         carAnimationTime = 0;
@@ -392,11 +416,12 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         carx = -GAME_WIDTH;
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
         carBitmap->Move({carx, cary});
+        carAnimationTime = 0;  // Reset animation timer
         animatingCar = true;
         waitTimer = 0;
         needsNewAnimation = false;  // Reset flag
-        SDL_Log("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d", 
-                carx, cary, (int)animType, animatingCar);
+        SDL_Log("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d, time=%f", 
+                carx, cary, (int)animType, animatingCar, carAnimationTime);
     }
 }
 
@@ -415,6 +440,33 @@ void CarScene::DrawExtra() {
 void CarScene::UpdateDebugInfo() {
     if (!debugMode) return;
     Scene::UpdateDebugInfo();
+}
+
+// Helper function to get Amiga period for car animation based on progress
+// Based on emulator analysis: pitch DROPS during animation (period increases)
+// Car uses exponential easing, so it slows dramatically at 80%+
+int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
+    if (!isDrivingIn) {
+        // Reverse out: constant period around 605 (5916 Hz)
+        return 605;
+    }
+    
+    // Driving in: High pitch → Low pitch (period increases)
+    // Match the car's exponential slowdown curve
+    // Start at high pitch, drop to low as car slows
+    
+    if (progress < 0.6) {
+        // First 60%: Stay at medium-high pitch
+        return 320;  // ~11186 Hz
+    } else if (progress < 0.85) {
+        // 60-85%: Gradual drop as car slows
+        float t = (progress - 0.6f) / 0.25f;  // 0 to 1
+        return static_cast<int16_t>(320 + (t * (600 - 320)));  // 320 -> 600
+    } else {
+        // Last 15%: Final drop to low rumble as car settles
+        float t = (progress - 0.85f) / 0.15f;  // 0 to 1
+        return static_cast<int16_t>(600 + (t * (800 - 600)));  // 600 -> 800
+    }
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
@@ -442,11 +494,24 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 carBitmap->UpdateWheelAnimation(speed * deltaTime);
                 carBitmap->Move({carx, cary});
             }
+            
+            // Update engine sound based on animation progress (reverse out)
+            if (audioManager) {
+                // Reverse out: constant period 0x25D (605) = 5916 Hz
+                int16_t period = GetCarAnimationPeriod(t, false);
+                audioManager->UpdateEnginePeriod(period);
+            }
 
             if (carExitAnimationTime >= exitDuration) {
                 exitingCar = false;
                 carBitmap = nullptr;
                 carExitAnimationTime = 0;
+                
+                // Stop engine sound when animation completes
+                if (audioManager) {
+                    audioManager->StopLoop(0);  // Channel 0 is engine sound
+                }
+                
                 OnCarExitComplete();
                 
                 if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
@@ -484,10 +549,25 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 carBitmap->UpdateWheelAnimation(speed * deltaTime);
                 carBitmap->Move({carx, cary});
             }
+            
+            // Update engine sound based on animation progress (driving in)
+            if (audioManager) {
+                // Driving in: periods 605 -> 800 -> 128 (5916 Hz -> 4474 Hz -> 27965 Hz)
+                double progress = carAnimationTime / duration;
+                bool isDrivingIn = (currentAnimationType != CarAnimationType::SINGLE_CAR_REVERSE);
+                int16_t period = GetCarAnimationPeriod(progress, isDrivingIn);
+                audioManager->UpdateEnginePeriod(period);
+            }
 
             if (carAnimationTime >= duration) {
                 animatingCar = false;
                 carAnimationTime = 0;
+                
+                // Stop engine sound when animation completes  
+                if (audioManager) {
+                    audioManager->StopLoop(0);  // Channel 0 is engine sound
+                }
+                
                 OnCarAnimationComplete();
                 
                 // For OPPONENT_CONTINUOUS, start exit timer

@@ -8,8 +8,8 @@
 
 Driving::Driving() : Scene() {
     SDL_Log("Driving::Driving() constructor called\n");
-    // Create racing component
-    racing = std::make_unique<Racing>();
+    // Create racing component with audio manager
+    racing = std::make_unique<Racing>(state.assets.GetAudioManager());
     roadTexture = nullptr;
     lastEvent = nullptr;
     
@@ -250,6 +250,10 @@ void Driving::LoadTrackData() {
                 racing->SetTransmissionType(false);
                 SDL_Log("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
             }
+            
+            // Initialize opponent for the race
+            SDL_Log("Initializing race opponent...\n");
+            racing->InitializeOpponent();
         }
         
         SDL_Log("================================\n");

@@ -7,6 +7,7 @@
 #include "bitmap.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
+#include "audio/audio_manager.h"
 #include <vector>
 #include <memory>
 
@@ -115,6 +116,7 @@ private:
     bool isPaused = false;
 
 protected:
+    AudioManager* audioManager = nullptr;
     CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
     bool initialDelay = true;
     Uint64 fadeCompleteTime = 0;
@@ -125,6 +127,9 @@ protected:
     virtual void UpdateCarAnimation(double deltaTime);
     virtual void OnCarAnimationComplete() {};
     virtual void OnCarExitComplete() {}
+    
+    // Helper to get Amiga period for car animations
+    int16_t GetCarAnimationPeriod(double progress, bool isDrivingIn);
 
     bool needsNewAnimation = true;
 
@@ -140,6 +145,8 @@ public:
     virtual void PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;
     virtual void OnSceneExit() override;
+    
+    void SetAudioManager(AudioManager* audioMgr) { audioManager = audioMgr; }
 
     CarBitmap *carBitmap;
     bool animatingCar = false;

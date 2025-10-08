@@ -551,6 +551,17 @@ inline SpriteRect GetAnimationFrameRect(const SpriteAnimationInfo* info, uint8_t
 
 // Note: Convert SpriteRect to SDL_Rect manually in implementation files when needed
 
+// Opponent car sprite color palette index
+// Opponent car sprites use indexed colors. Palette index 7 contains the magenta 
+// placeholder color (#f000c0 / RGB: 240, 0, 192) that represents the car body.
+// To recolor an opponent car, replace palette[7] with the desired car color before
+// converting the sprite from planar to chunky format.
+constexpr uint8_t SR_OPPONENT_CAR_PALETTE_INDEX = 7;
+constexpr uint8_t SR_OPPONENT_MAGENTA_R = 240;
+constexpr uint8_t SR_OPPONENT_MAGENTA_G = 0;
+constexpr uint8_t SR_OPPONENT_MAGENTA_B = 192;
+constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for matching
+
 // Track data offsets in Street Rod binary
 constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
 constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 

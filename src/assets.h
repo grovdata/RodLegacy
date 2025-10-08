@@ -14,6 +14,7 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
+#include "audio/audio_manager.h"
 
 struct Asset {
     LibAssetType type;
@@ -71,6 +72,8 @@ public:
     byte_vector& GetLibStartData() { return libStartData_vec; }
     byte_vector& GetSrData() { return srData_vec; }
     byte_vector& GetSrExeData() { return srExeData_vec; }
+    
+    AudioManager* GetAudioManager() { return audioManager; }
 
 private:
     fs::path gameBasePath;
@@ -94,11 +97,14 @@ private:
     byte_vector srExeData_vec;
 
     std::map<StockPalette, Palette> stockPalettes;
+    
+    AudioManager* audioManager;
 
     void InitFonts();
     void InitMousePointers();
     void InitGameFiles();
     void InitStockPalettes();
+    void InitAudio();
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
 

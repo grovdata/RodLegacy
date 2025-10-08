@@ -41,6 +41,9 @@ GasStation::~GasStation() {
 void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
+    // Set audio manager for engine sound
+    SetAudioManager(state.assets.GetAudioManager());
+
     // Create a mask for gas pump
     auto maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);

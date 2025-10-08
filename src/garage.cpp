@@ -102,7 +102,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 
-    StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+    // Set audio manager for engine sound
+    SetAudioManager(state.assets.GetAudioManager());
+
+    // Don't start animation here - it will be started after initialDelay in Draw()
 
     std::vector<std::string> labels;
     for (const auto& car : state.GetOwnedCars()) {
@@ -511,6 +514,7 @@ void Garage::Draw() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
+            needsNewAnimation = true;  // Ensure parent's initialization logic runs
             
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
             animatingCar = true;
@@ -586,22 +590,15 @@ void Garage::OnCarAnimationComplete() {
     CarScene::OnCarAnimationComplete();
     if (pendingCar != nullptr) {
         state.SetCurrentCar(pendingCar);
-        // Get or create bitmap for pending car
-        CarBitmap* newBitmap = GetOrCreateCarBitmap(pendingCar);
-        
-        // Update scene's carBitmap pointer
-        carBitmap = newBitmap;
-        
-        carx = -GAME_WIDTH;
-        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), pendingCar->GetModel().index);
-        carBitmap->Move({carx, cary});
         
         UpdateSign();
         
+        // Mark that we need a new animation (important for parent's StartAnimateCar logic)
+        needsNewAnimation = true;
         
-        animatingCar = true;
-        currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
-        //carAnimationTime = 0;
+        // Start the drive-in animation for the new car (this will set up audio, bitmap, position, etc.)
+        SDL_Log("Garage::OnCarAnimationComplete - Starting drive-in animation for new car");
+        StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
         
         pendingCar = nullptr;
     }
@@ -628,11 +625,15 @@ Garage::~Garage() {
     carBitmaps.clear();
 }
 
-void Garage::StartAnimateCar(Car*, Driver*, CarAnimationType animType) {
-    
-    
+void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
     
+    SDL_Log("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
+    
+    // Call parent method to start engine sound and set up animation
+    CarScene::StartAnimateCar(car, driver, animType);
+    
+    // Garage-specific setup
     // Create initial car bitmap
     carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
     carx = -GAME_WIDTH;
@@ -642,7 +643,8 @@ void Garage::StartAnimateCar(Car*, Driver*, CarAnimationType animType) {
     // Update sign for initial car
     UpdateSign();
     
+    // Set animation state (carAnimationTime is reset by parent)
     animatingCar = true;
     currentAnimationType = animType;
-    //carAnimationTime = 0;
+    SDL_Log("Garage::StartAnimateCar - Animation started");
 }

@@ -13,7 +13,7 @@ extern "C" {
     #include "embedded_resources.h"
 }
 
-AssetManager::AssetManager() : carDecals(nullptr) {
+AssetManager::AssetManager() : carDecals(nullptr), audioManager(nullptr) {
 
 }
 
@@ -29,6 +29,9 @@ AssetManager::~AssetManager() {
     if (newspaperFont) {
         SDL_FreeSurface(newspaperFont->Surface);
         free(newspaperFont);
+    }
+    if (audioManager) {
+        delete audioManager;
     }
 }
 
@@ -158,6 +161,22 @@ void AssetManager::InitStockPalettes() {
     stockPalettes[StockPaletteAmigaDriving] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDriving), true);
 }
 
+void AssetManager::InitAudio() {
+    SDL_Log("Initializing audio system");
+    
+    audioManager = new AudioManager();
+    
+    fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
+    
+    if (!audioManager->Initialize(disk1Path.string().c_str())) {
+        SDL_Log("Warning: Audio initialization failed, continuing without audio");
+        delete audioManager;
+        audioManager = nullptr;
+    } else {
+        SDL_Log("Audio system initialized successfully");
+    }
+}
+
 void AssetManager::Init(const fs::path& validatedPath) {
     try {
         gameBasePath = validatedPath;        
@@ -168,6 +187,7 @@ void AssetManager::Init(const fs::path& validatedPath) {
         InitFonts();
         InitGameFiles();
         InitStockPalettes();
+        InitAudio();
     } catch (const AssetLoadError& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
         throw;
