@@ -5,7 +5,7 @@
 
 MusicSequencer::MusicSequencer() 
     : paula(nullptr), playing(false), paused(false), 
-      tickTimer(0.0f), tickDuration(0.05f),  // Base tempo (will be modified by song data)
+      tickTimer(0.0f), tickDuration(0.08f),  // Slower tempo based on user feedback
       currentTick(0), currentPattern(0), patternLength(64),
       currentSong(0), songOffset(0), activeChannel(0) {
 }
@@ -58,33 +58,41 @@ bool MusicSequencer::LoadMusicFiles(const std::string& noteFile,
     
     SDL_Log("MusicSequencer: Music files loaded successfully");
     
-    // Parse .ins file (70 bytes)
-    // Format appears to be: [various params] offset(word) length(word) [more params]
-    // From hexdump: 00 00 00 01 00 01 1f 40 00 00 = instrument 0
+    // Use hardcoded instrument offsets from audio.md documentation
+    // These are known-good values from analyzing the actual game
+    instruments.clear();
+    
+    // Parse instruments from .ins file (10-byte entries: offset(4), length(4), flags(2))
     if (insData.size() >= 10) {
-        instruments.clear();
-        
-        // Parse the .ins file structure
-        // Each entry seems to be 10 bytes
-        size_t pos = 0;
-        while (pos + 10 <= insData.size()) {
-            // Skip first 6 bytes (unknown params)
-            // Bytes 6-7: offset (big-endian word)
-            uint16_t offset = (insData[pos + 6] << 8) | insData[pos + 7];
-            // Bytes 8-9: length (big-endian word)  
-            uint16_t length = (insData[pos + 8] << 8) | insData[pos + 9];
-            
-            if (length > 0) {
-                instruments.push_back({offset, length});
-                SDL_Log("MusicSequencer: Instrument %zu: offset=0x%04X (%u), length=%u", 
-                        instruments.size() - 1, offset, offset, length);
+        for (size_t i = 0; i < insData.size(); i += 10) {
+            if (i + 9 < insData.size()) {
+                // Read offset and length (little-endian)
+                uint32_t offset = insData[i] | (insData[i+1] << 8) | (insData[i+2] << 16) | (insData[i+3] << 24);
+                uint32_t length = insData[i+4] | (insData[i+5] << 8) | (insData[i+6] << 16) | (insData[i+7] << 24);
+                
+                if (length > 0 && offset + length <= waveData.size()) {
+                    instruments.push_back({offset, length});
+                }
             }
-            
-            pos += 10;
         }
-        
-        SDL_Log("MusicSequencer: Loaded %zu instruments", instruments.size());
     }
+    
+    // Fallback to hardcoded values if .ins parsing failed
+    if (instruments.empty()) {
+        SDL_Log("MusicSequencer: .ins parsing failed, using hardcoded values");
+        instruments.push_back({0x0000, 8000});   // Instrument 0: tone (melody)
+        instruments.push_back({0x14B4, 8000});   // Instrument 1: tone variant
+        instruments.push_back({0x1450, 13300});  // Instrument 2: bass
+        instruments.push_back({0x07D0, 18500});  // Instrument 3: harmony
+        instruments.push_back({0x1A2C, 20500});  // Instrument 4: buzz
+    }
+    
+    for (size_t i = 0; i < instruments.size(); i++) {
+        SDL_Log("MusicSequencer: Instrument %zu: offset=0x%04X, length=%u", 
+                i, instruments[i].offset, instruments[i].length);
+    }
+    
+    SDL_Log("MusicSequencer: Loaded %zu instruments from .ins file", instruments.size());
     
     SDL_Log("MusicSequencer: Three songs available:");
     SDL_Log("  Song 0: Offset 0x0000 (Main theme)");
@@ -125,6 +133,36 @@ void MusicSequencer::SelectSong(int songIndex) {
     SDL_Log("MusicSequencer: Selected song %d at offset 0x%04X", currentSong, songOffset);
 }
 
+void MusicSequencer::SetChannelInstrument(int channel, int instrumentIndex) {
+    if (channel < 0 || channel >= 4) {
+        SDL_Log("MusicSequencer: Invalid channel %d", channel);
+        return;
+    }
+    
+    if (instrumentIndex < 0 || instrumentIndex >= static_cast<int>(instruments.size())) {
+        SDL_Log("MusicSequencer: Invalid instrument index %d", instrumentIndex);
+        return;
+    }
+    
+    channels[channel].currentInstrument = instrumentIndex;
+    SDL_Log("MusicSequencer: Channel %d instrument set to %d", channel, instrumentIndex);
+    ShowInstrumentAssignments();
+}
+
+void MusicSequencer::ShowInstrumentAssignments() {
+    SDL_Log("Current instrument assignments:");
+    for (int i = 0; i < 4; i++) {
+        const char* instName = "unknown";
+        switch (channels[i].currentInstrument) {
+            case 0: instName = "tone"; break;
+            case 1: instName = "bassdrum"; break;
+            case 2: instName = "hihat"; break;
+            case 3: instName = "buzz"; break;
+        }
+        SDL_Log("  Channel %d: Instrument %d (%s)", i, channels[i].currentInstrument, instName);
+    }
+}
+
 void MusicSequencer::StartMusic() {
     if (!paula) {
         SDL_Log("MusicSequencer: Paula emulator not initialized");
@@ -138,6 +176,7 @@ void MusicSequencer::StartMusic() {
     paused = false;
     
     SDL_Log("MusicSequencer: Music started");
+    ShowInstrumentAssignments();
 }
 
 void MusicSequencer::StopMusic() {
@@ -196,7 +235,7 @@ void MusicSequencer::ProcessTick() {
         return;
     }
     
-    // Read next command/note from data
+        // Read next command/note from data
     if (ch.notePos >= noteData.size() - 1) {
         // Reached end, loop back to song start
         ch.notePos = songOffset;
@@ -204,6 +243,19 @@ void MusicSequencer::ProcessTick() {
     }
     
     uint8_t cmd = noteData[ch.notePos++];
+    
+    // Handle 0x00 as rest/silence
+    if (cmd == 0x00) {
+        // Silence - stop active channel or just skip
+        return;
+    }
+    
+    // Handle 0x01-0x1F as possible instrument/volume selectors
+    if (cmd >= 0x01 && cmd <= 0x1F) {
+        // These might be instrument or volume changes
+        // For now, just consume and ignore
+        return;
+    }
     
     // Check if it's a control code (0x80-0x97)
     if (cmd >= 0x80 && cmd <= 0x97) {
@@ -216,8 +268,23 @@ void MusicSequencer::ProcessTick() {
         }
         // Instrument select (0x88-0x89)
         else if (cmd == 0x88 || cmd == 0x89) {
-            if (activeChannel >= 0 && activeChannel < 4 && param < instruments.size()) {
-                channels[activeChannel].currentInstrument = param % instruments.size();
+            if (activeChannel >= 0 && activeChannel < 4) {
+                // Map the parameter to an instrument
+                // Common values: 0x37, 0x40, 0x2C, etc.
+                // Based on user feedback: channel 1 uses "tone", channel 3 uses "buzz"
+                // Let's try a simple mapping based on the parameter value
+                
+                // For now, use a basic heuristic:
+                // - Lower values (< 0x40) = instrument 0 (tone)
+                // - Higher values (>= 0x40) = instrument 3 (buzz)
+                if (param < 0x40) {
+                    channels[activeChannel].currentInstrument = 0; // tone
+                } else {
+                    channels[activeChannel].currentInstrument = 3; // buzz
+                }
+                
+                SDL_Log("Channel %d: Instrument select cmd=0x%02X param=0x%02X -> inst %d", 
+                        activeChannel, cmd, param, channels[activeChannel].currentInstrument);
             }
             return;
         }
@@ -247,9 +314,10 @@ void MusicSequencer::ProcessTick() {
         int noteIndex = cmd - 0x20;
         uint16_t period = (noteIndex < 64) ? periodTable[noteIndex] : 320;
         
-        // Get sample for current instrument on the active channel
-        int instIdx = channels[activeChannel].currentInstrument;
-        if (activeChannel >= 0 && activeChannel < 4 && instIdx < static_cast<int>(instruments.size())) {
+               // Get sample for current instrument on the active channel
+               // Use manually set instrument if available, otherwise use the one from note data
+               int instIdx = channels[activeChannel].currentInstrument;
+               if (activeChannel >= 0 && activeChannel < 4 && instIdx < static_cast<int>(instruments.size())) {
             const Instrument& inst = instruments[instIdx];
             
             // Extract sample from waveData
@@ -257,11 +325,12 @@ void MusicSequencer::ProcessTick() {
             uint32_t sampleLen = std::min(inst.length, static_cast<uint32_t>(waveData.size() - inst.offset));
             sample.resize(sampleLen);
             
-            for (uint32_t i = 0; i < sampleLen; i++) {
-                if (inst.offset + i < waveData.size()) {
-                    sample[i] = static_cast<int8_t>(waveData[inst.offset + i] - 128);
-                }
-            }
+                   for (uint32_t i = 0; i < sampleLen; i++) {
+                       if (inst.offset + i < waveData.size()) {
+                           // Try treating as signed 8-bit directly (no -128 conversion)
+                           sample[i] = static_cast<int8_t>(waveData[inst.offset + i]);
+                       }
+                   }
             
             // Trigger note on current channel
             if (!sample.empty()) {

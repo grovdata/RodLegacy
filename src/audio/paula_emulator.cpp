@@ -49,6 +49,11 @@ void PaulaEmulator::SetChannelSample(int channel, const std::vector<int8_t>& dat
     channels[channel].sampleData = data;
     channels[channel].samplePos = 0;
     SDL_UnlockAudioDevice(audioDevice);
+    
+    // Debug: Show sample info (reduced verbosity)
+    if (!data.empty()) {
+        SDL_Log("PaulaEmulator: Channel %d loaded with %zu bytes", channel, data.size());
+    }
 }
 
 void PaulaEmulator::SetChannelPeriod(int channel, uint16_t period) {
@@ -56,6 +61,15 @@ void PaulaEmulator::SetChannelPeriod(int channel, uint16_t period) {
     if (period == 0) period = 1;  // Prevent division by zero
     
     channels[channel].period = period;
+    
+    // Debug: Show calculated playback frequency (only for first few notes)
+    static int debugCount = 0;
+    if (debugCount < 5) {
+        double playbackFreq = static_cast<double>(PAULA_BASE_FREQ) / period;
+        SDL_Log("PaulaEmulator: Channel %d period=%d, playback freq=%.1f Hz", 
+                channel, period, playbackFreq);
+        debugCount++;
+    }
 }
 
 void PaulaEmulator::SetChannelVolume(int channel, uint16_t volume) {
@@ -176,19 +190,20 @@ void PaulaEmulator::MixAudio(int16_t* output, int numSamples) {
                 }
             }
             
-            // Get 8-bit sample and convert to 16-bit
+            // Get 8-bit signed sample and convert to 16-bit (gentler conversion)
             int8_t sample8 = channel.sampleData[pos];
-            int32_t sample16 = static_cast<int32_t>(sample8) * 256;
+            int32_t sample16 = static_cast<int32_t>(sample8) * 128;  // Reduced from 256 to 128
             
-            // Apply volume (0-64 range, scale to 0-1)
-            sample16 = (sample16 * channel.volume) / 64;
+            // Apply volume (0-64 range, scale to 0-1) with reduced harshness
+            sample16 = (sample16 * channel.volume) / 128;  // Reduced from 64 to 128 for softer sound
             
             // Mix to stereo output (mono for now, just duplicate to both channels)
+            // Don't divide by NUM_CHANNELS as it makes samples too quiet
             if (audioSpec.channels == 2) {
-                output[i * 2 + 0] += static_cast<int16_t>(sample16 / NUM_CHANNELS);  // Left
-                output[i * 2 + 1] += static_cast<int16_t>(sample16 / NUM_CHANNELS);  // Right
+                output[i * 2 + 0] += static_cast<int16_t>(sample16);  // Left
+                output[i * 2 + 1] += static_cast<int16_t>(sample16);  // Right
             } else {
-                output[i] += static_cast<int16_t>(sample16 / NUM_CHANNELS);
+                output[i] += static_cast<int16_t>(sample16);
             }
             
             // Advance sample position

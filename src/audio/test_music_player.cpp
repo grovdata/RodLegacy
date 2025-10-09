@@ -105,14 +105,17 @@ int main(int argc, char* argv[]) {
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks();
     
-    SDL_Log("");
-    SDL_Log("Controls:");
-    SDL_Log("  ESC - Quit");
-    SDL_Log("  SPACE - Pause/resume");
-    SDL_Log("  1-4 - Toggle channels 0-3");
-    SDL_Log("  S - Switch to next song (0->1->2->0)");
-    SDL_Log("  R - Restart current song");
-    SDL_Log("");
+        SDL_Log("");
+        SDL_Log("Controls:");
+        SDL_Log("  ESC - Quit");
+        SDL_Log("  SPACE - Pause/resume");
+        SDL_Log("  1-4 - Toggle channels 0-3");
+        SDL_Log("  S - Switch to next song (0->1->2->0)");
+        SDL_Log("  R - Restart current song");
+        SDL_Log("  Q/W/E/T - Change instrument for channels 0/1/2/3");
+        SDL_Log("  A/D/F/G - Change instrument for channels 0/1/2/3 (alt)");
+        SDL_Log("  Z/X/C/V - Change instrument for channels 0/1/2/3 (alt2)");
+        SDL_Log("");
     
     while (!quit) {
         // Handle events
@@ -147,6 +150,84 @@ int main(int argc, char* argv[]) {
                         sequencer.StopMusic();
                         sequencer.StartMusic();
                         SDL_Log("Restarted current song");
+                    }
+                    break;
+                
+                // Instrument selection for channels 0-3
+                case SDLK_q: // Channel 0, instrument set 1
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(0, 0); // tone
+                        SDL_Log("Channel 0: Instrument 0 (tone)");
+                    }
+                    break;
+                case SDLK_w: // Channel 1, instrument set 1
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(1, 1); // bassdrum
+                        SDL_Log("Channel 1: Instrument 1 (bassdrum)");
+                    }
+                    break;
+                case SDLK_e: // Channel 2, instrument set 1
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(2, 2); // hihat
+                        SDL_Log("Channel 2: Instrument 2 (hihat)");
+                    }
+                    break;
+                case SDLK_t: // Channel 3, instrument set 1
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(3, 3); // buzz
+                        SDL_Log("Channel 3: Instrument 3 (buzz)");
+                    }
+                    break;
+                
+                // Instrument selection for channels 0-3 (alt set)
+                case SDLK_a: // Channel 0, instrument set 2
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(0, 1); // bassdrum
+                        SDL_Log("Channel 0: Instrument 1 (bassdrum)");
+                    }
+                    break;
+                case SDLK_d: // Channel 1, instrument set 2
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(1, 2); // hihat
+                        SDL_Log("Channel 1: Instrument 2 (hihat)");
+                    }
+                    break;
+                case SDLK_f: // Channel 2, instrument set 2
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(2, 3); // buzz
+                        SDL_Log("Channel 2: Instrument 3 (buzz)");
+                    }
+                    break;
+                case SDLK_g: // Channel 3, instrument set 2
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(3, 0); // tone
+                        SDL_Log("Channel 3: Instrument 0 (tone)");
+                    }
+                    break;
+                
+                // Instrument selection for channels 0-3 (alt2 set)
+                case SDLK_z: // Channel 0, instrument set 3
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(0, 2); // hihat
+                        SDL_Log("Channel 0: Instrument 2 (hihat)");
+                    }
+                    break;
+                case SDLK_x: // Channel 1, instrument set 3
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(1, 3); // buzz
+                        SDL_Log("Channel 1: Instrument 3 (buzz)");
+                    }
+                    break;
+                case SDLK_c: // Channel 2, instrument set 3
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(2, 0); // tone
+                        SDL_Log("Channel 2: Instrument 0 (tone)");
+                    }
+                    break;
+                case SDLK_v: // Channel 3, instrument set 3
+                    if (musicLoaded) {
+                        sequencer.SetChannelInstrument(3, 1); // bassdrum
+                        SDL_Log("Channel 3: Instrument 1 (bassdrum)");
                     }
                     break;
                 case SDLK_1:

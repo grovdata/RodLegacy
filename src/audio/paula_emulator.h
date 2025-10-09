@@ -18,7 +18,7 @@
 class PaulaEmulator {
 public:
     static constexpr int NUM_CHANNELS = 4;
-    static constexpr int PAULA_BASE_FREQ = 3546895; // PAL Amiga clock frequency
+    static constexpr int PAULA_BASE_FREQ = 3579545; // NTSC Amiga clock frequency (try this instead of PAL)
     
     struct AudioChannel {
         std::vector<int8_t> sampleData;  // 8-bit signed PCM data

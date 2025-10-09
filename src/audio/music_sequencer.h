@@ -32,6 +32,12 @@ public:
     // Select which song to play (0-2 for the three songs in msr.note)
     void SelectSong(int songIndex);
     
+    // Manually set instrument for a specific channel (for testing)
+    void SetChannelInstrument(int channel, int instrumentIndex);
+    
+    // Show current instrument assignments
+    void ShowInstrumentAssignments();
+    
     // Playback control
     void StartMusic();
     void StopMusic();
