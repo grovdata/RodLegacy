@@ -223,3 +223,16 @@ executable('open_sr',
         '-lXrender'
     ] : []
 )
+
+# Standalone music player test
+executable('test_music_player',
+    sources: [
+        'audio/paula_emulator.cpp',
+        'audio/music_sequencer.cpp',
+        'audio/test_music_player.cpp'
+    ],
+    include_directories: inc_dirs,
+    dependencies: [sdl2_dep],
+    cpp_args: cpp_args,
+    c_args: c_args
+)
