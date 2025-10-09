@@ -35,6 +35,9 @@ public:
     // Manually set instrument for a specific channel (for testing)
     void SetChannelInstrument(int channel, int instrumentIndex);
     
+    // Toggle manual mute state for a channel
+    void ToggleChannelMute(int channel);
+    
     // Show current instrument assignments
     void ShowInstrumentAssignments();
     
@@ -84,8 +87,9 @@ private:
         uint32_t notePos;         // Current position in note data (shared, only channel 0 uses this)
         uint32_t ticksRemaining;  // Ticks before next note (shared, only channel 0 uses this)
         int currentInstrument;    // Current instrument for this channel
+        bool manuallyMuted;       // True if user manually muted this channel
         
-        ChannelState() : notePos(0), ticksRemaining(0), currentInstrument(0) {}
+        ChannelState() : notePos(0), ticksRemaining(0), currentInstrument(0), manuallyMuted(false) {}
     };
     ChannelState channels[4];  // 4 Paula channels
     int activeChannel;  // Currently selected channel in the sequential stream
@@ -93,8 +97,8 @@ private:
     // Process one tick of music
     void ProcessTick();
     
-    // Process commands for a specific channel
-    void ProcessChannelTick(int channelIndex);
+    // Helper to play a note on a specific channel
+    void PlayNoteOnChannel(int channel, uint8_t noteCmd, uint8_t duration, uint16_t period);
     
     // Helper to read music file
     static std::vector<uint8_t> ReadFile(const std::string& filename);

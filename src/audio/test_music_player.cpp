@@ -235,9 +235,9 @@ int main(int argc, char* argv[]) {
                 case SDLK_3:
                 case SDLK_4: {
                     int ch = event.key.keysym.sym - SDLK_1;
-                    bool enabled = paula.IsChannelPlaying(ch);
-                    paula.EnableChannel(ch, !enabled);
-                    SDL_Log("Channel %d: %s", ch, !enabled ? "enabled" : "disabled");
+                    if (musicLoaded) {
+                        sequencer.ToggleChannelMute(ch);
+                    }
                     break;
                 }
                 }
