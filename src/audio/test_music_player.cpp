@@ -86,9 +86,9 @@ int main(int argc, char* argv[]) {
     
     // Create a simple window for event handling
     SDL_Window* window = SDL_CreateWindow(
-        "Street Rod Music Player",
+        "Street Rod Music Player - Song 0",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        400, 200,
+        500, 300,
         SDL_WINDOW_SHOWN
     );
     
@@ -99,6 +99,15 @@ int main(int argc, char* argv[]) {
     }
     
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    
+    // Function to update window title
+    auto updateWindowTitle = [&]() {
+        if (musicLoaded) {
+            char title[100];
+            snprintf(title, sizeof(title), "Street Rod Music Player - Song %d", sequencer.GetCurrentSong());
+            SDL_SetWindowTitle(window, title);
+        }
+    };
     
     // Main loop
     bool quit = false;
@@ -112,6 +121,7 @@ int main(int argc, char* argv[]) {
         SDL_Log("  1-4 - Toggle channels 0-3");
         SDL_Log("  S - Switch to next song (0->1->2->0)");
         SDL_Log("  R - Restart current song");
+        SDL_Log("  CLICK GREEN BOXES - Cycle instruments for each channel");
         SDL_Log("  Q/W/E/T - Change instrument for channels 0/1/2/3");
         SDL_Log("  A/D/F/G - Change instrument for channels 0/1/2/3 (alt)");
         SDL_Log("  Z/X/C/V - Change instrument for channels 0/1/2/3 (alt2)");
@@ -122,6 +132,30 @@ int main(int argc, char* argv[]) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 quit = true;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                // Handle mouse clicks on channel boxes
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    int x = event.button.x;
+                    int y = event.button.y;
+                    
+                    // Check if click is within channel boxes (50 + i * 80, 70, 60, 60)
+                    for (int i = 0; i < 4; i++) {
+                        int boxX = 50 + i * 80;
+                        int boxY = 70;
+                        if (x >= boxX && x < boxX + 60 && y >= boxY && y < boxY + 60) {
+                            if (musicLoaded) {
+                                // Cycle through instruments for this channel
+                                int currentInst = sequencer.GetChannelInstrument(i);
+                                int nextInst = (currentInst + 1) % 5; // 5 instruments (0-4)
+                                sequencer.SetChannelInstrument(i, nextInst);
+                                
+                                const char* instNames[] = {"lead melody", "electric bass", "bassdrum", "hihat", "electric guitar"};
+                                SDL_Log("Channel %d: switched to instrument %d (%s)", i, nextInst, instNames[nextInst]);
+                            }
+                            break;
+                        }
+                    }
+                }
             } else if (event.type == SDL_KEYDOWN) {
                 switch (event.key.keysym.sym) {
                 case SDLK_ESCAPE:
@@ -142,6 +176,7 @@ int main(int argc, char* argv[]) {
                         sequencer.StopMusic();
                         sequencer.SelectSong(currentSong);
                         sequencer.StartMusic();
+                        updateWindowTitle();
                         SDL_Log("Switched to song %d", currentSong);
                     }
                     break;
@@ -271,6 +306,27 @@ int main(int argc, char* argv[]) {
             // Draw channel number
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
             SDL_RenderDrawRect(renderer, &rect);
+            
+            // Draw instrument number if music is loaded
+            if (musicLoaded) {
+                int inst = sequencer.GetChannelInstrument(i);
+                char instText[10];
+                snprintf(instText, sizeof(instText), "I%d", inst);
+                
+                // Simple text rendering (you could use SDL_ttf for better text)
+                // For now, just draw a small rectangle to indicate instrument
+                SDL_Rect instRect = { 50 + i * 80 + 5, 70 + 5, 10, 10 };
+                SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+                SDL_RenderFillRect(renderer, &instRect);
+            }
+        }
+        
+        // Draw instructions
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        // Simple text rendering would go here - for now just draw some lines
+        for (int i = 0; i < 4; i++) {
+            SDL_Rect textRect = { 50 + i * 80, 140, 60, 20 };
+            SDL_RenderDrawRect(renderer, &textRect);
         }
         
         SDL_RenderPresent(renderer);
@@ -283,6 +339,11 @@ int main(int argc, char* argv[]) {
     sequencer.StopMusic();
     paula.Stop();
     paula.Shutdown();
+    
+    // Log final arrangement before exit
+    if (musicLoaded) {
+        sequencer.LogCurrentArrangement();
+    }
     
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

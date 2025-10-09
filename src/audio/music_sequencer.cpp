@@ -83,14 +83,14 @@ bool MusicSequencer::LoadMusicFiles(const std::string& noteFile,
     }
     
         // Fallback to hardcoded values if .ins parsing failed
-        // Based on disassembly analysis: srl1.wave has 5 samples with realistic lengths
+        // Based on final visual sample tuner analysis: srl1.wave has 5 samples with corrected offsets and lengths
         if (instruments.empty()) {
-            SDL_Log("MusicSequencer: .ins parsing failed, using disassembly-based values from srl1.wave");
-            instruments.push_back({0x0000, 6700});   // Instrument 0: lead tone (0x0000-0x1A2C)
-            instruments.push_back({0x1A2C, 8000});   // Instrument 1: electric bass (0x1A2C-0x396C)
-            instruments.push_back({0x396C, 5300});   // Instrument 2: bassdrum (0x396C-0x4E20)
-            instruments.push_back({0x4E20, 5200});   // Instrument 3: hihat (0x4E20-0x6270)
-            instruments.push_back({0x6270, 2000});   // Instrument 4: electric guitar (0x6270-end of file)
+            SDL_Log("MusicSequencer: .ins parsing failed, using final visual sample tuner values from srl1.wave");
+            instruments.push_back({0x0000, 8011});   // Instrument 0: lead melody
+            instruments.push_back({0x1f4b, 5292});   // Instrument 1: electric bass
+            instruments.push_back({0x33f7, 5168});   // Instrument 2: bassdrum
+            instruments.push_back({0x4827, 2027});   // Instrument 3: hihat
+            instruments.push_back({0x5044, 6652});   // Instrument 4: electric guitar
         }
     
     for (size_t i = 0; i < instruments.size(); i++) {
@@ -134,13 +134,13 @@ void MusicSequencer::SelectSong(int songIndex) {
     for (int i = 0; i < 4; i++) {
         channels[i].notePos = songOffset;  // All channels start at same position
         channels[i].ticksRemaining = 0;
-        // Set appropriate initial instruments based on Paula log analysis
-        // Channel 0: lead melody, Channel 1: lead melody, Channel 2: hihat, Channel 3: bassdrum
+        // Set appropriate initial instruments based on actual testing results
+        // Channel 0: lead melody, Channel 1: lead melody, Channel 2: electric bass, Channel 3: bassdrum
         switch (i) {
-            case 0: channels[i].currentInstrument = 0; break; // lead melody (sample 0: 6700 bytes)
-            case 1: channels[i].currentInstrument = 0; break; // lead melody (sample 0: 6700 bytes) - primary channel
-            case 2: channels[i].currentInstrument = 3; break; // hihat (sample 3: 5200 bytes)
-            case 3: channels[i].currentInstrument = 2; break; // bassdrum (sample 2: 5300 bytes)
+            case 0: channels[i].currentInstrument = 0; break; // lead melody (sample 0: 8011 bytes)
+            case 1: channels[i].currentInstrument = 0; break; // lead melody (sample 0: 8011 bytes) - primary channel
+            case 2: channels[i].currentInstrument = 1; break; // electric bass (sample 1: 5292 bytes)
+            case 3: channels[i].currentInstrument = 2; break; // bassdrum (sample 2: 5168 bytes)
         }
         channels[i].manuallyMuted = false;
     }
@@ -169,7 +169,7 @@ void MusicSequencer::ToggleChannelMute(int channel) {
         SDL_Log("MusicSequencer: Invalid channel %d", channel);
         return;
     }
-    
+
     channels[channel].manuallyMuted = !channels[channel].manuallyMuted;
     
     // Immediately update the Paula emulator channel state
@@ -178,6 +178,23 @@ void MusicSequencer::ToggleChannelMute(int channel) {
     }
     
     SDL_Log("Channel %d: %s", channel, channels[channel].manuallyMuted ? "muted" : "unmuted");
+}
+
+int MusicSequencer::GetChannelInstrument(int channel) const {
+    if (channel < 0 || channel >= 4) {
+        return -1;
+    }
+    return channels[channel].currentInstrument;
+}
+
+void MusicSequencer::LogCurrentArrangement() const {
+    SDL_Log("=== CURRENT SONG ARRANGEMENT ===");
+    SDL_Log("Song: %d", currentSong);
+    SDL_Log("Channel 0: Instrument %d", channels[0].currentInstrument);
+    SDL_Log("Channel 1: Instrument %d", channels[1].currentInstrument);
+    SDL_Log("Channel 2: Instrument %d", channels[2].currentInstrument);
+    SDL_Log("Channel 3: Instrument %d", channels[3].currentInstrument);
+    SDL_Log("================================");
 }
 
 void MusicSequencer::ShowInstrumentAssignments() {
@@ -316,7 +333,7 @@ void MusicSequencer::ProcessTick() {
                 int channel = cmd - 0x88;
                 if (channel >= 0 && channel < 4) {
                     // Map the parameter to appropriate instrument for each channel
-                    // Based on Paula log analysis: Channel 0=lead melody, 1=lead melody, 2=hihat, 3=bassdrum
+                    // Based on actual testing results: Channel 0=lead melody, 1=lead melody, 2=electric bass, 3=bassdrum
                     switch (channel) {
                         case 0: // Channel 0 - Lead melody
                             channels[channel].currentInstrument = 0; // lead melody (sample 0)
@@ -324,8 +341,8 @@ void MusicSequencer::ProcessTick() {
                         case 1: // Channel 1 - Lead melody
                             channels[channel].currentInstrument = 0; // lead melody (sample 0)
                             break;
-                        case 2: // Channel 2 - Hihat
-                            channels[channel].currentInstrument = 3; // hihat (sample 3)
+                        case 2: // Channel 2 - Electric bass
+                            channels[channel].currentInstrument = 1; // electric bass (sample 1)
                             break;
                         case 3: // Channel 3 - Bassdrum
                             channels[channel].currentInstrument = 2; // bassdrum (sample 2)

@@ -51,6 +51,10 @@ public:
     
     // Status
     bool IsPlaying() const { return playing; }
+    int GetCurrentSong() const { return currentSong; }
+    int GetChannelInstrument(int channel) const;
+    void LogCurrentArrangement() const;
+    void SaveCurrentArrangement(const std::string& filename) const;
     
 private:
     PaulaEmulator* paula;
