@@ -1,355 +1,425 @@
-#include "paula_emulator.h"
-#include "music_sequencer.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <iostream>
+#include <vector>
+#include <string>
+#include <cstring>
 #include <memory>
 
-// Hardcoded paths for testing - adjust these to your ADF mount points
-const char* NOTE_FILE = "/home/user/kod/privat/streetrod-bins/amiga/SR_Disk1/msr.note";
-const char* WAVE_FILE = "/home/user/kod/privat/streetrod-bins/amiga/SR_Disk1/srl1.wave";
-const char* INS_FILE = "/home/user/kod/privat/streetrod-bins/amiga/SR_Disk1/srl.ins";
-const char* ENV_FILE = "/home/user/kod/privat/streetrod-bins/amiga/SR_Disk1/srl.env";
+// ImGui includes
+#include "imgui.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_sdlrenderer2.h"
 
-// Alternative: Test with simple generated samples
-bool TestWithGeneratedSample(PaulaEmulator& paula) {
-    SDL_Log("Testing with generated sawtooth wave...");
-    
-    // Generate a simple sawtooth wave
-    std::vector<int8_t> sawtooth(1000);
-    for (int i = 0; i < 1000; i++) {
-        sawtooth[i] = static_cast<int8_t>((i % 256) - 128);
-    }
-    
-    // Play on channel 0 - C note (period 428)
-    paula.SetChannelSample(0, sawtooth);
-    paula.SetChannelPeriod(0, 428);
-    paula.SetChannelVolume(0, 48);
-    paula.SetChannelLoop(0, 0, sawtooth.size());
-    paula.EnableChannel(0, true);
-    
-    // Play on channel 1 - E note (period 340)
-    paula.SetChannelSample(1, sawtooth);
-    paula.SetChannelPeriod(1, 340);
-    paula.SetChannelVolume(1, 48);
-    paula.SetChannelLoop(1, 0, sawtooth.size());
-    paula.EnableChannel(1, true);
-    
-    // Play on channel 2 - G note (period 286)
-    paula.SetChannelSample(2, sawtooth);
-    paula.SetChannelPeriod(2, 286);
-    paula.SetChannelVolume(2, 48);
-    paula.SetChannelLoop(2, 0, sawtooth.size());
-    paula.EnableChannel(2, true);
-    
-    SDL_Log("Playing C-E-G chord...");
-    return true;
-}
+#include "paula_emulator.h"
+#include "music_sequencer.h"
 
-int main(int argc, char* argv[]) {
-    SDL_Log("Street Rod Music Player Test");
-    SDL_Log("============================");
+class MusicPlayerGUI {
+private:
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    std::unique_ptr<PaulaEmulator> paula;
+    std::unique_ptr<MusicSequencer> sequencer;
     
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
-        SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
-        return 1;
-    }
+    bool musicLoaded = false;
+    bool showDemo = false;
+    bool showTracker = true;
+    bool showControls = true;
     
-    // Create Paula emulator
-    PaulaEmulator paula;
-    if (!paula.Initialize(44100)) {
-        SDL_Log("Failed to initialize Paula emulator");
-        SDL_Quit();
-        return 1;
-    }
+    // Tempo control
+    float tempoMultiplier = 1.0f;
     
-    // Create music sequencer
-    MusicSequencer sequencer;
-    if (!sequencer.Initialize(&paula)) {
-        SDL_Log("Failed to initialize music sequencer");
-        SDL_Quit();
-        return 1;
-    }
+    // Pattern display
+    std::vector<std::string> patternData;
     
-    // Try to load music files
-    bool musicLoaded = sequencer.LoadMusicFiles(NOTE_FILE, WAVE_FILE, INS_FILE, ENV_FILE);
+    // Channel controls
+    bool channelMuted[4] = {false, false, false, false};
+    int channelInstruments[4] = {0, 0, 1, 2}; // Default instruments
     
-    if (musicLoaded) {
-        SDL_Log("Music files loaded, starting playback...");
-        sequencer.StartMusic();
-        paula.Start();
-    } else {
-        SDL_Log("Could not load music files, testing with generated samples instead...");
-        TestWithGeneratedSample(paula);
-        paula.Start();
-    }
-    
-    // Create a simple window for event handling
-    SDL_Window* window = SDL_CreateWindow(
-        "Street Rod Music Player - Song 0",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        500, 300,
-        SDL_WINDOW_SHOWN
-    );
-    
-    if (!window) {
-        SDL_Log("Failed to create window: %s", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-    
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    
-    // Function to update window title
-    auto updateWindowTitle = [&]() {
-        if (musicLoaded) {
-            char title[100];
-            snprintf(title, sizeof(title), "Street Rod Music Player - Song %d", sequencer.GetCurrentSong());
-            SDL_SetWindowTitle(window, title);
-        }
+    // Sample names for display
+    const char* sampleNames[5] = {
+        "lead tone",
+        "electric bass", 
+        "bassdrum",
+        "hihat",
+        "electric guitar"
     };
-    
-    // Main loop
-    bool quit = false;
-    SDL_Event event;
-    Uint32 lastTime = SDL_GetTicks();
-    
-        SDL_Log("");
-        SDL_Log("Controls:");
-        SDL_Log("  ESC - Quit");
-        SDL_Log("  SPACE - Pause/resume");
-        SDL_Log("  1-4 - Toggle channels 0-3");
-        SDL_Log("  S - Switch to next song (0->1->2->0)");
-        SDL_Log("  R - Restart current song");
-        SDL_Log("  CLICK GREEN BOXES - Cycle instruments for each channel");
-        SDL_Log("  Q/W/E/T - Change instrument for channels 0/1/2/3");
-        SDL_Log("  A/D/F/G - Change instrument for channels 0/1/2/3 (alt)");
-        SDL_Log("  Z/X/C/V - Change instrument for channels 0/1/2/3 (alt2)");
-        SDL_Log("");
-    
-    while (!quit) {
-        // Handle events
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                quit = true;
-            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
-                // Handle mouse clicks on channel boxes
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    int x = event.button.x;
-                    int y = event.button.y;
-                    
-                    // Check if click is within channel boxes (50 + i * 80, 70, 60, 60)
-                    for (int i = 0; i < 4; i++) {
-                        int boxX = 50 + i * 80;
-                        int boxY = 70;
-                        if (x >= boxX && x < boxX + 60 && y >= boxY && y < boxY + 60) {
-                            if (musicLoaded) {
-                                // Cycle through instruments for this channel
-                                int currentInst = sequencer.GetChannelInstrument(i);
-                                int nextInst = (currentInst + 1) % 5; // 5 instruments (0-4)
-                                sequencer.SetChannelInstrument(i, nextInst);
-                                
-                                const char* instNames[] = {"lead melody", "electric bass", "bassdrum", "hihat", "electric guitar"};
-                                SDL_Log("Channel %d: switched to instrument %d (%s)", i, nextInst, instNames[nextInst]);
-                            }
-                            break;
-                        }
-                    }
+
+public:
+    MusicPlayerGUI() : window(nullptr), renderer(nullptr) {
+        // Initialize SDL
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
+            std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
+            return;
+        }
+
+        // Create window
+        window = SDL_CreateWindow("Street Rod Music Player - ImGui",
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            1200, 800, SDL_WINDOW_RESIZABLE);
+        
+        if (!window) {
+            std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
+            return;
+        }
+
+        // Create renderer
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (!renderer) {
+            std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
+            return;
+        }
+
+        // Setup ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+        // Setup ImGui style
+        ImGui::StyleColorsDark();
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+        ImGui_ImplSDLRenderer2_Init(renderer);
+
+        // Initialize audio components
+        paula = std::make_unique<PaulaEmulator>();
+        sequencer = std::make_unique<MusicSequencer>();
+        
+        // Load music files
+        LoadMusicFiles();
+    }
+
+    ~MusicPlayerGUI() {
+        // Cleanup
+        ImGui_ImplSDLRenderer2_Shutdown();
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+
+        if (renderer) SDL_DestroyRenderer(renderer);
+        if (window) SDL_DestroyWindow(window);
+        SDL_Quit();
+    }
+
+    void LoadMusicFiles() {
+        const char* NOTE_FILE = "../streetrod-bins/amiga/SR_disk1/msr.note";
+        const char* WAVE_FILE = "../streetrod-bins/amiga/SR_disk1/srl1.wave";
+        const char* INS_FILE = "../streetrod-bins/amiga/SR_disk1/srl.ins";
+        const char* ENV_FILE = "../streetrod-bins/amiga/SR_disk1/srl.env";
+
+        // Initialize Paula emulator first
+        if (!paula->Initialize(44100)) {
+            std::cerr << "Failed to initialize Paula emulator!" << std::endl;
+            return;
+        }
+
+        // Initialize sequencer with Paula emulator
+        if (!sequencer->Initialize(paula.get())) {
+            std::cerr << "Failed to initialize music sequencer!" << std::endl;
+            return;
+        }
+
+        if (sequencer->LoadMusicFiles(NOTE_FILE, WAVE_FILE, INS_FILE, ENV_FILE)) {
+            musicLoaded = true;
+            sequencer->SelectSong(0);
+            sequencer->StartMusic();
+            paula->Start();  // Start the audio device
+            
+            // Sync channel instruments with sequencer
+            for (int i = 0; i < 4; i++) {
+                channelInstruments[i] = sequencer->GetChannelInstrument(i);
+            }
+            
+            std::cout << "Music files loaded successfully!" << std::endl;
+        } else {
+            std::cerr << "Failed to load music files!" << std::endl;
+        }
+    }
+
+    void Run() {
+        bool running = true;
+        SDL_Event event;
+
+        while (running) {
+            // Handle events
+            while (SDL_PollEvent(&event)) {
+                ImGui_ImplSDL2_ProcessEvent(&event);
+                
+                if (event.type == SDL_QUIT) {
+                    running = false;
                 }
-            } else if (event.type == SDL_KEYDOWN) {
-                switch (event.key.keysym.sym) {
-                case SDLK_ESCAPE:
-                    quit = true;
-                    break;
-                case SDLK_SPACE:
-                    if (musicLoaded) {
-                        static bool isPaused = false;
-                        isPaused = !isPaused;
-                        sequencer.PauseMusic(isPaused);
-                        SDL_Log("Music %s", isPaused ? "paused" : "resumed");
-                    }
-                    break;
-                case SDLK_s:
-                    if (musicLoaded) {
-                        static int currentSong = 0;
-                        currentSong = (currentSong + 1) % 3;
-                        sequencer.StopMusic();
-                        sequencer.SelectSong(currentSong);
-                        sequencer.StartMusic();
-                        updateWindowTitle();
-                        SDL_Log("Switched to song %d", currentSong);
-                    }
-                    break;
-                case SDLK_r:
-                    if (musicLoaded) {
-                        sequencer.StopMusic();
-                        sequencer.StartMusic();
-                        SDL_Log("Restarted current song");
-                    }
-                    break;
                 
-                // Instrument selection for channels 0-3
-                case SDLK_q: // Channel 0, instrument set 1
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(0, 0); // tone
-                        SDL_Log("Channel 0: Instrument 0 (tone)");
-                    }
-                    break;
-                case SDLK_w: // Channel 1, instrument set 1
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(1, 1); // bassdrum
-                        SDL_Log("Channel 1: Instrument 1 (bassdrum)");
-                    }
-                    break;
-                case SDLK_e: // Channel 2, instrument set 1
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(2, 2); // hihat
-                        SDL_Log("Channel 2: Instrument 2 (hihat)");
-                    }
-                    break;
-                case SDLK_t: // Channel 3, instrument set 1
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(3, 3); // buzz
-                        SDL_Log("Channel 3: Instrument 3 (buzz)");
-                    }
-                    break;
-                
-                // Instrument selection for channels 0-3 (alt set)
-                case SDLK_a: // Channel 0, instrument set 2
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(0, 1); // bassdrum
-                        SDL_Log("Channel 0: Instrument 1 (bassdrum)");
-                    }
-                    break;
-                case SDLK_d: // Channel 1, instrument set 2
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(1, 2); // hihat
-                        SDL_Log("Channel 1: Instrument 2 (hihat)");
-                    }
-                    break;
-                case SDLK_f: // Channel 2, instrument set 2
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(2, 3); // buzz
-                        SDL_Log("Channel 2: Instrument 3 (buzz)");
-                    }
-                    break;
-                case SDLK_g: // Channel 3, instrument set 2
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(3, 0); // tone
-                        SDL_Log("Channel 3: Instrument 0 (tone)");
-                    }
-                    break;
-                
-                // Instrument selection for channels 0-3 (alt2 set)
-                case SDLK_z: // Channel 0, instrument set 3
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(0, 2); // hihat
-                        SDL_Log("Channel 0: Instrument 2 (hihat)");
-                    }
-                    break;
-                case SDLK_x: // Channel 1, instrument set 3
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(1, 3); // buzz
-                        SDL_Log("Channel 1: Instrument 3 (buzz)");
-                    }
-                    break;
-                case SDLK_c: // Channel 2, instrument set 3
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(2, 0); // tone
-                        SDL_Log("Channel 2: Instrument 0 (tone)");
-                    }
-                    break;
-                case SDLK_v: // Channel 3, instrument set 3
-                    if (musicLoaded) {
-                        sequencer.SetChannelInstrument(3, 1); // bassdrum
-                        SDL_Log("Channel 3: Instrument 1 (bassdrum)");
-                    }
-                    break;
-                case SDLK_1:
-                case SDLK_2:
-                case SDLK_3:
-                case SDLK_4: {
-                    int ch = event.key.keysym.sym - SDLK_1;
-                    if (musicLoaded) {
-                        sequencer.ToggleChannelMute(ch);
-                    }
-                    break;
-                }
+                if (event.type == SDL_KEYDOWN) {
+                    HandleKeyPress(event.key.keysym.sym);
                 }
             }
-        }
-        
-        // Update music sequencer
-        Uint32 currentTime = SDL_GetTicks();
-        float deltaTime = (currentTime - lastTime) / 1000.0f;
-        lastTime = currentTime;
-        
-        if (musicLoaded) {
-            sequencer.Update(deltaTime);
-        }
-        
-        // Render
-        SDL_SetRenderDrawColor(renderer, 32, 32, 64, 255);
-        SDL_RenderClear(renderer);
-        
-        // Draw channel status indicators
-        for (int i = 0; i < PaulaEmulator::NUM_CHANNELS; i++) {
-            SDL_Rect rect = { 50 + i * 80, 70, 60, 60 };
-            
-            if (paula.IsChannelPlaying(i)) {
-                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
-            }
-            SDL_RenderFillRect(renderer, &rect);
-            
-            // Draw channel number
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_RenderDrawRect(renderer, &rect);
-            
-            // Draw instrument number if music is loaded
+
+            // Start ImGui frame
+            ImGui_ImplSDLRenderer2_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
+
+            // Update music
             if (musicLoaded) {
-                int inst = sequencer.GetChannelInstrument(i);
-                char instText[10];
-                snprintf(instText, sizeof(instText), "I%d", inst);
-                
-                // Simple text rendering (you could use SDL_ttf for better text)
-                // For now, just draw a small rectangle to indicate instrument
-                SDL_Rect instRect = { 50 + i * 80 + 5, 70 + 5, 10, 10 };
-                SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-                SDL_RenderFillRect(renderer, &instRect);
+                sequencer->Update(1.0f / 60.0f * tempoMultiplier);
+            }
+
+            // Render GUI
+            RenderGUI();
+
+            // Render
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            
+            ImGui::Render();
+            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+            
+            SDL_RenderPresent(renderer);
+        }
+    }
+
+    void HandleKeyPress(SDL_Keycode key) {
+        if (!musicLoaded) return;
+
+        switch (key) {
+            case SDLK_ESCAPE:
+                // Quit handled by SDL_QUIT event
+                break;
+            case SDLK_SPACE:
+                if (sequencer->IsPlaying()) {
+                    sequencer->PauseMusic();
+                } else {
+                    sequencer->ResumeMusic();
+                }
+                break;
+            case SDLK_s:
+                sequencer->NextPattern();
+                break;
+            case SDLK_r:
+                sequencer->StopMusic();
+                sequencer->SelectSong(sequencer->GetCurrentSong());
+                sequencer->StartMusic();
+                break;
+            case SDLK_1:
+            case SDLK_2:
+            case SDLK_3:
+            case SDLK_4:
+                {
+                    int channel = key - SDLK_1;
+                    sequencer->ToggleChannelMute(channel);
+                    channelMuted[channel] = !channelMuted[channel];
+                }
+                break;
+        }
+    }
+
+    void RenderGUI() {
+        // Main menu bar
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("Windows")) {
+                ImGui::MenuItem("Controls", nullptr, &showControls);
+                ImGui::MenuItem("Tracker", nullptr, &showTracker);
+                ImGui::MenuItem("Demo Window", nullptr, &showDemo);
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
+        // Controls window
+        if (showControls) {
+            RenderControlsWindow();
+        }
+
+        // Tracker window
+        if (showTracker) {
+            RenderTrackerWindow();
+        }
+
+        // Demo window
+        if (showDemo) {
+            ImGui::ShowDemoWindow(&showDemo);
+        }
+    }
+
+    void RenderControlsWindow() {
+        ImGui::Begin("Music Controls", &showControls);
+        
+        if (!musicLoaded) {
+            ImGui::Text("Music not loaded!");
+            ImGui::End();
+            return;
+        }
+
+        // Playback controls
+        ImGui::Text("Playback Controls");
+        ImGui::Separator();
+        
+        if (ImGui::Button(sequencer->IsPlaying() ? "Pause" : "Play")) {
+            if (sequencer->IsPlaying()) {
+                sequencer->PauseMusic();
+            } else {
+                sequencer->ResumeMusic();
             }
         }
+        ImGui::SameLine();
         
-        // Draw instructions
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        // Simple text rendering would go here - for now just draw some lines
-        for (int i = 0; i < 4; i++) {
-            SDL_Rect textRect = { 50 + i * 80, 140, 60, 20 };
-            SDL_RenderDrawRect(renderer, &textRect);
+        if (ImGui::Button("Stop")) {
+            sequencer->StopMusic();
         }
+        ImGui::SameLine();
         
-        SDL_RenderPresent(renderer);
+        if (ImGui::Button("Restart")) {
+            sequencer->StopMusic();
+            sequencer->SelectSong(sequencer->GetCurrentSong());
+            sequencer->StartMusic();
+        }
+        ImGui::SameLine();
         
-        // Cap frame rate
-        SDL_Delay(16);  // ~60 FPS
+        if (ImGui::Button("Next Pattern")) {
+            sequencer->NextPattern();
+        }
+
+        // Tempo control
+        ImGui::Spacing();
+        ImGui::Text("Tempo Control");
+        ImGui::Separator();
+        
+        if (ImGui::SliderFloat("Tempo Multiplier", &tempoMultiplier, 0.1f, 3.0f, "%.2fx")) {
+            // Tempo is applied in the update loop
+        }
+
+        // Song info
+        ImGui::Spacing();
+        ImGui::Text("Song Information");
+        ImGui::Separator();
+        
+        ImGui::Text("Current Song: %d", sequencer->GetCurrentSong());
+        ImGui::Text("Current Pattern: %d", sequencer->GetCurrentPattern());
+        
+        // Channel controls
+        ImGui::Spacing();
+        ImGui::Text("Channel Controls");
+        ImGui::Separator();
+        
+        for (int i = 0; i < 4; i++) {
+            ImGui::PushID(i);
+            
+            ImGui::Text("Channel %d:", i);
+            ImGui::SameLine();
+            
+            // Mute button
+            if (ImGui::Button(channelMuted[i] ? "Muted" : "Active")) {
+                sequencer->ToggleChannelMute(i);
+                channelMuted[i] = !channelMuted[i];
+            }
+            ImGui::SameLine();
+            
+            // Instrument selector
+            ImGui::Text("Sample:");
+            ImGui::SameLine();
+            if (ImGui::Combo("##sample", &channelInstruments[i], sampleNames, 5)) {
+                // Update instrument for this channel
+                sequencer->SetChannelInstrument(i, channelInstruments[i]);
+            }
+            
+            ImGui::PopID();
+        }
+
+        ImGui::End();
     }
-    
-    // Cleanup
-    sequencer.StopMusic();
-    paula.Stop();
-    paula.Shutdown();
-    
-    // Log final arrangement before exit
-    if (musicLoaded) {
-        sequencer.LogCurrentArrangement();
+
+    void RenderTrackerWindow() {
+        ImGui::Begin("Music Tracker", &showTracker);
+        
+        if (!musicLoaded) {
+            ImGui::Text("Music not loaded!");
+            ImGui::End();
+            return;
+        }
+
+        // Pattern display header
+        ImGui::Text("Pattern: %d | Song: %d", sequencer->GetCurrentPattern(), sequencer->GetCurrentSong());
+        ImGui::Separator();
+
+        // Real-time channel data display
+        if (ImGui::BeginTable("ChannelData", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            // Header
+            ImGui::TableSetupColumn("Channel");
+            ImGui::TableSetupColumn("Status");
+            ImGui::TableSetupColumn("Instrument");
+            ImGui::TableSetupColumn("Period");
+            ImGui::TableSetupColumn("Volume");
+            ImGui::TableSetupColumn("Note");
+            ImGui::TableHeadersRow();
+
+            // Show real-time data for each channel
+            for (int ch = 0; ch < 4; ch++) {
+                ImGui::TableNextRow();
+                
+                auto channelData = sequencer->GetChannelData(ch);
+                
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Ch%d", ch);
+                
+                ImGui::TableSetColumnIndex(1);
+                if (channelData.active) {
+                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "ACTIVE");
+                } else {
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "MUTED");
+                }
+                
+                ImGui::TableSetColumnIndex(2);
+                ImGui::Text("%s", sampleNames[channelData.instrument]);
+                
+                ImGui::TableSetColumnIndex(3);
+                if (channelData.period > 0) {
+                    ImGui::Text("%d", channelData.period);
+                } else {
+                    ImGui::Text("---");
+                }
+                
+                ImGui::TableSetColumnIndex(4);
+                if (channelData.volume > 0) {
+                    ImGui::Text("%d", channelData.volume);
+                } else {
+                    ImGui::Text("---");
+                }
+                
+                ImGui::TableSetColumnIndex(5);
+                if (channelData.note > 0) {
+                    ImGui::Text("%d", channelData.note);
+                } else {
+                    ImGui::Text("---");
+                }
+            }
+            
+            ImGui::EndTable();
+        }
+
+        // Current tick display
+        ImGui::Spacing();
+        ImGui::Text("Current Tick: %d", sequencer->GetCurrentTick());
+        
+        // Tempo info
+        ImGui::Text("Tempo Multiplier: %.2fx", tempoMultiplier);
+
+        ImGui::End();
     }
-    
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    
-    SDL_Log("Music player stopped");
+};
+
+int main(int /*argc*/, char* /*argv*/[]) {
+    std::cout << "Street Rod Music Player - ImGui Version" << std::endl;
+    std::cout << "======================================" << std::endl;
+
+    try {
+        MusicPlayerGUI player;
+        player.Run();
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+
     return 0;
 }
-

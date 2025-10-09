@@ -51,10 +51,30 @@ public:
     
     // Status
     bool IsPlaying() const { return playing; }
+    bool IsPaused() const { return paused; }
     int GetCurrentSong() const { return currentSong; }
+    int GetCurrentPattern() const { return currentPattern; }
+    int GetCurrentTick() const { return currentTick; }
     int GetChannelInstrument(int channel) const;
+    bool IsChannelMuted(int channel) const;
     void LogCurrentArrangement() const;
+    void NextPattern();
     void SaveCurrentArrangement(const std::string& filename) const;
+    
+    // GUI support methods
+    void ResumeMusic();
+    void PauseMusic();
+    void SetPaulaEmulator(PaulaEmulator* paula);
+    
+    // Real-time channel data for tracker display
+    struct ChannelData {
+        bool active;
+        int instrument;
+        int period;
+        int volume;
+        int note;
+    };
+    ChannelData GetChannelData(int channel) const;
     
 private:
     PaulaEmulator* paula;

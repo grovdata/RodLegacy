@@ -197,6 +197,53 @@ void MusicSequencer::LogCurrentArrangement() const {
     SDL_Log("================================");
 }
 
+void MusicSequencer::NextPattern() {
+    if (!playing || noteData.empty()) return;
+    
+    // Find the next pattern by looking for the next 0xFF marker
+    uint32_t currentPos = channels[0].notePos;
+    uint32_t nextPatternStart = currentPos;
+    
+    // Look for the next 0xFF marker
+    for (uint32_t i = currentPos + 1; i < noteData.size(); i++) {
+        if (noteData[i] == 0xFF) {
+            nextPatternStart = i + 1;
+            break;
+        }
+    }
+    
+    // If we found a pattern, jump to it
+    if (nextPatternStart > currentPos && nextPatternStart < noteData.size()) {
+        // Stop all channels first
+        for (int i = 0; i < 4; i++) {
+            paula->EnableChannel(i, false);
+        }
+        
+        // Set all channels to the same position (they all read from the same stream)
+        for (int i = 0; i < 4; i++) {
+            channels[i].notePos = nextPatternStart;
+            channels[i].ticksRemaining = 0;
+            channels[i].manuallyMuted = false;  // Reset mute state
+        }
+        
+        // Reset the main sequencer state completely
+        currentTick = 0;
+        activeChannel = 0;
+        currentPattern++;  // Increment pattern counter
+        
+        // Reset the tick timer to ensure clean timing
+        tickTimer = 0.0f;
+        
+        SDL_Log("MusicSequencer: Jumped to next pattern at offset 0x%04X (pattern %d)", nextPatternStart, currentPattern);
+    } else {
+        // If no next pattern found, restart the current song
+        SDL_Log("MusicSequencer: No next pattern found, restarting current song");
+        StopMusic();
+        SelectSong(currentSong);
+        StartMusic();
+    }
+}
+
 void MusicSequencer::ShowInstrumentAssignments() {
     SDL_Log("Current instrument assignments:");
     for (int i = 0; i < 4; i++) {
@@ -264,6 +311,9 @@ void MusicSequencer::Update(float deltaTime) {
             currentTick = 0;
             currentPattern++;
             SDL_Log("MusicSequencer: Pattern %d complete, looping", currentPattern);
+            
+            // Don't reset notePos - let it continue from current position
+            // The sequencer should continue reading from where it left off
         }
     }
 }
@@ -382,9 +432,41 @@ void MusicSequencer::ProcessTick() {
             }
             // Tempo/timing controls (0x90-0x97)
             else if (cmd >= 0x90 && cmd <= 0x97) {
-                // These might control global timing - for now, just consume the parameter
-                SDL_Log("MusicSequencer: Tempo/timing command 0x%02X param=0x%02X", cmd, param);
-                continue; // Continue processing instead of stopping
+                // Implement proper tempo handling based on analysis
+                // Commands 0x90-0x97 appear to control timing/tempo
+                int tempoIndex = cmd - 0x90;
+                
+                // Map tempo commands to actual timing values
+                // Based on analysis, these seem to control note duration/timing
+                switch (tempoIndex) {
+                    case 0: // 0x90 - Very fast
+                        mainCh.ticksRemaining = 1;
+                        break;
+                    case 1: // 0x91 - Fast
+                        mainCh.ticksRemaining = 2;
+                        break;
+                    case 2: // 0x92 - Medium-fast
+                        mainCh.ticksRemaining = 3;
+                        break;
+                    case 3: // 0x93 - Medium
+                        mainCh.ticksRemaining = 4;
+                        break;
+                    case 4: // 0x94 - Medium-slow
+                        mainCh.ticksRemaining = 6;
+                        break;
+                    case 5: // 0x95 - Slow
+                        mainCh.ticksRemaining = 8;
+                        break;
+                    case 6: // 0x96 - Very slow
+                        mainCh.ticksRemaining = 12;
+                        break;
+                    case 7: // 0x97 - Extremely slow
+                        mainCh.ticksRemaining = 16;
+                        break;
+                }
+                
+                SDL_Log("MusicSequencer: Tempo command 0x%02X -> %d ticks", cmd, mainCh.ticksRemaining);
+                return; // Return to apply the timing
             }
             // Unknown control codes
             else {
@@ -483,6 +565,57 @@ void MusicSequencer::PlayNoteOnChannel(int channel, uint8_t noteCmd, uint8_t dur
                     noteCmd, channel, instIdx, period);
         }
     }
+}
+
+// GUI support methods
+void MusicSequencer::ResumeMusic() {
+    if (paused) {
+        paused = false;
+        SDL_Log("MusicSequencer: Music resumed");
+    }
+}
+
+void MusicSequencer::PauseMusic() {
+    if (playing && !paused) {
+        paused = true;
+        SDL_Log("MusicSequencer: Music paused");
+    }
+}
+
+void MusicSequencer::SetPaulaEmulator(PaulaEmulator* paulaEmulator) {
+    paula = paulaEmulator;
+}
+
+bool MusicSequencer::IsChannelMuted(int channel) const {
+    if (channel < 0 || channel >= 4) return false;
+    return channels[channel].manuallyMuted;
+}
+
+MusicSequencer::ChannelData MusicSequencer::GetChannelData(int channel) const {
+    ChannelData data = {false, 0, 0, 0, 0};
+    
+    if (channel < 0 || channel >= 4) return data;
+    
+    // Check if channel is active by checking if Paula has it enabled
+    data.active = !channels[channel].manuallyMuted;
+    data.instrument = channels[channel].currentInstrument;
+    
+    // Get current period and volume from Paula emulator
+    if (paula) {
+        const auto& paulaChannel = paula->GetChannel(channel);
+        data.period = paulaChannel.period;
+        data.volume = paulaChannel.volume;
+        
+        // Convert period to note (approximate)
+        if (data.period > 0) {
+            // Simple period to note conversion (this is approximate)
+            data.note = 60 + (113 - data.period) / 2; // Rough conversion
+            if (data.note < 0) data.note = 0;
+            if (data.note > 127) data.note = 127;
+        }
+    }
+    
+    return data;
 }
 
 
