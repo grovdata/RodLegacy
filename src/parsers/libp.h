@@ -562,6 +562,66 @@ constexpr uint8_t SR_OPPONENT_MAGENTA_G = 0;
 constexpr uint8_t SR_OPPONENT_MAGENTA_B = 192;
 constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for matching
 
+// ============================================================================
+// AUDIO SAMPLE DATA - Verified Sound Sample Offsets and Properties
+// ============================================================================
+//
+// Street Rod uses three main audio files containing raw 8-bit signed PCM samples:
+// - srs0.wave: Racing engine sounds
+// - srl0.wave: General game sounds (engine start, effects)
+// - srl1.wave: Music samples (California Dreams custom format)
+//
+// All samples are 8-bit SIGNED audio (-128 to 127), NOT unsigned!
+// Amiga Paula chip base frequency: 3579545 Hz (NTSC) / 3546895 Hz (PAL)
+// Sample playback rate = PAULA_BASE_FREQ / period
+//
+// ============================================================================
+
+// srs0.wave - Racing Engine Sound
+// Total file size: 480 bytes
+constexpr uint32_t SRS0_ENGINE_LOOP_OFFSET = 0x0000;  // Racing engine loop
+constexpr uint32_t SRS0_ENGINE_LOOP_LENGTH = 480;     // Bytes (looped)
+constexpr uint16_t SRS0_ENGINE_IDLE_PERIOD = 252;     // Period at idle RPM (~14204 Hz)
+constexpr uint16_t SRS0_ENGINE_MAX_PERIOD = 193;      // Period at max RPM (~18548 Hz)
+constexpr uint32_t SRS0_ENGINE_BASE_RATE = 16000;     // Base sample rate (Hz), pitch-modulated by RPM
+
+// srl0.wave - General Game Sounds
+// Total file size: ~12KB+
+constexpr uint32_t SRL0_ENGINE_START_OFFSET = 0x0000; // Engine starting sound
+constexpr uint32_t SRL0_ENGINE_START_LENGTH = 2000;   // Bytes (one-shot)
+constexpr uint16_t SRL0_ENGINE_START_PERIOD = 320;    // Amiga period
+constexpr uint32_t SRL0_ENGINE_START_RATE = 11186;    // Sample rate (Hz) = 3579545 / 320
+
+// Note: Other sound effects in srl0.wave (ignition, tire screech, honk, crash, siren)
+// are present but exact offsets need verification from Amiga disassembly
+
+// srl1.wave - Music Samples (California Dreams Format)
+// Total file size: ~27KB
+// These samples are used by the music sequencer for background music
+constexpr uint32_t SRL1_TONE_OFFSET = 0x0000;         // Lead melody tone
+constexpr uint32_t SRL1_TONE_LENGTH = 2355;           // Bytes
+constexpr uint32_t SRL1_BASSDRUM_OFFSET = 0x0933;     // Bass drum percussion
+constexpr uint32_t SRL1_BASSDRUM_LENGTH = 21;         // Bytes
+constexpr uint32_t SRL1_HIHAT_OFFSET = 0x0948;        // Hi-hat percussion
+constexpr uint32_t SRL1_HIHAT_LENGTH = 7;             // Bytes
+constexpr uint32_t SRL1_BUZZ_OFFSET = 0x094F;         // Buzz/distortion effect
+constexpr uint32_t SRL1_BUZZ_LENGTH = 24817;          // Bytes (rest of file)
+constexpr uint32_t SRL1_MUSIC_SAMPLE_RATE = 22050;    // Standard sample rate for music
+
+// Music format companion files (see streetrod-research/src/music for details):
+// - msr.note: Note sequences and pattern data
+// - srl.ins: Instrument definitions (maps notes to samples)
+// - srl.env: Envelope data (volume/pitch modulation)
+
+// Audio format notes:
+// 1. All samples are 8-bit SIGNED PCM (-128 to 127)
+// 2. Engine sounds use Amiga period-based pitch shifting
+// 3. Music samples use fixed sample rates
+// 4. Looped samples (engine) repeat seamlessly
+// 5. One-shot samples (effects) play once without looping
+
+// ============================================================================
+
 // Track data offsets in Street Rod binary
 constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
 constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 

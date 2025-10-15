@@ -1,6 +1,7 @@
 #include "audio_manager.h"
 #include "engine_sound.h"
 #include "../parsers/adf.h"
+#include "../parsers/libp.h"
 #include <SDL2/SDL.h>
 #include <cstring>
 #include <algorithm>
@@ -140,18 +141,19 @@ bool AudioManager::LoadAudioFromADF(const char* adfPath, const char* filename) {
 void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
     SDL_Log("AudioManager: Extracting samples from srs0.wave (%zu bytes)", size);
     
-    // Racing engine sound: First 480 bytes - LOOPED and pitch-modulated based on RPM
-    // Base sample rate: Period 252 (idle) = ~14204 Hz, Period 193 (max RPM) = ~18548 Hz
-    // Using middle value: ~16000 Hz as base, pitch will be modulated by EngineSound
+    // Racing engine sound - LOOPED and pitch-modulated based on RPM
+    // Periods: idle=252 (~14204 Hz), max=193 (~18548 Hz)
     // Audio is SIGNED 8-bit
-    if (size >= 480) {
+    if (size >= SRS0_ENGINE_LOOP_LENGTH) {
         AudioSample engineSample;
-        LoadRawAudio(data, 480, engineSample, 16000);  // Base rate, will be pitch-shifted
+        LoadRawAudio(data + SRS0_ENGINE_LOOP_OFFSET, SRS0_ENGINE_LOOP_LENGTH, 
+                     engineSample, SRS0_ENGINE_BASE_RATE);
         engineSample.isLooped = true;
         engineSample.loopStart = 0;
-        engineSample.loopLength = 480;
+        engineSample.loopLength = SRS0_ENGINE_LOOP_LENGTH;
         samples[AudioSampleType::ENGINE_LOOP] = engineSample;
-        SDL_Log("  - Racing engine sound: 480 bytes (looped) at 16000 Hz base");
+        SDL_Log("  - Racing engine sound: %u bytes (looped) at %u Hz base", 
+                SRS0_ENGINE_LOOP_LENGTH, SRS0_ENGINE_BASE_RATE);
     }
     
     // TODO: Extract other samples from srs0.wave if needed
@@ -160,17 +162,19 @@ void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
 void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
     SDL_Log("AudioManager: Extracting samples from srl0.wave (%zu bytes)", size);
     
-    // Engine starting: 0x0000-0x07D0 (2000 bytes) - for car startup in garage/gas station
+    // Engine starting sound - for car startup in garage/gas station
     // Amiga period 320 = 3579545 / 320 = 11186 Hz
     // Audio is SIGNED 8-bit (not unsigned!)
-    if (size >= 2000) {
+    if (size >= SRL0_ENGINE_START_LENGTH) {
         AudioSample engineStartSample;
-        LoadRawAudio(data, 2000, engineStartSample, 11186);
+        LoadRawAudio(data + SRL0_ENGINE_START_OFFSET, SRL0_ENGINE_START_LENGTH, 
+                     engineStartSample, SRL0_ENGINE_START_RATE);
         engineStartSample.isLooped = false;  // One-shot sound
         engineStartSample.loopStart = 0;
         engineStartSample.loopLength = 0;
         samples[AudioSampleType::ENGINE_START] = engineStartSample;
-        SDL_Log("  - Engine starting sound: 2000 bytes (one-shot) at 11186 Hz");
+        SDL_Log("  - Engine starting sound: %u bytes (one-shot) at %u Hz", 
+                SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     }
     
     // TODO: Extract other samples from srl0.wave
@@ -179,50 +183,51 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
     
     // For now, we'll just note that the rest exists
     if (size > 12000) {
-        SDL_Log("  - Additional samples: %zu bytes (ignition, tires, honk, crash, siren)", 
-                size - 12000);
+        SDL_Log("  - Additional sound effects: %zu bytes (offsets TBD)", size - 12000);
     }
 }
 
 void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
     SDL_Log("AudioManager: Extracting samples from srl1.wave (%zu bytes)", size);
     
-    // Known offsets from audio.md:
-    // 0x00: tone
-    // 0x933: bassdrum  (2355 decimal)
-    // 0x948: hihat     (2376 decimal)
-    // 0x94F: buzz      (2383 decimal)
+    // Music samples - used by California Dreams custom music format
+    // See libp.h for detailed offset documentation
     
-    // Tone sample (from start to bassdrum)
-    if (size >= 2355) {
+    // Tone sample (lead melody)
+    if (size >= SRL1_TONE_OFFSET + SRL1_TONE_LENGTH) {
         AudioSample toneSample;
-        LoadRawAudio(data, 2355, toneSample, 22050);
+        LoadRawAudio(data + SRL1_TONE_OFFSET, SRL1_TONE_LENGTH, 
+                     toneSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_TONE] = toneSample;
-        SDL_Log("  - Tone: 2355 bytes");
+        SDL_Log("  - Tone: %u bytes at offset 0x%04X", SRL1_TONE_LENGTH, SRL1_TONE_OFFSET);
     }
     
-    // Bassdrum (from 0x933 to hihat, ~21 bytes)
-    if (size >= 2376) {
+    // Bassdrum percussion
+    if (size >= SRL1_BASSDRUM_OFFSET + SRL1_BASSDRUM_LENGTH) {
         AudioSample bassSample;
-        LoadRawAudio(data + 2355, 21, bassSample, 22050);
+        LoadRawAudio(data + SRL1_BASSDRUM_OFFSET, SRL1_BASSDRUM_LENGTH, 
+                     bassSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_BASSDRUM] = bassSample;
-        SDL_Log("  - Bassdrum: 21 bytes");
+        SDL_Log("  - Bassdrum: %u bytes at offset 0x%04X", SRL1_BASSDRUM_LENGTH, SRL1_BASSDRUM_OFFSET);
     }
     
-    // Hihat (from 0x948 to buzz, ~7 bytes)
-    if (size >= 2383) {
+    // Hihat percussion
+    if (size >= SRL1_HIHAT_OFFSET + SRL1_HIHAT_LENGTH) {
         AudioSample hihatSample;
-        LoadRawAudio(data + 2376, 7, hihatSample, 22050);
+        LoadRawAudio(data + SRL1_HIHAT_OFFSET, SRL1_HIHAT_LENGTH, 
+                     hihatSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_HIHAT] = hihatSample;
-        SDL_Log("  - Hihat: 7 bytes");
+        SDL_Log("  - Hihat: %u bytes at offset 0x%04X", SRL1_HIHAT_LENGTH, SRL1_HIHAT_OFFSET);
     }
     
-    // Buzz (rest of file)
-    if (size > 2383) {
+    // Buzz effect (rest of file)
+    if (size >= SRL1_BUZZ_OFFSET) {
+        uint32_t buzzLength = size - SRL1_BUZZ_OFFSET;
         AudioSample buzzSample;
-        LoadRawAudio(data + 2383, size - 2383, buzzSample, 22050);
+        LoadRawAudio(data + SRL1_BUZZ_OFFSET, buzzLength, 
+                     buzzSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_BUZZ] = buzzSample;
-        SDL_Log("  - Buzz: %zu bytes", size - 2383);
+        SDL_Log("  - Buzz: %u bytes at offset 0x%04X", buzzLength, SRL1_BUZZ_OFFSET);
     }
 }
 
