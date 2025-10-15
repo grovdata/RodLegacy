@@ -16,10 +16,12 @@ class Garage : public CarScene {
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
     std::unique_ptr<Dialog> gameMenuDialog;
+    std::unique_ptr<Dialog> optionsDialog;
     std::unique_ptr<EngineBay> engineBay;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
+    void InitOptionsDialog();
     void UpdateSign();
 
    public:

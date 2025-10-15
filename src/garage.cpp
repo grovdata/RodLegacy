@@ -259,6 +259,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     });
 
     InitGameMenuDialog();
+    InitOptionsDialog();
 
     engineBay = std::make_unique<EngineBay>(
         state.GetCurrentCar()->GetTuneLevel(),
@@ -312,12 +313,15 @@ void Garage::InitGameMenuDialog() {
     SDL_Rect saveGameRect = {92, 94, buttonWidth, buttonHeight};
     SDL_Rect oldGameRect = {92, 112, buttonWidth, buttonHeight};
     SDL_Rect newGameRect = {92, 130, buttonWidth, buttonHeight};
-    SDL_Rect quitGameRect = {164, 103, buttonWidth, buttonHeight};
-    SDL_Rect forgetItRect = {164, 121, buttonWidth, buttonHeight};
+    
+    SDL_Rect optionsRect = {164, 94, buttonWidth, buttonHeight};
+    SDL_Rect quitGameRect = {164, 112, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {164, 130, buttonWidth, buttonHeight};
 
     Zone saveGameZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Save Game"), &saveGameRect);
     Zone oldGameZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Old Game"), &oldGameRect);
     Zone newGameZone(ZONE_GARAGE_MENU_NEW_GAME, strdup("New Game"), &newGameRect);
+    Zone optionsZone(ZONE_GARAGE_MENU_OPTIONS, strdup("Options"), &optionsRect);
     Zone quitGameZone(ZONE_GARAGE_MENU_QUIT_GAME, strdup("Quit"), &quitGameRect);
     Zone forgetItZone(ZONE_GARAGE_MENU_FORGET_IT, strdup("Forget it"), &forgetItRect);
 
@@ -325,8 +329,9 @@ void Garage::InitGameMenuDialog() {
         saveGameZone,
         oldGameZone,
         newGameZone,
+        optionsZone,
         quitGameZone,
-        forgetItZone
+        forgetItZone,
     };
 
     ButtonConfig saveGameButton = {
@@ -353,6 +358,14 @@ void Garage::InitGameMenuDialog() {
         2
     };
 
+    ButtonConfig optionsButton = {
+        optionsRect,
+        "Options",
+        nullptr,
+        false,
+        5
+    };
+
     ButtonConfig quitGameButton = {
         quitGameRect,
         "Quit",
@@ -369,12 +382,14 @@ void Garage::InitGameMenuDialog() {
         4
     };
 
+
     std::vector<ButtonConfig> buttons = {
         saveGameButton,
         oldGameButton,
         newGameButton,
         quitGameButton,
-        forgetItButton
+        forgetItButton,
+        optionsButton
     };
 
     std::vector<DialogTextConfig> texts = {
@@ -423,9 +438,125 @@ void Garage::InitGameMenuDialog() {
             case 4:
                 gameMenuDialog->Hide();
                 break;
+            case 5:
+                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Options");
+                gameMenuDialog->Hide();
+                SetActiveDialog(optionsDialog.get());
+                break;
         }
     };
     gameMenuDialog = std::make_unique<Dialog>(menuDialogConfig);
+}
+
+void Garage::InitOptionsDialog() {
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    const int labelWidth = 80;
+
+    SDL_Rect optionsDialogRect = {60, 50, 200, 120};
+    
+    // Button positions
+    SDL_Rect soundVolumeUpRect = {190, 70, 20, buttonHeight};
+    SDL_Rect soundVolumeDownRect = {165, 70, 20, buttonHeight};
+    SDL_Rect musicVolumeUpRect = {190, 90, 20, buttonHeight};
+    SDL_Rect musicVolumeDownRect = {165, 90, 20, buttonHeight};
+    SDL_Rect fullscreenRect = {165, 110, 45, buttonHeight};
+    SDL_Rect backRect = {165, 140, buttonWidth, buttonHeight};
+
+    // Zones
+    Zone soundVolumeUpZone(ZONE_GARAGE_OPTIONS_SOUND_UP, strdup("+"), &soundVolumeUpRect);
+    Zone soundVolumeDownZone(ZONE_GARAGE_OPTIONS_SOUND_DOWN, strdup("-"), &soundVolumeDownRect);
+    Zone musicVolumeUpZone(ZONE_GARAGE_OPTIONS_MUSIC_UP, strdup("+"), &musicVolumeUpRect);
+    Zone musicVolumeDownZone(ZONE_GARAGE_OPTIONS_MUSIC_DOWN, strdup("-"), &musicVolumeDownRect);
+    Zone fullscreenZone(ZONE_GARAGE_OPTIONS_FULLSCREEN, strdup("Toggle Fullscreen"), &fullscreenRect);
+    Zone backZone(ZONE_GARAGE_OPTIONS_BACK, strdup("Back"), &backRect);
+
+    std::vector<Zone> dialogZones = {
+        soundVolumeUpZone,
+        soundVolumeDownZone,
+        musicVolumeUpZone,
+        musicVolumeDownZone,
+        fullscreenZone,
+        backZone,
+    };
+
+    // Buttons
+    ButtonConfig soundVolumeUpButton = {soundVolumeUpRect, "+", nullptr, false, 0};
+    ButtonConfig soundVolumeDownButton = {soundVolumeDownRect, "-", nullptr, false, 1};
+    ButtonConfig musicVolumeUpButton = {musicVolumeUpRect, "+", nullptr, false, 2};
+    ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, "-", nullptr, false, 3};
+    ButtonConfig fullscreenButton = {fullscreenRect, "Toggle", nullptr, false, 4};
+    ButtonConfig backButton = {backRect, "Back", nullptr, true, 5};
+
+    std::vector<ButtonConfig> buttons = {
+        soundVolumeUpButton,
+        soundVolumeDownButton,
+        musicVolumeUpButton,
+        musicVolumeDownButton,
+        fullscreenButton,
+        backButton
+    };
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 3, optionsDialogRect.y + 3, 150, 10}, "Options", {0xFF, 0xFF, 0xFF, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 70, labelWidth, 10}, "Sound Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 90, labelWidth, 10}, "Music Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 110, labelWidth, 10}, "Fullscreen:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
+    };
+
+    std::vector<SDL_Rect> lines = {
+        {63, 59, 194, 1},  // Top line under title
+    };
+
+    DialogConfig optionsDialogConfig;
+    optionsDialogConfig.bounds = optionsDialogRect;
+    optionsDialogConfig.backgroundColor = {0, 208, 0, 255};
+    optionsDialogConfig.borderColor = {0, 111, 239, 255};
+    optionsDialogConfig.texts = texts;
+    optionsDialogConfig.buttons = buttons;
+    optionsDialogConfig.lines = lines;
+    optionsDialogConfig.zones = dialogZones;
+    optionsDialogConfig.contentAreas = std::vector<SDL_Rect>{optionsDialogRect};
+    optionsDialogConfig.font = state.assets.GetMainFont();
+    optionsDialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
+    optionsDialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0:
+                SDL_Log("Options: Sound Volume Up");
+                // TODO: Increase sound volume
+                // state.audio.IncreaseSoundVolume();
+                break;
+            case 1:
+                SDL_Log("Options: Sound Volume Down");
+                // TODO: Decrease sound volume
+                // state.audio.DecreaseSoundVolume();
+                break;
+            case 2:
+                SDL_Log("Options: Music Volume Up");
+                // TODO: Increase music volume
+                // state.audio.IncreaseMusicVolume();
+                break;
+            case 3:
+                SDL_Log("Options: Music Volume Down");
+                // TODO: Decrease music volume
+                // state.audio.DecreaseMusicVolume();
+                break;
+            case 4:
+                SDL_Log("Options: Toggle Fullscreen");
+                // TODO: Toggle fullscreen
+                // state.ToggleFullscreen();
+                break;
+            case 5:
+                SDL_Log("Options: Back to menu");
+                optionsDialog->Hide();
+                SetActiveDialog(gameMenuDialog.get());
+                break;
+        }
+    };
+    
+    optionsDialog = std::make_unique<Dialog>(optionsDialogConfig);
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
