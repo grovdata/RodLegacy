@@ -128,6 +128,7 @@ cpp_sources = [
     'audio/audio_manager.cpp',
     'audio/engine_sound.cpp',
     'ui/button.cpp',
+    'ui/checkbox.cpp',
     'ui/bubble.cpp',
     'ui/label.cpp',
     'ui/hud.cpp',

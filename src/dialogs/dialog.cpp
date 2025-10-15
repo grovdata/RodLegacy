@@ -19,6 +19,10 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     for (const auto& buttonCfg : config.buttons) {   
         AddButton(buttonCfg);
     }
+    
+    for (auto button : config.buttonPtrs) {
+        buttons.push_back(button);
+    }
 
     for (const auto& lineCfg : config.lines) {
         AddLine(lineCfg, config.borderColor);

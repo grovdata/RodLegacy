@@ -36,6 +36,7 @@ struct DialogConfig {
     SDL_Color backgroundColor = {0x60, 0x60, 0x60, 0xFF};
     SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
     std::vector<ButtonConfig> buttons;
+    std::vector<Button*> buttonPtrs;  // For directly passing Button/Checkbox instances
     std::vector<DialogTextConfig> texts;
     std::vector<SDL_Rect> contentAreas;
     std::vector<SDL_Rect> lines;

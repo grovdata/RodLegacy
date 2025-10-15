@@ -2,6 +2,7 @@
 #include "state.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
+#include "ui/checkbox.h"
 #include "assets.h"
 #include "state.h"
 #include "engine_bay.h"
@@ -452,6 +453,7 @@ void Garage::InitOptionsDialog() {
     const int buttonWidth = 66;
     const int buttonHeight = 16;
     const int labelWidth = 80;
+    const int checkboxSize = 14;
 
     SDL_Rect optionsDialogRect = {60, 50, 200, 120};
     
@@ -460,7 +462,7 @@ void Garage::InitOptionsDialog() {
     SDL_Rect soundVolumeDownRect = {165, 70, 20, buttonHeight};
     SDL_Rect musicVolumeUpRect = {190, 90, 20, buttonHeight};
     SDL_Rect musicVolumeDownRect = {165, 90, 20, buttonHeight};
-    SDL_Rect fullscreenRect = {165, 110, 45, buttonHeight};
+    SDL_Rect fullscreenCheckboxRect = {optionsDialogRect.x + labelWidth + 10, 109, checkboxSize, checkboxSize};
     SDL_Rect backRect = {165, 140, buttonWidth, buttonHeight};
 
     // Zones
@@ -468,7 +470,7 @@ void Garage::InitOptionsDialog() {
     Zone soundVolumeDownZone(ZONE_GARAGE_OPTIONS_SOUND_DOWN, strdup("-"), &soundVolumeDownRect);
     Zone musicVolumeUpZone(ZONE_GARAGE_OPTIONS_MUSIC_UP, strdup("+"), &musicVolumeUpRect);
     Zone musicVolumeDownZone(ZONE_GARAGE_OPTIONS_MUSIC_DOWN, strdup("-"), &musicVolumeDownRect);
-    Zone fullscreenZone(ZONE_GARAGE_OPTIONS_FULLSCREEN, strdup("Toggle Fullscreen"), &fullscreenRect);
+    Zone fullscreenZone(ZONE_GARAGE_OPTIONS_FULLSCREEN, strdup("Toggle Fullscreen"), &fullscreenCheckboxRect);
     Zone backZone(ZONE_GARAGE_OPTIONS_BACK, strdup("Back"), &backRect);
 
     std::vector<Zone> dialogZones = {
@@ -480,32 +482,51 @@ void Garage::InitOptionsDialog() {
         backZone,
     };
 
+    // Checkbox for fullscreen (added as a ButtonConfig, will be created as Checkbox by Dialog)
+    CheckboxConfig fullscreenCheckboxConfig;
+    fullscreenCheckboxConfig.bounds = fullscreenCheckboxRect;
+    fullscreenCheckboxConfig.value = &fullscreenEnabled;
+    fullscreenCheckboxConfig.fillColor = {0, 208, 0, 255};
+    fullscreenCheckboxConfig.borderColor = {0, 0, 0, 255};
+    fullscreenCheckboxConfig.checkColor = {0, 0, 0, 255};
+    fullscreenCheckboxConfig.index = 4;
+    fullscreenCheckboxConfig.onChange = [this](bool checked) {
+        SDL_Log("Options: Fullscreen %s", checked ? "enabled" : "disabled");
+        // TODO: Toggle fullscreen
+        // SDL_SetWindowFullscreen(window, checked ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    };
+
     // Buttons
     ButtonConfig soundVolumeUpButton = {soundVolumeUpRect, "+", nullptr, false, 0};
     ButtonConfig soundVolumeDownButton = {soundVolumeDownRect, "-", nullptr, false, 1};
     ButtonConfig musicVolumeUpButton = {musicVolumeUpRect, "+", nullptr, false, 2};
     ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, "-", nullptr, false, 3};
-    ButtonConfig fullscreenButton = {fullscreenRect, "Toggle", nullptr, false, 4};
     ButtonConfig backButton = {backRect, "Back", nullptr, true, 5};
 
-    std::vector<ButtonConfig> buttons = {
-        soundVolumeUpButton,
-        soundVolumeDownButton,
-        musicVolumeUpButton,
-        musicVolumeDownButton,
-        fullscreenButton,
-        backButton
-    };
-
     std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 3, optionsDialogRect.y + 3, 150, 10}, "Options", {0xFF, 0xFF, 0xFF, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x, optionsDialogRect.y + 3, optionsDialogRect.w, 10}, "Options", {0xFF, 0xFF, 0xFF, 0xFF}, true},
         DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 70, labelWidth, 10}, "Sound Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
         DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 90, labelWidth, 10}, "Music Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
         DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 110, labelWidth, 10}, "Fullscreen:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
     };
 
     std::vector<SDL_Rect> lines = {
-        {63, 59, 194, 1},  // Top line under title
+        {63, 62, 194, 1},  // Top line under title
+    };
+
+    // Create checkbox manually
+    Checkbox* fullscreenCheckbox = new Checkbox(fullscreenCheckboxConfig);
+
+    std::vector<ButtonConfig> buttons = {
+        soundVolumeUpButton,
+        soundVolumeDownButton,
+        musicVolumeUpButton,
+        musicVolumeDownButton,
+        backButton
+    };
+
+    std::vector<Button*> buttonPtrs = {
+        fullscreenCheckbox
     };
 
     DialogConfig optionsDialogConfig;
@@ -514,6 +535,7 @@ void Garage::InitOptionsDialog() {
     optionsDialogConfig.borderColor = {0, 111, 239, 255};
     optionsDialogConfig.texts = texts;
     optionsDialogConfig.buttons = buttons;
+    optionsDialogConfig.buttonPtrs = buttonPtrs;
     optionsDialogConfig.lines = lines;
     optionsDialogConfig.zones = dialogZones;
     optionsDialogConfig.contentAreas = std::vector<SDL_Rect>{optionsDialogRect};
@@ -542,11 +564,6 @@ void Garage::InitOptionsDialog() {
                 SDL_Log("Options: Music Volume Down");
                 // TODO: Decrease music volume
                 // state.audio.DecreaseMusicVolume();
-                break;
-            case 4:
-                SDL_Log("Options: Toggle Fullscreen");
-                // TODO: Toggle fullscreen
-                // state.ToggleFullscreen();
                 break;
             case 5:
                 SDL_Log("Options: Back to menu");
