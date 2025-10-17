@@ -255,12 +255,10 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         engineBackdropRect
     };
 
-    // Create animated engine tune bitmap
+    // Create animated engine tune bitmap - using animation data from libp.h
     Bitmap* engineTuneAnimationBelt = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
     AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, beltAnimationRect);
-    engineTuneAnimation->SetAnimationFrames({{0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}});
-    engineTuneAnimation->SetSpeed(0.5f);
-    engineTuneAnimation->SetLoop(true);
+    engineTuneAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION));
     engineTuneAnimation->Play();
 
     tuningConfig.bitmaps["engine_tune_animation"] = {
@@ -270,10 +268,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* leftPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
     AnimatedBitmap *leftPistonAnimation = new AnimatedBitmap(leftPiston, leftPistonRect);
-
-    leftPistonAnimation->SetAnimationFrames(42, 55, 4, 2);
-    leftPistonAnimation->SetSpeed(0.5f);
-    leftPistonAnimation->SetLoop(true);
+    leftPistonAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_PISTON_LEFT_ANIMATION));
     leftPistonAnimation->Play();
 
     tuningConfig.bitmaps["left_piston_animation"] = {
@@ -284,10 +279,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* rightPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
     AnimatedBitmap *rightPistonAnimation = new AnimatedBitmap(rightPiston, rightPistonRect);
-
-    rightPistonAnimation->SetAnimationFrames(41, 54, 4, 2);
-    rightPistonAnimation->SetSpeed(0.5f);
-    rightPistonAnimation->SetLoop(true);
+    rightPistonAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_PISTON_RIGHT_ANIMATION));
     rightPistonAnimation->Play();
 
     tuningConfig.bitmaps["right_piston_animation"] = {
@@ -298,9 +290,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* crank = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
     AnimatedBitmap *crankAnimation = new AnimatedBitmap(crank, crankRect);
-    crankAnimation->SetAnimationFrames(71, 33, 2, 2);
-    crankAnimation->SetSpeed(0.5f);
-    crankAnimation->SetLoop(true);
+    crankAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_CRANK_ANIMATION));
     crankAnimation->Play();
 
     tuningConfig.bitmaps["crank_animation"] = {
@@ -311,9 +301,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* flywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
     AnimatedBitmap *flywheelAnimation = new AnimatedBitmap(flywheel, flywheelRect);
-    flywheelAnimation->SetAnimationFrames(43, 34, 2, 2);
-    flywheelAnimation->SetSpeed(0.5f);
-    flywheelAnimation->SetLoop(true);
+    flywheelAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_FLYWHEEL_ANIMATION));
     flywheelAnimation->Play();
 
     tuningConfig.bitmaps["flywheel_animation"] = {
@@ -324,9 +312,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     Bitmap* camshaft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
     AnimatedBitmap *camshaftAnimation = new AnimatedBitmap(camshaft, camRect);
-    camshaftAnimation->SetAnimationFrames(39, 14, 4, 2);
-    camshaftAnimation->SetSpeed(0.5f);
-    camshaftAnimation->SetLoop(true);
+    camshaftAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_CAM_ANIMATION));
     camshaftAnimation->Play();
 
     tuningConfig.bitmaps["cam_animation"] = {

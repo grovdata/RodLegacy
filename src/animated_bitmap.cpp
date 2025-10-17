@@ -103,4 +103,27 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
     }
+}
+
+void AnimatedBitmap::SetAnimationFromInfo(const SpriteAnimationInfo* animInfo) {
+    if (!animInfo) return;
+    
+    // Convert SpriteRect array to SDL_Rect vector
+    animation.frameRects.clear();
+    for (uint8_t i = 0; i < animInfo->frameCount; i++) {
+        const SpriteRect& rect = animInfo->frames[i];
+        animation.frameRects.push_back({rect.x, rect.y, rect.w, rect.h});
+    }
+    
+    animation.frameCount = animInfo->frameCount;
+    animation.loop = animInfo->isLooping;
+    animation.currentFrame = 0;
+    
+    // Set speed based on milliseconds per frame
+    animation.frameDuration = animInfo->animationSpeed / 1000.0f;  // Convert ms to seconds
+    
+    // Set source rect to first frame
+    if (animation.frameCount > 0) {
+        SetSourceRect(animation.frameRects[0]);
+    }
 } 

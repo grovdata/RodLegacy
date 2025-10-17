@@ -1,5 +1,6 @@
 #pragma once
 #include "bitmap.h"
+#include "parsers/libp.h"
 #include <vector>
 #include <string>
 
@@ -36,6 +37,7 @@ public:
     // Animation setup
     void SetAnimationFrames(const std::vector<SDL_Rect>& frames);
     void SetAnimationFrames(int frameWidth, int frameHeight, int columns, int rows);
+    void SetAnimationFromInfo(const SpriteAnimationInfo* animInfo);
 
     // Getters
     bool IsPlaying() const { return animation.isPlaying; }

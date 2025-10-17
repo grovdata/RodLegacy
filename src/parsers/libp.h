@@ -524,10 +524,50 @@ static const SpriteRect RACING_SIGN_COUNTY_LINE_FRAMES[] = {
     {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}    
 };
 
+// Engine animation frame definitions
+// Belt animation: 2x2 grid of 86x53 frames
+static const SpriteRect ENGINE_BELT_FRAMES[] = {
+    {0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}
+};
+
+// Left piston animation: 4x2 grid of 42x55 frames
+static const SpriteRect ENGINE_PISTON_LEFT_FRAMES[] = {
+    {0, 0, 42, 55}, {42, 0, 42, 55}, {84, 0, 42, 55}, {126, 0, 42, 55},
+    {0, 55, 42, 55}, {42, 55, 42, 55}, {84, 55, 42, 55}, {126, 55, 42, 55}
+};
+
+// Right piston animation: 4x2 grid of 41x54 frames
+static const SpriteRect ENGINE_PISTON_RIGHT_FRAMES[] = {
+    {0, 0, 41, 54}, {41, 0, 41, 54}, {82, 0, 41, 54}, {123, 0, 41, 54},
+    {0, 54, 41, 54}, {41, 54, 41, 54}, {82, 54, 41, 54}, {123, 54, 41, 54}
+};
+
+// Crank animation: 2x2 grid of 71x33 frames
+static const SpriteRect ENGINE_CRANK_FRAMES[] = {
+    {0, 0, 71, 33}, {71, 0, 71, 33}, {0, 33, 71, 33}, {71, 33, 71, 33}
+};
+
+// Flywheel animation: 2x2 grid of 43x34 frames
+static const SpriteRect ENGINE_FLYWHEEL_FRAMES[] = {
+    {0, 0, 43, 34}, {43, 0, 43, 34}, {0, 34, 43, 34}, {43, 34, 43, 34}
+};
+
+// Camshaft animation: 4x2 grid of 39x14 frames
+static const SpriteRect ENGINE_CAM_FRAMES[] = {
+    {0, 0, 39, 14}, {39, 0, 39, 14}, {78, 0, 39, 14}, {117, 0, 39, 14},
+    {0, 14, 39, 14}, {39, 14, 39, 14}, {78, 14, 39, 14}, {117, 14, 39, 14}
+};
+
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},    
-    {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES}
+    {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
+    {ENGINE_BELT_ANIMATION, 4, 500, true, ENGINE_BELT_FRAMES},
+    {ENGINE_PISTON_LEFT_ANIMATION, 8, 500, true, ENGINE_PISTON_LEFT_FRAMES},
+    {ENGINE_PISTON_RIGHT_ANIMATION, 8, 500, true, ENGINE_PISTON_RIGHT_FRAMES},
+    {ENGINE_CRANK_ANIMATION, 4, 500, true, ENGINE_CRANK_FRAMES},
+    {ENGINE_FLYWHEEL_ANIMATION, 4, 500, true, ENGINE_FLYWHEEL_FRAMES},
+    {ENGINE_CAM_ANIMATION, 8, 500, true, ENGINE_CAM_FRAMES}
 };
 
 // Helper function to get animation info for a sprite
