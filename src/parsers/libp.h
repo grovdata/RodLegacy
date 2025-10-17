@@ -587,10 +587,42 @@ constexpr uint32_t SRS0_ENGINE_BASE_RATE = 16000;     // Base sample rate (Hz), 
 
 // srl0.wave - General Game Sounds
 // Total file size: ~12KB+
-constexpr uint32_t SRL0_ENGINE_START_OFFSET = 0x0000; // Engine starting sound
-constexpr uint32_t SRL0_ENGINE_START_LENGTH = 2000;   // Bytes (one-shot)
-constexpr uint16_t SRL0_ENGINE_START_PERIOD = 320;    // Amiga period
-constexpr uint32_t SRL0_ENGINE_START_RATE = 11186;    // Sample rate (Hz) = 3579545 / 320
+constexpr uint32_t SRL0_ENGINE_START_OFFSET = 0x0000;  // Offset in bytes
+constexpr uint16_t SRL0_ENGINE_START_PERIOD = 325;    // Amiga period (3579545 / 325 ≈ 11014 Hz)
+constexpr uint32_t SRL0_ENGINE_START_LENGTH = 7827;  // Length in bytes
+constexpr uint32_t SRL0_ENGINE_START_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.710 seconds
+
+constexpr uint32_t SRL0_TIRE_SCREECH_OFFSET = 0x1E93;  // Offset in bytes
+constexpr uint32_t SRL0_TIRE_SCREECH_LENGTH = 4910;  // Length in bytes
+constexpr uint32_t SRL0_TIRE_SCREECH_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.445 seconds
+
+constexpr uint32_t SRL0_HONK_OFFSET = 0x31C1;  // Offset in bytes
+constexpr uint32_t SRL0_HONK_LENGTH = 1718;  // Length in bytes
+constexpr uint32_t SRL0_HONK_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.156 seconds
+
+constexpr uint32_t SRL0_CAR_BASH_OFFSET = 0x3877;  // Offset in bytes
+constexpr uint32_t SRL0_CAR_BASH_LENGTH = 4773;  // Length in bytes
+constexpr uint32_t SRL0_CAR_BASH_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.433 seconds
+
+constexpr uint32_t SRL0_DEBRIS_OFFSET = 0x4B1C;  // Offset in bytes
+constexpr uint32_t SRL0_DEBRIS_LENGTH = 4782;  // Length in bytes
+constexpr uint32_t SRL0_DEBRIS_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.434 seconds
+
+constexpr uint32_t SRL0_CAR_JACK_OFFSET = 0x5DCA;  // Offset in bytes
+constexpr uint32_t SRL0_CAR_JACK_LENGTH = 3972;  // Length in bytes
+constexpr uint32_t SRL0_CAR_JACK_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.360 seconds
+
+constexpr uint32_t SRL0_COP_SIREN_OFFSET = 0x6D4E;  // Offset in bytes
+constexpr uint32_t SRL0_COP_SIREN_LENGTH = 9766;  // Length in bytes
+constexpr uint32_t SRL0_COP_SIREN_RATE = 11025;  // Sample rate in Hz
+// Duration: 0.886 seconds
+
 
 // Note: Other sound effects in srl0.wave (ignition, tire screech, honk, crash, siren)
 // are present but exact offsets need verification from Amiga disassembly
@@ -619,6 +651,11 @@ constexpr uint32_t SRL1_MUSIC_SAMPLE_RATE = 22050;    // Standard sample rate fo
 // 3. Music samples use fixed sample rates
 // 4. Looped samples (engine) repeat seamlessly
 // 5. One-shot samples (effects) play once without looping
+
+// Helper function to calculate sample duration in seconds
+constexpr inline float CalculateSampleDuration(uint32_t lengthInSamples, uint32_t sampleRate) {
+    return static_cast<float>(lengthInSamples) / static_cast<float>(sampleRate);
+}
 
 // ============================================================================
 

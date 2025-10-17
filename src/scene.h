@@ -115,7 +115,7 @@ private:
     bool waitingForEngineStart = false;  // True when playing engine start sample
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
-    const double ENGINE_START_DURATION = 0.179;  // Engine start sample duration in seconds
+    const double ENGINE_START_DURATION = CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     bool isPaused = false;
 
 protected:

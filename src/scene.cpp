@@ -386,7 +386,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
             // Reverse out: play engine start sample FIRST, then loop after delay
-            // Engine start: 2000 bytes at 11186 Hz = ~179ms duration
+            // Engine start: 31763 samples at 11025 Hz = ~2.88s duration
             SDL_Log("StartAnimateCar: Playing ENGINE_START sample for reverse");
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
             
