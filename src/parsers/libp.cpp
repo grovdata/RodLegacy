@@ -390,18 +390,19 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
 bool BitmapParser::IsTransparent(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
-            case ENGINE_CRANK_ANIMATION:
-            case ENGINE_FLYWHEEL_ANIMATION:
-            case ENGINE_BELT_ANIMATION:
-            case ENGINE_CAM_ANIMATION:
-            case ENGINE_PISTON_LEFT_ANIMATION:
-            case ENGINE_PISTON_RIGHT_ANIMATION:
-               return false;
-            default:
-                return true;
+            AmigaLibAsset asset = static_cast<AmigaLibAsset>(index);
+            switch (asset) {
+                // Masks should be transparent (color 0 = transparent)
+                case GUS_GAS_MASK:
+                case DINER_SCREEN_MASK:
+                    return true;
+                default:
+                    return false;
+            }
         }
+        default:
+            return false;
     }
-    return true;
 }
 
 // Return rows, columns for spritesheet
