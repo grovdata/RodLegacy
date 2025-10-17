@@ -63,6 +63,7 @@ public:
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
 
     int GetBankroll();
+    void SetBankroll(int amount);
 
     SrLibGameScene GetCurrentGameScene();
     Scene* GetCurrentScene();

@@ -26,6 +26,7 @@ class Garage : public CarScene {
     void InitGameMenuDialog();
     void InitOptionsDialog();
     void InitBumperDialogs();
+    void ShowBumperDialog(bool isFront);
     void UpdateSign();
 
    public:

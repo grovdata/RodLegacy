@@ -414,3 +414,77 @@ void CarBitmap::StripRearBumper() {
         SDL_Log("Cannot strip rear bumper: No rear bumper overlay loaded (car may not have one)");
     }
 }
+
+void CarBitmap::RestoreFrontBumper() {
+    isFrontBumperStripped = false;
+    if (car) {
+        // Restore by reloading the body from assets
+        CarModel model = car->GetModel();
+        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+        auto& libFile = state.assets.GetLibPData();
+        std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+        
+        if (isRoofChopped) {
+            // Chopped body index is body index + 1
+            auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+            if (choppedAsset) {
+                bodyChopped = *choppedAsset;
+                body = &bodyChopped;
+            }
+        } else {
+            auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+            if (bodyAsset) {
+                bodyOriginal = *bodyAsset;
+                body = &bodyOriginal;
+            }
+        }
+        
+        car->SetBumpersStripped(false);
+        SDL_Log("Front bumper restored");
+        
+        // If rear bumper is still stripped, reapply it
+        if (isRearBumperStripped && rearBumper.GetSurface()) {
+            BitmapOffset_t offsets = model.offsets;
+            body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+        }
+        
+        UpdatePositions();
+    }
+}
+
+void CarBitmap::RestoreRearBumper() {
+    isRearBumperStripped = false;
+    if (car) {
+        // Restore by reloading the body from assets
+        CarModel model = car->GetModel();
+        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+        auto& libFile = state.assets.GetLibPData();
+        std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+        
+        if (isRoofChopped) {
+            // Chopped body index is body index + 1
+            auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+            if (choppedAsset) {
+                bodyChopped = *choppedAsset;
+                body = &bodyChopped;
+            }
+        } else {
+            auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+            if (bodyAsset) {
+                bodyOriginal = *bodyAsset;
+                body = &bodyOriginal;
+            }
+        }
+        
+        car->SetBumpersStripped(false);
+        SDL_Log("Rear bumper restored");
+        
+        // If front bumper is still stripped, reapply it
+        if (isFrontBumperStripped && frontBumper.GetSurface()) {
+            BitmapOffset_t offsets = model.offsets;
+            body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+        }
+        
+        UpdatePositions();
+    }
+}

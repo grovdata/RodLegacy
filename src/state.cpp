@@ -84,6 +84,10 @@ int State::GetBankroll() {
     return bankroll;
 }
 
+void State::SetBankroll(int amount) {
+    bankroll = amount;
+}
+
 SrLibGameScene State::GetCurrentGameScene() {
     return currentGameScene;
 }

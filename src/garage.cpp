@@ -578,12 +578,17 @@ void Garage::InitOptionsDialog() {
 }
 
 void Garage::InitBumperDialogs() {
-    const int buttonWidth = 66;
+    // Dialogs are now created dynamically in ShowBumperDialog()
+    // This method is kept for compatibility but does nothing
+}
+
+void Garage::ShowBumperDialog(bool isFront) {
+    const int buttonWidth = 72;
     const int buttonHeight = 16;
     const int dialogWidth = 200;
     const int dialogHeight = 60;
     
-    // Center dialogs on screen
+    // Center dialog on screen
     SDL_Rect bumperDialogRect = {
         (GAME_WIDTH - dialogWidth) / 2,
         (GAME_HEIGHT - dialogHeight) / 2,
@@ -591,91 +596,100 @@ void Garage::InitBumperDialogs() {
         dialogHeight
     };
     
-    // Front Bumper Dialog
-    SDL_Rect frontStripButtonRect = {bumperDialogRect.x + 10, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
-    SDL_Rect frontForgetButtonRect = {bumperDialogRect.x + 124, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
+    // Check current bumper status
+    bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
     
-    ButtonConfig frontStripButton = {frontStripButtonRect, "Strip Bumper", nullptr, false, 0};
-    ButtonConfig frontForgetButton = {frontForgetButtonRect, "Forget it", nullptr, true, 1};
+    // Check if player has enough money
+    int currentMoney = state.GetBankroll();
+    bool canAfford = currentMoney >= 20;
     
-    DialogConfig frontBumperDialogConfig = {
+    SDL_Rect actionButtonRect = {bumperDialogRect.x + 10, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
+    SDL_Rect forgetButtonRect = {bumperDialogRect.x + 118, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
+    
+    const char* actionText = isStripped ? "Restore $20" : "Strip $20";
+    const char* titleText = isFront ? "Front Bumper" : "Rear Bumper";
+    
+    ButtonConfig actionButton = {actionButtonRect, actionText, nullptr, false, 0};
+    ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, true, 1};
+    
+    DialogConfig bumperDialogConfig = {
         state.assets.GetMainFont(),
         bumperDialogRect,
         {0x90, 0x90, 0x90, 0xFF},
         {0xFF, 0xFF, 0xFF, 0xFF},
-        {frontStripButton, frontForgetButton},
+        {actionButton, forgetButton},
         {},
-        {DialogTextConfig{SDL_Rect{bumperDialogRect.x, bumperDialogRect.y + 3, dialogWidth, 10}, "Front Bumper", {0xFF, 0xFF, 0xFF, 0xFF}, true}},
+        {DialogTextConfig{SDL_Rect{bumperDialogRect.x, bumperDialogRect.y + 3, dialogWidth, 10}, titleText, {0xFF, 0xFF, 0xFF, 0xFF}, true}},
         {},
         {},
         {}
     };
     
-    frontBumperDialogConfig.onButtonPressed = [this](int index) {
+    bumperDialogConfig.onButtonPressed = [this, isFront, isStripped, canAfford](int index) {
         switch (index) {
-            case 0: // Strip Bumper
-                SDL_Log("Stripping front bumper, carBitmap = %p", (void*)carBitmap);
-                if (carBitmap) {
-                    carBitmap->StripFrontBumper();
-                    SDL_Log("Front bumper stripped successfully");
-                } else {
-                    SDL_Log("ERROR: carBitmap is null!");
+            case 0: // Strip/Restore Bumper
+                if (!canAfford) {
+                    SDL_Log("Not enough money! Need $20");
+                    if (isFront) {
+                        frontBumperDialog->Hide();
+                    } else {
+                        rearBumperDialog->Hide();
+                    }
+                    SetActiveDialog(nullptr);
+                    return;
                 }
-                frontBumperDialog->Hide();
+                
+                // Deduct $20
+                state.SetBankroll(state.GetBankroll() - 20);
+                
+                if (carBitmap) {
+                    if (isStripped) {
+                        // Restore
+                        if (isFront) {
+                            carBitmap->RestoreFrontBumper();
+                            SDL_Log("Front bumper restored for $20");
+                        } else {
+                            carBitmap->RestoreRearBumper();
+                            SDL_Log("Rear bumper restored for $20");
+                        }
+                    } else {
+                        // Strip
+                        if (isFront) {
+                            carBitmap->StripFrontBumper();
+                            SDL_Log("Front bumper stripped for $20");
+                        } else {
+                            carBitmap->StripRearBumper();
+                            SDL_Log("Rear bumper stripped for $20");
+                        }
+                    }
+                }
+                
+                if (isFront) {
+                    frontBumperDialog->Hide();
+                } else {
+                    rearBumperDialog->Hide();
+                }
                 SetActiveDialog(nullptr);
                 break;
             case 1: // Forget it
-                SDL_Log("Cancelled front bumper strip");
-                frontBumperDialog->Hide();
+                if (isFront) {
+                    frontBumperDialog->Hide();
+                } else {
+                    rearBumperDialog->Hide();
+                }
                 SetActiveDialog(nullptr);
                 break;
         }
     };
     
-    frontBumperDialog = std::make_unique<Dialog>(frontBumperDialogConfig);
-    
-    // Rear Bumper Dialog
-    SDL_Rect rearStripButtonRect = {bumperDialogRect.x + 10, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
-    SDL_Rect rearForgetButtonRect = {bumperDialogRect.x + 124, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
-    
-    ButtonConfig rearStripButton = {rearStripButtonRect, "Strip Bumper", nullptr, false, 0};
-    ButtonConfig rearForgetButton = {rearForgetButtonRect, "Forget it", nullptr, true, 1};
-    
-    DialogConfig rearBumperDialogConfig = {
-        state.assets.GetMainFont(),
-        bumperDialogRect,
-        {0x90, 0x90, 0x90, 0xFF},
-        {0xFF, 0xFF, 0xFF, 0xFF},
-        {rearStripButton, rearForgetButton},
-        {},
-        {DialogTextConfig{SDL_Rect{bumperDialogRect.x, bumperDialogRect.y + 3, dialogWidth, 10}, "Rear Bumper", {0xFF, 0xFF, 0xFF, 0xFF}, true}},
-        {},
-        {},
-        {}
-    };
-    
-    rearBumperDialogConfig.onButtonPressed = [this](int index) {
-        switch (index) {
-            case 0: // Strip Bumper
-                SDL_Log("Stripping rear bumper, carBitmap = %p", (void*)carBitmap);
-                if (carBitmap) {
-                    carBitmap->StripRearBumper();
-                    SDL_Log("Rear bumper stripped successfully");
-                } else {
-                    SDL_Log("ERROR: carBitmap is null!");
-                }
-                rearBumperDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
-            case 1: // Forget it
-                SDL_Log("Cancelled rear bumper strip");
-                rearBumperDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
-        }
-    };
-    
-    rearBumperDialog = std::make_unique<Dialog>(rearBumperDialogConfig);
+    // Create and show the dialog
+    if (isFront) {
+        frontBumperDialog = std::make_unique<Dialog>(bumperDialogConfig);
+        SetActiveDialog(frontBumperDialog.get());
+    } else {
+        rearBumperDialog = std::make_unique<Dialog>(bumperDialogConfig);
+        SetActiveDialog(rearBumperDialog.get());
+    }
 }
 
 SDL_Point Garage::GetCarIdlePosition() {
@@ -747,10 +761,10 @@ void Garage::Action(ZoneId zone) {
         SetActiveDialog((Dialog*)engineBay->GetDialog());
         break;
     case ZONE_GARAGE_FRONT_BUMPER:
-        SetActiveDialog(frontBumperDialog.get());
+        ShowBumperDialog(true);  // true = front bumper
         break;
     case ZONE_GARAGE_REAR_BUMPER:
-        SetActiveDialog(rearBumperDialog.get());
+        ShowBumperDialog(false);  // false = rear bumper
         break;
     default:
         break;

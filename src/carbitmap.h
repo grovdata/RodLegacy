@@ -86,6 +86,8 @@ public:
     // Bumper methods
     void StripFrontBumper();
     void StripRearBumper();
+    void RestoreFrontBumper();
+    void RestoreRearBumper();
     bool IsFrontBumperStripped() const { return isFrontBumperStripped; }
     bool IsRearBumperStripped() const { return isRearBumperStripped; }
 };
