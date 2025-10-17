@@ -19,6 +19,7 @@ class Garage : public CarScene {
     std::unique_ptr<Dialog> optionsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;
     std::unique_ptr<Dialog> rearBumperDialog;
+    std::unique_ptr<Dialog> roofDialog;
     std::unique_ptr<EngineBay> engineBay;
     bool fullscreenEnabled = false;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
@@ -27,6 +28,7 @@ class Garage : public CarScene {
     void InitOptionsDialog();
     void InitBumperDialogs();
     void ShowBumperDialog(bool isFront);
+    void ShowRoofDialog();
     void UpdateSign();
 
    public:

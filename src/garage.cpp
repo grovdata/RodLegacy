@@ -54,6 +54,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect frontBumperRect = {290, 107, 27, 14};
     Zone frontBumper(ZONE_GARAGE_FRONT_BUMPER, strdup("Front bumper"), &frontBumperRect);
 
+    SDL_Rect roofRect = {290, 107, 27, 14};
+    Zone roof(ZONE_GARAGE_CHOPPED_ROOF, strdup("Roof"), &roofRect);
+
     SDL_Rect transmissionRect = {290, 107, 27, 14};
     Zone transmission(ZONE_GARAGE_TRANSMISSION, strdup("Transmission"), &transmissionRect);
 
@@ -77,6 +80,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     zones.push_back(street);
     zones.push_back(rearBumper);
     zones.push_back(frontBumper);
+    zones.push_back(roof);
     zones.push_back(transmission);
     zones.push_back(engine);
 
@@ -692,6 +696,89 @@ void Garage::ShowBumperDialog(bool isFront) {
     }
 }
 
+void Garage::ShowRoofDialog() {
+    const int buttonWidth = 72;
+    const int buttonHeight = 16;
+    const int dialogWidth = 200;
+    const int dialogHeight = 60;
+    
+    // Center dialog on screen
+    SDL_Rect roofDialogRect = {
+        (GAME_WIDTH - dialogWidth) / 2,
+        (GAME_HEIGHT - dialogHeight) / 2,
+        dialogWidth,
+        dialogHeight
+    };
+    
+    // Check current roof status
+    bool isChopped = carBitmap->IsRoofChopped();
+    
+    // Check if player has enough money
+    int currentMoney = state.GetBankroll();
+    bool canAfford = currentMoney >= 20;
+    
+    SDL_Rect actionButtonRect = {roofDialogRect.x + 10, roofDialogRect.y + 30, buttonWidth, buttonHeight};
+    SDL_Rect forgetButtonRect = {roofDialogRect.x + 118, roofDialogRect.y + 30, buttonWidth, buttonHeight};
+    
+    const char* actionText = isChopped ? "Restore $20" : "Chop $20";
+    const char* titleText = "Roof";
+    
+    ButtonConfig actionButton = {actionButtonRect, actionText, nullptr, false, 0};
+    ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, true, 1};
+    
+    DialogConfig roofDialogConfig = {
+        state.assets.GetMainFont(),
+        roofDialogRect,
+        {0x90, 0x90, 0x90, 0xFF},
+        {0xFF, 0xFF, 0xFF, 0xFF},
+        {actionButton, forgetButton},
+        {},
+        {DialogTextConfig{SDL_Rect{roofDialogRect.x, roofDialogRect.y + 3, dialogWidth, 10}, titleText, {0xFF, 0xFF, 0xFF, 0xFF}, true}},
+        {},
+        {},
+        {}
+    };
+    
+    roofDialogConfig.onButtonPressed = [this, isChopped, canAfford](int index) {
+        switch (index) {
+            case 0: // Chop/Restore Roof
+                if (!canAfford) {
+                    SDL_Log("Not enough money! Need $20");
+                    roofDialog->Hide();
+                    SetActiveDialog(nullptr);
+                    return;
+                }
+                
+                // Deduct $20
+                state.SetBankroll(state.GetBankroll() - 20);
+                
+                if (carBitmap) {
+                    if (isChopped) {
+                        // Restore
+                        carBitmap->RestoreRoof();
+                        SDL_Log("Roof restored for $20");
+                    } else {
+                        // Chop
+                        carBitmap->ChopRoof();
+                        SDL_Log("Roof chopped for $20");
+                    }
+                }
+                
+                roofDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+            case 1: // Forget it
+                roofDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    
+    // Create and show the dialog
+    roofDialog = std::make_unique<Dialog>(roofDialogConfig);
+    SetActiveDialog(roofDialog.get());
+}
+
 SDL_Point Garage::GetCarIdlePosition() {
     int x = SrLibQueryGetCarIdleX(SCENE_GARAGE);
     int y = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, state.GetCurrentCar()->GetModel().index);
@@ -765,6 +852,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_REAR_BUMPER:
         ShowBumperDialog(false);  // false = rear bumper
+        break;
+    case ZONE_GARAGE_CHOPPED_ROOF:
+        ShowRoofDialog();
         break;
     default:
         break;

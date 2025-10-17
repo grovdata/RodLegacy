@@ -77,9 +77,20 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     
     // Load chopped body if available
     if (CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
-        auto* choppedAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)});
+        auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
         if (choppedAsset) {
-            bodyChopped = *choppedAsset;  // Copy the bitmap
+            bodyChopped = *choppedAsset;  // Copy the bitmap (keeps its natural sprite dimensions)
+            // Position it with the chopped roof offset from car model
+            SDL_Rect origPos = bodyOriginal.GetPosition();
+            bodyChopped.SetPosition(origPos.x + model.offsets.offsetXChoppedRoof, origPos.y);
+            // Only visible if roof is already chopped
+            bodyChopped.SetVisible(car->IsRoofChopped());
+            SDL_Log("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d", 
+                    bodyChopped.GetPosition().w, bodyChopped.GetPosition().h, 
+                    origPos.x + model.offsets.offsetXChoppedRoof, origPos.y,
+                    model.offsets.offsetXChoppedRoof, car->IsRoofChopped());
+        } else {
+            SDL_Log("Failed to load chopped body asset");
         }
     }
     
@@ -208,6 +219,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
 }
 
 void CarBitmap::UpdatePositions() {
+    // Always use bodyOriginal for position calculations (it's the full car)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
     
     // Update wheel positions
@@ -238,8 +250,14 @@ void CarBitmap::Draw() {
         wheels.Draw();
     }
 
-    if (body) {
-        body->Draw();
+    // Always draw the original body
+    if (bodyOriginal.IsVisible()) {
+        bodyOriginal.Draw();
+    }
+    
+    // If roof is chopped, draw the chopped roof piece on top
+    if (isRoofChopped && bodyChopped.IsVisible()) {
+        bodyChopped.Draw();
     }
     
     // Bumper overlays are now applied directly to body texture, not drawn separately
@@ -268,6 +286,71 @@ void CarBitmap::ToggleChoppedRoof() {
     body->SetVisible(true);
 }
 
+void CarBitmap::ChopRoof() {
+    if (!car || isRoofChopped) return;
+    
+    CarModel model = car->GetModel();
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+    
+    // Check if this car can have its roof chopped
+    if (!CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
+        SDL_Log("This car cannot have its roof chopped");
+        return;
+    }
+    
+    isRoofChopped = true;
+    car->SetRoofChopped(true);
+    
+    // Apply the chopped roof overlay to mask out the original roof area
+    if (bodyChopped.GetSurface()) {
+        BitmapOffset_t offsets = model.offsets;
+        bodyOriginal.ApplyBumperOverlay(&bodyChopped, offsets.offsetXChoppedRoof, 0);
+    }
+    
+    // Show the chopped roof piece on top
+    bodyChopped.SetVisible(true);
+    
+    SDL_Log("Roof chopped - masked original roof and showing chopped overlay");
+}
+
+void CarBitmap::RestoreRoof() {
+    if (!car || !isRoofChopped) return;
+    
+    isRoofChopped = false;
+    car->SetRoofChopped(false);
+    
+    // Reload the original body to restore the roof (removes the mask)
+    CarModel model = car->GetModel();
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+    byte_vector& libFile = state.assets.GetLibPData();
+    std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+    
+    auto* originalAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+    if (originalAsset) {
+        SDL_Rect currentPos = bodyOriginal.GetPosition();
+        bool currentVis = bodyOriginal.IsVisible();
+        
+        bodyOriginal = *originalAsset;
+        bodyOriginal.SetPosition(currentPos.x, currentPos.y);
+        bodyOriginal.SetVisible(currentVis);
+        
+        // Reapply any stripped bumpers to the fresh body
+        if (isFrontBumperStripped && frontBumper.GetSurface()) {
+            BitmapOffset_t offsets = model.offsets;
+            bodyOriginal.ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+        }
+        if (isRearBumperStripped && rearBumper.GetSurface()) {
+            BitmapOffset_t offsets = model.offsets;
+            bodyOriginal.ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+        }
+    }
+    
+    // Hide the chopped roof piece
+    bodyChopped.SetVisible(false);
+    
+    SDL_Log("Roof restored - reloaded original body and reapplied bumpers");
+}
+
 void CarBitmap::SetGasCapRemoved(bool removed) {
     gasCap.SetVisible(removed);
 }
@@ -278,9 +361,12 @@ void CarBitmap::SetPumpingHandleVisible(bool visible) {
 }
 
 void CarBitmap::Move(SDL_Point p) {
-    if (body) {
-        body->SetPosition(p.x, p.y);
-    }
+    // Update both bodies so they move together
+    bodyOriginal.SetPosition(p.x, p.y);
+    
+    // Apply chopped roof offset
+    CarModel model = car->GetModel();
+    bodyChopped.SetPosition(p.x + model.offsets.offsetXChoppedRoof, p.y);
     UpdateTextures();
 }
 

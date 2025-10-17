@@ -63,6 +63,8 @@ public:
     void Draw();
     void Move(SDL_Point p);
     void ToggleChoppedRoof();
+    void ChopRoof();
+    void RestoreRoof();
     void UpdatePositions();
     void UpdateTires();
     void UpdateWheelAnimation(float speed);
@@ -90,4 +92,7 @@ public:
     void RestoreRearBumper();
     bool IsFrontBumperStripped() const { return isFrontBumperStripped; }
     bool IsRearBumperStripped() const { return isRearBumperStripped; }
+    
+    // Roof methods
+    bool IsRoofChopped() const { return isRoofChopped; }
 };
