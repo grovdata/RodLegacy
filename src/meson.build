@@ -1,12 +1,16 @@
 # Use CMake subproject for ADFlib
 cmake = import('cmake')
 
+adflib_opts = cmake.subproject_options()
+adflib_opts.add_cmake_defines({
+    'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+    'BUILD_SHARED_LIBS': 'OFF',
+    'CMAKE_C_FLAGS': '-w'  # Suppress all warnings from ADFlib
+})
+
 adflib_proj = cmake.subproject('ADFlib', 
     required: true,
-    cmake_options: [
-        '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
-        '-DBUILD_SHARED_LIBS=OFF', # Build as static library
-    ]
+    options: adflib_opts
 )
 
 adflib_dep = adflib_proj.dependency('adf')
