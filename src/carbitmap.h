@@ -32,6 +32,8 @@ private:
     Spritesheet decal;
     Bitmap rearWheelhouseBackground;
     Bitmap frontWheelhouseBackground;
+    Bitmap rearBumper;
+    Bitmap frontBumper;
     
     SDL_Rect frontWheelPos;
     SDL_Rect rearWheelPos;
@@ -40,6 +42,8 @@ private:
     BitmapOffset_t offsets;
     int wheelsYOffset;
     bool isRoofChopped;
+    bool isFrontBumperStripped;
+    bool isRearBumperStripped;
     Uint64 lastWheelUpdateTime;
     bool wheelsVisible;
     StandardCarColor currentColor;
@@ -78,4 +82,10 @@ public:
     
     bool IsGasCapRemoved() const { return gasCapRemoved; }
     bool IsPumpingHandleVisible() const { return pumpingHandleVisible; }
+    
+    // Bumper methods
+    void StripFrontBumper();
+    void StripRearBumper();
+    bool IsFrontBumperStripped() const { return isFrontBumperStripped; }
+    bool IsRearBumperStripped() const { return isRearBumperStripped; }
 };

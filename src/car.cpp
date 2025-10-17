@@ -2,11 +2,16 @@
 #include "parsers/libp.h"
 
 Car::Car() {
-
+    isFrontBumperStripped = false;
+    isBackBumperStripped = false;
+    isRoofChopped = false;
 }
 
 Car::Car(CarModel model) {
-    this->model = model;    
+    this->model = model;
+    isFrontBumperStripped = false;
+    isBackBumperStripped = false;
+    isRoofChopped = false;
 }
 
 Car::~Car() {

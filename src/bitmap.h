@@ -29,6 +29,7 @@ class Bitmap : public IDrawable {
         void     LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask = false, bool opaque = false);
         void     SaveBitmap(int index);
         void     CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect);
+        void     ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY);
 
         void     Align(BitmapAlign b, bool allowStatusBar);
         void     AlignAbove(Bitmap *dest);

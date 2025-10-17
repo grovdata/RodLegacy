@@ -261,6 +261,8 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
 
     bool isMask = a.type == LibAssetMask;
     bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
+    // Bumper overlays use normal transparency (black = transparent, colors = opaque)
+    // They don't need special handling
 
     if (a.type == LibAssetSpritesheet) {
         std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
@@ -321,8 +323,11 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     a.location = SrLibFileAmigaLibP;
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
     
+    bool isMask = a.type == LibAssetMask;
+    bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
+    
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
-    bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height);
+    bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
     bitmap->SetDimensions(b.width, b.height);
     imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
 }

@@ -50,6 +50,8 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     , offsets{}
     , wheelsYOffset(0)
     , isRoofChopped(false)
+    , isFrontBumperStripped(false)
+    , isRearBumperStripped(false)
     , lastWheelUpdateTime(0)
     , wheelsVisible(true)
     , currentColor(color)
@@ -78,6 +80,52 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         auto* choppedAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)});
         if (choppedAsset) {
             bodyChopped = *choppedAsset;  // Copy the bitmap
+        }
+    }
+    
+    // Load "chopped bumper" overlays (these will be composited into body texture when stripped)
+    if (CarQuery::SrLibQueryCanStripBumpers(bodyAssetNo)) {
+        int rearBumperIndex = CarQuery::SrLibQueryGetChoppedBumberRearIndex(bodyAssetNo);
+        int frontBumperIndex = CarQuery::SrLibQueryGetChoppedBumberFrontIndex(bodyAssetNo);
+        
+        SDL_Log("Loading bumper overlays for car %d: rear=%d, front=%d", bodyAssetNo, rearBumperIndex, frontBumperIndex);
+
+        // These are overlays that will be applied to the body texture
+        if (rearBumperIndex > 0) {
+            auto* rearBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
+            if (rearBumperAsset) {
+                rearBumper = *rearBumperAsset;
+                SDL_Log("Loaded rear bumper overlay: %dx%d", rearBumper.GetPosition().w, rearBumper.GetPosition().h);
+            }
+        } else {
+            SDL_Log("Car has no rear bumper to strip");
+        }
+        
+        if (frontBumperIndex > 0) {
+            auto* frontBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
+            if (frontBumperAsset) {
+                frontBumper = *frontBumperAsset;
+                SDL_Log("Loaded front bumper overlay: %dx%d", frontBumper.GetPosition().w, frontBumper.GetPosition().h);
+            }
+        }
+        
+        isFrontBumperStripped = car->IsBumpersStripped();
+        isRearBumperStripped = car->IsBumpersStripped();
+        
+        SDL_Log("Car bumpers stripped status on load: %s", car->IsBumpersStripped() ? "YES" : "NO");
+        
+        // If already stripped, apply the overlays to the body texture
+        if (isFrontBumperStripped && body && frontBumperIndex > 0) {
+            CarModel model = car->GetModel();
+            BitmapOffset_t offsets = model.offsets;
+            body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+            SDL_Log("Applied front bumper overlay on load");
+        }
+        if (isRearBumperStripped && body && rearBumperIndex > 0) {
+            CarModel model = car->GetModel();
+            BitmapOffset_t offsets = model.offsets;
+            body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+            SDL_Log("Applied rear bumper overlay on load");
         }
     }
 
@@ -172,7 +220,8 @@ void CarBitmap::UpdatePositions() {
                      
     // Update other part positions
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
-    // ... update other positions ...
+    
+    // Note: bumper overlays are positioned in Draw() to match body exactly
 }
 
 void CarBitmap::Draw() {
@@ -192,6 +241,8 @@ void CarBitmap::Draw() {
     if (body) {
         body->Draw();
     }
+    
+    // Bumper overlays are now applied directly to body texture, not drawn separately
     
     if (gasCap.IsVisible()) {   
         gasCap.Draw();
@@ -258,6 +309,8 @@ void CarBitmap::UpdateTextures() {
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
     pumpingHandle.SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
+    
+    // Note: bumper overlays are positioned in Draw() to match body exactly
     shadow.SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
     rearWheelhouse.SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
     frontWheelhouse.SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
@@ -334,4 +387,30 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
 
 void CarBitmap::SetShadowVisible(bool visible) {
     shadow.SetVisible(visible);
+}
+
+void CarBitmap::StripFrontBumper() {
+    isFrontBumperStripped = true;
+    if (car && body && frontBumper.GetSurface()) {
+        CarModel model = car->GetModel();
+        BitmapOffset_t offsets = model.offsets;
+        // Apply the overlay directly to the body texture
+        body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+        car->SetBumpersStripped(true);
+        SDL_Log("Front bumper stripped");
+    }
+}
+
+void CarBitmap::StripRearBumper() {
+    isRearBumperStripped = true;
+    if (car && body && rearBumper.GetSurface()) {
+        CarModel model = car->GetModel();
+        BitmapOffset_t offsets = model.offsets;
+        // Apply the overlay directly to the body texture (no X offset in data)
+        body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+        car->SetBumpersStripped(true);
+        SDL_Log("Rear bumper stripped");
+    } else if (!rearBumper.GetSurface()) {
+        SDL_Log("Cannot strip rear bumper: No rear bumper overlay loaded (car may not have one)");
+    }
 }

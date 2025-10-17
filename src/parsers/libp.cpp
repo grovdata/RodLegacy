@@ -951,12 +951,10 @@ int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
         case CHEVROLET_CORVETTE_1956_BODY:
         case CHEVROLET_CORVETTE_1961_BODY:
         case CHEVROLET_CORVETTE_1963_BODY:
-            return false;
+            return 0;  // Corvettes don't have rear bumpers to strip
         default:
-            return true;
+            return carAsset + 2;  // Rear bumper overlay is body index + 2
     }
-
-    return carAsset + 2;
 }
 
 int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {

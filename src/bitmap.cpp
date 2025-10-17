@@ -403,4 +403,52 @@ void Bitmap::UpdateFromSurface() {
         SDL_DestroyTexture(texture);
     }
     texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+}
+
+void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
+    if (!surface || !overlay || !overlay->surface) {
+        SDL_Log("ApplyBumperOverlay: Invalid surfaces");
+        return;
+    }
+    
+    SDL_Surface* overlaySurface = overlay->surface;
+    
+    // Lock surfaces for pixel manipulation
+    if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+    if (SDL_MUSTLOCK(overlaySurface)) SDL_LockSurface(overlaySurface);
+    
+    uint32_t* bodyPixels = static_cast<uint32_t*>(surface->pixels);
+    uint32_t* overlayPixels = static_cast<uint32_t*>(overlaySurface->pixels);
+    
+    // Apply overlay: black pixels make body transparent, colored pixels replace body
+    for (int y = 0; y < overlaySurface->h && (y + offsetY) < surface->h; y++) {
+        for (int x = 0; x < overlaySurface->w && (x + offsetX) < surface->w; x++) {
+            if (offsetX + x < 0 || offsetY + y < 0) continue;
+            
+            int overlayIdx = y * overlaySurface->w + x;
+            int bodyIdx = (y + offsetY) * surface->w + (x + offsetX);
+            
+            uint32_t overlayPixel = overlayPixels[overlayIdx];
+            uint8_t r, g, b, a;
+            SDL_GetRGBA(overlayPixel, overlaySurface->format, &r, &g, &b, &a);
+            
+            // If overlay pixel is transparent (black), make body pixel transparent
+            if (a == 0 || (r == 0 && g == 0 && b == 0)) {
+                // Make this pixel transparent (punch through to background)
+                bodyPixels[bodyIdx] = SDL_MapRGBA(surface->format, 0, 0, 0, 0);
+            } else if (a > 0) {
+                // Overlay has a colored pixel - this is the "no bumper" body part
+                bodyPixels[bodyIdx] = SDL_MapRGBA(surface->format, r, g, b, a);
+            }
+        }
+    }
+    
+    // Unlock surfaces
+    if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+    if (SDL_MUSTLOCK(overlaySurface)) SDL_UnlockSurface(overlaySurface);
+    
+    // Recreate texture from modified surface
+    UpdateFromSurface();
+    SDL_Log("Applied bumper overlay at offset (%d, %d)", offsetX, offsetY);
 }
