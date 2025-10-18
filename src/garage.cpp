@@ -6,6 +6,8 @@
 #include "assets.h"
 #include "state.h"
 #include "engine_bay.h"
+#include "embedded_loader.h"
+#include <SDL_image.h>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
 
@@ -656,13 +658,13 @@ void Garage::ShowRoofDialog() {
 void Garage::CycleNextColor() {
     int nextColor = (previewColor + 1) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(nextColor);
-    // Don't apply color yet - only on "Go ahead"
+    UpdatePaintCanPreview();
 }
 
 void Garage::CyclePreviousColor() {
     int prevColor = (previewColor - 1 + CarColorCount) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(prevColor);
-    // Don't apply color yet - only on "Go ahead"
+    UpdatePaintCanPreview();
 }
 
 void Garage::ApplyPreviewColor() {
@@ -671,12 +673,81 @@ void Garage::ApplyPreviewColor() {
     }
 }
 
+void Garage::UpdatePaintCanPreview() {
+    if (!paintCanPreview) return;
+    
+    // Load the paint can mask image from embedded resource
+    extern const unsigned char embedded_paintcan_png[];
+    extern const size_t embedded_paintcan_png_len;
+    
+    SDL_Surface* maskSurface = LoadSurfaceFromMemory(embedded_paintcan_png, embedded_paintcan_png_len);
+    if (!maskSurface) {
+        SDL_Log("Failed to load embedded paintcan.png");
+        return;
+    }
+    
+    // Get the preview color palette
+    std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
+    
+    // Convert the mask surface to 32-bit RGBA
+    SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(maskSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+    SDL_FreeSurface(maskSurface);
+    
+    if (!rgbaSurface) {
+        SDL_Log("Failed to convert paintcan surface");
+        return;
+    }
+    
+    // Apply the car color palette to the paint can
+    // The mask should have grayscale values that we'll colorize
+    SDL_LockSurface(rgbaSurface);
+    uint32_t* pixels = static_cast<uint32_t*>(rgbaSurface->pixels);
+    
+    for (int y = 0; y < rgbaSurface->h; y++) {
+        for (int x = 0; x < rgbaSurface->w; x++) {
+            int idx = y * rgbaSurface->w + x;
+            uint32_t pixel = pixels[idx];
+            
+            uint8_t r, g, b, a;
+            SDL_GetRGBA(pixel, rgbaSurface->format, &r, &g, &b, &a);
+            
+            // If the pixel is not transparent, apply the car color
+            if (a > 0) {
+                // Use the grayscale value to pick a shade from the palette
+                int brightness = (r + g + b) / 3;
+                int paletteIndex = (brightness * (colorPalette.size() - 1)) / 255;
+                if (paletteIndex >= colorPalette.size()) paletteIndex = colorPalette.size() - 1;
+                
+                uint16_t amigaColor = colorPalette[paletteIndex];
+                
+                // Convert Amiga color to RGB
+                uint8_t newR = ((amigaColor >> 8) & 0x0F) * 17;
+                uint8_t newG = ((amigaColor >> 4) & 0x0F) * 17;
+                uint8_t newB = (amigaColor & 0x0F) * 17;
+                
+                pixels[idx] = SDL_MapRGBA(rgbaSurface->format, newR, newG, newB, a);
+            }
+        }
+    }
+    
+    SDL_UnlockSurface(rgbaSurface);
+    
+    // Update the bitmap with the new surface
+    paintCanPreview->ReplaceSurface(rgbaSurface);
+}
+
 void Garage::ShowPaintDialog() {
     // Store the original color so we can restore it if user cancels
     if (carBitmap) {
         originalColor = carBitmap->GetCurrentColor();
         previewColor = originalColor;
     }
+    
+    // Create paint can preview
+    paintCanPreview = std::make_unique<Bitmap>(10, 12, 2); // Initial size, will be updated
+    paintCanPreview->SetPosition(233, 166);
+    paintCanPreview->SetVisible(true);
+    UpdatePaintCanPreview();
     
     // Button positions as specified
     SDL_Rect nextColorRect = {149, 127, 78, 16};
@@ -714,10 +785,12 @@ void Garage::ShowPaintDialog() {
                         state.SetBankroll(currentMoney - 20);
                         ApplyPreviewColor();
                         SDL_Log("Car painted for $20");
+                        if (paintCanPreview) paintCanPreview->SetVisible(false);
                         paintDialog->Hide();
                         SetActiveDialog(nullptr);
                     } else {
                         SDL_Log("Not enough money! Need $20");
+                        if (paintCanPreview) paintCanPreview->SetVisible(false);
                         paintDialog->Hide();
                         SetActiveDialog(nullptr);
                     }
@@ -725,6 +798,7 @@ void Garage::ShowPaintDialog() {
                 break;
             case 3: // Forget it
                 // Just close - no color was applied yet
+                if (paintCanPreview) paintCanPreview->SetVisible(false);
                 paintDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -947,6 +1021,11 @@ void Garage::Draw() {
 
     for (auto b : bubbles) {
         b->Draw();
+    }
+
+    // Draw paint can preview if paint dialog is active
+    if (paintCanPreview && paintCanPreview->IsVisible()) {
+        paintCanPreview->Draw();
     }
 
     if (activeDialog && activeDialog->IsVisible()) {

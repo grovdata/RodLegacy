@@ -27,6 +27,7 @@ class Garage : public CarScene {
     bool fullscreenEnabled = false;
     StandardCarColor previewColor;
     StandardCarColor originalColor;
+    std::unique_ptr<Bitmap> paintCanPreview;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
@@ -40,6 +41,7 @@ class Garage : public CarScene {
     void CycleNextColor();
     void CyclePreviousColor();
     void ApplyPreviewColor();
+    void UpdatePaintCanPreview();
 
    public:
     Garage();

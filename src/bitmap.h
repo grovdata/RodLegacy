@@ -53,6 +53,7 @@ class Bitmap : public IDrawable {
         SDL_Texture* GetTexture();
 
         void UpdateFromSurface();
+        void ReplaceSurface(SDL_Surface* newSurface);
 
         Bitmap& operator=(const Bitmap* other);        
         Bitmap& operator=(const Bitmap& other);

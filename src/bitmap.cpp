@@ -406,6 +406,14 @@ void Bitmap::UpdateFromSurface() {
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 }
 
+void Bitmap::ReplaceSurface(SDL_Surface* newSurface) {
+    if (surface && surface != newSurface) {
+        SDL_FreeSurface(surface);
+    }
+    surface = newSurface;
+    UpdateFromSurface();
+}
+
 void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
     if (!surface || !overlay || !overlay->surface) {
         SDL_Log("ApplyBumperOverlay: Invalid surfaces");

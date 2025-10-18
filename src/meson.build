@@ -178,7 +178,8 @@ embedded_resources = custom_target('embedded_resources',
         '../data/font/font.png',
         '../data/font/bee.png',
         '../data/font/lemon.png',
-        '../data/res/icon.png'
+        '../data/res/icon.png',
+        '../data/res/paintcan.png'
     ],
     output: ['embedded_resources.h', 'embedded_resources.c'],
     command: [
