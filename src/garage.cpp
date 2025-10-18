@@ -95,6 +95,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
     tiresBubble->SetVisible(false);
     bubbles.push_back(tiresBubble);
+    Bubble *paintBubble = new Bubble("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    paintBubble->SetVisible(false);
+    bubbles.push_back(paintBubble);
+    Bubble *customizationBubble = new Bubble("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    customizationBubble->SetVisible(false);
+    bubbles.push_back(customizationBubble);
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -268,6 +274,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     // Initialize paint color tracking
     previewColor = CarColorRed;
     originalColor = CarColorRed;
+    
+    // Initialize paint can preview (always visible)
+    paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
+    paintCanPreview->SetPosition(233, 166);
+    paintCanPreview->SetVisible(true);
+    UpdatePaintCanPreview();  // Set initial color
     
     InitGameMenuDialog();
     InitOptionsDialog();
@@ -593,6 +605,11 @@ void Garage::InitBumperDialogs() {
 }
 
 void Garage::ShowBumperDialog(bool isFront) {
+    // Hide any previous error bubble
+    if (bubbles.size() > 4) {
+        bubbles[4]->SetVisible(false);
+    }
+    
     // Check current bumper status
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
     const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20") 
@@ -631,6 +648,11 @@ void Garage::ShowBumperDialog(bool isFront) {
 }
 
 void Garage::ShowRoofDialog() {
+    // Hide any previous error bubble
+    if (bubbles.size() > 4) {
+        bubbles[4]->SetVisible(false);
+    }
+    
     // Check current roof status
     bool isChopped = carBitmap->IsRoofChopped();
     const char* titleText = isChopped ? "Restore roof - $70" : "Chop roof - $70";
@@ -659,17 +681,27 @@ void Garage::CycleNextColor() {
     int nextColor = (previewColor + 1) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(nextColor);
     UpdatePaintCanPreview();
+    // Hide any error bubble when cycling colors
+    if (bubbles.size() > 3) {
+        bubbles[3]->SetVisible(false);
+    }
 }
 
 void Garage::CyclePreviousColor() {
     int prevColor = (previewColor - 1 + CarColorCount) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(prevColor);
     UpdatePaintCanPreview();
+    // Hide any error bubble when cycling colors
+    if (bubbles.size() > 3) {
+        bubbles[3]->SetVisible(false);
+    }
 }
 
 void Garage::ApplyPreviewColor() {
     if (carBitmap) {
         carBitmap->UpdateColor(previewColor);
+        // Update paint can to show the new current color
+        UpdatePaintCanPreview();
     }
 }
 
@@ -743,10 +775,12 @@ void Garage::ShowPaintDialog() {
         previewColor = originalColor;
     }
     
-    // Create paint can preview
-    paintCanPreview = std::make_unique<Bitmap>(10, 12, 2); // Initial size, will be updated
-    paintCanPreview->SetPosition(233, 166);
-    paintCanPreview->SetVisible(true);
+    // Hide any previous error bubble
+    if (bubbles.size() > 3) {
+        bubbles[3]->SetVisible(false);
+    }
+    
+    // Update paint can to show preview color
     UpdatePaintCanPreview();
     
     // Button positions as specified
@@ -785,20 +819,27 @@ void Garage::ShowPaintDialog() {
                         state.SetBankroll(currentMoney - 20);
                         ApplyPreviewColor();
                         SDL_Log("Car painted for $20");
-                        if (paintCanPreview) paintCanPreview->SetVisible(false);
+                        if (bubbles.size() > 3) {
+                            bubbles[3]->SetVisible(false);  // Hide paintBubble
+                        }
                         paintDialog->Hide();
                         SetActiveDialog(nullptr);
                     } else {
+                        // Show "Paint ain't free!" bubble and keep dialog open
                         SDL_Log("Not enough money! Need $20");
-                        if (paintCanPreview) paintCanPreview->SetVisible(false);
-                        paintDialog->Hide();
-                        SetActiveDialog(nullptr);
+                        if (bubbles.size() > 3) {
+                            bubbles[3]->SetVisible(true);  // paintBubble
+                        }
                     }
                 }
                 break;
             case 3: // Forget it
-                // Just close - no color was applied yet
-                if (paintCanPreview) paintCanPreview->SetVisible(false);
+                // Just close - restore original color on paint can
+                previewColor = originalColor;
+                UpdatePaintCanPreview();
+                if (bubbles.size() > 3) {
+                    bubbles[3]->SetVisible(false);  // Hide paintBubble
+                }
                 paintDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -854,23 +895,39 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     modDialogConfig.lines = lines;
     modDialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
     modDialogConfig.font = state.assets.GetMainFont();
-    modDialogConfig.onButtonPressed = [this, price, canAfford, onConfirm, &dialogPtr](int index) {
+    modDialogConfig.onButtonPressed = [this, price, onConfirm, &dialogPtr](int index) {
         switch (index) {
             case 0: // OK
-                if (!canAfford) {
-                    SDL_Log("Not enough money! Need $%d", price);
+                {
+                    int currentMoney = state.GetBankroll();
+                    if (currentMoney < price) {
+                        // Show "Customization ain't free!" bubble and keep dialog open
+                        SDL_Log("Not enough money! Need $%d", price);
+                        if (bubbles.size() > 4) {
+                            bubbles[4]->SetVisible(true);  // customizationBubble
+                        }
+                        return;
+                    }
+                    
+                    // Deduct price
+                    state.SetBankroll(currentMoney - price);
+                    
+                    // Execute the modification
+                    onConfirm();
+                    
+                    // Hide bubble and close dialog
+                    if (bubbles.size() > 4) {
+                        bubbles[4]->SetVisible(false);
+                    }
                     dialogPtr->Hide();
                     SetActiveDialog(nullptr);
-                    return;
                 }
-                
-                // Deduct price
-                state.SetBankroll(state.GetBankroll() - price);
-                
-                // Execute the modification
-                onConfirm();
                 break;
             case 1: // Forget it
+                // Hide bubble when closing
+                if (bubbles.size() > 4) {
+                    bubbles[4]->SetVisible(false);
+                }
                 dialogPtr->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -1019,10 +1076,6 @@ void Garage::Draw() {
     
     SDL_RenderCopy(renderer, signTexture, NULL, NULL);
 
-    for (auto b : bubbles) {
-        b->Draw();
-    }
-
     // Draw paint can preview if paint dialog is active
     if (paintCanPreview && paintCanPreview->IsVisible()) {
         paintCanPreview->Draw();
@@ -1030,6 +1083,11 @@ void Garage::Draw() {
 
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
+    }
+
+    // Draw bubbles last so they appear on top of dialogs
+    for (auto b : bubbles) {
+        b->Draw();
     }
 }
 
@@ -1072,6 +1130,13 @@ void Garage::OnCarAnimationComplete() {
         StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
         
         pendingCar = nullptr;
+    }
+    
+    // Update paint preview color to match the current car
+    if (carBitmap) {
+        previewColor = carBitmap->GetCurrentColor();
+        originalColor = previewColor;
+        UpdatePaintCanPreview();
     }
 }
 

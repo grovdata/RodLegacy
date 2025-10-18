@@ -67,6 +67,9 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     CarModel model = car->GetModel();
     byte_vector& libFile = state.assets.GetLibPData();
     
+    // Initialize the member variable offsets from the car model
+    offsets = model.offsets;
+    
     // Load original body
     std::vector<uint16_t> carPalette = GetStandardCarColor(color);
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
@@ -386,9 +389,8 @@ void CarBitmap::MoveWheelsYOffset(int offset) {
 
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
-    BitmapOffset_t offsets = model.offsets;
-    SDL_Rect bodyRect = body->GetPosition();
-
+    // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
+    SDL_Rect bodyRect = bodyOriginal.GetPosition();
     
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);    
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
@@ -407,16 +409,15 @@ void CarBitmap::UpdateTextures() {
 }
 
 void CarBitmap::UpdateTires() {
-    SDL_Rect bodyRect = body->GetPosition();
-    CarModel model = car->GetModel();
-    BitmapOffset_t offsets = model.offsets;
-    rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, 
-                    bodyRect.y + offsets.offsetYTires,
+    // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
+    SDL_Rect bodyRect = bodyOriginal.GetPosition();
+    rearWheelPos = {bodyRect.x + this->offsets.offsetXRearTire, 
+                    bodyRect.y + this->offsets.offsetYTires,
                     32, 32};
-    frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire,
-                     bodyRect.y + offsets.offsetYTires,
+    frontWheelPos = {bodyRect.x + this->offsets.offsetXFrontTire,
+                     bodyRect.y + this->offsets.offsetYTires,
                      32, 32};
-    shadow.SetPosition(bodyRect.x, bodyRect.y + offsets.offsetYTires + 32 - 4);
+    shadow.SetPosition(bodyRect.x, bodyRect.y + this->offsets.offsetYTires + 32 - 4);
 }
 
 void CarBitmap::UpdateWheelAnimation(float speed) {
@@ -444,12 +445,92 @@ BitmapOffset_t CarBitmap::GetOffset() {
 void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;
     CarModel model = car->GetModel();
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+    byte_vector& libFile = state.assets.GetLibPData();
     
     std::vector<uint16_t> carPalette = GetStandardCarColor(newColor);
     
-    // Reload bitmap with new palette
-    Asset carAsset = {LibAssetRegular, SrLibFileAmigaLibP, model.index};
-    bodyOriginal = state.assets.GetBitmapAssetWithPalette(state.assets.GetLibPData(), carAsset, carPalette);
+    // Save current state - always use bodyOriginal as the reference position
+    SDL_Rect currentPos = bodyOriginal.GetPosition();
+    bool currentVis = bodyOriginal.IsVisible();
+    
+    // Preserve the offsets (they don't change with color)
+    BitmapOffset_t savedOffsets = offsets;
+    
+    // Reload body bitmap with new palette
+    auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+    if (bodyAsset) {
+        bodyOriginal = *bodyAsset;
+        bodyOriginal.SetPosition(currentPos.x, currentPos.y);
+        bodyOriginal.SetVisible(currentVis);
+    }
+    
+    // Reload chopped body if available
+    if (CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
+        auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+        if (choppedAsset) {
+            // Store current chopped body dimensions if it exists
+            SDL_Rect oldChoppedPos = bodyChopped.GetPosition();
+            bodyChopped = *choppedAsset;
+            
+            // Position chopped body relative to bodyOriginal's position
+            bodyChopped.SetPosition(currentPos.x + model.offsets.offsetXChoppedRoof, currentPos.y);
+            bodyChopped.SetVisible(isRoofChopped);
+            
+            // If roof is currently chopped, reapply the mask to the freshly colored body
+            if (isRoofChopped) {
+                BitmapOffset_t offsets = model.offsets;
+                bodyOriginal.ApplyBumperOverlay(&bodyChopped, offsets.offsetXChoppedRoof, 0);
+            }
+        }
+    }
+    
+    // Reload bumper overlays with new color
+    if (CarQuery::SrLibQueryCanStripBumpers(bodyAssetNo)) {
+        int rearBumperIndex = CarQuery::SrLibQueryGetChoppedBumberRearIndex(bodyAssetNo);
+        int frontBumperIndex = CarQuery::SrLibQueryGetChoppedBumberFrontIndex(bodyAssetNo);
+        
+        if (rearBumperIndex > 0) {
+            auto* rearBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
+            if (rearBumperAsset) {
+                rearBumper = *rearBumperAsset;
+            }
+        }
+        
+        if (frontBumperIndex > 0) {
+            auto* frontBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
+            if (frontBumperAsset) {
+                frontBumper = *frontBumperAsset;
+            }
+        }
+    }
+    
+    // Reapply stripped bumpers to the active body with new colors
+    if (isFrontBumperStripped && frontBumper.GetSurface()) {
+        BitmapOffset_t offsets = model.offsets;
+        bodyOriginal.ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+        if (isRoofChopped) {
+            bodyChopped.ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
+        }
+    }
+    
+    if (isRearBumperStripped && rearBumper.GetSurface()) {
+        BitmapOffset_t offsets = model.offsets;
+        bodyOriginal.ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+        if (isRoofChopped) {
+            bodyChopped.ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
+        }
+    }
+    
+    // Update the body pointer to point to the correct bitmap
+    body = isRoofChopped ? &bodyChopped : &bodyOriginal;
+    
+    // Restore the offsets (they were saved at the beginning)
+    offsets = savedOffsets;
+    
+    // Update positions to ensure wheels and other parts are aligned correctly
+    UpdatePositions();
+    UpdateTextures();  // Also update decal, driver, hoodScoop, etc. positions
 }
 
 void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset) {
