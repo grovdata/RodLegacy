@@ -8,6 +8,7 @@
 #include "dialogs/list_dialog.h"
 #include "carbitmap.h"
 #include "engine_bay.h"
+#include "parsers/carcolor.h"
 #include <functional>
 
 class Garage : public CarScene {
@@ -21,8 +22,11 @@ class Garage : public CarScene {
     std::unique_ptr<Dialog> frontBumperDialog;
     std::unique_ptr<Dialog> rearBumperDialog;
     std::unique_ptr<Dialog> roofDialog;
+    std::unique_ptr<Dialog> paintDialog;
     std::unique_ptr<EngineBay> engineBay;
     bool fullscreenEnabled = false;
+    StandardCarColor previewColor;
+    StandardCarColor originalColor;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
@@ -30,8 +34,12 @@ class Garage : public CarScene {
     void InitBumperDialogs();
     void ShowBumperDialog(bool isFront);
     void ShowRoofDialog();
+    void ShowPaintDialog();
     void ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr);
     void UpdateSign();
+    void CycleNextColor();
+    void CyclePreviousColor();
+    void ApplyPreviewColor();
 
    public:
     Garage();

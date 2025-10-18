@@ -263,6 +263,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     });
 
+    // Initialize paint color tracking
+    previewColor = CarColorRed;
+    originalColor = CarColorRed;
+    
     InitGameMenuDialog();
     InitOptionsDialog();
     InitBumperDialogs();
@@ -649,6 +653,89 @@ void Garage::ShowRoofDialog() {
     ShowModificationDialog(titleText, 70, onConfirm, roofDialog);
 }
 
+void Garage::CycleNextColor() {
+    int nextColor = (previewColor + 1) % CarColorCount;
+    previewColor = static_cast<StandardCarColor>(nextColor);
+    // Don't apply color yet - only on "Go ahead"
+}
+
+void Garage::CyclePreviousColor() {
+    int prevColor = (previewColor - 1 + CarColorCount) % CarColorCount;
+    previewColor = static_cast<StandardCarColor>(prevColor);
+    // Don't apply color yet - only on "Go ahead"
+}
+
+void Garage::ApplyPreviewColor() {
+    if (carBitmap) {
+        carBitmap->UpdateColor(previewColor);
+    }
+}
+
+void Garage::ShowPaintDialog() {
+    // Store the original color so we can restore it if user cancels
+    if (carBitmap) {
+        originalColor = carBitmap->GetCurrentColor();
+        previewColor = originalColor;
+    }
+    
+    // Button positions as specified
+    SDL_Rect nextColorRect = {149, 127, 78, 16};
+    SDL_Rect prevColorRect = {233, 127, 78, 16};
+    SDL_Rect goAheadRect = {149, 145, 78, 16};
+    SDL_Rect forgetItRect = {233, 145, 78, 16};
+    
+    ButtonConfig nextColorButton = {nextColorRect, "Next color", nullptr, false, 0};
+    ButtonConfig prevColorButton = {prevColorRect, "Previous color", nullptr, false, 1};
+    ButtonConfig goAheadButton = {goAheadRect, "Go ahead", nullptr, true, 2}; // Default
+    ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 3};
+    
+    std::vector<ButtonConfig> buttons = {nextColorButton, prevColorButton, goAheadButton, forgetItButton};
+    
+    DialogConfig paintDialogConfig;
+    paintDialogConfig.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT}; // Full screen but transparent
+    paintDialogConfig.backgroundColor = {0, 0, 0, 0}; // Transparent
+    paintDialogConfig.borderColor = {0, 111, 239, 255};
+    paintDialogConfig.buttons = buttons;
+    paintDialogConfig.contentAreas = {}; // No content areas = no background drawn
+    paintDialogConfig.font = state.assets.GetMainFont();
+    paintDialogConfig.onButtonPressed = [this](int index) {
+        switch (index) {
+            case 0: // Next color
+                CycleNextColor();
+                break;
+            case 1: // Previous color
+                CyclePreviousColor();
+                break;
+            case 2: // Go ahead
+                {
+                    int currentMoney = state.GetBankroll();
+                    if (currentMoney >= 20) {
+                        // Deduct $20 and apply the new color
+                        state.SetBankroll(currentMoney - 20);
+                        ApplyPreviewColor();
+                        SDL_Log("Car painted for $20");
+                        paintDialog->Hide();
+                        SetActiveDialog(nullptr);
+                    } else {
+                        SDL_Log("Not enough money! Need $20");
+                        paintDialog->Hide();
+                        SetActiveDialog(nullptr);
+                    }
+                }
+                break;
+            case 3: // Forget it
+                // Just close - no color was applied yet
+                paintDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    
+    // Create and show the dialog
+    paintDialog = std::make_unique<Dialog>(paintDialogConfig);
+    SetActiveDialog(paintDialog.get());
+}
+
 void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
     // Dialog dimensions as specified
     const int dialogWidth = 156;
@@ -797,6 +884,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_CHOPPED_ROOF:
         ShowRoofDialog();
+        break;
+    case ZONE_GARAGE_PAINT_JOB:
+        ShowPaintDialog();
         break;
     default:
         break;

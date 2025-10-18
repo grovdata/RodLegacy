@@ -75,6 +75,7 @@ public:
     void MoveBody(SDL_Point p);
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
+    StandardCarColor GetCurrentColor() const { return currentColor; }
     BitmapOffset_t GetOffset();
 
     // Gas station methods
