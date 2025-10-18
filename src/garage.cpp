@@ -587,196 +587,138 @@ void Garage::InitBumperDialogs() {
 }
 
 void Garage::ShowBumperDialog(bool isFront) {
-    const int buttonWidth = 72;
-    const int buttonHeight = 16;
-    const int dialogWidth = 200;
-    const int dialogHeight = 60;
-    
-    // Center dialog on screen
-    SDL_Rect bumperDialogRect = {
-        (GAME_WIDTH - dialogWidth) / 2,
-        (GAME_HEIGHT - dialogHeight) / 2,
-        dialogWidth,
-        dialogHeight
-    };
-    
     // Check current bumper status
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
+    const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20") 
+                                    : (isStripped ? "Restore bumper - $20" : "Strip bumper - $20");
     
-    // Check if player has enough money
-    int currentMoney = state.GetBankroll();
-    bool canAfford = currentMoney >= 20;
+    std::unique_ptr<Dialog>& dialogPtr = isFront ? frontBumperDialog : rearBumperDialog;
     
-    SDL_Rect actionButtonRect = {bumperDialogRect.x + 10, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
-    SDL_Rect forgetButtonRect = {bumperDialogRect.x + 118, bumperDialogRect.y + 30, buttonWidth, buttonHeight};
-    
-    const char* actionText = isStripped ? "Restore $20" : "Strip $20";
-    const char* titleText = isFront ? "Front Bumper" : "Rear Bumper";
-    
-    ButtonConfig actionButton = {actionButtonRect, actionText, nullptr, false, 0};
-    ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, true, 1};
-    
-    DialogConfig bumperDialogConfig = {
-        state.assets.GetMainFont(),
-        bumperDialogRect,
-        {0x90, 0x90, 0x90, 0xFF},
-        {0xFF, 0xFF, 0xFF, 0xFF},
-        {actionButton, forgetButton},
-        {},
-        {DialogTextConfig{SDL_Rect{bumperDialogRect.x, bumperDialogRect.y + 3, dialogWidth, 10}, titleText, {0xFF, 0xFF, 0xFF, 0xFF}, true}},
-        {},
-        {},
-        {}
-    };
-    
-    bumperDialogConfig.onButtonPressed = [this, isFront, isStripped, canAfford](int index) {
-        switch (index) {
-            case 0: // Strip/Restore Bumper
-                if (!canAfford) {
-                    SDL_Log("Not enough money! Need $20");
-                    if (isFront) {
-                        frontBumperDialog->Hide();
-                    } else {
-                        rearBumperDialog->Hide();
-                    }
-                    SetActiveDialog(nullptr);
-                    return;
-                }
-                
-                // Deduct $20
-                state.SetBankroll(state.GetBankroll() - 20);
-                
-                if (carBitmap) {
-                    if (isStripped) {
-                        // Restore
-                        if (isFront) {
-                            carBitmap->RestoreFrontBumper();
-                            SDL_Log("Front bumper restored for $20");
-                        } else {
-                            carBitmap->RestoreRearBumper();
-                            SDL_Log("Rear bumper restored for $20");
-                        }
-                    } else {
-                        // Strip
-                        if (isFront) {
-                            carBitmap->StripFrontBumper();
-                            SDL_Log("Front bumper stripped for $20");
-                        } else {
-                            carBitmap->StripRearBumper();
-                            SDL_Log("Rear bumper stripped for $20");
-                        }
-                    }
-                }
-                
+    auto onConfirm = [this, isFront, isStripped, &dialogPtr]() {
+        if (carBitmap) {
+            if (isStripped) {
+                // Restore
                 if (isFront) {
-                    frontBumperDialog->Hide();
+                    carBitmap->RestoreFrontBumper();
+                    SDL_Log("Front bumper restored for $20");
                 } else {
-                    rearBumperDialog->Hide();
+                    carBitmap->RestoreRearBumper();
+                    SDL_Log("Rear bumper restored for $20");
                 }
-                SetActiveDialog(nullptr);
-                break;
-            case 1: // Forget it
+            } else {
+                // Strip
                 if (isFront) {
-                    frontBumperDialog->Hide();
+                    carBitmap->StripFrontBumper();
+                    SDL_Log("Front bumper stripped for $20");
                 } else {
-                    rearBumperDialog->Hide();
+                    carBitmap->StripRearBumper();
+                    SDL_Log("Rear bumper stripped for $20");
                 }
-                SetActiveDialog(nullptr);
-                break;
+            }
         }
+        
+        dialogPtr->Hide();
+        SetActiveDialog(nullptr);
     };
     
-    // Create and show the dialog
-    if (isFront) {
-        frontBumperDialog = std::make_unique<Dialog>(bumperDialogConfig);
-        SetActiveDialog(frontBumperDialog.get());
-    } else {
-        rearBumperDialog = std::make_unique<Dialog>(bumperDialogConfig);
-        SetActiveDialog(rearBumperDialog.get());
-    }
+    ShowModificationDialog(titleText, 20, onConfirm, dialogPtr);
 }
 
 void Garage::ShowRoofDialog() {
-    const int buttonWidth = 72;
-    const int buttonHeight = 16;
-    const int dialogWidth = 200;
-    const int dialogHeight = 60;
-    
-    // Center dialog on screen
-    SDL_Rect roofDialogRect = {
-        (GAME_WIDTH - dialogWidth) / 2,
-        (GAME_HEIGHT - dialogHeight) / 2,
-        dialogWidth,
-        dialogHeight
-    };
-    
     // Check current roof status
     bool isChopped = carBitmap->IsRoofChopped();
+    const char* titleText = isChopped ? "Restore roof - $70" : "Chop roof - $70";
+    
+    auto onConfirm = [this, isChopped]() {
+        if (carBitmap) {
+            if (isChopped) {
+                // Restore
+                carBitmap->RestoreRoof();
+                SDL_Log("Roof restored for $70");
+            } else {
+                // Chop
+                carBitmap->ChopRoof();
+                SDL_Log("Roof chopped for $70");
+            }
+        }
+        
+        roofDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+    
+    ShowModificationDialog(titleText, 70, onConfirm, roofDialog);
+}
+
+void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
+    // Dialog dimensions as specified
+    const int dialogWidth = 156;
+    const int dialogHeight = 36;
+    const int dialogX = 82;
+    const int dialogY = 50;
+    
+    SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
     
     // Check if player has enough money
     int currentMoney = state.GetBankroll();
-    bool canAfford = currentMoney >= 20;
+    bool canAfford = currentMoney >= price;
     
-    SDL_Rect actionButtonRect = {roofDialogRect.x + 10, roofDialogRect.y + 30, buttonWidth, buttonHeight};
-    SDL_Rect forgetButtonRect = {roofDialogRect.x + 118, roofDialogRect.y + 30, buttonWidth, buttonHeight};
+    // Button layout
+    const int buttonWidth = 70;
+    const int buttonHeight = 14;
+    const int buttonSpacing = 4;
+    const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
     
-    const char* actionText = isChopped ? "Restore $20" : "Chop $20";
-    const char* titleText = "Roof";
+    SDL_Rect okButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
     
-    ButtonConfig actionButton = {actionButtonRect, actionText, nullptr, false, 0};
-    ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, true, 1};
+    ButtonConfig okButton = {okButtonRect, "OK", nullptr, true, 0}; // OK is default
+    ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, false, 1};
     
-    DialogConfig roofDialogConfig = {
-        state.assets.GetMainFont(),
-        roofDialogRect,
-        {0x90, 0x90, 0x90, 0xFF},
-        {0xFF, 0xFF, 0xFF, 0xFF},
-        {actionButton, forgetButton},
-        {},
-        {DialogTextConfig{SDL_Rect{roofDialogRect.x, roofDialogRect.y + 3, dialogWidth, 10}, titleText, {0xFF, 0xFF, 0xFF, 0xFF}, true}},
-        {},
-        {},
-        {}
+    std::vector<ButtonConfig> buttons = {okButton, forgetButton};
+    
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth, 10}, title, {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
     
-    roofDialogConfig.onButtonPressed = [this, isChopped, canAfford](int index) {
+    std::vector<SDL_Rect> lines = {
+        {dialogX + 3, dialogY + 14, dialogWidth - 6, 1}
+    };
+    
+    DialogConfig modDialogConfig;
+    modDialogConfig.bounds = dialogRect;
+    modDialogConfig.backgroundColor = {0, 208, 0, 255};
+    modDialogConfig.borderColor = {0, 111, 239, 255};
+    modDialogConfig.texts = texts;
+    modDialogConfig.buttons = buttons;
+    modDialogConfig.lines = lines;
+    modDialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    modDialogConfig.font = state.assets.GetMainFont();
+    modDialogConfig.onButtonPressed = [this, price, canAfford, onConfirm, &dialogPtr](int index) {
         switch (index) {
-            case 0: // Chop/Restore Roof
+            case 0: // OK
                 if (!canAfford) {
-                    SDL_Log("Not enough money! Need $20");
-                    roofDialog->Hide();
+                    SDL_Log("Not enough money! Need $%d", price);
+                    dialogPtr->Hide();
                     SetActiveDialog(nullptr);
                     return;
                 }
                 
-                // Deduct $20
-                state.SetBankroll(state.GetBankroll() - 20);
+                // Deduct price
+                state.SetBankroll(state.GetBankroll() - price);
                 
-                if (carBitmap) {
-                    if (isChopped) {
-                        // Restore
-                        carBitmap->RestoreRoof();
-                        SDL_Log("Roof restored for $20");
-                    } else {
-                        // Chop
-                        carBitmap->ChopRoof();
-                        SDL_Log("Roof chopped for $20");
-                    }
-                }
-                
-                roofDialog->Hide();
-                SetActiveDialog(nullptr);
+                // Execute the modification
+                onConfirm();
                 break;
             case 1: // Forget it
-                roofDialog->Hide();
+                dialogPtr->Hide();
                 SetActiveDialog(nullptr);
                 break;
         }
     };
     
     // Create and show the dialog
-    roofDialog = std::make_unique<Dialog>(roofDialogConfig);
-    SetActiveDialog(roofDialog.get());
+    dialogPtr = std::make_unique<Dialog>(modDialogConfig);
+    SetActiveDialog(dialogPtr.get());
 }
 
 SDL_Point Garage::GetCarIdlePosition() {

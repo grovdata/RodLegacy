@@ -8,6 +8,7 @@
 #include "dialogs/list_dialog.h"
 #include "carbitmap.h"
 #include "engine_bay.h"
+#include <functional>
 
 class Garage : public CarScene {
    private:
@@ -29,6 +30,7 @@ class Garage : public CarScene {
     void InitBumperDialogs();
     void ShowBumperDialog(bool isFront);
     void ShowRoofDialog();
+    void ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr);
     void UpdateSign();
 
    public:
