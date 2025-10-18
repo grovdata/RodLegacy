@@ -7,6 +7,7 @@
 #include "state.h"
 #include "engine_bay.h"
 #include "embedded_loader.h"
+#include "audio/audio_manager.h"
 #include <SDL_image.h>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
@@ -248,9 +249,16 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                    selectedCar->GetModel().name.c_str(), 
                    (void*)selectedCar);
             
+            // Update paint can to show the selected car's color
+            previewColor = selectedCar->GetColor();
+            originalColor = previewColor;
+            SDL_Log("Car list: Updating paint can to color %d for selected car", (int)previewColor);
+            UpdatePaintCanPreview();
+            
             // Only switch if selecting a different car
             if (selectedCar != state.GetCurrentCar()) {
                 pendingCar = selectedCar;
+                carSelectDialog->Hide();  // Hide dialog immediately when switching cars
                 StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
                 SDL_Log("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
                        (void*)state.GetCurrentCar(),
@@ -271,9 +279,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     });
 
-    // Initialize paint color tracking
-    previewColor = CarColorRed;
-    originalColor = CarColorRed;
+    // Initialize paint color tracking to current car's color
+    StandardCarColor currentCarColor = state.GetCurrentCar() ? state.GetCurrentCar()->GetColor() : CarColorRed;
+    previewColor = currentCarColor;
+    originalColor = currentCarColor;
+    SDL_Log("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
     
     // Initialize paint can preview (always visible)
     paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
@@ -628,6 +638,10 @@ void Garage::ShowBumperDialog(bool isFront) {
                     carBitmap->RestoreRearBumper();
                     SDL_Log("Rear bumper restored for $20");
                 }
+                // Play bash sound effect
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
+                }
             } else {
                 // Strip
                 if (isFront) {
@@ -636,6 +650,10 @@ void Garage::ShowBumperDialog(bool isFront) {
                 } else {
                     carBitmap->StripRearBumper();
                     SDL_Log("Rear bumper stripped for $20");
+                }
+                // Play bash sound effect
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
                 }
             }
         }
@@ -663,10 +681,18 @@ void Garage::ShowRoofDialog() {
                 // Restore
                 carBitmap->RestoreRoof();
                 SDL_Log("Roof restored for $70");
+                // Play bash sound effect
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
+                }
             } else {
                 // Chop
                 carBitmap->ChopRoof();
                 SDL_Log("Roof chopped for $70");
+                // Play bash sound effect
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
+                }
             }
         }
         
@@ -1134,7 +1160,9 @@ void Garage::OnCarAnimationComplete() {
     
     // Update paint preview color to match the current car
     if (carBitmap) {
-        previewColor = carBitmap->GetCurrentColor();
+        StandardCarColor newColor = carBitmap->GetCurrentColor();
+        SDL_Log("OnCarAnimationComplete: carBitmap color is %d, updating paint can", (int)newColor);
+        previewColor = newColor;
         originalColor = previewColor;
         UpdatePaintCanPreview();
     }

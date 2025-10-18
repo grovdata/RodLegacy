@@ -177,6 +177,19 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     }
     
+    // Car bash/impact sound - for chopping roof and stripping bumpers
+    if (size >= SRL0_CAR_BASH_OFFSET + SRL0_CAR_BASH_LENGTH) {
+        AudioSample carBashSample;
+        LoadRawAudio(data + SRL0_CAR_BASH_OFFSET, SRL0_CAR_BASH_LENGTH, 
+                     carBashSample, SRL0_CAR_BASH_RATE);
+        carBashSample.isLooped = false;  // One-shot sound
+        carBashSample.loopStart = 0;
+        carBashSample.loopLength = 0;
+        samples[AudioSampleType::CAR_BASH] = carBashSample;
+        SDL_Log("  - Car bash sound: %u bytes (one-shot) at %u Hz", 
+                SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
+    }
+    
     // TODO: Extract other samples from srl0.wave
     // The exact offsets for ignition, tire screech, honk, crash, and cop siren
     // need to be determined from the Amiga disassembly or by analyzing the file
