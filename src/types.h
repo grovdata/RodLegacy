@@ -81,6 +81,7 @@ struct CarModel {
 
     // Currently not known where this is defined
     int baseSpeed;
+    int baseAcceleration;
     
     // From SR_data
     int year;
@@ -91,6 +92,17 @@ struct CarModel {
     // From lib.p
     int width, height;    
     int index;
+    
+    // Modification constraints (will be set by CarModelConfigLoader)
+    struct {
+        bool canChopRoof = true;
+        bool canStripBumpers = true;
+        bool canAddDecal = true;
+        std::string constraintReason = "";
+    } constraints;
+    
+    // Compatible engines (will be set by CarModelConfigLoader)
+    std::vector<CarEngine_t> compatibleEngines;
 
     void Log() const {
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, 

@@ -4,9 +4,11 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "part.h"
+#include "engine_part.h"
+#include "car_system.h"
 
 class Spritesheet;
-extern SDL_Renderer *renderer;
+//extern SDL_Renderer *renderer;
 
 enum CarWheelType { STOCK, BRAND, RACING };
 enum CarScoopType { SCOOP1, SCOOP2, SCOOP3, SCOOP4, SCOOP_NONE };
@@ -30,9 +32,13 @@ class Car {
 
         Part gearbox;
         Part tires;
-        Part engine;
+        EnginePart engine;
         Part carburator;
         Part manifold;
+        
+        // Simple performance tracking
+        int effectiveSpeed;
+        int effectiveAcceleration;
 
     public:
 
@@ -47,7 +53,9 @@ class Car {
 
         Part GetGearbox() const { return gearbox; }
         Part GetTires() const { return tires; }
-        Part GetEngine() const { return engine; }
+        EnginePart GetEngine() const { 
+            return engine; 
+        }
         Part GetCarburator() const { return carburator; }
         Part GetManifold() const { return manifold; }
         int GetTuneLevel() const { return tuneLevel; }
@@ -55,15 +63,36 @@ class Car {
         SrLibCarDecal GetDecal();
         CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
+        
+        // Simple performance methods
+        int GetEffectiveSpeed() const { return effectiveSpeed; }
+        int GetEffectiveAcceleration() const { return effectiveAcceleration; }
+        
+        // Modification methods with validation
+        bool CanChopRoof() const { return model.constraints.canChopRoof; }
+        bool CanStripBumpers() const { return model.constraints.canStripBumpers; }
+        bool CanAddDecal() const { return model.constraints.canAddDecal; }
+        
+        // Scoop is automatic with V8 engines
+        bool HasScoop() const { return engine.HasScoop(); }
 
-        void SetGearbox(Part gearbox) { this->gearbox = gearbox; }
+        void SetGearbox(Part gearbox) { this->gearbox = gearbox; RecalculatePerformance(); }
         void SetTires(CarWheelType type);
-        void SetEngine(Part engine) { this->engine = engine; }
-        void SetCarburator(Part carburator) { this->carburator = carburator; }
-        void SetManifold(Part manifold) { this->manifold = manifold; }
+        void SetEngine(EnginePart engine) { this->engine = engine; RecalculatePerformance(); }
+        void SetEngine(Part engine) { this->engine = EnginePart::FromPart(engine); RecalculatePerformance(); }
+        void SetCarburator(Part carburator) { this->carburator = carburator; RecalculatePerformance(); }
+        void SetManifold(Part manifold) { this->manifold = manifold; RecalculatePerformance(); }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
         void SetTuneLevel(const int level) { this->tuneLevel = level; }
-
+        
+    private:
+        // Formula-based performance calculation
+        void RecalculatePerformance();
+        
+        // Helper methods for part speed bonuses
+        int GetTransmissionSpeedBonus(TransmissionType type, int wear) const;
+        int GetManifoldSpeedBonus(ManifoldType type, int wear) const;
+        int GetCarburetorSpeedBonus(CarburetorType type, int wear) const;
 };

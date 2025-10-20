@@ -8,6 +8,7 @@
 #include "engine_bay.h"
 #include "embedded_loader.h"
 #include "audio/audio_manager.h"
+#include "engine_part.h"
 #include <SDL_image.h>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
@@ -877,6 +878,148 @@ void Garage::ShowPaintDialog() {
     SetActiveDialog(paintDialog.get());
 }
 
+void Garage::ShowCarInfoDialog() {
+    // Create dialog bounds
+    SDL_Rect dialogRect = {37, 27, 246, 116};
+    
+    std::vector<DialogTextConfig> texts;
+    // Title centered
+    texts.push_back(DialogTextConfig{SDL_Rect{dialogRect.x + 3, dialogRect.y + 3, dialogRect.w - 6, 10}, "Car parts", {0xFF, 0xFF, 0xFF, 0xFF}, true});
+    
+    // Horizontal line under title
+    std::vector<SDL_Rect> lines = {
+        {dialogRect.x + 3, dialogRect.y + 14, dialogRect.w - 6, 1}
+    };
+    
+    // Content text area start Y
+    int y = dialogRect.y + 20;
+    int xLeft = dialogRect.x + 8;
+    int xRightAlign = dialogRect.x + dialogRect.w - 12; // right margin for right-aligned notes
+    
+    auto addLeft = [&](const char* s) {
+        texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
+        y += SFont_TextHeight(state.assets.GetMainFont());
+    };
+    auto addIndented = [&](const char* s) {
+        texts.push_back(DialogTextConfig{SDL_Rect{xLeft + 10, y, dialogRect.w - 26, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
+        y += SFont_TextHeight(state.assets.GetMainFont());
+    };
+    auto addRightNote = [&](const char* left, const char* note) {
+        // Render left, then compute right-aligned note position using measured width
+        texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, left, {0xFF, 0xFF, 0xFF, 0xFF}, false});
+        int noteWidth = SFont_TextWidth(state.assets.GetMainFont(), note);
+        texts.push_back(DialogTextConfig{SDL_Rect{xRightAlign - noteWidth, y, noteWidth, 10}, note, {0xFF, 0xFF, 0xFF, 0xFF}, false});
+        y += SFont_TextHeight(state.assets.GetMainFont());
+    };
+    
+    // Populate from current car parts (engine, manifold, carb, transmission, tires)
+    Car* car = state.GetCurrentCar();
+    if (car) {
+        CarModel model = car->GetModel();
+        auto vendorToStr = [](CarVendor_t v) -> const char* {
+            switch (v) {
+                case CarVendorGM: return "GM";
+                case CarVendorFord: return "Ford";
+                case CarVendorChrysler: return "Chrysler";
+                case CarVendorCustom: return "Custom";
+                default: return "Unknown";
+            }
+        };
+        auto wearNote = [](int wear) {
+            if (wear <= 0) return std::string("(new)");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "(%d%% worn)", wear);
+            return std::string(buf);
+        };
+        auto transName = [vendorToStr](AmigaLibAsset aid, CarVendor_t vendor) -> std::string {
+            switch ((SrTransmissionType)aid) {
+                case SR_TRANS_AUTO_GM: return "Auto Trnsmsn GM.";
+                case SR_TRANS_AUTO_FORD: return "Auto Trnsmsn Ford.";
+                case SR_TRANS_AUTO_CHRYSLER: return "Auto Trnsmsn Chrysler.";
+                case SR_TRANS_3SPD_GM: return "Trnsmsn 3-spd GM.";
+                case SR_TRANS_3SPD_FORD: return "Trnsmsn 3-spd Ford.";
+                case SR_TRANS_3SPD_CHRYSLER: return "Trnsmsn 3-spd Chrysler.";
+                case SR_TRANS_4SPD_GM: return "Trnsmsn 4-spd GM.";
+                case SR_TRANS_4SPD_FORD: return "Trnsmsn 4-spd Ford.";
+                case SR_TRANS_4SPD_CHRYSLER: return "Trnsmsn 4-spd Chrysler.";
+                case SR_TRANS_4SPD_UNIVERSAL: return "Trnsmsn 4-spd Fits all.";
+                case SR_TRANS_RACING_GM: return "Racing 4-spd GM.";
+                case SR_TRANS_RACING_FORD: return "Racing 4-spd Ford.";
+                case SR_TRANS_RACING_CHRYSLER: return "Racing 4-spd Chrysler.";
+                default: {
+                    // Fallback to vendor auto
+                    std::string v = vendorToStr(vendor);
+                    return std::string("Auto Trnsmsn ") + v + ".";
+                }
+            }
+        };
+        auto carbName = [](AmigaLibAsset aid) -> const char* {
+            switch (aid) {
+                case ENGINE_CARB_2BARREL: return "2-brl carb. Fits all.";
+                case ENGINE_CARB_4BARREL: return "4-brl carb.";
+                case ENGINE_CARB_4BARREL_RACING: return "Racing 4-brl carb.";
+                default: return "carburetor.";
+            }
+        };
+
+        CarVendor_t vendor = model.vendor;
+        if (vendor == CarVendorUnknown) {
+            vendor = SrLibQueryGetCarVendor(model.index);
+        }
+
+        // Debug: Car Vendor
+        std::string vendorLabel = "Car Vendor: " + std::string(vendorToStr(vendor));
+        addLeft(vendorLabel.c_str());
+        
+        // Engine line
+        EnginePart engine = car->GetEngine();
+        std::string engineLabel = engine.GetEngineName();
+        addRightNote(engineLabel.c_str(), wearNote(engine.wear).c_str());
+        // Manifold line (based on carb type if possible)
+        const Part carb = car->GetCarburator();
+        const char* maniText = (carb.assetId == ENGINE_CARB_2BARREL) ? "  2-brl manifold." : "  4-brl manifold.";
+        addIndented(maniText);
+        // Carb line
+        std::string carbText = std::string("  ") + carbName(carb.assetId);
+        addIndented(carbText.c_str());
+        // Transmission line
+        const Part trans = car->GetGearbox();
+        std::string transText = transName(trans.assetId, vendor);
+        addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
+        // Tires line
+        addRightNote("Tires.", wearNote(car->GetTires().wear).c_str());
+
+        // Blank line
+        y += SFont_TextHeight(state.assets.GetMainFont());
+        // Fuel (placeholder until wired)
+        addLeft("Fuel     4 gallons");
+        // Blank line
+        y += SFont_TextHeight(state.assets.GetMainFont());
+        int mph = model.baseSpeed > 0 ? model.baseSpeed : 97;
+        char speedBuf[64];
+        snprintf(speedBuf, sizeof(speedBuf), "Max speed   %d mph", mph);
+        addLeft(speedBuf);
+    }
+    
+    DialogConfig infoCfg;
+    infoCfg.bounds = dialogRect;
+    infoCfg.backgroundColor = {0, 208, 0, 255};
+    infoCfg.borderColor = {0, 111, 239, 255};
+    infoCfg.contentAreas = { dialogRect }; // draw dialog background
+    infoCfg.texts = texts;
+    infoCfg.lines = lines;
+    infoCfg.font = state.assets.GetMainFont();
+    // Clicking anywhere dismisses: handled in PushEvent when this dialog is active
+    infoCfg.onZoneHover = [this](Zone& zone) {
+        // no-op
+    };
+    infoCfg.onButtonPressed = nullptr;
+    
+    carInfoDialog = std::make_unique<Dialog>(infoCfg);
+    carInfoDialog->Show();
+    SetActiveDialog(carInfoDialog.get());
+}
+
 void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
     // Dialog dimensions as specified
     const int dialogWidth = 156;
@@ -1025,6 +1168,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_CAR_LIST:
         SetActiveDialog((Dialog*)carSelectDialog.get());
+        break;
+    case ZONE_GARAGE_CAR_INFO:
+        ShowCarInfoDialog();
         break;
     case ZONE_GARAGE_MENU:
         SetActiveDialog((Dialog*)gameMenuDialog.get());        

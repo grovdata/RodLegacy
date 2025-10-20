@@ -104,7 +104,18 @@ enum CarVendor_t {
     CarVendorUnknown = 4
 };
 
-
+// Engines in Street Rod 1
+enum CarEngine_t {
+    CarEngineChrysler_V6 = 0,
+    CarEngineChrysler_V8_285 = 1,
+    CarEngineChrysler_V8_340 = 2,    
+    CarEngineGM_V6 = 3,
+    CarEngineGM_V8_282 = 4,
+    CarEngineGM_V8_327 = 5,
+    CarEngineFord_V6 = 6,
+    CarEngineFord_V8_292 = 7,
+    CarEngineFord_V8_351 = 8
+};
 
 enum AmigaLibAsset {
     SPEECH_BUBBLE_ARROW_RIGHT = 0,

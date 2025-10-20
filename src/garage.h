@@ -28,6 +28,7 @@ class Garage : public CarScene {
     StandardCarColor previewColor;
     StandardCarColor originalColor;
     std::unique_ptr<Bitmap> paintCanPreview;
+    std::unique_ptr<Dialog> carInfoDialog;
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
@@ -36,6 +37,7 @@ class Garage : public CarScene {
     void ShowBumperDialog(bool isFront);
     void ShowRoofDialog();
     void ShowPaintDialog();
+    void ShowCarInfoDialog();
     void ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr);
     void UpdateSign();
     void CycleNextColor();

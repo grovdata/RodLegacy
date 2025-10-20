@@ -115,6 +115,8 @@ cpp_sources = [
     'spritesheet.cpp',
     'scene.cpp',
     'car.cpp',
+    'car_builder.cpp',
+    'car_system.cpp',
     'cardata.cpp',
     'carbitmap.cpp',
     'diner.cpp',

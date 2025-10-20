@@ -1,6 +1,7 @@
 #include "roster.h"
 #include "parsers/carcolor.h"
 #include "state.h"
+#include "car_builder.h"
 #include <random>
 #include <algorithm>
 
@@ -34,7 +35,7 @@ void Roster::Initialize(CarData& carData) {
 }
 
 Car* Roster::GenerateRandomCar(const CarModel& model) {
-    Car* car = new Car(model);
+    Car* car = CarBuilder::BuildRandomCar(model);
     
     // Random color selection
     std::random_device rd;
@@ -100,6 +101,82 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     } else {
         car->SetScoop((CarScoopType)scoopDist(gen));
     }
+    // Randomize drivetrain and engine parts
+    // Wear 0-30% similar to other parts
+    int wearManifold = wearDist(gen);
+    int wearCarb = wearDist(gen);
+    int wearTrans = wearDist(gen);
+
+    // Vendor for this model
+    CarVendor_t vendor = (CarVendor_t)CAR_VENDOR_LOOKUP[model.index][1];
+    SDL_Log("Vendor for car model %d is %d", model.index, vendor);
+    switch (vendor) {
+        case CarVendorGM:
+            SDL_Log("GM");
+            break;
+        case CarVendorFord:
+            SDL_Log("Ford");
+            break;
+        case CarVendorChrysler:
+            SDL_Log("Chrysler");
+            break;
+        default:
+            SDL_Log("Unknown");
+            break;
+    }
+
+    // Random transmission matching vendor (allow universal 4-spd as well)
+    std::vector<AmigaLibAsset> vendorTrans;
+    switch (vendor) {
+        case CarVendorGM:
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_AUTO_GM));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_3SPD_GM));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_GM));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_RACING_GM));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL));
+            break;
+        case CarVendorFord:
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_AUTO_FORD));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_3SPD_FORD));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_FORD));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_RACING_FORD));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL));
+            break;
+        case CarVendorChrysler:
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_AUTO_CHRYSLER));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_3SPD_CHRYSLER));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_CHRYSLER));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_RACING_CHRYSLER));
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL));
+            break;
+        default:
+            vendorTrans.push_back(static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL));
+            break;
+    }
+    std::uniform_int_distribution<> transDist(0, static_cast<int>(vendorTrans.size()) - 1);
+    AmigaLibAsset transAsset = vendorTrans[transDist(gen)];
+    Part gearboxPart(wearTrans, 0, vendor, transAsset, TRANS_4SPD_UNIVERSAL);
+    car->SetGearbox(gearboxPart);
+
+    // Random manifold among vendor-sensible choices (map 1..6 to vendor)
+    // For now, assume all manifolds fit vendor engines; keep asset range
+    std::uniform_int_distribution<> maniDist(ENGINE_MANIFOLD1, ENGINE_MANIFOLD6);
+    Part manifoldPart(wearManifold, 0, vendor, static_cast<AmigaLibAsset>(maniDist(gen)), MANIFOLD_STOCK);
+    car->SetManifold(manifoldPart);
+
+    // Random carb (2-barrel / 4-barrel / racing 4-barrel) - all vendor variants are universal in assets
+    std::uniform_int_distribution<> carbPick(0, 2);
+    AmigaLibAsset carbAsset = ENGINE_CARB_2BARREL;
+    switch (carbPick(gen)) {
+        case 0: carbAsset = ENGINE_CARB_2BARREL; break;
+        case 1: carbAsset = ENGINE_CARB_4BARREL; break;
+        case 2: carbAsset = ENGINE_CARB_4BARREL_RACING; break;
+    }
+    Part carbPart(wearCarb, 0, vendor, carbAsset, CARB_2BARREL);
+    car->SetCarburator(carbPart);
+
+    // Engine is already set by CarBuilder::BuildRandomCar(), no need to override it
+
     return car;
 }
 
