@@ -1009,7 +1009,20 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.texts = texts;
     infoCfg.lines = lines;
     infoCfg.font = state.assets.GetMainFont();
-    // Clicking anywhere dismisses: handled in PushEvent when this dialog is active
+    
+        // Add invisible dismiss button that covers the entire dialog
+        ButtonConfig dismissButton;
+        dismissButton.bounds = dialogRect;
+        dismissButton.text = ""; // No text
+        dismissButton.onClick = [this]() {
+            carInfoDialog->Hide();
+            SetActiveDialog(nullptr);
+        };
+        dismissButton.defaultChoice = false;
+        dismissButton.invisible = true; // Make button truly invisible
+        dismissButton.bitmapConfig = {}; // No bitmap
+        
+        infoCfg.buttons = { dismissButton };
     infoCfg.onZoneHover = [this](Zone& zone) {
         // no-op
     };

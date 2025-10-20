@@ -46,6 +46,11 @@ void Button::CropBitmapFromSource() {
 }
 
 void Button::CreateButtonSurface() {
+    // Skip creating visual elements if button is invisible
+    if (config.invisible) {
+        return;
+    }
+    
     // Create background rectangle
     RectangleConfig rectConfig{};
     rectConfig.rect = config.bounds;
@@ -103,7 +108,9 @@ void Button::HandleEvent(SDL_Event* event) {
                 if (x >= config.bounds.x && x < config.bounds.x + config.bounds.w &&
                     y >= config.bounds.y && y < config.bounds.y + config.bounds.h) {
                     pressed = true;
-                    CreateButtonSurface(); // Update appearance
+                    if (!config.invisible) {
+                        CreateButtonSurface(); // Update appearance
+                    }
                 }
             }
             break;
@@ -111,7 +118,9 @@ void Button::HandleEvent(SDL_Event* event) {
         case SDL_MOUSEBUTTONUP:
             if (event->button.button == SDL_BUTTON_LEFT && pressed) {
                 pressed = false;
-                CreateButtonSurface(); // Update appearance
+                if (!config.invisible) {
+                    CreateButtonSurface(); // Update appearance
+                }
                 
                 int x = event->button.x;
                 int y = event->button.y;
@@ -140,4 +149,9 @@ void Button::SimulateClick() {
     config.onClick();
     pressed = false;
     CreateButtonSurface();
+}
+
+bool Button::IsPointInside(int x, int y) const {
+    return x >= config.bounds.x && x < config.bounds.x + config.bounds.w &&
+           y >= config.bounds.y && y < config.bounds.y + config.bounds.h;
 }

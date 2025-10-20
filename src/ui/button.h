@@ -29,4 +29,5 @@ public:
     bool IsVisible() const;
     bool IsDefaultChoice() const { return config.defaultChoice; }
     void SimulateClick();
+    bool IsPointInside(int x, int y) const;
 };

@@ -220,13 +220,6 @@ void Scene::PushEvent(SDL_Event *event) {
     
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         if (SDL_GetTicks64() - lastActionTime > 200) {
-            if (activeDialog && activeDialog->IsVisible()) {
-                // Dismiss any active dialog on click anywhere
-                activeDialog->Hide();
-                SetActiveDialog(nullptr);
-                lastActionTime = SDL_GetTicks64();
-                return;
-            }
             ZoneId z = CheckMouseHover(event->button.x, event->button.y);
             Action(z);
         }

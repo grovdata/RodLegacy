@@ -80,9 +80,14 @@ void Dialog::AddLine(SDL_Rect rect, SDL_Color color) {
 
 void Dialog::AddButton(const ButtonConfig& buttonConfig) {
     ButtonConfig config = buttonConfig;  // Make a copy so we can modify it
-    config.onClick = [this, buttonConfig]() {
-        this->OnButtonPressed(buttonConfig.index);
-    };
+    
+    // Only override onClick if no custom callback was provided
+    if (!config.onClick) {
+        config.onClick = [this, buttonConfig]() {
+            this->OnButtonPressed(buttonConfig.index);
+        };
+    }
+    
     buttons.push_back(new Button(config));
 }
 
@@ -190,4 +195,5 @@ void Dialog::HandleEvent(SDL_Event* event) {
             }
         }
     }
+
 }
