@@ -448,6 +448,8 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
+            
+            // Special case: Gas station assets use gas palette
             switch (a) {
                 case GUS_GAS_SCREEN:
                 case GUS_GAS_ATTENDANT:
@@ -457,15 +459,20 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 case GUS_GAS_PUMP_FILLING:
                     return PAL_GAS;                
                 default:
-                    // Use driving palette for entries <= 176, main palette for entries > 176
-                    if (index >= 45 && index <= 80) {
-                        return PAL_DRIVING_LOW;
-                    }
-                    if (index <= 176) {
-                        return PAL_DRIVING;
-                    } else {
-                        return PAL1;
-                    }
+                    break; // Continue to general logic below
+            }
+            
+            if (index < 45) {
+                return PAL1;
+            } else if (index >= 45 && index <= 80) {
+                // Special range: Use low driving palette (possibly for specific UI elements)
+                return PAL_DRIVING_LOW;
+            } else if (index <= 176) {
+                // Most game assets: Use standard driving palette
+                return PAL_DRIVING;
+            } else {
+                // High-index assets: Use main palette
+                return PAL1;
             }
         }
 

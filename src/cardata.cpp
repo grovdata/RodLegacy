@@ -118,8 +118,22 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
 }
 
 CarMetadata_t CarData::GetCarMetadata(int carIndex) {
-    int index = dp.GetCarIndex((AmigaLibAsset)carIndex);
-    return carMetadata[index];
+    // Convert asset ID (like 179) to array index (0-24)
+    int arrayIndex = -1;
+    for (int i = 0; i < CAR_INDEX_COUNT; i++) {
+        if (CAR_INDEX[i] == carIndex) {
+            arrayIndex = i;
+            break;
+        }
+    }
+    
+    if (arrayIndex < 0 || arrayIndex >= (int)carMetadata.size()) {
+        SDL_Log("Warning: GetCarMetadata carIndex %d (arrayIndex %d) out of bounds (size: %zu), returning empty metadata", 
+                carIndex, arrayIndex, carMetadata.size());
+        CarMetadata_t empty = {};
+        return empty;
+    }
+    return carMetadata[arrayIndex];
 }
 
 void CarData::ReadCarsFromTomlFile(std::string filename) {

@@ -105,7 +105,8 @@ void Newspaper::LoadClassifiedsData() {
     // Access the car metadata from the state's carData
     // The carData should already have the metadata loaded from SrLibDataReadDataFromBuffer
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        CarMetadata_t metadata = state.carData.GetCarMetadata(i);
+        int carAssetId = CAR_INDEX[i];  // Get the actual asset ID from CAR_INDEX
+        CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
         
         // Only add metadata if it has valid classified data
         if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
