@@ -44,6 +44,7 @@ class Garage : public CarScene {
     void CyclePreviousColor();
     void ApplyPreviewColor();
     void UpdatePaintCanPreview();
+    void UpdateCarZones();
 
    public:
     Garage();

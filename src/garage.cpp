@@ -9,6 +9,7 @@
 #include "embedded_loader.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
+#include "parsers/libp.h"
 #include <SDL_image.h>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
@@ -103,6 +104,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     Bubble *customizationBubble = new Bubble("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     customizationBubble->SetVisible(false);
     bubbles.push_back(customizationBubble);
+    Bubble *roofConstraintBubble = new Bubble("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
+    roofConstraintBubble->SetVisible(false);
+    bubbles.push_back(roofConstraintBubble);
+    Bubble *bumperConstraintBubble = new Bubble("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
+    bumperConstraintBubble->SetVisible(false);
+    bubbles.push_back(bumperConstraintBubble);
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -621,6 +628,22 @@ void Garage::ShowBumperDialog(bool isFront) {
         bubbles[4]->SetVisible(false);
     }
     
+    // Check if car can strip bumpers
+    if (state.GetCurrentCar()) {
+        CarModel model = state.GetCurrentCar()->GetModel();
+        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+        
+        // If trying to strip bumpers, check if car supports it
+        bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
+        if (!isStripped && !CarQuery::SrLibQueryCanStripBumpers(bodyAssetNo)) {
+            // Show constraint bubble instead of dialog
+            if (bubbles.size() > 6) {
+                bubbles[6]->SetVisible(true);  // bumperConstraintBubble
+            }
+            return;
+        }
+    }
+    
     // Check current bumper status
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
     const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20") 
@@ -670,6 +693,22 @@ void Garage::ShowRoofDialog() {
     // Hide any previous error bubble
     if (bubbles.size() > 4) {
         bubbles[4]->SetVisible(false);
+    }
+    
+    // Check if car can chop roof
+    if (state.GetCurrentCar()) {
+        CarModel model = state.GetCurrentCar()->GetModel();
+        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+        
+        // If trying to chop roof, check if car supports it
+        bool isChopped = carBitmap->IsRoofChopped();
+        if (!isChopped && !CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
+            // Show constraint bubble instead of dialog
+            if (bubbles.size() > 5) {
+                bubbles[5]->SetVisible(true);  // roofConstraintBubble
+            }
+            return;
+        }
     }
     
     // Check current roof status
@@ -1010,19 +1049,8 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.lines = lines;
     infoCfg.font = state.assets.GetMainFont();
     
-        // Add invisible dismiss button that covers the entire dialog
-        ButtonConfig dismissButton;
-        dismissButton.bounds = dialogRect;
-        dismissButton.text = ""; // No text
-        dismissButton.onClick = [this]() {
-            carInfoDialog->Hide();
-            SetActiveDialog(nullptr);
-        };
-        dismissButton.defaultChoice = false;
-        dismissButton.invisible = true; // Make button truly invisible
-        dismissButton.bitmapConfig = {}; // No bitmap
-        
-        infoCfg.buttons = { dismissButton };
+        // No buttons - dialog will be dismissed by clicking outside or pressing escape
+        infoCfg.buttons = {};
     infoCfg.onZoneHover = [this](Zone& zone) {
         // no-op
     };
@@ -1324,6 +1352,37 @@ void Garage::OnCarAnimationComplete() {
         previewColor = newColor;
         originalColor = previewColor;
         UpdatePaintCanPreview();
+    }
+    
+    // Update car zones after animation completes
+    UpdateCarZones();
+}
+
+void Garage::UpdateCarZones() {
+    if (carBitmap != nullptr) {
+        SDL_Point p;
+        p.x = carx; p.y = cary;
+        carBitmap->Move(p);
+        carBitmap->Draw();
+
+        // get clickboxes
+        CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+        CarClickBoxes_t clickBoxes = metadata.clickBoxes;
+        
+        SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
+        SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
+
+        SDL_Rect choppedRoofRect = {carx + clickBoxes.clickBoxChoppedRoof.x, cary + clickBoxes.clickBoxChoppedRoof.y, clickBoxes.clickBoxChoppedRoof.width, clickBoxes.clickBoxChoppedRoof.height};
+        SetZoneRect(ZONE_GARAGE_CHOPPED_ROOF, &choppedRoofRect);
+
+        SDL_Rect frontBumperRect = {carx + clickBoxes.clickBoxFrontBumper.x, cary + clickBoxes.clickBoxFrontBumper.y, clickBoxes.clickBoxFrontBumper.width, clickBoxes.clickBoxFrontBumper.height};
+        SetZoneRect(ZONE_GARAGE_FRONT_BUMPER, &frontBumperRect);
+
+        SDL_Rect transmissionRect = {carx + clickBoxes.clickBoxTransmission.x, cary + clickBoxes.clickBoxTransmission.y, clickBoxes.clickBoxTransmission.width, clickBoxes.clickBoxTransmission.height};
+        SetZoneRect(ZONE_GARAGE_TRANSMISSION, &transmissionRect);
+
+        SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
+        SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
 }
 

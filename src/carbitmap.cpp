@@ -596,12 +596,14 @@ void CarBitmap::RestoreFrontBumper() {
             auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
             if (choppedAsset) {
                 bodyChopped = *choppedAsset;
+                bodyChopped.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyChopped;
             }
         } else {
             auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
             if (bodyAsset) {
                 bodyOriginal = *bodyAsset;
+                bodyOriginal.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyOriginal;
             }
         }
@@ -636,12 +638,14 @@ void CarBitmap::RestoreRearBumper() {
             auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
             if (choppedAsset) {
                 bodyChopped = *choppedAsset;
+                bodyChopped.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyChopped;
             }
         } else {
             auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
             if (bodyAsset) {
                 bodyOriginal = *bodyAsset;
+                bodyOriginal.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyOriginal;
             }
         }

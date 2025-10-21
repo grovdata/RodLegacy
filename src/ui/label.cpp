@@ -40,11 +40,16 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
     // Use the larger of maxWidth or desiredWidth
     int surfaceWidth = (desiredWidth > 0) ? desiredWidth : maxWidth;
     
+    // Create surface with the same format as the main scene surface
+    // This ensures color mapping works correctly
     surface = SDL_CreateRGBSurface(0, surfaceWidth, totalHeight, 32, 
                                   0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     SetDimensions(surfaceWidth, totalHeight);
     
     SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
+    
+    // Don't use color modulation - render text directly in the desired color
+    // This matches how the existing newspaper elements work
     
     // Render each line
     int yOffset = 0;
@@ -63,6 +68,8 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
     }
     
     texture = SDL_CreateTextureFromSurface(renderer, surface);
+    
+    // Apply color modulation to the texture after rendering
     uint8_t r = (textColor >> 16) & 0xFF;
     uint8_t g = (textColor >> 8) & 0xFF;
     uint8_t b = textColor & 0xFF;

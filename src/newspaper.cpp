@@ -5,7 +5,7 @@ const std::string autoParts = "------------ PARTS ------------";
 const std::string usedCars = "---------- USED CARS ----------";
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
-    page = 0;
+    currentPage = 0;
 }
 
 Newspaper::~Newspaper() {
@@ -15,6 +15,7 @@ Newspaper::~Newspaper() {
 void Newspaper::Init(bool debugMode) {
     Scene::Init(debugMode);
     InitPageOne();
+    LoadClassifiedsData();
     InitPageAds();
 
     Update();
@@ -97,30 +98,163 @@ void Newspaper::InitPageOne() {
     headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
 }
 
+void Newspaper::LoadClassifiedsData() {
+    // Load car metadata from the state's car data
+    // We'll get the metadata that was already loaded during initialization
+    
+    // Access the car metadata from the state's carData
+    // The carData should already have the metadata loaded from SrLibDataReadDataFromBuffer
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        CarMetadata_t metadata = state.carData.GetCarMetadata(i);
+        
+        // Only add metadata if it has valid classified data
+        if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
+            carMetadata.push_back(metadata);
+        }
+    }
+    
+    // Calculate total pages needed
+    totalPages = (carMetadata.size() + adsPerPage - 1) / adsPerPage;
+    
+    SDL_Log("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
+}
+
 void Newspaper::InitPageAds() {
     // Ads page 1-x
     SDL_Rect textAreaRect = {64, 0, 192, 190};
 
     adsArea = Bitmap(textAreaRect.w, textAreaRect.h, 32);
-    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 240, 240, 240, 255));
+    //SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 200, 200, 200, 255));
     adsArea.UpdateFromSurface();
     adsArea.SetPosition(textAreaRect.x, textAreaRect.y);
     adsArea.SetVisible(false);
 
     AddDivider(1);
 
-    autoPartsHeader.Init(state.assets.GetMainFont(), 68, 12, 0);
+    uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32); // Same as date
+    autoPartsHeader.Init(state.assets.GetMainFont(), 68, 12, headerColor);
     autoPartsHeader.SetText(autoParts, false, 184);
+    
+    usedCarsHeader.Init(state.assets.GetMainFont(), 68, 12, headerColor);
+    usedCarsHeader.SetText(usedCars, false, 184);
+
+    // Create dynamic classified ads BEFORE updating adsArea surface
+    CreateClassifiedAds();
+    CreateUsedCarAds();
 
     adsArea.UpdateFromSurface();
-
-    test.Init(state.assets.GetMainFont(), 68, 32, 0);
-    test.SetText("1940 Chevrolet 2-dr coupe. Auto.\nRuns good. $400", false, 184);
-
-    AddDivider(31);
 }
 
-void Newspaper::AddDivider(int y) {
+void Newspaper::CreateClassifiedAds() {
+    classifiedAds.clear();
+    
+    // Create labels for each classified ad
+    for (size_t i = 0; i < carMetadata.size(); i++) {
+        Label adLabel;
+        std::string adText = FormatClassifiedAd(carMetadata[i].classified, i);
+        
+        int yPos = 32 + (i % adsPerPage) * 25; // 25 pixels per ad
+        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
+        adLabel.Init(state.assets.GetMainFont(), 68, yPos, textColor);
+        adLabel.SetText(adText, false, 184);
+        adLabel.SetVisible(false); // Will be shown based on current page
+        
+        classifiedAds.push_back(adLabel);
+    }
+}
+
+void Newspaper::CreateUsedCarAds() {
+    usedCarAds.clear();
+    
+    // Create labels for used car ads (same data, different formatting)
+    for (size_t i = 0; i < carMetadata.size(); i++) {
+        Label adLabel;
+        std::string adText = FormatUsedCarAd(carMetadata[i], i);
+        
+        int yPos = 32 + (i % adsPerPage) * 25; // 25 pixels per ad
+        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
+        adLabel.Init(state.assets.GetMainFont(), 68, yPos, textColor);
+        adLabel.SetText(adText, false, 184);
+        adLabel.SetVisible(false); // Will be shown based on current page
+        
+        usedCarAds.push_back(adLabel);
+    }
+}
+
+std::string Newspaper::FormatClassifiedAd(const ClassifiedEntry_t& entry, int index) {
+    std::string result;
+    
+    // Format: "Year CarName - Description - $Price"
+    if (entry.carName && entry.adText) {
+        result = std::to_string(entry.year) + " " + std::string(entry.carName);
+        
+        if (strlen(entry.adText) > 0) {
+            result += " - " + std::string(entry.adText);
+        }
+        
+        if (entry.price > 0) {
+            result += " - $" + std::to_string(entry.price);
+        }
+    } else {
+        result = "Car #" + std::to_string(index + 1) + " - Details unavailable";
+    }
+    
+    // Truncate if too long
+    if (result.length() > 50) {
+        result = result.substr(0, 47) + "...";
+    }
+    
+    return result;
+}
+
+std::string Newspaper::FormatUsedCarAd(const CarMetadata_t& metadata, int index) {
+    std::string result;
+    
+    // Format: "Year CarName - $Price"
+    if (metadata.classified.carName) {
+        result = std::to_string(metadata.classified.year) + " " + std::string(metadata.classified.carName);
+        
+        if (metadata.classified.price > 0) {
+            result += " - $" + std::to_string(metadata.classified.price);
+        } else {
+            result += " - Price on request";
+        }
+    } else {
+        result = "Used Car #" + std::to_string(index + 1) + " - Call for details";
+    }
+    
+    // Truncate if too long
+    if (result.length() > 50) {
+        result = result.substr(0, 47) + "...";
+    }
+    
+    return result;
+}
+
+void Newspaper::UpdatePageContent() {
+    // Hide all ads first
+    for (auto& ad : classifiedAds) {
+        ad.SetVisible(false);
+    }
+    for (auto& ad : usedCarAds) {
+        ad.SetVisible(false);
+    }
+    
+    // Show ads for current page
+    int startIndex = currentPage * adsPerPage;
+    int endIndex = std::min(startIndex + adsPerPage, (int)carMetadata.size());
+    
+    for (int i = startIndex; i < endIndex; i++) {
+        if (i < (int)classifiedAds.size()) {
+            classifiedAds[i].SetVisible(currentPage > 0);
+        }
+        if (i < (int)usedCarAds.size()) {
+            usedCarAds[i].SetVisible(currentPage > 0);
+        }
+    }
+}
+
+void Newspaper::AddDivider(int /* y */) {
     // Crashing here
     // SDL_Rect dividerRect = {4, y, 184, 1};
     // SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
@@ -142,7 +276,16 @@ void Newspaper::Draw() {
 
     autoPartsHeader.Draw();
     usedCarsHeader.Draw();
-    test.Draw();
+    
+    // Draw classified ads
+    for (auto& ad : classifiedAds) {
+        ad.Draw();
+    }
+    
+    // Draw used car ads
+    for (auto& ad : usedCarAds) {
+        ad.Draw();
+    }
 }
 
 void Newspaper::PushEvent(SDL_Event *event) {
@@ -157,52 +300,53 @@ void Newspaper::Action(ZoneId zone) {
 
     switch (zone) { 
         case ZONE_MAGAZINE_AUTO_PARTS:
-            page = 1;
+            currentPage = 1;
             break;
         case ZONE_MAGAZINE_USED_CARS:
-            page = 4;
+            currentPage = 4;
             break;
         case ZONE_MAGAZINE_BACK_TO_GARAGE:
             state.MoveToScene(SCENE_GARAGE);
             break;
         case ZONE_MAGAZINE_PREVIOUS:
-            if (page > 0) {
-                page--;
+            if (currentPage > 0) {
+                currentPage--;
             } else {
-                page = 6;
+                currentPage = totalPages;
             }
             break;
         case ZONE_MAGAZINE_NEXT:
-            if (page < 6) {
-                page++;
+            if (currentPage < totalPages) {
+                currentPage++;
             } else {
-                page = 0;
+                currentPage = 0;
             }
             break;
     }
 
-    SDL_Log("Page: %d", page);
+    SDL_Log("Page: %d of %d", currentPage, totalPages);
 
     Update();
 }
 
 void Newspaper::Update() {
-    background->SetVisible(page == 0);
-    headline.SetVisible(page == 0);
-    headingLeft.SetVisible(page == 0);
-    headingRight.SetVisible(page == 0);
-    previous.SetVisible(page > 0);
-    next.SetVisible(page > 0);
-    adsArea.SetVisible(page > 0);
+    background->SetVisible(currentPage == 0);
+    headline.SetVisible(currentPage == 0);
+    headingLeft.SetVisible(currentPage == 0);
+    headingRight.SetVisible(currentPage == 0);
+    previous.SetVisible(currentPage > 0);
+    next.SetVisible(currentPage > 0);
+    adsArea.SetVisible(currentPage > 0);
     
-    autoPartsHeader.SetVisible(page == 1);
-    test.SetVisible(page == 1);
-    
-    usedCarsHeader.SetVisible(page == 4);
+    autoPartsHeader.SetVisible(currentPage == 1);
+    usedCarsHeader.SetVisible(currentPage == 4);
 
-    SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, page == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_USED_CARS, page == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_BACK_TO_GARAGE, page == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, page > 0);
-    SetZoneEnabled(ZONE_MAGAZINE_NEXT, page > 0);
+    SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, currentPage == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_USED_CARS, currentPage == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_BACK_TO_GARAGE, currentPage == 0);
+    SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, currentPage > 0);
+    SetZoneEnabled(ZONE_MAGAZINE_NEXT, currentPage > 0);
+    
+    // Update page content
+    UpdatePageContent();
 }
