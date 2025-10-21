@@ -26,6 +26,8 @@ namespace fs = std::filesystem;
 
 #define WINDOW_WIDTH (GAME_WIDTH * 4)
 #define WINDOW_HEIGHT (GAME_HEIGHT * 4)
+#define ORIGINAL_WINDOW_WIDTH GAME_WIDTH
+#define ORIGINAL_WINDOW_HEIGHT GAME_HEIGHT
 
 #define APP_TITLE "OpenSR"
 
@@ -39,6 +41,7 @@ Uint64 startTime = SDL_GetTicks64();
 
 Mouse mouse;
 bool isFullScreen = false;
+bool useOriginalSize = false;
 int screenshotCounter = 1;
 Uint64 lastScreenshotTime = 0;
 const Uint64 SCREENSHOT_COOLDOWN_MS = 500; // 500ms cooldown
@@ -169,6 +172,15 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
+        } else if (strcmp(argv[i], "--original-size") == 0) {
+            useOriginalSize = true;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [options]\n", argv[0]);
+            printf("Options:\n");
+            printf("  --debug          Enable debug mode\n");
+            printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
+            printf("  --help, -h       Show this help message\n");
+            return 0;
         }
     }
 
@@ -183,6 +195,7 @@ int main(int argc, char* argv[]) {
     }
     
     SDL_Log("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
+    SDL_Log("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
@@ -192,7 +205,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Create window after SDL_Init
-    win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    int windowWidth = useOriginalSize ? ORIGINAL_WINDOW_WIDTH : WINDOW_WIDTH;
+    int windowHeight = useOriginalSize ? ORIGINAL_WINDOW_HEIGHT : WINDOW_HEIGHT;
+    
+    SDL_Log("Creating window: %dx%d (%s)", windowWidth, windowHeight, 
+            useOriginalSize ? "original size" : "4x upscaled");
+    
+    win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, 0);
     if (!win) {
         SDL_Log("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -221,8 +240,15 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    // Set up renderer for pixel-perfect rendering
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // Nearest neighbor scaling
+    if (useOriginalSize) {
+        // For original size, disable all scaling hints
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Use software renderer for pixel-perfect rendering
+        SDL_Log("Using software renderer for original size mode");
+    } else {
+        SDL_RenderSetIntegerScale(renderer, SDL_TRUE);    // Force integer scaling only for upscaled mode
+    }
 
     // Initialize SDL2_mixer
     if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
@@ -300,7 +326,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Res scaling
-    SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
+    if (useOriginalSize) {
+        // When using original size, no logical scaling - render directly to window
+        SDL_Log("Using original size - no logical scaling applied (1:1 pixel mapping)");
+    } else {
+        // When using upscaled window, set logical size to game resolution
+        SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
+        SDL_Log("Using upscaled window - logical size set to %dx%d", GAME_WIDTH, GAME_HEIGHT);
+    }
 
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
