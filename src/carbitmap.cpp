@@ -606,10 +606,13 @@ void CarBitmap::RestoreFrontBumper() {
             }
         }
         
-        car->SetBumpersStripped(false);
+        // Only set car's bumper state to false if both bumpers are now restored
+        if (!isRearBumperStripped) {
+            car->SetBumpersStripped(false);
+        }
         SDL_Log("Front bumper restored");
         
-        // If rear bumper is still stripped, reapply it
+        // Reapply any remaining stripped bumpers
         if (isRearBumperStripped && rearBumper.GetSurface()) {
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
@@ -643,10 +646,13 @@ void CarBitmap::RestoreRearBumper() {
             }
         }
         
-        car->SetBumpersStripped(false);
+        // Only set car's bumper state to false if both bumpers are now restored
+        if (!isFrontBumperStripped) {
+            car->SetBumpersStripped(false);
+        }
         SDL_Log("Rear bumper restored");
         
-        // If front bumper is still stripped, reapply it
+        // Reapply any remaining stripped bumpers
         if (isFrontBumperStripped && frontBumper.GetSurface()) {
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
