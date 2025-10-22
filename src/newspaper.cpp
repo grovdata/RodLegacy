@@ -19,6 +19,9 @@ void Newspaper::Init(bool debugMode) {
     InitPageOne();
     LoadClassifiedsData();
     InitPageAds();
+    
+    // Create the large surface with all ads
+    CreateAllAdsSurface();
 
     Update();
     // Common
@@ -137,16 +140,14 @@ void Newspaper::InitPageAds() {
 
     AddDivider(1);
 
-    uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32); // Same as date
-    autoPartsHeader.Init(state.assets.GetMainFont(), 68, 12, headerColor);
-    autoPartsHeader.SetText(autoParts, false, 184);
-    
-    usedCarsHeader.Init(state.assets.GetMainFont(), 68, 12, headerColor);
-    usedCarsHeader.SetText(usedCars, false, 184);
-
     // Create dynamic classified ads BEFORE updating adsArea surface
     CreateClassifiedAds();
     CreateUsedCarAds();
+    
+    // Create single clickable zone for the ads area
+    SDL_Rect adsZoneRect = {64, 0, 192, 190};
+    Zone adsZone(ZONE_MAGAZINE_ADS_AREA, const_cast<char*>("Click on an ad to view details"), &adsZoneRect);
+    zones.push_back(adsZone);
 
     adsArea.UpdateFromSurface();
 }
@@ -304,122 +305,8 @@ std::string Newspaper::FormatUsedCarAd(const CarMetadata_t& metadata, int index)
 }
 
 void Newspaper::UpdatePageContent() {
-    // Clear the ads area first
-    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 255, 255, 255, 255));
-    
-    // Clear existing ad zones
-    for (int i = 0; i < 6; i++) {
-        SetZoneEnabled((ZoneId)(ZONE_MAGAZINE_AD_0 + i), false);
-    }
-    
-    // Hide all ads first
-    for (auto& ad : classifiedAds) {
-        ad.SetVisible(false);
-    }
-    for (auto& ad : usedCarAds) {
-        ad.SetVisible(false);
-    }
-    
-    // Determine which page range we're in
-    // Pages 1-3 are for classifieds (auto parts)
-    // Pages 4+ are for used cars
-    if (currentPage >= 1 && currentPage <= 3) {
-        // Show classified ads for this page
-        int pageOffset = currentPage - 1;  // Convert to 0-based page offset
-        int startIndex = pageOffset * adsPerPage;
-        int endIndex = std::min(startIndex + adsPerPage, (int)carMetadata.size());
-        
-        int currentY = 32; // Start position for first ad
-        
-        // Draw top divider line
-        SDL_Rect topDividerRect = {0, currentY, 192, 1};
-        SDL_FillRect(adsArea.GetSurface(), &topDividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-        currentY += 2; // +1 for top divider + 1 for spacing
-        
-        // Update text and show labels for this page
-        for (int i = startIndex; i < endIndex; i++) {
-            int labelIndex = i - startIndex;  // 0-2 for the label slot
-            std::string adText = FormatClassifiedAd(carMetadata[i].classified, i);
-            
-            // Count lines in the ad text to determine height
-            int lineCount = 1;
-            for (char c : adText) {
-                if (c == '\n') lineCount++;
-            }
-            
-            // Set position and text
-            classifiedAds[labelIndex].SetPosition(68, currentY);
-            classifiedAds[labelIndex].SetText(adText, false, 184);
-            classifiedAds[labelIndex].SetVisible(true);
-            
-            // Create clickable zone for this ad
-            SDL_Rect adZoneRect = {68, currentY, 184, (lineCount == 2) ? 20 : 29};
-            Zone adZone((ZoneId)(ZONE_MAGAZINE_AD_0 + labelIndex), 
-                       const_cast<char*>("Click to view ad details"), &adZoneRect);
-            zones.push_back(adZone);
-            
-            // Calculate next ad position: current height + 1 pixel divider
-            int adHeight = (lineCount == 2) ? 20 : 29; // 2 lines = 20px, 3+ lines = 29px
-            currentY += adHeight;
-            
-            // Draw divider line (except after the last ad)
-            if (i < endIndex - 1) {
-                SDL_Rect dividerRect = {0, currentY, 192, 1};
-                SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-                currentY += 2; // +1 for divider + 1 for spacing
-            }
-        }
-    } else if (currentPage >= 4) {
-        // Show used car ads for this page (6.5 ads per page)
-        int pageOffset = currentPage - 4;  // Convert to 0-based page offset for used cars
-        int startIndex = pageOffset * adsPerPage;
-        int adsOnThisPage = (currentPage == 4) ? 7 : adsPerPage; // First used car page shows 6.5 ads
-        int endIndex = std::min(startIndex + adsOnThisPage, (int)carMetadata.size());
-        
-        int currentY = 32; // Start position for first ad
-        
-        // Draw top divider line
-        SDL_Rect topDividerRect = {0, currentY, 192, 1};
-        SDL_FillRect(adsArea.GetSurface(), &topDividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-        currentY += 2; // +1 for top divider + 1 for spacing
-        
-        // Update text and show labels for this page
-        for (int i = startIndex; i < endIndex; i++) {
-            int labelIndex = i - startIndex;  // 0-6 for the label slot
-            std::string adText = FormatUsedCarAd(carMetadata[i], i);
-            
-            // Count lines in the ad text to determine height
-            int lineCount = 1;
-            for (char c : adText) {
-                if (c == '\n') lineCount++;
-            }
-            
-            // Set position and text
-            usedCarAds[labelIndex].SetPosition(68, currentY);
-            usedCarAds[labelIndex].SetText(adText, false, 184);
-            usedCarAds[labelIndex].SetVisible(true);
-            
-            // Create clickable zone for this ad
-            SDL_Rect adZoneRect = {68, currentY, 184, (lineCount == 2) ? 20 : 29};
-            Zone adZone((ZoneId)(ZONE_MAGAZINE_AD_0 + labelIndex), 
-                       const_cast<char*>("Click to view car details"), &adZoneRect);
-            zones.push_back(adZone);
-            
-            // Calculate next ad position: current height + 1 pixel divider
-            int adHeight = (lineCount == 2) ? 20 : 29; // 2 lines = 20px, 3+ lines = 29px
-            currentY += adHeight;
-            
-            // Draw divider line (except after the last ad)
-            if (i < endIndex - 1) {
-                SDL_Rect dividerRect = {0, currentY, 192, 1};
-                SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-                currentY += 2; // +1 for divider + 1 for spacing
-            }
-        }
-    }
-    
-    // Update the ads area surface
-    adsArea.UpdateFromSurface();
+    // Use the new viewport system
+    UpdateViewport();
 }
 
 void Newspaper::AddDivider(int /* y */) {
@@ -442,9 +329,6 @@ void Newspaper::Draw() {
     adsArea.Draw();
     next.Draw();
 
-    autoPartsHeader.Draw();
-    usedCarsHeader.Draw();
-    
     // Draw classified ads
     for (auto& ad : classifiedAds) {
         ad.Draw();
@@ -454,9 +338,20 @@ void Newspaper::Draw() {
     for (auto& ad : usedCarAds) {
         ad.Draw();
     }
+    
+    // Draw active dialog
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->Draw();
+    }
 }
 
 void Newspaper::PushEvent(SDL_Event *event) {
+    // Handle dialog events first
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->HandleEvent(event);
+        return; // Skip normal zone handling when dialog is visible
+    }
+    
     Scene::PushEvent(event);
 }
 
@@ -490,15 +385,22 @@ void Newspaper::Action(ZoneId zone) {
                 currentPage = 0;
             }
             break;
-        case ZONE_MAGAZINE_AD_0:
-        case ZONE_MAGAZINE_AD_1:
-        case ZONE_MAGAZINE_AD_2:
-        case ZONE_MAGAZINE_AD_3:
-        case ZONE_MAGAZINE_AD_4:
-        case ZONE_MAGAZINE_AD_5:
+        case ZONE_MAGAZINE_ADS_AREA:
             {
-                int adIndex = zone - ZONE_MAGAZINE_AD_0;
-                HandleAdClick(adIndex);
+                // Get mouse position and find which ad was clicked
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+                
+                // Convert to ads area coordinates
+                int adsAreaX = mouseX - 64; // ads area starts at x=64
+                int adsAreaY = mouseY;      // ads area starts at y=0
+                
+                if (adsAreaX >= 0 && adsAreaX < 192 && adsAreaY >= 0 && adsAreaY < 190) {
+                    int adIndex = FindAdAtPosition(adsAreaY);
+                    if (adIndex >= 0) {
+                        HandleAdClick(adIndex);
+                    }
+                }
             }
             break;
     }
@@ -518,53 +420,482 @@ void Newspaper::Update() {
     next.SetVisible(currentPage > 0);
     adsArea.SetVisible(currentPage > 0);
     
-    autoPartsHeader.SetVisible(currentPage == 1);
-    usedCarsHeader.SetVisible(currentPage == 4);
+    // Headers are now part of the large surface
 
     SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, currentPage == 0);
     SetZoneEnabled(ZONE_MAGAZINE_USED_CARS, currentPage == 0);
     SetZoneEnabled(ZONE_MAGAZINE_BACK_TO_GARAGE, currentPage == 0);
     SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, currentPage > 0);
     SetZoneEnabled(ZONE_MAGAZINE_NEXT, currentPage > 0);
+    SetZoneEnabled(ZONE_MAGAZINE_ADS_AREA, currentPage > 0); // Only enable ads area zone when on ads pages
     
     // Update page content
     UpdatePageContent();
 }
 
 void Newspaper::HandleAdClick(int adIndex) {
-    // Calculate the actual ad index based on current page
-    int actualAdIndex;
+    // For now, only handle used car ads (currentPage >= 4)
+    if (currentPage < 4) {
+        return; // Parts section - no ads yet
+    }
+    
+    // adIndex is the position in the adPositions vector
+    if (adIndex >= 0 && adIndex < (int)adPositions.size()) {
+        const AdPosition& adPos = adPositions[adIndex];
+        if (adPos.isUsedCar && adPos.adIndex >= 0 && adPos.adIndex < (int)carMetadata.size()) {
+            selectedCarIndex = adPos.adIndex;
+            ShowCarPurchaseDialog(adPos.adIndex);
+        }
+    }
+}
+
+void Newspaper::CreateAllAdsSurface() {
+    // Calculate total height needed for all ads
+    int totalHeight = 0;
+    
+    // Add space for PARTS header only (no ads yet)
+    totalHeight += 60; // Header (20px) + spacing (40px)
+    
+    // Add space for used car ads (continuous list, not pages)
+    totalHeight += 20; // USED CARS header
+    totalHeight += carMetadata.size() * 25; // Rough estimate for all car ads
+    
+    // Add some padding
+    totalHeight += 100;
+    
+    allAdsSurfaceHeight = totalHeight;
+    
+    // Create the large surface
+    allAdsSurface = Bitmap(192, totalHeight, 32);
+    SDL_FillRect(allAdsSurface.GetSurface(), NULL, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 255, 255, 255, 255));
+    
+    // Clear ad positions
+    adPositions.clear();
+    
+    int currentY = 0;
+    
+    // Draw PARTS header only (no ads yet)
+    {
+        // Create header label
+        Label headerLabel;
+        uint32_t headerColor = SDL_MapRGB(allAdsSurface.GetSurface()->format, 32, 32, 32);
+        headerLabel.Init(state.assets.GetMainFont(), 0, currentY, headerColor);
+        headerLabel.SetText(autoParts, false, 184);
+        headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
+        
+        // Center the header text
+        int textWidth = SFont_TextWidth(state.assets.GetMainFont(), autoParts.c_str());
+        int centerX = (192 - textWidth) / 2;
+        
+        // Render header to surface
+        SDL_Rect headerRect = {centerX, currentY, 184, 20};
+        SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
+        SDL_Log("Rendered PARTS header at Y=%d", currentY);
+        currentY += 20;
+        
+        // Add some space after the header
+        currentY += 40;
+    }
+    
+    // Draw USED CARS header
+    {
+        // Create header label
+        Label headerLabel;
+        uint32_t headerColor = SDL_MapRGB(allAdsSurface.GetSurface()->format, 32, 32, 32);
+        headerLabel.Init(state.assets.GetMainFont(), 0, currentY, headerColor);
+        headerLabel.SetText(usedCars, false, 184);
+        headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
+        
+        // Center the header text
+        int textWidth = SFont_TextWidth(state.assets.GetMainFont(), usedCars.c_str());
+        int centerX = (192 - textWidth) / 2;
+        
+        // Render header to surface
+        SDL_Rect headerRect = {centerX, currentY, 184, 20};
+        SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
+        SDL_Log("Rendered USED CARS header at Y=%d", currentY);
+        currentY += 20;
+    }
+    
+    // Draw all used car ads (no page concept, just continuous list)
+    {
+        // Draw top divider line
+        SDL_Rect topDividerRect = {0, currentY, 192, 1};
+        SDL_FillRect(allAdsSurface.GetSurface(), &topDividerRect, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 0, 0, 0, 255));
+        currentY += 2; // +1 for top divider + 1 for spacing
+        
+        for (int i = 0; i < (int)carMetadata.size(); i++) {
+            std::string adText = FormatUsedCarAd(carMetadata[i], i);
+            
+            // Count lines in the ad text to determine height
+            int lineCount = 1;
+            for (char c : adText) {
+                if (c == '\n') lineCount++;
+            }
+            
+            // Calculate more accurate height based on line count
+            int adHeight = 8 + (lineCount * 6); // 8px base + 6px per line
+            AdPosition adPos;
+            adPos.adIndex = i;
+            adPos.startY = currentY;
+            adPos.endY = currentY + adHeight;
+            adPos.isUsedCar = true;
+            adPositions.push_back(adPos);
+            
+            // Create a temporary label to render the text
+            Label tempLabel;
+            tempLabel.Init(state.assets.GetMainFont(), 0, currentY, SDL_MapRGB(allAdsSurface.GetSurface()->format, 0, 0, 0));
+            tempLabel.SetText(adText, false, 184);
+            tempLabel.UpdateFromSurface(); // Make sure the label surface is updated
+            
+            // Render the label to the large surface
+            SDL_Rect destRect = {1, currentY, 184, adHeight};
+            SDL_BlitSurface(tempLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &destRect);
+            
+            // Calculate next ad position
+            currentY += adHeight;
+            
+            // Draw divider line (except after the last ad)
+            if (i < (int)carMetadata.size() - 1) {
+                SDL_Rect dividerRect = {0, currentY, 192, 1};
+                SDL_FillRect(allAdsSurface.GetSurface(), &dividerRect, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 0, 0, 0, 255));
+                currentY += 2; // +1 for divider + 1 for spacing
+            }
+        }
+    }
+    
+    // Update the surface
+    allAdsSurface.UpdateFromSurface();
+    
+    // Debug: Check surface content
+    SDL_Surface* surface = allAdsSurface.GetSurface();
+    if (surface) {
+        SDL_Log("Surface format: %dx%d, %d bpp, %s", 
+               surface->w, surface->h, surface->format->BitsPerPixel,
+               SDL_GetPixelFormatName(surface->format->format));
+        
+        // Check if surface has any non-white pixels
+        SDL_LockSurface(surface);
+        Uint32* pixels = (Uint32*)surface->pixels;
+        int nonWhitePixels = 0;
+        for (int i = 0; i < surface->w * surface->h; i++) {
+            Uint8 r, g, b, a;
+            SDL_GetRGBA(pixels[i], surface->format, &r, &g, &b, &a);
+            if (r != 255 || g != 255 || b != 255) {
+                nonWhitePixels++;
+            }
+        }
+        SDL_UnlockSurface(surface);
+        SDL_Log("Surface has %d non-white pixels out of %d total", nonWhitePixels, surface->w * surface->h);
+    }
+    
+    // Save to file for debugging (after updating the surface)
+    SaveAdsSurfaceToFile();
+    
+    SDL_Log("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
+    SDL_Log("Total ads rendered: %zu", adPositions.size());
+}
+
+void Newspaper::UpdateViewport() {
+    // Calculate viewport position based on current page
+    int viewportY = 0;
     
     if (currentPage >= 1 && currentPage <= 3) {
-        // Classified ads (auto parts)
-        int pageOffset = currentPage - 1;
-        actualAdIndex = pageOffset * adsPerPage + adIndex;
+        // PARTS header pages (all show the same header)
+        viewportY = 0; // Always start at the beginning (PARTS header)
     } else if (currentPage >= 4) {
-        // Used car ads
-        int pageOffset = currentPage - 4;
-        actualAdIndex = pageOffset * adsPerPage + adIndex;
-    } else {
-        return; // Invalid page
+        // Used car ads - scroll through the continuous surface
+        // Skip PARTS section: header (20px) + spacing (40px)
+        int partsSectionHeight = 60; // header + spacing
+        int scrollOffset = (currentPage - 4) * 190; // 190px per "page" of scrolling
+        viewportY = partsSectionHeight + scrollOffset;
     }
     
-    // Check bounds
-    if (actualAdIndex >= 0 && actualAdIndex < (int)carMetadata.size()) {
-        const CarMetadata_t& metadata = carMetadata[actualAdIndex];
-        
-        if (currentPage >= 1 && currentPage <= 3) {
-            // Classified ad clicked
-            SDL_Log("Classified ad clicked: %s - %s - $%d", 
-                   metadata.classified.carName ? metadata.classified.carName : "Unknown",
-                   metadata.classified.adText ? metadata.classified.adText : "No description",
-                   metadata.classified.price);
-        } else {
-            // Used car ad clicked
-            SDL_Log("Used car ad clicked: %s - %s - $%d", 
-                   metadata.classified.carName ? metadata.classified.carName : "Unknown",
-                   metadata.classified.adText ? metadata.classified.adText : "No description",
-                   metadata.classified.price);
-        }
-        
-        // TODO: Add actual functionality like showing detailed view or purchasing
+    // Set the viewport
+    adsViewport = {0, viewportY, 192, 190};
+    
+    // Clear the ads area and copy the viewport from the large surface
+    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 255, 255, 255, 255));
+    
+    // Debug: Check adsArea surface format
+    SDL_Surface* adsSurface = adsArea.GetSurface();
+    if (adsSurface) {
+        SDL_Log("adsArea surface format: %dx%d, %d bpp, %s", 
+               adsSurface->w, adsSurface->h, adsSurface->format->BitsPerPixel,
+               SDL_GetPixelFormatName(adsSurface->format->format));
     }
+    
+    if (viewportY < allAdsSurfaceHeight) {
+        SDL_Rect srcRect = adsViewport;
+        SDL_Rect destRect = {0, 0, 192, 190};
+        SDL_Log("Blitting from allAdsSurface to adsArea: srcRect={%d,%d,%d,%d}, destRect={%d,%d,%d,%d}", 
+               srcRect.x, srcRect.y, srcRect.w, srcRect.h, destRect.x, destRect.y, destRect.w, destRect.h);
+        SDL_BlitSurface(allAdsSurface.GetSurface(), &srcRect, adsArea.GetSurface(), &destRect);
+    } else {
+        SDL_Log("Viewport Y (%d) >= surface height (%d), not blitting", viewportY, allAdsSurfaceHeight);
+    }
+    
+    adsArea.UpdateFromSurface();
+    
+    // Debug: Check if adsArea has content after blitting
+    SDL_Surface* finalAdsSurface = adsArea.GetSurface();
+    if (finalAdsSurface) {
+        SDL_LockSurface(finalAdsSurface);
+        Uint32* pixels = (Uint32*)finalAdsSurface->pixels;
+        int nonWhitePixels = 0;
+        for (int i = 0; i < finalAdsSurface->w * finalAdsSurface->h; i++) {
+            Uint8 r, g, b, a;
+            SDL_GetRGBA(pixels[i], finalAdsSurface->format, &r, &g, &b, &a);
+            if (r != 255 || g != 255 || b != 255) {
+                nonWhitePixels++;
+            }
+        }
+        SDL_UnlockSurface(finalAdsSurface);
+        SDL_Log("adsArea has %d non-white pixels after blitting", nonWhitePixels);
+    }
+    
+    SDL_Log("Updated viewport: page %d, y=%d", currentPage, viewportY);
+}
+
+void Newspaper::SaveAdsSurfaceToFile() {
+    // Save the large surface to a PNG file for debugging using the existing Bitmap method
+    SDL_Log("Saving all ads surface to PNG...");
+    
+    // Debug: Check surface format
+    SDL_Surface* surface = allAdsSurface.GetSurface();
+    if (surface) {
+        SDL_Log("Surface format: %dx%d, %d bpp, %s", 
+               surface->w, surface->h, surface->format->BitsPerPixel,
+               SDL_GetPixelFormatName(surface->format->format));
+    }
+    
+    allAdsSurface.SaveBitmap(999); // Use a unique index for the ads surface
+    SDL_Log("Saved all ads surface to sprite_999.png");
+}
+
+int Newspaper::FindAdAtPosition(int mouseY) {
+    // Convert mouse Y position to position in the large surface
+    int surfaceY = mouseY + adsViewport.y;
+    
+    // Find which ad contains this Y position
+    for (const auto& adPos : adPositions) {
+        if (surfaceY >= adPos.startY && surfaceY < adPos.endY) {
+            return adPos.adIndex;
+        }
+    }
+    
+    return -1; // No ad found at this position
+}
+
+void Newspaper::ShowCarPurchaseDialog(int carIndex) {
+    if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
+        return;
+    }
+    
+    const CarMetadata_t& metadata = carMetadata[carIndex];
+    const char* carName = metadata.classified.carName ? metadata.classified.carName : "Unknown Car";
+    int price = metadata.classified.price;
+    
+    // Dialog dimensions
+    const int dialogWidth = 200;
+    const int dialogHeight = 60;
+    const int dialogX = (GAME_WIDTH - dialogWidth) / 2;
+    const int dialogY = (GAME_HEIGHT - dialogHeight) / 2;
+    
+    SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
+    
+    // Create dialog text
+    std::string dialogText = std::string(carName) + ".\nYou want to buy it for $" + std::to_string(price) + "?";
+    
+    // Button layout
+    const int buttonWidth = 50;
+    const int buttonHeight = 14;
+    const int buttonSpacing = 4;
+    const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
+    
+    SDL_Rect seeItButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect yeahButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetButtonRect = {dialogX + 4 + 2 * (buttonWidth + buttonSpacing), buttonY, buttonWidth, buttonHeight};
+    
+    ButtonConfig seeItButton;
+    seeItButton.bounds = seeItButtonRect;
+    seeItButton.text = "See it";
+    seeItButton.onClick = nullptr;
+    seeItButton.defaultChoice = false;
+    seeItButton.index = 0;
+    
+    ButtonConfig yeahButton;
+    yeahButton.bounds = yeahButtonRect;
+    yeahButton.text = "Yeah";
+    yeahButton.onClick = nullptr;
+    yeahButton.defaultChoice = true; // Default button
+    yeahButton.index = 1;
+    
+    ButtonConfig forgetButton;
+    forgetButton.bounds = forgetButtonRect;
+    forgetButton.text = "Forget it";
+    forgetButton.onClick = nullptr;
+    forgetButton.defaultChoice = false;
+    forgetButton.index = 2;
+    
+    std::vector<ButtonConfig> buttons = {seeItButton, yeahButton, forgetButton};
+    
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth - 6, 30}, dialogText, {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = dialogRect;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.texts = texts;
+    dialogConfig.buttons = buttons;
+    dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: // See it
+                ShowCarViewDialog(carIndex);
+                break;
+            case 1: // Yeah
+                // TODO: Implement purchase logic
+                SDL_Log("Player wants to buy car %d", carIndex);
+                carPurchaseDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+            case 2: // Forget it
+                carPurchaseDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    
+    carPurchaseDialog = std::make_unique<Dialog>(dialogConfig);
+    carPurchaseDialog->Show();
+    SetActiveDialog(carPurchaseDialog.get());
+}
+
+void Newspaper::ShowCarViewDialog(int carIndex) {
+    if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
+        return;
+    }
+    
+    // Hide the purchase dialog first
+    if (carPurchaseDialog) {
+        carPurchaseDialog->Hide();
+    }
+    
+    // Create car preview bitmap
+    CreateCarPreviewBitmap(carIndex);
+    
+    const CarMetadata_t& metadata = carMetadata[carIndex];
+    const char* carName = metadata.classified.carName ? metadata.classified.carName : "Unknown Car";
+    int price = metadata.classified.price;
+    
+    // Dialog dimensions (larger to accommodate car bitmap)
+    const int dialogWidth = 250;
+    const int dialogHeight = 120;
+    const int dialogX = (GAME_WIDTH - dialogWidth) / 2;
+    const int dialogY = (GAME_HEIGHT - dialogHeight) / 2;
+    
+    SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
+    
+    // Create dialog text
+    std::string dialogText = std::string(carName) + ".\nYou want to buy it for $" + std::to_string(price) + "?";
+    
+    // Button layout
+    const int buttonWidth = 50;
+    const int buttonHeight = 14;
+    const int buttonSpacing = 4;
+    const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
+    
+    SDL_Rect seeItButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect yeahButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetButtonRect = {dialogX + 4 + 2 * (buttonWidth + buttonSpacing), buttonY, buttonWidth, buttonHeight};
+    
+    ButtonConfig seeItButton;
+    seeItButton.bounds = seeItButtonRect;
+    seeItButton.text = "See it";
+    seeItButton.onClick = nullptr;
+    seeItButton.defaultChoice = false;
+    seeItButton.index = 0;
+    
+    ButtonConfig yeahButton;
+    yeahButton.bounds = yeahButtonRect;
+    yeahButton.text = "Yeah";
+    yeahButton.onClick = nullptr;
+    yeahButton.defaultChoice = true; // Default button
+    yeahButton.index = 1;
+    
+    ButtonConfig forgetButton;
+    forgetButton.bounds = forgetButtonRect;
+    forgetButton.text = "Forget it";
+    forgetButton.onClick = nullptr;
+    forgetButton.defaultChoice = false;
+    forgetButton.index = 2;
+    
+    std::vector<ButtonConfig> buttons = {seeItButton, yeahButton, forgetButton};
+    
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth - 6, 30}, dialogText, {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    
+    // Add car bitmap to dialog
+    std::map<std::string, DialogBitmap> bitmaps;
+    if (carPreviewBitmap) {
+        SDL_Rect carRect = {dialogX + 10, dialogY + 35, 100, 60}; // Position for car bitmap
+        DialogBitmap carBitmap;
+        carBitmap.bitmap = carPreviewBitmap.get();
+        carBitmap.rect = carRect;
+        carBitmap.zOrder = 0;
+        bitmaps["car_preview"] = carBitmap;
+    }
+    
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = dialogRect;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.texts = texts;
+    dialogConfig.buttons = buttons;
+    dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    dialogConfig.bitmaps = bitmaps;
+    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: // See it (already showing)
+                // Do nothing, already showing the car
+                break;
+            case 1: // Yeah
+                // TODO: Implement purchase logic
+                SDL_Log("Player wants to buy car %d", carIndex);
+                carViewDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+            case 2: // Forget it
+                carViewDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    
+    carViewDialog = std::make_unique<Dialog>(dialogConfig);
+    carViewDialog->Show();
+    SetActiveDialog(carViewDialog.get());
+}
+
+void Newspaper::CreateCarPreviewBitmap(int carIndex) {
+    if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
+        return;
+    }
+    
+    // For now, create a simple placeholder bitmap
+    // TODO: Integrate with the actual car rendering system using carIndex
+    // The carIndex corresponds to the CAR_INDEX array in libp.h
+    
+    // Create a simple colored rectangle as placeholder
+    carPreviewBitmap = std::make_unique<Bitmap>(100, 60, 32);
+    SDL_FillRect(carPreviewBitmap->GetSurface(), NULL, SDL_MapRGBA(carPreviewBitmap->GetSurface()->format, 100, 100, 200, 255));
+    carPreviewBitmap->UpdateFromSurface();
+    
+    SDL_Log("Created car preview bitmap for car %d", carIndex);
 }
