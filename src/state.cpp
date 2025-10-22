@@ -12,10 +12,10 @@
 State::State() : bankroll(750) {
 }
 
-void State::Init(bool debugMode, const fs::path& gamePath) {
+void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
     this->debugMode = debugMode;
     try {
-        assets.Init(gamePath);
+        assets.Init(gamePath, muteAudio);
         assets.ReadAssets();
         std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 

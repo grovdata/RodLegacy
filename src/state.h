@@ -59,7 +59,7 @@ public:
     State();
     ~State();
 
-    void Init(bool debugMode, const fs::path& gamePath);
+    void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false);
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
 
     int GetBankroll();

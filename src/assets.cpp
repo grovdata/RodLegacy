@@ -161,7 +161,12 @@ void AssetManager::InitStockPalettes() {
     stockPalettes[StockPaletteAmigaDriving] = bp.PreparePalette(bp.GetStockPalette(StockPaletteAmigaDriving), true);
 }
 
-void AssetManager::InitAudio() {
+void AssetManager::InitAudio(bool muteAudio) {
+    if (muteAudio) {
+        SDL_Log("Audio system disabled (muted)");
+        return;
+    }
+    
     SDL_Log("Initializing audio system");
     
     audioManager = new AudioManager();
@@ -177,7 +182,7 @@ void AssetManager::InitAudio() {
     }
 }
 
-void AssetManager::Init(const fs::path& validatedPath) {
+void AssetManager::Init(const fs::path& validatedPath, bool muteAudio) {
     try {
         gameBasePath = validatedPath;        
         dataPath = gameBasePath;  // All game files are directly in the game directory
@@ -187,7 +192,7 @@ void AssetManager::Init(const fs::path& validatedPath) {
         InitFonts();
         InitGameFiles();
         InitStockPalettes();
-        InitAudio();
+        InitAudio(muteAudio);
     } catch (const AssetLoadError& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
         throw;

@@ -558,7 +558,6 @@ std::vector<uint8_t> BitmapParser::ReadImage(const std::string& filename, Bitmap
 void SrLibDataCleanupCarString(char* str) {
     char* src;
     char* dst;
-    int len = strlen(str);
 
     // Replace double backticks (``) with a space
     src = dst = str;
@@ -584,11 +583,19 @@ void SrLibDataCleanupCarString(char* str) {
     }
     *dst = '\0';
 
-    // Remove trailing period if present
-    len = strlen(str);
-    if (len > 0 && str[len - 1] == '.') {
-        str[len - 1] = '\0';
+    // Replace plus signs (+) with spaces
+    src = dst = str;
+    while (*src) {
+        if (*src == '+') {
+            *dst++ = ' ';
+            src++;
+        } else {
+            *dst++ = *src++;
+        }
     }
+    *dst = '\0';
+
+    // Keep trailing periods - don't remove them
 }
 
 // 0xA849C
@@ -668,8 +675,8 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         SrLibDataCleanupCarString(carName);
         newClassified.carName = carName;
 
-        // Read and process ad text
-        char* adText = (char*)malloc(1024);
+        // Read and process ad text - treat everything as one continuous string
+        char* adText = (char*)malloc(2048);  // Larger buffer for full ad text
         if (!adText) {
             free(carName);
             goto cleanup;
@@ -693,14 +700,25 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
             if (!lineStr[0] || dollarPos) {
                 // Found price or empty line
                 if (dollarPos) {
+                    // Extract price from the line
                     newClassified.price = atoi(dollarPos + 1);
+                    
+                    // Add the text before the $ to the ad text
+                    if (dollarPos > line) {
+                        // Truncate the line at the $ position
+                        *((char*)dollarPos) = '\0';
+                        if (adText[0] && adText[strlen(adText)-1] != ' ') {
+                            strcat(adText, " ");
+                        }
+                        strcat(adText, line);
+                    }
                 }
                 free(line);
                 break;
             }
 
-            // Append line to ad text
-            if (adText[0]) {
+            // Append line to ad text with space (if needed)
+            if (adText[0] && adText[strlen(adText)-1] != ' ') {
                 strcat(adText, " ");
             }
             strcat(adText, line);
@@ -798,11 +816,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                            SrLibColor* out_buffer) {
 
     
-    const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;
-    
-    // Debug: Print sprite info
-    printf("Sprite %d (%dx%d)\n", sprite_num, width, height);
-    printf("Color register base: %d\n", 16 + ((sprite_num & 6) * 2) + 1);
+    const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;    
     
     // Process each line
     for (int y = 0; y < height; y++) {
@@ -811,9 +825,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
         uint16_t data_word = (byteData[0] << 8) | byteData[1];
         uint16_t datb_word = (byteData[2] << 8) | byteData[3];
         byteData += 4;  // Advance to next line
-        
-        printf("Line %2d: [%04X %04X] ", y, data_word, datb_word);
-        
+                
         // Process each pixel in the line
         for (int x = 0; x < width; x++) {
             // Extract bits from most significant to least significant
@@ -822,7 +834,6 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
             int datb_bit = (datb_word >> bit_pos) & 1;
             int color_idx = (datb_bit << 1) | data_bit;  // Combine bits to get 0-3 value
             
-            printf("%d", color_idx);  // Debug: print color index
             
             SrLibColor* pixel = &out_buffer[y * width + x];
             if (color_idx == 0) {
@@ -838,8 +849,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                 pixel->b = rgb_color.b;
                 pixel->a = 255;
             }
-        }
-        printf("\n");
+        }        
     }
 
     return 0;

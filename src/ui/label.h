@@ -20,4 +20,5 @@ public:
     
     void Init(SFont_Font* font, int xPos, int yPos, uint32_t textColor);
     void SetText(std::string text, bool centered = false, int desiredWidth = 0);
+    void SetPosition(int x, int y);
 };

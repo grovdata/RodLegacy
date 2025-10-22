@@ -48,8 +48,13 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
     
     SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
     
-    // Don't use color modulation - render text directly in the desired color
-    // This matches how the existing newspaper elements work
+    // Apply color modulation to the font surface before rendering
+    // This is how HUD does it correctly
+    SDL_Surface* fontSurface = font->Surface;
+    uint8_t r = (textColor >> 16) & 0xFF;
+    uint8_t g = (textColor >> 8) & 0xFF;
+    uint8_t b = textColor & 0xFF;
+    SDL_SetSurfaceColorMod(fontSurface, r, g, b);
     
     // Render each line
     int yOffset = 0;
@@ -67,11 +72,12 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
         yOffset += lineHeight;
     }
     
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    // Reset font surface color modulation
+    SDL_SetSurfaceColorMod(fontSurface, 255, 255, 255);
     
-    // Apply color modulation to the texture after rendering
-    uint8_t r = (textColor >> 16) & 0xFF;
-    uint8_t g = (textColor >> 8) & 0xFF;
-    uint8_t b = textColor & 0xFF;
-    SDL_SetTextureColorMod(texture, r, g, b);
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+}
+
+void Label::SetPosition(int x, int y) {
+    Bitmap::SetPosition(x, y);
 }

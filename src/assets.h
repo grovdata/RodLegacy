@@ -63,7 +63,7 @@ public:
 
     Spritesheet* GetCarDecals();
 
-    void Init(const fs::path& validatedPath);
+    void Init(const fs::path& validatedPath, bool muteAudio = false);
     SFont_Font* GetMainFont();
     SFont_Font* GetDebugFont();
     SFont_Font* GetNewspaperFont();
@@ -104,7 +104,7 @@ private:
     void InitMousePointers();
     void InitGameFiles();
     void InitStockPalettes();
-    void InitAudio();
+    void InitAudio(bool muteAudio = false);
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
 
