@@ -48,6 +48,7 @@ private:
     std::string FormatClassifiedAd(const ClassifiedEntry_t& entry, int index);
     std::string FormatUsedCarAd(const CarMetadata_t& metadata, int index);
     void AddDivider(int y);
+    void HandleAdClick(int adIndex);
     
 public:
     Newspaper();

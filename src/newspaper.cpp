@@ -307,6 +307,11 @@ void Newspaper::UpdatePageContent() {
     // Clear the ads area first
     SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 255, 255, 255, 255));
     
+    // Clear existing ad zones
+    for (int i = 0; i < 6; i++) {
+        SetZoneEnabled((ZoneId)(ZONE_MAGAZINE_AD_0 + i), false);
+    }
+    
     // Hide all ads first
     for (auto& ad : classifiedAds) {
         ad.SetVisible(false);
@@ -346,6 +351,12 @@ void Newspaper::UpdatePageContent() {
             classifiedAds[labelIndex].SetPosition(68, currentY);
             classifiedAds[labelIndex].SetText(adText, false, 184);
             classifiedAds[labelIndex].SetVisible(true);
+            
+            // Create clickable zone for this ad
+            SDL_Rect adZoneRect = {68, currentY, 184, (lineCount == 2) ? 20 : 29};
+            Zone adZone((ZoneId)(ZONE_MAGAZINE_AD_0 + labelIndex), 
+                       const_cast<char*>("Click to view ad details"), &adZoneRect);
+            zones.push_back(adZone);
             
             // Calculate next ad position: current height + 1 pixel divider
             int adHeight = (lineCount == 2) ? 20 : 29; // 2 lines = 20px, 3+ lines = 29px
@@ -387,6 +398,12 @@ void Newspaper::UpdatePageContent() {
             usedCarAds[labelIndex].SetPosition(68, currentY);
             usedCarAds[labelIndex].SetText(adText, false, 184);
             usedCarAds[labelIndex].SetVisible(true);
+            
+            // Create clickable zone for this ad
+            SDL_Rect adZoneRect = {68, currentY, 184, (lineCount == 2) ? 20 : 29};
+            Zone adZone((ZoneId)(ZONE_MAGAZINE_AD_0 + labelIndex), 
+                       const_cast<char*>("Click to view car details"), &adZoneRect);
+            zones.push_back(adZone);
             
             // Calculate next ad position: current height + 1 pixel divider
             int adHeight = (lineCount == 2) ? 20 : 29; // 2 lines = 20px, 3+ lines = 29px
@@ -473,6 +490,17 @@ void Newspaper::Action(ZoneId zone) {
                 currentPage = 0;
             }
             break;
+        case ZONE_MAGAZINE_AD_0:
+        case ZONE_MAGAZINE_AD_1:
+        case ZONE_MAGAZINE_AD_2:
+        case ZONE_MAGAZINE_AD_3:
+        case ZONE_MAGAZINE_AD_4:
+        case ZONE_MAGAZINE_AD_5:
+            {
+                int adIndex = zone - ZONE_MAGAZINE_AD_0;
+                HandleAdClick(adIndex);
+            }
+            break;
     }
 
     SDL_Log("Page: %d of %d", currentPage, totalPages);
@@ -501,4 +529,42 @@ void Newspaper::Update() {
     
     // Update page content
     UpdatePageContent();
+}
+
+void Newspaper::HandleAdClick(int adIndex) {
+    // Calculate the actual ad index based on current page
+    int actualAdIndex;
+    
+    if (currentPage >= 1 && currentPage <= 3) {
+        // Classified ads (auto parts)
+        int pageOffset = currentPage - 1;
+        actualAdIndex = pageOffset * adsPerPage + adIndex;
+    } else if (currentPage >= 4) {
+        // Used car ads
+        int pageOffset = currentPage - 4;
+        actualAdIndex = pageOffset * adsPerPage + adIndex;
+    } else {
+        return; // Invalid page
+    }
+    
+    // Check bounds
+    if (actualAdIndex >= 0 && actualAdIndex < (int)carMetadata.size()) {
+        const CarMetadata_t& metadata = carMetadata[actualAdIndex];
+        
+        if (currentPage >= 1 && currentPage <= 3) {
+            // Classified ad clicked
+            SDL_Log("Classified ad clicked: %s - %s - $%d", 
+                   metadata.classified.carName ? metadata.classified.carName : "Unknown",
+                   metadata.classified.adText ? metadata.classified.adText : "No description",
+                   metadata.classified.price);
+        } else {
+            // Used car ad clicked
+            SDL_Log("Used car ad clicked: %s - %s - $%d", 
+                   metadata.classified.carName ? metadata.classified.carName : "Unknown",
+                   metadata.classified.adText ? metadata.classified.adText : "No description",
+                   metadata.classified.price);
+        }
+        
+        // TODO: Add actual functionality like showing detailed view or purchasing
+    }
 }
