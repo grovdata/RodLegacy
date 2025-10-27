@@ -20,7 +20,7 @@ void Newspaper::Init(bool debugMode) {
     LoadClassifiedsData();
     InitPageAds();
     
-    // Create the large surface with all ads
+    // Create the large surface with all ads after data is loaded
     CreateAllAdsSurface();
 
     Update();
@@ -450,6 +450,8 @@ void Newspaper::HandleAdClick(int adIndex) {
 }
 
 void Newspaper::CreateAllAdsSurface() {
+    SDL_Log("CreateAllAdsSurface: Starting with %zu car metadata entries", carMetadata.size());
+    
     // Calculate total height needed for all ads
     int totalHeight = 0;
     
@@ -464,22 +466,37 @@ void Newspaper::CreateAllAdsSurface() {
     totalHeight += 100;
     
     allAdsSurfaceHeight = totalHeight;
+    SDL_Log("CreateAllAdsSurface: Calculated total height: %d", totalHeight);
     
     // Create the large surface
     allAdsSurface = Bitmap(192, totalHeight, 32);
-    SDL_FillRect(allAdsSurface.GetSurface(), NULL, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 255, 255, 255, 255));
+    SDL_Surface* surface = allAdsSurface.GetSurface();
+    if (!surface) {
+        SDL_Log("ERROR: Failed to create allAdsSurface - GetSurface() returned NULL");
+        allAdsSurfaceHeight = 0;
+        return;
+    }
+    SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 255, 255, 255, 255));
     
     // Clear ad positions
     adPositions.clear();
+    
+    // Get the main font once for all rendering
+    SFont_Font* mainFont = state.assets.GetMainFont();
+    if (!mainFont) {
+        SDL_Log("ERROR: GetMainFont() returned NULL");
+        return;
+    }
     
     int currentY = 0;
     
     // Draw PARTS header only (no ads yet)
     {
         // Create header label
+        
         Label headerLabel;
-        uint32_t headerColor = SDL_MapRGB(allAdsSurface.GetSurface()->format, 32, 32, 32);
-        headerLabel.Init(state.assets.GetMainFont(), 0, currentY, headerColor);
+        uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
+        headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(autoParts, false, 184);
         headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
         
@@ -501,18 +518,18 @@ void Newspaper::CreateAllAdsSurface() {
     {
         // Create header label
         Label headerLabel;
-        uint32_t headerColor = SDL_MapRGB(allAdsSurface.GetSurface()->format, 32, 32, 32);
-        headerLabel.Init(state.assets.GetMainFont(), 0, currentY, headerColor);
+        uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
+        headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(usedCars, false, 184);
         headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
         
         // Center the header text
-        int textWidth = SFont_TextWidth(state.assets.GetMainFont(), usedCars.c_str());
+        int textWidth = SFont_TextWidth(mainFont, usedCars.c_str());
         int centerX = (192 - textWidth) / 2;
         
         // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
-        SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
+        SDL_BlitSurface(headerLabel.GetSurface(), NULL, surface, &headerRect);
         SDL_Log("Rendered USED CARS header at Y=%d", currentY);
         currentY += 20;
     }
@@ -521,7 +538,7 @@ void Newspaper::CreateAllAdsSurface() {
     {
         // Draw top divider line
         SDL_Rect topDividerRect = {0, currentY, 192, 1};
-        SDL_FillRect(allAdsSurface.GetSurface(), &topDividerRect, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 0, 0, 0, 255));
+        SDL_FillRect(surface, &topDividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
         currentY += 2; // +1 for top divider + 1 for spacing
         
         for (int i = 0; i < (int)carMetadata.size(); i++) {
@@ -544,13 +561,13 @@ void Newspaper::CreateAllAdsSurface() {
             
             // Create a temporary label to render the text
             Label tempLabel;
-            tempLabel.Init(state.assets.GetMainFont(), 0, currentY, SDL_MapRGB(allAdsSurface.GetSurface()->format, 0, 0, 0));
+            tempLabel.Init(mainFont, 0, currentY, SDL_MapRGB(surface->format, 0, 0, 0));
             tempLabel.SetText(adText, false, 184);
             tempLabel.UpdateFromSurface(); // Make sure the label surface is updated
             
             // Render the label to the large surface
             SDL_Rect destRect = {1, currentY, 184, adHeight};
-            SDL_BlitSurface(tempLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &destRect);
+            SDL_BlitSurface(tempLabel.GetSurface(), NULL, surface, &destRect);
             
             // Calculate next ad position
             currentY += adHeight;
@@ -558,7 +575,7 @@ void Newspaper::CreateAllAdsSurface() {
             // Draw divider line (except after the last ad)
             if (i < (int)carMetadata.size() - 1) {
                 SDL_Rect dividerRect = {0, currentY, 192, 1};
-                SDL_FillRect(allAdsSurface.GetSurface(), &dividerRect, SDL_MapRGBA(allAdsSurface.GetSurface()->format, 0, 0, 0, 255));
+                SDL_FillRect(surface, &dividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
                 currentY += 2; // +1 for divider + 1 for spacing
             }
         }
@@ -568,25 +585,25 @@ void Newspaper::CreateAllAdsSurface() {
     allAdsSurface.UpdateFromSurface();
     
     // Debug: Check surface content
-    SDL_Surface* surface = allAdsSurface.GetSurface();
-    if (surface) {
+    SDL_Surface* debugSurface = allAdsSurface.GetSurface();
+    if (debugSurface) {
         SDL_Log("Surface format: %dx%d, %d bpp, %s", 
-               surface->w, surface->h, surface->format->BitsPerPixel,
-               SDL_GetPixelFormatName(surface->format->format));
+               debugSurface->w, debugSurface->h, debugSurface->format->BitsPerPixel,
+               SDL_GetPixelFormatName(debugSurface->format->format));
         
         // Check if surface has any non-white pixels
-        SDL_LockSurface(surface);
-        Uint32* pixels = (Uint32*)surface->pixels;
+        SDL_LockSurface(debugSurface);
+        Uint32* pixels = (Uint32*)debugSurface->pixels;
         int nonWhitePixels = 0;
-        for (int i = 0; i < surface->w * surface->h; i++) {
+        for (int i = 0; i < debugSurface->w * debugSurface->h; i++) {
             Uint8 r, g, b, a;
-            SDL_GetRGBA(pixels[i], surface->format, &r, &g, &b, &a);
+            SDL_GetRGBA(pixels[i], debugSurface->format, &r, &g, &b, &a);
             if (r != 255 || g != 255 || b != 255) {
                 nonWhitePixels++;
             }
         }
-        SDL_UnlockSurface(surface);
-        SDL_Log("Surface has %d non-white pixels out of %d total", nonWhitePixels, surface->w * surface->h);
+        SDL_UnlockSurface(debugSurface);
+        SDL_Log("Surface has %d non-white pixels out of %d total", nonWhitePixels, debugSurface->w * debugSurface->h);
     }
     
     // Save to file for debugging (after updating the surface)
@@ -597,6 +614,12 @@ void Newspaper::CreateAllAdsSurface() {
 }
 
 void Newspaper::UpdateViewport() {
+    // Validate that allAdsSurface was created properly
+    if (allAdsSurfaceHeight <= 0) {
+        SDL_Log("ERROR: allAdsSurfaceHeight is %d, CreateAllAdsSurface may have failed", allAdsSurfaceHeight);
+        return;
+    }
+    
     // Calculate viewport position based on current page
     int viewportY = 0;
     
@@ -626,11 +649,18 @@ void Newspaper::UpdateViewport() {
     }
     
     if (viewportY < allAdsSurfaceHeight) {
-        SDL_Rect srcRect = adsViewport;
-        SDL_Rect destRect = {0, 0, 192, 190};
-        SDL_Log("Blitting from allAdsSurface to adsArea: srcRect={%d,%d,%d,%d}, destRect={%d,%d,%d,%d}", 
-               srcRect.x, srcRect.y, srcRect.w, srcRect.h, destRect.x, destRect.y, destRect.w, destRect.h);
-        SDL_BlitSurface(allAdsSurface.GetSurface(), &srcRect, adsArea.GetSurface(), &destRect);
+        SDL_Surface* srcSurface = allAdsSurface.GetSurface();
+        SDL_Surface* destSurface = adsArea.GetSurface();
+        
+        if (srcSurface && destSurface) {
+            SDL_Rect srcRect = adsViewport;
+            SDL_Rect destRect = {0, 0, 192, 190};
+            SDL_Log("Blitting from allAdsSurface to adsArea: srcRect={%d,%d,%d,%d}, destRect={%d,%d,%d,%d}", 
+                   srcRect.x, srcRect.y, srcRect.w, srcRect.h, destRect.x, destRect.y, destRect.w, destRect.h);
+            SDL_BlitSurface(srcSurface, &srcRect, destSurface, &destRect);
+        } else {
+            SDL_Log("ERROR: Null surface in UpdateViewport - srcSurface=%p, destSurface=%p", srcSurface, destSurface);
+        }
     } else {
         SDL_Log("Viewport Y (%d) >= surface height (%d), not blitting", viewportY, allAdsSurfaceHeight);
     }
