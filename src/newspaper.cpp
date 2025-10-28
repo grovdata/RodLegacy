@@ -354,8 +354,8 @@ void Newspaper::PushEvent(SDL_Event *event) {
     
     // Handle mouse wheel scrolling in ads area
     if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) { // Only allow smooth scrolling on used car pages
-        int mouseX, mouseY;
-        SDL_GetMouseState(&mouseX, &mouseY);
+        int mouseX = event->wheel.mouseX;
+        int mouseY = event->wheel.mouseY;
         
         // Check if mouse is over the ads area (64, 0, 192, 190)
         if (mouseX >= 64 && mouseX < 256 && mouseY >= 0 && mouseY < 190) {
@@ -640,22 +640,14 @@ void Newspaper::CreateAllAdsSurface() {
 }
 
 void Newspaper::UpdateViewport() {
-    // Prevent concurrent viewport updates
-    if (isUpdatingViewport) {
-        return;
-    }
-    isUpdatingViewport = true;
-    
     // Basic validation
     if (allAdsSurfaceHeight <= 0) {
-        isUpdatingViewport = false;
         return;
     }
     
     SDL_Surface* allAdsSurfacePtr = allAdsSurface.GetSurface();
     SDL_Surface* adsAreaSurfacePtr = adsArea.GetSurface();
     if (!allAdsSurfacePtr || !adsAreaSurfacePtr) {
-        isUpdatingViewport = false;
         return;
     }
     
@@ -677,24 +669,18 @@ void Newspaper::UpdateViewport() {
         // Add smooth scroll offset (always add it, but clamp the result)
         viewportY += smoothScrollOffset;
         
+        
         // Clamp viewport to prevent scrolling beyond content
         int maxViewportY = allAdsSurfaceHeight - 190; // 190 is viewport height
         if (viewportY > maxViewportY) {
             viewportY = maxViewportY;
-            // Adjust smooth scroll offset to match the clamped viewport
             smoothScrollOffset = viewportY - partsSectionHeight - pageScrollOffset;
-    }
+        }
         if (viewportY < partsSectionHeight) {
             viewportY = partsSectionHeight;
-            // Adjust smooth scroll offset to match the clamped viewport
             smoothScrollOffset = 0;
         }
     }
-    
-    // Clamp viewport to valid bounds
-    int maxViewportY = allAdsSurfaceHeight - 190;
-    if (viewportY > maxViewportY) viewportY = maxViewportY;
-    if (viewportY < 0) viewportY = 0;
     
     // Set the viewport
     adsViewport = {0, viewportY, 192, 190};
@@ -702,29 +688,26 @@ void Newspaper::UpdateViewport() {
     // Clear the ads area
     SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, 255, 255, 255, 255));
     
-    // Blit the viewport from the large surface
-    if (viewportY < allAdsSurfaceHeight) {
+        // Blit the viewport from the large surface
+        if (viewportY < allAdsSurfaceHeight) {
             SDL_Rect srcRect = adsViewport;
             SDL_Rect destRect = {0, 0, 192, 190};
         
-        // Check for surface format mismatch (the likely cause of corruption)
-        if (allAdsSurfacePtr->format->format != adsAreaSurfacePtr->format->format) {
-            // Convert and blit
-            SDL_Surface* convertedSurface = SDL_ConvertSurface(allAdsSurfacePtr, adsAreaSurfacePtr->format, 0);
-            if (convertedSurface) {
-                SDL_BlitSurface(convertedSurface, &srcRect, adsAreaSurfacePtr, &destRect);
-                SDL_FreeSurface(convertedSurface);
+            // Check for surface format mismatch (the likely cause of corruption)
+            if (allAdsSurfacePtr->format->format != adsAreaSurfacePtr->format->format) {
+                // Convert and blit
+                SDL_Surface* convertedSurface = SDL_ConvertSurface(allAdsSurfacePtr, adsAreaSurfacePtr->format, 0);
+                if (convertedSurface) {
+                    SDL_BlitSurface(convertedSurface, &srcRect, adsAreaSurfacePtr, &destRect);
+                    SDL_FreeSurface(convertedSurface);
+                }
+            } else {
+                // Direct blit
+                SDL_BlitSurface(allAdsSurfacePtr, &srcRect, adsAreaSurfacePtr, &destRect);
+            }
         }
-    } else {
-            // Direct blit
-            SDL_BlitSurface(allAdsSurfacePtr, &srcRect, adsAreaSurfacePtr, &destRect);
-        }
-    }
     
     adsArea.UpdateFromSurface();
-    
-    // Reset the update flag
-    isUpdatingViewport = false;
 }
 
 void Newspaper::SaveAdsSurfaceToFile() {

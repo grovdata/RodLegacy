@@ -45,7 +45,6 @@ private:
     
     // Smooth scrolling
     int smoothScrollOffset = 0;
-    bool isUpdatingViewport = false; // Prevent concurrent viewport updates
     
     // Ad position mapping
     struct AdPosition {
