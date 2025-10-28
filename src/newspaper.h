@@ -43,6 +43,10 @@ private:
     // Surface dimensions
     int allAdsSurfaceHeight = 0;
     
+    // Smooth scrolling
+    int smoothScrollOffset = 0;
+    bool isUpdatingViewport = false; // Prevent concurrent viewport updates
+    
     // Ad position mapping
     struct AdPosition {
         int adIndex;        // Index in carMetadata

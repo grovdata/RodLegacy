@@ -352,6 +352,28 @@ void Newspaper::PushEvent(SDL_Event *event) {
         return; // Skip normal zone handling when dialog is visible
     }
     
+    // Handle mouse wheel scrolling in ads area
+    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) { // Only allow smooth scrolling on used car pages
+        int mouseX, mouseY;
+        SDL_GetMouseState(&mouseX, &mouseY);
+        
+        // Check if mouse is over the ads area (64, 0, 192, 190)
+        if (mouseX >= 64 && mouseX < 256 && mouseY >= 0 && mouseY < 190) {
+            int wheelY = event->wheel.y;
+            
+            if (wheelY > 0) { // Scroll up
+                smoothScrollOffset -= 20;
+            }
+            else if (wheelY < 0) { // Scroll down
+                smoothScrollOffset += 20;
+            }
+            
+            // Update the viewport with smooth scrolling
+            UpdateViewport();
+            return; // Don't process this event further
+        }
+    }
+    
     Scene::PushEvent(event);
 }
 
@@ -364,9 +386,11 @@ void Newspaper::Action(ZoneId zone) {
     switch (zone) { 
         case ZONE_MAGAZINE_AUTO_PARTS:
             currentPage = 1;
+            smoothScrollOffset = 0; // Reset smooth scroll when changing sections
             break;
         case ZONE_MAGAZINE_USED_CARS:
             currentPage = 4;
+            smoothScrollOffset = 0; // Reset smooth scroll when changing sections
             break;
         case ZONE_MAGAZINE_BACK_TO_GARAGE:
             state.MoveToScene(SCENE_GARAGE);
@@ -377,6 +401,7 @@ void Newspaper::Action(ZoneId zone) {
             } else {
                 currentPage = totalPages;
             }
+            smoothScrollOffset = 0; // Reset smooth scroll when changing pages
             break;
         case ZONE_MAGAZINE_NEXT:
             if (currentPage < totalPages) {
@@ -384,6 +409,7 @@ void Newspaper::Action(ZoneId zone) {
             } else {
                 currentPage = 0;
             }
+            smoothScrollOffset = 0; // Reset smooth scroll when changing pages
             break;
         case ZONE_MAGAZINE_ADS_AREA:
             {
@@ -614,9 +640,22 @@ void Newspaper::CreateAllAdsSurface() {
 }
 
 void Newspaper::UpdateViewport() {
-    // Validate that allAdsSurface was created properly
+    // Prevent concurrent viewport updates
+    if (isUpdatingViewport) {
+        return;
+    }
+    isUpdatingViewport = true;
+    
+    // Basic validation
     if (allAdsSurfaceHeight <= 0) {
-        SDL_Log("ERROR: allAdsSurfaceHeight is %d, CreateAllAdsSurface may have failed", allAdsSurfaceHeight);
+        isUpdatingViewport = false;
+        return;
+    }
+    
+    SDL_Surface* allAdsSurfacePtr = allAdsSurface.GetSurface();
+    SDL_Surface* adsAreaSurfacePtr = adsArea.GetSurface();
+    if (!allAdsSurfacePtr || !adsAreaSurfacePtr) {
+        isUpdatingViewport = false;
         return;
     }
     
@@ -630,61 +669,62 @@ void Newspaper::UpdateViewport() {
         // Used car ads - scroll through the continuous surface
         // Skip PARTS section: header (20px) + spacing (40px)
         int partsSectionHeight = 60; // header + spacing
-        int scrollOffset = (currentPage - 4) * 190; // 190px per "page" of scrolling
-        viewportY = partsSectionHeight + scrollOffset;
+        int pageScrollOffset = (currentPage - 4) * 190; // 190px per "page" of scrolling
+        
+        // Calculate base viewport position
+        viewportY = partsSectionHeight + pageScrollOffset;
+        
+        // Add smooth scroll offset (always add it, but clamp the result)
+        viewportY += smoothScrollOffset;
+        
+        // Clamp viewport to prevent scrolling beyond content
+        int maxViewportY = allAdsSurfaceHeight - 190; // 190 is viewport height
+        if (viewportY > maxViewportY) {
+            viewportY = maxViewportY;
+            // Adjust smooth scroll offset to match the clamped viewport
+            smoothScrollOffset = viewportY - partsSectionHeight - pageScrollOffset;
     }
+        if (viewportY < partsSectionHeight) {
+            viewportY = partsSectionHeight;
+            // Adjust smooth scroll offset to match the clamped viewport
+            smoothScrollOffset = 0;
+        }
+    }
+    
+    // Clamp viewport to valid bounds
+    int maxViewportY = allAdsSurfaceHeight - 190;
+    if (viewportY > maxViewportY) viewportY = maxViewportY;
+    if (viewportY < 0) viewportY = 0;
     
     // Set the viewport
     adsViewport = {0, viewportY, 192, 190};
     
-    // Clear the ads area and copy the viewport from the large surface
-    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 255, 255, 255, 255));
+    // Clear the ads area
+    SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, 255, 255, 255, 255));
     
-    // Debug: Check adsArea surface format
-    SDL_Surface* adsSurface = adsArea.GetSurface();
-    if (adsSurface) {
-        SDL_Log("adsArea surface format: %dx%d, %d bpp, %s", 
-               adsSurface->w, adsSurface->h, adsSurface->format->BitsPerPixel,
-               SDL_GetPixelFormatName(adsSurface->format->format));
-    }
-    
+    // Blit the viewport from the large surface
     if (viewportY < allAdsSurfaceHeight) {
-        SDL_Surface* srcSurface = allAdsSurface.GetSurface();
-        SDL_Surface* destSurface = adsArea.GetSurface();
-        
-        if (srcSurface && destSurface) {
             SDL_Rect srcRect = adsViewport;
             SDL_Rect destRect = {0, 0, 192, 190};
-            SDL_Log("Blitting from allAdsSurface to adsArea: srcRect={%d,%d,%d,%d}, destRect={%d,%d,%d,%d}", 
-                   srcRect.x, srcRect.y, srcRect.w, srcRect.h, destRect.x, destRect.y, destRect.w, destRect.h);
-            SDL_BlitSurface(srcSurface, &srcRect, destSurface, &destRect);
-        } else {
-            SDL_Log("ERROR: Null surface in UpdateViewport - srcSurface=%p, destSurface=%p", srcSurface, destSurface);
+        
+        // Check for surface format mismatch (the likely cause of corruption)
+        if (allAdsSurfacePtr->format->format != adsAreaSurfacePtr->format->format) {
+            // Convert and blit
+            SDL_Surface* convertedSurface = SDL_ConvertSurface(allAdsSurfacePtr, adsAreaSurfacePtr->format, 0);
+            if (convertedSurface) {
+                SDL_BlitSurface(convertedSurface, &srcRect, adsAreaSurfacePtr, &destRect);
+                SDL_FreeSurface(convertedSurface);
         }
     } else {
-        SDL_Log("Viewport Y (%d) >= surface height (%d), not blitting", viewportY, allAdsSurfaceHeight);
+            // Direct blit
+            SDL_BlitSurface(allAdsSurfacePtr, &srcRect, adsAreaSurfacePtr, &destRect);
+        }
     }
     
     adsArea.UpdateFromSurface();
     
-    // Debug: Check if adsArea has content after blitting
-    SDL_Surface* finalAdsSurface = adsArea.GetSurface();
-    if (finalAdsSurface) {
-        SDL_LockSurface(finalAdsSurface);
-        Uint32* pixels = (Uint32*)finalAdsSurface->pixels;
-        int nonWhitePixels = 0;
-        for (int i = 0; i < finalAdsSurface->w * finalAdsSurface->h; i++) {
-            Uint8 r, g, b, a;
-            SDL_GetRGBA(pixels[i], finalAdsSurface->format, &r, &g, &b, &a);
-            if (r != 255 || g != 255 || b != 255) {
-                nonWhitePixels++;
-            }
-        }
-        SDL_UnlockSurface(finalAdsSurface);
-        SDL_Log("adsArea has %d non-white pixels after blitting", nonWhitePixels);
-    }
-    
-    SDL_Log("Updated viewport: page %d, y=%d", currentPage, viewportY);
+    // Reset the update flag
+    isUpdatingViewport = false;
 }
 
 void Newspaper::SaveAdsSurfaceToFile() {
