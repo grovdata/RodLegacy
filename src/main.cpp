@@ -55,31 +55,31 @@ bool IsSteamDeck() {
     if (steamDeck && strcmp(steamDeck, "1") == 0) {
         return true;
     }
-    
+
     // Method 2: Check for Steam Deck specific hardware
     const char* hardware = getenv("HARDWARE");
     if (hardware && strcmp(hardware, "steamdeck") == 0) {
         return true;
     }
-    
+
     // Method 3: Check for Steam Deck specific platform
     const char* platform = getenv("PLATFORM");
     if (platform && strcmp(platform, "steamdeck") == 0) {
         return true;
     }
-    
+
     // Method 4: Check for Steam Deck specific device model
     const char* deviceModel = getenv("DEVICE_MODEL");
     if (deviceModel && strstr(deviceModel, "steamdeck") != nullptr) {
         return true;
     }
-    
+
     // Method 5: Check for Steam Deck specific user agent
     const char* userAgent = getenv("HTTP_USER_AGENT");
     if (userAgent && strstr(userAgent, "SteamDeck") != nullptr) {
         return true;
     }
-    
+
     // Method 6: Check for Steam Deck specific file paths
     if (fs::exists("/sys/devices/virtual/dmi/id/product_name")) {
         std::ifstream productFile("/sys/devices/virtual/dmi/id/product_name");
@@ -90,7 +90,7 @@ bool IsSteamDeck() {
             }
         }
     }
-    
+
     // Method 7: Check for Steam Deck specific joystick/gamepad
     if (SDL_NumJoysticks() > 0) {
         const char* joystickName = SDL_JoystickNameForIndex(0);
@@ -98,65 +98,64 @@ bool IsSteamDeck() {
             return true;
         }
     }
-    
+
     return false;
 }
 
 void ToggleFullScreen(SDL_Window* window, bool currentState) {
     isFullScreen = !currentState;
     SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-    SDL_ShowCursor(currentState);
 }
 
 void TakeScreenshot() {
     Uint64 currentTime = SDL_GetTicks64();
-    
+
     // Check cooldown
     if (currentTime - lastScreenshotTime < SCREENSHOT_COOLDOWN_MS) {
         return; // Still in cooldown period
     }
-    
+
     lastScreenshotTime = currentTime;
-    
+
     // Get the actual window size
     int windowWidth, windowHeight;
     SDL_GetWindowSize(win, &windowWidth, &windowHeight);
-    
+
     // Create a surface to hold the pixel data
     SDL_Surface* surface = SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
                                                0x00FF0000,  // Red mask
                                                0x0000FF00,  // Green mask
                                                0x000000FF,  // Blue mask
                                                0xFF000000); // Alpha mask
-    
+
     if (!surface) {
         SDL_Log("Failed to create surface for screenshot: %s", SDL_GetError());
         return;
     }
-    
+
     // Read pixels from the renderer
-    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, 
+    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                             surface->pixels, surface->pitch) != 0) {
         SDL_Log("Failed to read pixels for screenshot: %s", SDL_GetError());
         SDL_FreeSurface(surface);
         return;
     }
-    
+
     // Find next available counter value
     while (fs::exists("screenshot_" + std::to_string(screenshotCounter) + ".png")) {
         screenshotCounter++;
     }
-    
+
     // Generate filename with counter
     std::string filename = "screenshot_" + std::to_string(screenshotCounter++) + ".png";
-    
+
     // Save the surface as PNG
     if (IMG_SavePNG(surface, filename.c_str()) != 0) {
         SDL_Log("Failed to save screenshot: %s", SDL_GetError());
     } else {
         SDL_Log("Screenshot saved: %s", filename.c_str());
     }
-    
+
     SDL_FreeSurface(surface);
 }
 
@@ -197,7 +196,7 @@ int main(int argc, char* argv[]) {
     } else {
         SDL_Log("Running on desktop/laptop system");
     }
-    
+
     SDL_Log("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
     SDL_Log("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
@@ -211,10 +210,10 @@ int main(int argc, char* argv[]) {
     // Create window after SDL_Init
     int windowWidth = useOriginalSize ? ORIGINAL_WINDOW_WIDTH : WINDOW_WIDTH;
     int windowHeight = useOriginalSize ? ORIGINAL_WINDOW_HEIGHT : WINDOW_HEIGHT;
-    
-    SDL_Log("Creating window: %dx%d (%s)", windowWidth, windowHeight, 
+
+    SDL_Log("Creating window: %dx%d (%s)", windowWidth, windowHeight,
             useOriginalSize ? "original size" : "4x upscaled");
-    
+
     win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, 0);
     if (!win) {
         SDL_Log("error creating window: %s\n", SDL_GetError());
@@ -280,28 +279,28 @@ int main(int argc, char* argv[]) {
         gamePath = AssetManager::FindGameDirectory();
     } catch (const AssetLoadError& e) {
         const char* selectedPath = tinyfd_selectFolderDialog("Select game data folder", nullptr);
-            
+
         if (selectedPath != nullptr) {
             fs::path gameDataPath = fs::path(selectedPath);
             if (AssetManager::ValidateGamePath(gameDataPath)) {
                 gamePath = gameDataPath;
                 AssetManager::SaveGamePath(gameDataPath);
             } else {
-                SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", 
+                SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
                     "Failed to load game files from selected folder.\nPlease ensure SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are present.", win);
                 SDL_DestroyRenderer(renderer);
                 SDL_DestroyWindow(win);
-                SDL_JoystickClose(controller);                
+                SDL_JoystickClose(controller);
                 Mix_CloseAudio();
                 SDL_Quit();
                 return 1;
             }
         } else {
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found", 
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found",
                 "Failed to find game files and no folder selected.\nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are required.", win);
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
-            SDL_JoystickClose(controller);            
+            SDL_JoystickClose(controller);
             Mix_CloseAudio();
             SDL_Quit();
             return 1;
@@ -310,8 +309,9 @@ int main(int argc, char* argv[]) {
 
     // Now that we have a valid game path, initialize the game state
     try {
+        SDL_ShowCursor(SDL_DISABLE);
         state.Init(debugMode, gamePath, muteAudio);
-        mouse.loadPointers(state.assets.GetMousePointers());        
+        mouse.loadPointers(state.assets.GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(SCENE_GARAGE);
     } catch (const std::exception& e) {
@@ -358,7 +358,7 @@ int main(int argc, char* argv[]) {
 
     Uint64 timeDelta = 0;
 
-  
+
 
 
     while (!close_requested) {
@@ -446,7 +446,7 @@ int main(int argc, char* argv[]) {
 
         // Update gamepad input (separate from event polling)
         mouse.UpdateGamepad(state.GetCurrentScene());
-        
+
         // Add gamepad debug info to scene
         // if (state.GetCurrentScene()) {
         //     SDL_Log("Adding gamepad debug info to scene");
@@ -481,7 +481,7 @@ int main(int argc, char* argv[]) {
     //printf("Whadda loser!\n");
 
     // delete currentScene;
-    
+
     // tinyfiledialogs doesn't require cleanup
 
     SDL_DestroyRenderer(renderer);
