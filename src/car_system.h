@@ -43,9 +43,9 @@ struct CarModificationConstraints {
     bool canChopRoof = true;
     bool canStripBumpers = true;
     bool canAddDecal = true;
-    
+
     std::string constraintReason = "";
-    
+
     bool CanModify(CarModificationType type) const {
         switch (type) {
             case MOD_ROOF_CHOP: return canChopRoof;
@@ -61,13 +61,13 @@ class PartsCompatibilityManager {
 public:
     // Check if transmission fits with engine
     static bool IsTransmissionCompatible(TransmissionType transmission, CarEngine_t engine);
-    
+
     // Check if manifold fits with engine
     static bool IsManifoldCompatible(ManifoldType manifold, CarEngine_t engine);
-    
+
     // Check if carburetor fits with engine
     static bool IsCarburetorCompatible(CarburetorType carburetor, CarEngine_t engine);
-    
+
     // Get compatible parts for engine
     static std::vector<TransmissionType> GetCompatibleTransmissions(CarEngine_t engine);
     static std::vector<ManifoldType> GetCompatibleManifolds(CarEngine_t engine);

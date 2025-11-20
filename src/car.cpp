@@ -20,7 +20,7 @@ Car::Car(CarModel model) {
 }
 
 Car::~Car() {
-   
+
 }
 
 CarModel Car::GetModel() {
@@ -47,7 +47,7 @@ void Car::SetTires(CarWheelType type) {
     }
 
     SDL_Log("Setting tires for %d to %d", model.index, aid);
-    
+
     this->tires = Part(0, 0, vendor, aid, TRANS_4SPD_UNIVERSAL);
 }
 
@@ -59,23 +59,23 @@ void Car::RecalculatePerformance() {
     // Base car performance
     effectiveSpeed = model.baseSpeed;
     effectiveAcceleration = model.baseAcceleration;
-    
+
     // Engine contribution (based on horsepower and wear)
     int engineSpeedBonus = (engine.horsepower * (100 - engine.wear)) / 100;
     effectiveSpeed += engineSpeedBonus;
-    
+
     // Transmission contribution (based on type and wear)
     int transSpeedBonus = GetTransmissionSpeedBonus(gearbox.partType.transmissionType, gearbox.wear);
     effectiveSpeed += transSpeedBonus;
-    
+
     // Manifold contribution (based on type and wear)
     int manifoldSpeedBonus = GetManifoldSpeedBonus(manifold.partType.manifoldType, manifold.wear);
     effectiveSpeed += manifoldSpeedBonus;
-    
+
     // Carburetor contribution (based on type and wear)
     int carbSpeedBonus = GetCarburetorSpeedBonus(carburator.partType.carburetorType, carburator.wear);
     effectiveSpeed += carbSpeedBonus;
-    
+
     // Modification bonuses
     if (isRoofChopped) {
         effectiveSpeed += 5; // Simple bonus
@@ -83,7 +83,7 @@ void Car::RecalculatePerformance() {
     if (isFrontBumperStripped && isBackBumperStripped) {
         effectiveSpeed += 3;
     }
-    
+
     // Scoop bonus is automatic with V8 engines
     if (engine.HasScoop()) {
         effectiveSpeed += 2; // Small bonus for V8 scoop

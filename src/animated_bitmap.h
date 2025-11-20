@@ -21,10 +21,10 @@ public:
 
     // Override Bitmap methods
     void Draw() override;
-    void SetPosition(int x, int y);
-    void SetDimensions(int w, int h);
-    void SetVisible(bool visible);
-    bool IsVisible() const;
+    void SetPosition(int x, int y) override;
+    void SetDimensions(int w, int h) override;
+    void SetVisible(bool visible) override;
+    bool IsVisible() const override;
 
     // Animation control
     void Play();
@@ -46,4 +46,4 @@ public:
 private:
     Bitmap* sourceBitmap;  // Original bitmap we're animating
     Animation animation;
-}; 
+};

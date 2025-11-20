@@ -60,7 +60,7 @@ void AnimatedBitmap::SetSpeed(float frameDuration) {
 }
 
 void AnimatedBitmap::Update(float deltaTime) {
-    if (!animation.isPlaying || animation.frameCount <= 1) return;
+    if (!animation.isPlaying || int(animation.frameCount) <= 1) return;
 
     animation.elapsedTime += deltaTime;
     if (animation.elapsedTime >= animation.frameDuration) {
@@ -86,7 +86,7 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
     animation.frameRects.clear();
     animation.frameCount = columns * rows;
     animation.currentFrame = 0; // Reset to first frame
-    
+
     for (int y = 0; y < rows; y++) {
         for (int x = 0; x < columns; x++) {
             SDL_Rect frame = {
@@ -98,7 +98,7 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
             animation.frameRects.push_back(frame);
         }
     }
-    
+
     // Immediately set the source rect to the first frame
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
@@ -107,23 +107,23 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
 
 void AnimatedBitmap::SetAnimationFromInfo(const SpriteAnimationInfo* animInfo) {
     if (!animInfo) return;
-    
+
     // Convert SpriteRect array to SDL_Rect vector
     animation.frameRects.clear();
     for (uint8_t i = 0; i < animInfo->frameCount; i++) {
         const SpriteRect& rect = animInfo->frames[i];
         animation.frameRects.push_back({rect.x, rect.y, rect.w, rect.h});
     }
-    
+
     animation.frameCount = animInfo->frameCount;
     animation.loop = animInfo->isLooping;
     animation.currentFrame = 0;
-    
+
     // Set speed based on milliseconds per frame
     animation.frameDuration = animInfo->animationSpeed / 1000.0f;  // Convert ms to seconds
-    
+
     // Set source rect to first frame
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
     }
-} 
+}

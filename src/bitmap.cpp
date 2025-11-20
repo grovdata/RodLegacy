@@ -27,7 +27,7 @@ Bitmap::Bitmap(const Bitmap& other) {
     isVisible = other.isVisible;
     rect = other.rect;
     sourceRect = other.sourceRect;
-    
+
     // Copy surface if it exists
     if (other.surface) {
         surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
@@ -190,7 +190,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     uint8_t maskB = maskColor.b;
 
     SDL_Log("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
-    SDL_Log("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s", 
+    SDL_Log("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s",
             maskR, maskG, maskB,
             (128 == maskR && 16 == maskG && 0 == maskB) ? "true" : "false");
 
@@ -200,7 +200,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     }
 
     // Ensure the rect does not exceed the bounds of the surfaces
-    if (rect.x < 0 || rect.y < 0 || 
+    if (rect.x < 0 || rect.y < 0 ||
         rect.x + rect.w > surface->w || rect.y + rect.h > surface->h) {
         SDL_LogError(0, "Rectangle exceeds the bounds of the surface surface!\n");
         return;
@@ -325,7 +325,7 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
         uint8_t r = colors[i].r;
         uint8_t g = colors[i].g;
         uint8_t b = colors[i].b;
-        
+
         uint8_t a;
         if (isMask) {
             // For masks: preserve original colors, make fully opaque
@@ -369,7 +369,7 @@ void Bitmap::SaveBitmap(int index) {
     // Get pixel data
     const size_t pixelCount = rgbaSurface->w * rgbaSurface->h * 4;
     uint8_t* image = new uint8_t[pixelCount];
-    
+
     SDL_LockSurface(rgbaSurface);
     memcpy(image, rgbaSurface->pixels, pixelCount);
     SDL_UnlockSurface(rgbaSurface);
@@ -419,28 +419,28 @@ void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
         SDL_Log("ApplyBumperOverlay: Invalid surfaces");
         return;
     }
-    
+
     SDL_Surface* overlaySurface = overlay->surface;
-    
+
     // Lock surfaces for pixel manipulation
     if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
     if (SDL_MUSTLOCK(overlaySurface)) SDL_LockSurface(overlaySurface);
-    
+
     uint32_t* bodyPixels = static_cast<uint32_t*>(surface->pixels);
     uint32_t* overlayPixels = static_cast<uint32_t*>(overlaySurface->pixels);
-    
+
     // Apply overlay: black pixels make body transparent, colored pixels replace body
     for (int y = 0; y < overlaySurface->h && (y + offsetY) < surface->h; y++) {
         for (int x = 0; x < overlaySurface->w && (x + offsetX) < surface->w; x++) {
             if (offsetX + x < 0 || offsetY + y < 0) continue;
-            
+
             int overlayIdx = y * overlaySurface->w + x;
             int bodyIdx = (y + offsetY) * surface->w + (x + offsetX);
-            
+
             uint32_t overlayPixel = overlayPixels[overlayIdx];
             uint8_t r, g, b, a;
             SDL_GetRGBA(overlayPixel, overlaySurface->format, &r, &g, &b, &a);
-            
+
             // If overlay pixel is transparent (black), make body pixel transparent
             if (a == 0 || (r == 0 && g == 0 && b == 0)) {
                 // Make this pixel transparent (punch through to background)
@@ -451,11 +451,11 @@ void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
             }
         }
     }
-    
+
     // Unlock surfaces
     if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
     if (SDL_MUSTLOCK(overlaySurface)) SDL_UnlockSurface(overlaySurface);
-    
+
     // Recreate texture from modified surface
     UpdateFromSurface();
     SDL_Log("Applied bumper overlay at offset (%d, %d)", offsetX, offsetY);

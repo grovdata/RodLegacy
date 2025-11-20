@@ -47,7 +47,7 @@ private:
 	float fCrashRecoveryTime = 0.0f;	// Time to recover from crash
 	bool bShowCrashOverlay = false;		// Whether to show crash overlay
 	float fCrashOverlayTime = 0.0f;		// Time crash overlay has been shown
-	
+
 	// Physics variables (based on Street Rod assembly analysis)
 	int16_t velocity = 1500;		// Current velocity/RPM value (1500 = idle, 5700 = redline)
 	int16_t intermediate = 0;		// velocity * gear_ratio (represents road speed, preserved across shifts)
@@ -59,7 +59,7 @@ private:
 	bool isAutomatic = false;		// Transmission type
 	float acceleration = 15.0f;		// Acceleration rate (added to intermediate per frame @ 60fps)
 	float deceleration = 10.0f;		// Deceleration rate (subtracted from velocity per frame @ 60fps)
-	
+
 	// Input state
 	bool shiftUpPressed = false;	// Track shift up button state
 	bool shiftDownPressed = false;	// Track shift down button state
@@ -70,21 +70,21 @@ private:
 	float raceStartGracePeriod = 3.0f;	// Grace period at race start (no crashes)
 
 	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
-	
+
 	// Street Rod track data integration
 	std::unique_ptr<TrackReader> trackReader;
 	std::vector<SrTrackCoordSegment> currentTrackSegments;
 	std::vector<SrRoadSideSpriteRecord> currentRoadsideSprites;
 	SrTrackType currentTrackType = SR_TRACK_ROAD_RACE;
-	
+
 	// Sprite tracking for logging
 	std::set<int> passedSprites;  // Track which sprites we've already passed
 	float lastLoggedDistance = -1.0f;
-	
+
 	// Track progress logging
 	float lastProgressLogDistance = -1.0f;
 	int lastLoggedSegment = -1;
-	
+
 	// Sprite bitmaps for rendering
 	std::unique_ptr<Bitmap> telephonePoleSprite;
 	std::unique_ptr<Bitmap> treeSprite;
@@ -93,30 +93,30 @@ private:
 	std::unique_ptr<Bitmap> mountainSprite;
 	std::unique_ptr<Bitmap> cloudSprite;
 	std::unique_ptr<Bitmap> rearviewMirrorSprite;
-	
+
 	// Overhead sign sprites (rendered as pseudo-3D trapezoids spanning the road)
 	std::unique_ptr<Bitmap> signCountryLineSprite;  // ID 14 - finish line
 	std::unique_ptr<Bitmap> signRoute69Sprite;      // ID 33
 	std::unique_ptr<Bitmap> signCityLimitsSprite;   // ID 34
 	std::unique_ptr<Bitmap> signExit48Sprite;       // ID 35
-	
+
 	// Opponent car sprites (3 car types: Chevy, Chrysler, Cop)
 	// Each car type has: FRONT_SIDE, REAR_SIDE, REAR_1-7, BEHIND_1-4
 	std::unique_ptr<Bitmap> opponentChevyFrontSide;
 	std::unique_ptr<Bitmap> opponentChevyRearSide;
 	std::unique_ptr<Bitmap> opponentChevyRear[7];     // REAR_1 to REAR_7
 	std::unique_ptr<Bitmap> opponentChevyBehind[4];   // BEHIND_1 to BEHIND_4
-	
+
 	std::unique_ptr<Bitmap> opponentChryslerFrontSide;
 	std::unique_ptr<Bitmap> opponentChryslerRearSide;
 	std::unique_ptr<Bitmap> opponentChryslerRear[7];
 	std::unique_ptr<Bitmap> opponentChryslerBehind[4];
-	
+
 	std::unique_ptr<Bitmap> opponentCopFrontSide;
 	std::unique_ptr<Bitmap> opponentCopRearSide;
 	std::unique_ptr<Bitmap> opponentCopRear[7];
 	std::unique_ptr<Bitmap> opponentCopBehind[4];
-	
+
 	// Opponent state
 	bool opponentActive = false;
 	float opponentDistance = 0.0f;         // Opponent's distance along track
@@ -130,7 +130,7 @@ private:
 
 	// Move to generic
 	void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
-	
+
 	// Street Rod track integration methods
 	void LoadStreetRodTrack(const std::vector<uint8_t>& binaryData, SrTrackType trackType);
 	void ConvertTrackCoordinatesToRacing();
@@ -144,18 +144,18 @@ private:
 	void DrawRearviewMirror(int mirrorLevel);
 	bool CheckCarCollisionWithSprite(float spriteDistance, bool leftSide);
 	void HandleCrash();
-	
+
 	// Overhead sign rendering (pseudo-3D trapezoids)
 	void DrawOverheadSigns(float currentDistance);
 	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
 	void DrawOverheadSignBitmaps(float currentDistance);
-	
+
 	// Opponent car management (internal methods)
 	void LoadOpponentCarSprites();
 	std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);  // Load sprite with modified palette index 7
 	void UpdateOpponent(float deltaTime);
 	void DrawOpponent();
-	
+
 	// Physics methods
 	void UpdatePhysics(float deltaTime, bool accelerating);
 	void ShiftGear(int direction);
@@ -163,11 +163,11 @@ private:
 	void UpdateTransmissionDamage();
 	void AutoUpshift();
 	void AutoDownshift();
-	
+
 	// Gauge needle helper
-	void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, 
+	void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY,
 	                     float value, float minValue, float maxValue);
-	
+
 public:
 
     Racing();
@@ -175,36 +175,36 @@ public:
     ~Racing();
 	void Draw(float fElapsedTime, SDL_Event *event);
     SDL_Surface* GetSurface();
-    
+
     // Gauges (public - called by Driving scene to draw on top of dashboard)
     void DrawTachometerNeedleToRenderer(SDL_Renderer* renderer);
     void DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer);
-    
+
     // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
-    
+
     // Car configuration
     void SetTransmissionType(bool automatic) { isAutomatic = automatic; }
-    
+
     // Opponent configuration
     void InitializeOpponent();  // Initialize opponent from current state
     void SetOpponentActive(bool active) { opponentActive = active; }
     void SetOpponentCarType(int carType) { opponentCarType = carType; }
     void SetOpponentColor(StandardCarColor color) { opponentColor = color; }
-    
+
     // Get current car speed for animations
     float GetSpeed() const { return fSpeed; }
-    
+
     // Get physics state
     int16_t GetCurrentGear() const { return currentGear; }
     int16_t GetRPM() const { return rpm; }
     int16_t GetVelocity() const { return velocity; }
     bool IsTransmissionDamaged() const { return transmissionDamage > 0; }
     bool IsAutomatic() const { return isAutomatic; }
-    
+
     // Crash overlay state
     bool ShouldShowCrashOverlay() const { return bShowCrashOverlay; }
     void HideCrashOverlay() { bShowCrashOverlay = false; }
-    
+
 };

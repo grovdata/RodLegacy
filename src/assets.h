@@ -44,7 +44,7 @@ public:
     static bool ValidateGamePath(const fs::path& path);
     static fs::path FindGameDirectory();
     static void SaveGamePath(const fs::path& path);
-    
+
     // Instance methods
     void SetCustomPath(const std::string& customPath);
     void ReadAssets();
@@ -72,7 +72,7 @@ public:
     byte_vector& GetLibStartData() { return libStartData_vec; }
     byte_vector& GetSrData() { return srData_vec; }
     byte_vector& GetSrExeData() { return srExeData_vec; }
-    
+
     AudioManager* GetAudioManager() { return audioManager; }
 
 private:
@@ -97,7 +97,7 @@ private:
     byte_vector srExeData_vec;
 
     std::map<StockPalette, Palette> stockPalettes;
-    
+
     AudioManager* audioManager;
 
     void InitFonts();

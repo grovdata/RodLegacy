@@ -45,7 +45,7 @@ struct AudioSample {
     uint32_t loopStart;          // Loop start position (samples)
     uint32_t loopLength;         // Loop length (samples), 0 = no loop
     bool isLooped;
-    
+
     AudioSample() : sampleRate(22050), loopStart(0), loopLength(0), isLooped(false) {}
 };
 
@@ -57,68 +57,68 @@ class AudioManager {
 public:
     AudioManager();
     ~AudioManager();
-    
+
     // Initialize audio system and load samples from ADF
     bool Initialize(const char* disk1AdfPath);
-    
+
     // Shutdown audio system
     void Shutdown();
-    
+
     // Load specific audio files from ADF
     bool LoadAudioFromADF(const char* adfPath, const char* filename);
-    
+
     // Get a loaded sample by type
     AudioSample* GetSample(AudioSampleType type);
-    
+
     // Play a one-shot sound effect
     void PlaySound(AudioSampleType type, float volume = 1.0f);
-    
+
     // Start looping sound (returns channel ID)
     int StartLoop(AudioSampleType type, float volume = 1.0f);
-    
+
     // Stop a looping sound
     void StopLoop(int channelId);
-    
+
     // Update engine sound pitch based on RPM
     void UpdateEnginePitch(int16_t rpm);
     void UpdateEnginePeriod(int16_t period);  // For car animations using Amiga periods
-    
+
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);
-    
+
     // Get engine sound for external management
     AudioSample* GetEngineSound() { return GetSample(AudioSampleType::ENGINE_LOOP); }
-    
+
 private:
     std::map<AudioSampleType, AudioSample> samples;
     SDL_AudioDeviceID audioDevice = 0;
-    
+
     // Engine sound system (uses EngineSound class for real-time pitch modulation)
     std::unique_ptr<EngineSound> engineSound;
     int engineChannelId = -1;
     int16_t currentRPM = 1500;
-    
+
     // Load raw audio file (unsigned 8-bit)
     bool LoadRawAudio(const uint8_t* data, size_t size, AudioSample& sample, uint32_t sampleRate = 22050);
-    
+
     // Load IFF 8SVX format
     bool Load8SVX(const uint8_t* data, size_t size, AudioSample& sample);
-    
+
     // Parse IFF chunks to find 8SVX data
     bool Parse8SVXChunks(const uint8_t* data, size_t size, AudioSample& sample);
-    
+
     // Convert sample to SDL_AudioStream for playback
     SDL_AudioStream* CreateAudioStream(const AudioSample& sample, float pitchMultiplier = 1.0f);
-    
+
     // Extract specific samples from srs0.wave (racing engine)
     void ExtractSRS0Samples(const uint8_t* data, size_t size);
-    
+
     // Extract specific samples from srl0.wave
     void ExtractSRL0Samples(const uint8_t* data, size_t size);
-    
-    // Extract specific samples from srl1.wave  
+
+    // Extract specific samples from srl1.wave
     void ExtractSRL1Samples(const uint8_t* data, size_t size);
-    
+
     // Convert RPM to pitch multiplier
     float RPMToPitchMultiplier(int16_t rpm);
 };

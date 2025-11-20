@@ -37,10 +37,10 @@ AssetManager::~AssetManager() {
 
 void AssetManager::InitFonts() {
     SDL_Log("Loading fonts from embedded resources");
-    
+
     // Load main font from embedded data
     SDL_Surface* mainFontSurface = LoadSurfaceFromMemory(
-        embedded_font_png, 
+        embedded_font_png,
         embedded_font_png_len
     );
     if (!mainFontSurface) {
@@ -51,7 +51,7 @@ void AssetManager::InitFonts() {
         SDL_FreeSurface(mainFontSurface);
         throw AssetLoadError("Failed to initialize main font");
     }
-    
+
     // Load newspaper font from embedded data
     SDL_Surface* newspaperFontSurface = LoadSurfaceFromMemory(
         embedded_bee_png,
@@ -65,7 +65,7 @@ void AssetManager::InitFonts() {
         SDL_FreeSurface(newspaperFontSurface);
         throw AssetLoadError("Failed to initialize newspaper font");
     }
-    
+
     // Load debug font from embedded data
     SDL_Surface* debugFontSurface = LoadSurfaceFromMemory(
         embedded_lemon_png,
@@ -79,7 +79,7 @@ void AssetManager::InitFonts() {
         SDL_FreeSurface(debugFontSurface);
         throw AssetLoadError("Failed to initialize debug font");
     }
-    
+
     SDL_Log("All fonts loaded successfully from embedded resources");
 }
 
@@ -141,7 +141,7 @@ void AssetManager::InitGameFiles() {
         static_cast<uint8_t*>(libPData->data) + libPData->size
     );
     free_adf_file_data(libPData);
-    
+
     AdfFileData *srData = extract_adf_file_to_memory(disk2Path.string().c_str(), "SR_Data");
     if (!srData) {
         throw AssetLoadError("Failed to extract SR_Data from ADF");
@@ -166,13 +166,13 @@ void AssetManager::InitAudio(bool muteAudio) {
         SDL_Log("Audio system disabled (muted)");
         return;
     }
-    
+
     SDL_Log("Initializing audio system");
-    
+
     audioManager = new AudioManager();
-    
+
     fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
-    
+
     if (!audioManager->Initialize(disk1Path.string().c_str())) {
         SDL_Log("Warning: Audio initialization failed, continuing without audio");
         delete audioManager;
@@ -184,7 +184,7 @@ void AssetManager::InitAudio(bool muteAudio) {
 
 void AssetManager::Init(const fs::path& validatedPath, bool muteAudio) {
     try {
-        gameBasePath = validatedPath;        
+        gameBasePath = validatedPath;
         dataPath = gameBasePath;  // All game files are directly in the game directory
         SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
         SDL_Log("Data path: %s", dataPath.string().c_str());
@@ -228,7 +228,7 @@ void AssetManager::ReadAssets() {
             Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
             if (!decals) {
                 throw AssetLoadError("Failed to load car decals");
-            }            
+            }
             SDL_Rect cropDecal = {4, 9, 222, 51};
             decals->Crop(cropDecal);
             carDecals = std::move(decals);
@@ -315,22 +315,22 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     BitmapEntry_t b = imageEntries.second[index];
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
-    
+
     // Convert car palette to RGB format
     Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
     Palette basePal = bp.PreparePalette(palData, true);
-    
+
     // Use provided car palette for color ranges
     std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette, index);
-    
+
     Asset a;
     a.id = index;
     a.location = SrLibFileAmigaLibP;
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
-    
+
     bool isMask = a.type == LibAssetMask;
     bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
-    
+
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
     bitmap->SetDimensions(b.width, b.height);
@@ -398,15 +398,15 @@ bool AssetManager::ValidateGamePath(const fs::path& path) {
 
 void AssetManager::SetCustomPath(const std::string& customPath) {
     fs::path path = fs::path(customPath);
-    
+
     if (!ValidateGamePath(path)) {
         throw AssetLoadError("Selected folder does not contain required game files");
     }
-    
+
     gameBasePath = path;
-    
+
     SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
-    
+
     InitFonts();
     InitGameFiles();
     InitStockPalettes();
@@ -425,28 +425,28 @@ fs::path AssetManager::LoadSavedGamePath() {
     if (!prefPath) {
         return fs::path();
     }
-    
+
     fs::path configPath = fs::path(prefPath) / "config.txt";
     SDL_free(prefPath);
-    
+
     if (!fs::exists(configPath)) {
         return fs::path();
     }
 
     SDL_Log("Loaded config file: %s", configPath.c_str());
-    
+
     try {
         std::ifstream config(configPath);
         std::string savedPath;
         std::getline(config, savedPath);
-        
-        if (!savedPath.empty() && fs::exists(savedPath)) {           
+
+        if (!savedPath.empty() && fs::exists(savedPath)) {
             return fs::path(savedPath);
         }
     } catch (...) {
         // Ignore read errors and continue with search
     }
-    
+
     return fs::path();
 }
 
@@ -456,19 +456,19 @@ void AssetManager::SaveGamePath(const fs::path& path) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not get preference path to save game location");
         return;
     }
-    
+
     try {
         fs::path configDir(prefPath);
         fs::path configPath = configDir / "config.txt";
-        
+
         std::ofstream config(configPath, std::ios::out | std::ios::trunc);
         config << path.string();
-        
+
         SDL_Log("Saved config file to: %s", configPath.string().c_str());
     } catch (const std::exception& e) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game path: %s", e.what());
     }
-    
+
     SDL_free(prefPath);
 }
 

@@ -35,7 +35,7 @@ class Car {
         EnginePart engine;
         Part carburator;
         Part manifold;
-        
+
         // Simple performance tracking
         int effectiveSpeed;
         int effectiveAcceleration;
@@ -53,8 +53,8 @@ class Car {
 
         Part GetGearbox() const { return gearbox; }
         Part GetTires() const { return tires; }
-        EnginePart GetEngine() const { 
-            return engine; 
+        EnginePart GetEngine() const {
+            return engine;
         }
         Part GetCarburator() const { return carburator; }
         Part GetManifold() const { return manifold; }
@@ -63,16 +63,16 @@ class Car {
         SrLibCarDecal GetDecal();
         CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
-        
+
         // Simple performance methods
         int GetEffectiveSpeed() const { return effectiveSpeed; }
         int GetEffectiveAcceleration() const { return effectiveAcceleration; }
-        
+
         // Modification methods with validation
         bool CanChopRoof() const { return model.constraints.canChopRoof; }
         bool CanStripBumpers() const { return model.constraints.canStripBumpers; }
         bool CanAddDecal() const { return model.constraints.canAddDecal; }
-        
+
         // Scoop is automatic with V8 engines
         bool HasScoop() const { return engine.HasScoop(); }
 
@@ -86,11 +86,11 @@ class Car {
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
         void SetTuneLevel(const int level) { this->tuneLevel = level; }
-        
+
     private:
         // Formula-based performance calculation
         void RecalculatePerformance();
-        
+
         // Helper methods for part speed bonuses
         int GetTransmissionSpeedBonus(TransmissionType type, int wear) const;
         int GetManifoldSpeedBonus(ManifoldType type, int wear) const;
