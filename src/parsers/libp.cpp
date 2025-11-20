@@ -31,7 +31,7 @@ const char *SrLibArchiveNames[] = {
     "SR1AMIGA_DISK1.adf",
     "SR1AMIGA_DISK2.adf",
     "SR2AMIGA_DISK1.adf",
-    "SR2AMIGA_DISK2.adf",    
+    "SR2AMIGA_DISK2.adf",
 };
 
 const uint32_t SrLibArchiveChecksums[] = {
@@ -90,9 +90,9 @@ void SrLibDebugBitplanes(const uint8_t* data, int width, int height, int depth) 
 std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::vector<uint8_t>& data) {
     std::vector<BitmapEntry_t> result;
     VectorReader reader(data);
-    
+
     uint16_t totalEntriesCount = reader.ReadUint16BE();
-    
+
     for (int i = 0; i < totalEntriesCount; ++i) {
         BitmapEntry_t newEntry = {};
         newEntry.width = reader.ReadUint16BE();
@@ -103,22 +103,22 @@ std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::
         memcpy(newEntry.rleDictionary, dictData.data(), sizeof(newEntry.rleDictionary));
         newEntry.offset = reader.ReadUint32BE();
         newEntry.sizePacked = reader.ReadUint16BE();
-        
+
         SrLibDebugBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
-    
+
     return std::pair<int, std::vector<BitmapEntry_t>>(totalEntriesCount, result);
 }
 
 std::vector<uint8_t> BitmapParser::GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
     int headerSize = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount);
     int fileOffset = headerSize + bitmapEntry.offset;
-    
+
     if (fileOffset + bitmapEntry.sizePacked > (int)data.size()) {
         throw std::runtime_error("Can't read data because offset is larger than data size.");
     }
-    
+
     return std::vector<uint8_t>(
         data.begin() + fileOffset,
         data.begin() + fileOffset + bitmapEntry.sizePacked
@@ -189,12 +189,12 @@ std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, u
     return flat_bp;
 }
 
-std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data, 
+std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data,
     BitmapEntry_t entry, const Palette& palette, const Palette& carPalette, int assetIndex) {
     std::vector<SrLibColor> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
-    
+
     // Special handling for dashboard and hood - only replace magenta placeholder colors
     bool useMagentaDetection = (assetIndex == 3 || assetIndex == 11 || assetIndex == 19);  // RACING_INTERIOR_1, RACING_HOOD
 
@@ -215,7 +215,7 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                 bool useLowerRange = value >= 1 && value <= 9;
                 bool useUpperRange = value >= 33 && value <= 41;
                 bool useCarPalette = false;
-                
+
                 if (!carPalette.empty() && (useLowerRange || useUpperRange)) {
                     if (useMagentaDetection && value < palette.size()) {
                         // For dashboard/hood: only replace magenta colors
@@ -227,14 +227,14 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                         useCarPalette = true;
                     }
                 }
-                
+
                 const Palette& selectedPalette = useCarPalette ? carPalette : palette;
-                
+
                 // Ensure value is within bounds of the selected palette
                 if (value >= selectedPalette.size()) {
                     continue;
                 }
-                
+
                 int pixel_index = (y * entry.width) + (x + i);
                 chunkyData[pixel_index] = selectedPalette[value];
             }
@@ -303,7 +303,7 @@ void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& f
     const int imageHeight = BLOCK_SIZE;
 
     std::vector<unsigned char> image(imageWidth * imageHeight * 4);
-    
+
     for (int y = 0; y < imageHeight; y++) {
         for (int x = 0; x < imageWidth; x++) {
             const SrLibColor& c = palette[x / BLOCK_SIZE];
@@ -318,7 +318,7 @@ void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& f
     unsigned char* png;
     size_t pngsize;
     unsigned error = lodepng_encode32(&png, &pngsize, image.data(), imageWidth, imageHeight);
-    
+
     if (error) {
         std::cerr << "Failed to encode PNG: " << lodepng_error_text(error) << std::endl;
     } else {
@@ -327,7 +327,7 @@ void BitmapParser::SavePaletteToPNG(const Palette& palette, const std::string& f
             std::cerr << "Failed to save PNG file: " << lodepng_error_text(error) << std::endl;
         }
     }
-    
+
     free(png);
 }
 
@@ -448,7 +448,7 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
-            
+
             // Special case: Gas station assets use gas palette
             switch (a) {
                 case GUS_GAS_SCREEN:
@@ -457,15 +457,14 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 case GUS_GAS_PUMP2:
                 case GUS_GAS_PUMP3:
                 case GUS_GAS_PUMP_FILLING:
-                    return PAL_GAS;                
+                    return PAL_GAS;
                 default:
                     break; // Continue to general logic below
             }
-            
+
             if (index < 45) {
                 return PAL1;
             } else if (index >= 45 && index <= 80) {
-                // Special range: Use low driving palette (possibly for specific UI elements)
                 return PAL_DRIVING_LOW;
             } else if (index <= 176) {
                 // Most game assets: Use standard driving palette
@@ -489,18 +488,18 @@ std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::
         std::cerr << "File error: Unable to open file " << filename << std::endl;
         return std::make_pair(0, std::vector<BitmapEntry_t>());
     }
-    
+
     // Get file size and create vector
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer(size);
-    
+
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
        std::cerr << "File error: Unable to read file " << filename << std::endl;
         return std::make_pair(0, std::vector<BitmapEntry_t>());
     }
-    
+
     // Use the new vector-based implementation
     return ReadEntries(buffer);
 }
@@ -513,18 +512,18 @@ std::vector<uint8_t> BitmapParser::GetPackedData(const std::string& filename, co
         std::cerr << "File error: Unable to open file " << filename << std::endl;
         return std::vector<uint8_t>();
     }
-    
+
     // Get file size and create vector
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer(size);
-    
+
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
         std::cerr << "File error: Unable to read file " << filename << std::endl;
         return std::vector<uint8_t>();
     }
-    
+
     // Use the new vector-based implementation
     return GetPackedData(buffer, bitmapEntry, totalEntriesCount);
 }
@@ -537,18 +536,18 @@ std::vector<uint8_t> BitmapParser::ReadImage(const std::string& filename, Bitmap
         std::cerr << "File error: Unable to open file " << filename << std::endl;
         return std::vector<uint8_t>();
     }
-    
+
     // Get file size and create vector
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer(size);
-    
+
     // Read file content into vector
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
         std::cerr << "File error: Unable to read file " << filename << std::endl;
         return std::vector<uint8_t>();
     }
-    
+
     // Use the new vector-based implementation
     return ReadImage(buffer, entry, index, totalEntriesCount);
 }
@@ -609,7 +608,105 @@ std::vector<std::string> SrLibReadStrings(const uint8_t* data, int offset, size_
     return result;
 }
 
-/// @brief Reads info about cars and parts from data file (SR_data)
+/// @brief Helper function to parse a single classified entry from binary data
+/// @param data Pointer to data buffer
+/// @param dataSize Size of data buffer
+/// @param ptr Reference to current position pointer (will be updated)
+/// @param outClassified Output classified entry (will be filled on success)
+/// @return true on success, false on error
+static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uint8_t*& ptr, ClassifiedEntry_t& outClassified) {
+    // Check bounds before reading
+    if (ptr >= data + dataSize) {
+        return false;
+    }
+
+    // Read null-terminated string
+    const char* nameStr = (const char*)ptr;
+    size_t nameLen = strlen(nameStr);
+    if (ptr + nameLen + 1 > data + dataSize) {
+        return false;
+    }
+    ptr += nameLen + 1;  // Skip past null terminator
+
+    // Parse year (first 4 characters)
+    char yearStr[5] = {0};
+    strncpy(yearStr, nameStr, 4);
+    outClassified.year = atoi(yearStr);
+
+    // Allocate and copy name
+    char* name = (char*)malloc(nameLen + 1);
+    if (!name) return false;
+    strcpy(name, nameStr);
+    SrLibDataCleanupCarString(name);
+    outClassified.carName = name;
+
+    // Read and process ad text - treat everything as one continuous string
+    char* adText = (char*)malloc(2048);  // Larger buffer for full ad text
+    if (!adText) {
+        free(name);
+        return false;
+    }
+    adText[0] = '\0';
+
+    while (true) {
+        // Check bounds
+        if (ptr >= data + dataSize) {
+            free(name);
+            free(adText);
+            return false;
+        }
+
+        const char* lineStr = (const char*)ptr;
+        size_t lineLen = strlen(lineStr);
+        if (ptr + lineLen + 1 > data + dataSize) {
+            free(name);
+            free(adText);
+            return false;
+        }
+        ptr += lineLen + 1;  // Skip past null terminator
+
+        char* line = (char*)malloc(lineLen + 1);
+        if (!line) {
+            free(name);
+            free(adText);
+            return false;
+        }
+        strcpy(line, lineStr);
+        SrLibDataCleanupCarString(line);
+
+        const char* dollarPos = strchr(line, '$');
+        if (!lineStr[0] || dollarPos) {
+            // Found price or empty line
+            if (dollarPos) {
+                // Extract price from the line
+                outClassified.price = atoi(dollarPos + 1);
+
+                // Add the text before the $ to the ad text
+                if (dollarPos > line) {
+                    // Truncate the line at the $ position
+                    *((char*)dollarPos) = '\0';
+                    if (adText[0] && adText[strlen(adText)-1] != ' ') {
+                        strcat(adText, " ");
+                    }
+                    strcat(adText, line);
+                }
+            }
+            free(line);
+            break;
+        }
+
+        // Append line to ad text with space (if needed)
+        if (adText[0] && adText[strlen(adText)-1] != ' ') {
+            strcat(adText, " ");
+        }
+        strcat(adText, line);
+        free(line);
+    }
+    outClassified.adText = adText;
+    return true;
+}
+
+/// @brief Reads info about cars from data file (SR_data)
 /// @param data Pointer to data buffer
 /// @param dataSize Size of data buffer
 /// @param outCount Pointer to store number of entries
@@ -621,7 +718,7 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
     const int CLASSIFIEDS_START = 0x854;
 
     if (!data || !outCount || dataSize < OFFSETS_START) return NULL;
-    
+
     *outCount = CAR_PLAYER_MODEL_COUNT;
     CarMetadata_t* result = (CarMetadata_t*)calloc(CAR_PLAYER_MODEL_COUNT, sizeof(CarMetadata_t));
     if (!result) return NULL;
@@ -643,7 +740,7 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         newEntry.offsetYFrontBumper = *ptr++;
         newEntry.offsetXDecal = *ptr++;
         newEntry.offsetYDecal = *ptr++;
-        
+
         // Add supplemental offsets
         StockCarModels model = (StockCarModels)i;
         newEntry.offsetYTires = CAR_WHEELS_Y_OFFSETS[model][1];
@@ -656,83 +753,16 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
     // Parse Classifieds
     ptr = data + CLASSIFIEDS_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        CarMetadata_t* metadataEntry = &result[i];
-        ClassifiedEntry_t newClassified = {};  // Zero initialize
-
-        // Read null-terminated string
-        const char* carNameStr = (const char*)ptr;
-        ptr += strlen(carNameStr) + 1;  // Skip past null terminator
-
-        // Parse year
-        char yearStr[5] = {0};
-        strncpy(yearStr, carNameStr, 4);
-        newClassified.year = atoi(yearStr);
-        
-        // Allocate and copy car name
-        char* carName = (char*)malloc(strlen(carNameStr) + 1);
-        if (!carName) goto cleanup;
-        strcpy(carName, carNameStr);
-        SrLibDataCleanupCarString(carName);
-        newClassified.carName = carName;
-
-        // Read and process ad text - treat everything as one continuous string
-        char* adText = (char*)malloc(2048);  // Larger buffer for full ad text
-        if (!adText) {
-            free(carName);
+        if (!ParseClassifiedEntry(data, dataSize, ptr, result[i].classified)) {
             goto cleanup;
         }
-        adText[0] = '\0';
-        
-        while (true) {
-            const char* lineStr = (const char*)ptr;
-            ptr += strlen(lineStr) + 1;  // Skip past null terminator
-
-            char* line = (char*)malloc(strlen(lineStr) + 1);
-            if (!line) {
-                free(carName);
-                free(adText);
-                goto cleanup;
-            }
-            strcpy(line, lineStr);
-            SrLibDataCleanupCarString(line);
-
-            const char* dollarPos = strchr(line, '$');
-            if (!lineStr[0] || dollarPos) {
-                // Found price or empty line
-                if (dollarPos) {
-                    // Extract price from the line
-                    newClassified.price = atoi(dollarPos + 1);
-                    
-                    // Add the text before the $ to the ad text
-                    if (dollarPos > line) {
-                        // Truncate the line at the $ position
-                        *((char*)dollarPos) = '\0';
-                        if (adText[0] && adText[strlen(adText)-1] != ' ') {
-                            strcat(adText, " ");
-                        }
-                        strcat(adText, line);
-                    }
-                }
-                free(line);
-                break;
-            }
-
-            // Append line to ad text with space (if needed)
-            if (adText[0] && adText[strlen(adText)-1] != ' ') {
-                strcat(adText, " ");
-            }
-            strcat(adText, line);
-            free(line);
-        }
-        newClassified.adText = adText;
-        metadataEntry->classified = newClassified;
     }
 
     ptr = data + CLICKBOX_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarClickBoxes_t newClickBoxes;
         ClickBox_t rearBumper, choppedRoof, transmission, engine, frontBumper;
-        
+
         rearBumper.x = *ptr++;
         rearBumper.y = *ptr++;
         rearBumper.width = *ptr++;
@@ -770,12 +800,12 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
         CarMetadata_t& metadataEntry = result[i];
         CarClickBoxes_t& clickBoxes = metadataEntry.clickBoxes;
-        
+
         clickBoxes.clickBoxGasCap.x = *ptr++;
         clickBoxes.clickBoxGasCap.y = *ptr++;
         clickBoxes.clickBoxGasCap.width = 12;
         clickBoxes.clickBoxGasCap.height = 12;
-        
+
         clickBoxes.clickBoxRearWindow.x = *ptr++;
         clickBoxes.clickBoxRearWindow.y = *ptr++;
         clickBoxes.clickBoxRearWindow.width = 24;
@@ -800,6 +830,44 @@ cleanup:
     return NULL;
 }
 
+/// @brief Reads info about parts from game binary (eg. Street_Rod),
+///        since they are hard-coded in the game.
+/// @param data Pointer to data buffer
+/// @param dataSize Size of data buffer
+/// @param outCount Pointer to store number of entries
+/// @return Array of PartMetadata_t entries (must be freed by caller)
+PartMetadata_t* DataParser::SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount) {
+    const int CLASSIFIEDS_PARTS_START = 0xA4CE;
+
+    // TODO: Maybe map this to game versions
+    const int CLASSIFIEDS_PARTS_COUNT = 20;
+
+    if (!data || !outCount || dataSize < CLASSIFIEDS_PARTS_START) return NULL;
+
+    *outCount = CLASSIFIEDS_PARTS_COUNT;
+    PartMetadata_t* result = (PartMetadata_t*)calloc(CLASSIFIEDS_PARTS_COUNT, sizeof(PartMetadata_t));
+    if (!result) return NULL;
+
+    // Parse Classifieds
+    const uint8_t* ptr = data + CLASSIFIEDS_PARTS_START;
+    for (int i = 0; i < CLASSIFIEDS_PARTS_COUNT; i++) {
+        if (!ParseClassifiedEntry(data, dataSize, ptr, result[i].classified)) {
+            goto cleanup;
+        }
+    }
+
+    return result;
+
+cleanup:
+    // If we hit an error, clean up what we've allocated so far
+    for (int i = 0; i < CLASSIFIEDS_PARTS_COUNT; i++) {
+        SrLibDataFreeClassified(&result[i].classified);
+    }
+    free(result);
+    *outCount = 0;
+    return NULL;
+}
+
 // Convert Amiga sprite data to RGBA buffer
 // data: Pointer to sprite data
 // palette: Array of Amiga format colors (0000 rrrrggggbbbb)
@@ -811,13 +879,13 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                            int startOffset,
                            const uint16_t* palette,
                            int sprite_num,
-                           int width, 
+                           int width,
                            int height,
                            SrLibColor* out_buffer) {
 
-    
-    const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;    
-    
+
+    const uint8_t* byteData = reinterpret_cast<const uint8_t*>(data) + startOffset;
+
     // Process each line
     for (int y = 0; y < height; y++) {
         // Each line has 2 words: DATA and DATB
@@ -825,7 +893,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
         uint16_t data_word = (byteData[0] << 8) | byteData[1];
         uint16_t datb_word = (byteData[2] << 8) | byteData[3];
         byteData += 4;  // Advance to next line
-                
+
         // Process each pixel in the line
         for (int x = 0; x < width; x++) {
             // Extract bits from most significant to least significant
@@ -833,8 +901,8 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
             int data_bit = (data_word >> bit_pos) & 1;
             int datb_bit = (datb_word >> bit_pos) & 1;
             int color_idx = (datb_bit << 1) | data_bit;  // Combine bits to get 0-3 value
-            
-            
+
+
             SrLibColor* pixel = &out_buffer[y * width + x];
             if (color_idx == 0) {
                 // Color 0 is transparent
@@ -849,7 +917,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                 pixel->b = rgb_color.b;
                 pixel->a = 255;
             }
-        }        
+        }
     }
 
     return 0;
@@ -858,7 +926,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer) {
     uint16_t pal[] = PAL1;
     SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[sprite];
-    return SrLibAmigaSpriteToRGBA(data, info.offset, pal, int(sprite), info.width, info.height, out_buffer);    
+    return SrLibAmigaSpriteToRGBA(data, info.offset, pal, int(sprite), info.width, info.height, out_buffer);
 }
 
 // File-based wrapper
@@ -984,7 +1052,7 @@ CarVendor_t SrLibQueryGetCarVendor(int carIndex) {
             return (CarVendor_t)CAR_VENDOR_LOOKUP[i][1];
         }
     }
-   
+
     return CarVendorUnknown;
 }
 
@@ -1032,17 +1100,17 @@ bool TrackReader::LoadTrackData(const std::string& binaryPath) {
     if (!file.is_open()) {
         return false;
     }
-    
+
     // Get file size
     file.seekg(0, std::ios::end);
     size_t fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
-    
+
     // Read entire file into memory
     binaryData.resize(fileSize);
     file.read(reinterpret_cast<char*>(binaryData.data()), fileSize);
     file.close();
-    
+
     dataLoaded = true;
     return true;
 }
@@ -1056,28 +1124,28 @@ bool TrackReader::LoadTrackData(const std::vector<uint8_t>& binaryData) {
 
 std::vector<SrTrackCoordSegment> TrackReader::ExtractTrackCoordinates(SrTrackType trackType, int maxSegments) {
     std::vector<SrTrackCoordSegment> segments;
-    
+
     if (!dataLoaded || binaryData.empty()) {
         return segments;
     }
-    
+
     // Determine offset based on track type
     uint32_t offset = (trackType == SR_TRACK_ROAD_RACE) ? SR_TRACK_ROAD_RACE_OFFSET : SR_TRACK_DRAG_RACE_OFFSET;
-    
+
     // Check if offset is valid
     if (offset + 12 > binaryData.size()) {
         return segments;
     }
-    
+
     // Extract segments
     for (int i = 0; i < maxSegments; ++i) {
         size_t segmentOffset = offset + (i * 12); // 12 bytes per segment
-        
+
         // Check bounds
         if (segmentOffset + 12 > binaryData.size()) {
             break;
         }
-        
+
         SrTrackCoordSegment segment;
         segment.xStart = ReadBigEndian16(binaryData.data(), segmentOffset);
         segment.xEnd = ReadBigEndian16(binaryData.data(), segmentOffset + 2);
@@ -1085,60 +1153,60 @@ std::vector<SrTrackCoordSegment> TrackReader::ExtractTrackCoordinates(SrTrackTyp
         segment.yEnd = ReadBigEndian16(binaryData.data(), segmentOffset + 6);
         segment.sprite1 = ReadBigEndian16(binaryData.data(), segmentOffset + 8);
         segment.sprite2 = ReadBigEndian16(binaryData.data(), segmentOffset + 10);
-        
+
         // Scale coordinates for 320x200 screen
         ScaleCoordinates(segment);
-        
+
         // Basic validation - stop if coordinates are unreasonable
-        if (std::abs(static_cast<int>(segment.xStart)) > 400 || std::abs(static_cast<int>(segment.xEnd)) > 400 || 
+        if (std::abs(static_cast<int>(segment.xStart)) > 400 || std::abs(static_cast<int>(segment.xEnd)) > 400 ||
             std::abs(static_cast<int>(segment.yStart)) > 400 || std::abs(static_cast<int>(segment.yEnd)) > 400) {
             break;
         }
-        
+
         segments.push_back(segment);
     }
-    
+
     return segments;
 }
 
 std::vector<SrRoadSideSpriteRecord> TrackReader::ExtractRoadSideSprites(uint32_t offset, int maxRecords) {
     std::vector<SrRoadSideSpriteRecord> sprites;
-    
+
     if (!dataLoaded || binaryData.empty()) {
         return sprites;
     }
-    
+
     // Check if offset is valid
     if (offset + 8 > binaryData.size()) {
         return sprites;
     }
-    
+
     // Extract sprite records
     for (int i = 0; i < maxRecords; ++i) {
         size_t recordOffset = offset + (i * 8); // 8 bytes per record
-        
+
         // Check bounds
         if (recordOffset + 8 > binaryData.size()) {
             break;
         }
-        
+
         SrRoadSideSpriteRecord record;
         record.spriteId1 = ReadBigEndianU16(binaryData.data(), recordOffset);
         record.trackPosition1 = ReadBigEndianU16(binaryData.data(), recordOffset + 2);
         record.spriteId2 = ReadBigEndianU16(binaryData.data(), recordOffset + 4);
         record.trackPosition2 = ReadBigEndianU16(binaryData.data(), recordOffset + 6);
-        
+
         // Scale positions for screen coordinates
         ScaleSpritePosition(record);
-        
+
         // Basic validation - stop if positions are unreasonable
         if (record.trackPosition1 > 5000 || record.trackPosition2 > 5000) {
             break;
         }
-        
+
         sprites.push_back(record);
     }
-    
+
     return sprites;
 }
 
@@ -1168,44 +1236,44 @@ const char* TrackReader::GetSpriteName(uint16_t spriteId) {
 TrackReader::TrackAnalysis TrackReader::AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments) {
     TrackAnalysis analysis = {};
     analysis.segmentCount = segments.size();
-    
+
     if (segments.empty()) {
         return analysis;
     }
-    
+
     // Initialize bounds
     analysis.minX = analysis.maxX = static_cast<int>(segments[0].xStart);
     analysis.minY = analysis.maxY = static_cast<int>(segments[0].yStart);
-    
+
     std::set<uint16_t> spriteSet;
-    
+
     for (const auto& segment : segments) {
         // Update bounds with explicit casting to int
         analysis.minX = std::min({analysis.minX, static_cast<int>(segment.xStart), static_cast<int>(segment.xEnd)});
         analysis.maxX = std::max({analysis.maxX, static_cast<int>(segment.xStart), static_cast<int>(segment.xEnd)});
         analysis.minY = std::min({analysis.minY, static_cast<int>(segment.yStart), static_cast<int>(segment.yEnd)});
         analysis.maxY = std::max({analysis.maxY, static_cast<int>(segment.yStart), static_cast<int>(segment.yEnd)});
-        
+
         // Calculate segment length
         int dx = segment.xEnd - segment.xStart;
         int dy = segment.yEnd - segment.yStart;
         float length = sqrt(dx * dx + dy * dy);
         analysis.totalLength += length;
-        
+
         // Check if curved (non-zero movement)
         if (dx != 0 || dy != 0) {
             analysis.curvedSegments++;
         } else {
             analysis.straightSegments++;
         }
-        
+
         // Collect sprites
         if (segment.sprite1 != 0) spriteSet.insert(segment.sprite1);
         if (segment.sprite2 != 0) spriteSet.insert(segment.sprite2);
     }
-    
+
     // Convert sprite set to vector
     analysis.uniqueSprites.assign(spriteSet.begin(), spriteSet.end());
-    
+
     return analysis;
 }

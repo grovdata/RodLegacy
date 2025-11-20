@@ -25,7 +25,7 @@ enum SrLibFile {
     SrLibFileAmigaLibP = 1,
     SrLibFileDosLib1 = 2,
     SrLibFileDosLib1c = 3,
-    SrLibFileDosLib2 = 4,    
+    SrLibFileDosLib2 = 4,
 };
 
 
@@ -108,7 +108,7 @@ enum CarVendor_t {
 enum CarEngine_t {
     CarEngineChrysler_V6 = 0,
     CarEngineChrysler_V8_285 = 1,
-    CarEngineChrysler_V8_340 = 2,    
+    CarEngineChrysler_V8_340 = 2,
     CarEngineGM_V6 = 3,
     CarEngineGM_V8_282 = 4,
     CarEngineGM_V8_327 = 5,
@@ -174,7 +174,7 @@ enum AmigaLibAsset {
 	RACING_WHEEL_RIGHT_DETAIL = 53,
     RACING_WHEEL_LEFT_DETAIL2 = 54,
     RACING_WHEEL_RIGHT_DETAIL2 = 55,
-    RACING_WHEEL_CENTER_CENTERED = 56,    
+    RACING_WHEEL_CENTER_CENTERED = 56,
     RACING_WHEEL_LEFT_HAND_1 = 57,
     RACING_WHEEL_RIGHT_HAND_1 = 58,
     RACING_WHEEL_RIGHT_HAND_2 = 59,
@@ -397,7 +397,7 @@ enum AmigaLibAsset {
     ENGINE_MANIFOLD3 = 330,
     ENGINE_MANIFOLD4 = 331,
     ENGINE_MANIFOLD5 = 332,
-    ENGINE_MANIFOLD6 = 333,  
+    ENGINE_MANIFOLD6 = 333,
     DINER_SCREEN_MASK = 334,
     DINER_WAITRESS_ANIM_LEFT = 335,
     DINER_WAITRESS_ANIM_RIGHT = 336,
@@ -472,7 +472,7 @@ enum SrRoadSideSprite {
 struct SrTrackCoordSegment {
     int16_t xStart;    // Start X coordinate (scale by 1/16 for 320x200 screen)
     int16_t xEnd;      // End X coordinate
-    int16_t yStart;    // Start Y coordinate 
+    int16_t yStart;    // Start Y coordinate
     int16_t yEnd;      // End Y coordinate
     int16_t sprite1;   // First sprite ID (usually 0)
     int16_t sprite2;   // Second sprite ID or environment marker
@@ -482,7 +482,7 @@ struct SrTrackCoordSegment {
 struct SrRoadSideSpriteRecord {
     uint16_t spriteId1;      // First sprite ID
     uint16_t trackPosition1; // Position along track (scale by 1/16)
-    uint16_t spriteId2;      // Second sprite ID  
+    uint16_t spriteId2;      // Second sprite ID
     uint16_t trackPosition2; // Position along track
 };
 
@@ -493,16 +493,16 @@ struct SrTrackSegment {
     int16_t commandOffset;  // Offset for commands
     int16_t opCode;         // Operation code for segment type
     int16_t trapXMin;       // Collision detection X minimum
-    int16_t trapXMax;       // Collision detection X maximum  
+    int16_t trapXMax;       // Collision detection X maximum
     int16_t trapYMin;       // Collision detection Y minimum
     int16_t trapYMax;       // Collision detection Y maximum
     int16_t flags;          // Segment flags (bit 1 = end-of-chain)
     uint8_t triggerFlag;    // Trigger conditions
     uint8_t padding[13];    // Padding to 26 bytes total
-    
+
     // Check if this segment ends the chain
     bool IsEndOfChain() const { return (flags & 2) != 0; }
-    
+
     // Get bounding box for collision detection
     void GetBoundingBox(int16_t& minX, int16_t& minY, int16_t& maxX, int16_t& maxY) const {
         minX = trapXMin; minY = trapYMin;
@@ -532,7 +532,7 @@ static const SpriteRect RACING_TREE2_FRAMES[] = {
 };
 
 static const SpriteRect RACING_SIGN_COUNTY_LINE_FRAMES[] = {
-    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}    
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 
 // Engine animation frame definitions
@@ -571,7 +571,7 @@ static const SpriteRect ENGINE_CAM_FRAMES[] = {
 
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
-    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},    
+    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
     {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
     {ENGINE_BELT_ANIMATION, 4, 500, true, ENGINE_BELT_FRAMES},
     {ENGINE_PISTON_LEFT_ANIMATION, 8, 500, true, ENGINE_PISTON_LEFT_FRAMES},
@@ -596,14 +596,12 @@ inline SpriteRect GetAnimationFrameRect(const SpriteAnimationInfo* info, uint8_t
     if (!info || frameIndex >= info->frameCount || !info->frames) {
         return {0, 0, 0, 0}; // Invalid frame
     }
-    
+
     return info->frames[frameIndex];
 }
 
-// Note: Convert SpriteRect to SDL_Rect manually in implementation files when needed
-
 // Opponent car sprite color palette index
-// Opponent car sprites use indexed colors. Palette index 7 contains the magenta 
+// Opponent car sprites use indexed colors. Palette index 7 contains the magenta
 // placeholder color (#f000c0 / RGB: 240, 0, 192) that represents the car body.
 // To recolor an opponent car, replace palette[7] with the desired car color before
 // converting the sprite from planar to chunky format.
@@ -712,7 +710,7 @@ constexpr inline float CalculateSampleDuration(uint32_t lengthInSamples, uint32_
 
 // Track data offsets in Street Rod binary
 constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
-constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments) 
+constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments)
 constexpr uint32_t SR_ROADSIDE_SPRITES_OFFSET = 0x10021;    // Roadside sprite placements
 constexpr uint32_t SR_ROAD_POSTS_OFFSET = 0x10EC1;          // Road posts area
 constexpr uint16_t SR_COORDINATE_SCALE_FACTOR = 16;         // Divide coordinates by this for screen coords
@@ -945,6 +943,10 @@ struct CarMetadata_t {
     CarClickBoxes_t clickBoxes;
 };
 
+struct PartMetadata_t {
+    ClassifiedEntry_t classified;
+};
+
 enum StockPalette {
     StockPaletteAmigaDiner = 0,
     StockPaletteAmigaGasStation = 1,
@@ -976,19 +978,19 @@ private:
 
 public:
     VectorReader(const std::vector<uint8_t>& data) : data(data), position(0) {}
-    
+
     uint8_t ReadUint8() {
         if (position >= data.size()) throw std::runtime_error("Read beyond vector bounds");
         return data[position++];
     }
-    
+
     uint16_t ReadUint16BE() {
         if (position + 1 >= data.size()) throw std::runtime_error("Read beyond vector bounds");
         uint16_t value = (static_cast<uint16_t>(data[position]) << 8) | data[position + 1];
         position += 2;
         return value;
     }
-    
+
     uint32_t ReadUint32BE() {
         if (position + 3 >= data.size()) throw std::runtime_error("Read beyond vector bounds");
         uint32_t value = (static_cast<uint32_t>(data[position]) << 24) |
@@ -998,7 +1000,7 @@ public:
         position += 4;
         return value;
     }
-    
+
     std::string ReadNullTerminatedString() {
         std::string result;
         while (position < data.size() && data[position] != 0) {
@@ -1007,16 +1009,16 @@ public:
         position++; // Skip the null terminator
         return result;
     }
-    
+
     void Seek(size_t newPosition) {
         if (newPosition > data.size()) throw std::runtime_error("Seek beyond vector bounds");
         position = newPosition;
     }
-    
+
     size_t Tell() const {
         return position;
     }
-    
+
     std::vector<uint8_t> ReadBytes(size_t count) {
         if (position + count > data.size()) throw std::runtime_error("Read beyond vector bounds");
         std::vector<uint8_t> result(data.begin() + position, data.begin() + position + count);
@@ -1131,7 +1133,7 @@ struct SrTransmissionData {
     uint8_t brand;           // 0=universal, 1=GM, 2=Ford, 4=Chrysler
     int16_t gear_ratios[4];  // Gear ratios as scaled integers
     uint16_t scale_factor;   // Scaling factor (100, 256, etc.)
-    
+
     // Helper: Get actual ratio as float (for display/debugging)
     float GetRatio(int gear) const {
         if (gear < 0 || gear >= 4) return 0.0f;
@@ -1143,8 +1145,9 @@ class DataParser {
     public:
         CarMetadata_t*         SrLibDataReadDataFromFile(const char* filename, int* outCount);
         CarMetadata_t*         SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
+        PartMetadata_t*        SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
         int                    GetCarIndex(AmigaLibAsset asset);
-        
+
         // New: Transmission data parsing
         std::vector<SrTransmissionData> ParseTransmissions(const std::vector<uint8_t>& srDataFile);
         std::vector<SrTransmissionData> ParseTransmissions(const std::string& filename);
@@ -1168,13 +1171,13 @@ class TrackReader {
 private:
     std::vector<uint8_t> binaryData;
     bool dataLoaded = false;
-    
+
     // Helper to read big-endian 16-bit value
     int16_t ReadBigEndian16(const uint8_t* data, size_t offset) const {
         return (static_cast<int16_t>(data[offset]) << 8) | data[offset + 1];
     }
-    
-    // Helper to read big-endian 16-bit unsigned value  
+
+    // Helper to read big-endian 16-bit unsigned value
     uint16_t ReadBigEndianU16(const uint8_t* data, size_t offset) const {
         return (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
     }
@@ -1182,16 +1185,16 @@ private:
 public:
     // Load Street Rod binary data from file
     bool LoadTrackData(const std::string& binaryPath);
-    
+
     // Load Street Rod binary data from memory (AssetManager)
     bool LoadTrackData(const std::vector<uint8_t>& binaryData);
-    
+
     // Extract raw coordinate segments from track
     std::vector<SrTrackCoordSegment> ExtractTrackCoordinates(SrTrackType trackType, int maxSegments = 500);
-    
+
     // Extract roadside sprite placements
     std::vector<SrRoadSideSpriteRecord> ExtractRoadSideSprites(uint32_t offset = SR_ROADSIDE_SPRITES_OFFSET, int maxRecords = 200);
-    
+
     // Convert coordinate segment to screen coordinates
     static void ScaleCoordinates(SrTrackCoordSegment& segment) {
         segment.xStart /= SR_COORDINATE_SCALE_FACTOR;
@@ -1199,16 +1202,16 @@ public:
         segment.yStart /= SR_COORDINATE_SCALE_FACTOR;
         segment.yEnd /= SR_COORDINATE_SCALE_FACTOR;
     }
-    
+
     // Convert sprite position to screen coordinates
     static void ScaleSpritePosition(SrRoadSideSpriteRecord& record) {
         record.trackPosition1 /= SR_COORDINATE_SCALE_FACTOR;
         record.trackPosition2 /= SR_COORDINATE_SCALE_FACTOR;
     }
-    
+
     // Get sprite name for debugging
     static const char* GetSpriteName(uint16_t spriteId);
-    
+
     // Analyze track for statistics
     struct TrackAnalysis {
         int segmentCount;
@@ -1218,7 +1221,7 @@ public:
         int minX, maxX, minY, maxY;
         std::vector<uint16_t> uniqueSprites;
     };
-    
+
     TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
