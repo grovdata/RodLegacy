@@ -4,7 +4,7 @@ cmake = import('cmake')
 adflib_opts = cmake.subproject_options()
 adflib_opts.add_cmake_defines({
     'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
-    'BUILD_SHARED_LIBS': 'OFF',
+    'BUILD_SHARED_LIBS': 'ON',
     'CMAKE_C_FLAGS': '-w'  # Suppress all warnings from ADFlib
 })
 

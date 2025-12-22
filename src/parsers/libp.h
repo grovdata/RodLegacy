@@ -970,7 +970,6 @@ enum StockPalette {
 #define CAR_PLAYER_MODEL_COUNT 25
 #define DRIVER_COUNT 22
 
-// Add these helper functions at the top of the file, after the includes
 class VectorReader {
 private:
     const std::vector<uint8_t>& data;

@@ -830,7 +830,7 @@ cleanup:
     return NULL;
 }
 
-/// @brief Reads info about parts from game binary (eg. Street_Rod),
+/// @brief Reads info about parts from game binary (Street_Rod),
 ///        since they are hard-coded in the game.
 /// @param data Pointer to data buffer
 /// @param dataSize Size of data buffer

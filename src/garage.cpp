@@ -1051,9 +1051,8 @@ void Garage::ShowCarInfoDialog() {
     
         // No buttons - dialog will be dismissed by clicking outside or pressing escape
         infoCfg.buttons = {};
-    infoCfg.onZoneHover = [this](Zone& zone) {
-        // no-op
-    };
+    infoCfg.onZoneHover = nullptr;
+    
     infoCfg.onButtonPressed = nullptr;
     
     carInfoDialog = std::make_unique<Dialog>(infoCfg);
@@ -1071,8 +1070,8 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
     
     // Check if player has enough money
-    int currentMoney = state.GetBankroll();
-    bool canAfford = currentMoney >= price;
+    // int currentMoney = state.GetBankroll();
+    // bool canAfford = currentMoney >= price;
     
     // Button layout
     const int buttonWidth = 70;
