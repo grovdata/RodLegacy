@@ -356,10 +356,8 @@ int main(int argc, char* argv[]) {
 
     bool close_requested = false;
 
-    Uint64 timeDelta = 0;
-
-
-
+    // Delta-time tracking
+    Uint64 prevTicks = SDL_GetTicks64();
 
     while (!close_requested) {
         SDL_Event event;
@@ -463,19 +461,23 @@ int main(int argc, char* argv[]) {
         scene->Draw();
         scene->DrawExtra();
 
-        // This changes type every frame, would be good to only change on scene change
-        mouse.SetPointerType(scene->GetPointerType());
-
         mouse.Draw();
 
-        timeDelta = SDL_GetTicks64() - timeDelta;
-
-        state.SetElapsedTime(timeDelta);
+        // Calculate delta-time properly
+        Uint64 now = SDL_GetTicks64();
+        Uint64 delta = now - prevTicks;
+        prevTicks = now;
+        
+        // Update state with delta-time in milliseconds
+        state.SetElapsedTime(delta);
 
         SDL_RenderPresent(renderer);
 
-        // wait 1/60th of a second
-        SDL_Delay(1000 / 240);
+        // Frame rate limiting: rely on vsync primarily, but add delay as backup
+        // Since we use SDL_RENDERER_PRESENTVSYNC, this delay is mainly for non-vsync scenarios
+        if (delta < (1000 / GAME_FPS)) {
+            SDL_Delay((1000 / GAME_FPS) - delta);
+        }
     }
 
     //printf("Whadda loser!\n");

@@ -6,6 +6,10 @@
 #include "ui/hud.h"
 #include "dialogs/dialog.h"
 #include "assets.h"
+#include "mouse.h"
+
+// Forward declaration for mouse pointer update on scene change
+extern Mouse mouse;
 
 Scene::Scene(Asset backgroundAsset, StockPalette palette) {
     this->isSetup = false;
@@ -274,6 +278,8 @@ void Scene::OnFadeComplete() {
     } else if (sceneTransition == SCENE_FADE_IN) {
         sceneTransition = SCENE_SOLID;
         // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
+        // Update mouse pointer when scene fade-in completes (only on scene change, not every frame)
+        mouse.SetPointerType(GetPointerType());
     }
 }
 
