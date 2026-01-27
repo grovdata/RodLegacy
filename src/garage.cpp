@@ -1049,8 +1049,8 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.lines = lines;
     infoCfg.font = state.assets.GetMainFont();
     
-        // No buttons - dialog will be dismissed by clicking outside or pressing escape
-        infoCfg.buttons = {};
+    // No buttons - dialog will be dismissed by clicking outside or pressing escape
+    infoCfg.buttons = {};
     infoCfg.onZoneHover = nullptr;
     
     infoCfg.onButtonPressed = nullptr;

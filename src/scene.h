@@ -24,8 +24,7 @@ class Scene: public IDrawableContainer {
    private:
 
     ZoneId CheckMouseHover(int x, int y);
-    static Uint32 FadeCallback(Uint32 interval, void* param);
-    SDL_TimerID fadeTimerID;
+    void UpdateFade(Uint64 deltaTime);
 
 
    protected:
@@ -57,6 +56,8 @@ class Scene: public IDrawableContainer {
     
     Uint8 fadeAlpha = 255;
     Uint64 lastActionTime = 0;
+    Uint64 fadeStartTime = 0;
+    static constexpr Uint64 FADE_DURATION_MS = 500; // 500ms fade duration
     
     virtual void ToggleDebugMode();
     virtual void DrawDebugZones();
@@ -76,6 +77,7 @@ class Scene: public IDrawableContainer {
     void FadeIn();
     void PrepareFadeIn();
     virtual void OnFadeComplete();
+    virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
     virtual void OnSceneExit();
 
     virtual void Action(ZoneId zone);

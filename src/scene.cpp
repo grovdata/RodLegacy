@@ -235,39 +235,53 @@ void Scene::Action(ZoneId zone) {
 }
 
 void Scene::FadeIn() {
-    if (fadeTimerID != 0) {
-        SDL_RemoveTimer(fadeTimerID);
-    }
     fadeAlpha = 255;
+    fadeStartTime = SDL_GetTicks64();
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
-    fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_IN;
 }
 
 void Scene::FadeOut() {
-    SDL_RemoveTimer(fadeTimerID);
+    fadeAlpha = 0;
+    fadeStartTime = SDL_GetTicks64();
     SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_TRANSPARENT);
-    fadeTimerID = SDL_AddTimer(2, FadeCallback, this);
     sceneTransition = SCENE_FADE_OUT;
 }
 
-Uint32 Scene::FadeCallback(Uint32 interval, void* param) {
-    Scene* scene = static_cast<Scene*>(param);
-    
-    if (scene->sceneTransition == SCENE_FADE_IN) {
-        scene->fadeAlpha -= 5;
-        SDL_SetTextureAlphaMod(scene->fadeTexture, scene->fadeAlpha);
+void Scene::UpdateFade(Uint64 deltaTime) {
+    if (sceneTransition == SCENE_FADE_IN || sceneTransition == SCENE_FADE_OUT) {
+        Uint64 elapsed = SDL_GetTicks64() - fadeStartTime;
         
-        if (scene->fadeAlpha <= 0) {
-            scene->fadeAlpha = 255;  // Reset for next time
-            scene->sceneTransition = SCENE_SOLID;
-            scene->OnFadeComplete();
-            SDL_RemoveTimer(scene->fadeTimerID);
-            scene->fadeTimerID = 0;  // Clear the timer ID
-            return 0;
+        if (elapsed >= FADE_DURATION_MS) {
+            // Fade complete
+            if (sceneTransition == SCENE_FADE_IN) {
+                fadeAlpha = 0;
+                sceneTransition = SCENE_SOLID;
+            } else if (sceneTransition == SCENE_FADE_OUT) {
+                fadeAlpha = 255;
+                sceneTransition = SCENE_BLACK;
+            }
+            SDL_SetTextureAlphaMod(fadeTexture, fadeAlpha);
+            OnFadeComplete();
+        } else {
+            // Calculate fade progress (0.0 to 1.0)
+            float progress = static_cast<float>(elapsed) / static_cast<float>(FADE_DURATION_MS);
+            
+            if (sceneTransition == SCENE_FADE_IN) {
+                // Fade from opaque (255) to transparent (0)
+                fadeAlpha = static_cast<Uint8>(255 * (1.0f - progress));
+            } else if (sceneTransition == SCENE_FADE_OUT) {
+                // Fade from transparent (0) to opaque (255)
+                fadeAlpha = static_cast<Uint8>(255 * progress);
+            }
+            
+            SDL_SetTextureAlphaMod(fadeTexture, fadeAlpha);
         }
     }
-    return interval;
+}
+
+void Scene::Update(Uint64 deltaTime) {
+    UpdateFade(deltaTime);
 }
 
 void Scene::OnFadeComplete() {

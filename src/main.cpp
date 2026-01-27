@@ -457,12 +457,6 @@ int main(int argc, char* argv[]) {
 
         Scene *scene = state.GetCurrentScene();
 
-
-        scene->Draw();
-        scene->DrawExtra();
-
-        mouse.Draw();
-
         // Calculate delta-time properly
         Uint64 now = SDL_GetTicks64();
         Uint64 delta = now - prevTicks;
@@ -470,6 +464,14 @@ int main(int argc, char* argv[]) {
         
         // Update state with delta-time in milliseconds
         state.SetElapsedTime(delta);
+
+        // Update scene (handles fade transitions and other per-frame logic)
+        scene->Update(delta);
+
+        scene->Draw();
+        scene->DrawExtra();
+
+        mouse.Draw();
 
         SDL_RenderPresent(renderer);
 
