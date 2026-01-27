@@ -162,7 +162,7 @@ void GasStation::DrawMaskAfterCar() {
     SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
     
     if (roadMaskSurface && roadMaskTexture) {
-        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        SDL_BlitSurface(surface.get(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
         SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);

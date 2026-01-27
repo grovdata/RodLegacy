@@ -8,33 +8,33 @@ const int wheelSize = 31;
 
 CarShadow::CarShadow(int width) {
     this->width = width;
-    this->surface = SDL_CreateRGBSurface(0, width, 4, 32,
+    this->surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, 4, 32,
         0xFF000000,  // Red mask
         0x00FF0000,  // Green mask
         0x0000FF00,  // Blue mask
         0x000000FF   // Alpha mask
-    );
+    ));
 }
 
 CarShadow::~CarShadow() {
 }
 
 void CarShadow::Draw() {
-    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
+    SDL_FillRect(surface.get(), NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
     SDL_Rect clearRect;
     Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);  // Transparent black
     clearRect = {0, 0, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 3, 0, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {0, 2, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 3, 2, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {0, 3, 6, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 6, 3, 6, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     UpdateFromSurface();
     Bitmap::Draw();
 }

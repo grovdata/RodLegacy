@@ -11,6 +11,7 @@
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
+#include "utils.h"
 #include <filesystem>
 #include <fstream>
 #include <cstring>
@@ -122,11 +123,11 @@ void TakeScreenshot() {
     SDL_GetWindowSize(win, &windowWidth, &windowHeight);
 
     // Create a surface to hold the pixel data
-    SDL_Surface* surface = SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
+    sdl2::SurfacePtr surface(SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
                                                0x00FF0000,  // Red mask
                                                0x0000FF00,  // Green mask
                                                0x000000FF,  // Blue mask
-                                               0xFF000000); // Alpha mask
+                                               0xFF000000)); // Alpha mask
 
     if (!surface) {
         SDL_Log("Failed to create surface for screenshot: %s", SDL_GetError());
@@ -137,7 +138,6 @@ void TakeScreenshot() {
     if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                             surface->pixels, surface->pitch) != 0) {
         SDL_Log("Failed to read pixels for screenshot: %s", SDL_GetError());
-        SDL_FreeSurface(surface);
         return;
     }
 
@@ -150,13 +150,13 @@ void TakeScreenshot() {
     std::string filename = "screenshot_" + std::to_string(screenshotCounter++) + ".png";
 
     // Save the surface as PNG
-    if (IMG_SavePNG(surface, filename.c_str()) != 0) {
+    if (IMG_SavePNG(surface.get(), filename.c_str()) != 0) {
         SDL_Log("Failed to save screenshot: %s", SDL_GetError());
     } else {
         SDL_Log("Screenshot saved: %s", filename.c_str());
     }
 
-    SDL_FreeSurface(surface);
+    // RAII handles cleanup automatically
 }
 
 #ifdef _WIN32
@@ -234,12 +234,12 @@ int main(int argc, char* argv[]) {
 
 #ifndef _WIN32
     // Load icon from embedded data (only on non-Windows platforms)
-    SDL_Surface *icon = LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len);
-    if (icon == NULL) {
+    sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));
+    if (!icon) {
         SDL_Log("Could not load embedded icon");
     } else {
-        SDL_SetWindowIcon(win, icon);
-        SDL_FreeSurface(icon);
+        SDL_SetWindowIcon(win, icon.get());
+        // RAII handles cleanup automatically
     }
 #endif
 

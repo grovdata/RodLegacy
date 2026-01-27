@@ -8,6 +8,7 @@
 #include "carbitmap.h"
 #include "debug_overlay.h"
 #include "audio/audio_manager.h"
+#include "utils.h"
 #include <vector>
 #include <memory>
 
@@ -39,8 +40,10 @@ class Scene: public IDrawableContainer {
     HUD *hud;
     Dialog *activeDialog = nullptr;
 
-    SDL_Surface *surface, *fadeSurface;
-    SDL_Texture *texture, *fadeTexture;
+    sdl2::SurfacePtr surface;
+    sdl2::SurfacePtr fadeSurface;
+    sdl2::TexturePtr texture;
+    sdl2::TexturePtr fadeTexture;
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 

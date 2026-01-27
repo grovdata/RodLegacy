@@ -17,7 +17,7 @@ void AnimatedBitmap::Draw() {
     // Only draw if we have animation frames - don't call Bitmap::Draw()
     if (animation.frameCount > 0 && animation.currentFrame < animation.frameRects.size() && texture != NULL) {
         SDL_Rect srcRect = animation.frameRects[animation.currentFrame];
-        SDL_RenderCopy(renderer, texture, &srcRect, &rect);
+        SDL_RenderCopy(renderer, texture.get(), &srcRect, &rect);
     }
 }
 

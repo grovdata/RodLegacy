@@ -52,5 +52,5 @@ void Spritesheet::Print() {
 
 void Spritesheet::Draw() {
     if (isVisible)
-        SDL_RenderCopy(renderer, texture, &clipRect, &rect);
+        SDL_RenderCopy(renderer, texture.get(), &clipRect, &rect);
 }

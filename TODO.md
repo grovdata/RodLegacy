@@ -32,7 +32,7 @@
 - [x] Critical: fix delta-time in main loop (`prevTicks`/`now`), update `state.SetElapsedTime(delta)`, and rely on vsync or `SDL_Delay(1000 / GAME_FPS)` consistently.
 - [x] Critical: remove C-style cast in `main` when calling `DrawMaskAfterCar`; either use `dynamic_cast<CarScene*>` or add `virtual DrawAfter()` to `Scene` and implement in `CarScene`, then call from `main`.
 
-- [ ] High: update mouse pointer on scene change (in `State::MoveToScene` or `Scene::OnFadeComplete`) instead of every frame in `main`.
+- [x] High: update mouse pointer on scene change (in `State::MoveToScene` or `Scene::OnFadeComplete`) instead of every frame in `main`.
 - [ ] High: `Scene` memory management: delete `hud` in `Scene::~Scene` or convert `HUD* hud` to `std::unique_ptr<HUD>`. Consider smart pointers for dialogs/bubbles too.
 - [x] High: replace `SDL_AddTimer`-based fade with per-frame fade driven by elapsed time on the main thread.
 - [ ] High: `Bitmap::LoadBitmap` leak: remove `strdup` and pass `filename.c_str()` directly.
