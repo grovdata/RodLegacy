@@ -37,8 +37,8 @@ class Scene: public IDrawableContainer {
     Asset backgroundAsset;
     StockPalette palette;
     Bitmap *background;
-    HUD *hud;
-    Dialog *activeDialog = nullptr;
+    std::unique_ptr<HUD> hud;
+    Dialog *activeDialog = nullptr;  // Non-owning pointer - dialogs owned by derived classes
 
     sdl2::SurfacePtr surface;
     sdl2::SurfacePtr fadeSurface;
@@ -51,7 +51,7 @@ class Scene: public IDrawableContainer {
     std::vector<Zone> zones;
     std::vector<Button> buttons;
     std::vector<SDL_Texture*> textures;
-    std::vector<Bubble*> bubbles;
+    std::vector<std::unique_ptr<Bubble>> bubbles;
 
     DebugOverlay* debugOverlay;
     bool debugMode;

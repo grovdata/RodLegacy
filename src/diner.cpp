@@ -43,9 +43,9 @@ void Diner::Init(bool debugMode) {
     zones.push_back(garage);
     zones.push_back(backgroundZone);
 
-    Bubble *guyBubble = new Bubble("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
+    auto guyBubble = std::make_unique<Bubble>("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
     guyBubble->SetVisible(false);
-    bubbles.push_back(guyBubble);
+    bubbles.push_back(std::move(guyBubble));
 
     // Add phonebook guy as AnimatedBitmap to container (only if not already added)
     if (!GetDrawable("phonebook_guy")) {
@@ -194,7 +194,7 @@ void Diner::Draw() {
             phonebookGuy->Draw();
         }
         
-        for (auto b : bubbles) {
+        for (auto& b : bubbles) {
             b->Draw();
         }
         if (debugMode && debugOverlay) {
@@ -227,7 +227,7 @@ void Diner::Draw() {
         carBitmap->Draw();
     }
 
-    for (auto b : bubbles) {
+    for (auto& b : bubbles) {
         b->Draw();
     }
 

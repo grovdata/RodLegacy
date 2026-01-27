@@ -89,27 +89,27 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     zones.push_back(transmission);
     zones.push_back(engine);
 
-    Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
+    auto bubbleDrink = std::make_unique<Bubble>("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
     bubbleDrink->SetVisible(false);
-    bubbles.push_back(bubbleDrink);
-    Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
+    bubbles.push_back(std::move(bubbleDrink));
+    auto partsBubble = std::make_unique<Bubble>("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
     partsBubble->SetVisible(false);
-    bubbles.push_back(partsBubble);
-    Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
+    bubbles.push_back(std::move(partsBubble));
+    auto tiresBubble = std::make_unique<Bubble>("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
     tiresBubble->SetVisible(false);
-    bubbles.push_back(tiresBubble);
-    Bubble *paintBubble = new Bubble("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(tiresBubble));
+    auto paintBubble = std::make_unique<Bubble>("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     paintBubble->SetVisible(false);
-    bubbles.push_back(paintBubble);
-    Bubble *customizationBubble = new Bubble("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(paintBubble));
+    auto customizationBubble = std::make_unique<Bubble>("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     customizationBubble->SetVisible(false);
-    bubbles.push_back(customizationBubble);
-    Bubble *roofConstraintBubble = new Bubble("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(customizationBubble));
+    auto roofConstraintBubble = std::make_unique<Bubble>("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
     roofConstraintBubble->SetVisible(false);
-    bubbles.push_back(roofConstraintBubble);
-    Bubble *bumperConstraintBubble = new Bubble("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(roofConstraintBubble));
+    auto bumperConstraintBubble = std::make_unique<Bubble>("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
     bumperConstraintBubble->SetVisible(false);
-    bubbles.push_back(bumperConstraintBubble);
+    bubbles.push_back(std::move(bumperConstraintBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -1298,7 +1298,7 @@ void Garage::Draw() {
     }
 
     // Draw bubbles last so they appear on top of dialogs
-    for (auto b : bubbles) {
+    for (auto& b : bubbles) {
         b->Draw();
     }
 }

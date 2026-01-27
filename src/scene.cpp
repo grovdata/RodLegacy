@@ -85,7 +85,7 @@ void Scene::Init(bool initialDebugMode) {
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    hud = new HUD(palette, 20, 59);
+    hud = std::make_unique<HUD>(palette, 20, 59);
     hud->SetVisible(true);
     hud->Clear();
 
@@ -191,7 +191,7 @@ void Scene::Draw() {
 void Scene::SetActiveDialog(Dialog *dialog) {
     activeDialog = dialog;
     if (activeDialog != nullptr) {
-        for (auto bubble : bubbles) {
+        for (auto& bubble : bubbles) {
             bubble->SetVisible(false);
         }
         activeDialog->Show();
