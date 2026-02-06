@@ -125,7 +125,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 
     // Set audio manager for engine sound
-    SetAudioManager(state.assets.GetAudioManager());
+    SetAudioManager(state.GetAssets().GetAudioManager());
 
     // Don't start animation here - it will be started after initialDelay in Draw()
 
@@ -213,7 +213,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.lines = lines;
     dialogConfig.zones = dialogZones;  // Add the dialog zones here
     dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
-    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -452,7 +452,7 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.lines = lines;
     menuDialogConfig.zones = dialogZones;
     menuDialogConfig.contentAreas = std::vector<SDL_Rect>{menuDialogRect};
-    menuDialogConfig.font = state.assets.GetMainFont();
+    menuDialogConfig.font = state.GetAssets().GetMainFont();
     menuDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -580,7 +580,7 @@ void Garage::InitOptionsDialog() {
     optionsDialogConfig.lines = lines;
     optionsDialogConfig.zones = dialogZones;
     optionsDialogConfig.contentAreas = std::vector<SDL_Rect>{optionsDialogRect};
-    optionsDialogConfig.font = state.assets.GetMainFont();
+    optionsDialogConfig.font = state.GetAssets().GetMainFont();
     optionsDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -868,7 +868,7 @@ void Garage::ShowPaintDialog() {
     paintDialogConfig.borderColor = {0, 111, 239, 255};
     paintDialogConfig.buttons = buttons;
     paintDialogConfig.contentAreas = {}; // No content areas = no background drawn
-    paintDialogConfig.font = state.assets.GetMainFont();
+    paintDialogConfig.font = state.GetAssets().GetMainFont();
     paintDialogConfig.onButtonPressed = [this](int index) {
         switch (index) {
             case 0: // Next color
@@ -937,18 +937,18 @@ void Garage::ShowCarInfoDialog() {
     
     auto addLeft = [&](const char* s) {
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addIndented = [&](const char* s) {
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft + 10, y, dialogRect.w - 26, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addRightNote = [&](const char* left, const char* note) {
         // Render left, then compute right-aligned note position using measured width
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, left, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        int noteWidth = SFont_TextWidth(state.assets.GetMainFont(), note);
+        int noteWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), note);
         texts.push_back(DialogTextConfig{SDL_Rect{xRightAlign - noteWidth, y, noteWidth, 10}, note, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     
     // Populate from current car parts (engine, manifold, carb, transmission, tires)
@@ -1029,11 +1029,11 @@ void Garage::ShowCarInfoDialog() {
         addRightNote("Tires.", wearNote(car->GetTires().wear).c_str());
 
         // Blank line
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
         // Fuel (placeholder until wired)
         addLeft("Fuel     4 gallons");
         // Blank line
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
         int mph = model.baseSpeed > 0 ? model.baseSpeed : 97;
         char speedBuf[64];
         snprintf(speedBuf, sizeof(speedBuf), "Max speed   %d mph", mph);
@@ -1047,7 +1047,7 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.contentAreas = { dialogRect }; // draw dialog background
     infoCfg.texts = texts;
     infoCfg.lines = lines;
-    infoCfg.font = state.assets.GetMainFont();
+    infoCfg.font = state.GetAssets().GetMainFont();
     
     // No buttons - dialog will be dismissed by clicking outside or pressing escape
     infoCfg.buttons = {};
@@ -1103,7 +1103,7 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     modDialogConfig.buttons = buttons;
     modDialogConfig.lines = lines;
     modDialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
-    modDialogConfig.font = state.assets.GetMainFont();
+    modDialogConfig.font = state.GetAssets().GetMainFont();
     modDialogConfig.onButtonPressed = [this, price, onConfirm, &dialogPtr](int index) {
         switch (index) {
             case 0: // OK
@@ -1166,9 +1166,9 @@ void Garage::UpdateSign() {
     SDL_FillRect(signSurface, NULL, transparent);
     
     // Write new text
-    int textWidth = SFont_TextWidth(state.assets.GetMainFont(), text);
+    int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
     int x = signRect.x + (signRect.w - textWidth) / 2;
-    SFont_Write(signSurface, state.assets.GetMainFont(), x, 45, text);
+    SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
     
     // Destroy old texture if it exists
     if (signTexture) {

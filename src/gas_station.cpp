@@ -42,10 +42,10 @@ void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
     // Set audio manager for engine sound
-    SetAudioManager(state.assets.GetAudioManager());
+    SetAudioManager(state.GetAssets().GetAudioManager());
 
     // Create a mask for gas pump
-    auto maskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
+    auto maskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
     maskedBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
     background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
@@ -65,21 +65,21 @@ void GasStation::Init(bool initialDebugMode) {
         SDL_Log("Failed to create road mask surface");
     }
 
-    // Add pump no handle to container
-    auto pumpNoHandle = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
+    // Add pump no handle to container (asset-owned, non-owning ref)
+    auto pumpNoHandle = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
     pumpNoHandle->SetPosition(56, 114);
     pumpNoHandle->SetVisible(true);
-    AddDrawable("pump_no_handle", std::shared_ptr<IDrawable>(pumpNoHandle));
+    AddDrawable("pump_no_handle", pumpNoHandle);
 
-    // Add attendant as AnimatedBitmap to container
-    Bitmap* attendantSheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
+    // Add attendant as AnimatedBitmap to container (scene-owned)
+    Bitmap* attendantSheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
     SDL_Rect attendantRect = {200, 90, 47, 47};
-    auto attendantAnim = new AnimatedBitmap(attendantSheet, attendantRect);
+    attendantAnim = std::make_unique<AnimatedBitmap>(attendantSheet, attendantRect);
     attendantAnim->SetAnimationFrames(47, 47, 4, 1); // 2x2 grid
     attendantAnim->SetSpeed(0.5f); // 0.5s per frame
     attendantAnim->SetLoop(true);
     attendantAnim->Play();
-    AddDrawable("attendant", std::shared_ptr<IDrawable>(attendantAnim));
+    AddDrawable("attendant", attendantAnim.get());
     
     initStartTime = SDL_GetTicks64();
     
@@ -90,7 +90,7 @@ void GasStation::Action(ZoneId zone) {
     if (carBitmap){
         carBitmap->SetGasCapRemoved(false);
         carBitmap->SetPumpingHandleVisible(false);
-        auto pumpNoHandle = std::dynamic_pointer_cast<Bitmap>(GetDrawable("pump_no_handle"));
+        auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
         if (pumpNoHandle) {
             pumpNoHandle->SetVisible(false);
         }
@@ -101,7 +101,7 @@ void GasStation::Action(ZoneId zone) {
             sceneState = GAS_STATION_HANDLEOFF;
             carBitmap->SetGasCapRemoved(true);
             carBitmap->SetPumpingHandleVisible(true);
-            auto pumpNoHandle = std::dynamic_pointer_cast<Bitmap>(GetDrawable("pump_no_handle"));
+            auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
             if (pumpNoHandle) {
                 pumpNoHandle->SetVisible(true);
             }
@@ -128,7 +128,7 @@ void GasStation::Draw() {
     UpdateCarAnimation(deltaTime);
 
     // Update attendant animation
-    auto attendant = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("attendant"));
+    auto attendant = dynamic_cast<AnimatedBitmap*>(GetDrawable("attendant"));
     if (attendant) {
         attendant->Update(deltaTime);
     }

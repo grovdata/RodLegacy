@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
+#include "animated_bitmap.h"
 class Opponent;
 
 class Diner: public CarScene {
@@ -27,7 +28,12 @@ class Diner: public CarScene {
 
     // Add a map to store opponent car bitmaps
     std::map<std::string, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
-    
+
+    // Scene-owned animated drawables (asset sheets are owned by AssetManager)
+    std::unique_ptr<AnimatedBitmap> phonebookGuyAnim;
+    std::unique_ptr<AnimatedBitmap> waitressLeftAnim;
+    std::unique_ptr<AnimatedBitmap> waitressRightAnim;
+
     Opponent *currentOpponent;
 
     bool isPaused;
@@ -67,7 +73,7 @@ class Diner: public CarScene {
         void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
         void UpdateCarAnimation(double deltaTime) override;
         void UpdateAnimation(double deltaTime);
-        void UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight);
+        void UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight);
 
 
         void UpdateDebugInfo() override;

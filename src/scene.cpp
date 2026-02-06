@@ -49,12 +49,12 @@ void Scene::Init(bool initialDebugMode) {
     debugMode = initialDebugMode;
     debugEnabled = initialDebugMode;
     if (debugMode) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
+        debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetDebugFont());
     }
     
     // Only load background if we have a valid asset or filename
     if (backgroundAsset.id != 0) {
-        background = state.assets.GetBitmapAsset(backgroundAsset);
+        background = state.GetAssets().GetBitmapAsset(backgroundAsset);
         background->SetVisible(true);
     } else {
         background = nullptr;
@@ -105,7 +105,7 @@ void Scene::ToggleDebugMode() {
     
     // Create overlay if it doesn't exist yet
     if (debugMode && !debugOverlay) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
+        debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetMainFont());
     }
     
     // Clear overlay when toggling off

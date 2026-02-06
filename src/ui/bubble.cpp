@@ -19,7 +19,7 @@ Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool aut
     }
 
     Asset bubbleAsset = {LibAssetRegular, SrLibFileAmigaLibP, bubbleAssetId};
-    bubble = state.assets.GetBitmapAsset(bubbleAsset);
+    bubble = state.GetAssets().GetBitmapAsset(bubbleAsset);
     bubble->SetVisible(true);
     bubble->SetPosition(xPos, yPos);
 
@@ -33,8 +33,7 @@ Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool aut
 }
 
 Bubble::~Bubble() {
-    // Free font surface
-    delete bubble;
+    // bubble is owned by AssetManager; fontSurface/fontTexture are managed by smart pointers
 }
 
 void Bubble::SetVisible(bool visible) {
@@ -65,7 +64,7 @@ void Bubble::UpdateText(std::string& text) {
     
     char buf[50];
     snprintf(buf, 50, "%s", text.c_str());
-    SFont_Write(fontSurface.get(), state.assets.GetMainFont(), 0, 0, buf);
+    SFont_Write(fontSurface.get(), state.GetAssets().GetMainFont(), 0, 0, buf);
     
     fontTexture.reset(SDL_CreateTextureFromSurface(renderer, fontSurface.get()));
     SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);

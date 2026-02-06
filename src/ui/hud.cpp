@@ -9,7 +9,7 @@ HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex) {
     backgroundBitmap->SetVisible(true);
     textBitmap = new Bitmap(GAME_WIDTH, GAME_STATUSBAR_HEIGHT, 32);
     textBitmap->SetVisible(true);
-    Palette rgbPal = state.assets.GetStockPalette(palette);
+    Palette rgbPal = state.GetAssets().GetStockPalette(palette);
     SrLibColor backgroundColor = rgbPal[backgroundColorIndex];
     SrLibColor fontColor = rgbPal[fontColorIndex];
     
@@ -59,8 +59,8 @@ void HUD::SetText(const char *text) {
     // Write the text
     char bankroll[30];
     snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
-    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 2, 0, bankroll);
-    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 100, 0, text);
+    SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), 2, 0, bankroll);
+    SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), 100, 0, text);
     
     textBitmap->UpdateFromSurface();    
 }
@@ -75,7 +75,7 @@ void HUD::SetTextOnly(const char *text) {
         fontColor.b);
     
     // Write the text without bankroll
-    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), 2, 0, text);
+    SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), 2, 0, text);
     
     textBitmap->UpdateFromSurface();    
 }
@@ -89,7 +89,7 @@ void HUD::AddText(int x, int y, const char *text) {
         fontColor.b);
     
     // Write the text at the specified position
-    SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), x, y, text);
+    SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), x, y, text);
     
     textBitmap->UpdateFromSurface();    
 }

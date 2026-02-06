@@ -45,6 +45,9 @@ private:
 
     Uint64 elapsedTime;
 
+    // AssetManager first so it is destroyed last; scenes hold non-owning refs to its assets
+    AssetManager assets;
+
     std::unique_ptr<Garage> garage;
     std::unique_ptr<Diner> diner;
     std::unique_ptr<GasStation> gasStation;
@@ -58,6 +61,8 @@ private:
 public:
     State();
     ~State();
+
+    AssetManager& GetAssets() { return assets; }
 
     void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false);
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
@@ -82,8 +87,7 @@ public:
     std::vector<Car *> GetOwnedCars();
 
     CarData carData;
-    AssetManager assets;
-    
+
 };
 
 extern State state;

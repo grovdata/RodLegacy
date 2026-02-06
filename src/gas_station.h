@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "ui/zone.h"
 #include "utils.h"
+#include "animated_bitmap.h"
 #include "bitmap.h"
 #include "spritesheet.h"
 
@@ -23,6 +24,7 @@ class GasStation : public CarScene {
     SDL_Rect roadMaskDestRect = {0, 0, 320, 15};
     GasStationState sceneState = GAS_STATION_IDLE;
     std::unique_ptr<CarBitmap> currentCarBitmap;
+    std::unique_ptr<AnimatedBitmap> attendantAnim;
     void InitCurrentCarBitmap();
     CarBitmap* GetOrCreateCurrentCarBitmap();
 

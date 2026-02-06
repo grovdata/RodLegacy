@@ -14,7 +14,7 @@ class IDrawable {
 
 struct DrawableEntry {
     std::string id;
-    std::shared_ptr<IDrawable> drawable;
+    IDrawable* drawable;  // Non-owning; ownership is elsewhere (e.g. AssetManager or scene)
 };
 
 class IDrawableContainer {
@@ -24,7 +24,7 @@ class IDrawableContainer {
     public:
         virtual ~IDrawableContainer() = default;
 
-        void AddDrawable(const std::string& id, const std::shared_ptr<IDrawable> &drawable) {
+        void AddDrawable(const std::string& id, IDrawable* drawable) {
             drawables.push_back({id, drawable});
         }
 
@@ -40,7 +40,7 @@ class IDrawableContainer {
             drawables.clear();
         }
 
-        std::shared_ptr<IDrawable> GetDrawable(const std::string& id) {
+        IDrawable* GetDrawable(const std::string& id) {
             for (const auto& entry : drawables) {
                 if (entry.id == id) {
                     return entry.drawable;

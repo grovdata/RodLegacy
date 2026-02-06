@@ -311,7 +311,7 @@ int main(int argc, char* argv[]) {
     try {
         SDL_ShowCursor(SDL_DISABLE);
         state.Init(debugMode, gamePath, muteAudio);
-        mouse.loadPointers(state.assets.GetMousePointers());
+        mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(SCENE_GARAGE);
     } catch (const std::exception& e) {
