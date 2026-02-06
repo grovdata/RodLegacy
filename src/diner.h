@@ -80,7 +80,7 @@ class Diner: public CarScene {
         void OnCarAnimationComplete() override;
         void OnCarExitComplete() override;
 
-        void PushEvent(SDL_Event *event) override;
+        bool PushEvent(SDL_Event *event) override;
 
         void OnFadeComplete() override;
         void OnSceneExit() override;

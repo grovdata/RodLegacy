@@ -27,7 +27,7 @@
 
 # Chores
 
-- [ ] Critical: crash on exit.
+- [x] Critical: crash on exit.
 - [x] Critical: create `SDL_Window`/`SDL_Renderer` after `SDL_Init` in `src/main.cpp`; keep globals as `nullptr`; use `SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC`; robust error handling.
 - [x] Critical: fix delta-time in main loop (`prevTicks`/`now`), update `state.SetElapsedTime(delta)`, and rely on vsync or `SDL_Delay(1000 / GAME_FPS)` consistently.
 - [x] Critical: remove C-style cast in `main` when calling `DrawMaskAfterCar`; either use `dynamic_cast<CarScene*>` or add `virtual DrawAfter()` to `Scene` and implement in `CarScene`, then call from `main`.

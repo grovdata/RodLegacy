@@ -474,48 +474,42 @@ void Driving::Draw() {
     }
 }
 
-void Driving::PushEvent(SDL_Event *event) {
-    Scene::PushEvent(event);
+bool Driving::PushEvent(SDL_Event *event) {
+    bool consumed = Scene::PushEvent(event);
     lastEvent = event;
-    
-    // Handle keyboard input for steering
+
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
             case SDLK_LEFT:
                 SetState(DRIVING_STATE_TURNING_LEFT);
-                break;
+                return true;
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_TURNING_RIGHT);
-                break;
+                return true;
             case SDLK_UP:
-                // UP key is handled by racing logic for acceleration
                 break;
             case SDLK_1:
-                // Switch to Road Race track
                 if (racing) {
                     SDL_Log("Switching to Road Race track\n");
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_ROAD_RACE);
-                    
-                    // Update transmission type
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
                         bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
+                    return true;
                 }
                 break;
             case SDLK_2:
-                // Switch to Drag Race track
                 if (racing) {
                     SDL_Log("Switching to Drag Race track\n");
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_DRAG_RACE);
-                    
-                    // Update transmission type
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
                         bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
+                    return true;
                 }
                 break;
         }
@@ -524,12 +518,12 @@ void Driving::PushEvent(SDL_Event *event) {
             case SDLK_LEFT:
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_NORMAL);
-                break;
+                return true;
             case SDLK_UP:
-                // UP key is handled by racing logic for acceleration
                 break;
         }
     }
+    return consumed;
 }
 
 // Timer callback no longer needed - racing is updated in Draw() method

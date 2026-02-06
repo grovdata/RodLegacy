@@ -345,36 +345,26 @@ void Newspaper::Draw() {
     }
 }
 
-void Newspaper::PushEvent(SDL_Event *event) {
-    // Handle dialog events first
+bool Newspaper::PushEvent(SDL_Event *event) {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return; // Skip normal zone handling when dialog is visible
+        return true;
     }
-    
-    // Handle mouse wheel scrolling in ads area
-    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) { // Only allow smooth scrolling on used car pages
+
+    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) {
         int mouseX = event->wheel.mouseX;
         int mouseY = event->wheel.mouseY;
-        
-        // Check if mouse is over the ads area (64, 0, 192, 190)
         if (mouseX >= 64 && mouseX < 256 && mouseY >= 0 && mouseY < 190) {
-            int wheelY = event->wheel.y;
-            
-            if (wheelY > 0) { // Scroll up
+            if (event->wheel.y > 0) {
                 smoothScrollOffset -= 20;
-            }
-            else if (wheelY < 0) { // Scroll down
+            } else if (event->wheel.y < 0) {
                 smoothScrollOffset += 20;
             }
-            
-            // Update the viewport with smooth scrolling
             UpdateViewport();
-            return; // Don't process this event further
+            return true;
         }
     }
-    
-    Scene::PushEvent(event);
+    return Scene::PushEvent(event);
 }
 
 void Newspaper::Action(ZoneId zone) {

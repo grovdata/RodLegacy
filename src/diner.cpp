@@ -327,50 +327,50 @@ void Diner::UpdateDebugInfo() {
     }
 }
 
-void Diner::PushEvent(SDL_Event *event) {
-    CarScene::PushEvent(event);  // Handle parent events first (like F12)
-
-    if (!debugMode) return;  // Only handle these events in debug mode
+bool Diner::PushEvent(SDL_Event *event) {
+    bool consumed = CarScene::PushEvent(event);
+    if (!debugMode) return consumed;
 
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
             case SDLK_p:
                 isPaused = !isPaused;
-                break;
-            
+                return true;
             case SDLK_UP:
                 if (isPaused && carBitmap) {
-                    cary--;  // Move car up
+                    cary--;
                     carBitmap->MoveBody({carx, cary});
+                    return true;
                 }
                 break;
-                
             case SDLK_DOWN:
                 if (isPaused && carBitmap) {
-                    cary++;  // Move car down
+                    cary++;
                     carBitmap->MoveBody({carx, cary});
+                    return true;
                 }
                 break;
-
             case SDLK_LEFT:
                 if (isPaused && carBitmap) {
                     carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() - 1);
+                    return true;
                 }
                 break;
-
             case SDLK_RIGHT:
                 if (isPaused && carBitmap) {
                     carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() + 1);
+                    return true;
                 }
                 break;
-
             case SDLK_r:
                 if (isPaused && carBitmap) {
                     carBitmap->ToggleChoppedRoof();
+                    return true;
                 }
                 break;
         }
     }
+    return consumed;
 }
 
 void Diner::FadeOut() {

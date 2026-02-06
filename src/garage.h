@@ -56,7 +56,7 @@ class Garage : public CarScene {
     SDL_Point GetCarIdlePosition() override;
 
     void Action(ZoneId zone) override;
-    void PushEvent(SDL_Event* event) override;
+    bool PushEvent(SDL_Event* event) override;
     void Draw() override;
     void SetActiveDialog(Dialog *dialog) override;
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;

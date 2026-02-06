@@ -41,7 +41,7 @@ class GasStation : public CarScene {
     void UpdateCarAnimation(double deltaTime) override;
     void OnCarAnimationComplete() override;
     void UpdateDebugInfo() override;
-    void PushEvent(SDL_Event* event) override;
+    bool PushEvent(SDL_Event* event) override;
 
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnFadeComplete() override;

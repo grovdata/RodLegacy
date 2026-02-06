@@ -202,35 +202,39 @@ Dialog *Scene::GetActiveDialog() {
     return activeDialog;
 }
 
-void Scene::PushEvent(SDL_Event *event) {
+bool Scene::PushEvent(SDL_Event *event) {
     // Handle debug toggle
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
-        return;
+        return true;
     }
     
     // If there's an active dialog, pass the event to it first
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return; // Dialog gets priority
+        return true;
     }
     
     // Handle mouse events for scene zones
     if (event->type == SDL_MOUSEMOTION) {
         ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
-        // Could add hover effects here if needed
+        return false;
     }
     
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
-        if (SDL_GetTicks64() - lastActionTime > 200) {
+        Uint32 t = event->common.timestamp;
+        if (lastActionTimestamp == 0 || static_cast<Uint32>(t - lastActionTimestamp) >= 200) {
             ZoneId z = CheckMouseHover(event->button.x, event->button.y);
+            lastActionTimestamp = t;
             Action(z);
+            return true;
         }
+        return false;
     }
+    return false;
 }
 
 void Scene::Action(ZoneId zone) {
-    lastActionTime = SDL_GetTicks64();
 }
 
 void Scene::FadeIn() {
@@ -648,8 +652,8 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
     }
 }
 
-void CarScene::PushEvent(SDL_Event *event) {
-    Scene::PushEvent(event);
+bool CarScene::PushEvent(SDL_Event *event) {
+    return Scene::PushEvent(event);
 }
 
 void CarScene::OnFadeComplete() {

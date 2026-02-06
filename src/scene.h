@@ -58,7 +58,7 @@ class Scene: public IDrawableContainer {
     bool debugEnabled;
     
     Uint8 fadeAlpha = 255;
-    Uint64 lastActionTime = 0;
+    Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
     Uint64 fadeStartTime = 0;
     static constexpr Uint64 FADE_DURATION_MS = 500; // 500ms fade duration
     
@@ -86,7 +86,7 @@ class Scene: public IDrawableContainer {
     virtual void Action(ZoneId zone);
     virtual void Draw();
     virtual void DrawExtra() {} // Override in derived classes for additional drawing
-    virtual void PushEvent(SDL_Event *event);
+    virtual bool PushEvent(SDL_Event *event);
 
     virtual Dialog *GetActiveDialog();
     virtual void SetActiveDialog(Dialog *dialog);
@@ -150,7 +150,7 @@ public:
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
-    virtual void PushEvent(SDL_Event *event) override;
+    virtual bool PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;
     virtual void OnSceneExit() override;
     

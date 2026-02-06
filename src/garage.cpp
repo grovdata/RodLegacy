@@ -1317,13 +1317,12 @@ void Garage::SetActiveDialog(Dialog *dialog) {
     }
 }
 
-void Garage::PushEvent(SDL_Event* event) {
+bool Garage::PushEvent(SDL_Event* event) {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return;  // Skip normal zone handling when dialog is visible
+        return true;
     }
-
-    CarScene::PushEvent(event);
+    return CarScene::PushEvent(event);
 }
 
 void Garage::OnCarAnimationComplete() {

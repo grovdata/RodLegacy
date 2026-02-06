@@ -229,10 +229,9 @@ void GasStation::UpdateDebugInfo() {
     }
 }
 
-void GasStation::PushEvent(SDL_Event* event) {
-    Scene::PushEvent(event);
-
-    if (!debugMode) return;
+bool GasStation::PushEvent(SDL_Event* event) {
+    bool consumed = Scene::PushEvent(event);
+    if (!debugMode) return consumed;
 
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
@@ -242,11 +241,10 @@ void GasStation::PushEvent(SDL_Event* event) {
             case SDLK_RIGHT:
             case SDLK_UP:
             case SDLK_DOWN: {
-                Zone& rearWindow = GetZone(ZONE_GAS_STATION_CAR_WINDOW_REAR);  // Note the & here
+                Zone& rearWindow = GetZone(ZONE_GAS_STATION_CAR_WINDOW_REAR);
                 SDL_Rect targetRect = rearWindow.GetRect();
-                
                 int delta = (event->key.keysym.mod & KMOD_SHIFT) ? 5 : 1;
-                switch(event->key.keysym.sym) {
+                switch (event->key.keysym.sym) {
                     case SDLK_LEFT:
                         targetRect.x -= delta;
                         break;
@@ -261,10 +259,11 @@ void GasStation::PushEvent(SDL_Event* event) {
                         break;
                 }
                 rearWindow.SetRect(&targetRect);
+                return true;
             }
-            break;
         }
     }
+    return consumed;
 }
 
 void GasStation::StartAnimateCar(Car *car, Driver*, CarAnimationType animType) {

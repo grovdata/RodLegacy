@@ -75,7 +75,7 @@ private:
         void Start();
 
         void Draw() override;
-        void PushEvent(SDL_Event *event) override;
+        bool PushEvent(SDL_Event *event) override;
 
         void SetState(DrivingState state);
 };
