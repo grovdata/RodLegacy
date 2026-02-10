@@ -184,6 +184,23 @@ void Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
+    // Dismiss on Escape or click outside dialog bounds
+    if (config.onDismiss) {
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+            config.onDismiss();
+            return;
+        }
+        if (event->type == SDL_MOUSEBUTTONDOWN) {
+            const SDL_Rect& b = config.bounds;
+            int x = event->button.x;
+            int y = event->button.y;
+            if (x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) {
+                config.onDismiss();
+                return;
+            }
+        }
+    }
+
     if (event->type == SDL_MOUSEMOTION) {
         SDL_Point mousePos = {event->motion.x, event->motion.y};
         for (auto zone : config.zones) {

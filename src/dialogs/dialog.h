@@ -46,6 +46,8 @@ struct DialogConfig {
     
     std::function<void(int)> onButtonPressed;
     std::function<void(Zone&)> onZoneHover;
+    /** Optional: called when dialog is dismissed by Escape or click outside bounds. */
+    std::function<void()> onDismiss;
 };
 
 class Dialog {

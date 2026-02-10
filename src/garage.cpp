@@ -1049,12 +1049,15 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.lines = lines;
     infoCfg.font = state.GetAssets().GetMainFont();
     
-    // No buttons - dialog will be dismissed by clicking outside or pressing escape
+    // No buttons - dialog is dismissed by clicking outside or pressing Escape
     infoCfg.buttons = {};
     infoCfg.onZoneHover = nullptr;
-    
     infoCfg.onButtonPressed = nullptr;
-    
+    infoCfg.onDismiss = [this]() {
+        carInfoDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+
     carInfoDialog = std::make_unique<Dialog>(infoCfg);
     carInfoDialog->Show();
     SetActiveDialog(carInfoDialog.get());
