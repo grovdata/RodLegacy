@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
                                 }
                                 break;
                             case SDLK_ESCAPE:
-                                if (event.type == SDL_KEYUP) {
+                                if (event.type == SDL_KEYDOWN) {
                                     close_requested = true;
                                 }
                                 break;
