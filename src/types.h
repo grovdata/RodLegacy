@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+#include <memory>
 #include <string>
 #include "parsers/libp.h"
 #include <SDL.h>
