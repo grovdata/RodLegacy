@@ -324,11 +324,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Also ensure initial scene is set up for normal initialization path
-    if (!state.GetCurrentScene()) {
-        state.MoveToScene(SCENE_GARAGE);
-    }
-
     // Res scaling
     if (useOriginalSize) {
         // When using original size, no logical scaling - render directly to window
@@ -342,7 +337,6 @@ int main(int argc, char* argv[]) {
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    state.MoveToScene(SCENE_GARAGE);
 
     // state.SetCurrentScene(&diner);
 
