@@ -178,7 +178,6 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         const std::string& path = car->GetCustomDecalPath();
         if (!path.empty()) {
             customDecal.LoadBitmap(path);
-            customDecal.SetDimensions(55, 25);
             customDecal.SetVisible(true);
         }
         decal.SetVisible(false);

@@ -89,6 +89,7 @@ public:
     byte_vector& GetSrExeData() { return srExeData_vec; }
 
     AudioManager* GetAudioManager() { return audioManager; }
+    const fs::path& GetBasePath() const { return gameBasePath; }
 
 private:
     fs::path gameBasePath;

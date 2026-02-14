@@ -1075,8 +1075,10 @@ void Garage::LoadCustomStickers() {
     customStickerPaths.clear();
 
     namespace fs = std::filesystem;
-    const fs::path stickerDir = "data/stickers";
+    const fs::path stickerDir = state.GetAssets().GetBasePath() / "stickers";
+    SDL_Log("LoadCustomStickers: looking in %s", stickerDir.string().c_str());
     if (!fs::exists(stickerDir) || !fs::is_directory(stickerDir)) {
+        SDL_Log("LoadCustomStickers: directory not found");
         return;
     }
 
@@ -1235,15 +1237,13 @@ void Garage::ShowStickerDialog() {
             case 1: // UP
                 if (stickerScrollRow > 0) {
                     stickerScrollRow--;
-                    stickerDialog->Hide();
-                    ShowStickerDialog();
+                    stickerNeedsRefresh = true;
                 }
                 break;
             case 2: // DOWN
                 if (stickerScrollRow < maxScrollRow) {
                     stickerScrollRow++;
-                    stickerDialog->Hide();
-                    ShowStickerDialog();
+                    stickerNeedsRefresh = true;
                 }
                 break;
         }
@@ -1537,6 +1537,13 @@ void Garage::Draw() {
     // Draw paint can preview if paint dialog is active
     if (paintCanPreview && paintCanPreview->IsVisible()) {
         paintCanPreview->Draw();
+    }
+
+    // Deferred sticker dialog refresh (avoids use-after-free when scrolling)
+    if (stickerNeedsRefresh) {
+        stickerNeedsRefresh = false;
+        stickerDialog->Hide();
+        ShowStickerDialog();
     }
 
     if (activeDialog && activeDialog->IsVisible()) {
