@@ -28,6 +28,8 @@ struct DialogBitmap {
     Bitmap* bitmap;
     SDL_Rect rect;
     int zOrder = 0;
+    /** Optional: for Spritesheet, source region to draw (cell); if w/h > 0 the dialog uses this instead of the sheet's clipRect. */
+    SDL_Rect sourceRect = {0, 0, 0, 0};
 };
 
 struct DialogConfig {
@@ -43,9 +45,10 @@ struct DialogConfig {
     std::vector<Zone> zones;
     
     std::map<std::string, DialogBitmap> bitmaps;
-    
+
     std::function<void(int)> onButtonPressed;
     std::function<void(Zone&)> onZoneHover;
+    std::function<void(Zone&)> onZoneClick;
     /** Optional: called when dialog is dismissed by Escape or click outside bounds. */
     std::function<void()> onDismiss;
 };

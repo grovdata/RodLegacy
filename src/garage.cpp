@@ -1063,6 +1063,98 @@ void Garage::ShowCarInfoDialog() {
     SetActiveDialog(carInfoDialog.get());
 }
 
+void Garage::ShowStickerDialog() {
+    SDL_Rect dialogRect = {23, 11, 264, 69};
+
+    Spritesheet* decalsSheet = state.GetAssets().GetCarDecals();
+    if (!decalsSheet) {
+        SDL_Log("ShowStickerDialog: DECALS bitmap not loaded");
+        return;
+    }
+
+    // Frame: drawn with contentAreas (extracted from hardcoded bitmap concept – reusable window frame)
+    const SDL_Color frameBg = {0x2A, 0x2A, 0x2A, 0xFF};
+    const SDL_Color frameBorder = {0x88, 0x88, 0x88, 0xFF};
+    std::vector<SDL_Rect> contentAreas = {dialogRect};
+
+    // Stock stickers from decals spritesheet (222x51, 4×2 cells). Custom stickers can be
+    // added later by appending to the grid: push more DialogBitmap entries (with bitmap
+    // from loaded assets or user content) and corresponding zones; keep stock indices 0–7.
+    const int SRC_CELL_W = 55;
+    const int SRC_CELL_H = 25;
+    const int GRID_LEFT = dialogRect.x + 2;
+    const int GRID_TOP = dialogRect.y + 2;
+    const int SKIP_BUTTON_W = 30;
+    const int GRID_W = dialogRect.w - SKIP_BUTTON_W - 4;
+    const int GRID_H = dialogRect.h - 4;
+    const int cellW = GRID_W / 4;
+    const int cellH = GRID_H / 2;
+
+    std::map<std::string, DialogBitmap> bitmaps;
+    const ZoneId decalZoneIds[] = {
+        ZONE_GARAGE_STICKER_DECAL_0, ZONE_GARAGE_STICKER_DECAL_1, ZONE_GARAGE_STICKER_DECAL_2, ZONE_GARAGE_STICKER_DECAL_3,
+        ZONE_GARAGE_STICKER_DECAL_4, ZONE_GARAGE_STICKER_DECAL_5, ZONE_GARAGE_STICKER_DECAL_6, ZONE_GARAGE_STICKER_DECAL_7
+    };
+    std::vector<Zone> zones;
+    for (int r = 0; r < 2; r++) {
+        for (int c = 0; c < 4; c++) {
+            int i = r * 4 + c;
+            SDL_Rect dest = {GRID_LEFT + c * cellW, GRID_TOP + r * cellH, cellW, cellH};
+            SDL_Rect src = {c * SRC_CELL_W, r * SRC_CELL_H, SRC_CELL_W, SRC_CELL_H};
+            DialogBitmap db;
+            db.bitmap = decalsSheet;
+            db.rect = dest;
+            db.zOrder = 0;
+            db.sourceRect = src;
+            bitmaps["decal_" + std::to_string(i)] = db;
+            zones.push_back(Zone(decalZoneIds[i], strdup(""), &dest));
+        }
+    }
+
+    // SKIP IT button (replaces hardcoded button in the original bitmap)
+    SDL_Rect skipRect = {dialogRect.x + dialogRect.w - SKIP_BUTTON_W - 2, dialogRect.y + 2, SKIP_BUTTON_W, dialogRect.h - 4};
+    ButtonConfig skipButton = {skipRect, "SKIP IT", nullptr, false, 0};
+    std::vector<ButtonConfig> buttons = {skipButton};
+
+    DialogConfig stickerCfg;
+    stickerCfg.bounds = dialogRect;
+    stickerCfg.backgroundColor = frameBg;
+    stickerCfg.borderColor = frameBorder;
+    stickerCfg.contentAreas = contentAreas;
+    stickerCfg.bitmaps = bitmaps;
+    stickerCfg.zones = zones;
+    stickerCfg.buttons = buttons;
+    stickerCfg.font = state.GetAssets().GetMainFont();
+    stickerCfg.onButtonPressed = [this](int) {
+        stickerDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+    stickerCfg.onZoneClick = [this](Zone& zone) {
+        ZoneId id = zone.GetId();
+        if (id < ZONE_GARAGE_STICKER_DECAL_0 || id > ZONE_GARAGE_STICKER_DECAL_7) return;
+        int decalIndex = id - ZONE_GARAGE_STICKER_DECAL_0;
+        Car* car = state.GetCurrentCar();
+        if (car && car->CanAddDecal()) {
+            int money = state.GetBankroll();
+            if (money >= 5) {
+                state.SetBankroll(money - 5);
+                car->SetDecal((SrLibCarDecal)decalIndex);
+                GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+            }
+        }
+        stickerDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+    stickerCfg.onDismiss = [this]() {
+        stickerDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+
+    stickerDialog = std::make_unique<Dialog>(stickerCfg);
+    stickerDialog->Show();
+    SetActiveDialog(stickerDialog.get());
+}
+
 void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
     // Dialog dimensions as specified
     const int dialogWidth = 156;
@@ -1233,6 +1325,9 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_PAINT_JOB:
         ShowPaintDialog();
+        break;
+    case ZONE_GARAGE_STICKERS:
+        ShowStickerDialog();
         break;
     default:
         break;

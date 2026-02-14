@@ -3,6 +3,7 @@
 #include "../ui/button.h"
 #include "../bitmap.h"
 #include "../animated_bitmap.h"
+#include "../spritesheet.h"
 #include "ui/zone.h"
 #include <vector>
 
@@ -41,8 +42,11 @@ Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config)
     }
     bitmaps = config.bitmaps;
     for (const auto& bitmap : config.bitmaps) {
-        bitmap.second.bitmap->SetPosition(bitmap.second.rect.x, bitmap.second.rect.y);
-        bitmap.second.bitmap->SetDimensions(bitmap.second.rect.w, bitmap.second.rect.h);
+        bool useSourceRect = (bitmap.second.sourceRect.w > 0 && bitmap.second.sourceRect.h > 0);
+        if (!useSourceRect) {
+            bitmap.second.bitmap->SetPosition(bitmap.second.rect.x, bitmap.second.rect.y);
+            bitmap.second.bitmap->SetDimensions(bitmap.second.rect.w, bitmap.second.rect.h);
+        }
         bitmap.second.bitmap->SetVisible(true);
     }
 }
@@ -117,16 +121,30 @@ void Dialog::Draw() {
         }
     }
     
-    // Draw bitmaps
+    // Draw bitmaps (Spritesheet with sourceRect: use that cell and restore clipRect after)
     for (const auto& bitmap : sortedBitmaps) {
-        bitmap.bitmap->Draw();
+        Spritesheet* sheet = dynamic_cast<Spritesheet*>(bitmap.bitmap);
+        if (sheet && bitmap.sourceRect.w > 0 && bitmap.sourceRect.h > 0) {
+            SDL_Rect savedClip = sheet->GetClipRect();
+            sheet->SetClipRect(bitmap.sourceRect);
+            bitmap.bitmap->SetPosition(bitmap.rect.x, bitmap.rect.y);
+            bitmap.bitmap->SetDimensions(bitmap.rect.w, bitmap.rect.h);
+            bitmap.bitmap->Draw();
+            sheet->SetClipRect(savedClip);
+        } else {
+            bitmap.bitmap->Draw();
+        }
     }
 
     for (auto button : buttons) {
         button->Draw();
     }
 
-    mainBitmap->Draw();
+    // Only draw mainBitmap when dialog has content (text/areas/lines); bitmap-only dialogs skip it
+    bool hasContent = !contentAreas.empty() || !config.texts.empty() || !config.lines.empty();
+    if (hasContent) {
+        mainBitmap->Draw();
+    }
 }
 
 void Dialog::Show() {
@@ -196,6 +214,18 @@ void Dialog::HandleEvent(SDL_Event* event) {
             int y = event->button.y;
             if (x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) {
                 config.onDismiss();
+                return;
+            }
+        }
+    }
+
+    // Zone click: inside dialog bounds, check which zone was hit
+    if (event->type == SDL_MOUSEBUTTONDOWN && config.onZoneClick && event->button.button == SDL_BUTTON_LEFT) {
+        int x = event->button.x;
+        int y = event->button.y;
+        for (auto& zone : config.zones) {
+            if (zone.IsInsideZone(x, y)) {
+                config.onZoneClick(zone);
                 return;
             }
         }
