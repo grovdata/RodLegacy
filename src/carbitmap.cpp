@@ -172,11 +172,21 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         gasCap.SetVisible(false);
     }
 
-    if (car->GetDecal() != SrLibCarDecalNone) {
+    customDecal.SetVisible(false);
+    if (car->GetDecal() == SrLibCarDecalCustom) {
+        // Load custom PNG sticker
+        const std::string& path = car->GetCustomDecalPath();
+        if (!path.empty()) {
+            customDecal.LoadBitmap(path);
+            customDecal.SetDimensions(55, 25);
+            customDecal.SetVisible(true);
+        }
+        decal.SetVisible(false);
+    } else if (car->GetDecal() != SrLibCarDecalNone) {
 
         auto* decalAsset = (Spritesheet*)state.GetAssets().GetCarDecals();
         if (decalAsset) {
-            decal = *((Spritesheet*)decalAsset);            
+            decal = *((Spritesheet*)decalAsset);
             decal.SetVisible(true);
         }
 
@@ -212,6 +222,8 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             decal.SetVisible(false);
             break;
         }
+    } else {
+        decal.SetVisible(false);
     }
 
     // Make sure we're pointing to the right body
@@ -275,6 +287,10 @@ void CarBitmap::Draw() {
 
     if (decal.IsVisible()) {
         decal.Draw();
+    }
+
+    if (customDecal.IsVisible()) {
+        customDecal.Draw();
     }
 }
 
@@ -394,6 +410,7 @@ void CarBitmap::UpdateTextures() {
     
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);    
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
+    customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
     pumpingHandle.SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);

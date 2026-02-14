@@ -6,6 +6,7 @@
 #include "part.h"
 #include "engine_part.h"
 #include "car_system.h"
+#include <string>
 
 class Spritesheet;
 //extern SDL_Renderer *renderer;
@@ -26,6 +27,7 @@ class Car {
         bool isRoofChopped;
         CarModel model;
         SrLibCarDecal decal;
+        std::string customDecalPath;
         CarScoopType scoop;
         StandardCarColor color;
         int tuneLevel = 9;
@@ -83,6 +85,8 @@ class Car {
         void SetCarburator(Part carburator) { this->carburator = carburator; RecalculatePerformance(); }
         void SetManifold(Part manifold) { this->manifold = manifold; RecalculatePerformance(); }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
+        const std::string& GetCustomDecalPath() const { return customDecalPath; }
+        void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
         void SetTuneLevel(const int level) { this->tuneLevel = level; }

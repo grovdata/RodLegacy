@@ -30,6 +30,7 @@ private:
     Bitmap rearWheelhouse;
     Bitmap frontWheelhouse;
     Spritesheet decal;
+    Bitmap customDecal;
     Bitmap rearWheelhouseBackground;
     Bitmap frontWheelhouseBackground;
     Bitmap rearBumper;

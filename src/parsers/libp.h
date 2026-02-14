@@ -94,6 +94,7 @@ enum SrLibCarDecal {
     // SrLibCarDecalDosDataDiskExplosive = 23,
     SrLibCarDecalCount,
     SrLibCarDecalNone,
+    SrLibCarDecalCustom,
 };
 
 enum CarVendor_t {
