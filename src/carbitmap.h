@@ -81,6 +81,7 @@ public:
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
     StandardCarColor GetCurrentColor() const { return currentColor; }
+    Car* GetCar() const { return car; }
     BitmapOffset_t GetOffset();
 
     // Gas station methods

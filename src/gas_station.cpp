@@ -82,8 +82,6 @@ void GasStation::Init(bool initialDebugMode) {
     AddDrawable("attendant", attendantAnim.get());
     
     initStartTime = SDL_GetTicks64();
-    
-    InitCurrentCarBitmap();
 }
 
 void GasStation::Action(ZoneId zone) {
@@ -286,21 +284,16 @@ void GasStation::OnCarAnimationComplete() {
     carBitmap->SetPumpingHandleVisible(true);
 }
 
-void GasStation::InitCurrentCarBitmap() {
-    // Create bitmap for current car
-    if (state.GetCurrentCar()) {
-        currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
-        carBitmap = currentCarBitmap.get();
-        // Hide car shadow in gas station
-        if (carBitmap) carBitmap->SetShadowVisible(false);
-    }
-}
 
 CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
-    if (!currentCarBitmap && state.GetCurrentCar()) {
-        currentCarBitmap = std::make_unique<CarBitmap>(state.GetCurrentCar(), nullptr, state.GetCurrentCar()->GetColor());
+    Car* cur = state.GetCurrentCar();
+    if (currentCarBitmap && currentCarBitmap->GetCar() != cur) {
+        currentCarBitmap.reset();
+        carBitmap = nullptr;
+    }
+    if (!currentCarBitmap && cur) {
+        currentCarBitmap = std::make_unique<CarBitmap>(cur, nullptr, cur->GetColor());
         carBitmap = currentCarBitmap.get();
-        // Hide car shadow in gas station
         if (carBitmap) carBitmap->SetShadowVisible(false);
     }
     return currentCarBitmap.get();
@@ -309,9 +302,16 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
 
 
 void GasStation::OnSceneExit() {
-    // Reset gas station specific state if needed
+    // Reset gas station specific state
     sceneState = GAS_STATION_IDLE;
-    
+    currentCarBitmap.reset();
+
+    // Reset pump drawable visibility to initial state
+    auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
+    if (pumpNoHandle) {
+        pumpNoHandle->SetVisible(false);
+    }
+
     // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
 }

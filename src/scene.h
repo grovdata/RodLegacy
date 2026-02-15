@@ -156,7 +156,7 @@ public:
     
     void SetAudioManager(AudioManager* audioMgr) { audioManager = audioMgr; }
 
-    CarBitmap *carBitmap;
+    CarBitmap *carBitmap = nullptr;
     bool animatingCar = false;
     int carx, cary;
 };
