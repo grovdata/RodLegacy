@@ -1131,20 +1131,18 @@ void Garage::ShowStickerDialog() {
 
     const int SRC_CELL_W = 55;
     const int SRC_CELL_H = 25;
-    const int SIDE_BUTTON_W = 30;
     const int VISIBLE_ROWS = 2;
 
     int customCount = (int)customStickerBitmaps.size();
     int totalItems = 8 + customCount;  // 8 stock + N custom
     int totalRows = (totalItems + 3) / 4;
-    bool needsScroll = totalRows > VISIBLE_ROWS;
 
     // Clamp scroll position
     int maxScrollRow = std::max(0, totalRows - VISIBLE_ROWS);
     if (stickerScrollRow > maxScrollRow) stickerScrollRow = maxScrollRow;
     if (stickerScrollRow < 0) stickerScrollRow = 0;
 
-    const int cellW = (264 - SIDE_BUTTON_W - 4) / 4;
+    const int cellW = 264 / 4;
     const int cellH = SRC_CELL_H + 8;
     int dialogH = VISIBLE_ROWS * cellH + 4;
 
@@ -1206,31 +1204,42 @@ void Garage::ShowStickerDialog() {
         }
     }
 
-    // Side buttons: UP / SKIP IT / DOWN stacked vertically
-    int sideX = dialogRect.x + dialogRect.w - SIDE_BUTTON_W - 2;
-    int sideTop = dialogRect.y + 2;
-    int sideH = dialogRect.h - 4;
+    // Scroll buttons outside dialog, same pattern as car picker
+    const int scrollX = 289;
+    const int scrollBtnW = 15;
+    const int scrollBtnH = 15;
+    SDL_Rect scrollTopRect    = {scrollX, dialogRect.y, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollUpRect     = {scrollX, dialogRect.y + 16, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollDownRect   = {scrollX, dialogRect.y + dialogH - 31, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollBottomRect = {scrollX, dialogRect.y + dialogH - 15, scrollBtnW, scrollBtnH};
+
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_TOP, strdup("\\"), &scrollTopRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_UP, strdup("<"), &scrollUpRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_DOWN, strdup(">"), &scrollDownRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect));
 
     std::vector<ButtonConfig> buttons;
-
-    if (needsScroll) {
-        int btnH = sideH / 3;
-        SDL_Rect upRect = {sideX, sideTop, SIDE_BUTTON_W, btnH};
-        SDL_Rect skipRect = {sideX, sideTop + btnH, SIDE_BUTTON_W, btnH};
-        SDL_Rect downRect = {sideX, sideTop + btnH * 2, SIDE_BUTTON_W, sideH - btnH * 2};
-
-        ButtonConfig upButton = {upRect, "<", nullptr, false, 1};
-        ButtonConfig skipButton = {skipRect, "SKIP", nullptr, false, 0};
-        ButtonConfig downButton = {downRect, ">", nullptr, false, 2};
-        buttons = {upButton, skipButton, downButton};
-    } else {
-        SDL_Rect skipRect = {sideX, sideTop, SIDE_BUTTON_W, sideH};
-        ButtonConfig skipButton = {skipRect, "SKIP IT", nullptr, false, 0};
-        buttons = {skipButton};
-    }
+    ButtonConfig scrollTopBtn = {scrollTopRect, "\\", nullptr, false, 1};
+    scrollTopBtn.fillColor = frameBg;
+    scrollTopBtn.borderColor = frameBorder;
+    scrollTopBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollUpBtn = {scrollUpRect, "<", nullptr, false, 2};
+    scrollUpBtn.fillColor = frameBg;
+    scrollUpBtn.borderColor = frameBorder;
+    scrollUpBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollDownBtn = {scrollDownRect, ">", nullptr, false, 3};
+    scrollDownBtn.fillColor = frameBg;
+    scrollDownBtn.borderColor = frameBorder;
+    scrollDownBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollBottomBtn = {scrollBottomRect, "/", nullptr, false, 4};
+    scrollBottomBtn.fillColor = frameBg;
+    scrollBottomBtn.borderColor = frameBorder;
+    scrollBottomBtn.textColor = ButtonDefaultChoiceColor;
+    buttons = {scrollTopBtn, scrollUpBtn, scrollDownBtn, scrollBottomBtn};
 
     DialogConfig stickerCfg;
-    stickerCfg.bounds = dialogRect;
+    // Bounds includes scroll buttons for dismiss hit-testing; contentAreas is the visual rect
+    stickerCfg.bounds = {dialogRect.x, dialogRect.y, (scrollX + scrollBtnW) - dialogRect.x, dialogH};
     stickerCfg.backgroundColor = frameBg;
     stickerCfg.borderColor = frameBorder;
     stickerCfg.contentAreas = contentAreas;
@@ -1243,20 +1252,27 @@ void Garage::ShowStickerDialog() {
     };
     stickerCfg.onButtonPressed = [this, maxScrollRow](int index) {
         switch (index) {
-            case 0: // SKIP
-                stickerScrollRow = 0;
-                stickerDialog->Hide();
-                SetActiveDialog(nullptr);
+            case 1: // TOP
+                if (stickerScrollRow > 0) {
+                    stickerScrollRow = 0;
+                    stickerNeedsRefresh = true;
+                }
                 break;
-            case 1: // UP
+            case 2: // UP
                 if (stickerScrollRow > 0) {
                     stickerScrollRow--;
                     stickerNeedsRefresh = true;
                 }
                 break;
-            case 2: // DOWN
+            case 3: // DOWN
                 if (stickerScrollRow < maxScrollRow) {
                     stickerScrollRow++;
+                    stickerNeedsRefresh = true;
+                }
+                break;
+            case 4: // BOTTOM
+                if (stickerScrollRow < maxScrollRow) {
+                    stickerScrollRow = maxScrollRow;
                     stickerNeedsRefresh = true;
                 }
                 break;
