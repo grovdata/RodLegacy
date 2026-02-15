@@ -6,8 +6,8 @@ extern "C" {
 
 
 Bitmap::Bitmap() {
-    surface = NULL;
-    texture = NULL;
+    surface.reset();
+    texture.reset();
     isVisible = true;
     rect = {0, 0, 0, 0};
     sourceRect = {0, 0, 0, 0};  // Initialize to empty rect
@@ -16,21 +16,21 @@ Bitmap::Bitmap() {
 Bitmap::Bitmap(int width, int height, int depth) {
     rect = {0, 0, width, height};
     sourceRect = {0, 0, width, height};  // Initialize to full bitmap size
-    surface = SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
 }
 
 Bitmap::Bitmap(const Bitmap& other) {
     // Initialize members
-    surface = nullptr;
-    texture = nullptr;
+    surface.reset();
+    texture.reset();
     isVisible = other.isVisible;
     rect = other.rect;
     sourceRect = other.sourceRect;
 
     // Copy surface if it exists
     if (other.surface) {
-        surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
+        surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other.surface->pixels,
                                             other.surface->w,
                                             other.surface->h,
                                             other.surface->format->BitsPerPixel,
@@ -38,38 +38,27 @@ Bitmap::Bitmap(const Bitmap& other) {
                                             other.surface->format->Rmask,
                                             other.surface->format->Gmask,
                                             other.surface->format->Bmask,
-                                            other.surface->format->Amask);
+                                            other.surface->format->Amask));
         if (surface) {
-            texture = SDL_CreateTextureFromSurface(renderer, surface);
+            texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
         }
     }
 }
 
 Bitmap::~Bitmap() {
-    if (texture) {
-        SDL_DestroyTexture(texture);
-        texture = nullptr;
-    }
-    if (surface) {
-        SDL_FreeSurface(surface);
-        surface = nullptr;
-    }
+    // RAII handles cleanup automatically
 }
 
  // Assignment from pointer
 Bitmap& Bitmap::operator=(const Bitmap* other) {
     if (other) {
-        // Clean up existing resources
-        if (texture) {
-            SDL_DestroyTexture(texture);
-        }
-        if (surface) {
-            SDL_FreeSurface(surface);
-        }
+        // RAII handles cleanup automatically when resetting
+        surface.reset();
+        texture.reset();
 
         // Copy from other
         if (other->surface) {
-            surface = SDL_CreateRGBSurfaceFrom(other->surface->pixels,
+            surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other->surface->pixels,
                                                 other->surface->w,
                                                 other->surface->h,
                                                 other->surface->format->BitsPerPixel,
@@ -77,8 +66,10 @@ Bitmap& Bitmap::operator=(const Bitmap* other) {
                                                 other->surface->format->Rmask,
                                                 other->surface->format->Gmask,
                                                 other->surface->format->Bmask,
-                                                other->surface->format->Amask);
-            texture = SDL_CreateTextureFromSurface(renderer, surface);
+                                                other->surface->format->Amask));
+            if (surface) {
+                texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
+            }
         }
         isVisible = other->isVisible;
         rect = other->rect;
@@ -89,17 +80,13 @@ Bitmap& Bitmap::operator=(const Bitmap* other) {
 // Regular assignment operator
 Bitmap& Bitmap::operator=(const Bitmap& other) {
     if (this != &other) {
-        // Clean up existing resources
-        if (texture) {
-            SDL_DestroyTexture(texture);
-        }
-        if (surface) {
-            SDL_FreeSurface(surface);
-        }
+        // RAII handles cleanup automatically when resetting
+        surface.reset();
+        texture.reset();
 
         // Copy from other
         if (other.surface) {
-            surface = SDL_CreateRGBSurfaceFrom(other.surface->pixels,
+            surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other.surface->pixels,
                                                 other.surface->w,
                                                 other.surface->h,
                                                 other.surface->format->BitsPerPixel,
@@ -107,8 +94,10 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
                                                 other.surface->format->Rmask,
                                                 other.surface->format->Gmask,
                                                 other.surface->format->Bmask,
-                                                other.surface->format->Amask);
-            texture = SDL_CreateTextureFromSurface(renderer, surface);
+                                                other.surface->format->Amask));
+            if (surface) {
+                texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
+            }
         }
         isVisible = other.isVisible;
         rect = other.rect;
@@ -117,11 +106,11 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
 }
 
 SDL_Surface* Bitmap::GetSurface() {
-    return surface;
+    return surface.get();
 }
 
 SDL_Texture* Bitmap::GetTexture() {
-    return texture;
+    return texture.get();
 }
 
 SDL_Rect Bitmap::GetPosition() {
@@ -153,7 +142,7 @@ void Bitmap::AlignAbove(Bitmap *dest) {
 
 void Bitmap::Crop(SDL_Rect crop) {
     // Create a new surface with the dimensions of the crop rectangle
-    SDL_Surface* cropped = SDL_CreateRGBSurface(
+    sdl2::SurfacePtr cropped(SDL_CreateRGBSurface(
         0,
         crop.w,
         crop.h,
@@ -162,7 +151,7 @@ void Bitmap::Crop(SDL_Rect crop) {
         surface->format->Gmask,
         surface->format->Bmask,
         surface->format->Amask
-    );
+    ));
 
     if (!cropped) {
         std::cerr << "SDL_CreateRGBSurface failed: " << SDL_GetError() << std::endl;
@@ -170,20 +159,15 @@ void Bitmap::Crop(SDL_Rect crop) {
     }
 
     // Copy the pixels from the original surface to the new cropped surface
-    SDL_BlitSurface(surface, &crop, cropped, nullptr);
-    SDL_FreeSurface(surface);
-
-    // Free existing texture before creating new one
-    if (texture != NULL) {
-        SDL_DestroyTexture(texture);
-        texture = NULL;
-    }
-
-    surface = cropped;
-    texture = SDL_CreateTextureFromSurface(renderer, cropped);
+    SDL_BlitSurface(surface.get(), &crop, cropped.get(), nullptr);
+    
+    // Replace surface and texture
+    surface = std::move(cropped);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
 }
 
 void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
+    // Note: mask and target are external surfaces, we don't own them
     SrLibColor maskColor = AmigaMaskColor;
     uint8_t maskR = maskColor.r;
     uint8_t maskG = maskColor.g;
@@ -212,7 +196,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     }
 
     // Lock surfaces for pixel access if necessary
-    if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+    if (SDL_MUSTLOCK(surface.get())) SDL_LockSurface(surface.get());
     if (SDL_MUSTLOCK(mask)) SDL_LockSurface(mask);
     if (SDL_MUSTLOCK(target)) SDL_LockSurface(target);
 
@@ -244,7 +228,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     }
 
     // Unlock surfaces
-    if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+    if (SDL_MUSTLOCK(surface.get())) SDL_UnlockSurface(surface.get());
     if (SDL_MUSTLOCK(mask)) SDL_UnlockSurface(mask);
     if (SDL_MUSTLOCK(target)) SDL_UnlockSurface(target);
 }
@@ -255,15 +239,15 @@ void Bitmap::SetVisible(bool visible) {
 }
 
 void Bitmap::LoadBitmap(std::string filename) {
-    surface = IMG_Load(strdup(filename.c_str()));
-    //SDL_SetColorKey(surface, 0, SDL_MapRGB(surface->format, 0, 0, 0));
-    if (surface == NULL) {
+    surface = sdl2::SurfacePtr(IMG_Load(filename.c_str()));
+    //SDL_SetColorKey(surface.get(), 0, SDL_MapRGB(surface->format, 0, 0, 0));
+    if (!surface) {
         SDL_Log("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
         return;
     } else {
         SDL_LogDebug(0, "Loaded bitmap %s, size %d x %d\n", filename.c_str(), surface->w, surface->h);
     }
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
 
     rect.x = 0;
     rect.y = 0;
@@ -279,16 +263,16 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     }
 
     // Create a new surface with the same format and size as the source
-    surface = SDL_CreateRGBSurfaceWithFormat(
-        0, src->w, src->h, src->format->BitsPerPixel, src->format->format);
+    surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceWithFormat(
+        0, src->w, src->h, src->format->BitsPerPixel, src->format->format));
 
-    if (surface == nullptr) {
+    if (!surface) {
         std::cerr << "Could not create surface: " << SDL_GetError() << std::endl;
         return;
     }
 
     // Copy the pixel data
-    if (SDL_BlitSurface(src, nullptr, surface, nullptr) < 0) {
+    if (SDL_BlitSurface(src, nullptr, surface.get(), nullptr) < 0) {
         std::cerr << "Could not copy surface: " << SDL_GetError() << std::endl;
         return;
     }
@@ -299,7 +283,7 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
     rect.h = surface->h;
     sourceRect = {0, 0, surface->w, surface->h};  // Initialize to full bitmap size
 
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
     if (!texture) {
         std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
     }
@@ -312,13 +296,13 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
     }
 
     // Create an SDL surface with the specified width and height
-    surface = SDL_CreateRGBSurface(0, width, height, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+    surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, height, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF));
     if (!surface) {
         std::cerr << "Error: Could not create SDL surface: " << SDL_GetError() << std::endl;
         return;
     }
 
-    SDL_LockSurface(surface);
+    SDL_LockSurface(surface.get());
     uint32_t* pixels = static_cast<uint32_t*>(surface->pixels);
 
     for (int i = 0; i < width * height; ++i) {
@@ -342,14 +326,14 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
         pixels[i] = SDL_MapRGBA(surface->format, r, g, b, a);
     }
 
-    SDL_UnlockSurface(surface);
+    SDL_UnlockSurface(surface.get());
 
     // Set up alpha blending for the texture
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
     if (!texture) {
         std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
     } else {
-        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(texture.get(), SDL_BLENDMODE_BLEND);
     }
 
     sourceRect = {0, 0, width, height};  // Initialize to full bitmap size
@@ -360,7 +344,7 @@ void Bitmap::SaveBitmap(int index) {
     snprintf(filename, sizeof(filename), "sprite_%d.png", index);
 
     // Get surface pixels and convert to RGBA format
-    SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
+    sdl2::SurfacePtr rgbaSurface(SDL_ConvertSurfaceFormat(surface.get(), SDL_PIXELFORMAT_RGBA32, 0));
     if (!rgbaSurface) {
         std::cerr << "Failed to convert surface: " << SDL_GetError() << std::endl;
         return;
@@ -370,9 +354,9 @@ void Bitmap::SaveBitmap(int index) {
     const size_t pixelCount = rgbaSurface->w * rgbaSurface->h * 4;
     uint8_t* image = new uint8_t[pixelCount];
 
-    SDL_LockSurface(rgbaSurface);
+    SDL_LockSurface(rgbaSurface.get());
     memcpy(image, rgbaSurface->pixels, pixelCount);
-    SDL_UnlockSurface(rgbaSurface);
+    SDL_UnlockSurface(rgbaSurface.get());
 
     // Encode and save using lodepng
     unsigned error = lodepng_encode32_file(filename, image, rgbaSurface->w, rgbaSurface->h);
@@ -381,7 +365,7 @@ void Bitmap::SaveBitmap(int index) {
     }
 
     delete[] image;
-    SDL_FreeSurface(rgbaSurface);
+    // rgbaSurface automatically freed by RAII
 }
 
 void Bitmap::SetSourceRect(const SDL_Rect& rect) {
@@ -389,28 +373,35 @@ void Bitmap::SetSourceRect(const SDL_Rect& rect) {
 }
 
 void Bitmap::Draw() {
-    if (isVisible && texture != NULL) {
+    if (isVisible && texture) {
         if (sourceRect.w > 0 && sourceRect.h > 0) {
-            SDL_RenderCopy(renderer, texture, &sourceRect, &rect);
+            SDL_RenderCopy(renderer, texture.get(), &sourceRect, &rect);
         } else {
-            SDL_RenderCopy(renderer, texture, NULL, &rect);
+            SDL_RenderCopy(renderer, texture.get(), NULL, &rect);
         }
     }
 }
 
-void Bitmap::UpdateFromSurface() {
-    if (texture) {
-        SDL_DestroyTexture(texture);
+void Bitmap::DrawWithRects(const SDL_Rect& src, const SDL_Rect& dst) {
+    if (texture && src.w > 0 && src.h > 0) {
+        SDL_RenderCopy(renderer, texture.get(), &src, &dst);
     }
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+}
+
+void Bitmap::UpdateFromSurface() {
+    texture.reset();  // RAII handles cleanup
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
+    SDL_SetTextureBlendMode(texture.get(), SDL_BLENDMODE_BLEND);
 }
 
 void Bitmap::ReplaceSurface(SDL_Surface* newSurface) {
-    if (surface && surface != newSurface) {
-        SDL_FreeSurface(surface);
+    // Note: This function takes ownership of newSurface
+    // If we already have a surface and it's different, reset it
+    if (surface && surface.get() != newSurface) {
+        surface.reset();
     }
-    surface = newSurface;
+    // Take ownership of the new surface
+    surface = sdl2::SurfacePtr(newSurface);
     UpdateFromSurface();
 }
 
@@ -420,10 +411,10 @@ void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
         return;
     }
 
-    SDL_Surface* overlaySurface = overlay->surface;
+    SDL_Surface* overlaySurface = overlay->surface.get();
 
     // Lock surfaces for pixel manipulation
-    if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+    if (SDL_MUSTLOCK(surface.get())) SDL_LockSurface(surface.get());
     if (SDL_MUSTLOCK(overlaySurface)) SDL_LockSurface(overlaySurface);
 
     uint32_t* bodyPixels = static_cast<uint32_t*>(surface->pixels);
@@ -453,7 +444,7 @@ void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
     }
 
     // Unlock surfaces
-    if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+    if (SDL_MUSTLOCK(surface.get())) SDL_UnlockSurface(surface.get());
     if (SDL_MUSTLOCK(overlaySurface)) SDL_UnlockSurface(overlaySurface);
 
     // Recreate texture from modified surface

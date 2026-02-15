@@ -38,10 +38,7 @@ Scene::Scene() {
 }
 
 Scene::~Scene() {
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(fadeSurface);
-    SDL_DestroyTexture(fadeTexture);
+    // RAII handles cleanup automatically
     if (debugOverlay) {
         delete debugOverlay;
         debugOverlay = nullptr;
@@ -52,49 +49,51 @@ void Scene::Init(bool initialDebugMode) {
     debugMode = initialDebugMode;
     debugEnabled = initialDebugMode;
     if (debugMode) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetDebugFont());
+        debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetDebugFont());
     }
     
     // Only load background if we have a valid asset or filename
     if (backgroundAsset.id != 0) {
-        background = state.assets.GetBitmapAsset(backgroundAsset);
+        background = state.GetAssets().GetBitmapAsset(backgroundAsset);
         background->SetVisible(true);
     } else {
         background = nullptr;
     }
     sceneTransition = SCENE_SOLID;
-    surface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
+    surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32,
                                     0x00FF0000,
                                     0x0000FF00,
                                     0x000000FF,
-                                    0xFF000000);
+                                    0xFF000000));
     if (backgroundName == "") {
         // Fill with black if no background
         if (!background) {
-            SDL_FillRect(surface, nullptr, SDL_MapRGB(surface->format, 0, 0, 0));
+            SDL_FillRect(surface.get(), nullptr, SDL_MapRGB(surface->format, 0, 0, 0));
         }
     } else {
-        SDL_Surface *img = IMG_Load(backgroundName.c_str());
-        SDL_Rect destRect = {0, 0, img->w, img->h};
-        SDL_BlitSurface(img, nullptr, surface, &destRect);
+        sdl2::SurfacePtr img(IMG_Load(backgroundName.c_str()));
+        if (img) {
+            SDL_Rect destRect = {0, 0, img->w, img->h};
+            SDL_BlitSurface(img.get(), nullptr, surface.get(), &destRect);
+        }
     }
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    textures.push_back(texture);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
+    textures.push_back(texture.get());
     
     m_backgroundRect.x = 0;
     m_backgroundRect.y = 0;
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    hud = new HUD(palette, 20, 59);
+    hud = std::make_unique<HUD>(palette, 20, 59);
     hud->SetVisible(true);
     hud->Clear();
 
-    fadeSurface = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    SDL_FillRect(fadeSurface, &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
-    fadeTexture = SDL_CreateTextureFromSurface(renderer, fadeSurface);
-    SDL_SetTextureBlendMode(fadeTexture, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
+    fadeSurface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+    SDL_FillRect(fadeSurface.get(), &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
+    fadeTexture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, fadeSurface.get()));
+    SDL_SetTextureBlendMode(fadeTexture.get(), SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_OPAQUE);
 
     FadeIn();
 }
@@ -106,7 +105,7 @@ void Scene::ToggleDebugMode() {
     
     // Create overlay if it doesn't exist yet
     if (debugMode && !debugOverlay) {
-        debugOverlay = new DebugOverlay(renderer, state.assets.GetMainFont());
+        debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetMainFont());
     }
     
     // Clear overlay when toggling off
@@ -172,14 +171,14 @@ Zone& Scene::GetZone(ZoneId id) {
 }
 
 SDL_Texture *Scene::GetTexture() {
-    return texture;
+    return texture.get();
 }
 
 void Scene::Draw() {
     if (background) {
         background->Draw();
     }
-    SDL_RenderCopy(renderer, texture, NULL, &m_backgroundRect);
+    SDL_RenderCopy(renderer, texture.get(), NULL, &m_backgroundRect);
 
     if (debugMode) {
         DrawDebugZones();
@@ -192,7 +191,7 @@ void Scene::Draw() {
 void Scene::SetActiveDialog(Dialog *dialog) {
     activeDialog = dialog;
     if (activeDialog != nullptr) {
-        for (auto bubble : bubbles) {
+        for (auto& bubble : bubbles) {
             bubble->SetVisible(false);
         }
         activeDialog->Show();
@@ -203,48 +202,52 @@ Dialog *Scene::GetActiveDialog() {
     return activeDialog;
 }
 
-void Scene::PushEvent(SDL_Event *event) {
+bool Scene::PushEvent(SDL_Event *event) {
     // Handle debug toggle
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
-        return;
+        return true;
     }
     
     // If there's an active dialog, pass the event to it first
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return; // Dialog gets priority
+        return true;
     }
     
     // Handle mouse events for scene zones
     if (event->type == SDL_MOUSEMOTION) {
         ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
-        // Could add hover effects here if needed
+        return false;
     }
     
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
-        if (SDL_GetTicks64() - lastActionTime > 200) {
+        Uint32 t = event->common.timestamp;
+        if (lastActionTimestamp == 0 || static_cast<Uint32>(t - lastActionTimestamp) >= 200) {
             ZoneId z = CheckMouseHover(event->button.x, event->button.y);
+            lastActionTimestamp = t;
             Action(z);
+            return true;
         }
+        return false;
     }
+    return false;
 }
 
 void Scene::Action(ZoneId zone) {
-    lastActionTime = SDL_GetTicks64();
 }
 
 void Scene::FadeIn() {
     fadeAlpha = 255;
     fadeStartTime = SDL_GetTicks64();
-    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_OPAQUE);
+    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_OPAQUE);
     sceneTransition = SCENE_FADE_IN;
 }
 
 void Scene::FadeOut() {
     fadeAlpha = 0;
     fadeStartTime = SDL_GetTicks64();
-    SDL_SetTextureAlphaMod(fadeTexture, SDL_ALPHA_TRANSPARENT);
+    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_TRANSPARENT);
     sceneTransition = SCENE_FADE_OUT;
 }
 
@@ -261,7 +264,7 @@ void Scene::UpdateFade(Uint64 deltaTime) {
                 fadeAlpha = 255;
                 sceneTransition = SCENE_BLACK;
             }
-            SDL_SetTextureAlphaMod(fadeTexture, fadeAlpha);
+            SDL_SetTextureAlphaMod(fadeTexture.get(), fadeAlpha);
             OnFadeComplete();
         } else {
             // Calculate fade progress (0.0 to 1.0)
@@ -275,7 +278,7 @@ void Scene::UpdateFade(Uint64 deltaTime) {
                 fadeAlpha = static_cast<Uint8>(255 * progress);
             }
             
-            SDL_SetTextureAlphaMod(fadeTexture, fadeAlpha);
+            SDL_SetTextureAlphaMod(fadeTexture.get(), fadeAlpha);
         }
     }
 }
@@ -349,8 +352,8 @@ void Scene::DrawDebugZones() {
     if (!debugMode) return;
     
     // Create a yellow semi-transparent surface for zone highlighting
-    SDL_Surface* zoneSurface = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
-    SDL_SetSurfaceBlendMode(zoneSurface, SDL_BLENDMODE_BLEND);
+    sdl2::SurfacePtr zoneSurface(SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32));
+    SDL_SetSurfaceBlendMode(zoneSurface.get(), SDL_BLENDMODE_BLEND);
     
     // Yellow with 50% transparency
     Uint32 zoneColor = SDL_MapRGBA(zoneSurface->format, 255, 255, 0, 128);
@@ -358,17 +361,15 @@ void Scene::DrawDebugZones() {
     // Draw each zone
     for (auto zone : zones) {
         SDL_Rect zoneRect = zone.GetRect(); // Assuming rect is public or has a getter
-        SDL_FillRect(zoneSurface, &zoneRect, zoneColor);
+        SDL_FillRect(zoneSurface.get(), &zoneRect, zoneColor);
     }
     
     // Create texture and render
-    SDL_Texture* zoneTexture = SDL_CreateTextureFromSurface(renderer, zoneSurface);
-    SDL_SetTextureBlendMode(zoneTexture, SDL_BLENDMODE_BLEND);
-    SDL_RenderCopy(renderer, zoneTexture, NULL, NULL);
+    sdl2::TexturePtr zoneTexture(SDL_CreateTextureFromSurface(renderer, zoneSurface.get()));
+    SDL_SetTextureBlendMode(zoneTexture.get(), SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, zoneTexture.get(), NULL, NULL);
     
-    // Clean up
-    SDL_FreeSurface(zoneSurface);
-    SDL_DestroyTexture(zoneTexture);
+    // RAII handles cleanup automatically
 }
 
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
@@ -466,7 +467,7 @@ SDL_Point CarScene::GetCarIdlePosition() {
 }
 
 void CarScene::DrawMaskAfterCar() {
-    SDL_RenderCopy(renderer, fadeTexture, NULL, &m_backgroundRect);
+    SDL_RenderCopy(renderer, fadeTexture.get(), NULL, &m_backgroundRect);
 }
 
 void CarScene::DrawExtra() {
@@ -651,8 +652,8 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
     }
 }
 
-void CarScene::PushEvent(SDL_Event *event) {
-    Scene::PushEvent(event);
+bool CarScene::PushEvent(SDL_Event *event) {
+    return Scene::PushEvent(event);
 }
 
 void CarScene::OnFadeComplete() {

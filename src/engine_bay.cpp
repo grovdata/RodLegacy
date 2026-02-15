@@ -47,8 +47,8 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
     // Common button configuration
-    Bitmap* buttonBitmap = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS});
-    Bitmap* buttonBitmapDone = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE});
+    Bitmap* buttonBitmap = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS});
+    Bitmap* buttonBitmapDone = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE});
     
     std::vector<ButtonConfig> overviewButtons = {
         {
@@ -191,37 +191,37 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     overviewConfig.buttons = overviewButtons;
     overviewConfig.zones = engineDialogZones;
     overviewConfig.contentAreas = std::vector<SDL_Rect>{engineBayFillRect, sidebarRect, gapRect};
-    overviewConfig.font = state.assets.GetMainFont();
+    overviewConfig.font = state.GetAssets().GetMainFont();
     overviewConfig.onButtonPressed = buttonCallbackWrapper;
     overviewConfig.onZoneHover = zoneHoverWrapper;
 
     // Overview dialog bitmaps
     overviewConfig.bitmaps["background"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
     overviewConfig.bitmaps["button_sidebar"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
         {225, 0, 71, 190}, 1
     };
     overviewConfig.bitmaps["engine_test_v6"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
         {62, 51, 136, 112}, 2
     };
     overviewConfig.bitmaps["manifold"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_MANIFOLD5}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_MANIFOLD5}),
         {93, 52, 88, 31}, 2
     };
     overviewConfig.bitmaps["carb2brl"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CARB_2BARREL}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CARB_2BARREL}),
         {116, 35, 32, 29}, 4
     };
     overviewConfig.bitmaps["engine_wire_attached"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
         {162, 149, 40, 21}, 3
     };
     overviewConfig.bitmaps["bolt1"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT}),
         {162, 180, 8, 12}, 3
     };
 
@@ -238,25 +238,25 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // Replace sidebar and content bitmaps for tuning
     tuningConfig.bitmaps.clear();
     tuningConfig.bitmaps["background"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
     tuningConfig.bitmaps["button_sidebar_done"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE}),
         {225, 0, 71, 190}, 1
     };
     tuningConfig.bitmaps["tuning_gadget"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNE_GADGET}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNE_GADGET}),
         tuningGadgetRect
     };
 
     tuningConfig.bitmaps["engine_backdrop"] = {
-        state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNING_SCREEN}),
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNING_SCREEN}),
         engineBackdropRect
     };
 
     // Create animated engine tune bitmap - using animation data from libp.h
-    Bitmap* engineTuneAnimationBelt = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
+    Bitmap* engineTuneAnimationBelt = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
     AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, beltAnimationRect);
     engineTuneAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION));
     engineTuneAnimation->Play();
@@ -266,7 +266,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         beltAnimationRect
     };
 
-    Bitmap* leftPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
+    Bitmap* leftPiston = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
     AnimatedBitmap *leftPistonAnimation = new AnimatedBitmap(leftPiston, leftPistonRect);
     leftPistonAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_PISTON_LEFT_ANIMATION));
     leftPistonAnimation->Play();
@@ -277,7 +277,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         5
     };
 
-    Bitmap* rightPiston = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
+    Bitmap* rightPiston = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION});
     AnimatedBitmap *rightPistonAnimation = new AnimatedBitmap(rightPiston, rightPistonRect);
     rightPistonAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_PISTON_RIGHT_ANIMATION));
     rightPistonAnimation->Play();
@@ -288,7 +288,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         5
     };
 
-    Bitmap* crank = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
+    Bitmap* crank = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION});
     AnimatedBitmap *crankAnimation = new AnimatedBitmap(crank, crankRect);
     crankAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_CRANK_ANIMATION));
     crankAnimation->Play();
@@ -299,7 +299,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         5
     };
 
-    Bitmap* flywheel = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
+    Bitmap* flywheel = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION});
     AnimatedBitmap *flywheelAnimation = new AnimatedBitmap(flywheel, flywheelRect);
     flywheelAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_FLYWHEEL_ANIMATION));
     flywheelAnimation->Play();
@@ -310,7 +310,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         5
     };
 
-    Bitmap* camshaft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
+    Bitmap* camshaft = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION});
     AnimatedBitmap *camshaftAnimation = new AnimatedBitmap(camshaft, camRect);
     camshaftAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_CAM_ANIMATION));
     camshaftAnimation->Play();
@@ -321,7 +321,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         5
     };
 
-    Bitmap* tuneKnob = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_TUNE_INDICATOR});
+    Bitmap* tuneKnob = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_TUNE_INDICATOR});
     tuningConfig.bitmaps["tune_knob"] = {
         tuneKnob,
         tuneKnobRect,
@@ -488,7 +488,7 @@ void EngineBay::InitPartsDialog() {
     partsDialogConfig.texts = partsTexts;
     partsDialogConfig.lines = partsLines;
     partsDialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
-    partsDialogConfig.font = state->assets.GetMainFont();
+    partsDialogConfig.font = state->GetAssets().GetMainFont();
     partsDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0: // Change

@@ -7,6 +7,16 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "embedded_loader.h"
+#include <functional>
+
+// Hash function for palette vectors
+static size_t hashPalette(const std::vector<uint16_t>& palette) {
+    size_t hash = 0;
+    for (uint16_t val : palette) {
+        hash ^= std::hash<uint16_t>{}(val) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    return hash;
+}
 
 // Generated embedded resources
 extern "C" {
@@ -306,12 +316,38 @@ Spritesheet* AssetManager::GetCarDecals() {
 }
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const std::vector<uint16_t>& carPalette) {
-    // Always create a new asset with the custom palette
-    UpdateAssetWithPalette(libfile, asset.id, carPalette);
-    return imageAssets.back().second.get();  // Return the newly created asset
+    // Create cache key: asset ID + palette hash
+    size_t paletteHash = hashPalette(carPalette);
+    AssetPaletteKey cacheKey{asset.id, paletteHash};
+    
+    // Check if this asset+palette combination is already cached
+    auto it = paletteVariantCache.find(cacheKey);
+    if (it != paletteVariantCache.end()) {
+        return it->second.get();  // Return cached version
+    }
+    
+    // Not in cache, create new variant and cache it
+    CreateAndCachePaletteVariant(libfile, asset.id, carPalette, cacheKey);
+    return paletteVariantCache[cacheKey].get();
 }
 
 void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette) {
+    // This method is kept for backward compatibility but now delegates to cache-aware version
+    size_t paletteHash = hashPalette(carPalette);
+    AssetPaletteKey cacheKey{index, paletteHash};
+    
+    // Check cache first
+    auto it = paletteVariantCache.find(cacheKey);
+    if (it != paletteVariantCache.end()) {
+        // Already cached, but we still need to add to imageAssets for backward compatibility
+        // Actually, let's not add it - this method should only be used internally
+        return;
+    }
+    
+    CreateAndCachePaletteVariant(libfile, index, carPalette, cacheKey);
+}
+
+void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey) {
     BitmapEntry_t b = imageEntries.second[index];
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
@@ -334,7 +370,9 @@ void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
     bitmap->SetDimensions(b.width, b.height);
-    imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
+    
+    // Store in palette variant cache (not in imageAssets to prevent unbounded growth)
+    paletteVariantCache[cacheKey] = std::move(bitmap);
 }
 
 fs::path AssetManager::FindGameDirectory() {

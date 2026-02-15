@@ -4,27 +4,105 @@
 #include "car_builder.h"
 #include <random>
 #include <algorithm>
+#include <filesystem>
 
 Opponent::Opponent() : car(nullptr) {}
 
 Roster::Roster() : currentOpponent(opponents.begin()) {}
 
+void Roster::LoadCustomDrivers() {
+    customDriverPaths.clear();
+
+    namespace fs = std::filesystem;
+    const fs::path driverDir = state.GetAssets().GetBasePath() / "drivers";
+    SDL_Log("LoadCustomDrivers: looking in %s", driverDir.string().c_str());
+    if (!fs::exists(driverDir) || !fs::is_directory(driverDir)) {
+        SDL_Log("LoadCustomDrivers: directory not found");
+        return;
+    }
+
+    std::vector<fs::path> pngFiles;
+    for (const auto& entry : fs::directory_iterator(driverDir)) {
+        if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().string();
+            if (ext == ".png" || ext == ".PNG") {
+                pngFiles.push_back(entry.path());
+            }
+        }
+    }
+    std::sort(pngFiles.begin(), pngFiles.end());
+
+    for (const auto& p : pngFiles) {
+        customDriverPaths.push_back(p.string());
+    }
+    SDL_Log("Loaded %zu custom driver faces from drivers/", customDriverPaths.size());
+}
+
+void Roster::LoadCustomStickers() {
+    customStickerPaths.clear();
+
+    namespace fs = std::filesystem;
+    const fs::path stickerDir = state.GetAssets().GetBasePath() / "stickers";
+    if (!fs::exists(stickerDir) || !fs::is_directory(stickerDir)) {
+        return;
+    }
+
+    std::vector<fs::path> pngFiles;
+    for (const auto& entry : fs::directory_iterator(stickerDir)) {
+        if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().string();
+            if (ext == ".png" || ext == ".PNG") {
+                pngFiles.push_back(entry.path());
+            }
+        }
+    }
+    std::sort(pngFiles.begin(), pngFiles.end());
+
+    for (const auto& p : pngFiles) {
+        customStickerPaths.push_back(p.string());
+    }
+    SDL_Log("Loaded %zu custom sticker paths for roster", customStickerPaths.size());
+}
+
 void Roster::Initialize(CarData& carData) {
+    LoadCustomDrivers();
+    LoadCustomStickers();
+
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrCar(0, CAR_INDEX_COUNT - 1);
 
     opponents.clear();
-    
+
     while (!stockDriverNames.empty()) {
-        int preferredCarIndex = CAR_INDEX[distrCar(gen)];        
-        
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
-        // model.Log();
         Car* car = GenerateRandomCar(model);
 
-        // Create and add opponent directly to avoid move issues
+        opponents.emplace_back();
+        opponents.back().driver = std::move(driver);
+        opponents.back().car = car;
+    }
+
+    // Add one opponent per custom driver
+    for (const auto& path : customDriverPaths) {
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+        CarModel model = carData.GetModelFromIndex(preferredCarIndex);
+        Car* car = GenerateRandomCar(model);
+
+        Driver driver;
+        driver.customDriverPath = path;
+        std::string stem = std::filesystem::path(path).stem().string();
+        if (!stem.empty()) {
+            std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
+            stem[0] = std::toupper(stem[0]);
+        }
+        driver.name = stem;
+        driver.preferredCar = preferredCarIndex;
+        driver.spriteIndex = DRIVER_01; // fallback
+
         opponents.emplace_back();
         opponents.back().driver = std::move(driver);
         opponents.back().car = car;
@@ -32,6 +110,16 @@ void Roster::Initialize(CarData& carData) {
 
     ShuffleOpponents();
     currentOpponent = opponents.begin();
+
+    SDL_Log("--- Opponent roster (%zu) ---", opponents.size());
+    for (size_t i = 0; i < opponents.size(); i++) {
+        const auto& o = opponents[i];
+        if (!o.driver.customDriverPath.empty()) {
+            SDL_Log("  %zu. %s (custom: %s)", i + 1, o.driver.name.c_str(), o.driver.customDriverPath.c_str());
+        } else {
+            SDL_Log("  %zu. %s (stock sprite %d)", i + 1, o.driver.name.c_str(), o.driver.spriteIndex);
+        }
+    }
 }
 
 Car* Roster::GenerateRandomCar(const CarModel& model) {
@@ -67,7 +155,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     
     car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color
-    state.assets.UpdateAssetWithCarPalette(state.assets.GetLibPData(), model.index, randomColor); 
+    state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor); 
 
     std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
@@ -79,6 +167,17 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> chanceDist(0, 3); // 0 to 3 for 25% chance
     if (chanceDist(gen) == 0) {
         car->SetDecal(SrLibCarDecalNone);
+    } else if (!customStickerPaths.empty()) {
+        // Pool: 8 stock stickers + N custom stickers
+        int totalStickers = (int)SrLibCarDecalNone + (int)customStickerPaths.size();
+        std::uniform_int_distribution<> poolDist(0, totalStickers - 1);
+        int pick = poolDist(gen);
+        if (pick < (int)SrLibCarDecalNone) {
+            car->SetDecal((SrLibCarDecal)pick);
+        } else {
+            car->SetDecal(SrLibCarDecalCustom);
+            car->SetCustomDecalPath(customStickerPaths[pick - (int)SrLibCarDecalNone]);
+        }
     } else {
         car->SetDecal((SrLibCarDecal)stickerDist(gen));
     }
@@ -148,6 +247,24 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     }
     stockDriverNames.pop_back();
     driver.preferredCar = preferredCarIndex;
+
+    if (!customDriverPaths.empty()) {
+        // Pool: DRIVER_COUNT stock sprites + N custom PNGs
+        int totalChoices = DRIVER_COUNT + (int)customDriverPaths.size();
+        std::uniform_int_distribution<> poolDist(0, totalChoices - 1);
+        int pick = poolDist(gen);
+        if (pick >= DRIVER_COUNT) {
+            driver.customDriverPath = customDriverPaths[pick - DRIVER_COUNT];
+            // Derive name from filename: "zak.png" -> "Zak", "MARIO.PNG" -> "Mario"
+            std::string stem = std::filesystem::path(driver.customDriverPath).stem().string();
+            if (!stem.empty()) {
+                std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
+                stem[0] = std::toupper(stem[0]);
+                driver.name = stem;
+            }
+        }
+    }
+
     return driver;
 }
 

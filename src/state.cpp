@@ -101,6 +101,9 @@ void State::SetCurrentScene(Scene *scene) {
 }
 
 void State::MoveToScene(SrLibGameScene scene) {
+    if (currentScene) {
+        currentScene->OnSceneExit();
+    }
     currentGameScene = scene;
     switch (scene) {
         case SCENE_DINER:

@@ -1006,7 +1006,7 @@ void Racing::LoadSpriteBitmaps() {
     printf("Racing: Loading sprite bitmaps from AssetManager...\n");
     
     // Load telephone pole sprite (asset ID 30)
-    auto* telephonePoleAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TELEPHONE_POLES});
+    auto* telephonePoleAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TELEPHONE_POLES});
     if (telephonePoleAsset) {
         telephonePoleSprite = std::make_unique<Bitmap>(*telephonePoleAsset);
         if (telephonePoleSprite->GetSurface()) {
@@ -1018,7 +1018,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load tree sprite (asset ID 32 - RACING_TREE2 for animation)
-    auto* treeAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TREE2});
+    auto* treeAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TREE2});
     if (treeAsset) {
         treeSprite = std::make_unique<Bitmap>(*treeAsset);
         if (treeSprite->GetSurface()) {
@@ -1030,7 +1030,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load bush sprite (asset ID 25)
-    auto* bushAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_BUSH});
+    auto* bushAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_BUSH});
     if (bushAsset) {
         bushSprite = std::make_unique<Bitmap>(*bushAsset);
         if (bushSprite->GetSurface()) {
@@ -1042,7 +1042,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load road post sprite (asset ID 22)
-    auto* roadPostAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_ROAD_POST});
+    auto* roadPostAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_ROAD_POST});
     if (roadPostAsset) {
         roadPostSprite = std::make_unique<Bitmap>(*roadPostAsset);
         if (roadPostSprite->GetSurface()) {
@@ -1054,7 +1054,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load mountain sprite (asset ID 13) for horizon
-    auto* mountainAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_MOUNTAINS});
+    auto* mountainAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_MOUNTAINS});
     if (mountainAsset) {
         mountainSprite = std::make_unique<Bitmap>(*mountainAsset);
         if (mountainSprite->GetSurface()) {
@@ -1066,7 +1066,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load cloud sprite (asset ID 12) for sky with parallax scrolling
-    auto* cloudAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CLOUDS});
+    auto* cloudAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CLOUDS});
     if (cloudAsset) {
         cloudSprite = std::make_unique<Bitmap>(*cloudAsset);
         if (cloudSprite->GetSurface()) {
@@ -1078,7 +1078,7 @@ void Racing::LoadSpriteBitmaps() {
     }
     
     // Load rearview mirror horizon sprite (asset ID 82)
-    auto* rearviewAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HORIZON_REARVIEWMIRROR});
+    auto* rearviewAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HORIZON_REARVIEWMIRROR});
     if (rearviewAsset) {
         rearviewMirrorSprite = std::make_unique<Bitmap>(*rearviewAsset);
         if (rearviewMirrorSprite->GetSurface()) {
@@ -1093,25 +1093,25 @@ void Racing::LoadSpriteBitmaps() {
     // Discovery: Original game renders these as trapezoids ABOVE the road, not as blitted sprites
     printf("Racing: Loading overhead sign sprites...\n");
     
-    auto* countryLineAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTY_LINE});
+    auto* countryLineAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTY_LINE});
     if (countryLineAsset) {
         signCountryLineSprite = std::make_unique<Bitmap>(*countryLineAsset);
         printf("Racing: Loaded COUNTRY LINE sign (ID 14) - finish line arch\n");
     }
     
-    auto* route69Asset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_ROUTE_69});
+    auto* route69Asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_ROUTE_69});
     if (route69Asset) {
         signRoute69Sprite = std::make_unique<Bitmap>(*route69Asset);
         printf("Racing: Loaded ROUTE 69 sign (ID 33) - overhead arch\n");
     }
     
-    auto* cityLimitsAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_CITY_LIMITS});
+    auto* cityLimitsAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_CITY_LIMITS});
     if (cityLimitsAsset) {
         signCityLimitsSprite = std::make_unique<Bitmap>(*cityLimitsAsset);
         printf("Racing: Loaded CITY LIMITS sign (ID 34) - overhead arch\n");
     }
     
-    auto* exit48Asset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_EXIT_48});
+    auto* exit48Asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_EXIT_48});
     if (exit48Asset) {
         signExit48Sprite = std::make_unique<Bitmap>(*exit48Asset);
         printf("Racing: Loaded EXIT 48 sign (ID 35) - overhead arch\n");
@@ -1870,11 +1870,11 @@ void Racing::DrawOverheadSignBitmaps(float currentDistance) {
 
 // Helper to load opponent sprite with modified palette (palette index 7 = car color)
 std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
-    byte_vector& libFile = state.assets.GetLibPData();
+    byte_vector& libFile = state.GetAssets().GetLibPData();
     BitmapParser bp;
     
     // Get the bitmap entry and raw image data
-    auto imageEntries = state.assets.GetImageEntries();
+    auto imageEntries = state.GetAssets().GetImageEntries();
     BitmapEntry_t entry = imageEntries.second[spriteId];
     std::vector<uint8_t> data = bp.ReadImage(libFile, entry, spriteId, imageEntries.first);
     

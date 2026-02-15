@@ -8,6 +8,7 @@
 #include "carbitmap.h"
 #include "debug_overlay.h"
 #include "audio/audio_manager.h"
+#include "utils.h"
 #include <vector>
 #include <memory>
 
@@ -36,11 +37,13 @@ class Scene: public IDrawableContainer {
     Asset backgroundAsset;
     StockPalette palette;
     Bitmap *background;
-    HUD *hud;
-    Dialog *activeDialog = nullptr;
+    std::unique_ptr<HUD> hud;
+    Dialog *activeDialog = nullptr;  // Non-owning pointer - dialogs owned by derived classes
 
-    SDL_Surface *surface, *fadeSurface;
-    SDL_Texture *texture, *fadeTexture;
+    sdl2::SurfacePtr surface;
+    sdl2::SurfacePtr fadeSurface;
+    sdl2::TexturePtr texture;
+    sdl2::TexturePtr fadeTexture;
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
@@ -48,14 +51,14 @@ class Scene: public IDrawableContainer {
     std::vector<Zone> zones;
     std::vector<Button> buttons;
     std::vector<SDL_Texture*> textures;
-    std::vector<Bubble*> bubbles;
+    std::vector<std::unique_ptr<Bubble>> bubbles;
 
     DebugOverlay* debugOverlay;
     bool debugMode;
     bool debugEnabled;
     
     Uint8 fadeAlpha = 255;
-    Uint64 lastActionTime = 0;
+    Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
     Uint64 fadeStartTime = 0;
     static constexpr Uint64 FADE_DURATION_MS = 500; // 500ms fade duration
     
@@ -83,7 +86,7 @@ class Scene: public IDrawableContainer {
     virtual void Action(ZoneId zone);
     virtual void Draw();
     virtual void DrawExtra() {} // Override in derived classes for additional drawing
-    virtual void PushEvent(SDL_Event *event);
+    virtual bool PushEvent(SDL_Event *event);
 
     virtual Dialog *GetActiveDialog();
     virtual void SetActiveDialog(Dialog *dialog);
@@ -147,13 +150,13 @@ public:
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
-    virtual void PushEvent(SDL_Event *event) override;
+    virtual bool PushEvent(SDL_Event *event) override;
     virtual void OnFadeComplete() override;
     virtual void OnSceneExit() override;
     
     void SetAudioManager(AudioManager* audioMgr) { audioManager = audioMgr; }
 
-    CarBitmap *carBitmap;
+    CarBitmap *carBitmap = nullptr;
     bool animatingCar = false;
     int carx, cary;
 };

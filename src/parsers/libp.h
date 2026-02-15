@@ -94,7 +94,10 @@ enum SrLibCarDecal {
     // SrLibCarDecalDosDataDiskExplosive = 23,
     SrLibCarDecalCount,
     SrLibCarDecalNone,
+    SrLibCarDecalCustom,
 };
+
+extern const char* SrLibCarDecalNames[8];
 
 enum CarVendor_t {
     CarVendorChrysler = 0,

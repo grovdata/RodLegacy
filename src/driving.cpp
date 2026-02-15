@@ -9,7 +9,7 @@
 Driving::Driving() : Scene() {
     SDL_Log("Driving::Driving() constructor called\n");
     // Create racing component with audio manager
-    racing = std::make_unique<Racing>(state.assets.GetAudioManager());
+    racing = std::make_unique<Racing>(state.GetAssets().GetAudioManager());
     roadTexture = nullptr;
     lastEvent = nullptr;
     
@@ -26,141 +26,141 @@ void Driving::Init(bool debugMode) {
     auto dashboard = [&]() {        
         StandardCarColor carColor = state.GetCurrentCar()->GetColor();
         std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
-        byte_vector& libFile = state.assets.GetLibPData();
-        return state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, carPalette);    
+        byte_vector& libFile = state.GetAssets().GetLibPData();
+        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, carPalette);    
     }();
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
-    AddDrawable("dashboard", std::shared_ptr<IDrawable>(dashboard));
+    AddDrawable("dashboard", dashboard);
 
     // Load pillar (windshield beam)
-    auto pillar = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
+    auto pillar = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
     pillar->AlignAbove(dashboard);
     pillar->SetVisible(true);
-    AddDrawable("pillar", std::shared_ptr<IDrawable>(pillar));
+    AddDrawable("pillar", pillar);
 
     // Load roof (ceiling)
-    auto roof = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CEILING});
+    auto roof = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CEILING});
     roof->AlignAbove(pillar);
     roof->SetVisible(true);
-    AddDrawable("roof", std::shared_ptr<IDrawable>(roof));
+    AddDrawable("roof", roof);
 
     // Load hood with current car's color
     auto hood = [&]() {        
         StandardCarColor carColor = state.GetCurrentCar()->GetColor();
         std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
-        byte_vector& libFile = state.assets.GetLibPData();
-        return state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, carPalette);    
+        byte_vector& libFile = state.GetAssets().GetLibPData();
+        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, carPalette);    
     }();
     hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     hood->SetVisible(true);
-    AddDrawable("hood", std::shared_ptr<IDrawable>(hood));
+    AddDrawable("hood", hood);
 
     // Load mirror stem
-    // auto mirrorStem = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
+    // auto mirrorStem = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
     // mirrorStem->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     // mirrorStem->SetVisible(true);
-    // AddDrawable("mirror_stem", std::shared_ptr<IDrawable>(mirrorStem));
+    // AddDrawable("mirror_stem", mirrorStem);
 
     // Load mirror
-    auto mirror = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_REARVIEWMIRROR_FRAME});
+    auto mirror = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_REARVIEWMIRROR_FRAME});
     mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
-    AddDrawable("mirror", std::shared_ptr<IDrawable>(mirror));
+    AddDrawable("mirror", mirror);
     
     // Load clock for automatic transmission cars (will overlap tachometer)
-    auto clock = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_CLOCK_11_50});
+    auto clock = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_CLOCK_11_50});
     clock->SetPosition(120, 115);
     clock->SetVisible(false); // Will be shown only for automatic transmission
-    AddDrawable("clock", std::shared_ptr<IDrawable>(clock));
+    AddDrawable("clock", clock);
 
     // Load plush dice
-    auto plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
+    auto plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
     plushDice->SetPosition(259, 45);
     plushDice->SetVisible(true);
-    AddDrawable("plush_dice1", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice1", plushDice);
 
-    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2});
     plushDice->SetPosition(253, 45);
     plushDice->SetVisible(false);
-    AddDrawable("plush_dice2", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice2", plushDice);
 
-    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3});
     plushDice->SetPosition(250, 45);
     plushDice->SetVisible(false);
-    AddDrawable("plush_dice3", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice3", plushDice);
 
-    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4});
     plushDice->SetPosition(267, 45);
     plushDice->SetVisible(false);
-    AddDrawable("plush_dice4", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice4", plushDice);
 
-    plushDice = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5});
     plushDice->SetPosition(274, 45);
     plushDice->SetVisible(false);
-    AddDrawable("plush_dice5", std::shared_ptr<IDrawable>(plushDice));
+    AddDrawable("plush_dice5", plushDice);
 
     // Load wheel left hand 1
-    wheelLeftHand1 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_1});
+    wheelLeftHand1 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_1});
     wheelLeftHand1->SetPosition(72, 144);
     wheelLeftHand1->SetVisible(true);
     AddWheelDrawable("wheel_left_hand_1", wheelLeftHand1);
 
-    wheelLeftHand2 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_2});
+    wheelLeftHand2 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_2});
     wheelLeftHand2->SetPosition(72, 120);
     wheelLeftHand2->SetVisible(false);
     AddWheelDrawable("wheel_left_hand_2", wheelLeftHand2);
 
-    wheelLeftHand3 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_3});
+    wheelLeftHand3 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_3});
     wheelLeftHand3->SetPosition(24, 144);
     wheelLeftHand3->SetVisible(false);
     AddWheelDrawable("wheel_left_hand_3", wheelLeftHand3);
 
-    wheelLeftHand4 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_4});
+    wheelLeftHand4 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_4});
     wheelLeftHand4->SetPosition(72, 144);
     wheelLeftHand4->SetVisible(false);
     AddWheelDrawable("wheel_left_hand_4", wheelLeftHand4);
 
     // Load wheel right hand 1
-    wheelRightHand1 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_1});
+    wheelRightHand1 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_1});
     wheelRightHand1->SetPosition(216, 144);
     wheelRightHand1->SetVisible(true);
     AddWheelDrawable("wheel_right_hand_1", wheelRightHand1);
 
     // Load wheel right hand 2
-    wheelRightHand2 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_2});
+    wheelRightHand2 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_2});
     wheelRightHand2->SetPosition(216, 120);
     wheelRightHand2->SetVisible(false);
     AddWheelDrawable("wheel_right_hand_2", wheelRightHand2);
 
     // Load wheel right hand 3
-    wheelRightHand3 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_3});
+    wheelRightHand3 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_3});
     wheelRightHand3->SetPosition(216, 144);
     wheelRightHand3->SetVisible(false);
     AddWheelDrawable("wheel_right_hand_3", wheelRightHand3);
 
     // Load wheel right hand 4
-    wheelRightHand4 = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_4});
+    wheelRightHand4 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_4});
     wheelRightHand4->SetPosition(272, 144);
     wheelRightHand4->SetVisible(false);
     AddWheelDrawable("wheel_right_hand_4", wheelRightHand4);
 
-    wheelTurningLeft = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT});
+    wheelTurningLeft = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT});
     wheelTurningLeft->SetPosition(120, 144);
     wheelTurningLeft->SetVisible(false);
     AddWheelDrawable("wheel_turning_left", wheelTurningLeft);
 
-    wheelTurningRight = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT});
+    wheelTurningRight = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT});
     wheelTurningRight->SetPosition(120, 144);
     wheelTurningRight->SetVisible(false);
     AddWheelDrawable("wheel_turning_right", wheelTurningRight);
 
-    wheelTurningLeftOpposite = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT_OPPOSITE_1});
+    wheelTurningLeftOpposite = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_LEFT_OPPOSITE_1});
     wheelTurningLeftOpposite->SetPosition(72, 144);
     wheelTurningLeftOpposite->SetVisible(false);
     AddWheelDrawable("wheel_turning_left_opposite", wheelTurningLeftOpposite);
 
-    wheelTurningRightOpposite = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_1});
+    wheelTurningRightOpposite = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_CENTER_TURNING_RIGHT_OPPOSITE_1});
     wheelTurningRightOpposite->SetPosition(216, 144);
     wheelTurningRightOpposite->SetVisible(false);
     AddWheelDrawable("wheel_turning_right_opposite", wheelTurningRightOpposite);
@@ -170,8 +170,8 @@ void Driving::Init(bool debugMode) {
     // Load crash overlay bitmap with current car's color palette
     StandardCarColor carColor = state.GetCurrentCar()->GetColor();
     std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
-    byte_vector& libFile = state.assets.GetLibPData();
-    auto crashOverlayAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, carPalette);
+    byte_vector& libFile = state.GetAssets().GetLibPData();
+    auto crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, carPalette);
     if (crashOverlayAsset) {
         crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
         crashOverlayBitmap->SetVisible(false); // Initially hidden
@@ -192,7 +192,7 @@ void Driving::LoadTrackData() {
     }
     
     // Check if AssetManager has executable data (where track data is stored)
-    byte_vector& srExeData = state.assets.GetSrExeData();
+    byte_vector& srExeData = state.GetAssets().GetSrExeData();
     SDL_Log("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
     
     if (srExeData.empty()) {
@@ -286,7 +286,7 @@ Driving::~Driving() {
 }
 
 void Driving::AddWheelDrawable(const std::string& id, Bitmap* bitmap) {
-    AddDrawable(id, std::shared_ptr<IDrawable>(bitmap));
+    AddDrawable(id, bitmap);
 }
 
 void Driving::Start() {
@@ -474,48 +474,42 @@ void Driving::Draw() {
     }
 }
 
-void Driving::PushEvent(SDL_Event *event) {
-    Scene::PushEvent(event);
+bool Driving::PushEvent(SDL_Event *event) {
+    bool consumed = Scene::PushEvent(event);
     lastEvent = event;
-    
-    // Handle keyboard input for steering
+
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
             case SDLK_LEFT:
                 SetState(DRIVING_STATE_TURNING_LEFT);
-                break;
+                return true;
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_TURNING_RIGHT);
-                break;
+                return true;
             case SDLK_UP:
-                // UP key is handled by racing logic for acceleration
                 break;
             case SDLK_1:
-                // Switch to Road Race track
                 if (racing) {
                     SDL_Log("Switching to Road Race track\n");
-                    racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_ROAD_RACE);
-                    
-                    // Update transmission type
+                    racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_ROAD_RACE);
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
                         bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
+                    return true;
                 }
                 break;
             case SDLK_2:
-                // Switch to Drag Race track
                 if (racing) {
                     SDL_Log("Switching to Drag Race track\n");
-                    racing->LoadTrackData(state.assets.GetSrExeData(), SR_TRACK_DRAG_RACE);
-                    
-                    // Update transmission type
+                    racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_DRAG_RACE);
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
                         bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
+                    return true;
                 }
                 break;
         }
@@ -524,12 +518,12 @@ void Driving::PushEvent(SDL_Event *event) {
             case SDLK_LEFT:
             case SDLK_RIGHT:
                 SetState(DRIVING_STATE_NORMAL);
-                break;
+                return true;
             case SDLK_UP:
-                // UP key is handled by racing logic for acceleration
                 break;
         }
     }
+    return consumed;
 }
 
 // Timer callback no longer needed - racing is updated in Draw() method

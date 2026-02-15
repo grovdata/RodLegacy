@@ -11,6 +11,11 @@
 
 #include "carcolor.h"
 
+const char* SrLibCarDecalNames[8] = {
+    "Hot Lips", "Ranger", "Not Bullet Proof", "Hot Rod",
+    "Destiny Can Wait", "Love Bandit", "Big Chief", "I'm Not A Cop"
+};
+
 const char *SrLibFileNames[] = {
     "lib.start",
     "lib.p",
@@ -104,7 +109,7 @@ std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::
         newEntry.offset = reader.ReadUint32BE();
         newEntry.sizePacked = reader.ReadUint16BE();
 
-        SrLibDebugBitmapEntry(i, newEntry);
+        //SrLibDebugBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
 

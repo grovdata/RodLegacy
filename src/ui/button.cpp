@@ -80,12 +80,12 @@ void Button::CreateButtonSurface() {
         textBitmap->SetVisible(true);
         
         // Center text
-        int textWidth = SFont_TextWidth(state.assets.GetMainFont(), config.text.c_str());
-        int textHeight = SFont_TextHeight(state.assets.GetMainFont());
+        int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), config.text.c_str());
+        int textHeight = SFont_TextHeight(state.GetAssets().GetMainFont());
         int textX = (config.bounds.w - textWidth) / 2;
         int textY = (config.bounds.h - textHeight) / 2;
 
-        SFont_Write(textBitmap->GetSurface(), state.assets.GetMainFont(), textX, textY, config.text.c_str());
+        SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), textX, textY, config.text.c_str());
         textBitmap->UpdateFromSurface();
         SDL_SetTextureColorMod(textBitmap->GetTexture(), config.textColor.r, config.textColor.g, config.textColor.b);
     }

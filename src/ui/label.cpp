@@ -42,11 +42,11 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
     
     // Create surface with the same format as the main scene surface
     // This ensures color mapping works correctly
-    surface = SDL_CreateRGBSurface(0, surfaceWidth, totalHeight, 32, 
-                                  0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, surfaceWidth, totalHeight, 32, 
+                                  0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
     SetDimensions(surfaceWidth, totalHeight);
     
-    SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
+    SDL_FillRect(surface.get(), NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
     
     // Apply color modulation to the font surface before rendering
     // This is how HUD does it correctly
@@ -68,14 +68,14 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
         
         char buf[50];
         snprintf(buf, 50, "%s", line.c_str());
-        SFont_Write(surface, font, x, yOffset, buf);
+        SFont_Write(surface.get(), font, x, yOffset, buf);
         yOffset += lineHeight;
     }
     
     // Reset font surface color modulation
     SDL_SetSurfaceColorMod(fontSurface, 255, 255, 255);
     
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
 }
 
 void Label::SetPosition(int x, int y) {

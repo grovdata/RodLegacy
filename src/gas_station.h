@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "ui/zone.h"
 #include "utils.h"
+#include "animated_bitmap.h"
 #include "bitmap.h"
 #include "spritesheet.h"
 
@@ -23,7 +24,7 @@ class GasStation : public CarScene {
     SDL_Rect roadMaskDestRect = {0, 0, 320, 15};
     GasStationState sceneState = GAS_STATION_IDLE;
     std::unique_ptr<CarBitmap> currentCarBitmap;
-    void InitCurrentCarBitmap();
+    std::unique_ptr<AnimatedBitmap> attendantAnim;
     CarBitmap* GetOrCreateCurrentCarBitmap();
 
    public:
@@ -39,7 +40,7 @@ class GasStation : public CarScene {
     void UpdateCarAnimation(double deltaTime) override;
     void OnCarAnimationComplete() override;
     void UpdateDebugInfo() override;
-    void PushEvent(SDL_Event* event) override;
+    bool PushEvent(SDL_Event* event) override;
 
     void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
     void OnFadeComplete() override;

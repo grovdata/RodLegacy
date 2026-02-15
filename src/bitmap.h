@@ -3,6 +3,7 @@
 #include "global.h"
 #include "parsers/libp.h"
 #include "types.h"
+#include "utils.h"
 
 enum BitmapAlign {
     BitmapAlignBottom,
@@ -15,8 +16,8 @@ class Bitmap : public IDrawable {
     protected:
         SDL_Rect rect;
         bool isVisible;
-        SDL_Texture *texture;
-        SDL_Surface *surface;
+        sdl2::TexturePtr texture;
+        sdl2::SurfacePtr surface;
         SDL_Rect sourceRect;
     public:
         Bitmap();
@@ -47,10 +48,11 @@ class Bitmap : public IDrawable {
         virtual void     SetVisible(bool visible) override;
 
         virtual void Draw() override;
+        void DrawWithRects(const SDL_Rect& src, const SDL_Rect& dst);
 
         //Remove later
-        SDL_Surface* GetSurface();
-        SDL_Texture* GetTexture();
+        SDL_Surface* GetSurface();  // Returns raw pointer for compatibility
+        SDL_Texture* GetTexture();  // Returns raw pointer for compatibility
 
         void UpdateFromSurface();
         void ReplaceSurface(SDL_Surface* newSurface);

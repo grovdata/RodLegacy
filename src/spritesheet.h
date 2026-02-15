@@ -13,6 +13,7 @@ private:
     int currentY;
 
     SDL_Rect clipRect;
+    bool drawFullSheet = false;
 
 public:
     // Default constructor
@@ -37,4 +38,8 @@ public:
     void Print();
     int GetRows();
     int GetColumns();
+    void SetDrawFullSheet(bool full) { drawFullSheet = full; }
+    bool GetDrawFullSheet() const { return drawFullSheet; }
+    void SetClipRect(const SDL_Rect& r) { clipRect = r; }
+    const SDL_Rect& GetClipRect() const { return clipRect; }
 };

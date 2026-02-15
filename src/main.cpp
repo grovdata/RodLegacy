@@ -11,6 +11,7 @@
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
+#include "utils.h"
 #include <filesystem>
 #include <fstream>
 #include <cstring>
@@ -122,11 +123,11 @@ void TakeScreenshot() {
     SDL_GetWindowSize(win, &windowWidth, &windowHeight);
 
     // Create a surface to hold the pixel data
-    SDL_Surface* surface = SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
+    sdl2::SurfacePtr surface(SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
                                                0x00FF0000,  // Red mask
                                                0x0000FF00,  // Green mask
                                                0x000000FF,  // Blue mask
-                                               0xFF000000); // Alpha mask
+                                               0xFF000000)); // Alpha mask
 
     if (!surface) {
         SDL_Log("Failed to create surface for screenshot: %s", SDL_GetError());
@@ -137,7 +138,6 @@ void TakeScreenshot() {
     if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                             surface->pixels, surface->pitch) != 0) {
         SDL_Log("Failed to read pixels for screenshot: %s", SDL_GetError());
-        SDL_FreeSurface(surface);
         return;
     }
 
@@ -150,13 +150,13 @@ void TakeScreenshot() {
     std::string filename = "screenshot_" + std::to_string(screenshotCounter++) + ".png";
 
     // Save the surface as PNG
-    if (IMG_SavePNG(surface, filename.c_str()) != 0) {
+    if (IMG_SavePNG(surface.get(), filename.c_str()) != 0) {
         SDL_Log("Failed to save screenshot: %s", SDL_GetError());
     } else {
         SDL_Log("Screenshot saved: %s", filename.c_str());
     }
 
-    SDL_FreeSurface(surface);
+    // RAII handles cleanup automatically
 }
 
 #ifdef _WIN32
@@ -234,12 +234,12 @@ int main(int argc, char* argv[]) {
 
 #ifndef _WIN32
     // Load icon from embedded data (only on non-Windows platforms)
-    SDL_Surface *icon = LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len);
-    if (icon == NULL) {
+    sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));
+    if (!icon) {
         SDL_Log("Could not load embedded icon");
     } else {
-        SDL_SetWindowIcon(win, icon);
-        SDL_FreeSurface(icon);
+        SDL_SetWindowIcon(win, icon.get());
+        // RAII handles cleanup automatically
     }
 #endif
 
@@ -311,7 +311,7 @@ int main(int argc, char* argv[]) {
     try {
         SDL_ShowCursor(SDL_DISABLE);
         state.Init(debugMode, gamePath, muteAudio);
-        mouse.loadPointers(state.assets.GetMousePointers());
+        mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(SCENE_GARAGE);
     } catch (const std::exception& e) {
@@ -322,11 +322,6 @@ int main(int argc, char* argv[]) {
         Mix_CloseAudio();
         SDL_Quit();
         return 1;
-    }
-
-    // Also ensure initial scene is set up for normal initialization path
-    if (!state.GetCurrentScene()) {
-        state.MoveToScene(SCENE_GARAGE);
     }
 
     // Res scaling
@@ -342,7 +337,6 @@ int main(int argc, char* argv[]) {
     // Force integer scaling
     // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-    state.MoveToScene(SCENE_GARAGE);
 
     // state.SetCurrentScene(&diner);
 
@@ -362,71 +356,63 @@ int main(int argc, char* argv[]) {
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            state.GetCurrentScene()->PushEvent(&event);
+            bool consumed = state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
-
                 case SDL_QUIT:
                     close_requested = true;
                     SDL_Log("Quitting");
                     break;
                 case SDL_KEYDOWN:
-                    switch (event.key.keysym.sym) {
-                        case SDLK_F1:
-                            // F1 toggles debug mode
-                            debugMode = !debugMode;
-                            SDL_Log("Debug mode toggled: %s", debugMode ? "ENABLED" : "DISABLED");
-                            // Reinitialize the current scene with new debug mode
-                            if (state.GetCurrentScene()) {
-                                state.GetCurrentScene()->Init(debugMode);
-                            }
-                            break;
-                        case SDLK_LEFT:
-                            break;
-                        case SDLK_RIGHT:
-                            break;
-                        case SDLK_F5:
-                            TakeScreenshot();
-                            break;
-
-                        default:
-                            break;
-                    }
-                    break;
                 case SDL_KEYUP:
-                    switch (event.key.keysym.sym) {
-                        case SDLK_g:
-                            if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
-                                // Ctrl+G toggles gamepad mode
-                                mouse.SetGamepadActive(!mouse.IsGamepadActive());
-                                SDL_Log("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
-                            } else {
-                                state.MoveToScene(SCENE_GARAGE);
-                            }
-                            break;
-                        case SDLK_d:
-                            state.MoveToScene(SCENE_DINER);
-                            break;
-                        case SDLK_f:
-                            if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
-                                ToggleFullScreen(win, isFullScreen);
-                            }
-                            break;
-                        case SDLK_r:
-                            state.MoveToScene(SCENE_DRIVING);
-                            break;
-                        case SDLK_ESCAPE:
-                            close_requested = true;
-                            break;
-                        case SDLK_LEFT:
-                            break;
-                        case SDLK_RIGHT:
-                            break;
-                        case SDLK_F5:
-                            TakeScreenshot();
-                            break;
-
-                        default:
-                            break;
+                    if (!consumed) {
+                        switch (event.key.keysym.sym) {
+                            case SDLK_F1:
+                                if (event.type == SDL_KEYDOWN) {
+                                    debugMode = !debugMode;
+                                    SDL_Log("Debug mode toggled: %s", debugMode ? "ENABLED" : "DISABLED");
+                                    if (state.GetCurrentScene()) {
+                                        state.GetCurrentScene()->Init(debugMode);
+                                    }
+                                }
+                                break;
+                            case SDLK_F5:
+                                if (event.type == SDL_KEYUP) {
+                                    TakeScreenshot();
+                                }
+                                break;
+                            case SDLK_g:
+                                if (event.type == SDL_KEYUP) {
+                                    if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
+                                        mouse.SetGamepadActive(!mouse.IsGamepadActive());
+                                        SDL_Log("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
+                                    } else {
+                                        state.MoveToScene(SCENE_GARAGE);
+                                    }
+                                }
+                                break;
+                            case SDLK_d:
+                                if (event.type == SDL_KEYUP) {
+                                    state.MoveToScene(SCENE_DINER);
+                                }
+                                break;
+                            case SDLK_f:
+                                if (event.type == SDL_KEYUP && (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                                    ToggleFullScreen(win, isFullScreen);
+                                }
+                                break;
+                            case SDLK_r:
+                                if (event.type == SDL_KEYUP) {
+                                    state.MoveToScene(SCENE_DRIVING);
+                                }
+                                break;
+                            case SDLK_ESCAPE:
+                                if (event.type == SDL_KEYDOWN) {
+                                    close_requested = true;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
                     }
                     break;
                 case SDL_MOUSEMOTION:

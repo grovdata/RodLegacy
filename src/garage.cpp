@@ -89,27 +89,27 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     zones.push_back(transmission);
     zones.push_back(engine);
 
-    Bubble *bubbleDrink = new Bubble("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
+    auto bubbleDrink = std::make_unique<Bubble>("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
     bubbleDrink->SetVisible(false);
-    bubbles.push_back(bubbleDrink);
-    Bubble *partsBubble = new Bubble("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
+    bubbles.push_back(std::move(bubbleDrink));
+    auto partsBubble = std::make_unique<Bubble>("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
     partsBubble->SetVisible(false);
-    bubbles.push_back(partsBubble);
-    Bubble *tiresBubble = new Bubble("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
+    bubbles.push_back(std::move(partsBubble));
+    auto tiresBubble = std::make_unique<Bubble>("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
     tiresBubble->SetVisible(false);
-    bubbles.push_back(tiresBubble);
-    Bubble *paintBubble = new Bubble("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(tiresBubble));
+    auto paintBubble = std::make_unique<Bubble>("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     paintBubble->SetVisible(false);
-    bubbles.push_back(paintBubble);
-    Bubble *customizationBubble = new Bubble("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(paintBubble));
+    auto customizationBubble = std::make_unique<Bubble>("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     customizationBubble->SetVisible(false);
-    bubbles.push_back(customizationBubble);
-    Bubble *roofConstraintBubble = new Bubble("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(customizationBubble));
+    auto roofConstraintBubble = std::make_unique<Bubble>("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
     roofConstraintBubble->SetVisible(false);
-    bubbles.push_back(roofConstraintBubble);
-    Bubble *bumperConstraintBubble = new Bubble("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
+    bubbles.push_back(std::move(roofConstraintBubble));
+    auto bumperConstraintBubble = std::make_unique<Bubble>("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
     bumperConstraintBubble->SetVisible(false);
-    bubbles.push_back(bumperConstraintBubble);
+    bubbles.push_back(std::move(bumperConstraintBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -125,7 +125,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 
     // Set audio manager for engine sound
-    SetAudioManager(state.assets.GetAudioManager());
+    SetAudioManager(state.GetAssets().GetAudioManager());
 
     // Don't start animation here - it will be started after initialDelay in Draw()
 
@@ -213,7 +213,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.lines = lines;
     dialogConfig.zones = dialogZones;  // Add the dialog zones here
     dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
-    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -452,7 +452,7 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.lines = lines;
     menuDialogConfig.zones = dialogZones;
     menuDialogConfig.contentAreas = std::vector<SDL_Rect>{menuDialogRect};
-    menuDialogConfig.font = state.assets.GetMainFont();
+    menuDialogConfig.font = state.GetAssets().GetMainFont();
     menuDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -580,7 +580,7 @@ void Garage::InitOptionsDialog() {
     optionsDialogConfig.lines = lines;
     optionsDialogConfig.zones = dialogZones;
     optionsDialogConfig.contentAreas = std::vector<SDL_Rect>{optionsDialogRect};
-    optionsDialogConfig.font = state.assets.GetMainFont();
+    optionsDialogConfig.font = state.GetAssets().GetMainFont();
     optionsDialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText());
     };
@@ -868,7 +868,7 @@ void Garage::ShowPaintDialog() {
     paintDialogConfig.borderColor = {0, 111, 239, 255};
     paintDialogConfig.buttons = buttons;
     paintDialogConfig.contentAreas = {}; // No content areas = no background drawn
-    paintDialogConfig.font = state.assets.GetMainFont();
+    paintDialogConfig.font = state.GetAssets().GetMainFont();
     paintDialogConfig.onButtonPressed = [this](int index) {
         switch (index) {
             case 0: // Next color
@@ -881,9 +881,16 @@ void Garage::ShowPaintDialog() {
                 {
                     int currentMoney = state.GetBankroll();
                     if (currentMoney >= 20) {
-                        // Deduct $20 and apply the new color
                         state.SetBankroll(currentMoney - 20);
+                        Car* car = state.GetCurrentCar();
+                        if (car) {
+                            car->SetColor(previewColor);
+                            car->SetDecal(SrLibCarDecalNone);  // Remove sticker when repainted
+                        }
                         ApplyPreviewColor();
+                        if (car) {
+                            GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                        }
                         SDL_Log("Car painted for $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(false);  // Hide paintBubble
@@ -937,18 +944,18 @@ void Garage::ShowCarInfoDialog() {
     
     auto addLeft = [&](const char* s) {
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addIndented = [&](const char* s) {
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft + 10, y, dialogRect.w - 26, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addRightNote = [&](const char* left, const char* note) {
         // Render left, then compute right-aligned note position using measured width
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, left, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        int noteWidth = SFont_TextWidth(state.assets.GetMainFont(), note);
+        int noteWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), note);
         texts.push_back(DialogTextConfig{SDL_Rect{xRightAlign - noteWidth, y, noteWidth, 10}, note, {0xFF, 0xFF, 0xFF, 0xFF}, false});
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     
     // Populate from current car parts (engine, manifold, carb, transmission, tires)
@@ -1029,11 +1036,11 @@ void Garage::ShowCarInfoDialog() {
         addRightNote("Tires.", wearNote(car->GetTires().wear).c_str());
 
         // Blank line
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
         // Fuel (placeholder until wired)
         addLeft("Fuel     4 gallons");
         // Blank line
-        y += SFont_TextHeight(state.assets.GetMainFont());
+        y += SFont_TextHeight(state.GetAssets().GetMainFont());
         int mph = model.baseSpeed > 0 ? model.baseSpeed : 97;
         char speedBuf[64];
         snprintf(speedBuf, sizeof(speedBuf), "Max speed   %d mph", mph);
@@ -1047,17 +1054,284 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.contentAreas = { dialogRect }; // draw dialog background
     infoCfg.texts = texts;
     infoCfg.lines = lines;
-    infoCfg.font = state.assets.GetMainFont();
+    infoCfg.font = state.GetAssets().GetMainFont();
     
-    // No buttons - dialog will be dismissed by clicking outside or pressing escape
+    // No buttons - dialog is dismissed by clicking outside or pressing Escape
     infoCfg.buttons = {};
     infoCfg.onZoneHover = nullptr;
-    
     infoCfg.onButtonPressed = nullptr;
-    
+    infoCfg.onDismiss = [this]() {
+        carInfoDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+
     carInfoDialog = std::make_unique<Dialog>(infoCfg);
     carInfoDialog->Show();
     SetActiveDialog(carInfoDialog.get());
+}
+
+void Garage::LoadCustomStickers() {
+    customStickerBitmaps.clear();
+    customStickerPaths.clear();
+
+    namespace fs = std::filesystem;
+    const fs::path stickerDir = state.GetAssets().GetBasePath() / "stickers";
+    SDL_Log("LoadCustomStickers: looking in %s", stickerDir.string().c_str());
+    if (!fs::exists(stickerDir) || !fs::is_directory(stickerDir)) {
+        SDL_Log("LoadCustomStickers: directory not found");
+        return;
+    }
+
+    std::vector<fs::path> pngFiles;
+    for (const auto& entry : fs::directory_iterator(stickerDir)) {
+        if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().string();
+            // Case-insensitive .png check
+            if (ext == ".png" || ext == ".PNG") {
+                pngFiles.push_back(entry.path());
+            }
+        }
+    }
+    std::sort(pngFiles.begin(), pngFiles.end());
+
+    for (const auto& p : pngFiles) {
+        if (customStickerBitmaps.size() >= 16) break;
+        auto bmp = std::make_unique<Bitmap>();
+        bmp->LoadBitmap(p.string());
+        if (bmp->GetSurface()) {
+            int w = bmp->GetSurface()->w;
+            int h = bmp->GetSurface()->h;
+            if (w > 72 || h > 25) {
+                SDL_Log("Skipping custom sticker %s: %dx%d exceeds 72x25 limit", p.string().c_str(), w, h);
+                continue;
+            }
+            customStickerPaths.push_back(p.string());
+            customStickerBitmaps.push_back(std::move(bmp));
+        } else {
+            SDL_Log("Failed to load custom sticker: %s", p.string().c_str());
+        }
+    }
+    SDL_Log("Loaded %zu custom stickers from data/stickers/", customStickerBitmaps.size());
+}
+
+void Garage::ShowStickerDialog() {
+    // Only reload custom stickers on first open (scrollRow == 0 means fresh open)
+    if (stickerScrollRow == 0) {
+        LoadCustomStickers();
+    }
+
+    Spritesheet* decalsSheet = state.GetAssets().GetCarDecals();
+    if (!decalsSheet) {
+        SDL_Log("ShowStickerDialog: DECALS bitmap not loaded");
+        return;
+    }
+
+    const SDL_Color frameBg = {0x2A, 0x2A, 0x2A, 0xFF};
+    const SDL_Color frameBorder = {0x88, 0x88, 0x88, 0xFF};
+
+    const int SRC_CELL_W = 55;
+    const int SRC_CELL_H = 25;
+    const int VISIBLE_ROWS = 2;
+
+    int customCount = (int)customStickerBitmaps.size();
+    int totalItems = 8 + customCount;  // 8 stock + N custom
+    int totalRows = (totalItems + 3) / 4;
+
+    // Clamp scroll position
+    int maxScrollRow = std::max(0, totalRows - VISIBLE_ROWS);
+    if (stickerScrollRow > maxScrollRow) stickerScrollRow = maxScrollRow;
+    if (stickerScrollRow < 0) stickerScrollRow = 0;
+
+    const int cellW = 264 / 4;
+    const int cellH = SRC_CELL_H + 8;
+    int dialogH = VISIBLE_ROWS * cellH + 4;
+
+    SDL_Rect dialogRect = {23, 11, 264, dialogH};
+    const int GRID_LEFT = dialogRect.x + 2;
+    const int GRID_TOP = dialogRect.y + 2;
+
+    std::vector<SDL_Rect> contentAreas = {dialogRect};
+    std::map<std::string, DialogBitmap> bitmaps;
+    std::vector<Zone> zones;
+
+    const ZoneId decalZoneIds[] = {
+        ZONE_GARAGE_STICKER_DECAL_0, ZONE_GARAGE_STICKER_DECAL_1, ZONE_GARAGE_STICKER_DECAL_2, ZONE_GARAGE_STICKER_DECAL_3,
+        ZONE_GARAGE_STICKER_DECAL_4, ZONE_GARAGE_STICKER_DECAL_5, ZONE_GARAGE_STICKER_DECAL_6, ZONE_GARAGE_STICKER_DECAL_7
+    };
+    const ZoneId customZoneIds[] = {
+        ZONE_GARAGE_STICKER_CUSTOM_0, ZONE_GARAGE_STICKER_CUSTOM_1, ZONE_GARAGE_STICKER_CUSTOM_2, ZONE_GARAGE_STICKER_CUSTOM_3,
+        ZONE_GARAGE_STICKER_CUSTOM_4, ZONE_GARAGE_STICKER_CUSTOM_5, ZONE_GARAGE_STICKER_CUSTOM_6, ZONE_GARAGE_STICKER_CUSTOM_7,
+        ZONE_GARAGE_STICKER_CUSTOM_8, ZONE_GARAGE_STICKER_CUSTOM_9, ZONE_GARAGE_STICKER_CUSTOM_10, ZONE_GARAGE_STICKER_CUSTOM_11,
+        ZONE_GARAGE_STICKER_CUSTOM_12, ZONE_GARAGE_STICKER_CUSTOM_13, ZONE_GARAGE_STICKER_CUSTOM_14, ZONE_GARAGE_STICKER_CUSTOM_15,
+    };
+
+    // Populate visible cells based on scroll position
+    for (int displayRow = 0; displayRow < VISIBLE_ROWS; displayRow++) {
+        int actualRow = stickerScrollRow + displayRow;
+        for (int c = 0; c < 4; c++) {
+            int itemIndex = actualRow * 4 + c;
+            if (itemIndex >= totalItems) break;
+
+            SDL_Rect dest = {GRID_LEFT + c * cellW, GRID_TOP + displayRow * cellH, cellW, cellH};
+
+            if (itemIndex < 8) {
+                // Stock sticker from spritesheet
+                int stockRow = itemIndex / 4;
+                int stockCol = itemIndex % 4;
+                SDL_Rect src = {stockCol * SRC_CELL_W, stockRow * SRC_CELL_H, SRC_CELL_W, SRC_CELL_H};
+                DialogBitmap db;
+                db.bitmap = decalsSheet;
+                db.rect = dest;
+                db.zOrder = 0;
+                db.sourceRect = src;
+                bitmaps["decal_" + std::to_string(itemIndex)] = db;
+                zones.push_back(Zone(decalZoneIds[itemIndex], strdup(SrLibCarDecalNames[itemIndex]), &dest));
+            } else {
+                // Custom sticker
+                int customIndex = itemIndex - 8;
+                DialogBitmap db;
+                db.bitmap = customStickerBitmaps[customIndex].get();
+                db.rect = dest;
+                db.zOrder = 0;
+                bitmaps["custom_" + std::to_string(customIndex)] = db;
+                std::string stickerName = std::filesystem::path(customStickerPaths[customIndex]).stem().string();
+                if (!stickerName.empty()) {
+                    std::transform(stickerName.begin(), stickerName.end(), stickerName.begin(), ::tolower);
+                    stickerName[0] = std::toupper(stickerName[0]);
+                }
+                zones.push_back(Zone(customZoneIds[customIndex], strdup(stickerName.c_str()), &dest));
+            }
+        }
+    }
+
+    // Scroll buttons outside dialog, same pattern as car picker
+    const int scrollX = 289;
+    const int scrollBtnW = 15;
+    const int scrollBtnH = 15;
+    SDL_Rect scrollTopRect    = {scrollX, dialogRect.y, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollUpRect     = {scrollX, dialogRect.y + 16, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollDownRect   = {scrollX, dialogRect.y + dialogH - 31, scrollBtnW, scrollBtnH};
+    SDL_Rect scrollBottomRect = {scrollX, dialogRect.y + dialogH - 15, scrollBtnW, scrollBtnH};
+
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_TOP, strdup("\\"), &scrollTopRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_UP, strdup("<"), &scrollUpRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_DOWN, strdup(">"), &scrollDownRect));
+    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect));
+
+    std::vector<ButtonConfig> buttons;
+    ButtonConfig scrollTopBtn = {scrollTopRect, "\\", nullptr, false, 1};
+    scrollTopBtn.fillColor = frameBg;
+    scrollTopBtn.borderColor = frameBorder;
+    scrollTopBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollUpBtn = {scrollUpRect, "<", nullptr, false, 2};
+    scrollUpBtn.fillColor = frameBg;
+    scrollUpBtn.borderColor = frameBorder;
+    scrollUpBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollDownBtn = {scrollDownRect, ">", nullptr, false, 3};
+    scrollDownBtn.fillColor = frameBg;
+    scrollDownBtn.borderColor = frameBorder;
+    scrollDownBtn.textColor = ButtonDefaultChoiceColor;
+    ButtonConfig scrollBottomBtn = {scrollBottomRect, "/", nullptr, false, 4};
+    scrollBottomBtn.fillColor = frameBg;
+    scrollBottomBtn.borderColor = frameBorder;
+    scrollBottomBtn.textColor = ButtonDefaultChoiceColor;
+    buttons = {scrollTopBtn, scrollUpBtn, scrollDownBtn, scrollBottomBtn};
+
+    DialogConfig stickerCfg;
+    // Bounds includes scroll buttons for dismiss hit-testing; contentAreas is the visual rect
+    stickerCfg.bounds = {dialogRect.x, dialogRect.y, (scrollX + scrollBtnW) - dialogRect.x, dialogH};
+    stickerCfg.backgroundColor = frameBg;
+    stickerCfg.borderColor = frameBorder;
+    stickerCfg.contentAreas = contentAreas;
+    stickerCfg.bitmaps = bitmaps;
+    stickerCfg.zones = zones;
+    stickerCfg.buttons = buttons;
+    stickerCfg.font = state.GetAssets().GetMainFont();
+    stickerCfg.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
+    stickerCfg.onButtonPressed = [this, maxScrollRow](int index) {
+        switch (index) {
+            case 1: // TOP
+                if (stickerScrollRow > 0) {
+                    stickerScrollRow = 0;
+                    stickerNeedsRefresh = true;
+                }
+                break;
+            case 2: // UP
+                if (stickerScrollRow > 0) {
+                    stickerScrollRow--;
+                    stickerNeedsRefresh = true;
+                }
+                break;
+            case 3: // DOWN
+                if (stickerScrollRow < maxScrollRow) {
+                    stickerScrollRow++;
+                    stickerNeedsRefresh = true;
+                }
+                break;
+            case 4: // BOTTOM
+                if (stickerScrollRow < maxScrollRow) {
+                    stickerScrollRow = maxScrollRow;
+                    stickerNeedsRefresh = true;
+                }
+                break;
+        }
+    };
+    stickerCfg.onZoneClick = [this](Zone& zone) {
+        ZoneId id = zone.GetId();
+
+        // Handle stock decals
+        if (id >= ZONE_GARAGE_STICKER_DECAL_0 && id <= ZONE_GARAGE_STICKER_DECAL_7) {
+            int decalIndex = id - ZONE_GARAGE_STICKER_DECAL_0;
+            Car* car = state.GetCurrentCar();
+            if (car && car->CanAddDecal()) {
+                int money = state.GetBankroll();
+                if (money >= 5) {
+                    state.SetBankroll(money - 5);
+                    car->SetDecal((SrLibCarDecal)decalIndex);
+                    car->SetCustomDecalPath("");
+                    GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                    GetOrCreateCarBitmap(car)->StartStickerWipe();
+                }
+            }
+            stickerScrollRow = 0;
+            stickerDialog->Hide();
+            SetActiveDialog(nullptr);
+            return;
+        }
+
+        // Handle custom stickers
+        if (id >= ZONE_GARAGE_STICKER_CUSTOM_0 && id <= ZONE_GARAGE_STICKER_CUSTOM_15) {
+            int customIndex = id - ZONE_GARAGE_STICKER_CUSTOM_0;
+            if (customIndex >= 0 && customIndex < (int)customStickerPaths.size()) {
+                Car* car = state.GetCurrentCar();
+                if (car && car->CanAddDecal()) {
+                    int money = state.GetBankroll();
+                    if (money >= 5) {
+                        state.SetBankroll(money - 5);
+                        car->SetDecal(SrLibCarDecalCustom);
+                        car->SetCustomDecalPath(customStickerPaths[customIndex]);
+                        GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                        GetOrCreateCarBitmap(car)->StartStickerWipe();
+                    }
+                }
+            }
+            stickerScrollRow = 0;
+            stickerDialog->Hide();
+            SetActiveDialog(nullptr);
+            return;
+        }
+    };
+    stickerCfg.onDismiss = [this]() {
+        stickerScrollRow = 0;
+        stickerDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+
+    stickerDialog = std::make_unique<Dialog>(stickerCfg);
+    stickerDialog->Show();
+    SetActiveDialog(stickerDialog.get());
 }
 
 void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
@@ -1103,7 +1377,7 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     modDialogConfig.buttons = buttons;
     modDialogConfig.lines = lines;
     modDialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
-    modDialogConfig.font = state.assets.GetMainFont();
+    modDialogConfig.font = state.GetAssets().GetMainFont();
     modDialogConfig.onButtonPressed = [this, price, onConfirm, &dialogPtr](int index) {
         switch (index) {
             case 0: // OK
@@ -1166,9 +1440,9 @@ void Garage::UpdateSign() {
     SDL_FillRect(signSurface, NULL, transparent);
     
     // Write new text
-    int textWidth = SFont_TextWidth(state.assets.GetMainFont(), text);
+    int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
     int x = signRect.x + (signRect.w - textWidth) / 2;
-    SFont_Write(signSurface, state.assets.GetMainFont(), x, 45, text);
+    SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
     
     // Destroy old texture if it exists
     if (signTexture) {
@@ -1231,6 +1505,10 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_PAINT_JOB:
         ShowPaintDialog();
         break;
+    case ZONE_GARAGE_STICKERS:
+        stickerScrollRow = 0;
+        ShowStickerDialog();
+        break;
     default:
         break;
     }
@@ -1261,6 +1539,9 @@ void Garage::Draw() {
         SDL_Point p;
         p.x = carx; p.y = cary;
         carBitmap->Move(p);
+        if (carBitmap->IsStickerWipeActive()) {
+            carBitmap->UpdateStickerWipe(deltaTime);
+        }
         carBitmap->Draw();
 
         // get clickboxes
@@ -1293,12 +1574,19 @@ void Garage::Draw() {
         paintCanPreview->Draw();
     }
 
+    // Deferred sticker dialog refresh (avoids use-after-free when scrolling)
+    if (stickerNeedsRefresh) {
+        stickerNeedsRefresh = false;
+        stickerDialog->Hide();
+        ShowStickerDialog();
+    }
+
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
     }
 
     // Draw bubbles last so they appear on top of dialogs
-    for (auto b : bubbles) {
+    for (auto& b : bubbles) {
         b->Draw();
     }
 }
@@ -1317,13 +1605,12 @@ void Garage::SetActiveDialog(Dialog *dialog) {
     }
 }
 
-void Garage::PushEvent(SDL_Event* event) {
+bool Garage::PushEvent(SDL_Event* event) {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return;  // Skip normal zone handling when dialog is visible
+        return true;
     }
-
-    CarScene::PushEvent(event);
+    return CarScene::PushEvent(event);
 }
 
 void Garage::OnCarAnimationComplete() {

@@ -51,6 +51,9 @@ void Spritesheet::Print() {
 }
 
 void Spritesheet::Draw() {
-    if (isVisible)
-        SDL_RenderCopy(renderer, texture, &clipRect, &rect);
+    if (!isVisible) return;
+    if (drawFullSheet)
+        SDL_RenderCopy(renderer, texture.get(), nullptr, &rect);
+    else
+        SDL_RenderCopy(renderer, texture.get(), &clipRect, &rect);
 }

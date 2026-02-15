@@ -8,33 +8,33 @@ const int wheelSize = 31;
 
 CarShadow::CarShadow(int width) {
     this->width = width;
-    this->surface = SDL_CreateRGBSurface(0, width, 4, 32,
+    this->surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, 4, 32,
         0xFF000000,  // Red mask
         0x00FF0000,  // Green mask
         0x0000FF00,  // Blue mask
         0x000000FF   // Alpha mask
-    );
+    ));
 }
 
 CarShadow::~CarShadow() {
 }
 
 void CarShadow::Draw() {
-    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
+    SDL_FillRect(surface.get(), NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
     SDL_Rect clearRect;
     Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);  // Transparent black
     clearRect = {0, 0, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 3, 0, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {0, 2, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 3, 2, 3, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {0, 3, 6, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 6, 3, 6, 1};
-    SDL_FillRect(surface, &clearRect, transparent);
+    SDL_FillRect(surface.get(), &clearRect, transparent);
     UpdateFromSurface();
     Bitmap::Draw();
 }
@@ -65,7 +65,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     this->currentColor = color;
     
     CarModel model = car->GetModel();
-    byte_vector& libFile = state.assets.GetLibPData();
+    byte_vector& libFile = state.GetAssets().GetLibPData();
     
     // Initialize the member variable offsets from the car model
     offsets = model.offsets;
@@ -73,14 +73,14 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     // Load original body
     std::vector<uint16_t> carPalette = GetStandardCarColor(color);
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)car->GetModel().index;
-    auto* originalAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+    auto* originalAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (originalAsset) {
         bodyOriginal = *originalAsset;  // Copy the bitmap
     }
     
     // Load chopped body if available
     if (CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
-        auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+        auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
         if (choppedAsset) {
             bodyChopped = *choppedAsset;  // Copy the bitmap (keeps its natural sprite dimensions)
             // Position it with the chopped roof offset from car model
@@ -106,7 +106,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
 
         // These are overlays that will be applied to the body texture
         if (rearBumperIndex > 0) {
-            auto* rearBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
+            auto* rearBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
             if (rearBumperAsset) {
                 rearBumper = *rearBumperAsset;
                 SDL_Log("Loaded rear bumper overlay: %dx%d", rearBumper.GetPosition().w, rearBumper.GetPosition().h);
@@ -116,7 +116,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         }
         
         if (frontBumperIndex > 0) {
-            auto* frontBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
+            auto* frontBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
             if (frontBumperAsset) {
                 frontBumper = *frontBumperAsset;
                 SDL_Log("Loaded front bumper overlay: %dx%d", frontBumper.GetPosition().w, frontBumper.GetPosition().h);
@@ -147,18 +147,22 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     shadow.SetVisible(true);
 
     if (driverInfo != nullptr) {
-        AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
-        auto* driverAsset = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
-        if (driverAsset) {
-            driver = *driverAsset;
+        if (!driverInfo->customDriverPath.empty()) {
+            driver.LoadBitmap(driverInfo->customDriverPath);
             driver.SetVisible(true);
-            
+        } else {
+            AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
+            auto* driverAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
+            if (driverAsset) {
+                driver = *driverAsset;
+                driver.SetVisible(true);
+            }
         }
     }
 
     // Load wheels
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
-    auto* wheelAsset = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
+    auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     if (wheelAsset) {
         wheels = *((Spritesheet*)wheelAsset);  // Copy the spritesheet
         wheels.SelectSprite(0, 1);
@@ -166,17 +170,26 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         wheels.SetDimensions(wheelSize, wheelSize);
     }
 
-    auto* gasCapAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
+    auto* gasCapAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
     if (gasCapAsset) {
         gasCap = *gasCapAsset;
         gasCap.SetVisible(false);
     }
 
-    if (car->GetDecal() != SrLibCarDecalNone) {
+    customDecal.SetVisible(false);
+    if (car->GetDecal() == SrLibCarDecalCustom) {
+        // Load custom PNG sticker
+        const std::string& path = car->GetCustomDecalPath();
+        if (!path.empty()) {
+            customDecal.LoadBitmap(path);
+            customDecal.SetVisible(true);
+        }
+        decal.SetVisible(false);
+    } else if (car->GetDecal() != SrLibCarDecalNone) {
 
-        auto* decalAsset = (Spritesheet*)state.assets.GetCarDecals();
+        auto* decalAsset = (Spritesheet*)state.GetAssets().GetCarDecals();
         if (decalAsset) {
-            decal = *((Spritesheet*)decalAsset);            
+            decal = *((Spritesheet*)decalAsset);
             decal.SetVisible(true);
         }
 
@@ -186,10 +199,10 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             decal.SelectSprite(0, 0);
             break;
         case SrLibCarDecalAmigaRanger:
-            decal.SelectSprite(0, 2);
+            decal.SelectSprite(0, 1);
             break;
         case SrLibCarDecalAmigaNotBulletProof:
-            decal.SelectSprite(0, 3);
+            decal.SelectSprite(0, 2);
             break;
         case SrLibCarDecalAmigaHotRod:
             decal.SelectSprite(0, 3);
@@ -212,6 +225,8 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             decal.SetVisible(false);
             break;
         }
+    } else {
+        decal.SetVisible(false);
     }
 
     // Make sure we're pointing to the right body
@@ -273,8 +288,55 @@ void CarBitmap::Draw() {
         hoodScoop.Draw();
     }
 
-    if (decal.IsVisible()) {
-        decal.Draw();
+    if (stickerWipeActive) {
+        SDL_Rect bodyRect = bodyOriginal.GetPosition();
+        int decalX = bodyRect.x + offsets.offsetXDecal;
+        int decalY = bodyRect.y + offsets.offsetYDecal;
+        int totalWidth = 0;
+        int decalHeight = 0;
+        bool useStockDecal = decal.IsVisible();
+        bool useCustomDecal = customDecal.IsVisible();
+
+        if (useStockDecal) {
+            SDL_Rect r = decal.GetPosition();
+            totalWidth = r.w;
+            decalHeight = r.h;
+        } else if (useCustomDecal) {
+            SDL_Rect r = customDecal.GetPosition();
+            totalWidth = r.w;
+            decalHeight = r.h;
+        }
+
+        if (totalWidth > 0 && decalHeight > 0) {
+            int revealedWidth = (int)(stickerWipeProgress * totalWidth);
+            if (revealedWidth > totalWidth) revealedWidth = totalWidth;
+
+            SDL_Rect dstRect = {decalX, decalY, revealedWidth, decalHeight};
+
+            if (revealedWidth > 0) {
+                if (useStockDecal) {
+                    SDL_Rect clip = decal.GetClipRect();
+                    SDL_Rect srcRect = {clip.x, clip.y, revealedWidth, clip.h};
+                    decal.DrawWithRects(srcRect, dstRect);
+                } else {
+                    SDL_Rect srcRect = {0, 0, revealedWidth, decalHeight};
+                    customDecal.DrawWithRects(srcRect, dstRect);
+                }
+            }
+
+            if (revealedWidth < totalWidth) {
+                stickerRoll.SetPosition(decalX + revealedWidth, decalY);
+                stickerRoll.Draw();
+            }
+        }
+    } else {
+        if (decal.IsVisible()) {
+            decal.Draw();
+        }
+
+        if (customDecal.IsVisible()) {
+            customDecal.Draw();
+        }
     }
 }
 
@@ -325,10 +387,10 @@ void CarBitmap::RestoreRoof() {
     // Reload the original body to restore the roof (removes the mask)
     CarModel model = car->GetModel();
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-    byte_vector& libFile = state.assets.GetLibPData();
+    byte_vector& libFile = state.GetAssets().GetLibPData();
     std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
     
-    auto* originalAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+    auto* originalAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (originalAsset) {
         SDL_Rect currentPos = bodyOriginal.GetPosition();
         bool currentVis = bodyOriginal.IsVisible();
@@ -394,6 +456,7 @@ void CarBitmap::UpdateTextures() {
     
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);    
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
+    customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
     pumpingHandle.SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
@@ -446,7 +509,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;
     CarModel model = car->GetModel();
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-    byte_vector& libFile = state.assets.GetLibPData();
+    byte_vector& libFile = state.GetAssets().GetLibPData();
     
     std::vector<uint16_t> carPalette = GetStandardCarColor(newColor);
     
@@ -458,7 +521,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     BitmapOffset_t savedOffsets = offsets;
     
     // Reload body bitmap with new palette
-    auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+    auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (bodyAsset) {
         bodyOriginal = *bodyAsset;
         bodyOriginal.SetPosition(currentPos.x, currentPos.y);
@@ -467,7 +530,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     
     // Reload chopped body if available
     if (CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
-        auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+        auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
         if (choppedAsset) {
             // Store current chopped body dimensions if it exists
             SDL_Rect oldChoppedPos = bodyChopped.GetPosition();
@@ -491,14 +554,14 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         int frontBumperIndex = CarQuery::SrLibQueryGetChoppedBumberFrontIndex(bodyAssetNo);
         
         if (rearBumperIndex > 0) {
-            auto* rearBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
+            auto* rearBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
             if (rearBumperAsset) {
                 rearBumper = *rearBumperAsset;
             }
         }
         
         if (frontBumperIndex > 0) {
-            auto* frontBumperAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
+            auto* frontBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
             if (frontBumperAsset) {
                 frontBumper = *frontBumperAsset;
             }
@@ -588,19 +651,19 @@ void CarBitmap::RestoreFrontBumper() {
         // Restore by reloading the body from assets
         CarModel model = car->GetModel();
         AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        auto& libFile = state.assets.GetLibPData();
+        auto& libFile = state.GetAssets().GetLibPData();
         std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
         
         if (isRoofChopped) {
             // Chopped body index is body index + 1
-            auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+            auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
             if (choppedAsset) {
                 bodyChopped = *choppedAsset;
                 bodyChopped.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyChopped;
             }
         } else {
-            auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+            auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
             if (bodyAsset) {
                 bodyOriginal = *bodyAsset;
                 bodyOriginal.UpdateFromSurface(); // Update texture after reloading
@@ -630,19 +693,19 @@ void CarBitmap::RestoreRearBumper() {
         // Restore by reloading the body from assets
         CarModel model = car->GetModel();
         AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        auto& libFile = state.assets.GetLibPData();
+        auto& libFile = state.GetAssets().GetLibPData();
         std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
         
         if (isRoofChopped) {
             // Chopped body index is body index + 1
-            auto* choppedAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+            auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
             if (choppedAsset) {
                 bodyChopped = *choppedAsset;
                 bodyChopped.UpdateFromSurface(); // Update texture after reloading
                 body = &bodyChopped;
             }
         } else {
-            auto* bodyAsset = state.assets.GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+            auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
             if (bodyAsset) {
                 bodyOriginal = *bodyAsset;
                 bodyOriginal.UpdateFromSurface(); // Update texture after reloading
@@ -663,5 +726,55 @@ void CarBitmap::RestoreRearBumper() {
         }
         
         UpdatePositions();
+    }
+}
+
+void CarBitmap::StartStickerWipe() {
+    std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+    if (carPalette.size() < 9) return;
+
+    SDL_Surface* rollSurface = SDL_CreateRGBSurface(0, 5, 25, 32,
+        0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    if (!rollSurface) return;
+
+    SDL_PixelFormat* fmt = rollSurface->format;
+    auto amigaToRgb = [fmt](uint16_t c) -> Uint32 {
+        uint8_t r = ((c >> 8) & 0x0F) * 17;
+        uint8_t g = ((c >> 4) & 0x0F) * 17;
+        uint8_t b = (c & 0x0F) * 17;
+        return SDL_MapRGBA(fmt, r, g, b, 255);
+    };
+
+    Uint32 colBright = amigaToRgb(carPalette[8]);
+    Uint32 colDark = amigaToRgb(carPalette[0]);
+    Uint32 colFixed1 = SDL_MapRGBA(rollSurface->format, 0xa6, 0xb2, 0xb0, 255);
+    Uint32 colFixed2 = SDL_MapRGBA(rollSurface->format, 0x90, 0x90, 0x91, 255);
+
+    Uint32 columnColors[5] = { colBright, colFixed1, colFixed2, colDark, colBright };
+
+    if (SDL_MUSTLOCK(rollSurface)) SDL_LockSurface(rollSurface);
+    Uint32* pixels = (Uint32*)rollSurface->pixels;
+    for (int x = 0; x < 5; x++) {
+        Uint32 color = columnColors[x];
+        for (int y = 0; y < 25; y++) {
+            pixels[y * rollSurface->pitch / 4 + x] = color;
+        }
+    }
+    if (SDL_MUSTLOCK(rollSurface)) SDL_UnlockSurface(rollSurface);
+
+    stickerRoll.LoadSurface(rollSurface);
+    SDL_FreeSurface(rollSurface);
+    stickerRoll.SetDimensions(5, 25);
+
+    stickerWipeActive = true;
+    stickerWipeProgress = 0.0f;
+}
+
+void CarBitmap::UpdateStickerWipe(float deltaTime) {
+    if (!stickerWipeActive) return;
+    stickerWipeProgress += (float)(deltaTime / 0.5);
+    if (stickerWipeProgress >= 1.0f) {
+        stickerWipeActive = false;
+        stickerWipeProgress = 0.0f;
     }
 }

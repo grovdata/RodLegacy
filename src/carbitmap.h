@@ -30,6 +30,7 @@ private:
     Bitmap rearWheelhouse;
     Bitmap frontWheelhouse;
     Spritesheet decal;
+    Bitmap customDecal;
     Bitmap rearWheelhouseBackground;
     Bitmap frontWheelhouseBackground;
     Bitmap rearBumper;
@@ -49,6 +50,10 @@ private:
     StandardCarColor currentColor;
     bool gasCapRemoved;
     bool pumpingHandleVisible;
+
+    bool stickerWipeActive = false;
+    float stickerWipeProgress = 0.0f;
+    Bitmap stickerRoll;
 
     void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
 
@@ -76,6 +81,7 @@ public:
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
     StandardCarColor GetCurrentColor() const { return currentColor; }
+    Car* GetCar() const { return car; }
     BitmapOffset_t GetOffset();
 
     // Gas station methods
@@ -96,4 +102,8 @@ public:
     
     // Roof methods
     bool IsRoofChopped() const { return isRoofChopped; }
+
+    void StartStickerWipe();
+    void UpdateStickerWipe(float deltaTime);
+    bool IsStickerWipeActive() const { return stickerWipeActive; }
 };

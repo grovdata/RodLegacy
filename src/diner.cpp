@@ -19,7 +19,7 @@ void Diner::Init(bool debugMode) {
     CarScene::Init(debugMode);
 
     // Set audio manager for engine sound
-    SetAudioManager(state.assets.GetAudioManager());
+    SetAudioManager(state.GetAssets().GetAudioManager());
 
     roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
     SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
@@ -43,56 +43,55 @@ void Diner::Init(bool debugMode) {
     zones.push_back(garage);
     zones.push_back(backgroundZone);
 
-    Bubble *guyBubble = new Bubble("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
+    auto guyBubble = std::make_unique<Bubble>("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
     guyBubble->SetVisible(false);
-    bubbles.push_back(guyBubble);
+    bubbles.push_back(std::move(guyBubble));
 
     // Add phonebook guy as AnimatedBitmap to container (only if not already added)
     if (!GetDrawable("phonebook_guy")) {
-        Bitmap* phonebookGuySheet = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
-        
+        Bitmap* phonebookGuySheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
+
         SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
-        auto phonebookGuyAnim = new AnimatedBitmap(phonebookGuySheet, phonebookGuyRect);
+        phonebookGuyAnim = std::make_unique<AnimatedBitmap>(phonebookGuySheet, phonebookGuyRect);
         // PHONEBOOK_GUY is 2 rows, 5 columns according to libp.cpp
-        // Calculate frame size: width/5, height/2
         int frameWidth = phonebookGuySheet->GetSurface()->w / 5;
         int frameHeight = phonebookGuySheet->GetSurface()->h / 2;
         phonebookGuyAnim->SetAnimationFrames(frameWidth, frameHeight, 5, 2); // 5 columns, 2 rows
         phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
         phonebookGuyAnim->SetLoop(true);
         phonebookGuyAnim->Play();
-        
-        AddDrawable("phonebook_guy", std::shared_ptr<IDrawable>(phonebookGuyAnim));
+
+        AddDrawable("phonebook_guy", phonebookGuyAnim.get());
     }
 
     if (!GetDrawable("waitressLeft")) {
-        Bitmap* waitressLeftBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_LEFT});
-        
+        Bitmap* waitressLeftBitmap = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_LEFT});
+
         SDL_Rect waitressLeftRect = {25, 68, 40, 41};
-        auto waitressLeftAnim = new AnimatedBitmap(waitressLeftBitmap, waitressLeftRect);
+        waitressLeftAnim = std::make_unique<AnimatedBitmap>(waitressLeftBitmap, waitressLeftRect);
         waitressLeftAnim->SetAnimationFrames(40, 41, 6, 2);
         waitressLeftAnim->SetSpeed(0.2f);
         waitressLeftAnim->SetLoop(true);
         waitressLeftAnim->Play();
         waitressLeftAnim->SetVisible(false); // Start hidden
-        AddDrawable("waitressLeft", std::shared_ptr<IDrawable>(waitressLeftAnim));
+        AddDrawable("waitressLeft", waitressLeftAnim.get());
     }
-    
+
     if (!GetDrawable("waitressRight")) {
-        Bitmap* waitressRightBitmap = state.assets.GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
-        
+        Bitmap* waitressRightBitmap = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
+
         SDL_Rect waitressRightRect = {-40, 68, 40, 41}; // Start off-screen left
-        auto waitressRightAnim = new AnimatedBitmap(waitressRightBitmap, waitressRightRect);
+        waitressRightAnim = std::make_unique<AnimatedBitmap>(waitressRightBitmap, waitressRightRect);
         waitressRightAnim->SetAnimationFrames(40, 41, 6, 2);
         waitressRightAnim->SetSpeed(0.2f);
         waitressRightAnim->SetLoop(true);
         waitressRightAnim->Play();
         waitressRightAnim->SetVisible(true); // Start visible for entering
-        AddDrawable("waitressRight", std::shared_ptr<IDrawable>(waitressRightAnim));
+        AddDrawable("waitressRight", waitressRightAnim.get());
     }
 
     // Create masked screen background (similar to gas station)
-    Bitmap* screenMaskBitmap = state.assets.GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
+    Bitmap* screenMaskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
     if (screenMaskBitmap) {
         maskedScreenBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 256, 41, 32, SDL_PIXELFORMAT_RGBA8888));
         background->CreateMask(screenMaskBitmap->GetSurface(), maskedScreenBackground.get(), {0, 68, 256, 41});
@@ -140,17 +139,17 @@ void Diner::Draw() {
     UpdateCarAnimation(deltaTime);
 
     // Update animations - declare variables once for the entire method
-    auto phonebookGuy = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("phonebook_guy"));
+    auto phonebookGuy = dynamic_cast<AnimatedBitmap*>(GetDrawable("phonebook_guy"));
     if (phonebookGuy) {
         phonebookGuy->Update(deltaTime);
     }
 
-    auto waitressLeft = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressLeft"));
+    auto waitressLeft = dynamic_cast<AnimatedBitmap*>(GetDrawable("waitressLeft"));
     if (waitressLeft) {
         waitressLeft->Update(deltaTime);
     }
 
-    auto waitressRight = std::dynamic_pointer_cast<AnimatedBitmap>(GetDrawable("waitressRight"));
+    auto waitressRight = dynamic_cast<AnimatedBitmap*>(GetDrawable("waitressRight"));
     if (waitressRight) {
         waitressRight->Update(deltaTime);
     }
@@ -194,7 +193,7 @@ void Diner::Draw() {
             phonebookGuy->Draw();
         }
         
-        for (auto b : bubbles) {
+        for (auto& b : bubbles) {
             b->Draw();
         }
         if (debugMode && debugOverlay) {
@@ -227,7 +226,7 @@ void Diner::Draw() {
         carBitmap->Draw();
     }
 
-    for (auto b : bubbles) {
+    for (auto& b : bubbles) {
         b->Draw();
     }
 
@@ -240,7 +239,7 @@ void Diner::Draw() {
 void Diner::DrawMaskAfterCar() {
     // Draw the road mask (for car)
     if (roadMaskSurface && roadMaskTexture) {
-        SDL_BlitSurface(surface, &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+        SDL_BlitSurface(surface.get(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
         SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
@@ -328,50 +327,50 @@ void Diner::UpdateDebugInfo() {
     }
 }
 
-void Diner::PushEvent(SDL_Event *event) {
-    CarScene::PushEvent(event);  // Handle parent events first (like F12)
-
-    if (!debugMode) return;  // Only handle these events in debug mode
+bool Diner::PushEvent(SDL_Event *event) {
+    bool consumed = CarScene::PushEvent(event);
+    if (!debugMode) return consumed;
 
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
             case SDLK_p:
                 isPaused = !isPaused;
-                break;
-            
+                return true;
             case SDLK_UP:
                 if (isPaused && carBitmap) {
-                    cary--;  // Move car up
+                    cary--;
                     carBitmap->MoveBody({carx, cary});
+                    return true;
                 }
                 break;
-                
             case SDLK_DOWN:
                 if (isPaused && carBitmap) {
-                    cary++;  // Move car down
+                    cary++;
                     carBitmap->MoveBody({carx, cary});
+                    return true;
                 }
                 break;
-
             case SDLK_LEFT:
                 if (isPaused && carBitmap) {
                     carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() - 1);
+                    return true;
                 }
                 break;
-
             case SDLK_RIGHT:
                 if (isPaused && carBitmap) {
                     carBitmap->MoveWheelsYOffset(carBitmap->GetWheelsYOffset() + 1);
+                    return true;
                 }
                 break;
-
             case SDLK_r:
                 if (isPaused && carBitmap) {
                     carBitmap->ToggleChoppedRoof();
+                    return true;
                 }
                 break;
         }
     }
+    return consumed;
 }
 
 void Diner::FadeOut() {
@@ -485,7 +484,7 @@ void Diner::OnSceneExit() {
     CarScene::OnSceneExit();
 }
 
-void Diner::UpdateWaitressSequence(double deltaTime, std::shared_ptr<AnimatedBitmap> waitressLeft, std::shared_ptr<AnimatedBitmap> waitressRight) {
+void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight) {
     if (!waitressLeft || !waitressRight) return;
     
     waitressAnimTime += deltaTime;

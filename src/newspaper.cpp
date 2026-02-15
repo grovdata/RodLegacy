@@ -53,7 +53,7 @@ void Newspaper::Init(bool debugMode) {
 }
 
 void Newspaper::InitPageOne() {
-    previous = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    previous = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
     previous.SetPosition(0, 0);
     SDL_Rect previousRect = {0, 0, 64, 190};
     previous.Crop(previousRect);
@@ -61,7 +61,7 @@ void Newspaper::InitPageOne() {
     previous.UpdateFromSurface();
     previous.SetVisible(false);
 
-    next = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    next = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
     next.SetPosition(GAME_WIDTH - 64, 0);
     SDL_Rect nextRect = {64, 0, 64, 190};
     next.Crop(nextRect);
@@ -71,7 +71,7 @@ void Newspaper::InitPageOne() {
 
     // Set headline based on date?
     AmigaLibAsset headlineAsset = NEWSPAPER_NO_SOLDIERS_IN_VIETNAM;
-    headline = state.assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, headlineAsset});
+    headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, headlineAsset});
     headline.SetPosition(0, 136);
     headline.SetVisible(true); 
 
@@ -93,13 +93,13 @@ void Newspaper::InitPageOne() {
     headline.UpdateFromSurface();
     
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
-    date.Init(state.assets.GetMainFont(), 0, 120, dateColor);
+    date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
     date.SetText("  June 10, 1963  ", true, GAME_WIDTH);
 
-    headingLeft.Init(state.assets.GetNewspaperFont(), 10, 138, dateColor);
+    headingLeft.Init(state.GetAssets().GetNewspaperFont(), 10, 138, dateColor);
     headingLeft.SetText("  President insists: ", true, GAME_WIDTH);
 
-    headingRight.Init(state.assets.GetNewspaperFont(), 10, 138 + 15, dateColor);
+    headingRight.Init(state.GetAssets().GetNewspaperFont(), 10, 138 + 15, dateColor);
     headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
 }
 
@@ -161,7 +161,7 @@ void Newspaper::CreateClassifiedAds() {
         Label adLabel;
         // Initial position, will be updated based on content
         uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
-        adLabel.Init(state.assets.GetMainFont(), 68, 32, textColor);
+        adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
         adLabel.SetVisible(false); // Will be shown based on current page
         
         classifiedAds.push_back(adLabel);
@@ -177,7 +177,7 @@ void Newspaper::CreateUsedCarAds() {
         Label adLabel;
         // Initial position, will be updated based on content
         uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
-        adLabel.Init(state.assets.GetMainFont(), 68, 32, textColor);
+        adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
         adLabel.SetVisible(false); // Will be shown based on current page
         
         usedCarAds.push_back(adLabel);
@@ -185,7 +185,7 @@ void Newspaper::CreateUsedCarAds() {
 }
 
 std::string Newspaper::WordWrap(const std::string& text, int maxWidthPixels) {
-    SFont_Font* font = state.assets.GetMainFont();
+    SFont_Font* font = state.GetAssets().GetMainFont();
     if (!font) {
         return text; // Fallback if font not available
     }
@@ -345,36 +345,26 @@ void Newspaper::Draw() {
     }
 }
 
-void Newspaper::PushEvent(SDL_Event *event) {
-    // Handle dialog events first
+bool Newspaper::PushEvent(SDL_Event *event) {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
-        return; // Skip normal zone handling when dialog is visible
+        return true;
     }
-    
-    // Handle mouse wheel scrolling in ads area
-    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) { // Only allow smooth scrolling on used car pages
+
+    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) {
         int mouseX = event->wheel.mouseX;
         int mouseY = event->wheel.mouseY;
-        
-        // Check if mouse is over the ads area (64, 0, 192, 190)
         if (mouseX >= 64 && mouseX < 256 && mouseY >= 0 && mouseY < 190) {
-            int wheelY = event->wheel.y;
-            
-            if (wheelY > 0) { // Scroll up
+            if (event->wheel.y > 0) {
                 smoothScrollOffset -= 20;
-            }
-            else if (wheelY < 0) { // Scroll down
+            } else if (event->wheel.y < 0) {
                 smoothScrollOffset += 20;
             }
-            
-            // Update the viewport with smooth scrolling
             UpdateViewport();
-            return; // Don't process this event further
+            return true;
         }
     }
-    
-    Scene::PushEvent(event);
+    return Scene::PushEvent(event);
 }
 
 void Newspaper::Action(ZoneId zone) {
@@ -508,7 +498,7 @@ void Newspaper::CreateAllAdsSurface() {
     adPositions.clear();
     
     // Get the main font once for all rendering
-    SFont_Font* mainFont = state.assets.GetMainFont();
+    SFont_Font* mainFont = state.GetAssets().GetMainFont();
     if (!mainFont) {
         SDL_Log("ERROR: GetMainFont() returned NULL");
         return;
@@ -527,7 +517,7 @@ void Newspaper::CreateAllAdsSurface() {
         headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
         
         // Center the header text
-        int textWidth = SFont_TextWidth(state.assets.GetMainFont(), autoParts.c_str());
+        int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), autoParts.c_str());
         int centerX = (192 - textWidth) / 2;
         
         // Render header to surface
@@ -804,7 +794,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
     dialogConfig.texts = texts;
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
-    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
         switch (buttonIndex) {
             case 0: // See it
@@ -912,7 +902,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
     dialogConfig.bitmaps = bitmaps;
-    dialogConfig.font = state.assets.GetMainFont();
+    dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
         switch (buttonIndex) {
             case 0: // See it (already showing)

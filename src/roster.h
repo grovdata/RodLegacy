@@ -4,6 +4,7 @@
 #include "driver.h"
 #include "car.h"
 #include "cardata.h"
+#include <filesystem>
 
 class Opponent {
     public:
@@ -23,7 +24,11 @@ class Roster {
         std::vector<std::string> stockDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
         std::vector<Opponent> opponents;
         std::vector<Opponent>::iterator currentOpponent;
+        std::vector<std::string> customDriverPaths;
+        std::vector<std::string> customStickerPaths;
         Driver GenerateRandomDriver(int preferredCarIndex);
+        void LoadCustomDrivers();
+        void LoadCustomStickers();
     public:
         Roster();
         void Initialize(CarData& carData);

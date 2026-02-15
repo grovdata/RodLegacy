@@ -26,6 +26,21 @@ struct Asset {
     }
 };
 
+// Cache key for palette variants: combines asset ID with palette hash
+struct AssetPaletteKey {
+    int assetId;
+    size_t paletteHash;  // Hash of the palette vector for fast comparison
+    
+    bool operator<(const AssetPaletteKey& other) const {
+        if (assetId != other.assetId) return assetId < other.assetId;
+        return paletteHash < other.paletteHash;
+    }
+    
+    bool operator==(const AssetPaletteKey& other) const {
+        return assetId == other.assetId && paletteHash == other.paletteHash;
+    }
+};
+
 namespace fs = std::filesystem;
 
 class AssetLoadError : public std::runtime_error {
@@ -74,6 +89,7 @@ public:
     byte_vector& GetSrExeData() { return srExeData_vec; }
 
     AudioManager* GetAudioManager() { return audioManager; }
+    const fs::path& GetBasePath() const { return gameBasePath; }
 
 private:
     fs::path gameBasePath;
@@ -82,7 +98,8 @@ private:
     BitmapParser bp;
 
     std::pair<int, std::vector<BitmapEntry_t>> imageEntries;
-    std::vector<std::pair<Asset, std::unique_ptr<Bitmap>>> imageAssets;
+    std::vector<std::pair<Asset, std::unique_ptr<Bitmap>>> imageAssets;  // Base assets (no palette variants)
+    std::map<AssetPaletteKey, std::unique_ptr<Bitmap>> paletteVariantCache;  // Cached palette variants
     std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>> mousePointers;
 
     Spritesheet* carDecals;
@@ -107,6 +124,7 @@ private:
     void InitAudio(bool muteAudio = false);
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
+    void CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey);
 
 
     static fs::path LoadSavedGamePath();
