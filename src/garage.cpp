@@ -1099,6 +1099,12 @@ void Garage::LoadCustomStickers() {
         auto bmp = std::make_unique<Bitmap>();
         bmp->LoadBitmap(p.string());
         if (bmp->GetSurface()) {
+            int w = bmp->GetSurface()->w;
+            int h = bmp->GetSurface()->h;
+            if (w > 72 || h > 25) {
+                SDL_Log("Skipping custom sticker %s: %dx%d exceeds 72x25 limit", p.string().c_str(), w, h);
+                continue;
+            }
             customStickerPaths.push_back(p.string());
             customStickerBitmaps.push_back(std::move(bmp));
         } else {
