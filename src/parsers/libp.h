@@ -97,6 +97,8 @@ enum SrLibCarDecal {
     SrLibCarDecalCustom,
 };
 
+extern const char* SrLibCarDecalNames[8];
+
 enum CarVendor_t {
     CarVendorChrysler = 0,
     CarVendorFord = 1,

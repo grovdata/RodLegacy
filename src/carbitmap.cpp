@@ -199,10 +199,10 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             decal.SelectSprite(0, 0);
             break;
         case SrLibCarDecalAmigaRanger:
-            decal.SelectSprite(0, 2);
+            decal.SelectSprite(0, 1);
             break;
         case SrLibCarDecalAmigaNotBulletProof:
-            decal.SelectSprite(0, 3);
+            decal.SelectSprite(0, 2);
             break;
         case SrLibCarDecalAmigaHotRod:
             decal.SelectSprite(0, 3);

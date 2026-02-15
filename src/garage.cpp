@@ -1187,7 +1187,7 @@ void Garage::ShowStickerDialog() {
                 db.zOrder = 0;
                 db.sourceRect = src;
                 bitmaps["decal_" + std::to_string(itemIndex)] = db;
-                zones.push_back(Zone(decalZoneIds[itemIndex], strdup(""), &dest));
+                zones.push_back(Zone(decalZoneIds[itemIndex], strdup(SrLibCarDecalNames[itemIndex]), &dest));
             } else {
                 // Custom sticker
                 int customIndex = itemIndex - 8;
@@ -1196,7 +1196,12 @@ void Garage::ShowStickerDialog() {
                 db.rect = dest;
                 db.zOrder = 0;
                 bitmaps["custom_" + std::to_string(customIndex)] = db;
-                zones.push_back(Zone(customZoneIds[customIndex], strdup(""), &dest));
+                std::string stickerName = std::filesystem::path(customStickerPaths[customIndex]).stem().string();
+                if (!stickerName.empty()) {
+                    std::transform(stickerName.begin(), stickerName.end(), stickerName.begin(), ::tolower);
+                    stickerName[0] = std::toupper(stickerName[0]);
+                }
+                zones.push_back(Zone(customZoneIds[customIndex], strdup(stickerName.c_str()), &dest));
             }
         }
     }
@@ -1233,6 +1238,9 @@ void Garage::ShowStickerDialog() {
     stickerCfg.zones = zones;
     stickerCfg.buttons = buttons;
     stickerCfg.font = state.GetAssets().GetMainFont();
+    stickerCfg.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
     stickerCfg.onButtonPressed = [this, maxScrollRow](int index) {
         switch (index) {
             case 0: // SKIP

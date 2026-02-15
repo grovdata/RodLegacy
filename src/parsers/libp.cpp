@@ -11,6 +11,11 @@
 
 #include "carcolor.h"
 
+const char* SrLibCarDecalNames[8] = {
+    "Hot Lips", "Ranger", "Not Bullet Proof", "Hot Rod",
+    "Destiny Can Wait", "Love Bandit", "Big Chief", "I'm Not A Cop"
+};
+
 const char *SrLibFileNames[] = {
     "lib.start",
     "lib.p",
