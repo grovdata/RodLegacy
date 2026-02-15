@@ -288,12 +288,55 @@ void CarBitmap::Draw() {
         hoodScoop.Draw();
     }
 
-    if (decal.IsVisible()) {
-        decal.Draw();
-    }
+    if (stickerWipeActive) {
+        SDL_Rect bodyRect = bodyOriginal.GetPosition();
+        int decalX = bodyRect.x + offsets.offsetXDecal;
+        int decalY = bodyRect.y + offsets.offsetYDecal;
+        int totalWidth = 0;
+        int decalHeight = 0;
+        bool useStockDecal = decal.IsVisible();
+        bool useCustomDecal = customDecal.IsVisible();
 
-    if (customDecal.IsVisible()) {
-        customDecal.Draw();
+        if (useStockDecal) {
+            SDL_Rect r = decal.GetPosition();
+            totalWidth = r.w;
+            decalHeight = r.h;
+        } else if (useCustomDecal) {
+            SDL_Rect r = customDecal.GetPosition();
+            totalWidth = r.w;
+            decalHeight = r.h;
+        }
+
+        if (totalWidth > 0 && decalHeight > 0) {
+            int revealedWidth = (int)(stickerWipeProgress * totalWidth);
+            if (revealedWidth > totalWidth) revealedWidth = totalWidth;
+
+            SDL_Rect dstRect = {decalX, decalY, revealedWidth, decalHeight};
+
+            if (revealedWidth > 0) {
+                if (useStockDecal) {
+                    SDL_Rect clip = decal.GetClipRect();
+                    SDL_Rect srcRect = {clip.x, clip.y, revealedWidth, clip.h};
+                    decal.DrawWithRects(srcRect, dstRect);
+                } else {
+                    SDL_Rect srcRect = {0, 0, revealedWidth, decalHeight};
+                    customDecal.DrawWithRects(srcRect, dstRect);
+                }
+            }
+
+            if (revealedWidth < totalWidth) {
+                stickerRoll.SetPosition(decalX + revealedWidth, decalY);
+                stickerRoll.Draw();
+            }
+        }
+    } else {
+        if (decal.IsVisible()) {
+            decal.Draw();
+        }
+
+        if (customDecal.IsVisible()) {
+            customDecal.Draw();
+        }
     }
 }
 
@@ -683,5 +726,55 @@ void CarBitmap::RestoreRearBumper() {
         }
         
         UpdatePositions();
+    }
+}
+
+void CarBitmap::StartStickerWipe() {
+    std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+    if (carPalette.size() < 9) return;
+
+    SDL_Surface* rollSurface = SDL_CreateRGBSurface(0, 5, 25, 32,
+        0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    if (!rollSurface) return;
+
+    SDL_PixelFormat* fmt = rollSurface->format;
+    auto amigaToRgb = [fmt](uint16_t c) -> Uint32 {
+        uint8_t r = ((c >> 8) & 0x0F) * 17;
+        uint8_t g = ((c >> 4) & 0x0F) * 17;
+        uint8_t b = (c & 0x0F) * 17;
+        return SDL_MapRGBA(fmt, r, g, b, 255);
+    };
+
+    Uint32 colBright = amigaToRgb(carPalette[8]);
+    Uint32 colDark = amigaToRgb(carPalette[0]);
+    Uint32 colFixed1 = SDL_MapRGBA(rollSurface->format, 0xa6, 0xb2, 0xb0, 255);
+    Uint32 colFixed2 = SDL_MapRGBA(rollSurface->format, 0x90, 0x90, 0x91, 255);
+
+    Uint32 columnColors[5] = { colBright, colFixed1, colFixed2, colDark, colBright };
+
+    if (SDL_MUSTLOCK(rollSurface)) SDL_LockSurface(rollSurface);
+    Uint32* pixels = (Uint32*)rollSurface->pixels;
+    for (int x = 0; x < 5; x++) {
+        Uint32 color = columnColors[x];
+        for (int y = 0; y < 25; y++) {
+            pixels[y * rollSurface->pitch / 4 + x] = color;
+        }
+    }
+    if (SDL_MUSTLOCK(rollSurface)) SDL_UnlockSurface(rollSurface);
+
+    stickerRoll.LoadSurface(rollSurface);
+    SDL_FreeSurface(rollSurface);
+    stickerRoll.SetDimensions(5, 25);
+
+    stickerWipeActive = true;
+    stickerWipeProgress = 0.0f;
+}
+
+void CarBitmap::UpdateStickerWipe(float deltaTime) {
+    if (!stickerWipeActive) return;
+    stickerWipeProgress += (float)(deltaTime / 0.5);
+    if (stickerWipeProgress >= 1.0f) {
+        stickerWipeActive = false;
+        stickerWipeProgress = 0.0f;
     }
 }

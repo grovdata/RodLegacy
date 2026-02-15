@@ -51,6 +51,10 @@ private:
     bool gasCapRemoved;
     bool pumpingHandleVisible;
 
+    bool stickerWipeActive = false;
+    float stickerWipeProgress = 0.0f;
+    Bitmap stickerRoll;
+
     void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
 
 public:
@@ -97,4 +101,8 @@ public:
     
     // Roof methods
     bool IsRoofChopped() const { return isRoofChopped; }
+
+    void StartStickerWipe();
+    void UpdateStickerWipe(float deltaTime);
+    bool IsStickerWipeActive() const { return stickerWipeActive; }
 };

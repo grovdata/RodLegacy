@@ -1292,6 +1292,7 @@ void Garage::ShowStickerDialog() {
                     car->SetDecal((SrLibCarDecal)decalIndex);
                     car->SetCustomDecalPath("");
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                    GetOrCreateCarBitmap(car)->StartStickerWipe();
                 }
             }
             stickerScrollRow = 0;
@@ -1312,6 +1313,7 @@ void Garage::ShowStickerDialog() {
                         car->SetDecal(SrLibCarDecalCustom);
                         car->SetCustomDecalPath(customStickerPaths[customIndex]);
                         GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                        GetOrCreateCarBitmap(car)->StartStickerWipe();
                     }
                 }
             }
@@ -1537,6 +1539,9 @@ void Garage::Draw() {
         SDL_Point p;
         p.x = carx; p.y = cary;
         carBitmap->Move(p);
+        if (carBitmap->IsStickerWipeActive()) {
+            carBitmap->UpdateStickerWipe(deltaTime);
+        }
         carBitmap->Draw();
 
         // get clickboxes

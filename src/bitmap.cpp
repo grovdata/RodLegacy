@@ -382,6 +382,12 @@ void Bitmap::Draw() {
     }
 }
 
+void Bitmap::DrawWithRects(const SDL_Rect& src, const SDL_Rect& dst) {
+    if (texture && src.w > 0 && src.h > 0) {
+        SDL_RenderCopy(renderer, texture.get(), &src, &dst);
+    }
+}
+
 void Bitmap::UpdateFromSurface() {
     texture.reset();  // RAII handles cleanup
     texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));

@@ -48,6 +48,7 @@ class Bitmap : public IDrawable {
         virtual void     SetVisible(bool visible) override;
 
         virtual void Draw() override;
+        void DrawWithRects(const SDL_Rect& src, const SDL_Rect& dst);
 
         //Remove later
         SDL_Surface* GetSurface();  // Returns raw pointer for compatibility
