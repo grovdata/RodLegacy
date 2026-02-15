@@ -104,7 +104,7 @@ std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::
         newEntry.offset = reader.ReadUint32BE();
         newEntry.sizePacked = reader.ReadUint16BE();
 
-        SrLibDebugBitmapEntry(i, newEntry);
+        //SrLibDebugBitmapEntry(i, newEntry);
         result.push_back(newEntry);
     }
 

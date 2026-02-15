@@ -147,12 +147,16 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     shadow.SetVisible(true);
 
     if (driverInfo != nullptr) {
-        AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
-        auto* driverAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
-        if (driverAsset) {
-            driver = *driverAsset;
+        if (!driverInfo->customDriverPath.empty()) {
+            driver.LoadBitmap(driverInfo->customDriverPath);
             driver.SetVisible(true);
-            
+        } else {
+            AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
+            auto* driverAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
+            if (driverAsset) {
+                driver = *driverAsset;
+                driver.SetVisible(true);
+            }
         }
     }
 
