@@ -25,8 +25,10 @@ class Roster {
         std::vector<Opponent> opponents;
         std::vector<Opponent>::iterator currentOpponent;
         std::vector<std::string> customDriverPaths;
+        std::vector<std::string> customStickerPaths;
         Driver GenerateRandomDriver(int preferredCarIndex);
         void LoadCustomDrivers();
+        void LoadCustomStickers();
     public:
         Roster();
         void Initialize(CarData& carData);

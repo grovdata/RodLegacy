@@ -38,8 +38,35 @@ void Roster::LoadCustomDrivers() {
     SDL_Log("Loaded %zu custom driver faces from drivers/", customDriverPaths.size());
 }
 
+void Roster::LoadCustomStickers() {
+    customStickerPaths.clear();
+
+    namespace fs = std::filesystem;
+    const fs::path stickerDir = state.GetAssets().GetBasePath() / "stickers";
+    if (!fs::exists(stickerDir) || !fs::is_directory(stickerDir)) {
+        return;
+    }
+
+    std::vector<fs::path> pngFiles;
+    for (const auto& entry : fs::directory_iterator(stickerDir)) {
+        if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().string();
+            if (ext == ".png" || ext == ".PNG") {
+                pngFiles.push_back(entry.path());
+            }
+        }
+    }
+    std::sort(pngFiles.begin(), pngFiles.end());
+
+    for (const auto& p : pngFiles) {
+        customStickerPaths.push_back(p.string());
+    }
+    SDL_Log("Loaded %zu custom sticker paths for roster", customStickerPaths.size());
+}
+
 void Roster::Initialize(CarData& carData) {
     LoadCustomDrivers();
+    LoadCustomStickers();
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -48,14 +75,34 @@ void Roster::Initialize(CarData& carData) {
     opponents.clear();
 
     while (!stockDriverNames.empty()) {
-        int preferredCarIndex = CAR_INDEX[distrCar(gen)];        
-        
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
-        // model.Log();
         Car* car = GenerateRandomCar(model);
 
-        // Create and add opponent directly to avoid move issues
+        opponents.emplace_back();
+        opponents.back().driver = std::move(driver);
+        opponents.back().car = car;
+    }
+
+    // Add one opponent per custom driver
+    for (const auto& path : customDriverPaths) {
+        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+        CarModel model = carData.GetModelFromIndex(preferredCarIndex);
+        Car* car = GenerateRandomCar(model);
+
+        Driver driver;
+        driver.customDriverPath = path;
+        std::string stem = std::filesystem::path(path).stem().string();
+        if (!stem.empty()) {
+            std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
+            stem[0] = std::toupper(stem[0]);
+        }
+        driver.name = stem;
+        driver.preferredCar = preferredCarIndex;
+        driver.spriteIndex = DRIVER_01; // fallback
+
         opponents.emplace_back();
         opponents.back().driver = std::move(driver);
         opponents.back().car = car;
@@ -120,6 +167,17 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> chanceDist(0, 3); // 0 to 3 for 25% chance
     if (chanceDist(gen) == 0) {
         car->SetDecal(SrLibCarDecalNone);
+    } else if (!customStickerPaths.empty()) {
+        // Pool: 8 stock stickers + N custom stickers
+        int totalStickers = (int)SrLibCarDecalNone + (int)customStickerPaths.size();
+        std::uniform_int_distribution<> poolDist(0, totalStickers - 1);
+        int pick = poolDist(gen);
+        if (pick < (int)SrLibCarDecalNone) {
+            car->SetDecal((SrLibCarDecal)pick);
+        } else {
+            car->SetDecal(SrLibCarDecalCustom);
+            car->SetCustomDecalPath(customStickerPaths[pick - (int)SrLibCarDecalNone]);
+        }
     } else {
         car->SetDecal((SrLibCarDecal)stickerDist(gen));
     }
