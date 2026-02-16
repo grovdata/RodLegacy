@@ -1133,8 +1133,9 @@ void Garage::ShowStickerDialog() {
     const int SRC_CELL_H = 25;
     const int VISIBLE_ROWS = 2;
 
+    int dosDecalCount = state.GetAssets().HasDosDecals() ? 8 : 0;
     int customCount = (int)customStickerBitmaps.size();
-    int totalItems = 8 + customCount;  // 8 stock + N custom
+    int totalItems = 8 + dosDecalCount + customCount;  // 8 Amiga stock + DOS + custom
     int totalRows = (totalItems + 3) / 4;
 
     // Clamp scroll position
@@ -1158,6 +1159,10 @@ void Garage::ShowStickerDialog() {
         ZONE_GARAGE_STICKER_DECAL_0, ZONE_GARAGE_STICKER_DECAL_1, ZONE_GARAGE_STICKER_DECAL_2, ZONE_GARAGE_STICKER_DECAL_3,
         ZONE_GARAGE_STICKER_DECAL_4, ZONE_GARAGE_STICKER_DECAL_5, ZONE_GARAGE_STICKER_DECAL_6, ZONE_GARAGE_STICKER_DECAL_7
     };
+    const ZoneId dosZoneIds[] = {
+        ZONE_GARAGE_STICKER_DOS_0, ZONE_GARAGE_STICKER_DOS_1, ZONE_GARAGE_STICKER_DOS_2, ZONE_GARAGE_STICKER_DOS_3,
+        ZONE_GARAGE_STICKER_DOS_4, ZONE_GARAGE_STICKER_DOS_5, ZONE_GARAGE_STICKER_DOS_6, ZONE_GARAGE_STICKER_DOS_7
+    };
     const ZoneId customZoneIds[] = {
         ZONE_GARAGE_STICKER_CUSTOM_0, ZONE_GARAGE_STICKER_CUSTOM_1, ZONE_GARAGE_STICKER_CUSTOM_2, ZONE_GARAGE_STICKER_CUSTOM_3,
         ZONE_GARAGE_STICKER_CUSTOM_4, ZONE_GARAGE_STICKER_CUSTOM_5, ZONE_GARAGE_STICKER_CUSTOM_6, ZONE_GARAGE_STICKER_CUSTOM_7,
@@ -1166,6 +1171,7 @@ void Garage::ShowStickerDialog() {
     };
 
     // Populate visible cells based on scroll position
+    // Layout: items 0-7 = Amiga stock, 8-15 = DOS (if available), then custom
     for (int displayRow = 0; displayRow < VISIBLE_ROWS; displayRow++) {
         int actualRow = stickerScrollRow + displayRow;
         for (int c = 0; c < 4; c++) {
@@ -1175,7 +1181,7 @@ void Garage::ShowStickerDialog() {
             SDL_Rect dest = {GRID_LEFT + c * cellW, GRID_TOP + displayRow * cellH, cellW, cellH};
 
             if (itemIndex < 8) {
-                // Stock sticker from spritesheet
+                // Amiga stock sticker from spritesheet
                 int stockRow = itemIndex / 4;
                 int stockCol = itemIndex % 4;
                 SDL_Rect src = {stockCol * SRC_CELL_W, stockRow * SRC_CELL_H, SRC_CELL_W, SRC_CELL_H};
@@ -1186,9 +1192,21 @@ void Garage::ShowStickerDialog() {
                 db.sourceRect = src;
                 bitmaps["decal_" + std::to_string(itemIndex)] = db;
                 zones.push_back(Zone(decalZoneIds[itemIndex], strdup(SrLibCarDecalNames[itemIndex]), &dest));
+            } else if (dosDecalCount > 0 && itemIndex < 8 + dosDecalCount) {
+                // DOS sticker
+                int dosIndex = itemIndex - 8;
+                Bitmap* dosBmp = state.GetAssets().GetDosDecal(dosIndex);
+                if (dosBmp) {
+                    DialogBitmap db;
+                    db.bitmap = dosBmp;
+                    db.rect = dest;
+                    db.zOrder = 0;
+                    bitmaps["dos_" + std::to_string(dosIndex)] = db;
+                    zones.push_back(Zone(dosZoneIds[dosIndex], strdup(SrLibCarDecalNames[8 + dosIndex]), &dest));
+                }
             } else {
                 // Custom sticker
-                int customIndex = itemIndex - 8;
+                int customIndex = itemIndex - 8 - dosDecalCount;
                 DialogBitmap db;
                 db.bitmap = customStickerBitmaps[customIndex].get();
                 db.rect = dest;

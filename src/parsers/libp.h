@@ -46,6 +46,25 @@ struct SrLibColor {
 using Palette = std::vector<SrLibColor>;
 const SrLibColor AmigaMaskColor = {128, 16, 0, 255};
 
+static const SrLibColor DOS_PALETTE[16] = {
+    {0x00, 0x00, 0x00, 0xFF},  // 0: Black
+    {0x00, 0x00, 0x00, 0xFF},  // 1: Black
+    {0x55, 0x55, 0x55, 0xFF},  // 2: Dark Gray
+    {0xAA, 0xAA, 0xAA, 0xFF},  // 3: Light Gray
+    {0xFF, 0xFF, 0xFF, 0xFF},  // 4: White
+    {0xAA, 0xAA, 0xAA, 0xFF},  // 5: Light Gray
+    {0x55, 0x55, 0xFF, 0xFF},  // 6: Light Blue
+    {0x00, 0x00, 0xAA, 0xFF},  // 7: Blue
+    {0x00, 0xAA, 0xAA, 0xFF},  // 8: Cyan
+    {0x00, 0xAA, 0x00, 0xFF},  // 9: Green
+    {0xAA, 0x00, 0x00, 0xFF},  // 10: Red
+    {0xFF, 0x55, 0x55, 0xFF},  // 11: Light Red
+    {0xAA, 0x00, 0xAA, 0xFF},  // 12: Magenta
+    {0x55, 0xFF, 0x55, 0xFF},  // 13: Light Green
+    {0xAA, 0x55, 0x00, 0xFF},  // 14: Brown
+    {0xFF, 0xFF, 0x55, 0xFF},  // 15: Yellow
+};
+
 extern const char *SrLibFileNames[];
 extern const uint32_t SrLibFileChecksums[];
 extern const char *SrLibArchiveNames[];
@@ -76,14 +95,14 @@ enum SrLibCarDecal {
     SrLibCarDecalAmigaLoveBandit = 5,
     SrLibCarDecalAmigaBigChief = 6,
     SrLibCarDecalAmigaImNotACop = 7,
-    // SrLibCarDecalDosHotLips = 8,
-    // SrLibCarDecalDosRanger = 9,
-    // SrLibCarDecalDosNotBulletProof = 10,
-    // SrLibCarDecalDosHotRod = 11,
-    // SrLibCarDecalDosDestinyCanWait = 12,
-    // SrLibCarDecalDosLoveBandit = 13,
-    // SrLibCarDecalDosBigChief = 14,
-    // SrLibCarDecalDosImNotACop = 15,
+    SrLibCarDecalDosSeDecal1 = 8,
+    SrLibCarDecalDosSeDecal2 = 9,
+    SrLibCarDecalDosSeDecal3 = 10,
+    SrLibCarDecalDosSeDecal4 = 11,
+    SrLibCarDecalDosSeDecal5 = 12,
+    SrLibCarDecalDosSeDecal6 = 13,
+    SrLibCarDecalDosSeDecal7 = 14,
+    SrLibCarDecalDosSeDecal8 = 15,
     // SrLibCarDecalDosDataDiskUsa1 = 16,
     // SrLibCarDecalDosDataDiskEagle = 17,
     // SrLibCarDecalDosDataDiskNot4Sale = 18,
@@ -97,7 +116,7 @@ enum SrLibCarDecal {
     SrLibCarDecalCustom,
 };
 
-extern const char* SrLibCarDecalNames[8];
+extern const char* SrLibCarDecalNames[16];
 
 enum CarVendor_t {
     CarVendorChrysler = 0,
@@ -443,6 +462,19 @@ enum AmigaLibAsset {
     PHONEBOOK_GUY = 374
 };
 
+enum DosLib1Asset {
+};
+
+enum DosLib2Asset {
+    DOS_LIB2_SE_DECAL_1 = 186,
+    DOS_LIB2_SE_DECAL_2 = 187,
+    DOS_LIB2_SE_DECAL_3 = 188,
+    DOS_LIB2_SE_DECAL_4 = 189,
+    DOS_LIB2_SE_DECAL_5 = 190,
+    DOS_LIB2_SE_DECAL_6 = 191,
+    DOS_LIB2_SE_DECAL_7 = 192,
+    DOS_LIB2_SE_DECAL_8 = 193
+};
 
 
 // Track data structures based on Street Rod binary analysis
@@ -895,6 +927,19 @@ struct BitmapEntry_t {
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+struct DOSBitmapEntry_t {
+    uint16_t width;
+    uint16_t height;
+    uint16_t sizeDecoded;       // (width/8) * height * depth
+    uint8_t type;               // 0=opaque, 1=transparent (red bg), 2=mask
+    uint8_t rleDictionary[16];
+    uint8_t padding;            // always 0
+    uint32_t offset;
+    uint16_t sizeEncoded;
+};
+#pragma pack(pop)
+
 struct BitmapOffset_t {
     uint8_t offsetXRearTire;
     uint8_t offsetXFrontTire;
@@ -963,6 +1008,7 @@ enum StockPalette {
 
 // FIXME: Add all stock palettes
 #define RLE         {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
+#define RLE_DOS     {{1, 0x00}, {1, 0xFF}, {2, 0x00}, {3, 0x00}, {4, 0x00}, {2, 0xFF}, {3, 0xFF}, {5, 0x00}, {6, 0xFF}, {6, 0x00}, {4, 0xFF}, {7, 0xFF}, {7, 0x00}, {5, 0xFF}, {8, 0xFF}, {8, 0x00}}
 #define PAL1        {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
 #define PAL_GAS     {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00B0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x0F96, 0x0C63}
 #define PAL_DRIVING {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F0C, 0x0B0A, 0x0F0C, 0x0F0C, 0x0EEE, 0x052F, 0x0FE0, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA}
@@ -999,6 +1045,23 @@ public:
                         (static_cast<uint32_t>(data[position + 1]) << 16) |
                         (static_cast<uint32_t>(data[position + 2]) << 8) |
                         data[position + 3];
+        position += 4;
+        return value;
+    }
+
+    uint16_t ReadUint16LE() {
+        if (position + 1 >= data.size()) throw std::runtime_error("Read beyond vector bounds");
+        uint16_t value = data[position] | (static_cast<uint16_t>(data[position + 1]) << 8);
+        position += 2;
+        return value;
+    }
+
+    uint32_t ReadUint32LE() {
+        if (position + 3 >= data.size()) throw std::runtime_error("Read beyond vector bounds");
+        uint32_t value = data[position] |
+                        (static_cast<uint32_t>(data[position + 1]) << 8) |
+                        (static_cast<uint32_t>(data[position + 2]) << 16) |
+                        (static_cast<uint32_t>(data[position + 3]) << 24);
         position += 4;
         return value;
     }
@@ -1065,6 +1128,14 @@ class BitmapParser {
 
     std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);
+
+    // DOS LIB bitmap support
+    std::pair<int, std::vector<DOSBitmapEntry_t>>   ReadEntriesDOS(const std::vector<uint8_t>& data);
+    std::vector<uint8_t>                            GetPackedDataDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int totalEntriesCount);
+    std::vector<uint8_t>                            UnpackDataDOS(const DOSBitmapEntry_t& sprite, const std::vector<uint8_t>& data);
+    std::vector<uint8_t>                            ReadImageDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int index, int totalEntriesCount);
+    Palette                                         GetDOSPalette(int spriteType = 0);
+    std::vector<SrLibColor>                         PlanarToChunky(const std::vector<uint8_t>& data, DOSBitmapEntry_t entry, const Palette& palette);
 };
 
 /*

@@ -245,6 +245,7 @@ void AssetManager::ReadAssets() {
         }
 
         InitMousePointers();
+        InitDosAssets();
 
     } catch (const std::exception& e) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to read assets: %s", e.what());
@@ -373,6 +374,68 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     
     // Store in palette variant cache (not in imageAssets to prevent unbounded growth)
     paletteVariantCache[cacheKey] = std::move(bitmap);
+}
+
+void AssetManager::InitDosAssets() {
+    fs::path lib2Path = gameBasePath / "LIB2";
+    if (!fs::exists(lib2Path)) {
+        SDL_Log("LIB2 file not found at %s, DOS decals will not be available", lib2Path.string().c_str());
+        return;
+    }
+
+    std::ifstream file(lib2Path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        SDL_Log("Failed to open LIB2 file");
+        return;
+    }
+
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    lib2Data_vec.resize(size);
+    if (!file.read(reinterpret_cast<char*>(lib2Data_vec.data()), size)) {
+        SDL_Log("Failed to read LIB2 file");
+        lib2Data_vec.clear();
+        return;
+    }
+
+    dosImageEntries = bp.ReadEntriesDOS(lib2Data_vec);
+    SDL_Log("LIB2: parsed %d entries", dosImageEntries.first);
+
+    const int dosDecalIndices[] = {
+        DOS_LIB2_SE_DECAL_1, DOS_LIB2_SE_DECAL_2, DOS_LIB2_SE_DECAL_3, DOS_LIB2_SE_DECAL_4,
+        DOS_LIB2_SE_DECAL_5, DOS_LIB2_SE_DECAL_6, DOS_LIB2_SE_DECAL_7, DOS_LIB2_SE_DECAL_8
+    };
+
+    for (int i = 0; i < 8; i++) {
+        int idx = dosDecalIndices[i];
+        if (idx >= dosImageEntries.first) {
+            SDL_Log("LIB2: decal index %d out of range (%d entries), skipping", idx, dosImageEntries.first);
+            dosDecalBitmaps.push_back(nullptr);
+            continue;
+        }
+
+        DOSBitmapEntry_t entry = dosImageEntries.second[idx];
+        std::vector<uint8_t> planarData = bp.ReadImageDOS(lib2Data_vec, entry, idx, dosImageEntries.first);
+        Palette palette = bp.GetDOSPalette(entry.type);
+        std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
+
+        auto bitmap = std::make_unique<Bitmap>();
+        bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height);
+        bitmap->SetDimensions(entry.width, entry.height);
+        dosDecalBitmaps.push_back(std::move(bitmap));
+        SDL_Log("LIB2: loaded DOS decal %d (%dx%d)", i, entry.width, entry.height);
+    }
+
+    SDL_Log("Loaded %zu DOS decals from LIB2", dosDecalBitmaps.size());
+}
+
+Bitmap* AssetManager::GetDosDecal(int index) {
+    if (index < 0 || index >= (int)dosDecalBitmaps.size()) return nullptr;
+    return dosDecalBitmaps[index].get();
+}
+
+bool AssetManager::HasDosDecals() const {
+    return !dosDecalBitmaps.empty();
 }
 
 fs::path AssetManager::FindGameDirectory() {

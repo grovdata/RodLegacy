@@ -11,9 +11,12 @@
 
 #include "carcolor.h"
 
-const char* SrLibCarDecalNames[8] = {
+
+const char* SrLibCarDecalNames[16] = {
     "Hot Lips", "Ranger", "Not Bullet Proof", "Hot Rod",
-    "Destiny Can Wait", "Love Bandit", "Big Chief", "I'm Not A Cop"
+    "Destiny Can Wait", "Love Bandit", "Big Chief", "I'm Not A Cop",
+    "USA 1", "Eagle", "Not 4 Sale", "Veteran",
+    "Hell", "Hawaii", "Banana Club", "Explosive"
 };
 
 const char *SrLibFileNames[] = {
@@ -363,6 +366,167 @@ std::vector<std::pair<BitmapEntry_t, std::vector<uint8_t>>> BitmapParser::ReadAl
 std::vector<uint8_t> BitmapParser::ReadImage(const std::vector<uint8_t>& data, BitmapEntry_t entry, int, int totalEntriesCount) {
     std::vector<uint8_t> packedData = GetPackedData(data, entry, totalEntriesCount);
     return UnpackData(RLE, entry, packedData);
+}
+
+// --- DOS LIB bitmap support ---
+
+std::pair<int, std::vector<DOSBitmapEntry_t>> BitmapParser::ReadEntriesDOS(const std::vector<uint8_t>& data) {
+    std::vector<DOSBitmapEntry_t> result;
+    VectorReader reader(data);
+
+    uint16_t totalEntriesCount = reader.ReadUint16LE();
+
+    for (int i = 0; i < totalEntriesCount; ++i) {
+        DOSBitmapEntry_t newEntry = {};
+        newEntry.width = reader.ReadUint16LE();
+        newEntry.height = reader.ReadUint16LE();
+        newEntry.sizeDecoded = reader.ReadUint16LE();
+        newEntry.type = reader.ReadUint8();
+        auto dictData = reader.ReadBytes(sizeof(newEntry.rleDictionary));
+        memcpy(newEntry.rleDictionary, dictData.data(), sizeof(newEntry.rleDictionary));
+        newEntry.padding = reader.ReadUint8();
+        newEntry.offset = reader.ReadUint32LE();
+        newEntry.sizeEncoded = reader.ReadUint16LE();
+
+        result.push_back(newEntry);
+    }
+
+    return std::pair<int, std::vector<DOSBitmapEntry_t>>(totalEntriesCount, result);
+}
+
+std::vector<uint8_t> BitmapParser::GetPackedDataDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int totalEntriesCount) {
+    int headerSize = 2 + (sizeof(DOSBitmapEntry_t) * totalEntriesCount);
+    int fileOffset = headerSize + entry.offset;
+
+    if (fileOffset + entry.sizeEncoded > (int)data.size()) {
+        throw std::runtime_error("Can't read DOS data because offset is larger than data size.");
+    }
+
+    return std::vector<uint8_t>(
+        data.begin() + fileOffset,
+        data.begin() + fileOffset + entry.sizeEncoded
+    );
+}
+
+std::vector<uint8_t> BitmapParser::UnpackDataDOS(const DOSBitmapEntry_t& sprite, const std::vector<uint8_t>& data) {
+    const std::vector<std::pair<int, uint8_t>> rle = RLE_DOS;
+
+    int p = 0;
+    int width = sprite.width / 8;
+    int height = sprite.height;
+    int depth = (sprite.type == 2) ? 1 : 4;
+    size_t size_expected = (sprite.width * sprite.height * depth) / 8;
+
+    std::vector<uint8_t> flat_bp;
+
+    // Verify and skip 0xBC magic byte
+    if (data.empty() || data[p] != 0xBC) {
+        return flat_bp;
+    }
+    p++;
+
+    int pos = 0;
+
+    while (pos < width * height * depth) {
+        if (p >= (int)data.size()) break;
+
+        uint8_t b = data[p];
+
+        bool found = false;
+        const uint8_t* directory = sprite.rleDictionary;
+
+        for (int i = 0; i < 16; i++) {
+            if (directory[i] == 0) {
+                break;
+            }
+            if (b == directory[i]) {
+                for (int c = 0; c < rle[i].first; c++) {
+                    pos++;
+                    flat_bp.push_back(rle[i].second);
+                }
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            p++;
+            continue;
+        }
+
+        if (b == 0 || b == 0xFF) {
+            uint8_t c = data[p + 1] & 0xFF;
+            for (int i = 0; i < c + 1; i++) {
+                flat_bp.push_back(b);
+                pos++;
+            }
+            p += 2;
+        } else {
+            flat_bp.push_back(b);
+            pos++;
+            p++;
+        }
+    }
+
+    if (flat_bp.size() < size_expected) {
+        int missing = size_expected - flat_bp.size();
+        flat_bp.insert(flat_bp.end(), missing, 0x0);
+    }
+
+    return flat_bp;
+}
+
+std::vector<uint8_t> BitmapParser::ReadImageDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int, int totalEntriesCount) {
+    std::vector<uint8_t> packedData = GetPackedDataDOS(data, entry, totalEntriesCount);
+    return UnpackDataDOS(entry, packedData);
+}
+
+Palette BitmapParser::GetDOSPalette(int spriteType) {
+    Palette palette;
+    for (int i = 0; i < 16; i++) {
+        palette.push_back(DOS_PALETTE[i]);
+    }
+
+    if (spriteType == 1) {
+        palette[0] = {0xFF, 0x00, 0x00, 0xFF};  // Red (transparency marker)
+    } else if (spriteType == 2) {
+        palette[0] = {0xFF, 0xFF, 0xFF, 0xFF};  // White (mask)
+    }
+
+    return palette;
+}
+
+std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data,
+    DOSBitmapEntry_t entry, const Palette& palette) {
+    int depth = (entry.type == 2) ? 1 : 4;
+    std::vector<SrLibColor> chunkyData(entry.width * entry.height);
+
+    int planeSize = (entry.width / 8) * entry.height;
+
+    for (int y = 0; y < entry.height; ++y) {
+        for (int x = 0; x < entry.width; x += 8) {
+            int offset = (y * entry.width + x) / 8;
+            for (int i = 0; i < 8; ++i) {
+                uint8_t value = 0;
+                uint8_t shift = (1 << (7 - i));
+
+                for (int p = 0; p < depth; ++p) {
+                    if (shift & data[p * planeSize + offset]) {
+                        value |= 1 << p;
+                    }
+                }
+
+                if (value >= palette.size()) {
+                    continue;
+                }
+
+                int pixel_index = (y * entry.width) + (x + i);
+                chunkyData[pixel_index] = palette[value];
+            }
+        }
+    }
+
+    return chunkyData;
 }
 
 LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {

@@ -78,6 +78,9 @@ public:
 
     Spritesheet* GetCarDecals();
 
+    Bitmap* GetDosDecal(int index);
+    bool HasDosDecals() const;
+
     void Init(const fs::path& validatedPath, bool muteAudio = false);
     SFont_Font* GetMainFont();
     SFont_Font* GetDebugFont();
@@ -104,6 +107,10 @@ private:
 
     Spritesheet* carDecals;
 
+    byte_vector lib2Data_vec;
+    std::pair<int, std::vector<DOSBitmapEntry_t>> dosImageEntries;
+    std::vector<std::unique_ptr<Bitmap>> dosDecalBitmaps;
+
     SFont_Font* mainFont;
     SFont_Font* debugFont;
     SFont_Font* newspaperFont;
@@ -122,6 +129,7 @@ private:
     void InitGameFiles();
     void InitStockPalettes();
     void InitAudio(bool muteAudio = false);
+    void InitDosAssets();
     fs::path ResolvePath(fs::path relativePath);
     void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
     void CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey);
