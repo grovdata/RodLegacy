@@ -420,8 +420,19 @@ void AssetManager::InitDosAssets() {
         std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
 
         auto bitmap = std::make_unique<Bitmap>();
-        bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height);
-        bitmap->SetDimensions(entry.width, entry.height);
+        // Load as opaque so black pixels are preserved (not made transparent)
+        bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height, false, true);
+
+        // For transparent sprites (type 1), use SDL color key to make
+        // the red background (palette index 0) transparent
+        if (entry.type == 1) {
+            SDL_Surface* surf = bitmap->GetSurface();
+            if (surf) {
+                SDL_SetColorKey(surf, SDL_TRUE, SDL_MapRGB(surf->format, 0xFF, 0x00, 0x00));
+                bitmap->UpdateFromSurface();
+            }
+        }
+
         dosDecalBitmaps.push_back(std::move(bitmap));
         SDL_Log("LIB2: loaded DOS decal %d (%dx%d)", i, entry.width, entry.height);
     }

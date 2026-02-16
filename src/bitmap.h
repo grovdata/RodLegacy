@@ -42,6 +42,7 @@ class Bitmap : public IDrawable {
 
         virtual void     SetPosition(int x, int y);
         void     SetSourceRect(const SDL_Rect& rect);
+        SDL_Rect GetSourceRect() const { return sourceRect; }
 
         virtual bool     IsVisible() const { return isVisible; }
 

@@ -132,6 +132,8 @@ void Dialog::Draw() {
             bitmap.bitmap->Draw();
             sheet->SetClipRect(savedClip);
         } else {
+            bitmap.bitmap->SetPosition(bitmap.rect.x, bitmap.rect.y);
+            bitmap.bitmap->SetDimensions(bitmap.rect.w, bitmap.rect.h);
             bitmap.bitmap->Draw();
         }
     }

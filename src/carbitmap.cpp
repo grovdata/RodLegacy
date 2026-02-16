@@ -185,6 +185,15 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             customDecal.SetVisible(true);
         }
         decal.SetVisible(false);
+    } else if (car->GetDecal() >= SrLibCarDecalDosSeDecal1 && car->GetDecal() <= SrLibCarDecalDosSeDecal8) {
+        // DOS SE decal - load from DOS decal bitmaps
+        int dosIndex = car->GetDecal() - SrLibCarDecalDosSeDecal1;
+        Bitmap* dosBmp = state.GetAssets().GetDosDecal(dosIndex);
+        if (dosBmp) {
+            customDecal.LoadSurface(dosBmp->GetSurface());
+            customDecal.SetVisible(true);
+        }
+        decal.SetVisible(false);
     } else if (car->GetDecal() != SrLibCarDecalNone) {
 
         auto* decalAsset = (Spritesheet*)state.GetAssets().GetCarDecals();

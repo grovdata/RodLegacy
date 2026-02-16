@@ -1193,13 +1193,30 @@ void Garage::ShowStickerDialog() {
                 bitmaps["decal_" + std::to_string(itemIndex)] = db;
                 zones.push_back(Zone(decalZoneIds[itemIndex], strdup(SrLibCarDecalNames[itemIndex]), &dest));
             } else if (dosDecalCount > 0 && itemIndex < 8 + dosDecalCount) {
-                // DOS sticker
+                // DOS sticker - use native dimensions, center in cell, scale only if too big
                 int dosIndex = itemIndex - 8;
                 Bitmap* dosBmp = state.GetAssets().GetDosDecal(dosIndex);
                 if (dosBmp) {
+                    SDL_Rect native = dosBmp->GetSourceRect();
+                    int drawW = native.w;
+                    int drawH = native.h;
+                    // Scale down proportionally if larger than cell
+                    if (drawW > cellW || drawH > cellH) {
+                        float scaleW = (float)cellW / drawW;
+                        float scaleH = (float)cellH / drawH;
+                        float scale = std::min(scaleW, scaleH);
+                        drawW = (int)(drawW * scale);
+                        drawH = (int)(drawH * scale);
+                    }
+                    // Center in cell
+                    SDL_Rect centered = {
+                        dest.x + (cellW - drawW) / 2,
+                        dest.y + (cellH - drawH) / 2,
+                        drawW, drawH
+                    };
                     DialogBitmap db;
                     db.bitmap = dosBmp;
-                    db.rect = dest;
+                    db.rect = centered;
                     db.zOrder = 0;
                     bitmaps["dos_" + std::to_string(dosIndex)] = db;
                     zones.push_back(Zone(dosZoneIds[dosIndex], strdup(SrLibCarDecalNames[8 + dosIndex]), &dest));
@@ -1308,6 +1325,26 @@ void Garage::ShowStickerDialog() {
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
                     car->SetDecal((SrLibCarDecal)decalIndex);
+                    car->SetCustomDecalPath("");
+                    GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
+                    GetOrCreateCarBitmap(car)->StartStickerWipe();
+                }
+            }
+            stickerScrollRow = 0;
+            stickerDialog->Hide();
+            SetActiveDialog(nullptr);
+            return;
+        }
+
+        // Handle DOS decals
+        if (id >= ZONE_GARAGE_STICKER_DOS_0 && id <= ZONE_GARAGE_STICKER_DOS_7) {
+            int dosIndex = id - ZONE_GARAGE_STICKER_DOS_0;
+            Car* car = state.GetCurrentCar();
+            if (car && car->CanAddDecal()) {
+                int money = state.GetBankroll();
+                if (money >= 5) {
+                    state.SetBankroll(money - 5);
+                    car->SetDecal((SrLibCarDecal)(dosIndex + SrLibCarDecalDosSeDecal1));
                     car->SetCustomDecalPath("");
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                     GetOrCreateCarBitmap(car)->StartStickerWipe();

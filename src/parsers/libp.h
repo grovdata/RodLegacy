@@ -95,22 +95,14 @@ enum SrLibCarDecal {
     SrLibCarDecalAmigaLoveBandit = 5,
     SrLibCarDecalAmigaBigChief = 6,
     SrLibCarDecalAmigaImNotACop = 7,
-    SrLibCarDecalDosSeDecal1 = 8,
-    SrLibCarDecalDosSeDecal2 = 9,
-    SrLibCarDecalDosSeDecal3 = 10,
-    SrLibCarDecalDosSeDecal4 = 11,
-    SrLibCarDecalDosSeDecal5 = 12,
-    SrLibCarDecalDosSeDecal6 = 13,
-    SrLibCarDecalDosSeDecal7 = 14,
-    SrLibCarDecalDosSeDecal8 = 15,
-    // SrLibCarDecalDosDataDiskUsa1 = 16,
-    // SrLibCarDecalDosDataDiskEagle = 17,
-    // SrLibCarDecalDosDataDiskNot4Sale = 18,
-    // SrLibCarDecalDosDataDiskVeteran = 19,
-    // SrLibCarDecalDosDataDiskHell = 20,
-    // SrLibCarDecalDosDataDiskHawaii = 21,
-    // SrLibCarDecalDosDataDiskBananaClub = 22,
-    // SrLibCarDecalDosDataDiskExplosive = 23,
+    SrLibCarDecalDosSeDecal1 = 8, // USA 1
+    SrLibCarDecalDosSeDecal2 = 9, // Eagle
+    SrLibCarDecalDosSeDecal3 = 10, // Not 4 Sale
+    SrLibCarDecalDosSeDecal4 = 11, // Veteran
+    SrLibCarDecalDosSeDecal5 = 12, // Hell
+    SrLibCarDecalDosSeDecal6 = 13, // Hawaii
+    SrLibCarDecalDosSeDecal7 = 14, // Banana Club
+    SrLibCarDecalDosSeDecal8 = 15, // Explosive
     SrLibCarDecalCount,
     SrLibCarDecalNone,
     SrLibCarDecalCustom,
@@ -137,6 +129,16 @@ enum CarEngine_t {
     CarEngineFord_V6 = 6,
     CarEngineFord_V8_292 = 7,
     CarEngineFord_V8_351 = 8
+};
+
+enum AmigaLibStartAsset {
+    AMIGA_LIB_START_TITLE_SCREEN = 0,
+    AMIGA_LIB_START_MOUSE_POINTERS = 1,
+    AMIGA_LIB_START_CALIFORNIA_DREAMS_LOGO = 2,
+    AMIGA_LIB_START_CALIFORNIA_DREAMS_NUMBER_PLATE = 3,
+    AMIGA_LIB_START_KING_STREET_RODDERS = 4,
+    AMIGA_LIB_START_GIRLFRIEND_ANIMATION = 5,
+    AMIGA_LIB_START_KISS_ANIMATION = 6,
 };
 
 enum AmigaLibAsset {
@@ -463,9 +465,21 @@ enum AmigaLibAsset {
 };
 
 enum DosLib1Asset {
+    DOS_LIB1_TITLE_SCREEN = 0,
+    DOS_LIB1_MOUSE_POINTERS = 1,
+    DOS_LIB1_CALIFORNIA_DREAMS_LOGO = 2,
+    DOS_LIB1_CALIFORNIA_DREAMS_NUMBER_PLATE = 3,
+    DOS_LIB1_KING_STREET_RODDERS = 4,
+    DOS_LIB1_GIRLFRIEND_ANIMATION = 5,
+    DOS_LIB1_KISS_ANIMATION = 6,
+    DOS_LIB1_JUKEBOX_SCREEN = 7,
+    DOS_LIB1_END_CREDITS = 8
 };
 
 enum DosLib2Asset {
+
+    DOS_LIB2_SPEEDING_TICKET = 110,
+    
     DOS_LIB2_SE_DECAL_1 = 186,
     DOS_LIB2_SE_DECAL_2 = 187,
     DOS_LIB2_SE_DECAL_3 = 188,
