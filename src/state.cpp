@@ -156,5 +156,17 @@ Opponent* State::GetCurrentOpponent() {
     return roster.GetCurrentOpponent();
 }
 
+void State::AddKnownOpponent(Opponent* opp) {
+    roster.AddKnownOpponent(opp);
+}
+
+const std::vector<Opponent*>& State::GetKnownOpponents() const {
+    return roster.GetKnownOpponents();
+}
+
+void State::SetNextOpponent(Opponent* opp) {
+    roster.SetNextOpponent(opp);
+}
+
 // Global object
 State state;

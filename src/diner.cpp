@@ -128,7 +128,11 @@ void Diner::Action(ZoneId zone) {
         FadeOut();
         state.MoveToScene(SCENE_GARAGE);
     } else if (zone == ZONE_DINER_CALL) {
-        bubbles[0]->SetVisible(true);
+        if (state.GetKnownOpponents().empty()) {
+            bubbles[0]->SetVisible(true);
+        } else {
+            ShowCallListDialog();
+        }
     }
 }
 
@@ -227,6 +231,10 @@ void Diner::Draw() {
         carBitmap->Draw();
     }
 
+    if (activeDialog && activeDialog->IsVisible()) {
+        activeDialog->Draw();
+    }
+
     for (auto& b : bubbles) {
         b->Draw();
     }
@@ -259,7 +267,9 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     
     this->currentOpponent = state.GetNextOpponent();
     if (!currentOpponent) return;
-    
+
+    state.AddKnownOpponent(currentOpponent);
+
     std::string oppoText = GetOpponentText(currentOpponent);
     std::string opponentId = currentOpponent->driver.name;
     
@@ -552,6 +562,112 @@ void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLef
             break;
         }
     }
+}
+
+void Diner::ShowCallListDialog() {
+    const auto& known = state.GetKnownOpponents();
+
+    std::vector<std::string> labels;
+    for (const auto* opp : known) {
+        labels.push_back(opp->driver.name);
+    }
+
+    SDL_Rect bounds = {85, 37, 235, 158};
+
+    SDL_Rect listBoxRect = {95, 51, 138, 74};
+    SDL_Rect topRect = {86, 38, 148, 88};
+    SDL_Rect bottomRect = {86, 126, 148, 33};
+    SDL_Rect selectedItemRect = {87, 129, 146, 11};
+    SDL_Rect callRect = {93, 140, 64, 14};
+    SDL_Rect forgetItRect = {162, 140, 64, 14};
+
+    SDL_Rect scrollTopRect = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone callZone(ZONE_DINER_BUTTON_CALL, strdup("Call"), &callRect);
+    Zone forgetItZone(ZONE_DINER_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
+    Zone scrollTopZone(ZONE_DINER_SCROLL_TOP, strdup("\\"), &scrollTopRect);
+    Zone scrollUpZone(ZONE_DINER_SCROLL_UP, strdup("<"), &scrollUpRect);
+    Zone scrollDownZone(ZONE_DINER_SCROLL_DOWN, strdup(">"), &scrollDownRect);
+    Zone scrollBottomZone(ZONE_DINER_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {callRect, "Call", nullptr, true, 0},
+        {forgetItRect, "Forget it", nullptr, false, 1}
+    };
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{87, 40, 146, 10}, "Looking for", {0x00, 0x00, 0x00, 0xFF}, true}
+    };
+
+    std::vector<SDL_Rect> lines = {
+        {87, 49, 146, 1},
+    };
+
+    std::vector<Zone> dialogZones = {
+        callZone, forgetItZone,
+        scrollTopZone, scrollUpZone, scrollDownZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    dialogConfig.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Call
+                int selectedIndex = callListDialog->GetSelectedIndex();
+                if (selectedIndex >= 0) {
+                    const auto& knownOpps = state.GetKnownOpponents();
+                    if (selectedIndex < (int)knownOpps.size()) {
+                        Opponent* selected = knownOpps[selectedIndex];
+                        state.SetNextOpponent(selected);
+                        callListDialog->Hide();
+                        SetActiveDialog(nullptr);
+                        // Trigger car exit so the called opponent drives in next
+                        if (carBitmap && !exitingCar) {
+                            exitingCar = true;
+                            debugWaitTimer = 0;
+                        }
+                    }
+                }
+                break;
+            }
+            case 1: // Forget it
+                callListDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    callListDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels,
+            [](int selectedIndex) {
+                LOG_INFO("Diner::CallList: Selected index=%d", selectedIndex);
+            },
+            listBoxRect,
+            selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF},
+            {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+
+    callListDialog->Show();
+    SetActiveDialog(callListDialog.get());
 }
 
 void Diner::OnFadeComplete() {

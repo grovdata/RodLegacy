@@ -26,6 +26,8 @@ class Roster {
         std::vector<Opponent>::iterator currentOpponent;
         std::vector<std::string> customDriverPaths;
         std::vector<std::string> customStickerPaths;
+        std::vector<Opponent*> knownOpponents;
+        Opponent* forcedNextOpponent = nullptr;
         Driver GenerateRandomDriver(int preferredCarIndex);
         void LoadCustomDrivers();
         void LoadCustomStickers();
@@ -38,4 +40,9 @@ class Roster {
         bool HasMoreOpponents() const;
         void ShuffleOpponents();
         size_t GetOpponentCount() const { return opponents.size(); }
+
+        void AddKnownOpponent(Opponent* opp);
+        const std::vector<Opponent*>& GetKnownOpponents() const;
+        Opponent* FindOpponentByName(const std::string& name);
+        void SetNextOpponent(Opponent* opp);
 };

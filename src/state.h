@@ -79,6 +79,10 @@ public:
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();
 
+    void AddKnownOpponent(Opponent* opp);
+    const std::vector<Opponent*>& GetKnownOpponents() const;
+    void SetNextOpponent(Opponent* opp);
+
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
 

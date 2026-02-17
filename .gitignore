@@ -69,3 +69,5 @@ subprojects/*/
 env
 venv
 *.idea
+
+.cache

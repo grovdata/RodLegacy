@@ -270,10 +270,41 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
 }
 
 Opponent* Roster::GetNextOpponent() {
+    if (forcedNextOpponent) {
+        Opponent* opp = forcedNextOpponent;
+        forcedNextOpponent = nullptr;
+        return opp;
+    }
     if (currentOpponent == opponents.end()) {
         currentOpponent = opponents.begin();  // Wrap around to start
     }
     return &*(currentOpponent++);
+}
+
+void Roster::AddKnownOpponent(Opponent* opp) {
+    for (const auto* known : knownOpponents) {
+        if (known->driver.name == opp->driver.name) {
+            return;
+        }
+    }
+    knownOpponents.push_back(opp);
+}
+
+const std::vector<Opponent*>& Roster::GetKnownOpponents() const {
+    return knownOpponents;
+}
+
+Opponent* Roster::FindOpponentByName(const std::string& name) {
+    for (auto& opp : opponents) {
+        if (opp.driver.name == name) {
+            return &opp;
+        }
+    }
+    return nullptr;
+}
+
+void Roster::SetNextOpponent(Opponent* opp) {
+    forcedNextOpponent = opp;
 }
 
 bool Roster::HasMoreOpponents() const {

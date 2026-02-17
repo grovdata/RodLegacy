@@ -4,6 +4,7 @@
 #include "carbitmap.h"
 #include "debug_overlay.h"
 #include "animated_bitmap.h"
+#include "dialogs/list_dialog.h"
 class Opponent;
 
 class Diner: public CarScene {
@@ -56,6 +57,9 @@ class Diner: public CarScene {
     double waitressSpeed = 100.0; // pixels per second
     bool engineSoundStarted = false;
     double debugWaitTimer = 0.0;
+
+    std::unique_ptr<ListDialog> callListDialog;
+    void ShowCallListDialog();
 
     public:
         Diner();
