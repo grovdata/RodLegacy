@@ -77,6 +77,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     auto* originalAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
     if (originalAsset) {
         bodyOriginal = *originalAsset;  // Copy the bitmap
+        bodyOriginal.SetVisible(true);  // Cached asset may have been hidden by a dialog
     }
     
     // Load chopped body if available
@@ -89,7 +90,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             bodyChopped.SetPosition(origPos.x + model.offsets.offsetXChoppedRoof, origPos.y);
             // Only visible if roof is already chopped
             bodyChopped.SetVisible(car->IsRoofChopped());
-            LOG_INFO("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d", 
+            LOG_DEBUG("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d", 
                     bodyChopped.GetPosition().w, bodyChopped.GetPosition().h, 
                     origPos.x + model.offsets.offsetXChoppedRoof, origPos.y,
                     model.offsets.offsetXChoppedRoof, car->IsRoofChopped());
@@ -103,7 +104,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         int rearBumperIndex = CarQuery::SrLibQueryGetChoppedBumberRearIndex(bodyAssetNo);
         int frontBumperIndex = CarQuery::SrLibQueryGetChoppedBumberFrontIndex(bodyAssetNo);
         
-        LOG_INFO("Loading bumper overlays for car %d: rear=%d, front=%d", bodyAssetNo, rearBumperIndex, frontBumperIndex);
+        LOG_DEBUG("Loading bumper overlays for car %d: rear=%d, front=%d", bodyAssetNo, rearBumperIndex, frontBumperIndex);
 
         // These are overlays that will be applied to the body texture
         if (rearBumperIndex > 0) {

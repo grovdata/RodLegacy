@@ -2,6 +2,7 @@
 #include "newspaper.h"
 #include "state.h"
 #include "car.h"
+#include "spritesheet.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
 #include <sstream>
@@ -781,10 +782,16 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                     LOG_INFO("Car %d already sold", carIndex);
                 } else {
                     state.SetBankroll(state.GetBankroll() - price);
-                    state.AddOwnedCar(state.GetClassifiedCars()[carIndex]);
-                    state.GetClassifiedCars()[carIndex] = nullptr; // State owns it now
+                    Car* boughtCar = state.GetClassifiedCars()[carIndex];
+                    state.AddOwnedCar(boughtCar);
+                    state.SetCurrentCar(boughtCar);
+                    state.GetClassifiedCars()[carIndex] = nullptr;
                     LOG_INFO("Bought car %d for $%d, bankroll now $%d",
                             carIndex, price, state.GetBankroll());
+                    carPurchaseDialog->Hide();
+                    SetActiveDialog(nullptr);
+                    state.MoveToScene(SCENE_GARAGE);
+                    return;
                 }
                 carPurchaseDialog->Hide();
                 SetActiveDialog(nullptr);
@@ -845,14 +852,22 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
         bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, 0};
 
         // Add wheels relative to car body position
+        // Wheels are a spritesheet — select cell (row=0, col=1) for a static frame
         if (wheelBitmap) {
-            int wheelW = wheelBitmap->GetSurface()->w;
-            int wheelH = wheelBitmap->GetSurface()->h;
+            const int wheelSize = 31;
+            // Source rect for sprite cell (0, 1): col=1 means x offset = 1*cellW
+            Spritesheet* sheet = dynamic_cast<Spritesheet*>(wheelBitmap);
+            SDL_Rect srcRect = {0, 0, 0, 0};
+            if (sheet) {
+                int cellW = wheelBitmap->GetSurface()->w / sheet->GetColumns();
+                int cellH = wheelBitmap->GetSurface()->h / sheet->GetRows();
+                srcRect = {1 * cellW, 0, cellW, cellH};
+            }
             int rearWheelX = carX + offsets.offsetXRearTire;
             int frontWheelX = carX + offsets.offsetXFrontTire;
             int wheelY = carY + offsets.offsetYTires;
-            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelW, wheelH}, 1};
-            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelW, wheelH}, 1};
+            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelSize, wheelSize}, 1, srcRect};
+            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelSize, wheelSize}, 1, srcRect};
         }
     }
 
