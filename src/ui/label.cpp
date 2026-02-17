@@ -5,7 +5,6 @@ Label::Label() : Bitmap() {
 }
 
 Label::~Label() {
-    Bitmap::~Bitmap();
 }
 
 void Label::Init(SFont_Font *font, int xPos, int yPos, uint32_t textColor) {
@@ -66,9 +65,7 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
             x += (desiredWidth - lineWidth) / 2;
         }
         
-        char buf[50];
-        snprintf(buf, 50, "%s", line.c_str());
-        SFont_Write(surface.get(), font, x, yOffset, buf);
+        SFont_Write(surface.get(), font, x, yOffset, line.c_str());
         yOffset += lineHeight;
     }
     

@@ -29,17 +29,11 @@ Bitmap::Bitmap(const Bitmap& other) {
     rect = other.rect;
     sourceRect = other.sourceRect;
 
-    // Copy surface if it exists
+    // Deep-copy the surface so the copy owns its own pixel buffer.
+    // SDL_CreateRGBSurfaceFrom only borrows the source pixels and must NOT
+    // be used here — the source may be destroyed before the copy.
     if (other.surface) {
-        surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other.surface->pixels,
-                                            other.surface->w,
-                                            other.surface->h,
-                                            other.surface->format->BitsPerPixel,
-                                            other.surface->pitch,
-                                            other.surface->format->Rmask,
-                                            other.surface->format->Gmask,
-                                            other.surface->format->Bmask,
-                                            other.surface->format->Amask));
+        surface = sdl2::SurfacePtr(SDL_ConvertSurface(other.surface.get(), other.surface->format, 0));
         if (surface) {
             texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
         }
