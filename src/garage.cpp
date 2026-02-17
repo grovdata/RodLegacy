@@ -796,35 +796,32 @@ void Garage::UpdatePaintCanPreview() {
         return;
     }
     
-    // Apply the car color palette to the paint can
-    // The mask should have grayscale values that we'll colorize
+    // Apply the car color palette to the paint can.
+    // The mask PNG is a grayscale+alpha image. Transparent pixels are background.
+    // Opaque pixel brightness (0-255) maps linearly to the 9-entry color palette.
     SDL_LockSurface(rgbaSurface);
     uint32_t* pixels = static_cast<uint32_t*>(rgbaSurface->pixels);
-    
+    int palSize = static_cast<int>(colorPalette.size());
+
     for (int y = 0; y < rgbaSurface->h; y++) {
         for (int x = 0; x < rgbaSurface->w; x++) {
             int idx = y * rgbaSurface->w + x;
-            uint32_t pixel = pixels[idx];
-            
+
             uint8_t r, g, b, a;
-            SDL_GetRGBA(pixel, rgbaSurface->format, &r, &g, &b, &a);
-            
-            // If the pixel is not transparent, apply the car color
-            if (a > 0) {
-                // Use the grayscale value to pick a shade from the palette
-                int brightness = (r + g + b) / 3;
-                int paletteIndex = (brightness * (colorPalette.size() - 1)) / 255;
-                if (paletteIndex >= colorPalette.size()) paletteIndex = colorPalette.size() - 1;
-                
-                uint16_t amigaColor = colorPalette[paletteIndex];
-                
-                // Convert Amiga color to RGB
-                uint8_t newR = ((amigaColor >> 8) & 0x0F) * 17;
-                uint8_t newG = ((amigaColor >> 4) & 0x0F) * 17;
-                uint8_t newB = (amigaColor & 0x0F) * 17;
-                
-                pixels[idx] = SDL_MapRGBA(rgbaSurface->format, newR, newG, newB, a);
-            }
+            SDL_GetRGBA(pixels[idx], rgbaSurface->format, &r, &g, &b, &a);
+
+            if (a == 0) continue;
+
+            int brightness = (r + g + b) / 3;
+            int paletteIndex = brightness * (palSize - 1) / 255;
+            if (paletteIndex >= palSize) paletteIndex = palSize - 1;
+
+            uint16_t amigaColor = colorPalette[paletteIndex];
+            uint8_t newR = ((amigaColor >> 8) & 0x0F) * 17;
+            uint8_t newG = ((amigaColor >> 4) & 0x0F) * 17;
+            uint8_t newB = (amigaColor & 0x0F) * 17;
+
+            pixels[idx] = SDL_MapRGBA(rgbaSurface->format, newR, newG, newB, a);
         }
     }
     
