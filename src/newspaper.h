@@ -60,6 +60,8 @@ private:
     std::unique_ptr<Dialog> carViewDialog;
     std::unique_ptr<Bitmap> carPreviewBitmap;
     int selectedCarIndex = -1;
+    int lastClickX = 0;
+    int lastClickY = 0;
 
     void InitPageOne();
     void InitPageAds();

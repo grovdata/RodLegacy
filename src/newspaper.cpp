@@ -365,6 +365,10 @@ bool Newspaper::PushEvent(SDL_Event *event) {
             return true;
         }
     }
+    if (event->type == SDL_MOUSEBUTTONDOWN) {
+        lastClickX = event->button.x;
+        lastClickY = event->button.y;
+    }
     return Scene::PushEvent(event);
 }
 
@@ -404,14 +408,10 @@ void Newspaper::Action(ZoneId zone) {
             break;
         case ZONE_MAGAZINE_ADS_AREA:
             {
-                // Get mouse position and find which ad was clicked
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
-                
-                // Convert to ads area coordinates
-                int adsAreaX = mouseX - 64; // ads area starts at x=64
-                int adsAreaY = mouseY;      // ads area starts at y=0
-                
+                // Use cached click position (in logical/game coordinates)
+                int adsAreaX = lastClickX - 64; // ads area starts at x=64
+                int adsAreaY = lastClickY;
+
                 if (adsAreaX >= 0 && adsAreaX < 192 && adsAreaY >= 0 && adsAreaY < 190) {
                     int adIndex = FindAdAtPosition(adsAreaY);
                     if (adIndex >= 0) {
@@ -735,63 +735,34 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
     if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
         return;
     }
-    
+
     const CarMetadata_t& metadata = carMetadata[carIndex];
     const char* carName = metadata.classified.carName ? metadata.classified.carName : "Unknown Car";
     int price = metadata.classified.price;
-    
-    // Dialog dimensions
-    const int dialogWidth = 200;
-    const int dialogHeight = 60;
-    const int dialogX = (GAME_WIDTH - dialogWidth) / 2;
-    const int dialogY = (GAME_HEIGHT - dialogHeight) / 2;
-    
-    SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
-    
-    // Create dialog text
-    std::string dialogText = std::string(carName) + ".\nYou want to buy it for $" + std::to_string(price) + "?";
-    
-    // Button layout
-    const int buttonWidth = 50;
-    const int buttonHeight = 14;
-    const int buttonSpacing = 4;
-    const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
-    
-    SDL_Rect seeItButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
-    SDL_Rect yeahButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
-    SDL_Rect forgetButtonRect = {dialogX + 4 + 2 * (buttonWidth + buttonSpacing), buttonY, buttonWidth, buttonHeight};
-    
-    ButtonConfig seeItButton;
-    seeItButton.bounds = seeItButtonRect;
-    seeItButton.text = "See it";
-    seeItButton.onClick = nullptr;
-    seeItButton.defaultChoice = false;
-    seeItButton.index = 0;
-    
-    ButtonConfig yeahButton;
-    yeahButton.bounds = yeahButtonRect;
-    yeahButton.text = "Yeah";
-    yeahButton.onClick = nullptr;
-    yeahButton.defaultChoice = true; // Default button
-    yeahButton.index = 1;
-    
-    ButtonConfig forgetButton;
-    forgetButton.bounds = forgetButtonRect;
-    forgetButton.text = "Forget it";
-    forgetButton.onClick = nullptr;
-    forgetButton.defaultChoice = false;
-    forgetButton.index = 2;
-    
-    std::vector<ButtonConfig> buttons = {seeItButton, yeahButton, forgetButton};
-    
-    std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth - 6, 30}, dialogText, {0xFF, 0xFF, 0xFF, 0xFF}, true}
+
+    SDL_Rect dialogRect = {34, 97, 252, 46};
+
+    SDL_Rect seeItRect = {50, 123, 66, 16};
+    SDL_Rect yeahRect = {127, 123, 66, 16};
+    SDL_Rect forgetItRect = {206, 123, 66, 16};
+
+    std::vector<ButtonConfig> buttons = {
+        {seeItRect, "See it", nullptr, false, 0},
+        {yeahRect, "Yeah", nullptr, true, 1},
+        {forgetItRect, "Forget it", nullptr, false, 2}
     };
-    
+
+    std::string priceText = "You want to buy it for $" + std::to_string(price) + " ?";
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{38, 101, 248, 10}, std::string(carName), {0x00, 0x00, 0x00, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{38, 111, 248, 10}, priceText, {0x00, 0x00, 0x00, 0xFF}, true}
+    };
+
     DialogConfig dialogConfig;
     dialogConfig.bounds = dialogRect;
-    dialogConfig.backgroundColor = {0, 208, 0, 255};
-    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    dialogConfig.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
     dialogConfig.texts = texts;
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
@@ -802,7 +773,6 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                 ShowCarViewDialog(carIndex);
                 break;
             case 1: // Yeah
-                // TODO: Implement purchase logic
                 LOG_INFO("Player wants to buy car %d", carIndex);
                 carPurchaseDialog->Hide();
                 SetActiveDialog(nullptr);
@@ -813,7 +783,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                 break;
         }
     };
-    
+
     carPurchaseDialog = std::make_unique<Dialog>(dialogConfig);
     carPurchaseDialog->Show();
     SetActiveDialog(carPurchaseDialog.get());

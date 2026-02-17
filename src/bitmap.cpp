@@ -47,27 +47,18 @@ Bitmap::~Bitmap() {
  // Assignment from pointer
 Bitmap& Bitmap::operator=(const Bitmap* other) {
     if (other) {
-        // RAII handles cleanup automatically when resetting
         surface.reset();
         texture.reset();
 
-        // Copy from other
         if (other->surface) {
-            surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other->surface->pixels,
-                                                other->surface->w,
-                                                other->surface->h,
-                                                other->surface->format->BitsPerPixel,
-                                                other->surface->pitch,
-                                                other->surface->format->Rmask,
-                                                other->surface->format->Gmask,
-                                                other->surface->format->Bmask,
-                                                other->surface->format->Amask));
+            surface = sdl2::SurfacePtr(SDL_ConvertSurface(other->surface.get(), other->surface->format, 0));
             if (surface) {
                 texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
             }
         }
         isVisible = other->isVisible;
         rect = other->rect;
+        sourceRect = other->sourceRect;
     }
     return *this;
 }
@@ -75,27 +66,18 @@ Bitmap& Bitmap::operator=(const Bitmap* other) {
 // Regular assignment operator
 Bitmap& Bitmap::operator=(const Bitmap& other) {
     if (this != &other) {
-        // RAII handles cleanup automatically when resetting
         surface.reset();
         texture.reset();
 
-        // Copy from other
         if (other.surface) {
-            surface = sdl2::SurfacePtr(SDL_CreateRGBSurfaceFrom(other.surface->pixels,
-                                                other.surface->w,
-                                                other.surface->h,
-                                                other.surface->format->BitsPerPixel,
-                                                other.surface->pitch,
-                                                other.surface->format->Rmask,
-                                                other.surface->format->Gmask,
-                                                other.surface->format->Bmask,
-                                                other.surface->format->Amask));
+            surface = sdl2::SurfacePtr(SDL_ConvertSurface(other.surface.get(), other.surface->format, 0));
             if (surface) {
                 texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
             }
         }
         isVisible = other.isVisible;
         rect = other.rect;
+        sourceRect = other.sourceRect;
     }
     return *this;
 }
