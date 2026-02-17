@@ -1067,6 +1067,56 @@ void Garage::ShowCarInfoDialog() {
     SetActiveDialog(carInfoDialog.get());
 }
 
+void Garage::ShowCalendarDialog() {
+    // Load the June/July calendar bitmap (hardcoded to July for now)
+    Bitmap* calBitmap = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP, CALENDAR_JUNE_JULY_SCREEN});
+    if (!calBitmap) {
+        LOG_INFO("Failed to load calendar bitmap");
+        return;
+    }
+
+    int calW = calBitmap->GetSurface()->w;
+    int calH = calBitmap->GetSurface()->h;
+
+    // Center the dialog on the 320x200 screen
+    int dialogX = (320 - calW) / 2;
+    int dialogY = (200 - calH) / 2;
+    SDL_Rect dialogRect = {dialogX, dialogY, calW, calH};
+
+    std::map<std::string, DialogBitmap> bitmaps;
+    bitmaps["calendar"] = {calBitmap, dialogRect, 0};
+
+    // Load the date rectangle highlight
+    Bitmap* dateRect = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP, CALENDAR_CURRENT_DATE_RECTANGLE});
+    if (dateRect) {
+        // TODO: Position the date rectangle on the correct day cell
+        // For now, place it on July 2 (first row, second column of the July grid)
+        // This needs to be mapped out from the actual calendar image layout
+        int dateW = dateRect->GetSurface()->w;
+        int dateH = dateRect->GetSurface()->h;
+        SDL_Rect dateHighlightRect = {dialogX + 10, dialogY + 30, dateW, dateH};
+        bitmaps["date_highlight"] = {dateRect, dateHighlightRect, 1};
+    }
+
+    DialogConfig cfg;
+    cfg.bounds = dialogRect;
+    cfg.backgroundColor = {0, 0, 0, 0};
+    cfg.borderColor = {0, 0, 0, 0};
+    cfg.bitmaps = bitmaps;
+    cfg.font = state.GetAssets().GetMainFont();
+    cfg.buttons = {};
+    cfg.onDismiss = [this]() {
+        calendarDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+
+    calendarDialog = std::make_unique<Dialog>(cfg);
+    calendarDialog->Show();
+    SetActiveDialog(calendarDialog.get());
+}
+
 void Garage::LoadCustomStickers() {
     customStickerBitmaps.clear();
     customStickerPaths.clear();
@@ -1560,6 +1610,9 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_STICKERS:
         stickerScrollRow = 0;
         ShowStickerDialog();
+        break;
+    case ZONE_GARAGE_CALENDAR:
+        ShowCalendarDialog();
         break;
     default:
         break;

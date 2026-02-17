@@ -30,6 +30,7 @@ class Garage : public CarScene {
     StandardCarColor originalColor;
     std::unique_ptr<Bitmap> paintCanPreview;
     std::unique_ptr<Dialog> carInfoDialog;
+    std::unique_ptr<Dialog> calendarDialog;
     std::unique_ptr<Dialog> stickerDialog;
     std::vector<std::unique_ptr<Bitmap>> customStickerBitmaps;
     std::vector<std::string> customStickerPaths;
@@ -44,6 +45,7 @@ class Garage : public CarScene {
     void ShowRoofDialog();
     void ShowPaintDialog();
     void ShowCarInfoDialog();
+    void ShowCalendarDialog();
     void ShowStickerDialog();
     void LoadCustomStickers();
     void ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr);
