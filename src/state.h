@@ -36,6 +36,7 @@ private:
 
     std::vector<Car *> carRoster;
     std::vector<Car *> ownedCars;
+    std::vector<Car *> classifiedCars; // Cars for sale in the newspaper
     Car *currentCar;
 
     Roster roster;
@@ -89,7 +90,10 @@ public:
     Car* GetCurrentCar();
     void SetCurrentCar(Car *car);
     std::vector<Car *> GetOwnedCars();
+    void AddOwnedCar(Car* car);
 
+    Roster& GetRoster() { return roster; }
+    std::vector<Car *>& GetClassifiedCars() { return classifiedCars; }
     CarData carData;
 
 };

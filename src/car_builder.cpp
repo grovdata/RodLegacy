@@ -39,6 +39,12 @@ Car* CarBuilder::BuildRandomCar(CarModel model) {
     Part carburetor = CreateCarburetorPart(carbType, model.vendor);
     car->SetCarburator(carburetor);
 
+    // Random tires
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
+    car->SetTires((CarWheelType)tireDist(gen));
+
     return car;
 }
 

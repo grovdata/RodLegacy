@@ -1,6 +1,8 @@
 #include "log.h"
 #include "newspaper.h"
 #include "state.h"
+#include "car.h"
+#include "parsers/carcolor.h"
 #include "SFont.h"
 #include <sstream>
 
@@ -12,7 +14,6 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
 }
 
 Newspaper::~Newspaper() {
-
 }
 
 void Newspaper::Init(bool debugMode) {
@@ -105,27 +106,23 @@ void Newspaper::InitPageOne() {
 }
 
 void Newspaper::LoadClassifiedsData() {
-    // Load car metadata from the state's car data
-    // We'll get the metadata that was already loaded during initialization
-    
-    // Access the car metadata from the state's carData
-    // The carData should already have the metadata loaded from SrLibDataReadDataFromBuffer
+    // Classified cars are already generated in State::Init
+    // Just load the metadata and asset IDs to match
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        int carAssetId = CAR_INDEX[i];  // Get the actual asset ID from CAR_INDEX
+        int carAssetId = CAR_INDEX[i];
         CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
-        
-        // Only add metadata if it has valid classified data
+
         if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
             std::string adText = metadata.classified.adText ? metadata.classified.adText : "No description";
-            LOG_INFO("Classified %d: %s - %s - $%d", i, metadata.classified.carName, 
+            LOG_INFO("Classified %d: %s - %s - $%d", i, metadata.classified.carName,
                     adText.c_str(), metadata.classified.price);
             carMetadata.push_back(metadata);
+            carAssetIds.push_back(carAssetId);
         }
     }
-    
-    // Calculate total pages needed
+
     totalPages = (carMetadata.size() + adsPerPage - 1) / adsPerPage;
-    
+
     LOG_INFO("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
 }
 
@@ -455,11 +452,15 @@ void Newspaper::HandleAdClick(int adIndex) {
     if (currentPage < 4) {
         return; // Parts section - no ads yet
     }
-    
+
     // adIndex is the position in the adPositions vector
     if (adIndex >= 0 && adIndex < (int)adPositions.size()) {
         const AdPosition& adPos = adPositions[adIndex];
         if (adPos.isUsedCar && adPos.adIndex >= 0 && adPos.adIndex < (int)carMetadata.size()) {
+            // Don't open dialog for already-sold cars
+            if (!state.GetClassifiedCars()[adPos.adIndex]) {
+                return;
+            }
             selectedCarIndex = adPos.adIndex;
             ShowCarPurchaseDialog(adPos.adIndex);
         }
@@ -767,13 +768,24 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
     dialogConfig.buttons = buttons;
     dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
     dialogConfig.font = state.GetAssets().GetMainFont();
-    dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
+    dialogConfig.onButtonPressed = [this, carIndex, price](int buttonIndex) {
         switch (buttonIndex) {
             case 0: // See it
                 ShowCarViewDialog(carIndex);
                 break;
-            case 1: // Yeah
-                LOG_INFO("Player wants to buy car %d", carIndex);
+            case 1: // Yeah - buy the car
+                if (state.GetBankroll() < price) {
+                    LOG_INFO("Not enough money to buy car %d (need $%d, have $%d)",
+                            carIndex, price, state.GetBankroll());
+                } else if (!state.GetClassifiedCars()[carIndex]) {
+                    LOG_INFO("Car %d already sold", carIndex);
+                } else {
+                    state.SetBankroll(state.GetBankroll() - price);
+                    state.AddOwnedCar(state.GetClassifiedCars()[carIndex]);
+                    state.GetClassifiedCars()[carIndex] = nullptr; // State owns it now
+                    LOG_INFO("Bought car %d for $%d, bankroll now $%d",
+                            carIndex, price, state.GetBankroll());
+                }
                 carPurchaseDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -793,123 +805,78 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
         return;
     }
-    
-    // Hide the purchase dialog first
+
     if (carPurchaseDialog) {
         carPurchaseDialog->Hide();
     }
-    
-    // Create car preview bitmap
-    CreateCarPreviewBitmap(carIndex);
-    
+
     const CarMetadata_t& metadata = carMetadata[carIndex];
     const char* carName = metadata.classified.carName ? metadata.classified.carName : "Unknown Car";
-    int price = metadata.classified.price;
-    
-    // Dialog dimensions (larger to accommodate car bitmap)
-    const int dialogWidth = 250;
-    const int dialogHeight = 120;
-    const int dialogX = (GAME_WIDTH - dialogWidth) / 2;
-    const int dialogY = (GAME_HEIGHT - dialogHeight) / 2;
-    
-    SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
-    
-    // Create dialog text
-    std::string dialogText = std::string(carName) + ".\nYou want to buy it for $" + std::to_string(price) + "?";
-    
-    // Button layout
-    const int buttonWidth = 50;
-    const int buttonHeight = 14;
-    const int buttonSpacing = 4;
-    const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
-    
-    SDL_Rect seeItButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
-    SDL_Rect yeahButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
-    SDL_Rect forgetButtonRect = {dialogX + 4 + 2 * (buttonWidth + buttonSpacing), buttonY, buttonWidth, buttonHeight};
-    
-    ButtonConfig seeItButton;
-    seeItButton.bounds = seeItButtonRect;
-    seeItButton.text = "See it";
-    seeItButton.onClick = nullptr;
-    seeItButton.defaultChoice = false;
-    seeItButton.index = 0;
-    
-    ButtonConfig yeahButton;
-    yeahButton.bounds = yeahButtonRect;
-    yeahButton.text = "Yeah";
-    yeahButton.onClick = nullptr;
-    yeahButton.defaultChoice = true; // Default button
-    yeahButton.index = 1;
-    
-    ButtonConfig forgetButton;
-    forgetButton.bounds = forgetButtonRect;
-    forgetButton.text = "Forget it";
-    forgetButton.onClick = nullptr;
-    forgetButton.defaultChoice = false;
-    forgetButton.index = 2;
-    
-    std::vector<ButtonConfig> buttons = {seeItButton, yeahButton, forgetButton};
-    
-    std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth - 6, 30}, dialogText, {0xFF, 0xFF, 0xFF, 0xFF}, true}
-    };
-    
-    // Add car bitmap to dialog
-    std::map<std::string, DialogBitmap> bitmaps;
-    if (carPreviewBitmap) {
-        SDL_Rect carRect = {dialogX + 10, dialogY + 35, 100, 60}; // Position for car bitmap
-        DialogBitmap carBitmap;
-        carBitmap.bitmap = carPreviewBitmap.get();
-        carBitmap.rect = carRect;
-        carBitmap.zOrder = 0;
-        bitmaps["car_preview"] = carBitmap;
+
+    Car* car = state.GetClassifiedCars()[carIndex];
+    if (!car) {
+        return; // Already sold
     }
-    
-    DialogConfig dialogConfig;
-    dialogConfig.bounds = dialogRect;
-    dialogConfig.backgroundColor = {0, 208, 0, 255};
-    dialogConfig.borderColor = {0, 111, 239, 255};
-    dialogConfig.texts = texts;
-    dialogConfig.buttons = buttons;
-    dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
-    dialogConfig.bitmaps = bitmaps;
-    dialogConfig.font = state.GetAssets().GetMainFont();
-    dialogConfig.onButtonPressed = [this, carIndex](int buttonIndex) {
-        switch (buttonIndex) {
-            case 0: // See it (already showing)
-                // Do nothing, already showing the car
-                break;
-            case 1: // Yeah
-                // TODO: Implement purchase logic
-                LOG_INFO("Player wants to buy car %d", carIndex);
-                carViewDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
-            case 2: // Forget it
-                carViewDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
+
+    int assetId = carAssetIds[carIndex];
+    CarModel model = car->GetModel();
+    BitmapOffset_t offsets = model.offsets;
+    std::vector<uint16_t> palette = GetStandardCarColor(car->GetColor());
+
+    // Load body with car's color palette
+    Bitmap* carBodyBitmap = state.GetAssets().GetBitmapAssetWithPalette(
+        state.GetAssets().GetLibPData(),
+        {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)assetId},
+        palette);
+
+    // Load wheel spritesheet
+    Bitmap* wheelBitmap = state.GetAssets().GetBitmapAsset(
+        {LibAssetSpritesheet, SrLibFileAmigaLibP, car->GetTires().assetId});
+
+    // Full-width strip from y=63 to y=146 (height=83)
+    SDL_Rect dialogRect = {0, 63, 320, 83};
+
+    std::map<std::string, DialogBitmap> bitmaps;
+    if (carBodyBitmap) {
+        int carW = carBodyBitmap->GetSurface()->w;
+        int carH = carBodyBitmap->GetSurface()->h;
+        int carX = (320 - carW) / 2;
+        int carY = 63 + 2;
+        bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, 0};
+
+        // Add wheels relative to car body position
+        if (wheelBitmap) {
+            int wheelW = wheelBitmap->GetSurface()->w;
+            int wheelH = wheelBitmap->GetSurface()->h;
+            int rearWheelX = carX + offsets.offsetXRearTire;
+            int frontWheelX = carX + offsets.offsetXFrontTire;
+            int wheelY = carY + offsets.offsetYTires;
+            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelW, wheelH}, 1};
+            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelW, wheelH}, 1};
         }
+    }
+
+    int textY = 63 + 83 - 2 - SFont_TextHeight(state.GetAssets().GetMainFont());
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{0, textY, 320, 10}, std::string(carName), {0x70, 0x60, 0x10, 0xFF}, true}
     };
-    
-    carViewDialog = std::make_unique<Dialog>(dialogConfig);
+
+    DialogConfig cfg;
+    cfg.bounds = dialogRect;
+    cfg.backgroundColor = {0x30, 0x30, 0x30, 0xFF};
+    cfg.borderColor = {0x30, 0x30, 0x30, 0xFF};
+    cfg.texts = texts;
+    cfg.buttons = {};
+    cfg.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    cfg.bitmaps = bitmaps;
+    cfg.font = state.GetAssets().GetMainFont();
+    cfg.onDismiss = [this, carIndex]() {
+        carViewDialog->Hide();
+        SetActiveDialog(nullptr);
+        ShowCarPurchaseDialog(carIndex);
+    };
+
+    carViewDialog = std::make_unique<Dialog>(cfg);
     carViewDialog->Show();
     SetActiveDialog(carViewDialog.get());
-}
-
-void Newspaper::CreateCarPreviewBitmap(int carIndex) {
-    if (carIndex < 0 || carIndex >= (int)carMetadata.size()) {
-        return;
-    }
-    
-    // For now, create a simple placeholder bitmap
-    // TODO: Integrate with the actual car rendering system using carIndex
-    // The carIndex corresponds to the CAR_INDEX array in libp.h
-    
-    // Create a simple colored rectangle as placeholder
-    carPreviewBitmap = std::make_unique<Bitmap>(100, 60, 32);
-    SDL_FillRect(carPreviewBitmap->GetSurface(), NULL, SDL_MapRGBA(carPreviewBitmap->GetSurface()->format, 100, 100, 200, 255));
-    carPreviewBitmap->UpdateFromSurface();
-    
-    LOG_INFO("Created car preview bitmap for car %d", carIndex);
 }

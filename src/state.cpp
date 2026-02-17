@@ -51,10 +51,27 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
+        // Generate classified cars for the newspaper
+        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+            int carAssetId = CAR_INDEX[i];
+            CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
+            if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
+                CarModel model = carData.GetModelFromIndex(carAssetId);
+                Car* car = roster.GenerateRandomCar(model);
+                // Stock appearance for classifieds
+                car->SetRoofChopped(false);
+                car->SetBumpersStripped(false);
+                car->SetDecal(SrLibCarDecalNone);
+                car->SetScoop(SCOOP_NONE);
+                classifiedCars.push_back(car);
+            }
+        }
+        LOG_INFO("Generated %zu classified cars", classifiedCars.size());
+
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
         LOG_INFO("Current car tires: %d", this->currentCar->GetTires().assetId);
-        
+
         // Create scenes after fonts are initialized
         garage = std::make_unique<Garage>();
         diner = std::make_unique<Diner>();
@@ -138,6 +155,10 @@ void State::SetCurrentCar(Car *car) {
 
 std::vector<Car *> State::GetOwnedCars() {
     return ownedCars;
+}
+
+void State::AddOwnedCar(Car* car) {
+    ownedCars.push_back(car);
 }
 
 void State::SetElapsedTime(Uint64 elapsedTime) {

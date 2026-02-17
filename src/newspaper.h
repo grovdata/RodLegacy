@@ -39,6 +39,7 @@ private:
     
     // Car metadata for classifieds
     std::vector<CarMetadata_t> carMetadata;
+    std::vector<int> carAssetIds; // Parallel to carMetadata: the AmigaLibAsset index
     
     // Surface dimensions
     int allAdsSurfaceHeight = 0;
@@ -58,7 +59,6 @@ private:
     // Dialog system
     std::unique_ptr<Dialog> carPurchaseDialog;
     std::unique_ptr<Dialog> carViewDialog;
-    std::unique_ptr<Bitmap> carPreviewBitmap;
     int selectedCarIndex = -1;
     int lastClickX = 0;
     int lastClickY = 0;
@@ -81,8 +81,6 @@ private:
     int FindAdAtPosition(int mouseY);
     void ShowCarPurchaseDialog(int carIndex);
     void ShowCarViewDialog(int carIndex);
-    void CreateCarPreviewBitmap(int carIndex);
-    
 public:
     Newspaper();
     ~Newspaper();
