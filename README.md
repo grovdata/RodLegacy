@@ -1,20 +1,11 @@
 # Street Rod Legacy
 
 Street Rod Legacy is a reimplementation of the classic Street Rod game for modern systems.
-
-# Progress
-
-- [x] Garage
-  - [x] Engine dialog
-    - [x] Tuning engine
-    - [ ] Swapping parts
-    - [ ] Dismantling and assembling the engine
-    - [ ] Animating parts
-    - [ ] Tune animation without glitches
+It aims to stay true to the original, with some light enhancements.
 
 # Building
 
-The game is built using [Meson build system](https://mesonbuild.com/).
+The game is built with [Meson build system](https://mesonbuild.com/).
 
 ```
 mkdir build && cd build && ninja
@@ -22,9 +13,12 @@ mkdir build && cd build && ninja
 
 # Running the game
 
-The Amiga disk images are required to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/street-rod-legacy-amiga-disk-images/).
+The Amiga disk images are required to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
 
 The images must be named `SR1AMIGA_DISK1.adf` and `SR1AMIGA_DISK2.adf`.
+
+`LIB2` file from the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on) will get you some new stickers
+to add to your cars.
 
 # Credits
 

@@ -1259,7 +1259,6 @@ SrLibStatus SrLibVerifyChecksum(const char *filename, uint32_t expected_checksum
         return SrLibStatusChecksumMismatch;
     }
 
-    printf("File signature verified successfully\n");
     return SrLibStatusSuccess;
 }
 

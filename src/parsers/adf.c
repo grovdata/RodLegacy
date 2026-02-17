@@ -29,6 +29,7 @@ struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char 
 
     // Initialize ADFlib
     adfLibInit();
+    adfEnvSetProperty(ADF_PR_QUIET, true);
 
     // Open device
     dev = adfDevOpen(adf_path, ADF_ACCESS_MODE_READONLY);

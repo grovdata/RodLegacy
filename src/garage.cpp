@@ -1067,6 +1067,26 @@ void Garage::ShowCarInfoDialog() {
     SetActiveDialog(carInfoDialog.get());
 }
 
+SDL_Point Garage::GetCalendarDateHighlightPosition(int month, int day) {
+    switch (month) {
+        case 6:
+            return SDL_Point{114, 39};
+        case 7:
+        switch (day) {
+            case 1:
+                return SDL_Point{114, 39};
+            case 2:
+                return SDL_Point{114, 39};
+            case 3:
+                return SDL_Point{114, 39};
+        }
+            return SDL_Point{114, 39};
+        case 8:
+            return SDL_Point{114, 39};
+    }
+    return SDL_Point{0, 0};
+}
+
 void Garage::ShowCalendarDialog() {
     // Load the June/July calendar bitmap (hardcoded to July for now)
     Bitmap* calBitmap = state.GetAssets().GetBitmapAsset(
@@ -1076,12 +1096,14 @@ void Garage::ShowCalendarDialog() {
         return;
     }
 
+    int month = 7;
+    int day = 16;
+
     int calW = calBitmap->GetSurface()->w;
     int calH = calBitmap->GetSurface()->h;
 
-    // Center the dialog on the 320x200 screen
-    int dialogX = (320 - calW) / 2;
-    int dialogY = (200 - calH) / 2;
+    int dialogX = 80;
+    int dialogY = 4;
     SDL_Rect dialogRect = {dialogX, dialogY, calW, calH};
 
     std::map<std::string, DialogBitmap> bitmaps;
@@ -1096,7 +1118,8 @@ void Garage::ShowCalendarDialog() {
         // This needs to be mapped out from the actual calendar image layout
         int dateW = dateRect->GetSurface()->w;
         int dateH = dateRect->GetSurface()->h;
-        SDL_Rect dateHighlightRect = {dialogX + 10, dialogY + 30, dateW, dateH};
+        SDL_Point datePos = GetCalendarDateHighlightPosition(month, day);
+        SDL_Rect dateHighlightRect = {datePos.x, datePos.y, dateW, dateH};
         bitmaps["date_highlight"] = {dateRect, dateHighlightRect, 1};
     }
 

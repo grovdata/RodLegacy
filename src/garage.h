@@ -46,6 +46,7 @@ class Garage : public CarScene {
     void ShowPaintDialog();
     void ShowCarInfoDialog();
     void ShowCalendarDialog();
+    SDL_Point GetCalendarDateHighlightPosition(int month, int day);
     void ShowStickerDialog();
     void LoadCustomStickers();
     void ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr);
