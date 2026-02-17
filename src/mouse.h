@@ -2,6 +2,7 @@
 #define MOUSE_H
 
 
+#include "log.h"
 #include "global.h"
 #include "bitmap.h"
 #include "ui/zone.h"
@@ -78,7 +79,7 @@ public:
 
             pointerTextures[type] = SDL_CreateTextureFromSurface(renderer, bitmap->GetSurface());
             if (!pointerTextures[type]) {
-                SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create cursor texture: %s", SDL_GetError());
+                LOG_ERROR("Failed to create cursor texture: %s", SDL_GetError());
             }
             if (type == this->pointerType) {
                 cursorTexture = pointerTextures[type];

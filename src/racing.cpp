@@ -37,9 +37,9 @@ Racing::Racing() {
 		// Temporary fallback track for testing
 		if (vecTrack.empty()) {
 			vecTrack.push_back(std::make_pair(0.0f, 100.0f));		// Default straight section
-			printf("Racing constructor: Using fallback track (Street Rod data not loaded yet)\n");
+			SDL_Log("Racing constructor: Using fallback track (Street Rod data not loaded yet)");
 		} else {
-			printf("Racing constructor: vecTrack already has %zu segments\n", vecTrack.size());
+			SDL_Log("Racing constructor: vecTrack already has %zu segments", vecTrack.size());
 		}
 
 		// Calculate total track distance, so we can set lap times
@@ -183,7 +183,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 	// When steering doesn't match the road curve, you go off-road
 	// Add grace period at race start to prevent immediate crashes
 	if (!bCrashed && fabs(fCarPos) > 1.2f && fSpeed > 0.3f && raceStartGracePeriod <= 0.0f) {
-		SDL_Log("⚠️  Crash triggered! fCarPos=%.3f, fPlayerCurv=%.3f, fTrackCurv=%.3f, fSpeed=%.3f",
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Crash triggered! fCarPos=%.3f, fPlayerCurv=%.3f, fTrackCurv=%.3f, fSpeed=%.3f",
 		        fCarPos, fPlayerCurvature, fTrackCurvature, fSpeed);
 		HandleCrash();
 	}
@@ -568,7 +568,7 @@ void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
 
 // Street Rod track integration methods
 void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType) {
-    printf("Racing::LoadTrackData() - Loading %s track\n", 
+    SDL_Log("Racing::LoadTrackData() - Loading %s track",
            trackType == SR_TRACK_ROAD_RACE ? "Road Race" : "Drag Race");
     
     currentTrackType = trackType;
@@ -578,16 +578,16 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
         int maxSegments = (trackType == SR_TRACK_ROAD_RACE) ? 500 : 200;
         currentTrackSegments = trackReader->ExtractTrackCoordinates(trackType, maxSegments);
         
-        printf("Loaded %zu track segments\n", currentTrackSegments.size());
+        SDL_Log("Loaded %zu track segments", currentTrackSegments.size());
         
         if (!currentTrackSegments.empty()) {
             // Convert to racing format
             ConvertTrackCoordinatesToRacing();
-            printf("Converted to %zu racing track sections\n", vecTrack.size());
+            SDL_Log("Converted to %zu racing track sections", vecTrack.size());
             
             // Load roadside sprites for this track
             currentRoadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
-            printf("Loaded %zu roadside sprites\n", currentRoadsideSprites.size());
+            SDL_Log("Loaded %zu roadside sprites", currentRoadsideSprites.size());
             
             // Reset sprite tracking
             passedSprites.clear();
@@ -602,12 +602,12 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
             for (auto t : vecTrack) {
                 fTrackDistance += t.second;
             }
-            printf("Total track distance: %.1f units\n", fTrackDistance);
+            SDL_Log("Total track distance: %.1f units", fTrackDistance);
         } else {
-            printf("ERROR: No track segments loaded!\n");
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No track segments loaded!");
         }
     } else {
-        printf("ERROR: Failed to load track data!\n");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load track data!");
     }
 }
 
@@ -620,11 +620,11 @@ void Racing::ConvertTrackCoordinatesToRacing() {
     vecTrack.clear();
     
     if (currentTrackSegments.empty()) {
-        printf("ERROR: No track segments to convert!\n");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No track segments to convert!");
         return;
     }
     
-    printf("Converting %zu segments to racing format...\n", currentTrackSegments.size());
+    SDL_Log("Converting %zu segments to racing format...", currentTrackSegments.size());
     
     for (size_t i = 0; i < currentTrackSegments.size(); ++i) {
         const auto& segment = currentTrackSegments[i];
@@ -651,7 +651,7 @@ void Racing::ConvertTrackCoordinatesToRacing() {
         
         // Debug output for first few segments
         if (i < 5) {
-            printf("Segment %zu: length=%.1f, curvature=%.3f (scaled: %.1f, %.3f)\n", 
+            SDL_Log("Segment %zu: length=%.1f, curvature=%.3f (scaled: %.1f, %.3f)",
                    i, length, curvature, scaledLength, scaledCurvature);
         }
     }
@@ -712,12 +712,14 @@ void Racing::CheckForSpriteEncounters(float currentDistance) {
             int spriteKey = (i * 2); // Unique key for sprite 1 in this record
             if (passedSprites.find(spriteKey) == passedSprites.end()) {
                 passedSprites.insert(spriteKey);
-                printf("🏁 PASSED: %s (ID:%d, Hex:0x%02X, Bin:", 
-                       TrackReader::GetSpriteName(sprite.spriteId1), sprite.spriteId1, sprite.spriteId1);
+                char binBuf[9];
                 for (int bit = 7; bit >= 0; bit--) {
-                    printf("%d", (sprite.spriteId1 >> bit) & 1);
+                    snprintf(&binBuf[7 - bit], 2, "%d", (sprite.spriteId1 >> bit) & 1);
                 }
-                printf(", LEFT SIDE) at position %.1f (distance: %.1f)\n", spritePos1, currentDistance);
+                binBuf[8] = '\0';
+                SDL_Log("PASSED: %s (ID:%d, Hex:0x%02X, Bin:%s, LEFT SIDE) at position %.1f (distance: %.1f)",
+                       TrackReader::GetSpriteName(sprite.spriteId1), sprite.spriteId1, sprite.spriteId1,
+                       binBuf, spritePos1, currentDistance);
             }
         }
         
@@ -726,12 +728,14 @@ void Racing::CheckForSpriteEncounters(float currentDistance) {
             int spriteKey = (i * 2) + 1; // Unique key for sprite 2 in this record
             if (passedSprites.find(spriteKey) == passedSprites.end()) {
                 passedSprites.insert(spriteKey);
-                printf("🏁 PASSED: %s (ID:%d, Hex:0x%02X, Bin:", 
-                       TrackReader::GetSpriteName(sprite.spriteId2), sprite.spriteId2, sprite.spriteId2);
+                char binBuf2[9];
                 for (int bit = 7; bit >= 0; bit--) {
-                    printf("%d", (sprite.spriteId2 >> bit) & 1);
+                    snprintf(&binBuf2[7 - bit], 2, "%d", (sprite.spriteId2 >> bit) & 1);
                 }
-                printf(", RIGHT SIDE) at position %.1f (distance: %.1f)\n", spritePos2, currentDistance);
+                binBuf2[8] = '\0';
+                SDL_Log("PASSED: %s (ID:%d, Hex:0x%02X, Bin:%s, RIGHT SIDE) at position %.1f (distance: %.1f)",
+                       TrackReader::GetSpriteName(sprite.spriteId2), sprite.spriteId2, sprite.spriteId2,
+                       binBuf2, spritePos2, currentDistance);
             }
         }
     }
@@ -740,7 +744,7 @@ void Racing::CheckForSpriteEncounters(float currentDistance) {
     
     // Reset passed sprites when completing a lap
     if (currentDistance < lastLoggedDistance - 100.0f) {
-        printf("🏁 LAP COMPLETED - Resetting sprite tracking\n");
+        SDL_Log("LAP COMPLETED - Resetting sprite tracking");
         passedSprites.clear();
     }
 }
@@ -776,7 +780,7 @@ void Racing::LogTrackProgress(float currentDistance, int currentSegment) {
             }
         }
         
-        printf("📍 PROGRESS: %.1f%% complete | Distance: %.1f/%.1f | Segment: %d/%zu (%s) | Track: %s\n",
+        SDL_Log("PROGRESS: %.1f%% complete | Distance: %.1f/%.1f | Segment: %d/%zu (%s) | Track: %s",
                completionPercentage,
                currentDistance,
                fTrackDistance,
@@ -791,7 +795,7 @@ void Racing::LogTrackProgress(float currentDistance, int currentSegment) {
     
     // Special log for lap completion
     if (currentDistance < lastProgressLogDistance - 50.0f) {
-        printf("🏁 LAP COMPLETED! Starting new lap on %s track\n",
+        SDL_Log("LAP COMPLETED! Starting new lap on %s track",
                (currentTrackType == SR_TRACK_ROAD_RACE) ? "Road Race" : "Drag Race");
         lastProgressLogDistance = 0.0f;
         lastLoggedSegment = 0;
@@ -922,7 +926,7 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
                 // Debug output for tree animation
                 static int debugCount = 0;
                 if (debugCount < 20) {
-                    printf("Tree #%d: distance=%.1f, perspective=%.3f, frame=%d/%d, rect=(%d,%d,%d,%d)\n", 
+                    SDL_Log("Tree #%d: distance=%.1f, perspective=%.3f, frame=%d/%d, rect=(%d,%d,%d,%d)",
                            spriteId, distance, perspective, frame, animInfo->frameCount,
                            animFrameRect.x, animFrameRect.y, animFrameRect.w, animFrameRect.h);
                     debugCount++;
@@ -996,25 +1000,25 @@ void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSid
         if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
             int result = SDL_BlitSurface(spriteBitmap->GetSurface(), &srcRect, pixels, &dstRect);
             if (result != 0) {
-                printf("SDL_BlitSurface failed: %s\n", SDL_GetError());
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_BlitSurface failed: %s", SDL_GetError());
             }
         }
     }
 }
 
 void Racing::LoadSpriteBitmaps() {
-    printf("Racing: Loading sprite bitmaps from AssetManager...\n");
+    SDL_Log("Racing: Loading sprite bitmaps from AssetManager...");
     
     // Load telephone pole sprite (asset ID 30)
     auto* telephonePoleAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TELEPHONE_POLES});
     if (telephonePoleAsset) {
         telephonePoleSprite = std::make_unique<Bitmap>(*telephonePoleAsset);
         if (telephonePoleSprite->GetSurface()) {
-            printf("Racing: Loaded telephone pole sprite (%dx%d)\n", 
+            SDL_Log("Racing: Loaded telephone pole sprite (%dx%d)",
                    telephonePoleSprite->GetSurface()->w, telephonePoleSprite->GetSurface()->h);
         }
     } else {
-        printf("Racing: Failed to load telephone pole sprite\n");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Racing: Failed to load telephone pole sprite");
     }
     
     // Load tree sprite (asset ID 32 - RACING_TREE2 for animation)
@@ -1022,11 +1026,11 @@ void Racing::LoadSpriteBitmaps() {
     if (treeAsset) {
         treeSprite = std::make_unique<Bitmap>(*treeAsset);
         if (treeSprite->GetSurface()) {
-            printf("Racing: Loaded tree sprite RACING_TREE2 (%dx%d)\n", 
+            SDL_Log("Racing: Loaded tree sprite RACING_TREE2 (%dx%d)",
                    treeSprite->GetSurface()->w, treeSprite->GetSurface()->h);
         }
     } else {
-        printf("Racing: Failed to load tree sprite RACING_TREE2\n");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Racing: Failed to load tree sprite RACING_TREE2");
     }
     
     // Load bush sprite (asset ID 25)

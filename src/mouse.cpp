@@ -1,3 +1,4 @@
+#include "log.h"
 #include "mouse.h"
 #include "scene.h"
 #include <cmath>
@@ -59,7 +60,7 @@ void Mouse::UpdateGamepad(Scene* scene) {
         return;
     }
     
-    SDL_Log("Joystick opened successfully: %s", SDL_JoystickName(joystick));
+    LOG_INFO("Joystick opened successfully: %s", SDL_JoystickName(joystick));
     gamepadDebug.connected = true;
     
     DPadDirection currentDirection = DPadDirection::NONE;
@@ -131,7 +132,7 @@ void Mouse::UpdateGamepad(Scene* scene) {
     
     if (gamepadDebug.buttonA) { // A button (usually)
         gamepadDebug.lastAction = "Button A (Click)";
-        SDL_Log("Sending A button click event to scene");
+        LOG_INFO("Sending A button click event to scene");
         // Simulate left click at current position
         SDL_Event clickEvent;
         clickEvent.type = SDL_MOUSEBUTTONDOWN;

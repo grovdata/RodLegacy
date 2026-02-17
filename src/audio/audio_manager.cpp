@@ -1,3 +1,4 @@
+#include "../log.h"
 #include "audio_manager.h"
 #include "engine_sound.h"
 #include "../parsers/adf.h"
@@ -23,27 +24,27 @@ AudioManager::~AudioManager() {
 }
 
 bool AudioManager::Initialize(const char* disk1AdfPath) {
-    SDL_Log("AudioManager: Initializing...");
+    LOG_INFO("AudioManager: Initializing...");
 
     // Initialize SDL audio subsystem if not already done
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-            SDL_Log("Failed to initialize SDL audio: %s", SDL_GetError());
+            LOG_INFO("Failed to initialize SDL audio: %s", SDL_GetError());
             return false;
         }
     }
 
     // Load audio files from ADF first
     if (!LoadAudioFromADF(disk1AdfPath, "srs0.wave")) {
-        SDL_Log("Warning: Failed to load srs0.wave (racing engine sound)");
+        LOG_INFO("Warning: Failed to load srs0.wave (racing engine sound)");
     }
 
     if (!LoadAudioFromADF(disk1AdfPath, "srl0.wave")) {
-        SDL_Log("Warning: Failed to load srl0.wave (other racing sounds)");
+        LOG_INFO("Warning: Failed to load srl0.wave (other racing sounds)");
     }
 
     if (!LoadAudioFromADF(disk1AdfPath, "srl1.wave")) {
-        SDL_Log("Warning: Failed to load srl1.wave (music samples)");
+        LOG_INFO("Warning: Failed to load srl1.wave (music samples)");
     }
 
     // Initialize engine sound system with the extracted engine sample
@@ -51,13 +52,13 @@ bool AudioManager::Initialize(const char* disk1AdfPath) {
     AudioSample* engineSample = GetSample(AudioSampleType::ENGINE_LOOP);
     if (engineSample && !engineSample->data.empty()) {
         if (!engineSound->Initialize(engineSample->data)) {
-            SDL_Log("Warning: Failed to initialize engine sound");
+            LOG_INFO("Warning: Failed to initialize engine sound");
             engineSound.reset();
         } else {
-            SDL_Log("Engine sound initialized successfully from ADF data");
+            LOG_INFO("Engine sound initialized successfully from ADF data");
         }
     } else {
-        SDL_Log("Warning: No engine sample data found in ADF");
+        LOG_INFO("Warning: No engine sample data found in ADF");
         engineSound.reset();
     }
 
@@ -72,13 +73,13 @@ bool AudioManager::Initialize(const char* disk1AdfPath) {
 
     audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, 0);
     if (audioDevice == 0) {
-        SDL_Log("Warning: Failed to open audio device for one-shots: %s", SDL_GetError());
+        LOG_INFO("Warning: Failed to open audio device for one-shots: %s", SDL_GetError());
     } else {
-        SDL_Log("AudioManager: One-shot audio device opened successfully");
+        LOG_INFO("AudioManager: One-shot audio device opened successfully");
         SDL_PauseAudioDevice(audioDevice, 0);  // Unpause to allow queueing
     }
 
-    SDL_Log("AudioManager: Loaded %zu audio samples", samples.size());
+    LOG_INFO("AudioManager: Loaded %zu audio samples", samples.size());
     return true;  // Return true even if samples not loaded, engine sound might work
 }
 
@@ -99,11 +100,11 @@ void AudioManager::Shutdown() {
 }
 
 bool AudioManager::LoadAudioFromADF(const char* adfPath, const char* filename) {
-    SDL_Log("AudioManager: Loading %s from %s", filename, adfPath);
+    LOG_INFO("AudioManager: Loading %s from %s", filename, adfPath);
 
     AdfFileData* fileData = extract_adf_file_to_memory(adfPath, filename);
     if (!fileData) {
-        SDL_Log("AudioManager: Failed to extract %s from ADF", filename);
+        LOG_INFO("AudioManager: Failed to extract %s from ADF", filename);
         return false;
     }
 
@@ -139,7 +140,7 @@ bool AudioManager::LoadAudioFromADF(const char* adfPath, const char* filename) {
 }
 
 void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
-    SDL_Log("AudioManager: Extracting samples from srs0.wave (%zu bytes)", size);
+    LOG_INFO("AudioManager: Extracting samples from srs0.wave (%zu bytes)", size);
 
     // Racing engine sound - LOOPED and pitch-modulated based on RPM
     // Periods: idle=252 (~14204 Hz), max=193 (~18548 Hz)
@@ -152,7 +153,7 @@ void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
         engineSample.loopStart = 0;
         engineSample.loopLength = SRS0_ENGINE_LOOP_LENGTH;
         samples[AudioSampleType::ENGINE_LOOP] = engineSample;
-        SDL_Log("  - Racing engine sound: %u bytes (looped) at %u Hz base",
+        LOG_INFO("  - Racing engine sound: %u bytes (looped) at %u Hz base",
                 SRS0_ENGINE_LOOP_LENGTH, SRS0_ENGINE_BASE_RATE);
     }
 
@@ -160,7 +161,7 @@ void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
 }
 
 void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
-    SDL_Log("AudioManager: Extracting samples from srl0.wave (%zu bytes)", size);
+    LOG_INFO("AudioManager: Extracting samples from srl0.wave (%zu bytes)", size);
 
     // Engine starting sound - for car startup in garage/gas station
     // Amiga period 320 = 3579545 / 320 = 11186 Hz
@@ -173,7 +174,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
         engineStartSample.loopStart = 0;
         engineStartSample.loopLength = 0;
         samples[AudioSampleType::ENGINE_START] = engineStartSample;
-        SDL_Log("  - Engine starting sound: %u bytes (one-shot) at %u Hz",
+        LOG_INFO("  - Engine starting sound: %u bytes (one-shot) at %u Hz",
                 SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     }
 
@@ -186,7 +187,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
         carBashSample.loopStart = 0;
         carBashSample.loopLength = 0;
         samples[AudioSampleType::CAR_BASH] = carBashSample;
-        SDL_Log("  - Car bash sound: %u bytes (one-shot) at %u Hz",
+        LOG_INFO("  - Car bash sound: %u bytes (one-shot) at %u Hz",
                 SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
     }
 
@@ -196,12 +197,12 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
 
     // For now, we'll just note that the rest exists
     if (size > 12000) {
-        SDL_Log("  - Additional sound effects: %zu bytes (offsets TBD)", size - 12000);
+        LOG_INFO("  - Additional sound effects: %zu bytes (offsets TBD)", size - 12000);
     }
 }
 
 void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
-    SDL_Log("AudioManager: Extracting samples from srl1.wave (%zu bytes)", size);
+    LOG_INFO("AudioManager: Extracting samples from srl1.wave (%zu bytes)", size);
 
     // Music samples - used by California Dreams custom music format
     // See libp.h for detailed offset documentation
@@ -212,7 +213,7 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LoadRawAudio(data + SRL1_TONE_OFFSET, SRL1_TONE_LENGTH,
                      toneSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_TONE] = toneSample;
-        SDL_Log("  - Tone: %u bytes at offset 0x%04X", SRL1_TONE_LENGTH, SRL1_TONE_OFFSET);
+        LOG_INFO("  - Tone: %u bytes at offset 0x%04X", SRL1_TONE_LENGTH, SRL1_TONE_OFFSET);
     }
 
     // Bassdrum percussion
@@ -221,7 +222,7 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LoadRawAudio(data + SRL1_BASSDRUM_OFFSET, SRL1_BASSDRUM_LENGTH,
                      bassSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_BASSDRUM] = bassSample;
-        SDL_Log("  - Bassdrum: %u bytes at offset 0x%04X", SRL1_BASSDRUM_LENGTH, SRL1_BASSDRUM_OFFSET);
+        LOG_INFO("  - Bassdrum: %u bytes at offset 0x%04X", SRL1_BASSDRUM_LENGTH, SRL1_BASSDRUM_OFFSET);
     }
 
     // Hihat percussion
@@ -230,7 +231,7 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LoadRawAudio(data + SRL1_HIHAT_OFFSET, SRL1_HIHAT_LENGTH,
                      hihatSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_HIHAT] = hihatSample;
-        SDL_Log("  - Hihat: %u bytes at offset 0x%04X", SRL1_HIHAT_LENGTH, SRL1_HIHAT_OFFSET);
+        LOG_INFO("  - Hihat: %u bytes at offset 0x%04X", SRL1_HIHAT_LENGTH, SRL1_HIHAT_OFFSET);
     }
 
     // Buzz effect (rest of file)
@@ -240,7 +241,7 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LoadRawAudio(data + SRL1_BUZZ_OFFSET, buzzLength,
                      buzzSample, SRL1_MUSIC_SAMPLE_RATE);
         samples[AudioSampleType::MUSIC_BUZZ] = buzzSample;
-        SDL_Log("  - Buzz: %u bytes at offset 0x%04X", buzzLength, SRL1_BUZZ_OFFSET);
+        LOG_INFO("  - Buzz: %u bytes at offset 0x%04X", buzzLength, SRL1_BUZZ_OFFSET);
     }
 }
 
@@ -302,7 +303,7 @@ bool AudioManager::Parse8SVXChunks(const uint8_t* data, size_t size, AudioSample
             sample.isLooped = (header.repeatHiSamples > 0);
 
             foundVHDR = true;
-            SDL_Log("  8SVX VHDR: rate=%d, oneshot=%u, repeat=%u, loop=%d",
+            LOG_INFO("  8SVX VHDR: rate=%d, oneshot=%u, repeat=%u, loop=%d",
                     header.samplesPerSec, header.oneShotHiSamples,
                     header.repeatHiSamples, sample.isLooped);
         }
@@ -313,7 +314,7 @@ bool AudioManager::Parse8SVXChunks(const uint8_t* data, size_t size, AudioSample
                 reinterpret_cast<const int8_t*>(data + offset + chunkSize)
             );
             foundBODY = true;
-            SDL_Log("  8SVX BODY: %u bytes", chunkSize);
+            LOG_INFO("  8SVX BODY: %u bytes", chunkSize);
         }
 
         offset += chunkSize;
@@ -335,16 +336,16 @@ AudioSample* AudioManager::GetSample(AudioSampleType type) {
 void AudioManager::PlaySound(AudioSampleType type, float volume) {
     auto it = samples.find(type);
     if (it == samples.end() || it->second.data.empty()) {
-        SDL_Log("AudioManager::PlaySound - Sample %d not found", static_cast<int>(type));
+        LOG_INFO("AudioManager::PlaySound - Sample %d not found", static_cast<int>(type));
         return;
     }
 
     const AudioSample& sample = it->second;
-    SDL_Log("AudioManager::PlaySound - Playing sample %d at %.2f Hz, volume %.2f",
+    LOG_INFO("AudioManager::PlaySound - Playing sample %d at %.2f Hz, volume %.2f",
             static_cast<int>(type), sample.sampleRate, volume);
 
     if (audioDevice == 0) {
-        SDL_Log("AudioManager::PlaySound - No audio device available");
+        LOG_INFO("AudioManager::PlaySound - No audio device available");
         return;
     }
 
@@ -356,13 +357,13 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
     );
 
     if (!stream) {
-        SDL_Log("AudioManager::PlaySound - Failed to create audio stream: %s", SDL_GetError());
+        LOG_INFO("AudioManager::PlaySound - Failed to create audio stream: %s", SDL_GetError());
         return;
     }
 
     // Put the sample data into the stream
     if (SDL_AudioStreamPut(stream, sample.data.data(), static_cast<int>(sample.data.size())) < 0) {
-        SDL_Log("AudioManager::PlaySound - Failed to put data in stream: %s", SDL_GetError());
+        LOG_INFO("AudioManager::PlaySound - Failed to put data in stream: %s", SDL_GetError());
         SDL_FreeAudioStream(stream);
         return;
     }
@@ -392,18 +393,18 @@ int AudioManager::StartLoop(AudioSampleType type, float volume) {
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
         engineSound->SetVolume(volume);
         engineSound->Start();
-        SDL_Log("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
+        LOG_INFO("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
         return 0;  // Return channel 0 for engine sound
     }
 
-    SDL_Log("AudioManager::StartLoop(%d) - not yet implemented for this type", static_cast<int>(type));
+    LOG_INFO("AudioManager::StartLoop(%d) - not yet implemented for this type", static_cast<int>(type));
     return -1;
 }
 
 void AudioManager::StopLoop(int channelId) {
     if (channelId == 0 && engineSound) {  // Channel 0 is engine sound
         engineSound->Stop();
-        SDL_Log("AudioManager::StopLoop - Engine sound stopped");
+        LOG_INFO("AudioManager::StopLoop - Engine sound stopped");
     }
 }
 

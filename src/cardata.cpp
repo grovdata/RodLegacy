@@ -1,8 +1,8 @@
 #define TOML_HEADER_ONLY 0
 
+#include "log.h"
 #include "cardata.h"
 #include "utils.h"
-#include <iostream>
 #include <fstream>
 #include <SDL.h>
 #include "parsers/libp.h"
@@ -23,7 +23,7 @@ CarModel CarData::GetModel(char* carModel) {
     for (auto m: allCarModels) {
         bool equals = strcmp(m.id.c_str(), carModel);
         if (equals == 0) {
-            SDL_Log("Found model %s\n", carModel);            
+            LOG_INFO("Found model %s\n", carModel);            
             return m;
         }
     }
@@ -35,13 +35,13 @@ CarModel CarData::GetModelFromIndex(int index) {
     for (auto m: allCarModels) {
         bool equals = m.index == index;
         if (equals) {
-            SDL_Log("Found model %s\n", m.name.c_str());
+            LOG_INFO("Found model %s\n", m.name.c_str());
             // m.Log();
             return m;
         }
     }
     // Not sure about this
-    std::cout << "No model found for id " << index << std::endl;
+    LOG_WARN("No model found for id %d", index);
     return CarModel();
 }
 
@@ -49,11 +49,11 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     CarModel m;
     // FIXME Speed is unknown
 
-    std::cout << "bitmap w " << bitmap.width << " h" << bitmap.height << std::endl;
+    LOG_INFO("bitmap w %d h%d", bitmap.width, bitmap.height);
 
     if (index <= int(CAR_INDEX_COUNT)) {
         m.index = CAR_INDEX[index];
-        std::cout << "Car body ID: " << static_cast<int>(m.index) << std::endl;
+        LOG_INFO("Car body ID: %d", static_cast<int>(m.index));
     }
     m.baseSpeed = 100;
     m.filename = "";
@@ -103,15 +103,14 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
         // Get the corresponding bitmap for this car model
         BitmapEntry_t& bitmap = bitmaps.second[stockIndex];
         
-        std::cout << "Creating car " << i << " (stock index " << stockIndex << ") with bitmap w:" 
-                  << bitmap.width << " h: " << bitmap.height << std::endl;         
+        LOG_INFO("Creating car %d (stock index %d) with bitmap w:%d h: %d", i, stockIndex, bitmap.width, bitmap.height);         
         
         // Create the car model using the stock index
         CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
         allCarModels.insert(newModel);
     }
 
-    std::cout << "Created " << allCarModels.size() << " car models:" << std::endl;
+    LOG_INFO("Created %zu car models:", allCarModels.size());
     for (const auto& model : allCarModels) {                
         model.Log();
     }
@@ -128,7 +127,7 @@ CarMetadata_t CarData::GetCarMetadata(int carIndex) {
     }
     
     if (arrayIndex < 0 || arrayIndex >= (int)carMetadata.size()) {
-        SDL_Log("Warning: GetCarMetadata carIndex %d (arrayIndex %d) out of bounds (size: %zu), returning empty metadata", 
+        LOG_INFO("Warning: GetCarMetadata carIndex %d (arrayIndex %d) out of bounds (size: %zu), returning empty metadata", 
                 carIndex, arrayIndex, carMetadata.size());
         CarMetadata_t empty = {};
         return empty;
@@ -140,7 +139,7 @@ void CarData::ReadCarsFromTomlFile(std::string filename) {
     
     std::ifstream file(filename);
     if (!file.good()) {
-        SDL_Log("Custom cars TOML file %s does not exist, skipping", filename.c_str());
+        LOG_INFO("Custom cars TOML file %s does not exist, skipping", filename.c_str());
         return;
     }
     file.close();
@@ -152,9 +151,9 @@ void CarData::ReadCarsFromTomlFile(std::string filename) {
             if (!CarIsValid(&car)) {
                 if (MapContainsKey(&car, "id")) {
                     std::string id = car["id"].as_string();
-                    SDL_Log("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
+                    LOG_INFO("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
                 } else {
-                    SDL_Log("Car section incomplete, proceeding to the next one\n");
+                    LOG_INFO("Car section incomplete, proceeding to the next one\n");
                 }
                 continue;
             }
@@ -185,23 +184,19 @@ void CarData::ReadCarsFromTomlFile(std::string filename) {
             allCarModels.insert(newModel);
         }
     } catch (const toml::type_error &e) {
-        std::cout << e.what() << std::endl;
+        LOG_ERROR("%s", e.what());
     }
 }
 
 void CarData::PrintModel(CarModel model) {
-    printf("Car ID: %s\n", model.id.c_str());
-    printf("Vendor: %d\n", model.vendor);
-    printf("Name: %s\n", model.name.c_str());
-    printf("Index: %d\n", model.index);
-    printf("Filename: %s\n", model.filename.c_str());
-    printf("Year: %d\n", model.year);
-    printf("Base Speed: %d\n", model.baseSpeed);
-    printf("Width: %d, Height: %d\n", model.width, model.height);
-    //printf("Driver Position: (%d, %d)\n", model.driverX, model.driverY);
-    //printf("Rear Wheel Position: (%d, %d)\n", model.rearWheelX, model.rearWheelY);
-    //printf("Front Wheel Position: (%d, %d)\n", model.frontWheelX, model.frontWheelY);
-    //printf("Gas Cap Position: (%d, %d)\n", model.gasCapX, model.gasCapY);
+    LOG_INFO("Car ID: %s", model.id.c_str());
+    LOG_INFO("Vendor: %d", model.vendor);
+    LOG_INFO("Name: %s", model.name.c_str());
+    LOG_INFO("Index: %d", model.index);
+    LOG_INFO("Filename: %s", model.filename.c_str());
+    LOG_INFO("Year: %d", model.year);
+    LOG_INFO("Base Speed: %d", model.baseSpeed);
+    LOG_INFO("Width: %d, Height: %d", model.width, model.height);
 };
 
 CarModel CarData::GetRandomModel() {

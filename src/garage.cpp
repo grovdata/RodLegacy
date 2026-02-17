@@ -252,7 +252,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             labels,
             [this](int selectedIndex) {
                 Car* selectedCar = state.GetOwnedCars()[selectedIndex];
-            SDL_Log("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
+            LOG_INFO("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
                    selectedIndex, 
                    selectedCar->GetModel().name.c_str(), 
                    (void*)selectedCar);
@@ -260,7 +260,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             // Update paint can to show the selected car's color
             previewColor = selectedCar->GetColor();
             originalColor = previewColor;
-            SDL_Log("Car list: Updating paint can to color %d for selected car", (int)previewColor);
+            LOG_INFO("Car list: Updating paint can to color %d for selected car", (int)previewColor);
             UpdatePaintCanPreview();
             
             // Only switch if selecting a different car
@@ -268,11 +268,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                 pendingCar = selectedCar;
                 carSelectDialog->Hide();  // Hide dialog immediately when switching cars
                 StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
-                SDL_Log("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
+                LOG_INFO("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
                        (void*)state.GetCurrentCar(),
                        (void*)pendingCar);
             } else {
-                SDL_Log("Garage::ListDialog: Same car selected, ignoring");
+                LOG_INFO("Garage::ListDialog: Same car selected, ignoring");
             }
         },
         listBoxRect,
@@ -291,7 +291,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     StandardCarColor currentCarColor = state.GetCurrentCar() ? state.GetCurrentCar()->GetColor() : CarColorRed;
     previewColor = currentCarColor;
     originalColor = currentCarColor;
-    SDL_Log("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
+    LOG_INFO("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
     
     // Initialize paint can preview (always visible)
     paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
@@ -459,19 +459,19 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0:
-                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Save Game");
+                LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Save Game");
                 // state.SaveGame();
                 break;
             case 1:
-                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Load Game");
+                LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Load Game");
                 // state.LoadGame();
                 break;
             case 2:
-                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: New Game");
+                LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: New Game");
                 // state.NewGame();
                 break;
             case 3: {
-                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Quit Game");
+                LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Quit Game");
                 SDL_Event event = {};
                 event.type = SDL_QUIT;
                 SDL_PushEvent(&event);
@@ -481,7 +481,7 @@ void Garage::InitGameMenuDialog() {
                 gameMenuDialog->Hide();
                 break;
             case 5:
-                SDL_Log("Garage::MenuDialogConfig::onButtonPressed: Options");
+                LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Options");
                 gameMenuDialog->Hide();
                 SetActiveDialog(optionsDialog.get());
                 break;
@@ -532,7 +532,7 @@ void Garage::InitOptionsDialog() {
     fullscreenCheckboxConfig.checkColor = {0, 0, 0, 255};
     fullscreenCheckboxConfig.index = 4;
     fullscreenCheckboxConfig.onChange = [this](bool checked) {
-        SDL_Log("Options: Fullscreen %s", checked ? "enabled" : "disabled");
+        LOG_INFO("Options: Fullscreen %s", checked ? "enabled" : "disabled");
         // TODO: Toggle fullscreen
         // SDL_SetWindowFullscreen(window, checked ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     };
@@ -587,27 +587,27 @@ void Garage::InitOptionsDialog() {
     optionsDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0:
-                SDL_Log("Options: Sound Volume Up");
+                LOG_INFO("Options: Sound Volume Up");
                 // TODO: Increase sound volume
                 // state.audio.IncreaseSoundVolume();
                 break;
             case 1:
-                SDL_Log("Options: Sound Volume Down");
+                LOG_INFO("Options: Sound Volume Down");
                 // TODO: Decrease sound volume
                 // state.audio.DecreaseSoundVolume();
                 break;
             case 2:
-                SDL_Log("Options: Music Volume Up");
+                LOG_INFO("Options: Music Volume Up");
                 // TODO: Increase music volume
                 // state.audio.IncreaseMusicVolume();
                 break;
             case 3:
-                SDL_Log("Options: Music Volume Down");
+                LOG_INFO("Options: Music Volume Down");
                 // TODO: Decrease music volume
                 // state.audio.DecreaseMusicVolume();
                 break;
             case 5:
-                SDL_Log("Options: Back to menu");
+                LOG_INFO("Options: Back to menu");
                 optionsDialog->Hide();
                 SetActiveDialog(gameMenuDialog.get());
                 break;
@@ -657,10 +657,10 @@ void Garage::ShowBumperDialog(bool isFront) {
                 // Restore
                 if (isFront) {
                     carBitmap->RestoreFrontBumper();
-                    SDL_Log("Front bumper restored for $20");
+                    LOG_INFO("Front bumper restored for $20");
                 } else {
                     carBitmap->RestoreRearBumper();
-                    SDL_Log("Rear bumper restored for $20");
+                    LOG_INFO("Rear bumper restored for $20");
                 }
                 // Play bash sound effect
                 if (audioManager) {
@@ -670,10 +670,10 @@ void Garage::ShowBumperDialog(bool isFront) {
                 // Strip
                 if (isFront) {
                     carBitmap->StripFrontBumper();
-                    SDL_Log("Front bumper stripped for $20");
+                    LOG_INFO("Front bumper stripped for $20");
                 } else {
                     carBitmap->StripRearBumper();
-                    SDL_Log("Rear bumper stripped for $20");
+                    LOG_INFO("Rear bumper stripped for $20");
                 }
                 // Play bash sound effect
                 if (audioManager) {
@@ -720,7 +720,7 @@ void Garage::ShowRoofDialog() {
             if (isChopped) {
                 // Restore
                 carBitmap->RestoreRoof();
-                SDL_Log("Roof restored for $70");
+                LOG_INFO("Roof restored for $70");
                 // Play bash sound effect
                 if (audioManager) {
                     audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
@@ -728,7 +728,7 @@ void Garage::ShowRoofDialog() {
             } else {
                 // Chop
                 carBitmap->ChopRoof();
-                SDL_Log("Roof chopped for $70");
+                LOG_INFO("Roof chopped for $70");
                 // Play bash sound effect
                 if (audioManager) {
                     audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
@@ -780,7 +780,7 @@ void Garage::UpdatePaintCanPreview() {
     
     SDL_Surface* maskSurface = LoadSurfaceFromMemory(embedded_paintcan_png, embedded_paintcan_png_len);
     if (!maskSurface) {
-        SDL_Log("Failed to load embedded paintcan.png");
+        LOG_INFO("Failed to load embedded paintcan.png");
         return;
     }
     
@@ -792,7 +792,7 @@ void Garage::UpdatePaintCanPreview() {
     SDL_FreeSurface(maskSurface);
     
     if (!rgbaSurface) {
-        SDL_Log("Failed to convert paintcan surface");
+        LOG_INFO("Failed to convert paintcan surface");
         return;
     }
     
@@ -891,7 +891,7 @@ void Garage::ShowPaintDialog() {
                         if (car) {
                             GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                         }
-                        SDL_Log("Car painted for $20");
+                        LOG_INFO("Car painted for $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(false);  // Hide paintBubble
                         }
@@ -899,7 +899,7 @@ void Garage::ShowPaintDialog() {
                         SetActiveDialog(nullptr);
                     } else {
                         // Show "Paint ain't free!" bubble and keep dialog open
-                        SDL_Log("Not enough money! Need $20");
+                        LOG_INFO("Not enough money! Need $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(true);  // paintBubble
                         }
@@ -1076,9 +1076,9 @@ void Garage::LoadCustomStickers() {
 
     namespace fs = std::filesystem;
     const fs::path stickerDir = state.GetAssets().GetBasePath() / "stickers";
-    SDL_Log("LoadCustomStickers: looking in %s", stickerDir.string().c_str());
+    LOG_INFO("LoadCustomStickers: looking in %s", stickerDir.string().c_str());
     if (!fs::exists(stickerDir) || !fs::is_directory(stickerDir)) {
-        SDL_Log("LoadCustomStickers: directory not found");
+        LOG_INFO("LoadCustomStickers: directory not found");
         return;
     }
 
@@ -1102,16 +1102,16 @@ void Garage::LoadCustomStickers() {
             int w = bmp->GetSurface()->w;
             int h = bmp->GetSurface()->h;
             if (w > 72 || h > 25) {
-                SDL_Log("Skipping custom sticker %s: %dx%d exceeds 72x25 limit", p.string().c_str(), w, h);
+                LOG_INFO("Skipping custom sticker %s: %dx%d exceeds 72x25 limit", p.string().c_str(), w, h);
                 continue;
             }
             customStickerPaths.push_back(p.string());
             customStickerBitmaps.push_back(std::move(bmp));
         } else {
-            SDL_Log("Failed to load custom sticker: %s", p.string().c_str());
+            LOG_INFO("Failed to load custom sticker: %s", p.string().c_str());
         }
     }
-    SDL_Log("Loaded %zu custom stickers from data/stickers/", customStickerBitmaps.size());
+    LOG_INFO("Loaded %zu custom stickers from data/stickers/", customStickerBitmaps.size());
 }
 
 void Garage::ShowStickerDialog() {
@@ -1122,7 +1122,7 @@ void Garage::ShowStickerDialog() {
 
     Spritesheet* decalsSheet = state.GetAssets().GetCarDecals();
     if (!decalsSheet) {
-        SDL_Log("ShowStickerDialog: DECALS bitmap not loaded");
+        LOG_INFO("ShowStickerDialog: DECALS bitmap not loaded");
         return;
     }
 
@@ -1440,7 +1440,7 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                     int currentMoney = state.GetBankroll();
                     if (currentMoney < price) {
                         // Show "Customization ain't free!" bubble and keep dialog open
-                        SDL_Log("Not enough money! Need $%d", price);
+                        LOG_INFO("Not enough money! Need $%d", price);
                         if (bubbles.size() > 4) {
                             bubbles[4]->SetVisible(true);  // customizationBubble
                         }
@@ -1485,7 +1485,7 @@ SDL_Point Garage::GetCarIdlePosition() {
 
 void Garage::UpdateSign() {
 
-    SDL_Log("Garage::UpdateSign");
+    LOG_INFO("Garage::UpdateSign");
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
     snprintf(text, 50, "%s.", m.name.c_str());
@@ -1669,7 +1669,7 @@ bool Garage::PushEvent(SDL_Event* event) {
 }
 
 void Garage::OnCarAnimationComplete() {
-    SDL_Log("Garage::OnCarAnimationComplete - Entry point");
+    LOG_INFO("Garage::OnCarAnimationComplete - Entry point");
     CarScene::OnCarAnimationComplete();
     if (pendingCar != nullptr) {
         state.SetCurrentCar(pendingCar);
@@ -1680,7 +1680,7 @@ void Garage::OnCarAnimationComplete() {
         needsNewAnimation = true;
         
         // Start the drive-in animation for the new car (this will set up audio, bitmap, position, etc.)
-        SDL_Log("Garage::OnCarAnimationComplete - Starting drive-in animation for new car");
+        LOG_INFO("Garage::OnCarAnimationComplete - Starting drive-in animation for new car");
         StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
         
         pendingCar = nullptr;
@@ -1689,7 +1689,7 @@ void Garage::OnCarAnimationComplete() {
     // Update paint preview color to match the current car
     if (carBitmap) {
         StandardCarColor newColor = carBitmap->GetCurrentColor();
-        SDL_Log("OnCarAnimationComplete: carBitmap color is %d, updating paint can", (int)newColor);
+        LOG_INFO("OnCarAnimationComplete: carBitmap color is %d, updating paint can", (int)newColor);
         previewColor = newColor;
         originalColor = previewColor;
         UpdatePaintCanPreview();
@@ -1751,7 +1751,7 @@ Garage::~Garage() {
 void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
     
-    SDL_Log("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
+    LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
     
     // Garage-specific setup BEFORE calling parent
     // Create/get car bitmap
@@ -1763,11 +1763,11 @@ void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType
         // Reverse: start at idle position (car is already visible)
         SDL_Point idlePos = GetCarIdlePosition();
         carx = idlePos.x;
-        SDL_Log("Garage::StartAnimateCar - Reverse animation, car at idle x=%d", carx);
+        LOG_INFO("Garage::StartAnimateCar - Reverse animation, car at idle x=%d", carx);
     } else {
         // Drive in: start off-screen left
         carx = -GAME_WIDTH;
-        SDL_Log("Garage::StartAnimateCar - Drive in animation, car off-screen x=%d", carx);
+        LOG_INFO("Garage::StartAnimateCar - Drive in animation, car off-screen x=%d", carx);
     }
     
     carBitmap->Move({carx, cary});
@@ -1780,5 +1780,5 @@ void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType
     UpdateSign();
     
     currentAnimationType = animType;
-    SDL_Log("Garage::StartAnimateCar - Animation started");
+    LOG_INFO("Garage::StartAnimateCar - Animation started");
 }

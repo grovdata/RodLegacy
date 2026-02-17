@@ -1,4 +1,5 @@
 #pragma once
+#include "log.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -107,7 +108,7 @@ struct CarModel {
     std::vector<CarEngine_t> compatibleEngines;
 
     void Log() const {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, 
+        LOG_INFO(
             "CarModel: id=%s, filename=%s, baseSpeed=%d, year=%d, name=%s, vendor=%d, width=%d, height=%d, index=%d",
             id.c_str(), filename.c_str(), baseSpeed, year, name.c_str(), vendor, width, height, index);
     }

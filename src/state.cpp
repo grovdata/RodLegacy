@@ -1,3 +1,4 @@
+#include "log.h"
 #include "state.h"
 #include "scene.h"
 #include "car.h"
@@ -52,7 +53,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
-        SDL_Log("Current car tires: %d", this->currentCar->GetTires().assetId);
+        LOG_INFO("Current car tires: %d", this->currentCar->GetTires().assetId);
         
         // Create scenes after fonts are initialized
         garage = std::make_unique<Garage>();
@@ -67,7 +68,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         newspaper->Init(debugMode);
         driving->Init(debugMode);
     } catch (const std::exception& e) {
-        SDL_Log("Failed to initialize game state: %s", e.what());
+        LOG_INFO("Failed to initialize game state: %s", e.what());
         // Clean up any resources that were allocated before the exception
         delete currentCar;
         throw; // Re-throw to main

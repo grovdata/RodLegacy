@@ -1,3 +1,4 @@
+#include "log.h"
 #include "spritesheet.h"
 
 int Spritesheet::GetRows() {
@@ -10,7 +11,7 @@ int Spritesheet::GetColumns() {
 
 void Spritesheet::SelectSprite(int row, int column) {
     if (row < 0 || row >= rows || column < 0 || column >= columns) {
-        SDL_LogWarn(0, "Warning: Invalid sprite coordinates (row=%d, col=%d)\n", row, column);
+        LOG_WARN("Warning: Invalid sprite coordinates (row=%d, col=%d)\n", row, column);
         return;
     }
 
@@ -22,7 +23,7 @@ void Spritesheet::SelectSprite(int row, int column) {
     SetDimensions(clipRect.w, clipRect.h);
     UpdateSprite();
 
-    //SDL_Log("Spritesheet: selected sprite (%d,%d) rect=[%d,%d,%d,%d]\n", 
+    //LOG_INFO("Spritesheet: selected sprite (%d,%d) rect=[%d,%d,%d,%d]\n", 
     //       row, column, clipRect.x, clipRect.y, clipRect.w, clipRect.h);
 }
 
@@ -47,7 +48,7 @@ void Spritesheet::UpdateSprite() {
 }
 
 void Spritesheet::Print() {
-    std::cout << "SelectSprite " << currentX << "," << currentY << ": [" << clipRect.x << "," << clipRect.y << ", " << clipRect.w << ", " << clipRect.h << "]" << std::endl;
+    LOG_INFO("SelectSprite %d,%d: [%d,%d, %d, %d]", currentX, currentY, clipRect.x, clipRect.y, clipRect.w, clipRect.h);
 }
 
 void Spritesheet::Draw() {

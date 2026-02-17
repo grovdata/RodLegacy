@@ -1,3 +1,4 @@
+#include "log.h"
 #include "assets.h"
 
 
@@ -46,7 +47,7 @@ AssetManager::~AssetManager() {
 }
 
 void AssetManager::InitFonts() {
-    SDL_Log("Loading fonts from embedded resources");
+    LOG_INFO("Loading fonts from embedded resources");
 
     // Load main font from embedded data
     SDL_Surface* mainFontSurface = LoadSurfaceFromMemory(
@@ -90,7 +91,7 @@ void AssetManager::InitFonts() {
         throw AssetLoadError("Failed to initialize debug font");
     }
 
-    SDL_Log("All fonts loaded successfully from embedded resources");
+    LOG_INFO("All fonts loaded successfully from embedded resources");
 }
 
 void AssetManager::InitMousePointers() {
@@ -162,7 +163,7 @@ void AssetManager::InitGameFiles() {
     );
     free_adf_file_data(srData);
 
-    SDL_Log("Found all required Amiga game files.");
+    LOG_INFO("Found all required Amiga game files.");
 }
 
 void AssetManager::InitStockPalettes() {
@@ -173,22 +174,22 @@ void AssetManager::InitStockPalettes() {
 
 void AssetManager::InitAudio(bool muteAudio) {
     if (muteAudio) {
-        SDL_Log("Audio system disabled (muted)");
+        LOG_INFO("Audio system disabled (muted)");
         return;
     }
 
-    SDL_Log("Initializing audio system");
+    LOG_INFO("Initializing audio system");
 
     audioManager = new AudioManager();
 
     fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
 
     if (!audioManager->Initialize(disk1Path.string().c_str())) {
-        SDL_Log("Warning: Audio initialization failed, continuing without audio");
+        LOG_INFO("Warning: Audio initialization failed, continuing without audio");
         delete audioManager;
         audioManager = nullptr;
     } else {
-        SDL_Log("Audio system initialized successfully");
+        LOG_INFO("Audio system initialized successfully");
     }
 }
 
@@ -196,15 +197,15 @@ void AssetManager::Init(const fs::path& validatedPath, bool muteAudio) {
     try {
         gameBasePath = validatedPath;
         dataPath = gameBasePath;  // All game files are directly in the game directory
-        SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
-        SDL_Log("Data path: %s", dataPath.string().c_str());
-        SDL_Log("Data path empty? %s", dataPath.empty() ? "YES" : "NO");
+        LOG_INFO("Using game directory: %s", gameBasePath.string().c_str());
+        LOG_INFO("Data path: %s", dataPath.string().c_str());
+        LOG_INFO("Data path empty? %s", dataPath.empty() ? "YES" : "NO");
         InitFonts();
         InitGameFiles();
         InitStockPalettes();
         InitAudio(muteAudio);
     } catch (const AssetLoadError& e) {
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to initialize asset manager: %s", e.what());
+        LOG_ERROR("Failed to initialize asset manager: %s", e.what());
         throw;
     }
 
@@ -248,7 +249,7 @@ void AssetManager::ReadAssets() {
         InitDosAssets();
 
     } catch (const std::exception& e) {
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to read assets: %s", e.what());
+        LOG_ERROR("Failed to read assets: %s", e.what());
         throw;
     }
 }
@@ -308,7 +309,7 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
         }
     }
 
-    SDL_LogError(0, "Warning: Asset not found (wrong type of asset?): %d", asset.id);
+    LOG_ERROR("Warning: Asset not found (wrong type of asset?): %d", asset.id);
     return nullptr;
 }
 
@@ -379,13 +380,13 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
 void AssetManager::InitDosAssets() {
     fs::path lib2Path = gameBasePath / "LIB2";
     if (!fs::exists(lib2Path)) {
-        SDL_Log("LIB2 file not found at %s, DOS decals will not be available", lib2Path.string().c_str());
+        LOG_INFO("LIB2 file not found at %s, DOS decals will not be available", lib2Path.string().c_str());
         return;
     }
 
     std::ifstream file(lib2Path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SDL_Log("Failed to open LIB2 file");
+        LOG_INFO("Failed to open LIB2 file");
         return;
     }
 
@@ -393,13 +394,13 @@ void AssetManager::InitDosAssets() {
     file.seekg(0, std::ios::beg);
     lib2Data_vec.resize(size);
     if (!file.read(reinterpret_cast<char*>(lib2Data_vec.data()), size)) {
-        SDL_Log("Failed to read LIB2 file");
+        LOG_INFO("Failed to read LIB2 file");
         lib2Data_vec.clear();
         return;
     }
 
     dosImageEntries = bp.ReadEntriesDOS(lib2Data_vec);
-    SDL_Log("LIB2: parsed %d entries", dosImageEntries.first);
+    LOG_INFO("LIB2: parsed %d entries", dosImageEntries.first);
 
     const int dosDecalIndices[] = {
         DOS_LIB2_SE_DECAL_1, DOS_LIB2_SE_DECAL_2, DOS_LIB2_SE_DECAL_3, DOS_LIB2_SE_DECAL_4,
@@ -409,7 +410,7 @@ void AssetManager::InitDosAssets() {
     for (int i = 0; i < 8; i++) {
         int idx = dosDecalIndices[i];
         if (idx >= dosImageEntries.first) {
-            SDL_Log("LIB2: decal index %d out of range (%d entries), skipping", idx, dosImageEntries.first);
+            LOG_INFO("LIB2: decal index %d out of range (%d entries), skipping", idx, dosImageEntries.first);
             dosDecalBitmaps.push_back(nullptr);
             continue;
         }
@@ -434,10 +435,10 @@ void AssetManager::InitDosAssets() {
         }
 
         dosDecalBitmaps.push_back(std::move(bitmap));
-        SDL_Log("LIB2: loaded DOS decal %d (%dx%d)", i, entry.width, entry.height);
+        LOG_INFO("LIB2: loaded DOS decal %d (%dx%d)", i, entry.width, entry.height);
     }
 
-    SDL_Log("Loaded %zu DOS decals from LIB2", dosDecalBitmaps.size());
+    LOG_INFO("Loaded %zu DOS decals from LIB2", dosDecalBitmaps.size());
 }
 
 Bitmap* AssetManager::GetDosDecal(int index) {
@@ -453,7 +454,7 @@ fs::path AssetManager::FindGameDirectory() {
     // First try loading from saved config
     fs::path savedPath = LoadSavedGamePath();
     if (!savedPath.empty() && ValidateGamePath(savedPath)) {
-        SDL_Log("Using saved game directory: %s", savedPath.string().c_str());
+        LOG_INFO("Using saved game directory: %s", savedPath.string().c_str());
         return savedPath;
     }
 
@@ -478,9 +479,9 @@ fs::path AssetManager::FindGameDirectory() {
     }
 
     // If we get here, no valid path was found - now we can log the details
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "No valid game directory found in search paths:");
+    LOG_WARN("No valid game directory found in search paths:");
     for (const auto& path : searchPaths) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Checked path: %s", path.string().c_str());
+        LOG_WARN("Checked path: %s", path.string().c_str());
     }
 
     throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
@@ -500,7 +501,7 @@ bool AssetManager::ValidateGamePath(const fs::path& path) {
 
     for (const auto& file : gameFiles) {
         if (!fs::exists(path / file)) {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Missing file: %s", (path / file).string().c_str());
+            LOG_WARN("Missing file: %s", (path / file).string().c_str());
             hasAllFiles = false;
         }
     }
@@ -517,7 +518,7 @@ void AssetManager::SetCustomPath(const std::string& customPath) {
 
     gameBasePath = path;
 
-    SDL_Log("Using game directory: %s", gameBasePath.string().c_str());
+    LOG_INFO("Using game directory: %s", gameBasePath.string().c_str());
 
     InitFonts();
     InitGameFiles();
@@ -545,7 +546,7 @@ fs::path AssetManager::LoadSavedGamePath() {
         return fs::path();
     }
 
-    SDL_Log("Loaded config file: %s", configPath.c_str());
+    LOG_INFO("Loaded config file: %s", configPath.c_str());
 
     try {
         std::ifstream config(configPath);
@@ -565,7 +566,7 @@ fs::path AssetManager::LoadSavedGamePath() {
 void AssetManager::SaveGamePath(const fs::path& path) {
     char *prefPath = SDL_GetPrefPath("se.grovdata", "opensr");
     if (!prefPath) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not get preference path to save game location");
+        LOG_WARN("Could not get preference path to save game location");
         return;
     }
 
@@ -576,9 +577,9 @@ void AssetManager::SaveGamePath(const fs::path& path) {
         std::ofstream config(configPath, std::ios::out | std::ios::trunc);
         config << path.string();
 
-        SDL_Log("Saved config file to: %s", configPath.string().c_str());
+        LOG_INFO("Saved config file to: %s", configPath.string().c_str());
     } catch (const std::exception& e) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game path: %s", e.what());
+        LOG_WARN("Failed to save game path: %s", e.what());
     }
 
     SDL_free(prefPath);

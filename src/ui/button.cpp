@@ -1,3 +1,4 @@
+#include "../log.h"
 #include "button.h"
 #include "rectangle.h"
 #include "../state.h"
@@ -27,7 +28,7 @@ void Button::CropBitmapFromSource() {
         0, config.bitmapConfig.sourceRect.w, config.bitmapConfig.sourceRect.h, 32, SDL_PIXELFORMAT_RGBA32);
     
     if (!croppedSurface) {
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create cropped surface: %s", SDL_GetError());
+        LOG_ERROR("Failed to create cropped surface: %s", SDL_GetError());
         return;
     }
 

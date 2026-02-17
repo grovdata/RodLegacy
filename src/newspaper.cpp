@@ -1,3 +1,4 @@
+#include "log.h"
 #include "newspaper.h"
 #include "state.h"
 #include "SFont.h"
@@ -116,7 +117,7 @@ void Newspaper::LoadClassifiedsData() {
         // Only add metadata if it has valid classified data
         if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
             std::string adText = metadata.classified.adText ? metadata.classified.adText : "No description";
-            SDL_Log("Classified %d: %s - %s - $%d", i, metadata.classified.carName, 
+            LOG_INFO("Classified %d: %s - %s - $%d", i, metadata.classified.carName, 
                     adText.c_str(), metadata.classified.price);
             carMetadata.push_back(metadata);
         }
@@ -125,7 +126,7 @@ void Newspaper::LoadClassifiedsData() {
     // Calculate total pages needed
     totalPages = (carMetadata.size() + adsPerPage - 1) / adsPerPage;
     
-    SDL_Log("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
+    LOG_INFO("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
 }
 
 void Newspaper::InitPageAds() {
@@ -421,7 +422,7 @@ void Newspaper::Action(ZoneId zone) {
             break;
     }
 
-    SDL_Log("Page: %d of %d", currentPage, totalPages);
+    LOG_INFO("Page: %d of %d", currentPage, totalPages);
 
     Update();
 }
@@ -466,7 +467,7 @@ void Newspaper::HandleAdClick(int adIndex) {
 }
 
 void Newspaper::CreateAllAdsSurface() {
-    SDL_Log("CreateAllAdsSurface: Starting with %zu car metadata entries", carMetadata.size());
+    LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries", carMetadata.size());
     
     // Calculate total height needed for all ads
     int totalHeight = 0;
@@ -482,13 +483,13 @@ void Newspaper::CreateAllAdsSurface() {
     totalHeight += 100;
     
     allAdsSurfaceHeight = totalHeight;
-    SDL_Log("CreateAllAdsSurface: Calculated total height: %d", totalHeight);
+    LOG_INFO("CreateAllAdsSurface: Calculated total height: %d", totalHeight);
     
     // Create the large surface
     allAdsSurface = Bitmap(192, totalHeight, 32);
     SDL_Surface* surface = allAdsSurface.GetSurface();
     if (!surface) {
-        SDL_Log("ERROR: Failed to create allAdsSurface - GetSurface() returned NULL");
+        LOG_INFO("ERROR: Failed to create allAdsSurface - GetSurface() returned NULL");
         allAdsSurfaceHeight = 0;
         return;
     }
@@ -500,7 +501,7 @@ void Newspaper::CreateAllAdsSurface() {
     // Get the main font once for all rendering
     SFont_Font* mainFont = state.GetAssets().GetMainFont();
     if (!mainFont) {
-        SDL_Log("ERROR: GetMainFont() returned NULL");
+        LOG_INFO("ERROR: GetMainFont() returned NULL");
         return;
     }
     
@@ -523,7 +524,7 @@ void Newspaper::CreateAllAdsSurface() {
         // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
-        SDL_Log("Rendered PARTS header at Y=%d", currentY);
+        LOG_INFO("Rendered PARTS header at Y=%d", currentY);
         currentY += 20;
         
         // Add some space after the header
@@ -546,7 +547,7 @@ void Newspaper::CreateAllAdsSurface() {
         // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, surface, &headerRect);
-        SDL_Log("Rendered USED CARS header at Y=%d", currentY);
+        LOG_INFO("Rendered USED CARS header at Y=%d", currentY);
         currentY += 20;
     }
     
@@ -603,7 +604,7 @@ void Newspaper::CreateAllAdsSurface() {
     // Debug: Check surface content
     SDL_Surface* debugSurface = allAdsSurface.GetSurface();
     if (debugSurface) {
-        SDL_Log("Surface format: %dx%d, %d bpp, %s", 
+        LOG_INFO("Surface format: %dx%d, %d bpp, %s", 
                debugSurface->w, debugSurface->h, debugSurface->format->BitsPerPixel,
                SDL_GetPixelFormatName(debugSurface->format->format));
         
@@ -619,14 +620,14 @@ void Newspaper::CreateAllAdsSurface() {
             }
         }
         SDL_UnlockSurface(debugSurface);
-        SDL_Log("Surface has %d non-white pixels out of %d total", nonWhitePixels, debugSurface->w * debugSurface->h);
+        LOG_INFO("Surface has %d non-white pixels out of %d total", nonWhitePixels, debugSurface->w * debugSurface->h);
     }
     
     // Save to file for debugging (after updating the surface)
     SaveAdsSurfaceToFile();
     
-    SDL_Log("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
-    SDL_Log("Total ads rendered: %zu", adPositions.size());
+    LOG_INFO("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
+    LOG_INFO("Total ads rendered: %zu", adPositions.size());
 }
 
 void Newspaper::UpdateViewport() {
@@ -702,18 +703,18 @@ void Newspaper::UpdateViewport() {
 
 void Newspaper::SaveAdsSurfaceToFile() {
     // Save the large surface to a PNG file for debugging using the existing Bitmap method
-    SDL_Log("Saving all ads surface to PNG...");
+    LOG_INFO("Saving all ads surface to PNG...");
     
     // Debug: Check surface format
     SDL_Surface* surface = allAdsSurface.GetSurface();
     if (surface) {
-        SDL_Log("Surface format: %dx%d, %d bpp, %s", 
+        LOG_INFO("Surface format: %dx%d, %d bpp, %s", 
                surface->w, surface->h, surface->format->BitsPerPixel,
                SDL_GetPixelFormatName(surface->format->format));
     }
     
     allAdsSurface.SaveBitmap(999); // Use a unique index for the ads surface
-    SDL_Log("Saved all ads surface to sprite_999.png");
+    LOG_INFO("Saved all ads surface to sprite_999.png");
 }
 
 int Newspaper::FindAdAtPosition(int mouseY) {
@@ -802,7 +803,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                 break;
             case 1: // Yeah
                 // TODO: Implement purchase logic
-                SDL_Log("Player wants to buy car %d", carIndex);
+                LOG_INFO("Player wants to buy car %d", carIndex);
                 carPurchaseDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -910,7 +911,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
                 break;
             case 1: // Yeah
                 // TODO: Implement purchase logic
-                SDL_Log("Player wants to buy car %d", carIndex);
+                LOG_INFO("Player wants to buy car %d", carIndex);
                 carViewDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -940,5 +941,5 @@ void Newspaper::CreateCarPreviewBitmap(int carIndex) {
     SDL_FillRect(carPreviewBitmap->GetSurface(), NULL, SDL_MapRGBA(carPreviewBitmap->GetSurface()->format, 100, 100, 200, 255));
     carPreviewBitmap->UpdateFromSurface();
     
-    SDL_Log("Created car preview bitmap for car %d", carIndex);
+    LOG_INFO("Created car preview bitmap for car %d", carIndex);
 }

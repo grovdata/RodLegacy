@@ -164,7 +164,7 @@ Zone& Scene::GetZone(ZoneId id) {
             return zones[i];
         }
     }
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Scene::GetZone: Zone not found: %d", id);
+    LOG_WARN("Scene::GetZone: Zone not found: %d", id);
     // Need a static Zone object to return in case of failure
     static Zone nullZone(ZONE_NULL, const_cast<char*>(""), new SDL_Rect{0,0,0,0});
     return nullZone;
@@ -331,20 +331,20 @@ void Scene::UpdateDebugInfo() {
 }
 
 void Scene::AddGamepadDebugInfo(const Mouse& mouse) {
-    SDL_Log("AddGamepadDebugInfo called - debugOverlay: %s, debugMode: %s", 
+    LOG_INFO("AddGamepadDebugInfo called - debugOverlay: %s, debugMode: %s", 
             debugOverlay ? "EXISTS" : "NULL", debugMode ? "ENABLED" : "DISABLED");
     
     if (!debugOverlay) {
-        SDL_Log("No debug overlay available");
+        LOG_INFO("No debug overlay available");
         return;
     }
     
     std::vector<std::string> gamepadLines = mouse.GetGamepadDebugLines();
-    SDL_Log("Got %zu gamepad debug lines", gamepadLines.size());
+    LOG_INFO("Got %zu gamepad debug lines", gamepadLines.size());
     
     for (const auto& line : gamepadLines) {
         debugOverlay->AddLine(line);
-        SDL_Log("Added debug line: %s", line.c_str());
+        LOG_INFO("Added debug line: %s", line.c_str());
     }
 }
 
@@ -391,7 +391,7 @@ void CarScene::Init(bool debugMode) {
 //}
 
 void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
-    SDL_Log("CarScene::StartAnimateCar - Entry point (animatingCar=%d, type=%d)", animatingCar, animType);
+    LOG_INFO("CarScene::StartAnimateCar - Entry point (animatingCar=%d, type=%d)", animatingCar, animType);
 
     currentAnimationType = animType;
     
@@ -399,7 +399,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     if (audioManager) {
         // Always stop first to ensure clean restart
         audioManager->StopLoop(0);
-        SDL_Log("StartAnimateCar: Stopped existing audio");
+        LOG_INFO("StartAnimateCar: Stopped existing audio");
         
         // Reset engine start timer
         waitingForEngineStart = false;
@@ -408,7 +408,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
             // Reverse out: play engine start sample FIRST, then loop after delay
             // Engine start: 31763 samples at 11025 Hz = ~2.88s duration
-            SDL_Log("StartAnimateCar: Playing ENGINE_START sample for reverse");
+            LOG_INFO("StartAnimateCar: Playing ENGINE_START sample for reverse");
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
             
             // Set flag to wait for engine start to finish
@@ -417,10 +417,10 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
             
             // Pre-configure the engine loop period (will start after delay)
             audioManager->UpdateEnginePeriod(605);
-            SDL_Log("StartAnimateCar: Will start ENGINE_LOOP after %.3fs", ENGINE_START_DURATION);
+            LOG_INFO("StartAnimateCar: Will start ENGINE_LOOP after %.3fs", ENGINE_START_DURATION);
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
             // Driving in: start at high pitch (period 320), drop to low (period 800)
-            SDL_Log("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 320");
+            LOG_INFO("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 320");
             audioManager->UpdateEnginePeriod(320);  // Set period BEFORE starting (fixes high-pitch glitch)
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
         }
@@ -428,7 +428,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     
     // For reverse animation with existing bitmap, just start the animation
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
-        SDL_Log("StartAnimateCar: Starting reverse animation with existing bitmap");
+        LOG_INFO("StartAnimateCar: Starting reverse animation with existing bitmap");
         carAnimationTime = 0;
         animatingCar = true;
         return;
@@ -436,7 +436,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     
     // Use flag instead of null check
     if (car != nullptr && needsNewAnimation) {
-        SDL_Log("CarScene::StartAnimateCar - starting new animation");
+        LOG_INFO("CarScene::StartAnimateCar - starting new animation");
         if (carBitmap == nullptr) {
             carBitmap = new CarBitmap(car, driver, car->GetColor());
         }
@@ -457,7 +457,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         animatingCar = true;
         waitTimer = 0;
         needsNewAnimation = false;  // Reset flag
-        SDL_Log("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d, time=%f", 
+        LOG_INFO("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d, time=%f", 
                 carx, cary, (int)animType, animatingCar, carAnimationTime);
     }
 }
@@ -507,7 +507,7 @@ int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
-    // SDL_Log("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
+    // LOG_INFO("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
     //         isPaused, exitingCar, animatingCar);
     
     // Handle engine start delay (for reverse out)
@@ -517,7 +517,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             // Engine start sample finished, now start the loop
             waitingForEngineStart = false;
             if (audioManager) {
-                SDL_Log("UpdateCarAnimation: Engine start finished, starting loop at period 605");
+                LOG_INFO("UpdateCarAnimation: Engine start finished, starting loop at period 605");
                 audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
             }
         } else {
@@ -573,7 +573,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
             }
         } else if (animatingCar) {
-            // SDL_Log("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
+            // LOG_INFO("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
             carAnimationTime += deltaTime;
             const double duration = 3.0;  // Slowed down from 2.0
             double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
@@ -582,15 +582,15 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             int targetX;
             
             if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
-                // SDL_Log("UpdateCarAnimation: Reverse animation");
+                // LOG_INFO("UpdateCarAnimation: Reverse animation");
                 targetX = static_cast<int>((1.0 - easedValue) * (idlePos.x + GAME_WIDTH) - GAME_WIDTH);
             } else {
-                // SDL_Log("UpdateCarAnimation: Forward animation");
+                // LOG_INFO("UpdateCarAnimation: Forward animation");
                 targetX = static_cast<int>((easedValue * (idlePos.x + GAME_WIDTH)) - GAME_WIDTH);
             }
             
             carx = targetX;
-            // SDL_Log("UpdateCarAnimation: New carx=%d", carx);
+            // LOG_INFO("UpdateCarAnimation: New carx=%d", carx);
 
             float speed;
             if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {

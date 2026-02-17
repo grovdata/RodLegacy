@@ -1,3 +1,4 @@
+#include "log.h"
 #include "gas_station.h"
 #include "state.h"
 #include "parsers/libp.h"
@@ -58,11 +59,11 @@ void GasStation::Init(bool initialDebugMode) {
         SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
-        SDL_Log("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}", 
+        LOG_INFO("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}", 
                 roadMaskSrcRect.x, roadMaskSrcRect.y, roadMaskSrcRect.w, roadMaskSrcRect.h,
                 roadMaskDestRect.x, roadMaskDestRect.y, roadMaskDestRect.w, roadMaskDestRect.h);
     } else {
-        SDL_Log("Failed to create road mask surface");
+        LOG_INFO("Failed to create road mask surface");
     }
 
     // Add pump no handle to container (asset-owned, non-owning ref)

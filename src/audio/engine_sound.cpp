@@ -1,3 +1,4 @@
+#include "../log.h"
 #include "engine_sound.h"
 #include <cmath>
 #include <cstdio>
@@ -14,12 +15,12 @@ EngineSound::~EngineSound() {
 bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
     // Store the provided sample data
     if (sampleData.empty()) {
-        SDL_Log("EngineSound::Initialize - Empty sample data provided");
+        LOG_INFO("EngineSound::Initialize - Empty sample data provided");
         return false;
     }
 
     baseSample = sampleData;
-    SDL_Log("EngineSound::Initialize - Loaded %zu bytes of engine sound", baseSample.size());
+    LOG_INFO("EngineSound::Initialize - Loaded %zu bytes of engine sound", baseSample.size());
 
     // Set up audio device with callback for real-time processing
     SDL_AudioSpec desired, obtained;
@@ -33,7 +34,7 @@ bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
 
     audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, 0);
     if (audioDevice == 0) {
-        SDL_Log("Failed to open audio device: %s", SDL_GetError());
+        LOG_INFO("Failed to open audio device: %s", SDL_GetError());
         return false;
     }
 
@@ -51,13 +52,13 @@ bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
     );
 
     if (!audioStream) {
-        SDL_Log("Failed to create audio stream: %s", SDL_GetError());
+        LOG_INFO("Failed to create audio stream: %s", SDL_GetError());
         SDL_CloseAudioDevice(audioDevice);
         audioDevice = 0;
         return false;
     }
 
-    SDL_Log("Engine sound initialized: %zu bytes, device freq=%d, initial mult=%.3f",
+    LOG_INFO("Engine sound initialized: %zu bytes, device freq=%d, initial mult=%.3f",
             baseSample.size(), obtained.freq, currentFreqMultiplier);
     return true;
 }
@@ -77,7 +78,7 @@ void EngineSound::Shutdown() {
 void EngineSound::Start() {
     if (playing || audioDevice == 0) return;
 
-    SDL_Log("EngineSound::Start - freqMult=%.3f", currentFreqMultiplier);
+    LOG_INFO("EngineSound::Start - freqMult=%.3f", currentFreqMultiplier);
     playing = true;
     samplePosition = 0;
     SDL_PauseAudioDevice(audioDevice, 0);  // Unpause
@@ -102,7 +103,7 @@ void EngineSound::UpdatePeriod(int16_t period) {
     // Then calculate multiplier relative to base sample rate (16000 Hz)
     float frequency = 3579545.0f / period;
     currentFreqMultiplier = frequency / 16000.0f;
-    // SDL_Log("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
+    // LOG_INFO("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
 }
 
 void EngineSound::SetVolume(float volume) {

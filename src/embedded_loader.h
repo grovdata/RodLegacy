@@ -1,5 +1,6 @@
 // Helper functions for loading SDL resources from embedded binary data
 #pragma once
+#include "log.h"
 #include <SDL.h>
 #include <SDL_image.h>
 
@@ -16,14 +17,14 @@ inline SDL_Surface* LoadSurfaceFromMemory(const unsigned char* data, size_t size
     // Create RWops from constant memory
     SDL_RWops* rw = SDL_RWFromConstMem(data, size);
     if (!rw) {
-        SDL_Log("Failed to create RWops from memory: %s", SDL_GetError());
+        LOG_INFO("Failed to create RWops from memory: %s", SDL_GetError());
         return nullptr;
     }
     
     // Load image from RWops (1 = auto-close RWops after load)
     SDL_Surface* surface = IMG_Load_RW(rw, 1);
     if (!surface) {
-        SDL_Log("Failed to load image from memory: %s", IMG_GetError());
+        LOG_INFO("Failed to load image from memory: %s", IMG_GetError());
         return nullptr;
     }
     

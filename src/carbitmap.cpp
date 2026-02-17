@@ -1,3 +1,4 @@
+#include "log.h"
 #include "carbitmap.h"
 #include "assets.h"
 #include "state.h"
@@ -88,12 +89,12 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             bodyChopped.SetPosition(origPos.x + model.offsets.offsetXChoppedRoof, origPos.y);
             // Only visible if roof is already chopped
             bodyChopped.SetVisible(car->IsRoofChopped());
-            SDL_Log("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d", 
+            LOG_INFO("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d", 
                     bodyChopped.GetPosition().w, bodyChopped.GetPosition().h, 
                     origPos.x + model.offsets.offsetXChoppedRoof, origPos.y,
                     model.offsets.offsetXChoppedRoof, car->IsRoofChopped());
         } else {
-            SDL_Log("Failed to load chopped body asset");
+            LOG_INFO("Failed to load chopped body asset");
         }
     }
     
@@ -102,44 +103,44 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         int rearBumperIndex = CarQuery::SrLibQueryGetChoppedBumberRearIndex(bodyAssetNo);
         int frontBumperIndex = CarQuery::SrLibQueryGetChoppedBumberFrontIndex(bodyAssetNo);
         
-        SDL_Log("Loading bumper overlays for car %d: rear=%d, front=%d", bodyAssetNo, rearBumperIndex, frontBumperIndex);
+        LOG_INFO("Loading bumper overlays for car %d: rear=%d, front=%d", bodyAssetNo, rearBumperIndex, frontBumperIndex);
 
         // These are overlays that will be applied to the body texture
         if (rearBumperIndex > 0) {
             auto* rearBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)rearBumperIndex}, carPalette);
             if (rearBumperAsset) {
                 rearBumper = *rearBumperAsset;
-                SDL_Log("Loaded rear bumper overlay: %dx%d", rearBumper.GetPosition().w, rearBumper.GetPosition().h);
+                LOG_INFO("Loaded rear bumper overlay: %dx%d", rearBumper.GetPosition().w, rearBumper.GetPosition().h);
             }
         } else {
-            SDL_Log("Car has no rear bumper to strip");
+            LOG_INFO("Car has no rear bumper to strip");
         }
         
         if (frontBumperIndex > 0) {
             auto* frontBumperAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)frontBumperIndex}, carPalette);
             if (frontBumperAsset) {
                 frontBumper = *frontBumperAsset;
-                SDL_Log("Loaded front bumper overlay: %dx%d", frontBumper.GetPosition().w, frontBumper.GetPosition().h);
+                LOG_INFO("Loaded front bumper overlay: %dx%d", frontBumper.GetPosition().w, frontBumper.GetPosition().h);
             }
         }
         
         isFrontBumperStripped = car->IsBumpersStripped();
         isRearBumperStripped = car->IsBumpersStripped();
         
-        SDL_Log("Car bumpers stripped status on load: %s", car->IsBumpersStripped() ? "YES" : "NO");
+        LOG_INFO("Car bumpers stripped status on load: %s", car->IsBumpersStripped() ? "YES" : "NO");
         
         // If already stripped, apply the overlays to the body texture
         if (isFrontBumperStripped && body && frontBumperIndex > 0) {
             CarModel model = car->GetModel();
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
-            SDL_Log("Applied front bumper overlay on load");
+            LOG_INFO("Applied front bumper overlay on load");
         }
         if (isRearBumperStripped && body && rearBumperIndex > 0) {
             CarModel model = car->GetModel();
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
-            SDL_Log("Applied rear bumper overlay on load");
+            LOG_INFO("Applied rear bumper overlay on load");
         }
     }
 
@@ -368,7 +369,7 @@ void CarBitmap::ChopRoof() {
     
     // Check if this car can have its roof chopped
     if (!CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
-        SDL_Log("This car cannot have its roof chopped");
+        LOG_INFO("This car cannot have its roof chopped");
         return;
     }
     
@@ -384,7 +385,7 @@ void CarBitmap::ChopRoof() {
     // Show the chopped roof piece on top
     bodyChopped.SetVisible(true);
     
-    SDL_Log("Roof chopped - masked original roof and showing chopped overlay");
+    LOG_INFO("Roof chopped - masked original roof and showing chopped overlay");
 }
 
 void CarBitmap::RestoreRoof() {
@@ -422,7 +423,7 @@ void CarBitmap::RestoreRoof() {
     // Hide the chopped roof piece
     bodyChopped.SetVisible(false);
     
-    SDL_Log("Roof restored - reloaded original body and reapplied bumpers");
+    LOG_INFO("Roof restored - reloaded original body and reapplied bumpers");
 }
 
 void CarBitmap::SetGasCapRemoved(bool removed) {
@@ -498,7 +499,7 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
     const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
     
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
-        //SDL_Log("Updating wheels");
+        //LOG_INFO("Updating wheels");
         wheels.CycleNextSprite();
         lastWheelUpdateTime = currentTime;
     }
@@ -636,7 +637,7 @@ void CarBitmap::StripFrontBumper() {
         // Apply the overlay directly to the body texture
         body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
         car->SetBumpersStripped(true);
-        SDL_Log("Front bumper stripped");
+        LOG_INFO("Front bumper stripped");
     }
 }
 
@@ -648,9 +649,9 @@ void CarBitmap::StripRearBumper() {
         // Apply the overlay directly to the body texture (no X offset in data)
         body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
         car->SetBumpersStripped(true);
-        SDL_Log("Rear bumper stripped");
+        LOG_INFO("Rear bumper stripped");
     } else if (!rearBumper.GetSurface()) {
-        SDL_Log("Cannot strip rear bumper: No rear bumper overlay loaded (car may not have one)");
+        LOG_INFO("Cannot strip rear bumper: No rear bumper overlay loaded (car may not have one)");
     }
 }
 
@@ -684,7 +685,7 @@ void CarBitmap::RestoreFrontBumper() {
         if (!isRearBumperStripped) {
             car->SetBumpersStripped(false);
         }
-        SDL_Log("Front bumper restored");
+        LOG_INFO("Front bumper restored");
         
         // Reapply any remaining stripped bumpers
         if (isRearBumperStripped && rearBumper.GetSurface()) {
@@ -726,7 +727,7 @@ void CarBitmap::RestoreRearBumper() {
         if (!isFrontBumperStripped) {
             car->SetBumpersStripped(false);
         }
-        SDL_Log("Rear bumper restored");
+        LOG_INFO("Rear bumper restored");
         
         // Reapply any remaining stripped bumpers
         if (isFrontBumperStripped && frontBumper.GetSurface()) {

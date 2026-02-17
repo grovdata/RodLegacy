@@ -1,3 +1,4 @@
+#include "log.h"
 #include "bitmap.h"
 
 extern "C" {
@@ -154,7 +155,7 @@ void Bitmap::Crop(SDL_Rect crop) {
     ));
 
     if (!cropped) {
-        std::cerr << "SDL_CreateRGBSurface failed: " << SDL_GetError() << std::endl;
+        LOG_ERROR("SDL_CreateRGBSurface failed: %s", SDL_GetError());
         return;
     }
 
@@ -173,25 +174,25 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     uint8_t maskG = maskColor.g;
     uint8_t maskB = maskColor.b;
 
-    SDL_Log("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
-    SDL_Log("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s",
+    LOG_INFO("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
+    LOG_INFO("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s",
             maskR, maskG, maskB,
             (128 == maskR && 16 == maskG && 0 == maskB) ? "true" : "false");
 
     if (target->format != surface->format) {
-        SDL_LogWarn(0, "Target surface format differs from source format - this might cause issues");
-        SDL_LogWarn(0, "Source BPP: %d, Target BPP: %d", surface->format->BitsPerPixel, target->format->BitsPerPixel);
+        LOG_WARN("Target surface format differs from source format - this might cause issues");
+        LOG_WARN("Source BPP: %d, Target BPP: %d", surface->format->BitsPerPixel, target->format->BitsPerPixel);
     }
 
     // Ensure the rect does not exceed the bounds of the surfaces
     if (rect.x < 0 || rect.y < 0 ||
         rect.x + rect.w > surface->w || rect.y + rect.h > surface->h) {
-        SDL_LogError(0, "Rectangle exceeds the bounds of the surface surface!\n");
+        LOG_ERROR("Rectangle exceeds the bounds of the surface surface!\n");
         return;
     }
 
     if (rect.w > mask->w || rect.h > mask->h) {
-        SDL_LogError(0, "Mask dimensions are smaller than the rectangle area!\n");
+        LOG_ERROR("Mask dimensions are smaller than the rectangle area!\n");
         return;
     }
 
@@ -242,10 +243,10 @@ void Bitmap::LoadBitmap(std::string filename) {
     surface = sdl2::SurfacePtr(IMG_Load(filename.c_str()));
     //SDL_SetColorKey(surface.get(), 0, SDL_MapRGB(surface->format, 0, 0, 0));
     if (!surface) {
-        SDL_Log("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
+        LOG_INFO("Bitmap::LoadBitmap error, could not load surface %s\n", filename.c_str());
         return;
     } else {
-        SDL_LogDebug(0, "Loaded bitmap %s, size %d x %d\n", filename.c_str(), surface->w, surface->h);
+        LOG_DEBUG("Loaded bitmap %s, size %d x %d\n", filename.c_str(), surface->w, surface->h);
     }
     texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
 
@@ -258,7 +259,7 @@ void Bitmap::LoadBitmap(std::string filename) {
 
 void Bitmap::LoadSurface(SDL_Surface* src) {
     if (src == nullptr) {
-        std::cerr << "Source surface is null!" << std::endl;
+        LOG_ERROR("Source surface is null!");
         return;
     }
 
@@ -267,13 +268,13 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
         0, src->w, src->h, src->format->BitsPerPixel, src->format->format));
 
     if (!surface) {
-        std::cerr << "Could not create surface: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not create surface: %s", SDL_GetError());
         return;
     }
 
     // Copy the pixel data
     if (SDL_BlitSurface(src, nullptr, surface.get(), nullptr) < 0) {
-        std::cerr << "Could not copy surface: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not copy surface: %s", SDL_GetError());
         return;
     }
 
@@ -285,20 +286,20 @@ void Bitmap::LoadSurface(SDL_Surface* src) {
 
     texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
     if (!texture) {
-        std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not create SDL texture: %s", SDL_GetError());
     }
 }
 
 void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int width, int height, bool isMask, bool opaque) {
     if (int(colors.size()) != width * height) {
-        std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
+        LOG_ERROR("The size of the color vector does not match the specified width and height.");
         return;
     }
 
     // Create an SDL surface with the specified width and height
     surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, height, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF));
     if (!surface) {
-        std::cerr << "Error: Could not create SDL surface: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not create SDL surface: %s", SDL_GetError());
         return;
     }
 
@@ -331,7 +332,7 @@ void Bitmap::LoadBitmapFromChunky(const std::vector<SrLibColor>& colors, int wid
     // Set up alpha blending for the texture
     texture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, surface.get()));
     if (!texture) {
-        std::cerr << "Error: Could not create SDL texture: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not create SDL texture: %s", SDL_GetError());
     } else {
         SDL_SetTextureBlendMode(texture.get(), SDL_BLENDMODE_BLEND);
     }
@@ -346,7 +347,7 @@ void Bitmap::SaveBitmap(int index) {
     // Get surface pixels and convert to RGBA format
     sdl2::SurfacePtr rgbaSurface(SDL_ConvertSurfaceFormat(surface.get(), SDL_PIXELFORMAT_RGBA32, 0));
     if (!rgbaSurface) {
-        std::cerr << "Failed to convert surface: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Failed to convert surface: %s", SDL_GetError());
         return;
     }
 
@@ -361,7 +362,7 @@ void Bitmap::SaveBitmap(int index) {
     // Encode and save using lodepng
     unsigned error = lodepng_encode32_file(filename, image, rgbaSurface->w, rgbaSurface->h);
     if (error) {
-        std::cerr << "Failed to save PNG file: " << lodepng_error_text(error) << std::endl;
+        LOG_ERROR("Failed to save PNG file: %s", lodepng_error_text(error));
     }
 
     delete[] image;
@@ -407,7 +408,7 @@ void Bitmap::ReplaceSurface(SDL_Surface* newSurface) {
 
 void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
     if (!surface || !overlay || !overlay->surface) {
-        SDL_Log("ApplyBumperOverlay: Invalid surfaces");
+        LOG_INFO("ApplyBumperOverlay: Invalid surfaces");
         return;
     }
 
@@ -449,5 +450,5 @@ void Bitmap::ApplyBumperOverlay(Bitmap* overlay, int offsetX, int offsetY) {
 
     // Recreate texture from modified surface
     UpdateFromSurface();
-    SDL_Log("Applied bumper overlay at offset (%d, %d)", offsetX, offsetY);
+    LOG_INFO("Applied bumper overlay at offset (%d, %d)", offsetX, offsetY);
 }

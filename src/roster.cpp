@@ -1,3 +1,4 @@
+#include "log.h"
 #include "roster.h"
 #include "parsers/carcolor.h"
 #include "state.h"
@@ -15,9 +16,9 @@ void Roster::LoadCustomDrivers() {
 
     namespace fs = std::filesystem;
     const fs::path driverDir = state.GetAssets().GetBasePath() / "drivers";
-    SDL_Log("LoadCustomDrivers: looking in %s", driverDir.string().c_str());
+    LOG_INFO("LoadCustomDrivers: looking in %s", driverDir.string().c_str());
     if (!fs::exists(driverDir) || !fs::is_directory(driverDir)) {
-        SDL_Log("LoadCustomDrivers: directory not found");
+        LOG_INFO("LoadCustomDrivers: directory not found");
         return;
     }
 
@@ -35,7 +36,7 @@ void Roster::LoadCustomDrivers() {
     for (const auto& p : pngFiles) {
         customDriverPaths.push_back(p.string());
     }
-    SDL_Log("Loaded %zu custom driver faces from drivers/", customDriverPaths.size());
+    LOG_INFO("Loaded %zu custom driver faces from drivers/", customDriverPaths.size());
 }
 
 void Roster::LoadCustomStickers() {
@@ -61,7 +62,7 @@ void Roster::LoadCustomStickers() {
     for (const auto& p : pngFiles) {
         customStickerPaths.push_back(p.string());
     }
-    SDL_Log("Loaded %zu custom sticker paths for roster", customStickerPaths.size());
+    LOG_INFO("Loaded %zu custom sticker paths for roster", customStickerPaths.size());
 }
 
 void Roster::Initialize(CarData& carData) {
@@ -111,13 +112,13 @@ void Roster::Initialize(CarData& carData) {
     ShuffleOpponents();
     currentOpponent = opponents.begin();
 
-    SDL_Log("--- Opponent roster (%zu) ---", opponents.size());
+    LOG_INFO("--- Opponent roster (%zu) ---", opponents.size());
     for (size_t i = 0; i < opponents.size(); i++) {
         const auto& o = opponents[i];
         if (!o.driver.customDriverPath.empty()) {
-            SDL_Log("  %zu. %s (custom: %s)", i + 1, o.driver.name.c_str(), o.driver.customDriverPath.c_str());
+            LOG_INFO("  %zu. %s (custom: %s)", i + 1, o.driver.name.c_str(), o.driver.customDriverPath.c_str());
         } else {
-            SDL_Log("  %zu. %s (stock sprite %d)", i + 1, o.driver.name.c_str(), o.driver.spriteIndex);
+            LOG_INFO("  %zu. %s (stock sprite %d)", i + 1, o.driver.name.c_str(), o.driver.spriteIndex);
         }
     }
 }

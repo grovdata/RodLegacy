@@ -1,3 +1,4 @@
+#include "../log.h"
 #include "libp.h"
 #include <SDL.h>
 #include <vector>
@@ -23,20 +24,20 @@
 
 SDL_Surface* createSurfaceFromColors(const std::vector<Color>& colors, int width, int height) {
     if (colors.size() != width * height) {
-        std::cerr << "Error: The size of the color vector does not match the specified width and height." << std::endl;
+        LOG_ERROR("The size of the color vector does not match the specified width and height.");
         return nullptr;
     }
 
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
+        LOG_ERROR("SDL initialization failed: %s", SDL_GetError());
         return nullptr;
     }
 
     // Create an SDL surface with the specified width and height
     SDL_Surface* surface = SDL_CreateRGBSurface(0, width, height, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
     if (!surface) {
-        std::cerr << "Error: Could not create SDL surface: " << SDL_GetError() << std::endl;
+        LOG_ERROR("Could not create SDL surface: %s", SDL_GetError());
         SDL_Quit();
         return nullptr;
     }
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]) {
     // p.PrintBitplanes(data);
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+        LOG_ERROR("SDL could not initialize! SDL_Error: %s", SDL_GetError());
         return 1;
     }
 

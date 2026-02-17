@@ -130,57 +130,57 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     };
 
     // Debug: Log the tuning button indices
-    SDL_Log("Tuning buttons created:");
+    LOG_INFO("Tuning buttons created:");
     for (size_t i = 0; i < tuningButtons.size(); i++) {
-        SDL_Log("  Button %zu: %s (index: %d)", i, tuningButtons[i].text.c_str(), tuningButtons[i].index);
+        LOG_INFO("  Button %zu: %s (index: %d)", i, tuningButtons[i].text.c_str(), tuningButtons[i].index);
     }
 
     // Common callback setup
     auto buttonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
-        SDL_Log("=== OVERVIEW BUTTON CALLBACK ===");
-        SDL_Log("Overview button index: %d", buttonIndex);
+        LOG_INFO("=== OVERVIEW BUTTON CALLBACK ===");
+        LOG_INFO("Overview button index: %d", buttonIndex);
         if (buttonIndex == 0) { // Tune button - handled by caller
-            SDL_Log("Tune button pressed in overview");
+            LOG_INFO("Tune button pressed in overview");
         }
         if (buttonCallback) {
-            SDL_Log("Calling original buttonCallback from overview");
+            LOG_INFO("Calling original buttonCallback from overview");
             buttonCallback(buttonIndex);
         }
-        SDL_Log("=== END OVERVIEW BUTTON CALLBACK ===");
+        LOG_INFO("=== END OVERVIEW BUTTON CALLBACK ===");
     };
     
     // Tuning-specific callback setup
     auto tuningButtonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
-        SDL_Log("=== TUNING BUTTON CALLBACK ===");
-        SDL_Log("tunelevel %d, buttonIndex: %d", this->tuneLevel, buttonIndex);
+        LOG_INFO("=== TUNING BUTTON CALLBACK ===");
+        LOG_INFO("tunelevel %d, buttonIndex: %d", this->tuneLevel, buttonIndex);
         if (buttonIndex == 0) { // Retard button
-            SDL_Log("Retard button pressed - decreasing tune level");
+            LOG_INFO("Retard button pressed - decreasing tune level");
             SetKnobPosition(this->tuneLevel - 1);
             // Don't call original callback for Retard button
         } else if (buttonIndex == 1) { // Advance button
-            SDL_Log("Advance button pressed - increasing tune level");
+            LOG_INFO("Advance button pressed - increasing tune level");
             SetKnobPosition(this->tuneLevel + 1);
             // Don't call original callback for Advance button
         } else if (buttonIndex == 2) { // Done button
-            SDL_Log("Done button pressed - switching back to overview");
+            LOG_INFO("Done button pressed - switching back to overview");
             // Switch back to overview dialog
             SwitchToState(ENGINE_BAY_OVERVIEW);
-            SDL_Log("Current state after switch: %d", this->currentState);
+            LOG_INFO("Current state after switch: %d", this->currentState);
             // Call original callback with a special index to just update the dialog
             if (buttonCallback) {
                 buttonCallback(99); // Special index to just update dialog without state change
             }
         } else {
-            SDL_Log("Unknown button index: %d", buttonIndex);
+            LOG_INFO("Unknown button index: %d", buttonIndex);
             if (buttonCallback) {
                 buttonCallback(buttonIndex);
             }
         }
-        SDL_Log("=== END TUNING BUTTON CALLBACK ===");
+        LOG_INFO("=== END TUNING BUTTON CALLBACK ===");
     };
     
     auto zoneHoverWrapper = zoneHoverCallback ? zoneHoverCallback : [](Zone& zone) {
-        SDL_Log("Engine Bay Zone Hover: %s (Zone ID: %d)", zone.GetText(), zone.GetId());
+        LOG_INFO("Engine Bay Zone Hover: %s (Zone ID: %d)", zone.GetText(), zone.GetId());
     };
 
     // Create overview dialog
@@ -347,13 +347,13 @@ void EngineBay::SwitchToState(EngineBayState newState) {
         return; // Already in this state
     }
     
-    SDL_Log("EngineBay::SwitchToState: %d -> %d", currentState, newState);
+    LOG_INFO("EngineBay::SwitchToState: %d -> %d", currentState, newState);
     currentState = newState;
 }
 
 void EngineBay::ResetToOverview() {
     currentState = ENGINE_BAY_OVERVIEW;
-    SDL_Log("EngineBay::ResetToOverview: Reset to overview state");
+    LOG_INFO("EngineBay::ResetToOverview: Reset to overview state");
 }
 
 Dialog* EngineBay::GetDialog() {
@@ -492,10 +492,10 @@ void EngineBay::InitPartsDialog() {
     partsDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0: // Change
-                SDL_Log("Change part selected");
+                LOG_INFO("Change part selected");
                 break;
             case 1: // Forget it
-                SDL_Log("Forget it selected");
+                LOG_INFO("Forget it selected");
                 // Switch back to overview
                 SwitchToState(ENGINE_BAY_OVERVIEW);
                 break;
@@ -515,7 +515,7 @@ void EngineBay::InitPartsDialog() {
         scrollBottomRect
     };
     listConfig.onItemSelected = [this](int selectedIndex) {
-        SDL_Log("Parts dialog: Selected part index=%d", selectedIndex);
+        LOG_INFO("Parts dialog: Selected part index=%d", selectedIndex);
     };
     
     partsDialog = std::make_unique<ListDialog>(partsDialogConfig, listConfig);

@@ -1,3 +1,4 @@
+#include "log.h"
 #include "global.h"
 
 #ifdef _WIN32
@@ -130,14 +131,14 @@ void TakeScreenshot() {
                                                0xFF000000)); // Alpha mask
 
     if (!surface) {
-        SDL_Log("Failed to create surface for screenshot: %s", SDL_GetError());
+        LOG_INFO("Failed to create surface for screenshot: %s", SDL_GetError());
         return;
     }
 
     // Read pixels from the renderer
     if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                             surface->pixels, surface->pitch) != 0) {
-        SDL_Log("Failed to read pixels for screenshot: %s", SDL_GetError());
+        LOG_INFO("Failed to read pixels for screenshot: %s", SDL_GetError());
         return;
     }
 
@@ -151,9 +152,9 @@ void TakeScreenshot() {
 
     // Save the surface as PNG
     if (IMG_SavePNG(surface.get(), filename.c_str()) != 0) {
-        SDL_Log("Failed to save screenshot: %s", SDL_GetError());
+        LOG_INFO("Failed to save screenshot: %s", SDL_GetError());
     } else {
-        SDL_Log("Screenshot saved: %s", filename.c_str());
+        LOG_INFO("Screenshot saved: %s", filename.c_str());
     }
 
     // RAII handles cleanup automatically
@@ -190,33 +191,39 @@ int main(int argc, char* argv[]) {
     // Check if running on Steam Deck
     bool isSteamDeck = IsSteamDeck();
     if (isSteamDeck) {
-        SDL_Log("Steam Deck detected - optimizing for handheld experience");
+        LOG_INFO("Steam Deck detected - optimizing for handheld experience");
         // Enable gamepad mode by default on Steam Deck
         mouse.SetGamepadActive(true);
     } else {
-        SDL_Log("Running on desktop/laptop system");
+        LOG_INFO("Running on desktop/laptop system");
     }
 
-    SDL_Log("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
-    SDL_Log("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
+    LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
+    LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
-        SDL_Log("error initializing SDL: %s\n", SDL_GetError());
+        LOG_INFO("error initializing SDL: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
+    }
+
+    // Set log priority: default to WARN, verbose in debug mode
+    SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_WARN);
+    if (debugMode) {
+        SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
     }
 
     // Create window after SDL_Init
     int windowWidth = useOriginalSize ? ORIGINAL_WINDOW_WIDTH : WINDOW_WIDTH;
     int windowHeight = useOriginalSize ? ORIGINAL_WINDOW_HEIGHT : WINDOW_HEIGHT;
 
-    SDL_Log("Creating window: %dx%d (%s)", windowWidth, windowHeight,
+    LOG_INFO("Creating window: %dx%d (%s)", windowWidth, windowHeight,
             useOriginalSize ? "original size" : "4x upscaled");
 
     win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, 0);
     if (!win) {
-        SDL_Log("error creating window: %s\n", SDL_GetError());
+        LOG_INFO("error creating window: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
@@ -224,7 +231,7 @@ int main(int argc, char* argv[]) {
     // Create renderer with proper flags
     renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
-        SDL_Log("error creating renderer: %s\n", SDL_GetError());
+        LOG_INFO("error creating renderer: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
@@ -236,7 +243,7 @@ int main(int argc, char* argv[]) {
     // Load icon from embedded data (only on non-Windows platforms)
     sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));
     if (!icon) {
-        SDL_Log("Could not load embedded icon");
+        LOG_INFO("Could not load embedded icon");
     } else {
         SDL_SetWindowIcon(win, icon.get());
         // RAII handles cleanup automatically
@@ -248,16 +255,14 @@ int main(int argc, char* argv[]) {
     if (useOriginalSize) {
         // For original size, disable all scaling hints
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Use software renderer for pixel-perfect rendering
-        SDL_Log("Using software renderer for original size mode");
+        LOG_INFO("Using software renderer for original size mode");
     } else {
         SDL_RenderSetIntegerScale(renderer, SDL_TRUE);    // Force integer scaling only for upscaled mode
     }
 
     // Initialize SDL2_mixer
     if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
-        printf(
-            "SDL2_mixer could not be initialized!\n"
-            "SDL_Error: %s\n",
+        LOG_WARN("SDL2_mixer could not be initialized! SDL_Error: %s",
             SDL_GetError());
         return 0;
     }
@@ -269,7 +274,7 @@ int main(int argc, char* argv[]) {
         // Load joystick
         controller = SDL_JoystickOpen(0);
         if (controller == NULL) {
-            printf("Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError());
+            LOG_WARN("Unable to open game controller! SDL Error: %s", SDL_GetError());
         }
     }
 
@@ -315,7 +320,7 @@ int main(int argc, char* argv[]) {
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(SCENE_GARAGE);
     } catch (const std::exception& e) {
-        SDL_Log("Failed to initialize game state: %s", e.what());
+        LOG_INFO("Failed to initialize game state: %s", e.what());
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
         SDL_JoystickClose(controller);
@@ -327,11 +332,11 @@ int main(int argc, char* argv[]) {
     // Res scaling
     if (useOriginalSize) {
         // When using original size, no logical scaling - render directly to window
-        SDL_Log("Using original size - no logical scaling applied (1:1 pixel mapping)");
+        LOG_INFO("Using original size - no logical scaling applied (1:1 pixel mapping)");
     } else {
         // When using upscaled window, set logical size to game resolution
         SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
-        SDL_Log("Using upscaled window - logical size set to %dx%d", GAME_WIDTH, GAME_HEIGHT);
+        LOG_INFO("Using upscaled window - logical size set to %dx%d", GAME_WIDTH, GAME_HEIGHT);
     }
 
     // Force integer scaling
@@ -360,7 +365,7 @@ int main(int argc, char* argv[]) {
             switch (event.type) {
                 case SDL_QUIT:
                     close_requested = true;
-                    SDL_Log("Quitting");
+                    LOG_INFO("Quitting");
                     break;
                 case SDL_KEYDOWN:
                 case SDL_KEYUP:
@@ -369,7 +374,7 @@ int main(int argc, char* argv[]) {
                             case SDLK_F1:
                                 if (event.type == SDL_KEYDOWN) {
                                     debugMode = !debugMode;
-                                    SDL_Log("Debug mode toggled: %s", debugMode ? "ENABLED" : "DISABLED");
+                                    LOG_INFO("Debug mode toggled: %s", debugMode ? "ENABLED" : "DISABLED");
                                     if (state.GetCurrentScene()) {
                                         state.GetCurrentScene()->Init(debugMode);
                                     }
@@ -384,7 +389,7 @@ int main(int argc, char* argv[]) {
                                 if (event.type == SDL_KEYUP) {
                                     if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
                                         mouse.SetGamepadActive(!mouse.IsGamepadActive());
-                                        SDL_Log("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
+                                        LOG_INFO("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
                                     } else {
                                         state.MoveToScene(SCENE_GARAGE);
                                     }
@@ -433,10 +438,10 @@ int main(int argc, char* argv[]) {
 
         // Add gamepad debug info to scene
         // if (state.GetCurrentScene()) {
-        //     SDL_Log("Adding gamepad debug info to scene");
+        //     LOG_INFO("Adding gamepad debug info to scene");
         //     state.GetCurrentScene()->AddGamepadDebugInfo(mouse);
         // } else {
-        //     SDL_Log("No current scene available for gamepad debug info");
+        //     LOG_INFO("No current scene available for gamepad debug info");
         // }
 
         SDL_RenderClear(renderer);

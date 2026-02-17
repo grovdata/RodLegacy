@@ -1,3 +1,4 @@
+#include "log.h"
 #include "car.h"
 #include "parsers/libp.h"
 
@@ -46,7 +47,7 @@ void Car::SetTires(CarWheelType type) {
             break;
     }
 
-    SDL_Log("Setting tires for %d to %d", model.index, aid);
+    LOG_INFO("Setting tires for %d to %d", model.index, aid);
 
     this->tires = Part(0, 0, vendor, aid, TRANS_4SPD_UNIVERSAL);
 }

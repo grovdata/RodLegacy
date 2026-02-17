@@ -1,3 +1,4 @@
+#include "log.h"
 #include "diner.h"
 #include "state.h"
 #include "ui/hud.h"
@@ -282,7 +283,7 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     exitingCar = false;
     debugWaitTimer = 0;
     engineSoundStarted = false;
-    SDL_Log("Diner::StartAnimateCar - Reset state: exitingCar=0, debugWaitTimer=0, engineSoundStarted=0");
+    LOG_INFO("Diner::StartAnimateCar - Reset state: exitingCar=0, debugWaitTimer=0, engineSoundStarted=0");
     
     CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
     
@@ -291,7 +292,7 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
         // Set engine period for driving in (similar to garage drive-in)
         audioManager->UpdateEnginePeriod(320);  // Period 320 = ~11186 Hz (high pitch)
         audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
-        SDL_Log("Diner::StartAnimateCar - Engine sound started for opponent drive-in");
+        LOG_INFO("Diner::StartAnimateCar - Engine sound started for opponent drive-in");
     }
 }
 
@@ -389,7 +390,7 @@ void Diner::UpdateCarAnimation(double deltaTime) {
     debugTimer += deltaTime;
     
     if (debugTimer >= 1.0) {  // Log every second
-        SDL_Log("Diner::UpdateCarAnimation - animatingCar=%d, exitingCar=%d, carBitmap=%p, currentAnimationType=%d", 
+        LOG_INFO("Diner::UpdateCarAnimation - animatingCar=%d, exitingCar=%d, carBitmap=%p, currentAnimationType=%d", 
                 animatingCar, exitingCar, (void*)carBitmap, (int)currentAnimationType);
         debugTimer = 0;
     }
@@ -401,12 +402,12 @@ void Diner::UpdateCarAnimation(double deltaTime) {
     if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && !exitingCar && carBitmap) {
         debugWaitTimer += deltaTime;
         if (debugWaitTimer >= 0.5) {  // Log every 0.5 seconds
-            SDL_Log("Diner::UpdateCarAnimation - Waiting for exit: waitTimer=%.1f, WAIT_BEFORE_EXIT=3.0", debugWaitTimer);
+            LOG_INFO("Diner::UpdateCarAnimation - Waiting for exit: waitTimer=%.1f, WAIT_BEFORE_EXIT=3.0", debugWaitTimer);
         }
         
         // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
         if (debugWaitTimer >= 3.0) {
-            SDL_Log("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
+            LOG_INFO("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
             exitingCar = true;
             debugWaitTimer = 0;  // Reset for next cycle
         }
@@ -415,24 +416,24 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         static double exitLogTimer = 0;
         exitLogTimer += deltaTime;
         if (exitLogTimer >= 1.0) {
-            SDL_Log("Diner::UpdateCarAnimation - In exit state: exitingCar=%d, animatingCar=%d", exitingCar, animatingCar);
+            LOG_INFO("Diner::UpdateCarAnimation - In exit state: exitingCar=%d, animatingCar=%d", exitingCar, animatingCar);
             exitLogTimer = 0;
         }
     }
     
     // Check for state changes
     if (exitingCar != lastExitingCar) {
-        SDL_Log("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
+        LOG_INFO("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
         lastExitingCar = exitingCar;
     }
     if (animatingCar != lastAnimatingCar) {
-        SDL_Log("Diner::UpdateCarAnimation - animatingCar changed: %d -> %d", lastAnimatingCar, animatingCar);
+        LOG_INFO("Diner::UpdateCarAnimation - animatingCar changed: %d -> %d", lastAnimatingCar, animatingCar);
         lastAnimatingCar = animatingCar;
     }
     
     // Check if exit animation just started
     if (exitingCar && !engineSoundStarted) {
-        SDL_Log("Diner::UpdateCarAnimation - Opponent car starting to drive away, starting engine sound");
+        LOG_INFO("Diner::UpdateCarAnimation - Opponent car starting to drive away, starting engine sound");
         
         // Start engine sound when opponent car starts driving away
         if (audioManager) {
@@ -440,30 +441,30 @@ void Diner::UpdateCarAnimation(double deltaTime) {
             audioManager->UpdateEnginePeriod(605);  // Period 605 = ~5916 Hz
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
             engineSoundStarted = true;
-            SDL_Log("Diner::UpdateCarAnimation - Engine sound started for opponent exit");
+            LOG_INFO("Diner::UpdateCarAnimation - Engine sound started for opponent exit");
         }
     }
     
     // Reset flag when exit animation completes
     if (!exitingCar && engineSoundStarted) {
         engineSoundStarted = false;
-        SDL_Log("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
+        LOG_INFO("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
     }
     
 }
 
 void Diner::OnCarAnimationComplete() {
-    SDL_Log("Diner::OnCarAnimationComplete - Opponent car reached idle position, stopping drive-in engine sound");
+    LOG_INFO("Diner::OnCarAnimationComplete - Opponent car reached idle position, stopping drive-in engine sound");
     
     // Stop the drive-in engine sound when car reaches idle position
     if (audioManager) {
         audioManager->StopLoop(0);  // Channel 0 is engine sound
-        SDL_Log("Diner::OnCarAnimationComplete - Drive-in engine sound stopped");
+        LOG_INFO("Diner::OnCarAnimationComplete - Drive-in engine sound stopped");
     }
 }
 
 void Diner::OnCarExitComplete() {
-    SDL_Log("Diner::OnCarExitComplete - Opponent car exit animation completed");
+    LOG_INFO("Diner::OnCarExitComplete - Opponent car exit animation completed");
     // Engine sound is already playing from UpdateCarAnimation
 }
 
