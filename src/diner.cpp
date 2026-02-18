@@ -655,6 +655,7 @@ void Diner::ShowCallListDialog() {
         dialogConfig,
         ListDialogConfig{
             labels,
+            {},
             [](int selectedIndex) {
                 LOG_INFO("Diner::CallList: Selected index=%d", selectedIndex);
             },

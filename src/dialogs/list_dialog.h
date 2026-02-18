@@ -9,8 +9,9 @@ struct ScrollButtonsConfig {
     SDL_Rect bottomRect;
 };
 
-struct ListDialogConfig {  
+struct ListDialogConfig {
     std::vector<std::string> labels;
+    std::vector<SDL_Surface*> swatches;
     std::function<void(int)> onItemSelected;
     SDL_Rect listBoxRect;
     SDL_Rect selectedItemRect;
@@ -45,4 +46,5 @@ public:
     void OnItemSelected(int index);
     int GetSelectedIndex() const { return selectedIndex; }
     int GetIndexAtPosition(int x, int y) const;
+    void SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches = {});
 }; 

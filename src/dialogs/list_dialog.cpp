@@ -92,10 +92,20 @@ void ListDialog::Draw() {
             textColor = {0, 0, 0, 255};  // Gray for normal
         }
         
-        SFont_Write(mainBitmap->GetSurface(), config.font, itemRect.x, itemRect.y, 
+        SFont_Write(mainBitmap->GetSurface(), config.font, itemRect.x, itemRect.y,
                    listConfig.labels[i].c_str());
         SDL_SetTextureColorMod(mainBitmap->GetTexture(), textColor.r, textColor.g, textColor.b);
         mainBitmap->UpdateFromSurface();
+
+        // Draw swatch if provided
+        if (!listConfig.swatches.empty() && i < static_cast<int>(listConfig.swatches.size()) && listConfig.swatches[i]) {
+            SDL_Surface* swatch = listConfig.swatches[i];
+            int swatchX = listConfig.listBoxRect.x + listConfig.listBoxRect.w - swatch->w - 2;
+            int swatchY = itemRect.y;
+            SDL_Rect dstRect = {swatchX, swatchY, swatch->w, swatch->h};
+            SDL_BlitSurface(swatch, nullptr, mainBitmap->GetSurface(), &dstRect);
+            mainBitmap->UpdateFromSurface();
+        }
     }
 
     if (selectedIndex != -1) {
@@ -120,7 +130,14 @@ void ListDialog::Draw() {
 }
 
 void ListDialog::PopulateList() {
-    
+
+}
+
+void ListDialog::SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches) {
+    listConfig.labels = labels;
+    listConfig.swatches = swatches;
+    selectedIndex = -1;
+    scrollOffset = 0;
 }
 
 void ListDialog::OnItemSelected(int index) {

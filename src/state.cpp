@@ -10,7 +10,7 @@
 #include "racing.h"
 #include "debug_overlay.h"
 
-State::State() : bankroll(750) {
+State::State() : bankroll(5750) {
 }
 
 void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {

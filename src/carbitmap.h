@@ -106,4 +106,6 @@ public:
     void StartStickerWipe();
     void UpdateStickerWipe(float deltaTime);
     bool IsStickerWipeActive() const { return stickerWipeActive; }
+
+    static SDL_Surface* CreateColorSwatch(StandardCarColor color, int width = 10, int height = 6);
 };

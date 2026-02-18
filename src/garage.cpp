@@ -11,6 +11,7 @@
 #include "engine_part.h"
 #include "parsers/libp.h"
 #include <SDL_image.h>
+#include <algorithm>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
 
@@ -222,7 +223,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             case 0: { // Switch it
                 int selectedIndex = carSelectDialog->GetSelectedIndex();
                 if (selectedIndex >= 0) {
-                    Car* selectedCar = state.GetOwnedCars()[selectedIndex];
+                    Car* selectedCar = sortedOwnedCars[selectedIndex];
                     if (selectedCar != state.GetCurrentCar()) {
                         pendingCar = selectedCar;
                         StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
@@ -250,8 +251,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         dialogConfig,
         ListDialogConfig{
             labels,
+            {},
             [this](int selectedIndex) {
-                Car* selectedCar = state.GetOwnedCars()[selectedIndex];
+                Car* selectedCar = sortedOwnedCars[selectedIndex];
             LOG_INFO("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
                    selectedIndex, 
                    selectedCar->GetModel().name.c_str(), 
@@ -1605,9 +1607,24 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_TIRES:
         bubbles[2]->SetVisible(true);
         break;
-    case ZONE_GARAGE_CAR_LIST:
+    case ZONE_GARAGE_CAR_LIST: {
+        sortedOwnedCars.clear();
+        for (auto& car : state.GetOwnedCars()) {
+            sortedOwnedCars.push_back(car);
+        }
+        std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](Car* a, Car* b) {
+            return a->GetModel().name < b->GetModel().name;
+        });
+        std::vector<std::string> labels;
+        FreeCarListSwatches();
+        for (const auto& car : sortedOwnedCars) {
+            labels.push_back(car->GetModel().name);
+            carListSwatches.push_back(CarBitmap::CreateColorSwatch(car->GetColor()));
+        }
+        carSelectDialog->SetLabels(labels, carListSwatches);
         SetActiveDialog((Dialog*)carSelectDialog.get());
         break;
+    }
     case ZONE_GARAGE_CAR_INFO:
         ShowCarInfoDialog();
         break;
@@ -1817,7 +1834,15 @@ CarBitmap* Garage::GetOrCreateCarBitmap(Car* car) {
     return carBitmaps[car].get();
 }
 
+void Garage::FreeCarListSwatches() {
+    for (auto* s : carListSwatches) {
+        SDL_FreeSurface(s);
+    }
+    carListSwatches.clear();
+}
+
 Garage::~Garage() {
+    FreeCarListSwatches();
     carBitmaps.clear();
 }
 

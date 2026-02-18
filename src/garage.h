@@ -36,6 +36,9 @@ class Garage : public CarScene {
     std::vector<std::string> customStickerPaths;
     int stickerScrollRow = 0;
     bool stickerNeedsRefresh = false;
+    std::vector<Car*> sortedOwnedCars;
+    std::vector<SDL_Surface*> carListSwatches;
+    void FreeCarListSwatches();
     std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();

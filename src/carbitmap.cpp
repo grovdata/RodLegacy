@@ -789,3 +789,26 @@ void CarBitmap::UpdateStickerWipe(float deltaTime) {
         stickerWipeProgress = 0.0f;
     }
 }
+
+SDL_Surface* CarBitmap::CreateColorSwatch(StandardCarColor color, int width, int height) {
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+    if (!surface) return nullptr;
+
+    // White border
+    SDL_FillRect(surface, nullptr, SDL_MapRGB(surface->format, 255, 255, 255));
+
+    // Fill interior with gradient from palette entries 1..8
+    std::vector<uint16_t> palette = GetStandardCarColor(color);
+    int innerW = width - 2;
+    int innerH = height - 2;
+    for (int x = 0; x < innerW; x++) {
+        int palIdx = 1 + x * 8 / innerW;
+        if (palIdx > 8) palIdx = 8;
+        if (palIdx < static_cast<int>(palette.size())) {
+            SrLibColor rgb = BitmapParser::GetRGBFromRGB4(palette[palIdx]);
+            SDL_Rect strip = {1 + x, 1, 1, innerH};
+            SDL_FillRect(surface, &strip, SDL_MapRGB(surface->format, rgb.r, rgb.g, rgb.b));
+        }
+    }
+    return surface;
+}

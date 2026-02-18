@@ -786,8 +786,10 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                     state.AddOwnedCar(boughtCar);
                     state.SetCurrentCar(boughtCar);
                     state.GetClassifiedCars()[carIndex] = nullptr;
-                    LOG_INFO("Bought car %d for $%d, bankroll now $%d",
-                            carIndex, price, state.GetBankroll());
+                    LOG_INFO("Bought car %d (%s) for $%d, bankroll now $%d, owned cars: %zu",
+                            carIndex, boughtCar->GetModel().name.c_str(),
+                            price, state.GetBankroll(),
+                            state.GetOwnedCars().size());
                     carPurchaseDialog->Hide();
                     SetActiveDialog(nullptr);
                     state.MoveToScene(SCENE_GARAGE);
