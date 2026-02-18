@@ -224,7 +224,12 @@ SFont_Font* AssetManager::GetNewspaperFont() {
 }
 
 Palette AssetManager::GetStockPalette(StockPalette palette) {
-    return stockPalettes[palette];
+    auto it = stockPalettes.find(palette);
+    if (it == stockPalettes.end()) {
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "GetStockPalette: palette %d not found", (int)palette);
+        return stockPalettes.at(StockPaletteAmigaDiner);
+    }
+    return it->second;
 }
 
 void AssetManager::ReadAssets() {

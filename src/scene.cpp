@@ -33,6 +33,7 @@ Scene::Scene() {
     this->backgroundName = "";
     // Set backgroundAsset to an invalid/empty state
     this->backgroundAsset = {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)0};
+    this->palette = StockPaletteAmigaDiner;
     debugOverlay = nullptr;
     debugMode = false;
 }
