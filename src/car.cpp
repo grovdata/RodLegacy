@@ -32,6 +32,12 @@ SrLibCarDecal Car::GetDecal() {
     return decal;
 }
 
+CarWheelType Car::GetWheelType() const {
+    if (tires.assetId == CAR_TIRES_RACING) return RACING;
+    if (tires.assetId == CAR_TIRES_BRAND)  return BRAND;
+    return STOCK;
+}
+
 void Car::SetTires(CarWheelType type) {
     CarVendor_t vendor = (CarVendor_t)CAR_VENDOR_LOOKUP[model.index][1];
     AmigaLibAsset aid;

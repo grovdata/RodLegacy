@@ -20,6 +20,7 @@ enum class AudioSampleType {
     CRASH,             // Collision sound (srl0.wave)
     COP_SIREN,         // Police siren (srl0.wave)
     CAR_BASH,          // Car bash/impact sound (srl0.wave)
+    CAR_JACK,          // Car jack sound (srl0.wave)
     MUSIC_TONE,        // Music samples (srl1.wave)
     MUSIC_BASS,
     MUSIC_BASSDRUM,

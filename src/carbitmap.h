@@ -84,6 +84,14 @@ public:
     Car* GetCar() const { return car; }
     BitmapOffset_t GetOffset();
 
+    // Tire change animation methods
+    SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
+    SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
+    void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
+    void SetWheelhousesVisible(bool visible);
+    void DrawWheelAt(int x, int y);
+    void LoadNewTireSprite(CarWheelType type);
+
     // Gas station methods
     void SetGasCapRemoved(bool removed);
     void SetPumpingHandleVisible(bool visible);

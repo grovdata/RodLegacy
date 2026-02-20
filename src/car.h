@@ -55,6 +55,7 @@ class Car {
 
         Part GetGearbox() const { return gearbox; }
         Part GetTires() const { return tires; }
+        CarWheelType GetWheelType() const;
         EnginePart GetEngine() const {
             return engine;
         }

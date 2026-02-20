@@ -8,12 +8,40 @@
 #include "dialogs/list_dialog.h"
 #include "carbitmap.h"
 #include "engine_bay.h"
+#include "animated_bitmap.h"
 #include "parsers/carcolor.h"
 #include <functional>
 #include <filesystem>
 
 class Garage : public CarScene {
    private:
+    enum class TireChangePhase {
+        IDLE,
+        JACK_UP,
+        FRONT_WHEEL_OUT,
+        REAR_WHEEL_OUT,
+        WHEELHOUSE,
+        NEW_WHEELS_IN,
+        JACK_DOWN,
+    };
+
+    TireChangePhase tireChangePhase = TireChangePhase::IDLE;
+    float tireChangeTimer = 0.0f;
+    CarWheelType pendingTireType = STOCK;
+    std::unique_ptr<ListDialog> tireDialog;
+    std::unique_ptr<AnimatedBitmap> jackAnim;
+    SDL_Rect initialFrontWheelPos{};
+    SDL_Rect initialRearWheelPos{};
+    float animFrontWheelX = 0.0f;
+    float animRearWheelX = 0.0f;
+    int tireChangeLiftY = 0;
+    int jackTotalFrames = 0;
+    static constexpr int MAX_LIFT_PX = 8;
+
+    void ShowTireDialog();
+    void StartTireChangeAnimation(CarWheelType newType);
+    void UpdateTireChangeAnimation(double deltaTime);
+
     Car *pendingCar = nullptr;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;

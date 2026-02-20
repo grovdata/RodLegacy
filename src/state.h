@@ -4,7 +4,9 @@
 #include "assets.h"
 #include "roster.h"
 #include "cardata.h"
+#include "car.h"
 
+#include <algorithm>
 #include <set>
 #include <vector>
 #include <string>
@@ -16,7 +18,6 @@ namespace fs = std::filesystem;
 
 // Forward declarations
 class Scene;
-class Car;
 class Diner;
 class Driving;
 class Garage;
@@ -38,6 +39,7 @@ private:
     std::vector<Car *> ownedCars;
     std::vector<Car *> classifiedCars; // Cars for sale in the newspaper
     Car *currentCar;
+    std::vector<CarWheelType> spareTires;
 
     Roster roster;
 
@@ -91,6 +93,15 @@ public:
     void SetCurrentCar(Car *car);
     std::vector<Car *> GetOwnedCars();
     void AddOwnedCar(Car* car);
+
+    const std::vector<CarWheelType>& GetSpareTires() const { return spareTires; }
+    void AddSpareTire(CarWheelType type) { spareTires.push_back(type); }
+    bool RemoveSpareTire(CarWheelType type) {
+        auto it = std::find(spareTires.begin(), spareTires.end(), type);
+        if (it == spareTires.end()) return false;
+        spareTires.erase(it);
+        return true;
+    }
 
     Roster& GetRoster() { return roster; }
     std::vector<Car *>& GetClassifiedCars() { return classifiedCars; }

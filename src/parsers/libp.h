@@ -453,14 +453,16 @@ enum AmigaLibAsset {
     DRIVER_21 = 362,
     DRIVER_22 = 363,
     DRIVER_THE_KING = 364,
-    //
-    ENGINE_TUNE_METER = 369,
-    ENGINE_TUNE_INDICATOR = 370,
-    //
     GARAGE_SCREEN = 365,
-    //
-    ENGINE_TUNE_GADGET = 369,
-    //
+    CAR_JACK_ANIMATION = 366,
+    JAIL_MASK = 367,
+    JAIL = 368,
+    ENGINE_TUNE_METER = 369,
+    ENGINE_TUNE_GADGET = 369,   // alias for ENGINE_TUNE_METER
+    ENGINE_TUNE_INDICATOR = 370,
+    NOTHING_1 = 371,
+    NOTHING_2 = 372,
+    NOTHING_3 = 373,
     PHONEBOOK_GUY = 374
 };
 
@@ -479,7 +481,7 @@ enum DosLib1Asset {
 enum DosLib2Asset {
 
     DOS_LIB2_SPEEDING_TICKET = 110,
-    
+
     DOS_LIB2_SE_DECAL_1 = 186,
     DOS_LIB2_SE_DECAL_2 = 187,
     DOS_LIB2_SE_DECAL_3 = 188,

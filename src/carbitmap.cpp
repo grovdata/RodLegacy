@@ -279,6 +279,11 @@ void CarBitmap::Draw() {
         wheels.Draw();
     }
 
+    if (rearWheelhouse.IsVisible()) {
+        rearWheelhouse.Draw();
+        frontWheelhouse.Draw();
+    }
+
     // Always draw the original body
     if (bodyOriginal.IsVisible()) {
         bodyOriginal.Draw();
@@ -628,6 +633,34 @@ void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset,
 
 void CarBitmap::SetShadowVisible(bool visible) {
     shadow.SetVisible(visible);
+}
+
+void CarBitmap::SetWheelhousesVisible(bool visible) {
+    rearWheelhouse.SetVisible(visible);
+    frontWheelhouse.SetVisible(visible);
+}
+
+void CarBitmap::DrawWheelAt(int x, int y) {
+    wheels.SetPosition(x, y);
+    wheels.Draw();
+    wheels.CycleNextSprite();
+}
+
+void CarBitmap::LoadNewTireSprite(CarWheelType type) {
+    AmigaLibAsset wheelAssetNo;
+    switch (type) {
+        case STOCK:   wheelAssetNo = CAR_TIRES_STOCK;  break;
+        case BRAND:   wheelAssetNo = CAR_TIRES_BRAND;  break;
+        case RACING:  wheelAssetNo = CAR_TIRES_RACING; break;
+        default:      wheelAssetNo = CAR_TIRES_STOCK;  break;
+    }
+    auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
+    if (wheelAsset) {
+        wheels = *((Spritesheet*)wheelAsset);
+        wheels.SelectSprite(0, 1);
+        wheels.SetVisible(true);
+        wheels.SetDimensions(wheelSize, wheelSize);
+    }
 }
 
 void CarBitmap::StripFrontBumper() {

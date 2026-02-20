@@ -339,10 +339,32 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     );
     
     InitCarBitmaps();
-    
+
     // Set initial car bitmap
     if (state.GetCurrentCar()) {
         carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
+    }
+
+    // Load jack animation spritesheet
+    auto* jackSheet = (Spritesheet*)state.GetAssets().GetBitmapAsset(
+        {LibAssetSpritesheet, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
+    if (jackSheet) {
+        SDL_Rect pos = jackSheet->GetPosition();
+        int cols = jackSheet->GetColumns();
+        int rows = jackSheet->GetRows();
+        if (cols > 0 && rows > 0) {
+            int frameW = pos.w / cols;
+            int frameH = pos.h / rows;
+            jackAnim = std::make_unique<AnimatedBitmap>(jackSheet, pos);
+            jackAnim->SetAnimationFrames(frameW, frameH, cols, rows);
+            jackAnim->SetLoop(false);
+            jackAnim->SetSpeed(0.1f);
+            jackTotalFrames = cols * rows;
+            LOG_INFO("Garage: Loaded jack animation: %dx%d, %d frames (%d cols x %d rows)",
+                     frameW, frameH, jackTotalFrames, cols, rows);
+        }
+    } else {
+        LOG_INFO("Garage: Jack animation asset not found (CAR_JACK_ANIMATION=%d)", CAR_JACK_ANIMATION);
     }
 }
 
@@ -1549,6 +1571,231 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     SetActiveDialog(dialogPtr.get());
 }
 
+static const char* WheelTypeName(CarWheelType type) {
+    switch (type) {
+        case STOCK:  return "Stock tires";
+        case BRAND:  return "Brand name tires";
+        case RACING: return "Racing tires";
+        default:     return "Unknown tires";
+    }
+}
+
+void Garage::ShowTireDialog() {
+    const auto& spareTires = state.GetSpareTires();
+    if (spareTires.empty()) return;
+
+    std::vector<std::string> labels;
+    for (CarWheelType t : spareTires) {
+        labels.push_back(WheelTypeName(t));
+    }
+
+    SDL_Rect bounds = {36, 26, 260, 136};
+
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
+
+    SDL_Rect listBoxRect = {40, 40, 242, 80};
+    SDL_Rect topRect = {37, 27, 246, 95};
+    SDL_Rect bottomRect = {37, 123, 246, 40};
+    SDL_Rect selectedItemRect = {39, 127, 242, 12};
+    SDL_Rect switchItRect = {bounds.x + 14, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {bounds.x + 165, buttonY, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
+    Zone forgetItZone(ZONE_GARAGE_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
+    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("\\"), &scrollTopRect);
+    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &scrollDownRect);
+    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &scrollUpRect);
+    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {switchItRect, "Switch it", nullptr, true,  0},
+        {forgetItRect, "Forget it", nullptr, false, 1},
+    };
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Spare tires", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {40, 39, 240, 1} };
+
+    std::vector<Zone> dialogZones = {
+        switchItZone, forgetItZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Switch it
+                int selectedIndex = tireDialog->GetSelectedIndex();
+                if (selectedIndex < 0) break;
+                const auto& spareTires = state.GetSpareTires();
+                if (selectedIndex >= (int)spareTires.size()) break;
+                CarWheelType newType = spareTires[selectedIndex];
+                CarWheelType oldType = state.GetCurrentCar()->GetWheelType();
+                state.AddSpareTire(oldType);
+                state.RemoveSpareTire(newType);
+                tireDialog->Hide();
+                SetActiveDialog(nullptr);
+                StartTireChangeAnimation(newType);
+                break;
+            }
+            case 1: // Forget it
+                tireDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    tireDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels,
+            {},
+            [](int) {},
+            listBoxRect,
+            selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF},
+            {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)tireDialog.get());
+}
+
+void Garage::StartTireChangeAnimation(CarWheelType newType) {
+    if (!carBitmap) return;
+    pendingTireType = newType;
+    tireChangePhase = TireChangePhase::JACK_UP;
+    tireChangeTimer = 0.0f;
+    initialFrontWheelPos = carBitmap->GetFrontWheelPos();
+    initialRearWheelPos  = carBitmap->GetRearWheelPos();
+    animFrontWheelX = (float)initialFrontWheelPos.x;
+    animRearWheelX  = (float)initialRearWheelPos.x;
+    tireChangeLiftY = 0;
+    carBitmap->SetWheelsVisible(false);
+    if (jackAnim) {
+        jackAnim->SetFrame(0);
+        jackAnim->Play();
+    }
+    if (audioManager) {
+        audioManager->PlaySound(AudioSampleType::CAR_JACK);
+    }
+}
+
+void Garage::UpdateTireChangeAnimation(double deltaTime) {
+    if (tireChangePhase == TireChangePhase::IDLE) return;
+
+    constexpr float JACK_UP_DUR    = 0.8f;
+    constexpr float WHEEL_OUT_DUR  = 0.5f;
+    constexpr float WHEELHOUSE_DUR = 0.3f;
+    constexpr float WHEEL_IN_DUR   = 0.8f;
+    constexpr float JACK_DOWN_DUR  = 0.8f;
+
+    tireChangeTimer += (float)deltaTime;
+    const int wheelSize = 31;
+
+    auto lerp = [](float a, float b, float t) {
+        return a + (b - a) * t;
+    };
+
+    switch (tireChangePhase) {
+        case TireChangePhase::JACK_UP: {
+            float t = tireChangeTimer / JACK_UP_DUR;
+            if (t > 1.0f) t = 1.0f;
+            tireChangeLiftY = (int)(t * MAX_LIFT_PX);
+            if (jackAnim) jackAnim->Update((float)deltaTime);
+            if (tireChangeTimer >= JACK_UP_DUR) {
+                if (jackAnim) jackAnim->Stop();
+                tireChangePhase = TireChangePhase::FRONT_WHEEL_OUT;
+                tireChangeTimer = 0.0f;
+            }
+            break;
+        }
+        case TireChangePhase::FRONT_WHEEL_OUT: {
+            float t = tireChangeTimer / WHEEL_OUT_DUR;
+            if (t > 1.0f) t = 1.0f;
+            animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
+            if (tireChangeTimer >= WHEEL_OUT_DUR) {
+                tireChangePhase = TireChangePhase::REAR_WHEEL_OUT;
+                tireChangeTimer = 0.0f;
+            }
+            break;
+        }
+        case TireChangePhase::REAR_WHEEL_OUT: {
+            float t = tireChangeTimer / WHEEL_OUT_DUR;
+            if (t > 1.0f) t = 1.0f;
+            animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
+            if (tireChangeTimer >= WHEEL_OUT_DUR) {
+                if (carBitmap) carBitmap->SetWheelhousesVisible(true);
+                tireChangePhase = TireChangePhase::WHEELHOUSE;
+                tireChangeTimer = 0.0f;
+            }
+            break;
+        }
+        case TireChangePhase::WHEELHOUSE: {
+            if (tireChangeTimer >= WHEELHOUSE_DUR) {
+                if (carBitmap) carBitmap->LoadNewTireSprite(pendingTireType);
+                animFrontWheelX = (float)-wheelSize;
+                animRearWheelX  = (float)-wheelSize;
+                tireChangePhase = TireChangePhase::NEW_WHEELS_IN;
+                tireChangeTimer = 0.0f;
+            }
+            break;
+        }
+        case TireChangePhase::NEW_WHEELS_IN: {
+            float t = tireChangeTimer / WHEEL_IN_DUR;
+            if (t > 1.0f) t = 1.0f;
+            animRearWheelX  = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
+            animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
+            if (tireChangeTimer >= WHEEL_IN_DUR) {
+                if (carBitmap) carBitmap->SetWheelhousesVisible(false);
+                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                tireChangePhase = TireChangePhase::JACK_DOWN;
+                tireChangeTimer = 0.0f;
+            }
+            break;
+        }
+        case TireChangePhase::JACK_DOWN: {
+            float t = tireChangeTimer / JACK_DOWN_DUR;
+            if (t > 1.0f) t = 1.0f;
+            tireChangeLiftY = (int)((1.0f - t) * MAX_LIFT_PX);
+            if (jackAnim && jackTotalFrames > 1) {
+                jackAnim->SetFrame((int)((1.0f - t) * (jackTotalFrames - 1)));
+            }
+            if (tireChangeTimer >= JACK_DOWN_DUR) {
+                if (state.GetCurrentCar()) {
+                    state.GetCurrentCar()->SetTires(pendingTireType);
+                }
+                if (carBitmap) carBitmap->SetWheelsVisible(true);
+                tireChangeLiftY = 0;
+                tireChangePhase = TireChangePhase::IDLE;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 SDL_Point Garage::GetCarIdlePosition() {
     int x = SrLibQueryGetCarIdleX(SCENE_GARAGE);
     int y = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, state.GetCurrentCar()->GetModel().index);
@@ -1586,6 +1833,9 @@ void Garage::Action(ZoneId zone) {
     if (sceneTransition != SCENE_SOLID) {
         return;
     }
+    if (tireChangePhase != TireChangePhase::IDLE) {
+        return;
+    }
 
     switch (zone)
     {
@@ -1605,7 +1855,11 @@ void Garage::Action(ZoneId zone) {
         bubbles[1]->SetVisible(true);
         break;
     case ZONE_GARAGE_TIRES:
-        bubbles[2]->SetVisible(true);
+        if (state.GetSpareTires().empty()) {
+            bubbles[2]->SetVisible(true);
+        } else {
+            ShowTireDialog();
+        }
         break;
     case ZONE_GARAGE_CAR_LIST: {
         sortedOwnedCars.clear();
@@ -1665,6 +1919,7 @@ void Garage::Draw() {
     lastFrameTime = currentTime;
 
     UpdateCarAnimation(deltaTime);
+    UpdateTireChangeAnimation(deltaTime);
 
     Scene::Draw();
 
@@ -1682,12 +1937,49 @@ void Garage::Draw() {
 
     if (carBitmap != nullptr) {
         SDL_Point p;
-        p.x = carx; p.y = cary;
+        p.x = carx;
+        p.y = cary - tireChangeLiftY;
         carBitmap->Move(p);
         if (carBitmap->IsStickerWipeActive()) {
             carBitmap->UpdateStickerWipe(deltaTime);
         }
         carBitmap->Draw();
+
+        // Draw tire change animation overlays
+        if (tireChangePhase != TireChangePhase::IDLE) {
+            // Jack: drawn under the car, centered horizontally
+            if (jackAnim) {
+                SDL_Rect bodyRect = carBitmap->GetFrontWheelPos(); // use wheel y as floor ref
+                int jackX = carx + (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
+                int jackY = initialRearWheelPos.y + initialRearWheelPos.h - tireChangeLiftY;
+                jackAnim->SetPosition(jackX, jackY);
+                jackAnim->SetVisible(true);
+                jackAnim->Draw();
+                (void)bodyRect;
+            }
+
+            // Draw rolling wheels at their animated positions
+            int wheelY = initialFrontWheelPos.y - tireChangeLiftY;
+            switch (tireChangePhase) {
+                case TireChangePhase::FRONT_WHEEL_OUT:
+                    // rear wheel still at its place, front rolling out
+                    carBitmap->DrawWheelAt((int)animRearWheelX, wheelY);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                    break;
+                case TireChangePhase::REAR_WHEEL_OUT:
+                    carBitmap->DrawWheelAt((int)animRearWheelX, wheelY);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                    break;
+                case TireChangePhase::NEW_WHEELS_IN:
+                case TireChangePhase::JACK_UP:
+                case TireChangePhase::JACK_DOWN:
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  wheelY);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                    break;
+                default:
+                    break;
+            }
+        }
 
         // get clickboxes
         CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);

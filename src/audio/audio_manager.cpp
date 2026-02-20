@@ -191,6 +191,19 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
     }
 
+    // Car jack sound - for raising/lowering car during tire change
+    if (size >= SRL0_CAR_JACK_OFFSET + SRL0_CAR_JACK_LENGTH) {
+        AudioSample carJackSample;
+        LoadRawAudio(data + SRL0_CAR_JACK_OFFSET, SRL0_CAR_JACK_LENGTH,
+                     carJackSample, SRL0_CAR_JACK_RATE);
+        carJackSample.isLooped = false;
+        carJackSample.loopStart = 0;
+        carJackSample.loopLength = 0;
+        samples[AudioSampleType::CAR_JACK] = carJackSample;
+        LOG_INFO("  - Car jack sound: %u bytes (one-shot) at %u Hz",
+                SRL0_CAR_JACK_LENGTH, SRL0_CAR_JACK_RATE);
+    }
+
     // TODO: Extract other samples from srl0.wave
     // The exact offsets for ignition, tire screech, honk, crash, and cop siren
     // need to be determined from the Amiga disassembly or by analyzing the file
