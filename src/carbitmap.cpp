@@ -162,8 +162,17 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         }
     }
 
+    // Load wheelhouse - the arch where wheels sit; wheels overlay on top when equipped
+    auto* wheelhouseAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+    if (wheelhouseAsset) {
+        rearWheelhouse = *wheelhouseAsset;
+        rearWheelhouse.SetVisible(true);
+        frontWheelhouse = *wheelhouseAsset;
+        frontWheelhouse.SetVisible(true);
+    }
+
     // Load wheels
-    AmigaLibAsset wheelAssetNo = car->GetTires().assetId;    
+    AmigaLibAsset wheelAssetNo = car->GetTires().assetId;
     auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     if (wheelAsset) {
         wheels = *((Spritesheet*)wheelAsset);  // Copy the spritesheet
@@ -272,16 +281,16 @@ void CarBitmap::Draw() {
         shadow.Draw();
     }   
 
+    if (rearWheelhouse.IsVisible()) {
+        rearWheelhouse.Draw();
+        frontWheelhouse.Draw();
+    }
+
     if (wheelsVisible) {
         wheels.SetPosition(frontWheelPos.x, frontWheelPos.y);
         wheels.Draw();
         wheels.SetPosition(rearWheelPos.x, rearWheelPos.y);
         wheels.Draw();
-    }
-
-    if (rearWheelhouse.IsVisible()) {
-        rearWheelhouse.Draw();
-        frontWheelhouse.Draw();
     }
 
     // Always draw the original body
@@ -601,12 +610,23 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         }
     }
     
+    // Reload wheelhouse with new palette
+    auto* wheelhouseAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+    if (wheelhouseAsset) {
+        bool rearVis = rearWheelhouse.IsVisible();
+        bool frontVis = frontWheelhouse.IsVisible();
+        rearWheelhouse = *wheelhouseAsset;
+        rearWheelhouse.SetVisible(rearVis);
+        frontWheelhouse = *wheelhouseAsset;
+        frontWheelhouse.SetVisible(frontVis);
+    }
+
     // Update the body pointer to point to the correct bitmap
     body = isRoofChopped ? &bodyChopped : &bodyOriginal;
-    
+
     // Restore the offsets (they were saved at the beginning)
     offsets = savedOffsets;
-    
+
     // Update positions to ensure wheels and other parts are aligned correctly
     UpdatePositions();
     UpdateTextures();  // Also update decal, driver, hoodScoop, etc. positions
