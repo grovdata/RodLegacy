@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "car.h"
 #include "diner.h"
-#include "garage.h"
+#include "garage/garage.h"
 #include "gas_station.h"
 #include "driving.h"
 #include "newspaper.h"
