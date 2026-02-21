@@ -40,7 +40,6 @@ class Garage : public CarScene {
     float animRearWheelY = 0.0f;
     float jackYPos = 0.0f;
     float jackStartY = 0.0f;
-    bool tireAnimSpin = false;
     int tireChangeLiftY = 0;
     int jackTotalFrames = 0;
     SDL_Rect jackLastFrameRect{};

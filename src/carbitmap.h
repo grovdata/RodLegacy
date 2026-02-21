@@ -47,6 +47,7 @@ private:
     bool isRearBumperStripped;
     Uint64 lastWheelUpdateTime;
     Uint64 lastDrawWheelTime = 0;
+    int rollingFrame = 0;
     bool wheelsVisible;
     StandardCarColor currentColor;
     bool gasCapRemoved;
@@ -89,6 +90,7 @@ public:
     SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
+    void ResetWheelFrame() { wheels.SelectSprite(0, 0); }
     void SetWheelhousesVisible(bool visible);
     void DrawWheelAt(int x, int y, bool spin = true, bool reverse = false);
     void SetShadowYOffset(int yAdjust);

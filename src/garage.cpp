@@ -1696,6 +1696,7 @@ void Garage::StartTireChangeAnimation(CarWheelType newType) {
     jackYPos   = jackStartY;
     carBitmap->SetWheelsVisible(false);
     carBitmap->SetWheelhousesVisible(true);
+    carBitmap->ResetWheelFrame();
     if (jackAnim) {
         jackAnim->SetFrame(0);
         jackAnim->Stop();
@@ -1725,9 +1726,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
         return a + (b - a) * t;
     };
     auto clamp01 = [](float t) { return t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t); };
-
-    // Default: wheels not spinning. Each rolling phase sets this to true.
-    tireAnimSpin = false;
 
     switch (tireChangePhase) {
 
@@ -1782,7 +1780,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / rearRollDur);
                 animRearWheelY = (float)initialRearWheelPos.y;
                 animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
-                tireAnimSpin = true;
             }
             if (tireChangeTimer >= WHEEL_DROP_DUR + rearRollDur) {
                 animFrontWheelX = (float)initialFrontWheelPos.x;
@@ -1802,7 +1799,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / frontRollDur);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
                 animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
-                tireAnimSpin = true;
             }
             if (tireChangeTimer >= WHEEL_DROP_DUR + frontRollDur) {
                 if (carBitmap) {
@@ -1822,8 +1818,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01(tireChangeTimer / rearRollDur);
                 animRearWheelX = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
                 animRearWheelY = (float)initialRearWheelPos.y;
-                tireAnimSpin = true;
             } else {
+                if (carBitmap) carBitmap->ResetWheelFrame();
                 float t = clamp01((tireChangeTimer - rearRollDur) / WHEEL_RISE_DUR);
                 animRearWheelX = (float)initialRearWheelPos.x;
                 animRearWheelY = lerp((float)initialRearWheelPos.y,
@@ -1845,8 +1841,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01(tireChangeTimer / frontRollDur);
                 animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
-                tireAnimSpin = true;
             } else {
+                if (carBitmap) carBitmap->ResetWheelFrame();
                 float t = clamp01((tireChangeTimer - frontRollDur) / WHEEL_RISE_DUR);
                 animFrontWheelX = (float)initialFrontWheelPos.x;
                 animFrontWheelY = lerp((float)initialFrontWheelPos.y,
@@ -2091,18 +2087,18 @@ void Garage::Draw() {
                     carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY - tireChangeLiftY, false);
                     break;
                 case TireChangePhase::REAR_WHEEL_OUT:
-                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY,  tireAnimSpin, true);
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY,  (int)animRearWheelX  != initialRearWheelPos.x,  true);
                     carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, false);
                     break;
                 case TireChangePhase::FRONT_WHEEL_OUT:
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin, true);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, (int)animFrontWheelX != initialFrontWheelPos.x, true);
                     break;
                 case TireChangePhase::NEW_REAR_WHEEL_IN:
-                    carBitmap->DrawWheelAt((int)animRearWheelX, (int)animRearWheelY, tireAnimSpin);
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY,  (int)animRearWheelX  != initialRearWheelPos.x);
                     break;
                 case TireChangePhase::NEW_FRONT_WHEEL_IN:
-                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY, false);
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin);
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY,  false);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, (int)animFrontWheelX != initialFrontWheelPos.x);
                     break;
                 case TireChangePhase::JACK_CRANK_DOWN:
                 case TireChangePhase::JACK_SLIDE_DOWN:
