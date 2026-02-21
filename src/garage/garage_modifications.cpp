@@ -44,6 +44,10 @@ void Garage::ShowBumperDialog(bool isFront) {
 
     auto onConfirm = [this, isFront, isStripped, &dialogPtr]() {
         if (carBitmap) {
+            // Play sound before the operation so it isn't delayed by texture loading
+            if (audioManager) {
+                audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
+            }
             if (isStripped) {
                 // Restore
                 if (isFront) {
@@ -53,10 +57,6 @@ void Garage::ShowBumperDialog(bool isFront) {
                     carBitmap->RestoreRearBumper();
                     LOG_INFO("Rear bumper restored for $20");
                 }
-                // Play bash sound effect
-                if (audioManager) {
-                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
-                }
             } else {
                 // Strip
                 if (isFront) {
@@ -65,10 +65,6 @@ void Garage::ShowBumperDialog(bool isFront) {
                 } else {
                     carBitmap->StripRearBumper();
                     LOG_INFO("Rear bumper stripped for $20");
-                }
-                // Play bash sound effect
-                if (audioManager) {
-                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
                 }
             }
         }
@@ -108,22 +104,18 @@ void Garage::ShowRoofDialog() {
 
     auto onConfirm = [this, isChopped]() {
         if (carBitmap) {
+            // Play sound before the operation so it isn't delayed by texture loading
+            if (audioManager) {
+                audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
+            }
             if (isChopped) {
                 // Restore
                 carBitmap->RestoreRoof();
                 LOG_INFO("Roof restored for $70");
-                // Play bash sound effect
-                if (audioManager) {
-                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
-                }
             } else {
                 // Chop
                 carBitmap->ChopRoof();
                 LOG_INFO("Roof chopped for $70");
-                // Play bash sound effect
-                if (audioManager) {
-                    audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
-                }
             }
         }
 
