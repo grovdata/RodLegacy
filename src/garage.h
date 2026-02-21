@@ -42,6 +42,7 @@ class Garage : public CarScene {
     float jackStartY = 0.0f;
     int tireChangeLiftY = 0;
     int jackTotalFrames = 0;
+    int lastJackCrankSounded = -1;
     SDL_Rect jackLastFrameRect{};
     static constexpr int JACK_CRANKS = 7;
 

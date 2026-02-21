@@ -1701,9 +1701,6 @@ void Garage::StartTireChangeAnimation(CarWheelType newType) {
         jackAnim->SetFrame(0);
         jackAnim->Stop();
     }
-    if (audioManager) {
-        audioManager->PlaySound(AudioSampleType::CAR_JACK);
-    }
 }
 
 void Garage::UpdateTireChangeAnimation(double deltaTime) {
@@ -1738,6 +1735,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::JACK_CRANK_UP;
                 if (jackAnim) jackAnim->SetFrame(0);
+                lastJackCrankSounded = -1;
             }
             break;
         }
@@ -1746,6 +1744,11 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             int crankNum   = (int)(tireChangeTimer / CRANK_TOTAL_DUR);
             float localT   = tireChangeTimer - crankNum * CRANK_TOTAL_DUR;
             crankNum = std::min(crankNum, JACK_CRANKS - 1);
+
+            if (crankNum != lastJackCrankSounded && localT < CRANK_ANIM_DUR) {
+                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                lastJackCrankSounded = crankNum;
+            }
 
             if (localT < CRANK_ANIM_DUR) {
                 // animate jack; car lifts after the animation ends
@@ -1804,7 +1807,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 if (carBitmap) {
                     carBitmap->LoadNewTireSprite(pendingTireType);
                 }
-                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
                 animRearWheelX  = (float)-wheelSize;
                 animRearWheelY  = (float)initialRearWheelPos.y;
                 tireChangeTimer = 0.0f;
@@ -1857,6 +1859,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::JACK_CRANK_DOWN;
                 if (jackAnim) jackAnim->SetFrame(0);
+                lastJackCrankSounded = -1;
             }
             break;
         }
@@ -1865,6 +1868,11 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             int crankNum = (int)(tireChangeTimer / CRANK_TOTAL_DUR);
             float localT = tireChangeTimer - crankNum * CRANK_TOTAL_DUR;
             crankNum = std::min(crankNum, JACK_CRANKS - 1);
+
+            if (crankNum != lastJackCrankSounded && localT < CRANK_ANIM_DUR) {
+                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                lastJackCrankSounded = crankNum;
+            }
 
             if (localT < CRANK_ANIM_DUR) {
                 int frame = (int)(localT / CRANK_ANIM_DUR * jackTotalFrames);
