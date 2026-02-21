@@ -42,6 +42,21 @@ void Spritesheet::CycleNextSprite() {
     UpdateSprite();
 }
 
+void Spritesheet::CyclePrevSprite() {
+    if (currentX == 0) {
+        if (currentY == 0) {
+            currentX = columns - 1;
+            currentY = rows - 1;
+        } else {
+            currentX = columns - 1;
+            currentY--;
+        }
+    } else {
+        currentX--;
+    }
+    UpdateSprite();
+}
+
 void Spritesheet::UpdateSprite() {
     clipRect.x = currentX * clipRect.w;
     clipRect.y = currentY * clipRect.h;

@@ -34,6 +34,7 @@ public:
     void SelectSprite(int row, int column);
     void UpdateSprite();
     void CycleNextSprite();
+    void CyclePrevSprite();
     void Draw() override;
     void Print();
     int GetRows();

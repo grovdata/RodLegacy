@@ -134,14 +134,14 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     for (const auto& car : state.GetOwnedCars()) {
         labels.push_back(car->GetModel().name);
     }
-    
+
     SDL_Rect bounds = {36, 26, 260, 136};
 
     const int buttonWidth = 66;
     const int buttonHeight = 16;
     const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
-    
-    SDL_Rect listBoxRect = {40, 40, 242, 80};    
+
+    SDL_Rect listBoxRect = {40, 40, 242, 80};
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
     SDL_Rect selectedItemRect = {39, 127, 242, 12};
@@ -153,7 +153,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect scrollUpRect = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};     // up
     SDL_Rect scrollDownRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15}; // down
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};  // bottom
-    
+
     // Dialog zones
     Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
     Zone sellItZone(ZONE_GARAGE_BUTTON_SELL_IT, strdup("Sell it"), &sellItRect);
@@ -169,7 +169,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             "Switch it",
             nullptr,  // onClick will be set by Dialog
             true,     // defaultChoice
-            0        // index            
+            0        // index
         },
         {
             sellItRect,
@@ -254,17 +254,17 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             {},
             [this](int selectedIndex) {
                 Car* selectedCar = sortedOwnedCars[selectedIndex];
-            LOG_INFO("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)", 
-                   selectedIndex, 
-                   selectedCar->GetModel().name.c_str(), 
+            LOG_INFO("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)",
+                   selectedIndex,
+                   selectedCar->GetModel().name.c_str(),
                    (void*)selectedCar);
-            
+
             // Update paint can to show the selected car's color
             previewColor = selectedCar->GetColor();
             originalColor = previewColor;
             LOG_INFO("Car list: Updating paint can to color %d for selected car", (int)previewColor);
             UpdatePaintCanPreview();
-            
+
             // Only switch if selecting a different car
             if (selectedCar != state.GetCurrentCar()) {
                 pendingCar = selectedCar;
@@ -285,7 +285,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             scrollTopRect,
             scrollUpRect,
             scrollDownRect,
-            scrollBottomRect            
+            scrollBottomRect
         }
     });
 
@@ -294,13 +294,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     previewColor = currentCarColor;
     originalColor = currentCarColor;
     LOG_INFO("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
-    
+
     // Initialize paint can preview (always visible)
     paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
     paintCanPreview->SetPosition(233, 166);
     paintCanPreview->SetVisible(true);
     UpdatePaintCanPreview();  // Set initial color
-    
+
     InitGameMenuDialog();
     InitOptionsDialog();
     InitBumperDialogs();
@@ -337,7 +337,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             this->hud->SetText(zone.GetText());
         }
     );
-    
+
     InitCarBitmaps();
 
     // Set initial car bitmap
@@ -374,11 +374,11 @@ void Garage::InitGameMenuDialog() {
 
 
     SDL_Rect menuDialogRect = {82, 77, 156, 76};
-    
+
     SDL_Rect saveGameRect = {92, 94, buttonWidth, buttonHeight};
     SDL_Rect oldGameRect = {92, 112, buttonWidth, buttonHeight};
     SDL_Rect newGameRect = {92, 130, buttonWidth, buttonHeight};
-    
+
     SDL_Rect optionsRect = {164, 94, buttonWidth, buttonHeight};
     SDL_Rect quitGameRect = {164, 112, buttonWidth, buttonHeight};
     SDL_Rect forgetItRect = {164, 130, buttonWidth, buttonHeight};
@@ -404,7 +404,7 @@ void Garage::InitGameMenuDialog() {
         "Save Game",
         nullptr,
         true,
-        0        
+        0
     };
 
     ButtonConfig oldGameButton = {
@@ -465,7 +465,7 @@ void Garage::InitGameMenuDialog() {
         {85, 89, 150, 1},
     };
 
-    
+
     DialogConfig menuDialogConfig;
     menuDialogConfig.bounds = menuDialogRect;
     menuDialogConfig.backgroundColor = {0, 208, 0, 255};
@@ -520,7 +520,7 @@ void Garage::InitOptionsDialog() {
     const int checkboxSize = 14;
 
     SDL_Rect optionsDialogRect = {60, 50, 200, 120};
-    
+
     // Button positions
     SDL_Rect soundVolumeUpRect = {190, 70, 20, buttonHeight};
     SDL_Rect soundVolumeDownRect = {165, 70, 20, buttonHeight};
@@ -636,7 +636,7 @@ void Garage::InitOptionsDialog() {
                 break;
         }
     };
-    
+
     optionsDialog = std::make_unique<Dialog>(optionsDialogConfig);
 }
 
@@ -650,12 +650,12 @@ void Garage::ShowBumperDialog(bool isFront) {
     if (bubbles.size() > 4) {
         bubbles[4]->SetVisible(false);
     }
-    
+
     // Check if car can strip bumpers
     if (state.GetCurrentCar()) {
         CarModel model = state.GetCurrentCar()->GetModel();
         AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        
+
         // If trying to strip bumpers, check if car supports it
         bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
         if (!isStripped && !CarQuery::SrLibQueryCanStripBumpers(bodyAssetNo)) {
@@ -666,14 +666,14 @@ void Garage::ShowBumperDialog(bool isFront) {
             return;
         }
     }
-    
+
     // Check current bumper status
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
-    const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20") 
+    const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20")
                                     : (isStripped ? "Restore bumper - $20" : "Strip bumper - $20");
-    
+
     std::unique_ptr<Dialog>& dialogPtr = isFront ? frontBumperDialog : rearBumperDialog;
-    
+
     auto onConfirm = [this, isFront, isStripped, &dialogPtr]() {
         if (carBitmap) {
             if (isStripped) {
@@ -704,11 +704,11 @@ void Garage::ShowBumperDialog(bool isFront) {
                 }
             }
         }
-        
+
         dialogPtr->Hide();
         SetActiveDialog(nullptr);
     };
-    
+
     ShowModificationDialog(titleText, 20, onConfirm, dialogPtr);
 }
 
@@ -717,12 +717,12 @@ void Garage::ShowRoofDialog() {
     if (bubbles.size() > 4) {
         bubbles[4]->SetVisible(false);
     }
-    
+
     // Check if car can chop roof
     if (state.GetCurrentCar()) {
         CarModel model = state.GetCurrentCar()->GetModel();
         AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        
+
         // If trying to chop roof, check if car supports it
         bool isChopped = carBitmap->IsRoofChopped();
         if (!isChopped && !CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
@@ -733,11 +733,11 @@ void Garage::ShowRoofDialog() {
             return;
         }
     }
-    
+
     // Check current roof status
     bool isChopped = carBitmap->IsRoofChopped();
     const char* titleText = isChopped ? "Restore roof - $70" : "Chop roof - $70";
-    
+
     auto onConfirm = [this, isChopped]() {
         if (carBitmap) {
             if (isChopped) {
@@ -758,11 +758,11 @@ void Garage::ShowRoofDialog() {
                 }
             }
         }
-        
+
         roofDialog->Hide();
         SetActiveDialog(nullptr);
     };
-    
+
     ShowModificationDialog(titleText, 70, onConfirm, roofDialog);
 }
 
@@ -796,29 +796,29 @@ void Garage::ApplyPreviewColor() {
 
 void Garage::UpdatePaintCanPreview() {
     if (!paintCanPreview) return;
-    
+
     // Load the paint can mask image from embedded resource
     extern const unsigned char embedded_paintcan_png[];
     extern const size_t embedded_paintcan_png_len;
-    
+
     SDL_Surface* maskSurface = LoadSurfaceFromMemory(embedded_paintcan_png, embedded_paintcan_png_len);
     if (!maskSurface) {
         LOG_INFO("Failed to load embedded paintcan.png");
         return;
     }
-    
+
     // Get the preview color palette
     std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
-    
+
     // Convert the mask surface to 32-bit RGBA
     SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(maskSurface, SDL_PIXELFORMAT_RGBA8888, 0);
     SDL_FreeSurface(maskSurface);
-    
+
     if (!rgbaSurface) {
         LOG_INFO("Failed to convert paintcan surface");
         return;
     }
-    
+
     // Apply the car color palette to the paint can.
     // The mask PNG is a grayscale+alpha image. Transparent pixels are background.
     // Opaque pixel brightness (0-255) maps linearly to the 9-entry color palette.
@@ -847,9 +847,9 @@ void Garage::UpdatePaintCanPreview() {
             pixels[idx] = SDL_MapRGBA(rgbaSurface->format, newR, newG, newB, a);
         }
     }
-    
+
     SDL_UnlockSurface(rgbaSurface);
-    
+
     // Update the bitmap with the new surface
     paintCanPreview->ReplaceSurface(rgbaSurface);
 }
@@ -860,28 +860,28 @@ void Garage::ShowPaintDialog() {
         originalColor = carBitmap->GetCurrentColor();
         previewColor = originalColor;
     }
-    
+
     // Hide any previous error bubble
     if (bubbles.size() > 3) {
         bubbles[3]->SetVisible(false);
     }
-    
+
     // Update paint can to show preview color
     UpdatePaintCanPreview();
-    
+
     // Button positions as specified
     SDL_Rect nextColorRect = {149, 127, 78, 16};
     SDL_Rect prevColorRect = {233, 127, 78, 16};
     SDL_Rect goAheadRect = {149, 145, 78, 16};
     SDL_Rect forgetItRect = {233, 145, 78, 16};
-    
+
     ButtonConfig nextColorButton = {nextColorRect, "Next color", nullptr, false, 0};
     ButtonConfig prevColorButton = {prevColorRect, "Previous color", nullptr, false, 1};
     ButtonConfig goAheadButton = {goAheadRect, "Go ahead", nullptr, true, 2}; // Default
     ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 3};
-    
+
     std::vector<ButtonConfig> buttons = {nextColorButton, prevColorButton, goAheadButton, forgetItButton};
-    
+
     DialogConfig paintDialogConfig;
     paintDialogConfig.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT}; // Full screen but transparent
     paintDialogConfig.backgroundColor = {0, 0, 0, 0}; // Transparent
@@ -938,7 +938,7 @@ void Garage::ShowPaintDialog() {
                 break;
         }
     };
-    
+
     // Create and show the dialog
     paintDialog = std::make_unique<Dialog>(paintDialogConfig);
     SetActiveDialog(paintDialog.get());
@@ -947,21 +947,21 @@ void Garage::ShowPaintDialog() {
 void Garage::ShowCarInfoDialog() {
     // Create dialog bounds
     SDL_Rect dialogRect = {37, 27, 246, 116};
-    
+
     std::vector<DialogTextConfig> texts;
     // Title centered
     texts.push_back(DialogTextConfig{SDL_Rect{dialogRect.x + 3, dialogRect.y + 3, dialogRect.w - 6, 10}, "Car parts", {0xFF, 0xFF, 0xFF, 0xFF}, true});
-    
+
     // Horizontal line under title
     std::vector<SDL_Rect> lines = {
         {dialogRect.x + 3, dialogRect.y + 14, dialogRect.w - 6, 1}
     };
-    
+
     // Content text area start Y
     int y = dialogRect.y + 20;
     int xLeft = dialogRect.x + 8;
     int xRightAlign = dialogRect.x + dialogRect.w - 12; // right margin for right-aligned notes
-    
+
     auto addLeft = [&](const char* s) {
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
@@ -977,7 +977,7 @@ void Garage::ShowCarInfoDialog() {
         texts.push_back(DialogTextConfig{SDL_Rect{xRightAlign - noteWidth, y, noteWidth, 10}, note, {0xFF, 0xFF, 0xFF, 0xFF}, false});
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
-    
+
     // Populate from current car parts (engine, manifold, carb, transmission, tires)
     Car* car = state.GetCurrentCar();
     if (car) {
@@ -1036,7 +1036,7 @@ void Garage::ShowCarInfoDialog() {
         // Debug: Car Vendor
         std::string vendorLabel = "Car Vendor: " + std::string(vendorToStr(vendor));
         addLeft(vendorLabel.c_str());
-        
+
         // Engine line
         EnginePart engine = car->GetEngine();
         std::string engineLabel = engine.GetEngineName();
@@ -1066,7 +1066,7 @@ void Garage::ShowCarInfoDialog() {
         snprintf(speedBuf, sizeof(speedBuf), "Max speed   %d mph", mph);
         addLeft(speedBuf);
     }
-    
+
     DialogConfig infoCfg;
     infoCfg.bounds = dialogRect;
     infoCfg.backgroundColor = {0, 208, 0, 255};
@@ -1075,7 +1075,7 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.texts = texts;
     infoCfg.lines = lines;
     infoCfg.font = state.GetAssets().GetMainFont();
-    
+
     // No buttons - dialog is dismissed by clicking outside or pressing Escape
     infoCfg.buttons = {};
     infoCfg.onZoneHover = nullptr;
@@ -1488,35 +1488,35 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
     const int dialogHeight = 36;
     const int dialogX = 82;
     const int dialogY = 50;
-    
+
     SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
-    
+
     // Check if player has enough money
     // int currentMoney = state.GetBankroll();
     // bool canAfford = currentMoney >= price;
-    
+
     // Button layout
     const int buttonWidth = 70;
     const int buttonHeight = 14;
     const int buttonSpacing = 4;
     const int buttonY = dialogY + dialogHeight - buttonHeight - 4;
-    
+
     SDL_Rect okButtonRect = {dialogX + 4, buttonY, buttonWidth, buttonHeight};
     SDL_Rect forgetButtonRect = {dialogX + 4 + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight};
-    
+
     ButtonConfig okButton = {okButtonRect, "OK", nullptr, true, 0}; // OK is default
     ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, false, 1};
-    
+
     std::vector<ButtonConfig> buttons = {okButton, forgetButton};
-    
+
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{dialogX + 3, dialogY + 3, dialogWidth, 10}, title, {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
-    
+
     std::vector<SDL_Rect> lines = {
         {dialogX + 3, dialogY + 14, dialogWidth - 6, 1}
     };
-    
+
     DialogConfig modDialogConfig;
     modDialogConfig.bounds = dialogRect;
     modDialogConfig.backgroundColor = {0, 208, 0, 255};
@@ -1539,13 +1539,13 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                         }
                         return;
                     }
-                    
+
                     // Deduct price
                     state.SetBankroll(currentMoney - price);
-                    
+
                     // Execute the modification
                     onConfirm();
-                    
+
                     // Hide bubble and close dialog
                     if (bubbles.size() > 4) {
                         bubbles[4]->SetVisible(false);
@@ -1564,7 +1564,7 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                 break;
         }
     };
-    
+
     // Create and show the dialog
     dialogPtr = std::make_unique<Dialog>(modDialogConfig);
     SetActiveDialog(dialogPtr.get());
@@ -1708,14 +1708,16 @@ void Garage::StartTireChangeAnimation(CarWheelType newType) {
 void Garage::UpdateTireChangeAnimation(double deltaTime) {
     if (tireChangePhase == TireChangePhase::IDLE) return;
 
-    constexpr float JACK_SLIDE_DUR  = 0.5f;
-    constexpr float CRANK_ANIM_DUR  = 0.36f; // 3 frames × 0.12s each
-    constexpr float CRANK_PAUSE_DUR = 0.15f;
-    constexpr float CRANK_TOTAL_DUR = CRANK_ANIM_DUR + CRANK_PAUSE_DUR;
-    constexpr float WHEEL_DROP_DUR  = 0.3f;
-    constexpr float WHEEL_ROLL_DUR  = 0.6f;
-    constexpr float WHEEL_RISE_DUR  = 0.3f;
-    const int wheelSize = 31;
+    constexpr float JACK_SLIDE_DUR   = 0.5f;
+    constexpr float CRANK_ANIM_DUR   = 0.36f; // 3 frames × 0.12s each
+    constexpr float CRANK_PAUSE_DUR  = 0.15f;
+    constexpr float CRANK_TOTAL_DUR  = CRANK_ANIM_DUR + CRANK_PAUSE_DUR;
+    constexpr float WHEEL_DROP_DUR   = 0.3f;
+    constexpr float WHEEL_ROLL_SPEED = 100.0f; // pixels per second — adjust to taste
+    constexpr float WHEEL_RISE_DUR   = 0.3f;
+    const int   wheelSize    = 31;
+    const float rearRollDur  = (initialRearWheelPos.x  + wheelSize) / WHEEL_ROLL_SPEED;
+    const float frontRollDur = (initialFrontWheelPos.x + wheelSize) / WHEEL_ROLL_SPEED;
 
     tireChangeTimer += (float)deltaTime;
 
@@ -1763,6 +1765,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 tireChangeLiftY  = JACK_CRANKS;
                 animRearWheelX   = (float)initialRearWheelPos.x;
                 animRearWheelY   = (float)(initialRearWheelPos.y - tireChangeLiftY);
+                animFrontWheelX  = (float)initialFrontWheelPos.x;
+                animFrontWheelY  = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer  = 0.0f;
                 tireChangePhase  = TireChangePhase::REAR_WHEEL_OUT;
             }
@@ -1775,12 +1779,12 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 animRearWheelY = lerp((float)(initialRearWheelPos.y - tireChangeLiftY),
                                       (float)initialRearWheelPos.y, t);
             } else {
-                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / WHEEL_ROLL_DUR);
+                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / rearRollDur);
                 animRearWheelY = (float)initialRearWheelPos.y;
                 animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
                 tireAnimSpin = true;
             }
-            if (tireChangeTimer >= WHEEL_DROP_DUR + WHEEL_ROLL_DUR) {
+            if (tireChangeTimer >= WHEEL_DROP_DUR + rearRollDur) {
                 animFrontWheelX = (float)initialFrontWheelPos.x;
                 animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer = 0.0f;
@@ -1795,12 +1799,12 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 animFrontWheelY = lerp((float)(initialFrontWheelPos.y - tireChangeLiftY),
                                        (float)initialFrontWheelPos.y, t);
             } else {
-                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / WHEEL_ROLL_DUR);
+                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / frontRollDur);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
                 animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
                 tireAnimSpin = true;
             }
-            if (tireChangeTimer >= WHEEL_DROP_DUR + WHEEL_ROLL_DUR) {
+            if (tireChangeTimer >= WHEEL_DROP_DUR + frontRollDur) {
                 if (carBitmap) {
                     carBitmap->LoadNewTireSprite(pendingTireType);
                 }
@@ -1814,18 +1818,18 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
         }
 
         case TireChangePhase::NEW_REAR_WHEEL_IN: {
-            if (tireChangeTimer < WHEEL_ROLL_DUR) {
-                float t = clamp01(tireChangeTimer / WHEEL_ROLL_DUR);
+            if (tireChangeTimer < rearRollDur) {
+                float t = clamp01(tireChangeTimer / rearRollDur);
                 animRearWheelX = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
                 animRearWheelY = (float)initialRearWheelPos.y;
                 tireAnimSpin = true;
             } else {
-                float t = clamp01((tireChangeTimer - WHEEL_ROLL_DUR) / WHEEL_RISE_DUR);
+                float t = clamp01((tireChangeTimer - rearRollDur) / WHEEL_RISE_DUR);
                 animRearWheelX = (float)initialRearWheelPos.x;
                 animRearWheelY = lerp((float)initialRearWheelPos.y,
                                       (float)(initialRearWheelPos.y - tireChangeLiftY), t);
             }
-            if (tireChangeTimer >= WHEEL_ROLL_DUR + WHEEL_RISE_DUR) {
+            if (tireChangeTimer >= rearRollDur + WHEEL_RISE_DUR) {
                 animRearWheelX  = (float)initialRearWheelPos.x;
                 animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
                 animFrontWheelX = (float)-wheelSize;
@@ -1837,18 +1841,18 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
         }
 
         case TireChangePhase::NEW_FRONT_WHEEL_IN: {
-            if (tireChangeTimer < WHEEL_ROLL_DUR) {
-                float t = clamp01(tireChangeTimer / WHEEL_ROLL_DUR);
+            if (tireChangeTimer < frontRollDur) {
+                float t = clamp01(tireChangeTimer / frontRollDur);
                 animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
                 tireAnimSpin = true;
             } else {
-                float t = clamp01((tireChangeTimer - WHEEL_ROLL_DUR) / WHEEL_RISE_DUR);
+                float t = clamp01((tireChangeTimer - frontRollDur) / WHEEL_RISE_DUR);
                 animFrontWheelX = (float)initialFrontWheelPos.x;
                 animFrontWheelY = lerp((float)initialFrontWheelPos.y,
                                        (float)(initialFrontWheelPos.y - tireChangeLiftY), t);
             }
-            if (tireChangeTimer >= WHEEL_ROLL_DUR + WHEEL_RISE_DUR) {
+            if (tireChangeTimer >= frontRollDur + WHEEL_RISE_DUR) {
                 if (carBitmap) carBitmap->SetWheelhousesVisible(false);
                 animRearWheelX  = (float)initialRearWheelPos.x;
                 animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
@@ -1923,21 +1927,21 @@ void Garage::UpdateSign() {
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
     snprintf(text, 50, "%s.", m.name.c_str());
-    
+
     // Clear the surface
     Uint32 transparent = SDL_MapRGBA(signSurface->format, 0, 0, 0, 0);
     SDL_FillRect(signSurface, NULL, transparent);
-    
+
     // Write new text
     int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
     int x = signRect.x + (signRect.w - textWidth) / 2;
     SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
-    
+
     // Destroy old texture if it exists
     if (signTexture) {
         SDL_DestroyTexture(signTexture);
     }
-    
+
     // Create new texture
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
@@ -1959,7 +1963,7 @@ void Garage::Action(ZoneId zone) {
         break;
     case ZONE_GARAGE_NEWSPAPER:
         state.MoveToScene(SCENE_NEWSPAPER);
-        break;  
+        break;
     case ZONE_GARAGE_GAS_CAN:
         state.MoveToScene(SCENE_GAS_STATION);
         break;
@@ -1998,7 +2002,7 @@ void Garage::Action(ZoneId zone) {
         ShowCarInfoDialog();
         break;
     case ZONE_GARAGE_MENU:
-        SetActiveDialog((Dialog*)gameMenuDialog.get());        
+        SetActiveDialog((Dialog*)gameMenuDialog.get());
         break;
     case ZONE_GARAGE_ENGINE:
         engineBay->ResetToOverview();
@@ -2049,7 +2053,7 @@ void Garage::Draw() {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             needsNewAnimation = true;  // Ensure parent's initialization logic runs
-            
+
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
             animatingCar = true;
         }
@@ -2087,10 +2091,11 @@ void Garage::Draw() {
                     carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY - tireChangeLiftY, false);
                     break;
                 case TireChangePhase::REAR_WHEEL_OUT:
-                    carBitmap->DrawWheelAt((int)animRearWheelX, (int)animRearWheelY, tireAnimSpin);
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY,  tireAnimSpin, true);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, false);
                     break;
                 case TireChangePhase::FRONT_WHEEL_OUT:
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin, true);
                     break;
                 case TireChangePhase::NEW_REAR_WHEEL_IN:
                     carBitmap->DrawWheelAt((int)animRearWheelX, (int)animRearWheelY, tireAnimSpin);
@@ -2112,7 +2117,7 @@ void Garage::Draw() {
         // get clickboxes
         CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
-        
+
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
         SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
 
@@ -2128,10 +2133,10 @@ void Garage::Draw() {
         SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
         SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
     }
-    
+
 
     DrawDebugZones();
-    
+
     SDL_RenderCopy(renderer, signTexture, NULL, NULL);
 
     // Draw paint can preview if paint dialog is active
@@ -2163,7 +2168,7 @@ void Garage::OnFadeComplete() {
 void Garage::SetActiveDialog(Dialog *dialog) {
     // Call the base class implementation
     CarScene::SetActiveDialog(dialog);
-    
+
     // If this is the engine bay dialog, restore the correct visibility
     if (dialog == engineBay->GetDialog()) {
         engineBay->OnDialogShown();
@@ -2183,19 +2188,19 @@ void Garage::OnCarAnimationComplete() {
     CarScene::OnCarAnimationComplete();
     if (pendingCar != nullptr) {
         state.SetCurrentCar(pendingCar);
-        
+
         UpdateSign();
-        
+
         // Mark that we need a new animation (important for parent's StartAnimateCar logic)
         needsNewAnimation = true;
-        
+
         // Start the drive-in animation for the new car (this will set up audio, bitmap, position, etc.)
         LOG_INFO("Garage::OnCarAnimationComplete - Starting drive-in animation for new car");
         StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-        
+
         pendingCar = nullptr;
     }
-    
+
     // Update paint preview color to match the current car
     if (carBitmap) {
         StandardCarColor newColor = carBitmap->GetCurrentColor();
@@ -2204,7 +2209,7 @@ void Garage::OnCarAnimationComplete() {
         originalColor = previewColor;
         UpdatePaintCanPreview();
     }
-    
+
     // Update car zones after animation completes
     UpdateCarZones();
 }
@@ -2219,7 +2224,7 @@ void Garage::UpdateCarZones() {
         // get clickboxes
         CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
-        
+
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
         SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
 
@@ -2268,14 +2273,14 @@ Garage::~Garage() {
 
 void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
-    
+
     LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
-    
+
     // Garage-specific setup BEFORE calling parent
     // Create/get car bitmap
     carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
     cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
-    
+
     // Set initial position based on animation type
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
         // Reverse: start at idle position (car is already visible)
@@ -2287,16 +2292,16 @@ void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType
         carx = -GAME_WIDTH;
         LOG_INFO("Garage::StartAnimateCar - Drive in animation, car off-screen x=%d", carx);
     }
-    
+
     carBitmap->Move({carx, cary});
-    
+
     // Call parent method to start engine sound and set up animation
     // Parent will NOT override our position for reverse animations
     CarScene::StartAnimateCar(car, driver, animType);
-    
+
     // Update sign for initial car
     UpdateSign();
-    
+
     currentAnimationType = animType;
     LOG_INFO("Garage::StartAnimateCar - Animation started");
 }

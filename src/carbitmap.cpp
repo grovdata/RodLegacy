@@ -660,13 +660,16 @@ void CarBitmap::SetWheelhousesVisible(bool visible) {
     frontWheelhouse.SetVisible(visible);
 }
 
-void CarBitmap::DrawWheelAt(int x, int y, bool spin) {
+void CarBitmap::DrawWheelAt(int x, int y, bool spin, bool reverse) {
     wheels.SetPosition(x, y);
     wheels.Draw();
     if (spin) {
         Uint64 now = SDL_GetTicks64();
         if (now - lastDrawWheelTime >= 400) {
-            wheels.CycleNextSprite();
+            if (reverse)
+                wheels.CyclePrevSprite();
+            else
+                wheels.CycleNextSprite();
             lastDrawWheelTime = now;
         }
     }

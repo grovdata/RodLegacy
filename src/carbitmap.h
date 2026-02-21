@@ -90,7 +90,7 @@ public:
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
     void SetWheelhousesVisible(bool visible);
-    void DrawWheelAt(int x, int y, bool spin = true);
+    void DrawWheelAt(int x, int y, bool spin = true, bool reverse = false);
     void SetShadowYOffset(int yAdjust);
     void LoadNewTireSprite(CarWheelType type);
 
