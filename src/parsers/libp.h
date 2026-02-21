@@ -620,6 +620,11 @@ static const SpriteRect ENGINE_CAM_FRAMES[] = {
     {0, 14, 39, 14}, {39, 14, 39, 14}, {78, 14, 39, 14}, {117, 14, 39, 14}
 };
 
+static const SpriteRect CAR_JACK_FRAMES[] = {
+    {0, 0, 32, 29}, {32, 0, 32, 29}, {64, 0, 32, 29}, // Jack frames
+    {96, 0, 32, 29} // Last frame is a mask for the garage floor to hide the jack from background
+};
+
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
@@ -629,7 +634,8 @@ static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {ENGINE_PISTON_RIGHT_ANIMATION, 8, 500, true, ENGINE_PISTON_RIGHT_FRAMES},
     {ENGINE_CRANK_ANIMATION, 4, 500, true, ENGINE_CRANK_FRAMES},
     {ENGINE_FLYWHEEL_ANIMATION, 4, 500, true, ENGINE_FLYWHEEL_FRAMES},
-    {ENGINE_CAM_ANIMATION, 8, 500, true, ENGINE_CAM_FRAMES}
+    {ENGINE_CAM_ANIMATION, 8, 500, true, ENGINE_CAM_FRAMES},
+    {CAR_JACK_ANIMATION, 3, 500, true, CAR_JACK_FRAMES}, // Skip last frame
 };
 
 // Helper function to get animation info for a sprite

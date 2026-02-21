@@ -36,6 +36,7 @@ class Garage : public CarScene {
     float animRearWheelX = 0.0f;
     int tireChangeLiftY = 0;
     int jackTotalFrames = 0;
+    SDL_Rect jackLastFrameRect{};
     static constexpr int MAX_LIFT_PX = 8;
 
     void ShowTireDialog();

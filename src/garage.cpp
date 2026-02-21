@@ -345,23 +345,22 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
     }
 
-    // Load jack animation spritesheet
-    auto* jackSheet = (Spritesheet*)state.GetAssets().GetBitmapAsset(
-        {LibAssetSpritesheet, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
-    if (jackSheet) {
-        SDL_Rect pos = jackSheet->GetPosition();
-        int cols = jackSheet->GetColumns();
-        int rows = jackSheet->GetRows();
-        if (cols > 0 && rows > 0) {
-            int frameW = pos.w / cols;
-            int frameH = pos.h / rows;
-            jackAnim = std::make_unique<AnimatedBitmap>(jackSheet, pos);
-            jackAnim->SetAnimationFrames(frameW, frameH, cols, rows);
+    // Load jack animation
+    auto* jackBitmap = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
+    if (jackBitmap) {
+        const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(CAR_JACK_ANIMATION);
+        if (animInfo && animInfo->frameCount > 0) {
+            SDL_Rect frameRect = {0, 0, CAR_JACK_FRAMES[0].w, CAR_JACK_FRAMES[0].h};
+            jackAnim = std::make_unique<AnimatedBitmap>(jackBitmap, frameRect);
+            jackAnim->SetAnimationFromInfo(animInfo);
             jackAnim->SetLoop(false);
-            jackAnim->SetSpeed(0.1f);
-            jackTotalFrames = cols * rows;
-            LOG_INFO("Garage: Loaded jack animation: %dx%d, %d frames (%d cols x %d rows)",
-                     frameW, frameH, jackTotalFrames, cols, rows);
+            jackTotalFrames = animInfo->frameCount;
+            // Frame after the animation frames is the background mask
+            const SpriteRect& maskFrame = CAR_JACK_FRAMES[animInfo->frameCount];
+            jackLastFrameRect = {maskFrame.x, maskFrame.y, maskFrame.w, maskFrame.h};
+            LOG_INFO("Garage: Loaded jack animation: %d frames, mask frame at %d,%d %dx%d",
+                     jackTotalFrames, maskFrame.x, maskFrame.y, maskFrame.w, maskFrame.h);
         }
     } else {
         LOG_INFO("Garage: Jack animation asset not found (CAR_JACK_ANIMATION=%d)", CAR_JACK_ANIMATION);
@@ -1922,6 +1921,12 @@ void Garage::Draw() {
     UpdateTireChangeAnimation(deltaTime);
 
     Scene::Draw();
+
+    // Mask the static car jack in the background with the last animation frame
+    if (tireChangePhase != TireChangePhase::IDLE && jackAnim && jackLastFrameRect.w > 0) {
+        SDL_Rect dstRect = {138, 157, jackLastFrameRect.w, jackLastFrameRect.h};
+        jackAnim->DrawWithRects(jackLastFrameRect, dstRect);
+    }
 
     // Handle initial delay
     if (initialDelay) {
