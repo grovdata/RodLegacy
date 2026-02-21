@@ -17,12 +17,14 @@ class Garage : public CarScene {
    private:
     enum class TireChangePhase {
         IDLE,
-        JACK_UP,
-        FRONT_WHEEL_OUT,
+        JACK_SLIDE_UP,
+        JACK_CRANK_UP,
         REAR_WHEEL_OUT,
-        WHEELHOUSE,
-        NEW_WHEELS_IN,
-        JACK_DOWN,
+        FRONT_WHEEL_OUT,
+        NEW_REAR_WHEEL_IN,
+        NEW_FRONT_WHEEL_IN,
+        JACK_CRANK_DOWN,
+        JACK_SLIDE_DOWN,
     };
 
     TireChangePhase tireChangePhase = TireChangePhase::IDLE;
@@ -34,10 +36,15 @@ class Garage : public CarScene {
     SDL_Rect initialRearWheelPos{};
     float animFrontWheelX = 0.0f;
     float animRearWheelX = 0.0f;
+    float animFrontWheelY = 0.0f;
+    float animRearWheelY = 0.0f;
+    float jackYPos = 0.0f;
+    float jackStartY = 0.0f;
+    bool tireAnimSpin = false;
     int tireChangeLiftY = 0;
     int jackTotalFrames = 0;
     SDL_Rect jackLastFrameRect{};
-    static constexpr int MAX_LIFT_PX = 8;
+    static constexpr int JACK_CRANKS = 7;
 
     void ShowTireDialog();
     void StartTireChangeAnimation(CarWheelType newType);

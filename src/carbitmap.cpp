@@ -660,10 +660,21 @@ void CarBitmap::SetWheelhousesVisible(bool visible) {
     frontWheelhouse.SetVisible(visible);
 }
 
-void CarBitmap::DrawWheelAt(int x, int y) {
+void CarBitmap::DrawWheelAt(int x, int y, bool spin) {
     wheels.SetPosition(x, y);
     wheels.Draw();
-    wheels.CycleNextSprite();
+    if (spin) {
+        Uint64 now = SDL_GetTicks64();
+        if (now - lastDrawWheelTime >= 400) {
+            wheels.CycleNextSprite();
+            lastDrawWheelTime = now;
+        }
+    }
+}
+
+void CarBitmap::SetShadowYOffset(int yAdjust) {
+    SDL_Rect pos = shadow.GetPosition();
+    shadow.SetPosition(pos.x, pos.y + yAdjust);
 }
 
 void CarBitmap::LoadNewTireSprite(CarWheelType type) {

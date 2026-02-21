@@ -1683,17 +1683,22 @@ void Garage::ShowTireDialog() {
 void Garage::StartTireChangeAnimation(CarWheelType newType) {
     if (!carBitmap) return;
     pendingTireType = newType;
-    tireChangePhase = TireChangePhase::JACK_UP;
+    tireChangePhase = TireChangePhase::JACK_SLIDE_UP;
     tireChangeTimer = 0.0f;
     initialFrontWheelPos = carBitmap->GetFrontWheelPos();
     initialRearWheelPos  = carBitmap->GetRearWheelPos();
     animFrontWheelX = (float)initialFrontWheelPos.x;
     animRearWheelX  = (float)initialRearWheelPos.x;
+    animFrontWheelY = (float)initialFrontWheelPos.y;
+    animRearWheelY  = (float)initialRearWheelPos.y;
     tireChangeLiftY = 0;
+    jackStartY = (float)(initialRearWheelPos.y + initialRearWheelPos.h);
+    jackYPos   = jackStartY;
     carBitmap->SetWheelsVisible(false);
+    carBitmap->SetWheelhousesVisible(true);
     if (jackAnim) {
         jackAnim->SetFrame(0);
-        jackAnim->Play();
+        jackAnim->Stop();
     }
     if (audioManager) {
         audioManager->PlaySound(AudioSampleType::CAR_JACK);
@@ -1703,93 +1708,204 @@ void Garage::StartTireChangeAnimation(CarWheelType newType) {
 void Garage::UpdateTireChangeAnimation(double deltaTime) {
     if (tireChangePhase == TireChangePhase::IDLE) return;
 
-    constexpr float JACK_UP_DUR    = 0.8f;
-    constexpr float WHEEL_OUT_DUR  = 0.5f;
-    constexpr float WHEELHOUSE_DUR = 0.3f;
-    constexpr float WHEEL_IN_DUR   = 0.8f;
-    constexpr float JACK_DOWN_DUR  = 0.8f;
+    constexpr float JACK_SLIDE_DUR  = 0.5f;
+    constexpr float CRANK_ANIM_DUR  = 0.36f; // 3 frames × 0.12s each
+    constexpr float CRANK_PAUSE_DUR = 0.15f;
+    constexpr float CRANK_TOTAL_DUR = CRANK_ANIM_DUR + CRANK_PAUSE_DUR;
+    constexpr float WHEEL_DROP_DUR  = 0.3f;
+    constexpr float WHEEL_ROLL_DUR  = 0.6f;
+    constexpr float WHEEL_RISE_DUR  = 0.3f;
+    const int wheelSize = 31;
 
     tireChangeTimer += (float)deltaTime;
-    const int wheelSize = 31;
 
     auto lerp = [](float a, float b, float t) {
         return a + (b - a) * t;
     };
+    auto clamp01 = [](float t) { return t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t); };
+
+    // Default: wheels not spinning. Each rolling phase sets this to true.
+    tireAnimSpin = false;
 
     switch (tireChangePhase) {
-        case TireChangePhase::JACK_UP: {
-            float t = tireChangeTimer / JACK_UP_DUR;
-            if (t > 1.0f) t = 1.0f;
-            tireChangeLiftY = (int)(t * MAX_LIFT_PX);
-            if (jackAnim) jackAnim->Update((float)deltaTime);
-            if (tireChangeTimer >= JACK_UP_DUR) {
-                if (jackAnim) jackAnim->Stop();
-                tireChangePhase = TireChangePhase::FRONT_WHEEL_OUT;
+
+        case TireChangePhase::JACK_SLIDE_UP: {
+            float t = clamp01(tireChangeTimer / JACK_SLIDE_DUR);
+            jackYPos = lerp(jackStartY, 123.0f, t);
+            if (jackAnim) jackAnim->SetFrame(0);
+            if (tireChangeTimer >= JACK_SLIDE_DUR) {
+                jackYPos = 123.0f;
                 tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::JACK_CRANK_UP;
+                if (jackAnim) jackAnim->SetFrame(0);
             }
             break;
         }
-        case TireChangePhase::FRONT_WHEEL_OUT: {
-            float t = tireChangeTimer / WHEEL_OUT_DUR;
-            if (t > 1.0f) t = 1.0f;
-            animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
-            if (tireChangeTimer >= WHEEL_OUT_DUR) {
-                tireChangePhase = TireChangePhase::REAR_WHEEL_OUT;
-                tireChangeTimer = 0.0f;
+
+        case TireChangePhase::JACK_CRANK_UP: {
+            int crankNum   = (int)(tireChangeTimer / CRANK_TOTAL_DUR);
+            float localT   = tireChangeTimer - crankNum * CRANK_TOTAL_DUR;
+            crankNum = std::min(crankNum, JACK_CRANKS - 1);
+
+            if (localT < CRANK_ANIM_DUR) {
+                // animate jack; car lifts after the animation ends
+                int frame = (int)(localT / CRANK_ANIM_DUR * jackTotalFrames);
+                frame = std::min(frame, jackTotalFrames - 1);
+                if (jackAnim) jackAnim->SetFrame(frame);
+                tireChangeLiftY = crankNum;
+            } else {
+                // pause: car already lifted by this crank
+                if (jackAnim) jackAnim->SetFrame(jackTotalFrames - 1);
+                tireChangeLiftY = crankNum + 1;
+            }
+
+            if (tireChangeTimer >= JACK_CRANKS * CRANK_TOTAL_DUR) {
+                tireChangeLiftY  = JACK_CRANKS;
+                animRearWheelX   = (float)initialRearWheelPos.x;
+                animRearWheelY   = (float)(initialRearWheelPos.y - tireChangeLiftY);
+                tireChangeTimer  = 0.0f;
+                tireChangePhase  = TireChangePhase::REAR_WHEEL_OUT;
             }
             break;
         }
+
         case TireChangePhase::REAR_WHEEL_OUT: {
-            float t = tireChangeTimer / WHEEL_OUT_DUR;
-            if (t > 1.0f) t = 1.0f;
-            animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
-            if (tireChangeTimer >= WHEEL_OUT_DUR) {
-                if (carBitmap) carBitmap->SetWheelhousesVisible(true);
-                tireChangePhase = TireChangePhase::WHEELHOUSE;
+            if (tireChangeTimer < WHEEL_DROP_DUR) {
+                float t = clamp01(tireChangeTimer / WHEEL_DROP_DUR);
+                animRearWheelY = lerp((float)(initialRearWheelPos.y - tireChangeLiftY),
+                                      (float)initialRearWheelPos.y, t);
+            } else {
+                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / WHEEL_ROLL_DUR);
+                animRearWheelY = (float)initialRearWheelPos.y;
+                animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
+                tireAnimSpin = true;
+            }
+            if (tireChangeTimer >= WHEEL_DROP_DUR + WHEEL_ROLL_DUR) {
+                animFrontWheelX = (float)initialFrontWheelPos.x;
+                animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::FRONT_WHEEL_OUT;
             }
             break;
         }
-        case TireChangePhase::WHEELHOUSE: {
-            if (tireChangeTimer >= WHEELHOUSE_DUR) {
-                if (carBitmap) carBitmap->LoadNewTireSprite(pendingTireType);
-                animFrontWheelX = (float)-wheelSize;
-                animRearWheelX  = (float)-wheelSize;
-                tireChangePhase = TireChangePhase::NEW_WHEELS_IN;
-                tireChangeTimer = 0.0f;
+
+        case TireChangePhase::FRONT_WHEEL_OUT: {
+            if (tireChangeTimer < WHEEL_DROP_DUR) {
+                float t = clamp01(tireChangeTimer / WHEEL_DROP_DUR);
+                animFrontWheelY = lerp((float)(initialFrontWheelPos.y - tireChangeLiftY),
+                                       (float)initialFrontWheelPos.y, t);
+            } else {
+                float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / WHEEL_ROLL_DUR);
+                animFrontWheelY = (float)initialFrontWheelPos.y;
+                animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
+                tireAnimSpin = true;
             }
-            break;
-        }
-        case TireChangePhase::NEW_WHEELS_IN: {
-            float t = tireChangeTimer / WHEEL_IN_DUR;
-            if (t > 1.0f) t = 1.0f;
-            animRearWheelX  = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
-            animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
-            if (tireChangeTimer >= WHEEL_IN_DUR) {
-                if (carBitmap) carBitmap->SetWheelhousesVisible(false);
-                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
-                tireChangePhase = TireChangePhase::JACK_DOWN;
-                tireChangeTimer = 0.0f;
-            }
-            break;
-        }
-        case TireChangePhase::JACK_DOWN: {
-            float t = tireChangeTimer / JACK_DOWN_DUR;
-            if (t > 1.0f) t = 1.0f;
-            tireChangeLiftY = (int)((1.0f - t) * MAX_LIFT_PX);
-            if (jackAnim && jackTotalFrames > 1) {
-                jackAnim->SetFrame((int)((1.0f - t) * (jackTotalFrames - 1)));
-            }
-            if (tireChangeTimer >= JACK_DOWN_DUR) {
-                if (state.GetCurrentCar()) {
-                    state.GetCurrentCar()->SetTires(pendingTireType);
+            if (tireChangeTimer >= WHEEL_DROP_DUR + WHEEL_ROLL_DUR) {
+                if (carBitmap) {
+                    carBitmap->LoadNewTireSprite(pendingTireType);
                 }
+                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                animRearWheelX  = (float)-wheelSize;
+                animRearWheelY  = (float)initialRearWheelPos.y;
+                tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::NEW_REAR_WHEEL_IN;
+            }
+            break;
+        }
+
+        case TireChangePhase::NEW_REAR_WHEEL_IN: {
+            if (tireChangeTimer < WHEEL_ROLL_DUR) {
+                float t = clamp01(tireChangeTimer / WHEEL_ROLL_DUR);
+                animRearWheelX = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
+                animRearWheelY = (float)initialRearWheelPos.y;
+                tireAnimSpin = true;
+            } else {
+                float t = clamp01((tireChangeTimer - WHEEL_ROLL_DUR) / WHEEL_RISE_DUR);
+                animRearWheelX = (float)initialRearWheelPos.x;
+                animRearWheelY = lerp((float)initialRearWheelPos.y,
+                                      (float)(initialRearWheelPos.y - tireChangeLiftY), t);
+            }
+            if (tireChangeTimer >= WHEEL_ROLL_DUR + WHEEL_RISE_DUR) {
+                animRearWheelX  = (float)initialRearWheelPos.x;
+                animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
+                animFrontWheelX = (float)-wheelSize;
+                animFrontWheelY = (float)initialFrontWheelPos.y;
+                tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::NEW_FRONT_WHEEL_IN;
+            }
+            break;
+        }
+
+        case TireChangePhase::NEW_FRONT_WHEEL_IN: {
+            if (tireChangeTimer < WHEEL_ROLL_DUR) {
+                float t = clamp01(tireChangeTimer / WHEEL_ROLL_DUR);
+                animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
+                animFrontWheelY = (float)initialFrontWheelPos.y;
+                tireAnimSpin = true;
+            } else {
+                float t = clamp01((tireChangeTimer - WHEEL_ROLL_DUR) / WHEEL_RISE_DUR);
+                animFrontWheelX = (float)initialFrontWheelPos.x;
+                animFrontWheelY = lerp((float)initialFrontWheelPos.y,
+                                       (float)(initialFrontWheelPos.y - tireChangeLiftY), t);
+            }
+            if (tireChangeTimer >= WHEEL_ROLL_DUR + WHEEL_RISE_DUR) {
+                if (carBitmap) carBitmap->SetWheelhousesVisible(false);
+                animRearWheelX  = (float)initialRearWheelPos.x;
+                animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
+                animFrontWheelX = (float)initialFrontWheelPos.x;
+                animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
+                tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::JACK_CRANK_DOWN;
+                if (jackAnim) jackAnim->SetFrame(0);
+            }
+            break;
+        }
+
+        case TireChangePhase::JACK_CRANK_DOWN: {
+            int crankNum = (int)(tireChangeTimer / CRANK_TOTAL_DUR);
+            float localT = tireChangeTimer - crankNum * CRANK_TOTAL_DUR;
+            crankNum = std::min(crankNum, JACK_CRANKS - 1);
+
+            if (localT < CRANK_ANIM_DUR) {
+                int frame = (int)(localT / CRANK_ANIM_DUR * jackTotalFrames);
+                frame = std::min(frame, jackTotalFrames - 1);
+                if (jackAnim) jackAnim->SetFrame(frame);
+                tireChangeLiftY = JACK_CRANKS - crankNum;
+            } else {
+                if (jackAnim) jackAnim->SetFrame(0);
+                tireChangeLiftY = JACK_CRANKS - crankNum - 1;
+            }
+
+            // Keep wheels snapped to wheelhouse as car descends
+            animRearWheelY  = (float)(initialRearWheelPos.y  - tireChangeLiftY);
+            animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
+
+            if (tireChangeTimer >= JACK_CRANKS * CRANK_TOTAL_DUR) {
+                tireChangeLiftY = 0;
+                jackYPos        = 123.0f;
+                tireChangeTimer = 0.0f;
+                tireChangePhase = TireChangePhase::JACK_SLIDE_DOWN;
+            }
+            break;
+        }
+
+        case TireChangePhase::JACK_SLIDE_DOWN: {
+            float t = clamp01(tireChangeTimer / JACK_SLIDE_DUR);
+            jackYPos = lerp(123.0f, jackStartY, t);
+
+            // Keep wheels at floor level (car fully lowered)
+            animRearWheelY  = (float)initialRearWheelPos.y;
+            animFrontWheelY = (float)initialFrontWheelPos.y;
+
+            if (tireChangeTimer >= JACK_SLIDE_DUR) {
+                if (state.GetCurrentCar()) state.GetCurrentCar()->SetTires(pendingTireType);
                 if (carBitmap) carBitmap->SetWheelsVisible(true);
                 tireChangeLiftY = 0;
                 tireChangePhase = TireChangePhase::IDLE;
             }
             break;
         }
+
         default:
             break;
     }
@@ -1945,6 +2061,9 @@ void Garage::Draw() {
         p.x = carx;
         p.y = cary - tireChangeLiftY;
         carBitmap->Move(p);
+        if (tireChangeLiftY > 0) {
+            carBitmap->SetShadowYOffset(tireChangeLiftY);
+        }
         if (carBitmap->IsStickerWipeActive()) {
             carBitmap->UpdateStickerWipe(deltaTime);
         }
@@ -1952,34 +2071,38 @@ void Garage::Draw() {
 
         // Draw tire change animation overlays
         if (tireChangePhase != TireChangePhase::IDLE) {
-            // Jack: drawn under the car, centered horizontally
+            // Jack: centered between wheel positions, at animated Y
             if (jackAnim) {
-                SDL_Rect bodyRect = carBitmap->GetFrontWheelPos(); // use wheel y as floor ref
-                int jackX = carx + (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
-                int jackY = initialRearWheelPos.y + initialRearWheelPos.h - tireChangeLiftY;
-                jackAnim->SetPosition(jackX, jackY);
+                int jackX = (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
+                jackAnim->SetPosition(jackX, (int)jackYPos);
                 jackAnim->SetVisible(true);
                 jackAnim->Draw();
-                (void)bodyRect;
             }
 
-            // Draw rolling wheels at their animated positions
-            int wheelY = initialFrontWheelPos.y - tireChangeLiftY;
+            // Draw wheels at their individually animated positions
             switch (tireChangePhase) {
-                case TireChangePhase::FRONT_WHEEL_OUT:
-                    // rear wheel still at its place, front rolling out
-                    carBitmap->DrawWheelAt((int)animRearWheelX, wheelY);
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                case TireChangePhase::JACK_SLIDE_UP:
+                case TireChangePhase::JACK_CRANK_UP:
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY  - tireChangeLiftY, false);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY - tireChangeLiftY, false);
                     break;
                 case TireChangePhase::REAR_WHEEL_OUT:
-                    carBitmap->DrawWheelAt((int)animRearWheelX, wheelY);
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                    carBitmap->DrawWheelAt((int)animRearWheelX, (int)animRearWheelY, tireAnimSpin);
                     break;
-                case TireChangePhase::NEW_WHEELS_IN:
-                case TireChangePhase::JACK_UP:
-                case TireChangePhase::JACK_DOWN:
-                    carBitmap->DrawWheelAt((int)animRearWheelX,  wheelY);
-                    carBitmap->DrawWheelAt((int)animFrontWheelX, wheelY);
+                case TireChangePhase::FRONT_WHEEL_OUT:
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin);
+                    break;
+                case TireChangePhase::NEW_REAR_WHEEL_IN:
+                    carBitmap->DrawWheelAt((int)animRearWheelX, (int)animRearWheelY, tireAnimSpin);
+                    break;
+                case TireChangePhase::NEW_FRONT_WHEEL_IN:
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY, false);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, tireAnimSpin);
+                    break;
+                case TireChangePhase::JACK_CRANK_DOWN:
+                case TireChangePhase::JACK_SLIDE_DOWN:
+                    carBitmap->DrawWheelAt((int)animRearWheelX,  (int)animRearWheelY, false);
+                    carBitmap->DrawWheelAt((int)animFrontWheelX, (int)animFrontWheelY, false);
                     break;
                 default:
                     break;

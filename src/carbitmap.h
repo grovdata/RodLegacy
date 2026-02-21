@@ -46,6 +46,7 @@ private:
     bool isFrontBumperStripped;
     bool isRearBumperStripped;
     Uint64 lastWheelUpdateTime;
+    Uint64 lastDrawWheelTime = 0;
     bool wheelsVisible;
     StandardCarColor currentColor;
     bool gasCapRemoved;
@@ -89,7 +90,8 @@ public:
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
     void SetWheelhousesVisible(bool visible);
-    void DrawWheelAt(int x, int y);
+    void DrawWheelAt(int x, int y, bool spin = true);
+    void SetShadowYOffset(int yAdjust);
     void LoadNewTireSprite(CarWheelType type);
 
     // Gas station methods
