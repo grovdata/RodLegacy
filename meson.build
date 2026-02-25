@@ -14,4 +14,5 @@ sdl2_dep = dependency('sdl2', static: true)
 # Platform-specific SDL2 dependencies will be handled in src/meson.build
 
 
-subdir('src') 
+subdir('src')
+subdir('tests')

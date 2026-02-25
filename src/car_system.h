@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.h"
+#include <string>
 #include "parsers/libp.h"
 
 // Logical part types (not graphics assets)

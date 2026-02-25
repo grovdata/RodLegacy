@@ -1,0 +1,269 @@
+#include <doctest/doctest.h>
+#include "parsers/libp.h"
+
+// ---------------------------------------------------------------------------
+// CarQuery
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("CarQuery::SrLibQueryCanChopRoof") {
+
+TEST_CASE("Corvettes cannot have roof chopped") {
+    CHECK(CarQuery::SrLibQueryCanChopRoof(CHEVROLET_CORVETTE_1956_BODY) == false);
+    CHECK(CarQuery::SrLibQueryCanChopRoof(CHEVROLET_CORVETTE_1961_BODY) == false);
+    CHECK(CarQuery::SrLibQueryCanChopRoof(CHEVROLET_CORVETTE_1963_BODY) == false);
+    CHECK(CarQuery::SrLibQueryCanChopRoof(THE_KING_CHEVROLET_CORVETTE_1963_BODY) == false);
+}
+
+TEST_CASE("other cars can have roof chopped") {
+    CHECK(CarQuery::SrLibQueryCanChopRoof(CHEVROLET_2DR_COUPE_1940_BODY) == true);
+    CHECK(CarQuery::SrLibQueryCanChopRoof(FORD_DELUXE_2DR_1940_BODY)     == true);
+    CHECK(CarQuery::SrLibQueryCanChopRoof(DODGE_POLARA_1962_BODY)        == true);
+}
+
+} // TEST_SUITE
+
+TEST_SUITE("CarQuery::SrLibQueryCanStripBumpers") {
+
+TEST_CASE("cars that cannot strip bumpers") {
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_DEUCE_COUPE_1932_BODY)         == false);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_SEDAN_1932_BODY)               == false);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(THE_KING_CHEVROLET_CORVETTE_1963_BODY) == false);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1956_BODY)       == false);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1961_BODY)       == false);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1963_BODY)       == false);
+}
+
+TEST_CASE("standard cars can strip bumpers") {
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_IMPALA_1958_BODY)        == true);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(DODGE_CUSTOM_ROYAL_LANCER_1955_BODY) == true);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_FAIRLANE_500_1956_BODY)       == true);
+}
+
+} // TEST_SUITE
+
+TEST_SUITE("CarQuery::GetChoppedBumperIndex") {
+
+TEST_CASE("rear bumper index is body + 2 for standard cars") {
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_2DR_COUPE_1940_BODY) ==
+          CHEVROLET_2DR_COUPE_1940_BODY + 2);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(FORD_DELUXE_2DR_1940_BODY) ==
+          FORD_DELUXE_2DR_1940_BODY + 2);
+}
+
+TEST_CASE("Corvettes return 0 for rear bumper (no bumper)") {
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1956_BODY) == 0);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1961_BODY) == 0);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1963_BODY) == 0);
+}
+
+TEST_CASE("front bumper index is always body + 3") {
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(CHEVROLET_2DR_COUPE_1940_BODY) ==
+          CHEVROLET_2DR_COUPE_1940_BODY + 3);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(FORD_DELUXE_2DR_1940_BODY) ==
+          FORD_DELUXE_2DR_1940_BODY + 3);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(DODGE_POLARA_1962_BODY) ==
+          DODGE_POLARA_1962_BODY + 3);
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// SrLibQueryGetCarIdleX
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("SrLibQueryGetCarIdleX") {
+
+TEST_CASE("garage idle X is 35") {
+    CHECK(SrLibQueryGetCarIdleX(SCENE_GARAGE) == 35);
+}
+
+TEST_CASE("diner idle X is 82") {
+    CHECK(SrLibQueryGetCarIdleX(SCENE_DINER) == 82);
+}
+
+TEST_CASE("gas station idle X is 40") {
+    CHECK(SrLibQueryGetCarIdleX(SCENE_GAS_STATION) == 40);
+}
+
+TEST_CASE("unknown scene returns default 35") {
+    CHECK(SrLibQueryGetCarIdleX((SrLibGameScene)99) == 35);
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// SrLibQueryGetCarRoofYOffset
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("SrLibQueryGetCarRoofYOffset") {
+
+TEST_CASE("known car and garage scene returns correct offset") {
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, CHEVROLET_2DR_COUPE_1940) == 82);
+}
+
+TEST_CASE("same car, different scenes return different offsets") {
+    int garage = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE,      CHEVROLET_CORVETTE_1956);
+    int diner  = SrLibQueryGetCarRoofYOffset(SCENE_DINER,       CHEVROLET_CORVETTE_1956);
+    int gas    = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, CHEVROLET_CORVETTE_1956);
+    CHECK(garage != diner);
+    CHECK(garage != gas);
+}
+
+TEST_CASE("unknown car index returns default 96") {
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, 9999) == 96);
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// SrLibQueryGetCarVendor
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("SrLibQueryGetCarVendor") {
+
+TEST_CASE("Chevrolet cars are GM") {
+    CHECK(SrLibQueryGetCarVendor(CHEVROLET_2DR_COUPE_1940)      == CarVendorGM);
+    CHECK(SrLibQueryGetCarVendor(CHEVROLET_CORVETTE_1963)        == CarVendorGM);
+    CHECK(SrLibQueryGetCarVendor(CHEVROLET_IMPALA_1958)          == CarVendorGM);
+    CHECK(SrLibQueryGetCarVendor(OLDSMOBILE_88_CUSTOM_1952)      == CarVendorGM);
+    CHECK(SrLibQueryGetCarVendor(PONTIAC_SILVER_STREAK_1950)     == CarVendorGM);
+}
+
+TEST_CASE("Ford cars are Ford") {
+    CHECK(SrLibQueryGetCarVendor(FORD_DEUCE_COUPE_1932)          == CarVendorFord);
+    CHECK(SrLibQueryGetCarVendor(FORD_THUNDERBIRD_1957)          == CarVendorFord);
+    CHECK(SrLibQueryGetCarVendor(MERCURY_MONTEREY_1954)          == CarVendorFord);
+}
+
+TEST_CASE("Chrysler/Dodge/Plymouth/Valiant are Chrysler") {
+    CHECK(SrLibQueryGetCarVendor(DODGE_CUSTOM_ROYAL_LANCER_1955) == CarVendorChrysler);
+    CHECK(SrLibQueryGetCarVendor(DODGE_POLARA_1962)              == CarVendorChrysler);
+    CHECK(SrLibQueryGetCarVendor(PLYMOUTH_SAVOY_2DR_1962)        == CarVendorChrysler);
+    CHECK(SrLibQueryGetCarVendor(VALIANT_V200_1961)              == CarVendorChrysler);
+}
+
+TEST_CASE("unknown car index returns CarVendorUnknown") {
+    CHECK(SrLibQueryGetCarVendor(9999) == CarVendorUnknown);
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// DataParser::GetCarIndex
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("DataParser::GetCarIndex") {
+
+TEST_CASE("first car returns index 0") {
+    DataParser dp;
+    CHECK(dp.GetCarIndex(CHEVROLET_2DR_COUPE_1940_BODY) == 0);
+}
+
+TEST_CASE("second car returns index 1") {
+    DataParser dp;
+    CHECK(dp.GetCarIndex(CHEVROLET_ROADSTER_1940_BODY) == 1);
+}
+
+TEST_CASE("unmapped asset returns -1") {
+    DataParser dp;
+    CHECK(dp.GetCarIndex(GARAGE_SCREEN) == -1);
+    CHECK(dp.GetCarIndex(DINER_SCREEN)  == -1);
+}
+
+TEST_CASE("consecutive car models produce consecutive indices") {
+    DataParser dp;
+    int idx1 = dp.GetCarIndex(CHEVROLET_2DR_COUPE_1940_BODY);
+    int idx2 = dp.GetCarIndex(CHEVROLET_ROADSTER_1940_BODY);
+    int idx3 = dp.GetCarIndex(CHEVROLET_MASTER_DELUXE_2DR_1938_BODY);
+    CHECK(idx2 == idx1 + 1);
+    CHECK(idx3 == idx2 + 1);
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// GetSpriteAnimationInfo / GetAnimationFrameRect
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("Sprite animation helpers") {
+
+TEST_CASE("GetSpriteAnimationInfo returns info for known sprite") {
+    const SpriteAnimationInfo* info = GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION);
+    REQUIRE(info != nullptr);
+    CHECK(info->spriteId    == ENGINE_BELT_ANIMATION);
+    CHECK(info->frameCount  == 4);
+    CHECK(info->isLooping   == true);
+}
+
+TEST_CASE("GetSpriteAnimationInfo returns nullptr for unknown sprite") {
+    CHECK(GetSpriteAnimationInfo(GARAGE_SCREEN) == nullptr);
+    CHECK(GetSpriteAnimationInfo(9999)          == nullptr);
+}
+
+TEST_CASE("GetAnimationFrameRect returns correct frame") {
+    const SpriteAnimationInfo* info = GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION);
+    REQUIRE(info != nullptr);
+    SpriteRect r = GetAnimationFrameRect(info, 0);
+    CHECK(r.x == 0);
+    CHECK(r.y == 0);
+    CHECK(r.w == 86);
+    CHECK(r.h == 53);
+}
+
+TEST_CASE("GetAnimationFrameRect out-of-range returns zero rect") {
+    const SpriteAnimationInfo* info = GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION);
+    REQUIRE(info != nullptr);
+    SpriteRect r = GetAnimationFrameRect(info, 99);
+    CHECK(r.w == 0);
+    CHECK(r.h == 0);
+}
+
+TEST_CASE("GetAnimationFrameRect with null info returns zero rect") {
+    SpriteRect r = GetAnimationFrameRect(nullptr, 0);
+    CHECK(r.w == 0);
+    CHECK(r.h == 0);
+}
+
+TEST_CASE("all known animated sprites have valid frame data") {
+    for (uint16_t id : {(uint16_t)ENGINE_BELT_ANIMATION,
+                        (uint16_t)ENGINE_PISTON_LEFT_ANIMATION,
+                        (uint16_t)ENGINE_PISTON_RIGHT_ANIMATION,
+                        (uint16_t)ENGINE_CRANK_ANIMATION,
+                        (uint16_t)ENGINE_FLYWHEEL_ANIMATION,
+                        (uint16_t)ENGINE_CAM_ANIMATION,
+                        (uint16_t)CAR_JACK_ANIMATION}) {
+        const SpriteAnimationInfo* info = GetSpriteAnimationInfo(id);
+        REQUIRE(info != nullptr);
+        CHECK(info->frameCount > 0);
+        // Every frame should have non-zero dimensions
+        for (int f = 0; f < info->frameCount; f++) {
+            SpriteRect r = GetAnimationFrameRect(info, f);
+            CHECK(r.w > 0);
+            CHECK(r.h > 0);
+        }
+    }
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// CalculateSampleDuration
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("CalculateSampleDuration") {
+
+TEST_CASE("11025 samples at 11025 Hz = 1.0 second") {
+    float d = CalculateSampleDuration(11025, 11025);
+    CHECK(d == doctest::Approx(1.0f));
+}
+
+TEST_CASE("0 samples = 0 seconds") {
+    CHECK(CalculateSampleDuration(0, 11025) == doctest::Approx(0.0f));
+}
+
+TEST_CASE("known engine start duration (~0.710 seconds)") {
+    float d = CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
+    CHECK(d == doctest::Approx(0.71f).epsilon(0.01f));
+}
+
+} // TEST_SUITE

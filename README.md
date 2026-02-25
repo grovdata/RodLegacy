@@ -8,7 +8,20 @@ It aims to stay true to the original, with some light enhancements.
 The game is built with [Meson build system](https://mesonbuild.com/).
 
 ```
-mkdir build && cd build && ninja
+meson setup build
+ninja -C build
+```
+
+# Tests
+
+```
+meson test -C build
+```
+
+To run with verbose output:
+
+```
+./build/tests/test_libp
 ```
 
 # Running the game
@@ -33,3 +46,4 @@ StreetRod Legacy use these fine libraries:
  - [lemon font](https://github.com/cmvnd/fonts)
  - [ISO88591-8x16 font](https://github.com/epto/epto-fonts)
  - [tinyfiledialogs](http://tinyfiledialogs.sourceforge.net)
+ - [doctest](https://github.com/doctest/doctest)
