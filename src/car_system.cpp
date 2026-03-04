@@ -25,17 +25,14 @@ bool PartsCompatibilityManager::IsCarburetorCompatible(CarburetorType carburetor
 std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissions(CarEngine_t engine) {
     switch (engine) {
         case CarEngineGM_V6:
-            return {TRANS_AUTO_GM, TRANS_3SPD_GM, TRANS_4SPD_GM};
         case CarEngineGM_V8_282:
         case CarEngineGM_V8_327:
             return {TRANS_AUTO_GM, TRANS_3SPD_GM, TRANS_4SPD_GM, TRANS_RACING_GM};
         case CarEngineFord_V6:
-            return {TRANS_AUTO_FORD, TRANS_3SPD_FORD, TRANS_4SPD_FORD};
         case CarEngineFord_V8_292:
         case CarEngineFord_V8_351:
             return {TRANS_AUTO_FORD, TRANS_3SPD_FORD, TRANS_4SPD_FORD, TRANS_RACING_FORD};
         case CarEngineChrysler_V6:
-            return {TRANS_AUTO_CHRYSLER, TRANS_3SPD_CHRYSLER, TRANS_4SPD_CHRYSLER};
         case CarEngineChrysler_V8_285:
         case CarEngineChrysler_V8_340:
             return {TRANS_AUTO_CHRYSLER, TRANS_3SPD_CHRYSLER, TRANS_4SPD_CHRYSLER, TRANS_RACING_CHRYSLER};

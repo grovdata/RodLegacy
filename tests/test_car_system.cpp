@@ -15,70 +15,40 @@ TEST_SUITE("PartsCompatibilityManager::GetCompatibleTransmissions") {
 
 // FIXME: pretty sure these are wrong
 
-TEST_CASE("GM V6: 3 GM transmissions, no racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineGM_V6);
-    CHECK(t.size() == 3);
-    CHECK(Contains(t, TRANS_AUTO_GM));
-    CHECK(Contains(t, TRANS_3SPD_GM));
-    CHECK(Contains(t, TRANS_4SPD_GM));
-    CHECK_FALSE(Contains(t, TRANS_RACING_GM));
+TEST_CASE("all GM engines: 4 GM transmissions including racing") {
+    const CarEngine_t gm[] = {CarEngineGM_V6, CarEngineGM_V8_282, CarEngineGM_V8_327};
+    for (CarEngine_t eng : gm) {
+        auto t = PartsCompatibilityManager::GetCompatibleTransmissions(eng);
+        CHECK(t.size() == 4);
+        CHECK(Contains(t, TRANS_AUTO_GM));
+        CHECK(Contains(t, TRANS_3SPD_GM));
+        CHECK(Contains(t, TRANS_4SPD_GM));
+        CHECK(Contains(t, TRANS_RACING_GM));
+    }
 }
 
-TEST_CASE("GM V8 282: 4 GM transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineGM_V8_282);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_AUTO_GM));
-    CHECK(Contains(t, TRANS_3SPD_GM));
-    CHECK(Contains(t, TRANS_4SPD_GM));
-    CHECK(Contains(t, TRANS_RACING_GM));
+TEST_CASE("all Ford engines: 4 Ford transmissions including racing") {
+    const CarEngine_t ford[] = {CarEngineFord_V6, CarEngineFord_V8_292, CarEngineFord_V8_351};
+    for (CarEngine_t eng : ford) {
+        auto t = PartsCompatibilityManager::GetCompatibleTransmissions(eng);
+        CHECK(t.size() == 4);
+        CHECK(Contains(t, TRANS_AUTO_FORD));
+        CHECK(Contains(t, TRANS_3SPD_FORD));
+        CHECK(Contains(t, TRANS_4SPD_FORD));
+        CHECK(Contains(t, TRANS_RACING_FORD));
+    }
 }
 
-TEST_CASE("GM V8 327: 4 GM transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineGM_V8_327);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_RACING_GM));
-}
-
-TEST_CASE("Ford V6: 3 Ford transmissions, no racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineFord_V6);
-    CHECK(t.size() == 3);
-    CHECK(Contains(t, TRANS_AUTO_FORD));
-    CHECK(Contains(t, TRANS_3SPD_FORD));
-    CHECK(Contains(t, TRANS_4SPD_FORD));
-    CHECK_FALSE(Contains(t, TRANS_RACING_FORD));
-}
-
-TEST_CASE("Ford V8 292: 4 Ford transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineFord_V8_292);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_RACING_FORD));
-}
-
-TEST_CASE("Ford V8 351: 4 Ford transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineFord_V8_351);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_RACING_FORD));
-}
-
-TEST_CASE("Chrysler V6: 3 Chrysler transmissions, no racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineChrysler_V6);
-    CHECK(t.size() == 3);
-    CHECK(Contains(t, TRANS_AUTO_CHRYSLER));
-    CHECK(Contains(t, TRANS_3SPD_CHRYSLER));
-    CHECK(Contains(t, TRANS_4SPD_CHRYSLER));
-    CHECK_FALSE(Contains(t, TRANS_RACING_CHRYSLER));
-}
-
-TEST_CASE("Chrysler V8 285: 4 Chrysler transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineChrysler_V8_285);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_RACING_CHRYSLER));
-}
-
-TEST_CASE("Chrysler V8 340: 4 Chrysler transmissions including racing") {
-    auto t = PartsCompatibilityManager::GetCompatibleTransmissions(CarEngineChrysler_V8_340);
-    CHECK(t.size() == 4);
-    CHECK(Contains(t, TRANS_RACING_CHRYSLER));
+TEST_CASE("all Chrysler engines: 4 Chrysler transmissions including racing") {
+    const CarEngine_t chrysler[] = {CarEngineChrysler_V6, CarEngineChrysler_V8_285, CarEngineChrysler_V8_340};
+    for (CarEngine_t eng : chrysler) {
+        auto t = PartsCompatibilityManager::GetCompatibleTransmissions(eng);
+        CHECK(t.size() == 4);
+        CHECK(Contains(t, TRANS_AUTO_CHRYSLER));
+        CHECK(Contains(t, TRANS_3SPD_CHRYSLER));
+        CHECK(Contains(t, TRANS_4SPD_CHRYSLER));
+        CHECK(Contains(t, TRANS_RACING_CHRYSLER));
+    }
 }
 
 } // TEST_SUITE
@@ -111,10 +81,10 @@ TEST_CASE("Chrysler engine rejects GM transmission") {
     CHECK_FALSE(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_AUTO_GM, CarEngineChrysler_V8_340));
 }
 
-TEST_CASE("V6 engines reject racing transmission of own vendor") {
-    CHECK_FALSE(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_GM,       CarEngineGM_V6));
-    CHECK_FALSE(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_FORD,     CarEngineFord_V6));
-    CHECK_FALSE(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_CHRYSLER, CarEngineChrysler_V6));
+TEST_CASE("V6 engines accept racing transmission of own vendor") {
+    CHECK(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_GM,       CarEngineGM_V6));
+    CHECK(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_FORD,     CarEngineFord_V6));
+    CHECK(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_CHRYSLER, CarEngineChrysler_V6));
 }
 
 } // TEST_SUITE
