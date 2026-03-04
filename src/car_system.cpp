@@ -17,6 +17,11 @@ bool PartsCompatibilityManager::IsCarburetorCompatible(CarburetorType carburetor
     return std::find(compatible.begin(), compatible.end(), carburetor) != compatible.end();
 }
 
+bool PartsCompatibilityManager::IsCarburetorCompatible(CarburetorType carburetor, ManifoldType manifold) {
+    auto compatible = GetCompatibleCarburetors(manifold);
+    return std::find(compatible.begin(), compatible.end(), carburetor) != compatible.end();
+}
+
 std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissions(CarEngine_t engine) {
     switch (engine) {
         case CarEngineGM_V6:
@@ -40,11 +45,37 @@ std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissi
 }
 
 std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarEngine_t engine) {
-    // All manifolds are compatible with all engines for now
-    return {MANIFOLD_STOCK, MANIFOLD_PERFORMANCE, MANIFOLD_RACING};
+    switch (engine) {
+        case CarEngineGM_V6:
+        case CarEngineFord_V6:
+        case CarEngineChrysler_V6:
+            return {MANIFOLD_STOCK, MANIFOLD_PERFORMANCE};
+        default: // V8s
+            return {MANIFOLD_STOCK, MANIFOLD_RACING};
+    }
 }
 
 std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(CarEngine_t engine) {
-    // All carburetors are compatible with all engines for now
-    return {CARB_2BARREL, CARB_4BARREL, CARB_4BARREL_RACING};
+    switch (engine) {
+        case CarEngineGM_V6:
+        case CarEngineFord_V6:
+        case CarEngineChrysler_V6:
+            return {CARB_2BARREL};
+        default: // V8s
+            return {CARB_4BARREL, CARB_4BARREL_RACING};
+    }
+}
+
+std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(ManifoldType manifold) {
+    switch (manifold) {
+        case MANIFOLD_STOCK:
+        case MANIFOLD_PERFORMANCE:
+            // 2-brl and 3-2brl manifolds take 2-brl carbs
+            return {CARB_2BARREL};
+        case MANIFOLD_RACING:
+            // 4-brl and racing manifolds share the same fitting
+            return {CARB_4BARREL, CARB_4BARREL_RACING};
+        default:
+            return {};
+    }
 }

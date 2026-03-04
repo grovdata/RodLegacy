@@ -120,58 +120,142 @@ TEST_CASE("V6 engines reject racing transmission of own vendor") {
 } // TEST_SUITE
 
 // ---------------------------------------------------------------------------
-// Manifolds – universal compatibility
+// Manifolds
 // ---------------------------------------------------------------------------
 
 TEST_SUITE("PartsCompatibilityManager manifolds") {
 
-TEST_CASE("all three manifolds returned for GM V6") {
-    auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V6);
-    CHECK(m.size() == 3);
-    CHECK(Contains(m, MANIFOLD_STOCK));
-    CHECK(Contains(m, MANIFOLD_PERFORMANCE));
-    CHECK(Contains(m, MANIFOLD_RACING));
+TEST_CASE("GM V6: stock and performance manifolds fit") {
+    // MANIFOLD_STOCK   = GM 2-brl manifold
+    // MANIFOLD_PERFORMANCE = GM manifold for 3-2brl carbs
+    CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_STOCK,       CarEngineGM_V6));
+    CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_PERFORMANCE, CarEngineGM_V6));
 }
 
-TEST_CASE("all three manifolds compatible with every engine") {
-    const CarEngine_t engines[] = {
-        CarEngineGM_V6, CarEngineGM_V8_282, CarEngineGM_V8_327,
-        CarEngineFord_V6, CarEngineFord_V8_292, CarEngineFord_V8_351,
-        CarEngineChrysler_V6, CarEngineChrysler_V8_285, CarEngineChrysler_V8_340
+TEST_CASE("GM V6: racing/4-brl manifold does not fit") {
+    CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_RACING, CarEngineGM_V6));
+}
+
+TEST_CASE("GM V6: returns exactly 2 compatible manifolds") {
+    auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V6);
+    CHECK(m.size() == 2);
+    CHECK(Contains(m, MANIFOLD_STOCK));
+    CHECK(Contains(m, MANIFOLD_PERFORMANCE));
+    CHECK_FALSE(Contains(m, MANIFOLD_RACING));
+}
+
+TEST_CASE("V8 engines: stock and racing manifolds fit") {
+    const CarEngine_t v8s[] = {
+        CarEngineGM_V8_282, CarEngineGM_V8_327,
+        CarEngineFord_V8_292, CarEngineFord_V8_351,
+        CarEngineChrysler_V8_285, CarEngineChrysler_V8_340
     };
-    for (CarEngine_t eng : engines) {
-        CHECK(PartsCompatibilityManager::GetCompatibleManifolds(eng).size() == 3);
+    for (CarEngine_t eng : v8s) {
+        CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_STOCK,  eng));
         CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_RACING, eng));
-        CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_STOCK, eng));
+    }
+}
+
+TEST_CASE("V8 engines: 3-2brl manifold does not fit") {
+    const CarEngine_t v8s[] = {
+        CarEngineGM_V8_282, CarEngineGM_V8_327,
+        CarEngineFord_V8_292, CarEngineFord_V8_351,
+        CarEngineChrysler_V8_285, CarEngineChrysler_V8_340
+    };
+    for (CarEngine_t eng : v8s) {
+        CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_PERFORMANCE, eng));
+    }
+}
+
+TEST_CASE("V8 engines: returns exactly 2 compatible manifolds") {
+    auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V8_327);
+    CHECK(m.size() == 2);
+    CHECK(Contains(m, MANIFOLD_STOCK));
+    CHECK(Contains(m, MANIFOLD_RACING));
+    CHECK_FALSE(Contains(m, MANIFOLD_PERFORMANCE));
+}
+
+} // TEST_SUITE
+
+// ---------------------------------------------------------------------------
+// Carburetors – engine-level (carb type follows V6 vs V8)
+// ---------------------------------------------------------------------------
+
+TEST_SUITE("PartsCompatibilityManager carburetors (engine)") {
+
+TEST_CASE("V6 engines: only 2-brl carb fits") {
+    const CarEngine_t v6s[] = {CarEngineGM_V6, CarEngineFord_V6, CarEngineChrysler_V6};
+    for (CarEngine_t eng : v6s) {
+        auto c = PartsCompatibilityManager::GetCompatibleCarburetors(eng);
+        CHECK(c.size() == 1);
+        CHECK(Contains(c, CARB_2BARREL));
+        CHECK_FALSE(Contains(c, CARB_4BARREL));
+        CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
+    }
+}
+
+TEST_CASE("V8 engines: 4-brl and racing carbs fit, not 2-brl") {
+    const CarEngine_t v8s[] = {
+        CarEngineGM_V8_282, CarEngineGM_V8_327,
+        CarEngineFord_V8_292, CarEngineFord_V8_351,
+        CarEngineChrysler_V8_285, CarEngineChrysler_V8_340
+    };
+    for (CarEngine_t eng : v8s) {
+        auto c = PartsCompatibilityManager::GetCompatibleCarburetors(eng);
+        CHECK(c.size() == 2);
+        CHECK(Contains(c, CARB_4BARREL));
+        CHECK(Contains(c, CARB_4BARREL_RACING));
+        CHECK_FALSE(Contains(c, CARB_2BARREL));
     }
 }
 
 } // TEST_SUITE
 
 // ---------------------------------------------------------------------------
-// Carburetors – universal compatibility
+// Carburetors – manifold-level pairing
 // ---------------------------------------------------------------------------
 
-TEST_SUITE("PartsCompatibilityManager carburetors") {
+TEST_SUITE("PartsCompatibilityManager carburetors (manifold)") {
 
-TEST_CASE("all three carbs returned for Ford V8 351") {
-    auto c = PartsCompatibilityManager::GetCompatibleCarburetors(CarEngineFord_V8_351);
-    CHECK(c.size() == 3);
+TEST_CASE("2-brl manifold (STOCK) takes only 2-brl carb") {
+    auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_STOCK);
+    CHECK(c.size() == 1);
     CHECK(Contains(c, CARB_2BARREL));
-    CHECK(Contains(c, CARB_4BARREL));
-    CHECK(Contains(c, CARB_4BARREL_RACING));
+    CHECK_FALSE(Contains(c, CARB_4BARREL));
+    CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
 }
 
-TEST_CASE("all three carbs compatible with every engine") {
-    const CarEngine_t engines[] = {
-        CarEngineGM_V6, CarEngineGM_V8_282, CarEngineGM_V8_327,
-        CarEngineFord_V6, CarEngineFord_V8_292, CarEngineFord_V8_351,
-        CarEngineChrysler_V6, CarEngineChrysler_V8_285, CarEngineChrysler_V8_340
-    };
-    for (CarEngine_t eng : engines) {
-        CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, eng));
-        CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_2BARREL, eng));
-    }
+TEST_CASE("3-2brl manifold (PERFORMANCE) takes only 2-brl carbs") {
+    auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_PERFORMANCE);
+    CHECK(c.size() == 1);
+    CHECK(Contains(c, CARB_2BARREL));
+    CHECK_FALSE(Contains(c, CARB_4BARREL));
+    CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
+}
+
+TEST_CASE("racing manifold takes 4-brl and racing carbs, not 2-brl") {
+    auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_RACING);
+    CHECK(c.size() == 2);
+    CHECK(Contains(c, CARB_4BARREL));
+    CHECK(Contains(c, CARB_4BARREL_RACING));
+    CHECK_FALSE(Contains(c, CARB_2BARREL));
+}
+
+TEST_CASE("4-brl and racing carbs are interchangeable on racing manifold") {
+    // Racing manifold & carbs have the same fitting as 4-brl manifolds and carbs
+    CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL,        MANIFOLD_RACING));
+    CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_RACING));
+}
+
+TEST_CASE("2-brl carb does not fit racing manifold") {
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_2BARREL, MANIFOLD_RACING));
+}
+
+TEST_CASE("4-brl carb does not fit 2-brl or 3-2brl manifolds") {
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL,        MANIFOLD_STOCK));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL,        MANIFOLD_PERFORMANCE));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_STOCK));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_PERFORMANCE));
 }
 
 } // TEST_SUITE
