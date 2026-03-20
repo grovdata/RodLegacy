@@ -18,8 +18,8 @@ struct Reputation {
     }
 
     void RecordLoss() {
-        drag_rep -= 2;
-        road_rep -= 3;
+        drag_rep -= 3;
+        road_rep -= 2;
         races_completed += 1;
         last_race_won = false;
     }

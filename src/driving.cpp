@@ -3,6 +3,7 @@
 #include "state.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
+#include "reputation.h"
 #include <fstream>
 #include <vector>
 #include <cstring>
@@ -412,7 +413,22 @@ void Driving::Draw() {
         if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
         
         racing->Draw(deltaTime, lastEvent);
-        
+
+        // Check race outcome.
+        RaceOutcome outcome = racing->GetRaceOutcome();
+        if (outcome != RaceOutcome::Ongoing) {
+            bool won = (outcome == RaceOutcome::PlayerWon);
+            RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
+                                ? RaceType::Drag : RaceType::Road;
+            bool endGame = state.OnRaceFinished(raceType, won);
+            racing->ResetRaceOutcome();
+            if (endGame) {
+                LOG_INFO("Driving: end-game triggered (King beaten in drag)");
+                // TODO: show end-game cutscene; for now return to diner.
+            }
+            state.MoveToScene(SCENE_DINER);
+        }
+
         // Update dice animation based on car movement
         bool carIsMoving = racing->GetSpeed() > 0.1f; // Consider car moving if speed > 0.1
         UpdateDiceAnimation(deltaTime, carIsMoving);

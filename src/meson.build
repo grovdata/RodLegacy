@@ -152,6 +152,7 @@ cpp_sources = [
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',
     'roster.cpp',
+    'racer_pool.cpp',
     'debug_overlay.cpp',
     'audio/audio_manager.cpp',
     'audio/engine_sound.cpp',

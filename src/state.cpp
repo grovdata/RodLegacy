@@ -9,6 +9,7 @@
 #include "newspaper.h"
 #include "racing.h"
 #include "debug_overlay.h"
+#include "parsers/libp.h"
 
 State::State() : bankroll(5750) {
 }
@@ -21,6 +22,19 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
 
         carData.ReadEntries(assets.GetSrData(), GetTomlFile(), entries);
+
+        // Parse SR_data driver/car-spec tables and initialise pool.
+        DataParser dataParser;
+        srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
+        srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
+        if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
+            srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
+            racerPool.Init(srDriverData, srCarSpecData);
+            LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
+        } else {
+            LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
+                     srDriverData.size(), srCarSpecData.size());
+        }
 
         // Initialize roster
         roster.Initialize(carData);
@@ -190,6 +204,92 @@ const std::vector<Opponent*>& State::GetKnownOpponents() const {
 
 void State::SetNextOpponent(Opponent* opp) {
     roster.SetNextOpponent(opp);
+}
+
+void State::PickNextOpponent() {
+    // Fall back to Roster shuffle if pool is not initialised.
+    if (racerPool.pool.empty()) {
+        return;
+    }
+
+    // Compute player score from current car.
+    SrCarSpecEntry playerSpec{};
+    if (currentCar) {
+        playerSpec.engine       = static_cast<uint8_t>(currentCar->GetEngine().engineType);
+        playerSpec.transmission = 0; // TODO: expose transmission index from Car
+        playerSpec.carburetor   = 0; // TODO: expose carb index
+        playerSpec.tires        = 0; // TODO: expose tire index
+        playerSpec.condition    = 0;
+        playerSpec.classification = 0;
+    }
+    int playerScore = ComputeCarPerformanceScore(playerSpec);
+
+    // Check for King unlock.
+    bool kingUnlocked = reputation.IsKingUnlocked(racerPool.CountActive());
+    if (kingUnlocked) {
+        LOG_INFO("State::PickNextOpponent - The King is unlocked");
+        // King challenge uses the existing roster's next opponent slot for now.
+        // Full King flow wired in OnRaceFinished.
+        lastChallengerPoolIndex = RACER_KING_SLOT;
+        return;
+    }
+
+    int poolIdx = racerPool.SelectNextChallenger(playerScore, lastChallengerPoolIndex);
+    if (poolIdx < 0) {
+        LOG_INFO("State::PickNextOpponent - pool exhausted, falling back to roster");
+        return;
+    }
+    lastChallengerPoolIndex = poolIdx;
+
+    // Map pool entry → Roster Opponent so existing Diner code works unchanged.
+    RacerEntry& entry = racerPool.pool[poolIdx];
+    int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
+    Opponent* opp = roster.GetOpponentByIndex(driverIdx);
+    if (opp) {
+        roster.SetNextOpponent(opp);
+        LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d car_spec=%d score=%d",
+                 poolIdx, entry.driver_index, entry.car_spec_index, playerScore);
+    }
+}
+
+bool State::OnRaceFinished(RaceType raceType, bool won, bool pink_slip) {
+    if (won) {
+        reputation.RecordWin(raceType);
+        if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
+            lastChallengerPoolIndex < RACER_POOL_SIZE) {
+            racerPool.OnRaceWon(lastChallengerPoolIndex, pink_slip);
+        }
+        if (pendingIsPinkSlip) {
+            // TODO: transfer opponent car to ownedCars
+            LOG_INFO("State::OnRaceFinished - pink slip win, car transfer not yet implemented");
+        } else {
+            bankroll += pendingBetAmount;
+        }
+        LOG_INFO("State::OnRaceFinished - WIN $%d bankroll=%d drag_rep=%d road_rep=%d pool_active=%d",
+                 pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep,
+                 racerPool.CountActive());
+
+        // King beaten in drag race → end-game.
+        if (lastChallengerPoolIndex == RACER_KING_SLOT && raceType == RaceType::Drag) {
+            LOG_INFO("State::OnRaceFinished - King beaten in drag! Triggering end-game.");
+            return true;
+        }
+    } else {
+        reputation.RecordLoss();
+        if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
+            lastChallengerPoolIndex < RACER_POOL_SIZE) {
+            racerPool.OnRaceLost(lastChallengerPoolIndex);
+        }
+        if (pendingIsPinkSlip) {
+            // TODO: remove current car from ownedCars and transfer to opponent
+            LOG_INFO("State::OnRaceFinished - pink slip loss, car transfer not yet implemented");
+        } else {
+            bankroll = std::max(0, bankroll - pendingBetAmount);
+        }
+        LOG_INFO("State::OnRaceFinished - LOSS $%d bankroll=%d drag_rep=%d road_rep=%d",
+                 pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep);
+    }
+    return false;
 }
 
 // Global object

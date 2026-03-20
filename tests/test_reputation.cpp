@@ -31,8 +31,8 @@ TEST_SUITE("Reputation::RecordLoss") {
 TEST_CASE("loss decrements both reps") {
     Reputation r;
     r.RecordLoss();
-    CHECK(r.drag_rep == -2);
-    CHECK(r.road_rep == -3);
+    CHECK(r.drag_rep == -3);
+    CHECK(r.road_rep == -2);
 }
 
 TEST_CASE("loss increments races_completed and clears last_race_won") {
@@ -47,8 +47,8 @@ TEST_CASE("reps can go negative") {
     Reputation r;
     r.RecordLoss();
     r.RecordLoss();
-    CHECK(r.drag_rep == -4);
-    CHECK(r.road_rep == -6);
+    CHECK(r.drag_rep == -6);
+    CHECK(r.road_rep == -4);
 }
 
 } // TEST_SUITE

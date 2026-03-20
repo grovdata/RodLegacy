@@ -1220,6 +1220,38 @@ enum SrTransmissionType {
     SR_TRANS_COUNT = 13
 };
 
+// SR_data challenger dialog block: 22 entries × 10 bytes = 220 bytes.
+// Byte layout confirmed identical between DOS HOT_DATA and Amiga SR_data runtime.
+static constexpr int SR_DATA_DRIVER_ENTRY_COUNT  = 22;
+static constexpr int SR_DATA_CARSPEC_ENTRY_COUNT = 26; // 25 regular + King at index 25
+static constexpr int SR_DATA_KING_DRIVER_INDEX   = 21; // entry 21 = The King
+static constexpr int SR_DATA_KING_CARSPEC_INDEX  = 25; // spec 25 = The King's car
+
+#pragma pack(push, 1)
+struct SrDriverData {
+    uint8_t tier;       // [0] difficulty tier: 0=easy, 1=medium, 2=hard
+    uint8_t reaction;   // [1] reaction time 0x0A (fast) – 0x14 (slow)
+    uint8_t aggression; // [2] aggression 0x04 (low) – 0x0C (high)
+    uint8_t pad0;       // [3] always 0x00
+    char    name[6];    // [4..9] driver name, null-terminated within 6 bytes
+};
+static_assert(sizeof(SrDriverData) == 10, "SrDriverData must be 10 bytes");
+
+// SR_data car spec block: 26 entries × 14 bytes = 364 bytes.
+// TODO: verify exact field layout against Amiga FUN_002435f0 (ComputeCarPerformanceScore inner).
+struct SrCarSpecEntry {
+    uint8_t classification; // [0] car class 0-3 (tier grouping)
+    uint8_t engine;         // [1] engine index (CarEngine_t, 0-8)
+    uint8_t transmission;   // [2] transmission index (SrTransmissionType, 0-12)
+    uint8_t carburetor;     // [3] carburetor index (0=2bbl, 1=4bbl, 2=racing)
+    uint8_t tires;          // [4] tire index (0=stock, 1=brand, 2=racing)
+    uint8_t condition;      // [5] body condition 0-3
+    uint8_t upgrade_flags;  // [6] bits 0-1 = engine/body upgrade availability
+    uint8_t pad[7];         // [7..13] unused
+};
+static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
+#pragma pack(pop)
+
 // Transmission data structure
 struct SrTransmissionData {
     char name[32];           // Transmission name (e.g., "Trnsmsn 4-spd. GM.")
@@ -1246,6 +1278,11 @@ class DataParser {
         // New: Transmission data parsing
         std::vector<SrTransmissionData> ParseTransmissions(const std::vector<uint8_t>& srDataFile);
         std::vector<SrTransmissionData> ParseTransmissions(const std::string& filename);
+
+        // SR_data driver and car spec parsing.
+        // sr_data must be the raw SR_data file bytes (driver block first, then car spec block).
+        std::vector<SrDriverData>   ParseDriverData(const std::vector<uint8_t>& sr_data);
+        std::vector<SrCarSpecEntry> ParseCarSpecTable(const std::vector<uint8_t>& sr_data);
 };
 
 

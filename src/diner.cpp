@@ -673,10 +673,13 @@ void Diner::ShowCallListDialog() {
 
 void Diner::OnFadeComplete() {
     if (initialDelay) {
+        // Pick the next opponent from the pool before the car drives in.
+        state.PickNextOpponent();
         fadeCompleteTime = SDL_GetTicks64();
     } else {
         // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !carBitmap) {
+            state.PickNextOpponent();
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
             animatingCar = true;
         }

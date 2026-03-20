@@ -1445,3 +1445,32 @@ TrackReader::TrackAnalysis TrackReader::AnalyzeTrack(const std::vector<SrTrackCo
 
     return analysis;
 }
+
+std::vector<SrDriverData> DataParser::ParseDriverData(const std::vector<uint8_t>& sr_data) {
+    std::vector<SrDriverData> result;
+    const size_t block_size = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    if (sr_data.size() < block_size) return result;
+
+    result.reserve(SR_DATA_DRIVER_ENTRY_COUNT);
+    for (int i = 0; i < SR_DATA_DRIVER_ENTRY_COUNT; ++i) {
+        SrDriverData entry;
+        memcpy(&entry, sr_data.data() + i * sizeof(SrDriverData), sizeof(SrDriverData));
+        result.push_back(entry);
+    }
+    return result;
+}
+
+std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTable(const std::vector<uint8_t>& sr_data) {
+    std::vector<SrCarSpecEntry> result;
+    const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    if (sr_data.size() < driver_block + carspec_block) return result;
+
+    result.reserve(SR_DATA_CARSPEC_ENTRY_COUNT);
+    for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
+        SrCarSpecEntry entry;
+        memcpy(&entry, sr_data.data() + driver_block + i * sizeof(SrCarSpecEntry), sizeof(SrCarSpecEntry));
+        result.push_back(entry);
+    }
+    return result;
+}

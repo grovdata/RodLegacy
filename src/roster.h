@@ -45,4 +45,5 @@ class Roster {
         const std::vector<Opponent*>& GetKnownOpponents() const;
         Opponent* FindOpponentByName(const std::string& name);
         void SetNextOpponent(Opponent* opp);
+        Opponent* GetOpponentByIndex(int index);
 };

@@ -324,3 +324,8 @@ Opponent* Roster::GetCurrentOpponent() {
     }
     return nullptr;
 }
+
+Opponent* Roster::GetOpponentByIndex(int index) {
+    if (index < 0 || index >= static_cast<int>(opponents.size())) return nullptr;
+    return &opponents[index];
+}

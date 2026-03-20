@@ -18,6 +18,12 @@ https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/
 #include "ui/hud.h"
 #include "audio/audio_manager.h"
 
+enum class RaceOutcome {
+    Ongoing,
+    PlayerWon,
+    PlayerLost,
+};
+
 class Racing {
 
 private:
@@ -128,6 +134,8 @@ private:
 	std::list<float> listLapTimes;		// List of previous lap times
 	float fCurrentLapTime;			// Current lap time
 
+    RaceOutcome raceOutcome = RaceOutcome::Ongoing;
+
 	// Move to generic
 	void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
 
@@ -183,6 +191,7 @@ public:
     // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
+    SrTrackType GetTrackType() const { return currentTrackType; }
 
     // Car configuration
     void SetTransmissionType(bool automatic) { isAutomatic = automatic; }
@@ -206,5 +215,9 @@ public:
     // Crash overlay state
     bool ShouldShowCrashOverlay() const { return bShowCrashOverlay; }
     void HideCrashOverlay() { bShowCrashOverlay = false; }
+
+    // Race outcome — set once player or opponent crosses finish line.
+    RaceOutcome GetRaceOutcome() const { return raceOutcome; }
+    void ResetRaceOutcome() { raceOutcome = RaceOutcome::Ongoing; }
 
 };

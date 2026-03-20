@@ -5,6 +5,8 @@
 #include "roster.h"
 #include "cardata.h"
 #include "car.h"
+#include "reputation.h"
+#include "racer_pool.h"
 
 #include <algorithm>
 #include <set>
@@ -34,6 +36,16 @@ private:
 
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
+
+    Reputation reputation;
+    RacerPool  racerPool;
+    std::vector<SrDriverData>   srDriverData;
+    std::vector<SrCarSpecEntry> srCarSpecData;
+    int lastChallengerPoolIndex = -1;
+
+    RaceType pendingRaceType   = RaceType::Road;
+    int      pendingBetAmount  = 50;
+    bool     pendingIsPinkSlip = false;
 
     std::vector<Car *> carRoster;
     std::vector<Car *> ownedCars;
@@ -85,6 +97,29 @@ public:
     void AddKnownOpponent(Opponent* opp);
     const std::vector<Opponent*>& GetKnownOpponents() const;
     void SetNextOpponent(Opponent* opp);
+
+    void SetPendingRace(RaceType type, int betAmount, bool pinkSlip) {
+        pendingRaceType   = type;
+        pendingBetAmount  = betAmount;
+        pendingIsPinkSlip = pinkSlip;
+    }
+    RaceType GetPendingRaceType()   const { return pendingRaceType; }
+    int      GetPendingBetAmount()  const { return pendingBetAmount; }
+    bool     GetPendingIsPinkSlip() const { return pendingIsPinkSlip; }
+
+    // Pool-based opponent selection. Picks from RacerPool (or The King), updates
+    // lastChallengerPoolIndex, and wires the result into the Roster so existing
+    // Diner code continues to work unchanged via GetNextOpponent().
+    void PickNextOpponent();
+
+    // Call after a race finishes.
+    // won=true → player crossed finish first. pink_slip=true → bet was a pink slip.
+    // Updates Reputation, RacerPool, and bankroll as appropriate.
+    // Returns true if the King was beaten in a drag race (triggers end-game).
+    bool OnRaceFinished(RaceType raceType, bool won, bool pink_slip = false);
+
+    Reputation& GetReputation() { return reputation; }
+    RacerPool&  GetRacerPool()  { return racerPool; }
 
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();

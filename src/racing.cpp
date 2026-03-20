@@ -208,12 +208,21 @@ void Racing::Draw(float fElapsedTime, SDL_Event *event) {
 
 	// Lap Timing and counting
 	fCurrentLapTime += deltaTime;
-	if (fDistance >= fTrackDistance)
+	if (fDistance >= fTrackDistance && raceOutcome == RaceOutcome::Ongoing)
 	{
-		fDistance -= fTrackDistance;
+		// Player crossed finish line — record outcome then stop advancing.
+		if (!opponentActive || fDistance <= opponentDistance) {
+			raceOutcome = RaceOutcome::PlayerWon;
+		} else {
+			raceOutcome = RaceOutcome::PlayerLost;
+		}
 		listLapTimes.push_front(fCurrentLapTime);
 		listLapTimes.pop_back();
 		fCurrentLapTime = 0.0f;
+	}
+	// Freeze distance at finish once outcome is decided.
+	if (raceOutcome != RaceOutcome::Ongoing) {
+		fDistance = fTrackDistance;
 	}
 
 	// Find position on track (could optimise)
@@ -2038,9 +2047,12 @@ void Racing::UpdateOpponent(float deltaTime) {
     // Move opponent along track (using same speed scaling as player)
     opponentDistance += (105.0f * opponentSpeed) * deltaTime;
     
-    // Handle lap completion
-    if (opponentDistance >= fTrackDistance) {
-        opponentDistance -= fTrackDistance;
+    // Handle opponent crossing finish line.
+    if (opponentDistance >= fTrackDistance && raceOutcome == RaceOutcome::Ongoing) {
+        raceOutcome = RaceOutcome::PlayerLost;
+    }
+    if (raceOutcome != RaceOutcome::Ongoing) {
+        opponentDistance = fTrackDistance;
     }
     
     // Simple steering for opponent (follow track curvature with some variation)
