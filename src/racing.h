@@ -219,5 +219,6 @@ public:
     // Race outcome — set once player or opponent crosses finish line.
     RaceOutcome GetRaceOutcome() const { return raceOutcome; }
     void ResetRaceOutcome() { raceOutcome = RaceOutcome::Ongoing; }
+    void ResetForNewRace();
 
 };

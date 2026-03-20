@@ -2,12 +2,34 @@
 #include "diner.h"
 #include "state.h"
 #include "ui/hud.h"
-#include "ui/bubble.h"
 #include "cardata.h"
 #include "debug_overlay.h"
 #include "animated_bitmap.h"
+#include <cstdlib>
 
 double carAnimationTimeDiner = 0;
+
+const std::vector<std::string> Diner::kInsults = {
+    "Blow it out your ear!",
+    "Forget it, geek!",
+    "Beat it, twerp!",
+    "No way, ya nerd!",
+    "Get lost!",
+    "Give me a break!",
+    "Get outta my face!",
+    "Buzz off!",
+    "Whadda loser!",
+    "Chicken!"
+};
+
+const std::vector<std::string> Diner::kAcceptances = {
+    "You're on!",
+    "Alright!",
+    "Let's go!",
+    "Cool!",
+    "O.K.!",
+    "Let's hit it!"
+};
 double carExitAnimationTime = 0;
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN}) {
@@ -39,9 +61,14 @@ void Diner::Init(bool debugMode) {
     SDL_Rect backgroundRect = {0, 0, 320, 169};
     Zone backgroundZone(ZONE_DINER_BACKGROUND, strdup(""), &backgroundRect);
 
+    // Zone covering the parked opponent car area (car idles at x=82 in diner)
+    SDL_Rect challengeRect = {82, 85, 200, 75};
+    Zone challengeZone(ZONE_DINER_CHALLENGE_OPPONENT, strdup("Challenge!"), &challengeRect);
+
     zones.push_back(order);
     zones.push_back(opponent);
     zones.push_back(garage);
+    zones.push_back(challengeZone);
     zones.push_back(backgroundZone);
 
     auto guyBubble = std::make_unique<Bubble>("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
@@ -132,6 +159,12 @@ void Diner::Action(ZoneId zone) {
             bubbles[0]->SetVisible(true);
         } else {
             ShowCallListDialog();
+        }
+    } else if (zone == ZONE_DINER_CHALLENGE_OPPONENT) {
+        if (carBitmap && !animatingCar && !exitingCar && currentOpponent
+                && challengeStep == ChallengeStep::NONE
+                && acceptTimer < 0.0f && insultTimer < 0.0f) {
+            ShowRaceTypeDialog();
         }
     }
 }
@@ -239,10 +272,65 @@ void Diner::Draw() {
         b->Draw();
     }
 
+    // Process deferred dialog transitions (button callbacks must not reset the dialog
+    // from inside HandleEvent, so they only set flags which we act on here).
+    if (pendingShowInsult) {
+        pendingShowInsult = false;
+        pendingChallengeStep = ChallengeStep::NONE;
+        challengeStep = ChallengeStep::NONE;
+        if (challengeDialog) challengeDialog->Hide();
+        ShowOpponentSpeech(kInsults[rand() % kInsults.size()]);
+    } else if (pendingStartRace) {
+        pendingStartRace = false;
+        pendingChallengeStep = ChallengeStep::NONE;
+        challengeStep = ChallengeStep::NONE;
+        if (challengeDialog) challengeDialog->Hide();
+        StartChallengeRace();
+    } else if (pendingChallengeStep != ChallengeStep::NONE) {
+        ChallengeStep next = pendingChallengeStep;
+        pendingChallengeStep = ChallengeStep::NONE;
+        switch (next) {
+            case ChallengeStep::DRAG_BET: ShowDragBetDialog(); break;
+            case ChallengeStep::ROAD_BET: ShowRoadBetDialog(); break;
+            default: break;
+        }
+    }
+
+    if (opponentBubble) {
+        opponentBubble->Draw();
+    }
+
+    if (challengeDialog && challengeDialog->IsVisible()) {
+        challengeDialog->Draw();
+    }
+
     if (debugMode && debugOverlay) {
         debugOverlay->Draw();
     }
     hud->Draw();
+
+    // Accept timer: transition to driving after opponent accepts the challenge
+    if (acceptTimer >= 0.0f) {
+        acceptTimer += static_cast<float>(deltaTime);
+        if (acceptTimer >= 1.5f) {
+            acceptTimer = -1.0f;
+            FadeOut();
+            state.MoveToScene(SCENE_DRIVING);
+        }
+    }
+
+    // Insult timer: trigger opponent car exit after insult is shown
+    if (insultTimer >= 0.0f) {
+        insultTimer += static_cast<float>(deltaTime);
+        if (insultTimer >= 2.0f) {
+            insultTimer = -1.0f;
+            if (opponentBubble) {
+                opponentBubble->SetVisible(false);
+            }
+            exitingCar = true;
+            debugWaitTimer = 0;
+        }
+    }
 }
 
 void Diner::DrawMaskAfterCar() {
@@ -339,6 +427,12 @@ void Diner::UpdateDebugInfo() {
 }
 
 bool Diner::PushEvent(SDL_Event *event) {
+    // Route events to challenge dialog before the scene processes them
+    if (challengeDialog && challengeDialog->IsVisible()) {
+        challengeDialog->HandleEvent(event);
+        return true;
+    }
+
     bool consumed = CarScene::PushEvent(event);
     if (!debugMode) return consumed;
 
@@ -486,11 +580,23 @@ void Diner::OnSceneExit() {
     carx = 0;
     cary = 0;
     currentOpponent = nullptr;
-    
+
+    // Reset challenge dialog state
+    challengeStep = ChallengeStep::NONE;
+    pendingChallengeStep = ChallengeStep::NONE;
+    pendingStartRace = false;
+    pendingShowInsult = false;
+    if (challengeDialog) {
+        challengeDialog->Hide();
+    }
+    opponentBubble.reset();
+    acceptTimer = -1.0f;
+    insultTimer = -1.0f;
+
     // Reset waitress animation state
     waitressState = WAITRESS_ENTERING;
     waitressAnimTime = 0.0;
-    
+
     // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
 }
@@ -562,6 +668,101 @@ void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLef
             break;
         }
     }
+}
+
+static Dialog* MakeChallengeDialog(const std::vector<std::string>& labels,
+                                    SFont_Font* font,
+                                    std::function<void(int)> onPressed)
+{
+    // Layout: dialog centered horizontally, buttons stacked vertically
+    const int dlgX = 80, dlgW = 160;
+    const int btnX = dlgX + 10, btnW = dlgW - 20, btnH = 14;
+    const int topPad = 6, spacing = 3;
+    int dlgH = topPad + static_cast<int>(labels.size()) * (btnH + spacing) - spacing + topPad;
+    int dlgY = (200 - dlgH) / 2;
+
+    SDL_Rect bounds = {dlgX, dlgY, dlgW, dlgH};
+
+    DialogConfig cfg;
+    cfg.font = font;
+    cfg.bounds = bounds;
+    cfg.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    cfg.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    cfg.onButtonPressed = onPressed;
+
+    int y = dlgY + topPad;
+    for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
+        SDL_Rect r = {btnX, y, btnW, btnH};
+        cfg.buttons.push_back({r, labels[i], nullptr, i == 0, i});
+        y += btnH + spacing;
+    }
+
+    auto* dlg = new Dialog(cfg);
+    dlg->Show();
+    return dlg;
+}
+
+void Diner::ShowRaceTypeDialog() {
+    challengeStep = ChallengeStep::RACE_TYPE;
+    challengeDialog.reset(MakeChallengeDialog(
+        {"Road Race", "Drag Race", "Forget it"},
+        state.GetAssets().GetMainFont(),
+        [this](int idx) {
+            // Defer: never reset challengeDialog from inside HandleEvent
+            switch (idx) {
+                case 0: pendingChallengeStep = ChallengeStep::ROAD_BET; break;
+                case 1: pendingChallengeStep = ChallengeStep::DRAG_BET; break;
+                case 2: pendingShowInsult = true; break;
+            }
+        }
+    ));
+}
+
+void Diner::ShowDragBetDialog() {
+    challengeStep = ChallengeStep::DRAG_BET;
+    challengeDialog.reset(MakeChallengeDialog(
+        {"Just for kicks", "$25", "$50", "Forget it"},
+        state.GetAssets().GetMainFont(),
+        [this](int idx) {
+            if (idx == 3) {
+                pendingShowInsult = true;
+                return;
+            }
+            static const int bets[] = {0, 25, 50};
+            state.SetPendingRace(RaceType::Drag, bets[idx], false);
+            pendingStartRace = true;
+        }
+    ));
+}
+
+void Diner::ShowRoadBetDialog() {
+    challengeStep = ChallengeStep::ROAD_BET;
+    challengeDialog.reset(MakeChallengeDialog(
+        {"$25", "$100", "Pink slips", "Forget it"},
+        state.GetAssets().GetMainFont(),
+        [this](int idx) {
+            if (idx == 3) {
+                pendingShowInsult = true;
+                return;
+            }
+            static const int bets[] = {25, 100, 0};
+            bool pinkSlip = (idx == 2);
+            state.SetPendingRace(RaceType::Road, bets[idx], pinkSlip);
+            pendingStartRace = true;
+        }
+    ));
+}
+
+void Diner::ShowOpponentSpeech(const std::string& text) {
+    opponentBubble = std::make_unique<Bubble>(text, BUBBLE_LEFT, 85, 90, false);
+    opponentBubble->SetVisible(true);
+    insultTimer = 0.0f;
+}
+
+void Diner::StartChallengeRace() {
+    ShowOpponentSpeech(kAcceptances[rand() % kAcceptances.size()]);
+    acceptTimer = 0.0f;
+    insultTimer = -1.0f;  // Not an insult, don't trigger car exit
 }
 
 void Diner::ShowCallListDialog() {

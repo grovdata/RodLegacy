@@ -78,4 +78,5 @@ private:
         bool PushEvent(SDL_Event *event) override;
 
         void SetState(DrivingState state);
+        void OnFadeComplete() override;
 };

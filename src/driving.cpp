@@ -340,6 +340,30 @@ void Driving::SetState(DrivingState state) {
     }
 }
 
+void Driving::OnFadeComplete() {
+    if (!racing) return;
+
+    RaceType pendingType = state.GetPendingRaceType();
+    SrTrackType trackType = (pendingType == RaceType::Drag)
+                            ? SR_TRACK_DRAG_RACE : SR_TRACK_ROAD_RACE;
+
+    // Load the appropriate track (falls back to existing data if EXE not available)
+    byte_vector& srExeData = state.GetAssets().GetSrExeData();
+    if (!srExeData.empty()) {
+        racing->LoadTrackData(srExeData, trackType);
+    } else {
+        racing->SetTrackType(trackType);
+    }
+
+    racing->ResetForNewRace();
+    racing->InitializeOpponent();
+
+    LOG_INFO("Driving::OnFadeComplete - race starting: type=%s bet=%d pinkSlip=%d",
+             pendingType == RaceType::Drag ? "Drag" : "Road",
+             state.GetPendingBetAmount(),
+             state.GetPendingIsPinkSlip() ? 1 : 0);
+}
+
 void Driving::UpdateDiceAnimation(float deltaTime, bool carIsMoving) {
     if (!carIsMoving) {
         // Reset timer when car is not moving - dice stop

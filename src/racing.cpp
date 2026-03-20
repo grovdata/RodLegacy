@@ -625,6 +625,33 @@ void Racing::SetTrackType(SrTrackType trackType) {
     currentTrackType = trackType;
 }
 
+void Racing::ResetForNewRace() {
+    fDistance = 0.0f;
+    fSpeed = 0.0f;
+    fCarPos = 0.0f;
+    fCurvature = 0.0f;
+    fTrackCurvature = 0.0f;
+    fPlayerCurvature = 0.0f;
+    bCrashed = false;
+    bShowCrashOverlay = false;
+    fCrashRecoveryTime = 0.0f;
+    fCrashOverlayTime = 0.0f;
+    velocity = 1500;
+    rpm = 1500;
+    intermediate = 0;
+    currentGear = 0;
+    transmissionDamage = 0;
+    raceStartGracePeriod = 3.0f;
+    raceOutcome = RaceOutcome::Ongoing;
+    engineSoundStarted = false;
+    firstUpdate = true;
+    passedSprites.clear();
+    lastLoggedDistance = -1.0f;
+    lastProgressLogDistance = -1.0f;
+    lastLoggedSegment = -1;
+    SDL_Log("Racing::ResetForNewRace - race state reset");
+}
+
 void Racing::ConvertTrackCoordinatesToRacing() {
     vecTrack.clear();
     

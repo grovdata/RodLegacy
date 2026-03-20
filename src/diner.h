@@ -5,6 +5,11 @@
 #include "debug_overlay.h"
 #include "animated_bitmap.h"
 #include "dialogs/list_dialog.h"
+#include "dialogs/dialog.h"
+#include "ui/bubble.h"
+#include "parsers/libp.h"
+#include <vector>
+#include <string>
 class Opponent;
 
 class Diner: public CarScene {
@@ -60,6 +65,27 @@ class Diner: public CarScene {
 
     std::unique_ptr<ListDialog> callListDialog;
     void ShowCallListDialog();
+
+    // Challenge dialog state
+    enum class ChallengeStep { NONE, RACE_TYPE, DRAG_BET, ROAD_BET };
+    ChallengeStep challengeStep = ChallengeStep::NONE;
+    ChallengeStep pendingChallengeStep = ChallengeStep::NONE;  // deferred transition
+    std::unique_ptr<Dialog> challengeDialog;
+    std::unique_ptr<Bubble> opponentBubble;
+    float acceptTimer = -1.0f;
+    float insultTimer = -1.0f;
+    // Set by button callbacks when a race is accepted (deferred to avoid mid-loop reset)
+    bool pendingStartRace = false;
+    bool pendingShowInsult = false;
+
+    static const std::vector<std::string> kInsults;
+    static const std::vector<std::string> kAcceptances;
+
+    void ShowRaceTypeDialog();
+    void ShowDragBetDialog();
+    void ShowRoadBetDialog();
+    void ShowOpponentSpeech(const std::string& text);
+    void StartChallengeRace();
 
     public:
         Diner();

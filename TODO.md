@@ -1,3 +1,24 @@
+# To do in dissassembly / reversing
+
+## Investigate how cheating works
+There are money cheats in the game.
+
+### MS-DOS
+
+[Link](https://www.streetrodonline.com/2013/11/22/how-to-get-more-money-in-street-rod/)
+
+- Buy the 1949 Chevrolet 2dr Styleline for $475
+- Remove the transmission
+- Completely remove the engine
+- Sell the car for $30000
+
+### Amiga
+
+[Link](https://eab.abime.net/showthread.php?t=16819&page=6&styleid=4)
+
+- Buy any car or buy the cheapest one, and try to sell it for the same price you bought it for
+- They will offer a lower price. Refuse it, then try it again. They will offer a higher price. Refuse it, then sell the car for $22,001.
+
 # Current progress
 
 - [x] Garage
