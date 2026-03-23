@@ -141,6 +141,7 @@ cpp_sources = [
     'diner.cpp',
     'driving.cpp',
     'racing.cpp',
+    'challenge.cpp',
     'garage/garage.cpp',
     'garage/garage_menus.cpp',
     'garage/garage_modifications.cpp',
