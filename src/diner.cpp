@@ -145,7 +145,7 @@ void Diner::Action(ZoneId zone) {
     }
 }
 
-void Diner::Draw() {
+void Diner::DrawScene() {
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
@@ -171,7 +171,7 @@ void Diner::Draw() {
     // Update waitress sequence animation
     UpdateWaitressSequence(deltaTime, waitressLeft, waitressRight);
 
-    Scene::Draw();
+    Scene::DrawScene();
     if (!isSetup) {
         Init(debugMode);
         isSetup = true;
@@ -257,7 +257,7 @@ void Diner::Draw() {
     }
     if (challenge->WantsCarExit()) {
         challenge->Reset();
-        exitingCar = true;
+        TriggerCarExit();
         debugWaitTimer = 0;
     }
 
@@ -440,8 +440,12 @@ void Diner::UpdateCarAnimation(double deltaTime) {
             LOG_INFO("Diner::UpdateCarAnimation - Waiting for exit: waitTimer=%.1f, WAIT_BEFORE_EXIT=3.0", debugWaitTimer);
         }
         
+        // Hold the timer while a challenge dialog is in progress
+        if (!CanStartCarExit()) {
+            debugWaitTimer = 0;
+        }
         // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
-        if (debugWaitTimer >= 3.0) {
+        else if (debugWaitTimer >= 3.0) {
             LOG_INFO("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
             exitingCar = true;
             debugWaitTimer = 0;  // Reset for next cycle

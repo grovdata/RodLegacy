@@ -119,7 +119,7 @@ SDL_Point GasStation::GetCarIdlePosition() {
     return {x, y};
 }
 
-void GasStation::Draw() {
+void GasStation::DrawScene() {
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
@@ -132,7 +132,7 @@ void GasStation::Draw() {
         attendant->Update(deltaTime);
     }
 
-    Scene::Draw();
+    Scene::DrawScene();
 
     // Wait 2s
     if (initialDelay) {

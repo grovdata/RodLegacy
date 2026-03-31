@@ -90,11 +90,10 @@ void Scene::Init(bool initialDebugMode) {
     hud->SetVisible(true);
     hud->Clear();
 
-    fadeSurface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_HEIGHT, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
-    SDL_FillRect(fadeSurface.get(), &m_backgroundRect, SDL_MapRGB(fadeSurface->format, 0, 0, 0));
-    fadeTexture = sdl2::TexturePtr(SDL_CreateTextureFromSurface(renderer, fadeSurface.get()));
-    SDL_SetTextureBlendMode(fadeTexture.get(), SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_OPAQUE);
+    sceneTarget = sdl2::TexturePtr(SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                                     SDL_TEXTUREACCESS_TARGET,
+                                                     GAME_WIDTH, GAME_HEIGHT));
+    SDL_SetTextureBlendMode(sceneTarget.get(), SDL_BLENDMODE_NONE);
 
     FadeIn();
 }
@@ -175,7 +174,7 @@ SDL_Texture *Scene::GetTexture() {
     return texture.get();
 }
 
-void Scene::Draw() {
+void Scene::DrawScene() {
     if (background) {
         background->Draw();
     }
@@ -187,6 +186,20 @@ void Scene::Draw() {
         debugOverlay->Draw();
     }
     hud->Draw();
+}
+
+void Scene::Draw() {
+    SDL_SetRenderTarget(renderer, sceneTarget.get());
+    SDL_RenderClear(renderer);
+
+    DrawScene();
+    DrawExtra();
+
+    SDL_SetRenderTarget(renderer, nullptr);
+
+    Uint8 c = 255 - fadeAlpha;
+    SDL_SetTextureColorMod(sceneTarget.get(), c, c, c);
+    SDL_RenderCopy(renderer, sceneTarget.get(), nullptr, nullptr);
 }
 
 void Scene::SetActiveDialog(Dialog *dialog) {
@@ -241,14 +254,12 @@ void Scene::Action(ZoneId zone) {
 void Scene::FadeIn() {
     fadeAlpha = 255;
     fadeStartTime = SDL_GetTicks64();
-    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_OPAQUE);
     sceneTransition = SCENE_FADE_IN;
 }
 
 void Scene::FadeOut() {
     fadeAlpha = 0;
     fadeStartTime = SDL_GetTicks64();
-    SDL_SetTextureAlphaMod(fadeTexture.get(), SDL_ALPHA_TRANSPARENT);
     sceneTransition = SCENE_FADE_OUT;
 }
 
@@ -265,21 +276,19 @@ void Scene::UpdateFade(Uint64 deltaTime) {
                 fadeAlpha = 255;
                 sceneTransition = SCENE_BLACK;
             }
-            SDL_SetTextureAlphaMod(fadeTexture.get(), fadeAlpha);
             OnFadeComplete();
         } else {
             // Calculate fade progress (0.0 to 1.0)
             float progress = static_cast<float>(elapsed) / static_cast<float>(FADE_DURATION_MS);
-            
+
+            // Quantize to 15 steps to match Amiga palette nibble stepping
+            Uint8 step;
             if (sceneTransition == SCENE_FADE_IN) {
-                // Fade from opaque (255) to transparent (0)
-                fadeAlpha = static_cast<Uint8>(255 * (1.0f - progress));
-            } else if (sceneTransition == SCENE_FADE_OUT) {
-                // Fade from transparent (0) to opaque (255)
-                fadeAlpha = static_cast<Uint8>(255 * progress);
+                step = static_cast<Uint8>((1.0f - progress) * 15);
+            } else {
+                step = static_cast<Uint8>(progress * 15);
             }
-            
-            SDL_SetTextureAlphaMod(fadeTexture.get(), fadeAlpha);
+            fadeAlpha = step * 17;
         }
     }
 }
@@ -468,7 +477,6 @@ SDL_Point CarScene::GetCarIdlePosition() {
 }
 
 void CarScene::DrawMaskAfterCar() {
-    SDL_RenderCopy(renderer, fadeTexture.get(), NULL, &m_backgroundRect);
 }
 
 void CarScene::DrawExtra() {
@@ -634,11 +642,15 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
         // Handle waiting timers for OPPONENT_CONTINUOUS only
         if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
             if (!animatingCar && !exitingCar && carBitmap) {
-                waitTimer += deltaTime;
-                if (waitTimer >= WAIT_BEFORE_EXIT) {
-                    exitingCar = true;
+                if (!CanStartCarExit()) {
                     waitTimer = 0;
-                    carExitAnimationTime = 0;
+                } else {
+                    waitTimer += deltaTime;
+                    if (waitTimer >= WAIT_BEFORE_EXIT) {
+                        exitingCar = true;
+                        waitTimer = 0;
+                        carExitAnimationTime = 0;
+                    }
                 }
             }
             
@@ -650,6 +662,14 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
             }
         }
+    }
+}
+
+void CarScene::TriggerCarExit() {
+    if (!exitingCar && carBitmap) {
+        exitingCar = true;
+        waitTimer = 0;
+        carExitAnimationTime = 0;
     }
 }
 

@@ -74,7 +74,7 @@ private:
         // void Action(ZoneId zone) override;
         void Start();
 
-        void Draw() override;
+        void DrawScene() override;
         bool PushEvent(SDL_Event *event) override;
 
         void SetState(DrivingState state);

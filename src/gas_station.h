@@ -35,7 +35,7 @@ class GasStation : public CarScene {
     SDL_Point GetCarIdlePosition() override;
 
     void Action(ZoneId zone) override;
-    void Draw() override;
+    void DrawScene() override;
     void DrawMaskAfterCar() override;
     void UpdateCarAnimation(double deltaTime) override;
     void OnCarAnimationComplete() override;

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Street Rod Legacy is a C++17 reimplementation of the classic Street Rod game using SDL2. It reads original Amiga disk images (.adf) for game assets. The executable is `open_sr`.
+Street Rod Legacy is a C++17 reimplementation of the classic Street Rod game using SDL2. It reads original Amiga disk images (.adf) for game assets. The executable is `rodlegacy`.
 
 ## Build Commands
 
@@ -19,7 +19,7 @@ ninja -C build
 ninja -C build
 
 # Run (requires SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf in working directory)
-./build/open_sr
+./build/rodlegacy
 ```
 
 Build system: Meson + Ninja. Dependencies are vendored as Meson subprojects in `subprojects/`.

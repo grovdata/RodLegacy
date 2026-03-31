@@ -315,8 +315,8 @@ void Newspaper::AddDivider(int /* y */) {
     // adsArea.UpdateFromSurface();
 }
 
-void Newspaper::Draw() {
-    Scene::Draw();
+void Newspaper::DrawScene() {
+    Scene::DrawScene();
     exit.Draw();
     
     headline.Draw();

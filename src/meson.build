@@ -118,12 +118,12 @@ else
 endif
 
 # C sources
-c_sources = [
+c_sources = files(
     'SFont.c'
-]
+)
 
 # C++ sources
-cpp_sources = [
+cpp_sources = files(
     'main.cpp',
     'mouse.cpp',
     'parsers/adf.c',
@@ -162,11 +162,11 @@ cpp_sources = [
     'ui/bubble.cpp',
     'ui/label.cpp',
     'ui/hud.cpp',
-    'dialogs/dialog.cpp',    
+    'dialogs/dialog.cpp',
     'dialogs/list_dialog.cpp',
     'dialogs/colorpicker.cpp',
     'ui/rectangle.cpp',
-]
+)
 
 # Windows resource compilation
 if host_machine.system() == 'windows'
@@ -219,6 +219,7 @@ embedded_resources = custom_target('embedded_resources',
 
 # Include directories
 inc_dirs = include_directories(
+    '.',
     'include'
 )
 
@@ -233,25 +234,3 @@ if host_machine.system() == 'windows'
 endif
 
 
-executable('open_sr',
-    sources: c_sources + cpp_sources + [embedded_resources],
-    include_directories: inc_dirs,
-    dependencies: [
-        sdl2_dep,
-        sdl2_image_dep,
-        sdl2_mixer_dep,
-        adflib_dep,
-        lodepng_dep,
-        tinyfiledialogs_dep,
-    ],
-    cpp_args: cpp_args,
-    c_args: c_args,
-    link_args: host_machine.system() == 'linux' ? [
-        '-lm', '-ldl', '-lpthread', '-lrt',
-        '-lasound', '-lpulse-simple', '-lpulse',
-        '-lX11', '-lXext', '-lXcursor', '-lXinerama', '-lXi', '-lXfixes', '-lXrandr', '-lXss', '-lXxf86vm',
-        '-ldrm', '-lgbm', '-lwayland-egl', '-lwayland-client', '-lwayland-cursor', '-lxkbcommon', '-ldecor-0',
-        '-lxcb', '-lXau', '-lXdmcp', '-lpthread',
-        '-lXrender'
-    ] : []
-)

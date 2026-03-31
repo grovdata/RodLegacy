@@ -100,7 +100,9 @@ bool Challenge::HandleEvent(SDL_Event* event) {
     if (!dialog || !dialog->IsVisible()) return false;
     auto d = std::move(dialog);
     d->HandleEvent(event);
-    if (!dialog) dialog = std::move(d); // restore if callback didn't replace it
+    // Restore only if the callback didn't end or replace the flow.
+    // Accept/Reject set step=None; in that case the dialog stays dismissed.
+    if (!dialog && step != Step::None) dialog = std::move(d);
     return true;
 }
 

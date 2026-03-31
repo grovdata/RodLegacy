@@ -427,8 +427,8 @@ void Driving::UpdateDiceAnimation(float deltaTime, bool carIsMoving) {
     }
 }
 
-void Driving::Draw() {
-    Scene::Draw();
+void Driving::DrawScene() {
+    Scene::DrawScene();
 
     // Update racing simulation
     if (racing) {

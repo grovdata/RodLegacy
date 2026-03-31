@@ -485,7 +485,7 @@ void Garage::Action(ZoneId zone) {
     }
 }
 
-void Garage::Draw() {
+void Garage::DrawScene() {
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
@@ -493,7 +493,7 @@ void Garage::Draw() {
     UpdateCarAnimation(deltaTime);
     UpdateTireChangeAnimation(deltaTime);
 
-    Scene::Draw();
+    Scene::DrawScene();
 
     // Mask the static car jack in the background with the last animation frame
     if (tireChangePhase != TireChangePhase::IDLE && jackAnim && jackLastFrameRect.w > 0) {

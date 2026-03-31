@@ -460,7 +460,6 @@ int main(int argc, char* argv[]) {
         scene->Update(delta);
 
         scene->Draw();
-        scene->DrawExtra();
 
         mouse.Draw();
 

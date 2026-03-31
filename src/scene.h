@@ -41,9 +41,8 @@ class Scene: public IDrawableContainer {
     Dialog *activeDialog = nullptr;  // Non-owning pointer - dialogs owned by derived classes
 
     sdl2::SurfacePtr surface;
-    sdl2::SurfacePtr fadeSurface;
     sdl2::TexturePtr texture;
-    sdl2::TexturePtr fadeTexture;
+    sdl2::TexturePtr sceneTarget;
     SDL_Rect m_backgroundRect;
     SrLibAmigaSpriteAsset currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
 
@@ -84,7 +83,8 @@ class Scene: public IDrawableContainer {
     virtual void OnSceneExit();
 
     virtual void Action(ZoneId zone);
-    virtual void Draw();
+    void Draw();                // Non-virtual: manages render target + fade color mod
+    virtual void DrawScene();  // Override in derived classes for scene-specific drawing
     virtual void DrawExtra() {} // Override in derived classes for additional drawing
     virtual bool PushEvent(SDL_Event *event);
 
@@ -135,7 +135,15 @@ protected:
     virtual void UpdateCarAnimation(double deltaTime);
     virtual void OnCarAnimationComplete() {};
     virtual void OnCarExitComplete() {}
-    
+
+    // Return false to hold the opponent in place (e.g. while a dialog is open).
+    // The wait timer is reset while this returns false so the car stays the
+    // full idle period after the block is lifted.
+    virtual bool CanStartCarExit() const { return true; }
+
+    // Immediately start the car exit animation (bypasses idle wait timer).
+    void TriggerCarExit();
+
     // Helper to get Amiga period for car animations
     int16_t GetCarAnimationPeriod(double progress, bool isDrivingIn);
 

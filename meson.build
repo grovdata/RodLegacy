@@ -15,4 +15,28 @@ sdl2_dep = dependency('sdl2', static: true)
 
 
 subdir('src')
+
+executable('rodlegacy',
+    sources: c_sources + cpp_sources + [embedded_resources],
+    include_directories: inc_dirs,
+    dependencies: [
+        sdl2_dep,
+        sdl2_image_dep,
+        sdl2_mixer_dep,
+        adflib_dep,
+        lodepng_dep,
+        tinyfiledialogs_dep,
+    ],
+    cpp_args: cpp_args,
+    c_args: c_args,
+    link_args: host_machine.system() == 'linux' ? [
+        '-lm', '-ldl', '-lpthread', '-lrt',
+        '-lasound', '-lpulse-simple', '-lpulse',
+        '-lX11', '-lXext', '-lXcursor', '-lXinerama', '-lXi', '-lXfixes', '-lXrandr', '-lXss', '-lXxf86vm',
+        '-ldrm', '-lgbm', '-lwayland-egl', '-lwayland-client', '-lwayland-cursor', '-lxkbcommon', '-ldecor-0',
+        '-lxcb', '-lXau', '-lXdmcp', '-lpthread',
+        '-lXrender'
+    ] : []
+)
+
 subdir('tests')

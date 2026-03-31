@@ -73,7 +73,7 @@ class Diner: public CarScene {
 
         void Action(ZoneId zone) override;
 
-        void Draw() override;
+        void DrawScene() override;
         void DrawMaskAfterCar() override;
         // void SetStatusBar(char *text) override;
 
@@ -92,4 +92,6 @@ class Diner: public CarScene {
         void OnFadeComplete() override;
         void OnSceneExit() override;
         void FadeOut() override;
+
+        bool CanStartCarExit() const override { return !challenge->IsActive(); }
 };
