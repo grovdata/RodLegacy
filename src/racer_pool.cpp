@@ -23,7 +23,7 @@ int ComputeCarPerformanceScore(const SrCarSpecEntry& spec) {
     if (spec.carburetor     < 3)  score += CARB_SCORE[spec.carburetor];
     if (spec.tires          < 3)  score += TIRE_SCORE[spec.tires];
     score += spec.condition;
-    if (spec.classification < 4)  score += CLASS_BONUS[spec.classification];
+    if (spec.street_cred < 4)  score += CLASS_BONUS[spec.street_cred];
     return std::clamp(score, 0, 130);
 }
 
@@ -47,7 +47,7 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
     // Group car spec indices (0..24) by their classification byte.
     std::vector<int> tier_specs[3];
     for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs.size()); ++i) {
-        int c = std::min<int>(car_specs[i].classification, 2);
+        int c = std::min<int>(car_specs[i].street_cred, 2);
         tier_specs[c].push_back(i);
     }
 
@@ -120,7 +120,7 @@ int RacerPool::FindReplacementCarSpec(int beaten_classification) const {
         if (e.status != -1) used.push_back(e.car_spec_index);
     }
     for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs_.size()); ++i) {
-        if (static_cast<int>(car_specs_[i].classification) < beaten_classification) {
+        if (static_cast<int>(car_specs_[i].street_cred) < beaten_classification) {
             if (std::find(used.begin(), used.end(), i) == used.end()) {
                 return i;
             }
@@ -138,7 +138,7 @@ void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
     }
 
     int beaten_class = (pool[winner_pool_index].car_spec_index < static_cast<int>(car_specs_.size()))
-                       ? car_specs_[pool[winner_pool_index].car_spec_index].classification
+                       ? car_specs_[pool[winner_pool_index].car_spec_index].street_cred
                        : 0;
 
     int replacement = FindReplacementCarSpec(beaten_class);

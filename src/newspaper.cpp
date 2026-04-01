@@ -110,7 +110,7 @@ void Newspaper::LoadClassifiedsData() {
     // Classified cars are already generated in State::Init
     // Just load the metadata and asset IDs to match
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        int carAssetId = CAR_INDEX[i];
+        int carAssetId = kCarIndex[i];
         CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
 
         if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {

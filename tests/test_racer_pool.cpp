@@ -20,7 +20,7 @@ static SrCarSpecEntry MakeSpec(uint8_t classification, uint8_t engine = 0,
                                uint8_t trans = 0, uint8_t carb = 0,
                                uint8_t tires = 0, uint8_t condition = 0) {
     SrCarSpecEntry s{};
-    s.classification = classification;
+    s.street_cred = classification;
     s.engine         = engine;
     s.transmission   = trans;
     s.carburetor     = carb;
@@ -89,7 +89,7 @@ TEST_CASE("out-of-range indices do not access tables") {
     spec.transmission = 13; // out of range for TRANS_SCORE[13]
     spec.carburetor   = 3;  // out of range for CARB_SCORE[3]
     spec.tires        = 3;  // out of range for TIRE_SCORE[3]
-    spec.classification = 4; // out of range for CLASS_BONUS[4]
+    spec.street_cred = 4; // out of range for CLASS_BONUS[4]
     // None of the additions should apply
     CHECK(ComputeCarPerformanceScore(spec) == 70);
 }
@@ -260,7 +260,7 @@ TEST_CASE("pink-slip win: entry replaced with lower-class car when available") {
     int class2_spec = -1;
     auto specs = MakeCarSpecTable();
     for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
-        if (specs[i].classification == 2) { class2_spec = i; break; }
+        if (specs[i].street_cred == 2) { class2_spec = i; break; }
     }
     REQUIRE(class2_spec >= 0);
     rp.pool[0].car_spec_index = class2_spec;
@@ -276,7 +276,7 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     rp.Init(MakeDriverTable(), specs);
     int class2_spec = -1;
     for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
-        if (specs[i].classification == 2) { class2_spec = i; break; }
+        if (specs[i].street_cred == 2) { class2_spec = i; break; }
     }
     REQUIRE(class2_spec >= 0);
     rp.pool[0].car_spec_index = class2_spec;
@@ -284,7 +284,7 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     rp.OnRaceWon(0, true);
     if (rp.pool[0].status == 0) {
         int new_spec = rp.pool[0].car_spec_index;
-        CHECK(specs[new_spec].classification < 2);
+        CHECK(specs[new_spec].street_cred < 2);
     }
 }
 
@@ -384,7 +384,7 @@ TEST_CASE("parses SR_DATA_CARSPEC_ENTRY_COUNT entries") {
     buf[driver_block + 0] = 2;
     auto result = parser.ParseCarSpecTable(buf);
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
-    CHECK(result[0].classification == 2);
+    CHECK(result[0].street_cred == 2);
 }
 
 TEST_CASE("all 26 entries are parsed") {
@@ -398,7 +398,7 @@ TEST_CASE("all 26 entries are parsed") {
     auto result = parser.ParseCarSpecTable(buf);
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
-        CHECK(result[i].classification == static_cast<uint8_t>(i % 4));
+        CHECK(result[i].street_cred == static_cast<uint8_t>(i % 4));
     }
 }
 

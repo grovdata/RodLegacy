@@ -1142,10 +1142,8 @@ void SrLibDataFreeClassified(ClassifiedEntry_t* classified) {
 }
 
 int DataParser::GetCarIndex(AmigaLibAsset asset) {
-    int stockCarCount = sizeof(CAR_INDEX);
-
-    for (int i = 0; i < stockCarCount; i++) {
-        if (CAR_INDEX[i] == (int)asset) {
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        if (kCarIndex[i] == (int)asset) {
             return i;
         }
     }

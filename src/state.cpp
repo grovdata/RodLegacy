@@ -67,7 +67,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         // Generate classified cars for the newspaper
         for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-            int carAssetId = CAR_INDEX[i];
+            int carAssetId = kCarIndex[i];
             CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
             if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
                 CarModel model = carData.GetModelFromIndex(carAssetId);
@@ -210,11 +210,19 @@ int State::GetPlayerScore() const {
     SrCarSpecEntry playerSpec{};
     if (currentCar) {
         playerSpec.engine       = static_cast<uint8_t>(currentCar->GetEngine().engineType);
-        playerSpec.transmission = 0;
-        playerSpec.carburetor   = 0;
-        playerSpec.tires        = 0;
+        playerSpec.transmission = static_cast<uint8_t>(currentCar->GetGearbox().partType.transmissionType);
+        playerSpec.carburetor   = static_cast<uint8_t>(currentCar->GetCarburator().partType.carburetorType);
+        playerSpec.tires        = static_cast<uint8_t>(currentCar->GetWheelType());
         playerSpec.condition    = 0;
-        playerSpec.classification = 0;
+
+        // Reverse-lookup asset index -> carspec index to get street cred.
+        int assetId = currentCar->GetModel().index;
+        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+            if (kCarIndex[i] == assetId && i < static_cast<int>(srCarSpecData.size())) {
+                playerSpec.street_cred = srCarSpecData[i].street_cred;
+                break;
+            }
+        }
     }
     return ComputeCarPerformanceScore(playerSpec);
 }

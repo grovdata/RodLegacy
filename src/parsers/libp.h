@@ -1036,8 +1036,34 @@ enum StockPalette {
 #define PAL_DRIVING {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F0C, 0x0B0A, 0x0F0C, 0x0F0C, 0x0EEE, 0x052F, 0x0FE0, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA}
 // Same as PAL_DRIVING, but some colors are swapped using copperlists
 #define PAL_DRIVING_LOW {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F96, 0x0D94, 0x0D62, 0x0A50, 0x0EEE, 0x0841, 0x0730, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA};
-#define CAR_INDEX ((int[]){179, 183, 187, 191, 194, 197, 200, 204, 206, 210, 214, 216, 220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268}) // King: 272
-#define CAR_INDEX_COUNT sizeof(CAR_INDEX) / sizeof(int)
+static const int kCarIndex[] = {
+    CHEVROLET_2DR_COUPE_1940,
+    CHEVROLET_ROADSTER_1940,
+    CHEVROLET_MASTER_DELUXE_2DR_1938,
+    CHEVROLET_CORVETTE_1956,
+    CHEVROLET_CORVETTE_1961,
+    CHEVROLET_CORVETTE_1963,
+    DODGE_CUSTOM_ROYAL_LANCER_1955,
+    FORD_DEUCE_COUPE_1932,
+    DODGE_POLARA_1962,
+    PLYMOUTH_SAVOY_2DR_1962,
+    FORD_SEDAN_1932,
+    FORD_DELUXE_2DR_1940,
+    FORD_FAIRLANE_VICTORIA_1955,
+    FORD_FAIRLANE_500_1956,
+    MERCURY_MONTEREY_1954,
+    MERCURY_CUSTOM_2DR_1956,
+    CHEVROLET_STYLELINE_2DR_1949,
+    CHEVROLET_IMPALA_1958,
+    OLDSMOBILE_88_2DR_CUSTOM_1949,
+    OLDSMOBILE_88_CUSTOM_1952,
+    PONTIAC_SILVER_STREAK_1950,
+    FORD_THUNDERBIRD_1957,
+    VALIANT_V200_1961,
+    VALIANT_V100_2DR_1963,
+    CHEVROLET_BELAIR_SPORTS_COUPE,
+}; // King: THE_KING_CHEVROLET_CORVETTE_1963
+#define CAR_INDEX_COUNT CAR_PLAYER_MODEL_COUNT
 #define CAR_PLAYER_MODEL_COUNT 25
 #define DRIVER_COUNT 22
 
@@ -1240,7 +1266,7 @@ static_assert(sizeof(SrDriverData) == 10, "SrDriverData must be 10 bytes");
 // SR_data car spec block: 26 entries × 14 bytes = 364 bytes.
 // TODO: verify exact field layout against Amiga FUN_002435f0 (ComputeCarPerformanceScore inner).
 struct SrCarSpecEntry {
-    uint8_t classification; // [0] car class 0-3 (tier grouping)
+    uint8_t street_cred;    // [0] car class 0-3 (street credibility / tier grouping)
     uint8_t engine;         // [1] engine index (CarEngine_t, 0-8)
     uint8_t transmission;   // [2] transmission index (SrTransmissionType, 0-12)
     uint8_t carburetor;     // [3] carburetor index (0=2bbl, 1=4bbl, 2=racing)

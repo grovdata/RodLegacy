@@ -76,7 +76,7 @@ void Roster::Initialize(CarData& carData) {
     opponents.clear();
 
     while (!stockDriverNames.empty()) {
-        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+        int preferredCarIndex = kCarIndex[distrCar(gen)];
 
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
@@ -89,7 +89,7 @@ void Roster::Initialize(CarData& carData) {
 
     // Add one opponent per custom driver
     for (const auto& path : customDriverPaths) {
-        int preferredCarIndex = CAR_INDEX[distrCar(gen)];
+        int preferredCarIndex = kCarIndex[distrCar(gen)];
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
         Car* car = GenerateRandomCar(model);
 

@@ -52,7 +52,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     LOG_INFO("bitmap w %d h%d", bitmap.width, bitmap.height);
 
     if (index <= int(CAR_INDEX_COUNT)) {
-        m.index = CAR_INDEX[index];
+        m.index = kCarIndex[index];
         LOG_INFO("Car body ID: %d", static_cast<int>(m.index));
     }
     m.baseSpeed = 100;
@@ -97,8 +97,8 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
     carMetadata.assign(metadata, metadata + metadataCount);
     
     for (int i = 0; i < metadataCount; i++) {   
-        // Get the car's stock model index from CAR_INDEX array
-        int stockIndex = CAR_INDEX[i];
+        // Get the car's stock model index from kCarIndex array
+        int stockIndex = kCarIndex[i];
         
         // Get the corresponding bitmap for this car model
         BitmapEntry_t& bitmap = bitmaps.second[stockIndex];
@@ -120,7 +120,7 @@ CarMetadata_t CarData::GetCarMetadata(int carIndex) {
     // Convert asset ID (like 179) to array index (0-24)
     int arrayIndex = -1;
     for (int i = 0; i < CAR_INDEX_COUNT; i++) {
-        if (CAR_INDEX[i] == carIndex) {
+        if (kCarIndex[i] == carIndex) {
             arrayIndex = i;
             break;
         }
