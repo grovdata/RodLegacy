@@ -22,9 +22,11 @@ test_sources = [
     'test_car_system.cpp',
     'test_engine_part.cpp',
     'test_racer_pool.cpp',
+    'test_bet_acceptance.cpp',
     '../src/parsers/libp.cpp',
     '../src/car_system.cpp',
     '../src/racer_pool.cpp',
+    '../src/bet_acceptance.cpp',
     # carcolor.cpp intentionally excluded: libp.cpp never calls GetStandardCarColor
     # and carcolor.cpp unnecessarily includes <SDL.h>
     # types.cpp intentionally excluded: operator<(CarModel) is not called by any test

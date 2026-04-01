@@ -206,23 +206,32 @@ void State::SetNextOpponent(Opponent* opp) {
     roster.SetNextOpponent(opp);
 }
 
+int State::GetPlayerScore() const {
+    SrCarSpecEntry playerSpec{};
+    if (currentCar) {
+        playerSpec.engine       = static_cast<uint8_t>(currentCar->GetEngine().engineType);
+        playerSpec.transmission = 0;
+        playerSpec.carburetor   = 0;
+        playerSpec.tires        = 0;
+        playerSpec.condition    = 0;
+        playerSpec.classification = 0;
+    }
+    return ComputeCarPerformanceScore(playerSpec);
+}
+
+int State::GetChallengerScore() const {
+    if (lastChallengerPoolIndex < 0 ||
+        lastChallengerPoolIndex >= RACER_POOL_SIZE) return 70;
+    return racerPool.GetEntryScore(lastChallengerPoolIndex);
+}
+
 void State::PickNextOpponent() {
     // Fall back to Roster shuffle if pool is not initialised.
     if (racerPool.pool.empty()) {
         return;
     }
 
-    // Compute player score from current car.
-    SrCarSpecEntry playerSpec{};
-    if (currentCar) {
-        playerSpec.engine       = static_cast<uint8_t>(currentCar->GetEngine().engineType);
-        playerSpec.transmission = 0; // TODO: expose transmission index from Car
-        playerSpec.carburetor   = 0; // TODO: expose carb index
-        playerSpec.tires        = 0; // TODO: expose tire index
-        playerSpec.condition    = 0;
-        playerSpec.classification = 0;
-    }
-    int playerScore = ComputeCarPerformanceScore(playerSpec);
+    int playerScore = GetPlayerScore();
 
     // Check for King unlock.
     bool kingUnlocked = reputation.IsKingUnlocked(racerPool.CountActive());

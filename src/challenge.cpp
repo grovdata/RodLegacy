@@ -1,4 +1,5 @@
 #include "challenge.h"
+#include "bet_acceptance.h"
 #include "state.h"
 #include "log.h"
 #include <cstdlib>
@@ -171,7 +172,19 @@ void Challenge::ShowRoadBetDialog() {
         font,
         [this](int idx) {
             if (idx == 3) { Reject(); return; }
+
+            static const BetType betTypes[] = {
+                BetType::SmallMoney, BetType::LargeMoney, BetType::PinkSlips
+            };
             static const int bets[] = {25, 100, 0};
+
+            BetType bet = betTypes[idx];
+            int roll    = rand() % 100;
+            bool accepted = OpponentAcceptsBet(
+                state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
+
+            if (!accepted) { Reject(); return; }
+
             state.SetPendingRace(RaceType::Road, bets[idx], idx == 2);
             Accept();
         }

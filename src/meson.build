@@ -154,6 +154,7 @@ cpp_sources = files(
     'parsers/carcolor.cpp',
     'roster.cpp',
     'racer_pool.cpp',
+    'bet_acceptance.cpp',
     'debug_overlay.cpp',
     'audio/audio_manager.cpp',
     'audio/engine_sound.cpp',

@@ -121,6 +121,10 @@ public:
     Reputation& GetReputation() { return reputation; }
     RacerPool&  GetRacerPool()  { return racerPool; }
 
+    // Performance scores for bet-acceptance logic.
+    int GetPlayerScore()     const;
+    int GetChallengerScore() const;
+
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
 

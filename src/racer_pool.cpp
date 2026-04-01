@@ -69,6 +69,10 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
     rng_ = std::mt19937(std::random_device{}());
 }
 
+int RacerPool::GetEntryScore(int pool_index) const {
+    return ComputeEntryScore(pool_index);
+}
+
 int RacerPool::ComputeEntryScore(int pool_index) const {
     if (pool_index < 0 || pool_index >= static_cast<int>(pool.size())) return 70;
     int spec_idx = pool[pool_index].car_spec_index;

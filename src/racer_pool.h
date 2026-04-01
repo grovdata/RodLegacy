@@ -47,6 +47,7 @@ public:
 
     int  CountActive() const;
     bool IsEliminated(int pool_index) const;
+    int  GetEntryScore(int pool_index) const;
 
     std::vector<RacerEntry> pool; // size = RACER_POOL_SIZE after Init
 
