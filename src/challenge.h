@@ -46,6 +46,7 @@ private:
 
     static const std::vector<std::string> kInsults;
     static const std::vector<std::string> kAcceptances;
+    static const std::vector<std::string> kRejections;
 
     void ShowRaceTypeDialog();
     void ShowDragBetDialog();

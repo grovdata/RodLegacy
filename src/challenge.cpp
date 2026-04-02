@@ -9,16 +9,19 @@
 // ---------------------------------------------------------------------------
 
 const std::vector<std::string> Challenge::kInsults = {
-    "Blow it out your ear!",
-    "Forget it, geek!",
-    "Beat it, twerp!",
-    "No way, ya nerd!",
     "Get lost!",
     "Give me a break!",
     "Get outta my face!",
     "Buzz off!",
     "Whadda loser!",
     "Chicken!"
+};
+
+const std::vector<std::string> Challenge::kRejections = {
+    "Blow it out your ear!",
+    "Forget it, geek!",
+    "Beat it, twerp!",
+    "No way, ya nerd!",
 };
 
 const std::vector<std::string> Challenge::kAcceptances = {

@@ -59,6 +59,7 @@ private:
     Scene *currentScene;
 
     Uint64 elapsedTime;
+    int gameHours = 12;  // game clock: hours since June 15 1963 midnight; starts at noon (12)
 
     // AssetManager first so it is destroyed last; scenes hold non-owning refs to its assets
     AssetManager assets;
@@ -127,6 +128,11 @@ public:
 
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
+
+    int  GetGameHours() const { return gameHours; }
+    void AdvanceGameHours(int hours) { gameHours += hours; }
+    std::string GetGameDateString() const;
+    int  CalculateScore() const;
 
     Car* GetCurrentCar();
     void SetCurrentCar(Car *car);

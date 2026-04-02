@@ -186,6 +186,33 @@ Uint64 State::GetElapsedTime() {
     return this->elapsedTime;
 }
 
+std::string State::GetGameDateString() const {
+    // Game starts June 15, 1963 at midnight; gameHours=12 = noon that day.
+    int dayOffset = gameHours / 24;
+
+    static const struct { const char* name; int days; } months[] = {
+        { "June",      30 },
+        { "July",      31 },
+        { "August",    31 },
+        { "September", 30 },
+    };
+    // Day 0 = June 15
+    int day = 15 + dayOffset;
+    int m = 0;
+    while (m < 3 && day > months[m].days) {
+        day -= months[m].days;
+        m++;
+    }
+    return std::string(months[m].name) + " " + std::to_string(day) + ", 1963";
+}
+
+int State::CalculateScore() const {
+    // DOS formula: score = elapsed_ticks/546 + 12, where 546 ticks = 1 hour
+    // and the game starts at noon June 15 (hour 12).
+    // We track gameHours starting at 12, so score == gameHours directly.
+    return gameHours;
+}
+
 Opponent* State::GetNextOpponent() {
     return roster.GetNextOpponent();
 }

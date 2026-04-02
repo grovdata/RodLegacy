@@ -97,7 +97,7 @@ void Newspaper::InitPageOne() {
     
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
     date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
-    date.SetText("  June 10, 1963  ", true, GAME_WIDTH);
+    date.SetText("  " + state.GetGameDateString() + "  ", true, GAME_WIDTH);
 
     headingLeft.Init(state.GetAssets().GetNewspaperFont(), 10, 138, dateColor);
     headingLeft.SetText("  President insists: ", true, GAME_WIDTH);
