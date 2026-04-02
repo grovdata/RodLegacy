@@ -84,6 +84,7 @@ enum SrLibGameScene {
     SCENE_CRUISING = 3,
     SCENE_DRIVING = 4,
     SCENE_NEWSPAPER = 5,
+    SCENE_KING_OF_COUNTY = 6,
 };
 
 enum SrLibCarDecal {

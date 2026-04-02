@@ -446,11 +446,13 @@ void Driving::DrawScene() {
                                 ? RaceType::Drag : RaceType::Road;
             bool endGame = state.OnRaceFinished(raceType, won);
             racing->ResetRaceOutcome();
+            state.AdvanceGameHours(2);
             if (endGame) {
                 LOG_INFO("Driving: end-game triggered (King beaten in drag)");
-                // TODO: show end-game cutscene; for now return to diner.
+                state.MoveToScene(SCENE_KING_OF_COUNTY);
+            } else {
+                state.MoveToScene(SCENE_DINER);
             }
-            state.MoveToScene(SCENE_DINER);
         }
 
         // Update dice animation based on car movement

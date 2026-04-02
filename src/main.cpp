@@ -410,6 +410,11 @@ int main(int argc, char* argv[]) {
                                     state.MoveToScene(SCENE_DRIVING);
                                 }
                                 break;
+                            case SDLK_e:
+                                if (event.type == SDL_KEYUP) {
+                                    state.MoveToScene(SCENE_KING_OF_COUNTY);
+                                }
+                                break;
                             case SDLK_ESCAPE:
                                 if (event.type == SDL_KEYDOWN) {
                                     close_requested = true;

@@ -149,6 +149,7 @@ cpp_sources = files(
     'engine_bay.cpp',
     'newspaper.cpp',
     'gas_station.cpp',
+    'king_of_county.cpp',
     'assets.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',

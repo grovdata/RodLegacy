@@ -7,9 +7,13 @@
 #include "gas_station.h"
 #include "driving.h"
 #include "newspaper.h"
+#include "king_of_county.h"
 #include "racing.h"
 #include "debug_overlay.h"
 #include "parsers/libp.h"
+#include "parsers/adf.h"
+#include <fstream>
+#include <cstring>
 
 State::State() : bankroll(5750) {
 }
@@ -156,6 +160,11 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
         case SCENE_NEWSPAPER:
             this->currentScene = newspaper.get();
+            break;
+        case SCENE_KING_OF_COUNTY:
+            kingOfCounty = std::make_unique<KingOfCounty>(true);
+            kingOfCounty->Init(debugMode);
+            this->currentScene = kingOfCounty.get();
             break;
     }
 
@@ -334,6 +343,108 @@ bool State::OnRaceFinished(RaceType raceType, bool won, bool pink_slip) {
                  pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep);
     }
     return false;
+}
+
+static constexpr int HALL_DAT_ENTRY_COUNT  = 10;
+static constexpr int HALL_DAT_NAME_LEN     = 16;
+static constexpr int HALL_DAT_SCORE_LEN    = 7;
+static constexpr int HALL_DAT_ENTRY_SIZE   = HALL_DAT_NAME_LEN + HALL_DAT_SCORE_LEN; // 23
+static constexpr int HALL_DAT_HEADER_SIZE  = 2;
+static constexpr int HALL_DAT_FILE_SIZE    = HALL_DAT_HEADER_SIZE + HALL_DAT_ENTRY_COUNT * HALL_DAT_ENTRY_SIZE; // 232
+static constexpr uint8_t HALL_DAT_XOR_KEY  = 0x80;
+
+static std::vector<State::HallEntry> ParseHallDat(const uint8_t* data, size_t size) {
+    std::vector<State::HallEntry> entries;
+    if (size < (size_t)HALL_DAT_FILE_SIZE) return entries;
+
+    // First 2 bytes: int16 entry count (unencoded)
+    int count = (int)(data[0] | (data[1] << 8));
+    if (count < 0 || count > HALL_DAT_ENTRY_COUNT) count = HALL_DAT_ENTRY_COUNT;
+
+    // Remaining bytes are XOR'd with 0x80
+    for (int i = 0; i < count; i++) {
+        int offset = HALL_DAT_HEADER_SIZE + i * HALL_DAT_ENTRY_SIZE;
+        char name[HALL_DAT_NAME_LEN + 1] = {};
+        char score[HALL_DAT_SCORE_LEN + 1] = {};
+        for (int b = 0; b < HALL_DAT_NAME_LEN; b++)
+            name[b] = (char)(data[offset + b] ^ HALL_DAT_XOR_KEY);
+        for (int b = 0; b < HALL_DAT_SCORE_LEN; b++)
+            score[b] = (char)(data[offset + HALL_DAT_NAME_LEN + b] ^ HALL_DAT_XOR_KEY);
+        if (name[0] == '\0') continue;
+        State::HallEntry entry;
+        entry.name  = name;
+        entry.score = std::atoi(score);
+        entries.push_back(entry);
+    }
+    return entries;
+}
+
+std::vector<State::HallEntry> State::LoadHallDat() const {
+    // 1. Try local hall_dat file
+    fs::path localPath = assets.GetBasePath() / "hall_dat";
+    if (fs::exists(localPath)) {
+        std::ifstream f(localPath, std::ios::binary);
+        if (f) {
+            std::vector<uint8_t> buf(HALL_DAT_FILE_SIZE, 0);
+            f.read(reinterpret_cast<char*>(buf.data()), HALL_DAT_FILE_SIZE);
+            auto entries = ParseHallDat(buf.data(), (size_t)f.gcount());
+            LOG_INFO("LoadHallDat: loaded %zu entries from local hall_dat", entries.size());
+            return entries;
+        }
+    }
+
+    // 2. Fall back to ADF disk2
+    fs::path disk2Path = assets.GetBasePath() / SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
+    AdfFileData* adfData = extract_adf_file_to_memory(disk2Path.string().c_str(), "hall_dat");
+    if (adfData) {
+        auto entries = ParseHallDat(adfData->data, adfData->size);
+        free_adf_file_data(adfData);
+        LOG_INFO("LoadHallDat: loaded %zu entries from ADF disk2", entries.size());
+        return entries;
+    }
+
+    LOG_INFO("LoadHallDat: hall_dat not found, starting with empty table");
+    return {};
+}
+
+void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
+    uint8_t buf[HALL_DAT_FILE_SIZE] = {};
+
+    // Header: int16 entry count (little-endian, unencoded)
+    buf[0] = HALL_DAT_ENTRY_COUNT & 0xFF;
+    buf[1] = (HALL_DAT_ENTRY_COUNT >> 8) & 0xFF;
+
+    // Write up to 10 entries, XOR'd with 0x80
+    int count = std::min((int)entries.size(), HALL_DAT_ENTRY_COUNT);
+    for (int i = 0; i < count; i++) {
+        int offset = HALL_DAT_HEADER_SIZE + i * HALL_DAT_ENTRY_SIZE;
+        // name[16]
+        for (int b = 0; b < HALL_DAT_NAME_LEN; b++) {
+            char c = (b < (int)entries[i].name.size()) ? entries[i].name[b] : '\0';
+            buf[offset + b] = (uint8_t)(c ^ HALL_DAT_XOR_KEY);
+        }
+        // score[7] as decimal string
+        char scoreBuf[HALL_DAT_SCORE_LEN + 1] = {};
+        snprintf(scoreBuf, sizeof(scoreBuf), "%d", entries[i].score);
+        for (int b = 0; b < HALL_DAT_SCORE_LEN; b++) {
+            buf[offset + HALL_DAT_NAME_LEN + b] = (uint8_t)(scoreBuf[b] ^ HALL_DAT_XOR_KEY);
+        }
+    }
+    // Remaining slots: XOR'd zero bytes = 0x80 for each byte
+    for (int i = count; i < HALL_DAT_ENTRY_COUNT; i++) {
+        int offset = HALL_DAT_HEADER_SIZE + i * HALL_DAT_ENTRY_SIZE;
+        for (int b = 0; b < HALL_DAT_ENTRY_SIZE; b++)
+            buf[offset + b] = HALL_DAT_XOR_KEY;
+    }
+
+    fs::path localPath = assets.GetBasePath() / "hall_dat";
+    std::ofstream f(localPath, std::ios::binary | std::ios::trunc);
+    if (f) {
+        f.write(reinterpret_cast<const char*>(buf), HALL_DAT_FILE_SIZE);
+        LOG_INFO("SaveHallDat: saved %d entries to %s", count, localPath.string().c_str());
+    } else {
+        LOG_INFO("SaveHallDat: failed to write %s", localPath.string().c_str());
+    }
 }
 
 // Global object

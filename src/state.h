@@ -23,6 +23,7 @@ class Scene;
 class Diner;
 class Driving;
 class Garage;
+class KingOfCounty;
 class Newspaper;
 class GasStation;
 class Racing;
@@ -70,6 +71,7 @@ private:
     std::unique_ptr<Driving> driving;
     std::unique_ptr<Racing> racing;
     std::unique_ptr<Newspaper> newspaper;
+    std::unique_ptr<KingOfCounty> kingOfCounty;
 
     // Remove this later
     const std::string GetTomlFile();
@@ -77,6 +79,11 @@ private:
 public:
     State();
     ~State();
+
+    struct HallEntry { std::string name; int score; };
+    std::vector<HallEntry> LoadHallDat() const;
+    void SaveHallDat(const std::vector<HallEntry>& entries) const;
+    std::string GetPlayerName() const { return "Player"; }
 
     AssetManager& GetAssets() { return assets; }
 

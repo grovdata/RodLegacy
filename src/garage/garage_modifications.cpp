@@ -69,6 +69,7 @@ void Garage::ShowBumperDialog(bool isFront) {
             }
         }
 
+        state.AdvanceGameHours(4);
         dialogPtr->Hide();
         SetActiveDialog(nullptr);
     };
@@ -119,6 +120,7 @@ void Garage::ShowRoofDialog() {
             }
         }
 
+        state.AdvanceGameHours(16);
         roofDialog->Hide();
         SetActiveDialog(nullptr);
     };
@@ -271,6 +273,7 @@ void Garage::ShowPaintDialog() {
                         if (car) {
                             GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                         }
+                        state.AdvanceGameHours(4);
                         LOG_INFO("Car painted for $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(false);  // Hide paintBubble
@@ -777,6 +780,7 @@ void Garage::ShowStickerDialog() {
                 int money = state.GetBankroll();
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
+                    state.AdvanceGameHours(1);
                     car->SetDecal((SrLibCarDecal)decalIndex);
                     car->SetCustomDecalPath("");
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
@@ -797,6 +801,7 @@ void Garage::ShowStickerDialog() {
                 int money = state.GetBankroll();
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
+                    state.AdvanceGameHours(1);
                     car->SetDecal((SrLibCarDecal)(dosIndex + SrLibCarDecalDosSeDecal1));
                     car->SetCustomDecalPath("");
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
@@ -818,6 +823,7 @@ void Garage::ShowStickerDialog() {
                     int money = state.GetBankroll();
                     if (money >= 5) {
                         state.SetBankroll(money - 5);
+                        state.AdvanceGameHours(1);
                         car->SetDecal(SrLibCarDecalCustom);
                         car->SetCustomDecalPath(customStickerPaths[customIndex]);
                         GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
