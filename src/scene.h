@@ -112,6 +112,9 @@ enum class CarAnimationType {
 
 class CarScene: public Scene {
 private:
+    // Original game: 2 pixels/frame at 50 Hz PAL = 100 px/s constant linear speed
+    static constexpr double CAR_SPEED_PX_PER_SEC = 100.0;
+    double carxFloat = 0.0;  // sub-pixel accumulator
     double carAnimationTime = 0;
     double carExitAnimationTime = 0;
     double waitTimer = 0;

@@ -440,6 +440,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
         LOG_INFO("StartAnimateCar: Starting reverse animation with existing bitmap");
         carAnimationTime = 0;
+        carxFloat = carx;
         animatingCar = true;
         return;
     }
@@ -460,6 +461,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
             // Forward: start off-screen left
             carx = -GAME_WIDTH;
         }
+        carxFloat = carx;
         
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
         carBitmap->Move({carx, cary});
@@ -536,106 +538,121 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
     }
             
     if (!isPaused) {
-        if (exitingCar) {            
-            carExitAnimationTime += deltaTime;
-            const double exitDuration = 3.5;  // Slowed down from 2.5
-            
-            double t = carExitAnimationTime / exitDuration;
-            t = std::min(1.0, t);
-            double easedValue = t * t * t;  // Cubic easing
-            
-            int startX = carx;
-            int endX = GAME_WIDTH + 50;
-            int newX = static_cast<int>(startX + (easedValue * (endX - startX)));
-            
-            carx = newX;
-
-            float speed = (endX - startX) * (3 * t * t) / exitDuration;
+        if (exitingCar) {
+            // Exit: 3-phase acceleration matching DOS port (2->4->8 px/step at 35Hz)
+            SDL_Point idlePos = GetCarIdlePosition();
+            double exitTotal = GAME_WIDTH + idlePos.x;
+            double exitProgress = (exitTotal > 0)
+                ? std::clamp((carxFloat - idlePos.x) / exitTotal, 0.0, 1.0)
+                : 0.0;
+            double exitSpeed;
+            if (exitProgress < 0.20) {
+                exitSpeed = 70.0;
+            } else if (exitProgress < 0.75) {
+                exitSpeed = 140.0;
+            } else {
+                exitSpeed = 280.0;
+            }
+            carxFloat += exitSpeed * deltaTime;
+            carx = static_cast<int>(carxFloat);
 
             if (carBitmap) {
-                carBitmap->UpdateWheelAnimation(speed * deltaTime);
+                carBitmap->UpdateWheelAnimation(exitSpeed * deltaTime);
                 carBitmap->Move({carx, cary});
             }
-            
-            // Update engine sound based on animation progress (reverse out)
-            if (audioManager) {
-                // Reverse out: constant period 0x25D (605) = 5916 Hz
-                int16_t period = GetCarAnimationPeriod(t, false);
-                audioManager->UpdateEnginePeriod(period);
-            }
 
-            if (carExitAnimationTime >= exitDuration) {
+            if (audioManager)
+                audioManager->UpdateEnginePeriod(605);
+
+            if (carx >= GAME_WIDTH + 50) {
                 exitingCar = false;
                 carBitmap = nullptr;
                 carExitAnimationTime = 0;
-                
-                // Stop engine sound when animation completes
-                if (audioManager) {
-                    audioManager->StopLoop(0);  // Channel 0 is engine sound
-                }
-                
+
+                if (audioManager)
+                    audioManager->StopLoop(0);
+
                 OnCarExitComplete();
-                
+
                 if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
                     waitTimer = 0;
-                    needsNewAnimation = true;  // Reset flag for continuous animations
+                    needsNewAnimation = true;
                 }
             }
         } else if (animatingCar) {
-            // LOG_INFO("UpdateCarAnimation: Handling car animation, time=%.2f", carAnimationTime);
-            carAnimationTime += deltaTime;
-            const double duration = 3.0;  // Slowed down from 2.0
-            double easedValue = (1 - pow(2, -10 * carAnimationTime / duration));
-            
             SDL_Point idlePos = GetCarIdlePosition();
-            int targetX;
-            
-            if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
-                // LOG_INFO("UpdateCarAnimation: Reverse animation");
-                targetX = static_cast<int>((1.0 - easedValue) * (idlePos.x + GAME_WIDTH) - GAME_WIDTH);
-            } else {
-                // LOG_INFO("UpdateCarAnimation: Forward animation");
-                targetX = static_cast<int>((easedValue * (idlePos.x + GAME_WIDTH)) - GAME_WIDTH);
-            }
-            
-            carx = targetX;
-            // LOG_INFO("UpdateCarAnimation: New carx=%d", carx);
+            bool isDrivingIn = (currentAnimationType != CarAnimationType::SINGLE_CAR_REVERSE);
+            bool done;
 
-            float speed;
-            if (currentAnimationType == CarAnimationType::SINGLE_CAR_REVERSE) {
-                speed = (GAME_WIDTH + 50) * (10.0/duration) * easedValue;  // Accelerate right
+            if (isDrivingIn) {
+                // Drive-in: 3-phase deceleration matching DOS port (8->4->2 px/step at 35Hz)
+                // Phase 0 (fast, 280 px/s): first ~25% of distance
+                // Phase 1 (medium, 140 px/s): middle ~55%
+                // Phase 2 (slow, 70 px/s): final ~20%
+                double totalDist = idlePos.x + GAME_WIDTH;
+                double progress = (totalDist > 0)
+                    ? std::clamp((carxFloat + GAME_WIDTH) / totalDist, 0.0, 1.0)
+                    : 0.0;
+                double driveSpeed;
+                if (progress < 0.25) {
+                    driveSpeed = 280.0;
+                } else if (progress < 0.80) {
+                    driveSpeed = 140.0;
+                } else {
+                    driveSpeed = 70.0;
+                }
+                carxFloat += driveSpeed * deltaTime;
+                carx = static_cast<int>(carxFloat);
+                done = (carx >= idlePos.x);
+                if (done) carx = idlePos.x;
+
+                if (carBitmap) {
+                    carBitmap->UpdateWheelAnimation(driveSpeed * deltaTime);
+                    carBitmap->Move({carx, cary});
+                }
             } else {
-                speed = (GAME_WIDTH + 50) * pow(2, -10 * carAnimationTime / duration) * (10.0/duration);  // Original forward speed
+                // SINGLE_CAR_REVERSE: 3-phase acceleration (2->4->8 px/step at 35Hz)
+                double totalDist = GAME_WIDTH;
+                double progress = (totalDist > 0)
+                    ? std::clamp((carxFloat - idlePos.x) / totalDist, 0.0, 1.0)
+                    : 0.0;
+                double reverseSpeed;
+                if (progress < 0.20) {
+                    reverseSpeed = 70.0;
+                } else if (progress < 0.75) {
+                    reverseSpeed = 140.0;
+                } else {
+                    reverseSpeed = 280.0;
+                }
+                carxFloat += reverseSpeed * deltaTime;
+                carx = static_cast<int>(carxFloat);
+                done = (carx >= GAME_WIDTH);
+
+                if (carBitmap) {
+                    carBitmap->UpdateWheelAnimation(reverseSpeed * deltaTime);
+                    carBitmap->Move({carx, cary});
+                }
             }
-            if (carBitmap) {
-                carBitmap->UpdateWheelAnimation(speed * deltaTime);
-                carBitmap->Move({carx, cary});
-            }
-            
-            // Update engine sound based on animation progress (driving in)
+
             if (audioManager) {
-                // Driving in: periods 605 -> 800 -> 128 (5916 Hz -> 4474 Hz -> 27965 Hz)
-                double progress = carAnimationTime / duration;
-                bool isDrivingIn = (currentAnimationType != CarAnimationType::SINGLE_CAR_REVERSE);
-                int16_t period = GetCarAnimationPeriod(progress, isDrivingIn);
-                audioManager->UpdateEnginePeriod(period);
+                double audioDist = idlePos.x + GAME_WIDTH;
+                double audioProgress = (audioDist > 0)
+                    ? std::clamp((carx + GAME_WIDTH) / audioDist, 0.0, 1.0)
+                    : 0.0;
+                audioManager->UpdateEnginePeriod(GetCarAnimationPeriod(audioProgress, isDrivingIn));
             }
 
-            if (carAnimationTime >= duration) {
+            if (done) {
                 animatingCar = false;
                 carAnimationTime = 0;
-                
-                // Stop engine sound when animation completes  
-                if (audioManager) {
-                    audioManager->StopLoop(0);  // Channel 0 is engine sound
-                }
-                
+
+                if (audioManager)
+                    audioManager->StopLoop(0);
+
                 OnCarAnimationComplete();
-                
-                // For OPPONENT_CONTINUOUS, start exit timer
-                if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
+
+                if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS)
                     waitTimer = 0;
-                }
             }
         }
 
@@ -670,6 +687,7 @@ void CarScene::TriggerCarExit() {
         exitingCar = true;
         waitTimer = 0;
         carExitAnimationTime = 0;
+        carxFloat = carx;
     }
 }
 

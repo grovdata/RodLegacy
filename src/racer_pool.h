@@ -14,9 +14,11 @@ struct RacerEntry {
     int8_t status;          // 0=active, 1=currently challenging, -1=eliminated
 };
 
-// Mirrors Amiga ComputeCarPerformanceScore (FUN_00243b9c / FUN_002435f0).
-// Formula: base 70 + engine + trans + carb + tire + condition + class_bonus, clamped [0,130].
-// TODO: replace placeholder lookup table values with exact values from Amiga FUN_002435f0.
+// Approximates Amiga ComputeCarPerformanceScore (FUN_00243b9c / FUN_002435f0).
+// Current formula: base 70 + engine + trans + carb + tire + condition + class_bonus, clamped [0,130].
+// The Amiga uses a two-level compiled-in table with percentage-based arithmetic (x25/100),
+// which is architecturally different from this disk-data-based approximation.
+// See re_scoring.md for full RE findings including the actual table values.
 int ComputeCarPerformanceScore(const SrCarSpecEntry& spec);
 
 class RacerPool {

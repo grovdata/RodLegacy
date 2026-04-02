@@ -5,9 +5,10 @@
 
 // ============================================================================
 // ComputeCarPerformanceScore
-// Mirrors Amiga FUN_00243b9c (outer) / FUN_002435f0 (inner).
-// TODO: replace placeholder table values with exact values extracted from
-//       Amiga FUN_002435f0 via Ghidra RE.
+// Approximates Amiga FUN_00243b9c (outer) / FUN_002435f0 (inner).
+// The Amiga uses two compiled-in A4-relative tables with percentage-based
+// arithmetic (muls #0x19 / divs #0x64). This is a disk-data approximation.
+// See re_scoring.md for full RE findings.
 // ============================================================================
 
 static const int ENGINE_SCORE[9]  = { 0,  5, 10,  0,  5, 10,  0,  5, 10 };
