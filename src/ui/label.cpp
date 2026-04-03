@@ -36,8 +36,8 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
         maxWidth = std::max(maxWidth, lineWidth);
     }
     
-    // Use the larger of maxWidth or desiredWidth
-    int surfaceWidth = (desiredWidth > 0) ? desiredWidth : maxWidth;
+    // Use the larger of maxWidth or desiredWidth; add padding to avoid SFont clipping last char
+    int surfaceWidth = (desiredWidth > 0) ? desiredWidth : maxWidth + 2;
     
     // Create surface with the same format as the main scene surface
     // This ensures color mapping works correctly

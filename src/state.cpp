@@ -355,11 +355,15 @@ static constexpr uint8_t HALL_DAT_XOR_KEY  = 0x80;
 
 static std::vector<State::HallEntry> ParseHallDat(const uint8_t* data, size_t size) {
     std::vector<State::HallEntry> entries;
-    if (size < (size_t)HALL_DAT_FILE_SIZE) return entries;
+    if (size < (size_t)HALL_DAT_HEADER_SIZE) return entries;
 
-    // First 2 bytes: int16 entry count (unencoded)
-    int count = (int)(data[0] | (data[1] << 8));
-    if (count < 0 || count > HALL_DAT_ENTRY_COUNT) count = HALL_DAT_ENTRY_COUNT;
+    // First 2 bytes: big-endian int16 entry count (Amiga native, unencoded)
+    int count = (int)((data[0] << 8) | data[1]);
+    if (count <= 0 || count > HALL_DAT_ENTRY_COUNT) count = HALL_DAT_ENTRY_COUNT;
+
+    // Only iterate as many complete entries as fit in the file
+    int entries_that_fit = ((int)size - HALL_DAT_HEADER_SIZE) / HALL_DAT_ENTRY_SIZE;
+    if (count > entries_that_fit) count = entries_that_fit;
 
     // Remaining bytes are XOR'd with 0x80
     for (int i = 0; i < count; i++) {
@@ -410,9 +414,9 @@ std::vector<State::HallEntry> State::LoadHallDat() const {
 void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
     uint8_t buf[HALL_DAT_FILE_SIZE] = {};
 
-    // Header: int16 entry count (little-endian, unencoded)
-    buf[0] = HALL_DAT_ENTRY_COUNT & 0xFF;
-    buf[1] = (HALL_DAT_ENTRY_COUNT >> 8) & 0xFF;
+    // Header: int16 entry count (big-endian, Amiga native, unencoded)
+    buf[0] = (HALL_DAT_ENTRY_COUNT >> 8) & 0xFF;
+    buf[1] = HALL_DAT_ENTRY_COUNT & 0xFF;
 
     // Write up to 10 entries, XOR'd with 0x80
     int count = std::min((int)entries.size(), HALL_DAT_ENTRY_COUNT);

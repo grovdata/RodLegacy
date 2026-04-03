@@ -39,8 +39,12 @@ void KingOfCounty::Init(bool debugMode) {
             if (newEntryIndex >= 10) newEntryIndex = -1;  // pushed off table
         }
 
-        state.SaveHallDat(entries);
-        LOG_INFO("KingOfCounty: player score=%d inserted at index=%d", playerScore, newEntryIndex);
+        if (newEntryIndex >= 0) {
+            state.SaveHallDat(entries);
+            LOG_INFO("KingOfCounty: player score=%d inserted at index=%d", playerScore, newEntryIndex);
+        } else {
+            LOG_INFO("KingOfCounty: player score=%d did not qualify for top 10", playerScore);
+        }
     }
 
     SFont_Font* font = state.GetAssets().GetMainFont();
@@ -58,7 +62,7 @@ void KingOfCounty::Init(bool debugMode) {
         row.name.Init(font, NAME_X, y, color);
         row.name.SetText(entries[i].name);
 
-        std::string scoreStr = std::to_string(entries[i].score);
+        std::string scoreStr = std::to_string(entries[i].score) + " hr";
         int scoreWidth = SFont_TextWidth(font, scoreStr.c_str());
         row.score.Init(font, SCORE_RIGHT_X - scoreWidth, y, color);
         row.score.SetText(scoreStr);
