@@ -39,4 +39,14 @@ executable('rodlegacy',
     ] : []
 )
 
+executable('pc_speaker_test',
+    sources: [
+        'src/audio/pc_speaker.cpp',
+        'src/audio/pc_speaker_test.cpp',
+    ],
+    include_directories: inc_dirs,
+    dependencies: [sdl2_dep],
+    cpp_args: cpp_args,
+)
+
 subdir('tests')

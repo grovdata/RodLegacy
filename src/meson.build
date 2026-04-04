@@ -159,6 +159,7 @@ cpp_sources = files(
     'debug_overlay.cpp',
     'audio/audio_manager.cpp',
     'audio/engine_sound.cpp',
+    'audio/pc_speaker.cpp',
     'ui/button.cpp',
     'ui/checkbox.cpp',
     'ui/bubble.cpp',
