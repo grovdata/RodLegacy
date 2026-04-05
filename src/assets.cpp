@@ -9,6 +9,7 @@
 #include "parsers/carcolor.h"
 #include "embedded_loader.h"
 #include <functional>
+#include <fstream>
 
 // Hash function for palette vectors
 static size_t hashPalette(const std::vector<uint16_t>& palette) {
@@ -190,20 +191,27 @@ void AssetManager::InitAudio(bool muteAudio) {
         audioManager = nullptr;
     } else {
         LOG_INFO("Audio system initialized successfully");
+
+        // Try to init PC speaker music from DOS EXE (optional).
+        for (const char* name : { "SR_UNP.EXE", "SR.EXE" }) {
+            fs::path exePath = gameBasePath / name;
+            if (fs::exists(exePath)) {
+                audioManager->InitPCSpeaker(exePath.string());
+                break;
+            }
+        }
     }
 }
 
 void AssetManager::Init(const fs::path& validatedPath, bool muteAudio) {
     try {
         gameBasePath = validatedPath;
-        dataPath = gameBasePath;  // All game files are directly in the game directory
-        LOG_INFO("Using game directory: %s", gameBasePath.string().c_str());
-        LOG_INFO("Data path: %s", dataPath.string().c_str());
-        LOG_INFO("Data path empty? %s", dataPath.empty() ? "YES" : "NO");
+        dataPath = gameBasePath;
         InitFonts();
         InitGameFiles();
         InitStockPalettes();
         InitAudio(muteAudio);
+        LoadSettings();
     } catch (const AssetLoadError& e) {
         LOG_ERROR("Failed to initialize asset manager: %s", e.what());
         throw;
@@ -459,34 +467,35 @@ fs::path AssetManager::FindGameDirectory() {
     // First try loading from saved config
     fs::path savedPath = LoadSavedGamePath();
     if (!savedPath.empty() && ValidateGamePath(savedPath)) {
-        LOG_INFO("Using saved game directory: %s", savedPath.string().c_str());
+        LOG_INFO("Game data: %s (saved config)", savedPath.string().c_str());
         return savedPath;
     }
 
-    std::vector<fs::path> searchPaths = {
-        fs::current_path(),
-        fs::current_path() / "..",
-        fs::current_path() / ".." / "..",
+    struct SearchEntry { fs::path path; const char* source; };
+    std::vector<SearchEntry> searchPaths = {
+        { fs::current_path(),                   "current directory" },
+        { fs::current_path() / "..",            "parent directory" },
+        { fs::current_path() / ".." / "..",     "grandparent directory" },
     };
 
     // Add environment variable path if set
     const char* envPath = getenv("STREETROD_DATA");
     if (envPath != nullptr) {
-        searchPaths.push_back(fs::path(envPath));
+        searchPaths.push_back({ fs::path(envPath), "STREETROD_DATA env var" });
     }
 
-    for (const auto& path : searchPaths) {
-        if (ValidateGamePath(path)) {
-            // Save the valid path for future use
-            SaveGamePath(path);
-            return path;
+    for (const auto& entry : searchPaths) {
+        if (ValidateGamePath(entry.path)) {
+            LOG_INFO("Game data: %s (found via %s)", entry.path.string().c_str(), entry.source);
+            SaveGamePath(entry.path);
+            return entry.path;
         }
     }
 
     // If we get here, no valid path was found - now we can log the details
     LOG_WARN("No valid game directory found in search paths:");
-    for (const auto& path : searchPaths) {
-        LOG_WARN("Checked path: %s", path.string().c_str());
+    for (const auto& entry : searchPaths) {
+        LOG_WARN("  checked %s: %s", entry.source, entry.path.string().c_str());
     }
 
     throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
@@ -538,55 +547,83 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
     return fullPath;
 }
 
-fs::path AssetManager::LoadSavedGamePath() {
-    char *prefPath = SDL_GetPrefPath("se.grovdata", "opensr");
-    if (!prefPath) {
-        return fs::path();
-    }
+// ---------------------------------------------------------------------------
+// Unified config.txt  (key=value, one per line)
+// ---------------------------------------------------------------------------
 
-    fs::path configPath = fs::path(prefPath) / "config.txt";
-    SDL_free(prefPath);
+static fs::path GetConfigPath() {
+    char* p = SDL_GetPrefPath("se.grovdata", "opensr");
+    if (!p) return {};
+    fs::path result = fs::path(p) / "config.txt";
+    SDL_free(p);
+    return result;
+}
 
-    if (!fs::exists(configPath)) {
-        return fs::path();
-    }
-
-    LOG_INFO("Loaded config file: %s", configPath.c_str());
-
-    try {
-        std::ifstream config(configPath);
-        std::string savedPath;
-        std::getline(config, savedPath);
-
-        if (!savedPath.empty() && fs::exists(savedPath)) {
-            return fs::path(savedPath);
+static std::map<std::string, std::string> ReadConfigFile() {
+    std::map<std::string, std::string> kv;
+    fs::path p = GetConfigPath();
+    if (p.empty() || !fs::exists(p)) return kv;
+    std::ifstream f(p);
+    std::string line;
+    while (std::getline(f, line)) {
+        auto eq = line.find('=');
+        if (eq == std::string::npos) {
+            // Legacy bare-path line (old format) -- treat as game_path
+            if (!line.empty() && kv.find("game_path") == kv.end())
+                kv["game_path"] = line;
+        } else {
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
         }
-    } catch (...) {
-        // Ignore read errors and continue with search
     }
+    return kv;
+}
 
-    return fs::path();
+static void WriteConfigFile(const std::map<std::string, std::string>& kv) {
+    fs::path p = GetConfigPath();
+    if (p.empty()) return;
+    std::ofstream f(p, std::ios::out | std::ios::trunc);
+    for (const auto& pair : kv)
+        f << pair.first << "=" << pair.second << "\n";
+    LOG_INFO("Config saved to %s", p.string().c_str());
+}
+
+fs::path AssetManager::LoadSavedGamePath() {
+    auto kv = ReadConfigFile();
+    auto it = kv.find("game_path");
+    if (it == kv.end()) return {};
+    fs::path path(it->second);
+    if (fs::exists(path)) return path;
+    return {};
 }
 
 void AssetManager::SaveGamePath(const fs::path& path) {
-    char *prefPath = SDL_GetPrefPath("se.grovdata", "opensr");
-    if (!prefPath) {
-        LOG_WARN("Could not get preference path to save game location");
-        return;
-    }
+    auto kv = ReadConfigFile();
+    kv["game_path"] = path.string();
+    WriteConfigFile(kv);
+}
 
+void AssetManager::LoadSettings() {
+    auto kv = ReadConfigFile();
+    if (kv.empty()) return;
     try {
-        fs::path configDir(prefPath);
-        fs::path configPath = configDir / "config.txt";
+        if (audioManager) {
+            auto it = kv.find("sfx_volume");
+            if (it != kv.end()) audioManager->SetSfxVolume(std::stoi(it->second));
+            it = kv.find("music_volume");
+            if (it != kv.end()) audioManager->SetMusicVolume(std::stoi(it->second));
+            it = kv.find("music_muted");
+            if (it != kv.end()) audioManager->SetMusicMuted(std::stoi(it->second) != 0);
+        }
+    } catch (...) {}
+}
 
-        std::ofstream config(configPath, std::ios::out | std::ios::trunc);
-        config << path.string();
-
-        LOG_INFO("Saved config file to: %s", configPath.string().c_str());
-    } catch (const std::exception& e) {
-        LOG_WARN("Failed to save game path: %s", e.what());
+void AssetManager::SaveSettings() {
+    auto kv = ReadConfigFile();
+    if (audioManager) {
+        kv["sfx_volume"]   = std::to_string(audioManager->GetSfxVolume());
+        kv["music_volume"] = std::to_string(audioManager->GetMusicVolume());
+        kv["music_muted"]  = audioManager->IsMusicMuted() ? "1" : "0";
     }
-
-    SDL_free(prefPath);
+    WriteConfigFile(kv);
 }
 

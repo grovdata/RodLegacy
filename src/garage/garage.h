@@ -61,7 +61,8 @@ class Garage : public CarScene {
     std::unique_ptr<Dialog> roofDialog;
     std::unique_ptr<Dialog> paintDialog;
     std::unique_ptr<EngineBay> engineBay;
-    bool fullscreenEnabled = false;
+    bool fullscreenEnabled   = false;
+    bool rebuildOptions_     = false;
     StandardCarColor previewColor;
     StandardCarColor originalColor;
     std::unique_ptr<Bitmap> paintCanPreview;

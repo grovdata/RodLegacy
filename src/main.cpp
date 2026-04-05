@@ -1,3 +1,4 @@
+#include "SDL_log.h"
 #include "log.h"
 #include "global.h"
 
@@ -208,7 +209,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Set log priority: default to WARN, verbose in debug mode
+    // Set log priority: default to INFO, verbose in debug mode
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_WARN);
     if (debugMode) {
         SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
@@ -290,6 +291,7 @@ int main(int argc, char* argv[]) {
             if (AssetManager::ValidateGamePath(gameDataPath)) {
                 gamePath = gameDataPath;
                 AssetManager::SaveGamePath(gameDataPath);
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Game data: %s (folder picker)", gamePath.string().c_str());
             } else {
                 SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
                     "Failed to load game files from selected folder.\nPlease ensure SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are present.", win);
@@ -457,7 +459,7 @@ int main(int argc, char* argv[]) {
         Uint64 now = SDL_GetTicks64();
         Uint64 delta = now - prevTicks;
         prevTicks = now;
-        
+
         // Update state with delta-time in milliseconds
         state.SetElapsedTime(delta);
 

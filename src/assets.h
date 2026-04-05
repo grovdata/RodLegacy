@@ -94,6 +94,9 @@ public:
     AudioManager* GetAudioManager() { return audioManager; }
     const fs::path& GetBasePath() const { return gameBasePath; }
 
+    void LoadSettings();
+    void SaveSettings();
+
 private:
     fs::path gameBasePath;
     fs::path dataPath;

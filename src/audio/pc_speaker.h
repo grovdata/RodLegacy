@@ -42,6 +42,9 @@ public:
 
     void Stop();
 
+    // Amplitude of square wave output (default 8000). Range 0-8000.
+    void SetAmplitude(int16_t amp) { amplitude_ = amp; }
+
     bool IsPlaying() const { return playing_.load(); }
 
     // Utility: PIT divisor -> Hz
@@ -56,6 +59,7 @@ private:
     void FillBuffer(int16_t* buf, int frames);
     void TickISR();
 
+    int16_t amplitude_  = 8000;
     int   sample_rate_ = 44100;
     float phase_       = 0.0f;
     float frequency_   = 0.0f;

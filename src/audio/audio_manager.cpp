@@ -1,6 +1,7 @@
 #include "../log.h"
 #include "audio_manager.h"
 #include "engine_sound.h"
+#include "pc_speaker.h"
 #include "../parsers/adf.h"
 #include "../parsers/libp.h"
 #include <SDL2/SDL.h>
@@ -84,6 +85,13 @@ bool AudioManager::Initialize(const char* disk1AdfPath) {
 }
 
 void AudioManager::Shutdown() {
+    // Shutdown PC speaker music
+    if (pcSpeaker_) {
+        pcSpeaker_->Stop();
+        pcSpeaker_->Shutdown();
+        pcSpeaker_.reset();
+    }
+
     // Shutdown engine sound
     if (engineSound) {
         engineSound->Shutdown();
@@ -389,9 +397,10 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
         int got = SDL_AudioStreamGet(stream, convertedData.data(), available);
 
         if (got > 0) {
-            // Apply volume
+            // Apply volume (caller volume * sfx master volume)
+            float effectiveVolume = volume * (sfxVolume_ / 10.0f);
             for (size_t i = 0; i < convertedData.size(); i++) {
-                convertedData[i] = static_cast<int16_t>(convertedData[i] * volume);
+                convertedData[i] = static_cast<int16_t>(convertedData[i] * effectiveVolume);
             }
 
             // Queue the audio for playback on the engine sound device
@@ -404,7 +413,7 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
 
 int AudioManager::StartLoop(AudioSampleType type, float volume) {
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
-        engineSound->SetVolume(volume);
+        engineSound->SetVolume(volume * (sfxVolume_ / 10.0f));
         engineSound->Start();
         LOG_INFO("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
         return 0;  // Return channel 0 for engine sound
@@ -434,8 +443,59 @@ void AudioManager::UpdateEnginePeriod(int16_t period) {
     }
 }
 
-void AudioManager::SetChannelVolume(int channelId, float volume) {
-    // TODO: Implement volume control
+void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
+    // not yet implemented
+}
+
+void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
+    std::vector<std::vector<SrNote>> segments;
+    if (!sr_exe_parse_music(dosExePath, segments)) {
+        LOG_INFO("AudioManager: %s not recognized as SR.EXE, no PC speaker music", dosExePath.c_str());
+        return;
+    }
+
+    // Find the largest segment -- that's the main music theme.
+    int best = 0;
+    for (int i = 1; i < (int)segments.size(); i++) {
+        if (segments[i].size() > segments[best].size())
+            best = i;
+    }
+
+    pcSpeaker_ = std::make_unique<PCSpeaker>();
+    if (!pcSpeaker_->Init()) {
+        LOG_INFO("AudioManager: PCSpeaker audio init failed");
+        pcSpeaker_.reset();
+        return;
+    }
+
+    pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+    pcSpeaker_->SetNotes(segments[best]);
+    pcSpeaker_->Play();
+    LOG_INFO("AudioManager: PC speaker music started (segment %d, %zu notes)",
+             best, segments[best].size());
+}
+
+void AudioManager::SetSfxVolume(int v) {
+    sfxVolume_ = std::max(0, std::min(10, v));
+    if (engineSound)
+        engineSound->SetVolume(sfxVolume_ / 10.0f);
+}
+
+void AudioManager::SetMusicVolume(int v) {
+    musicVolume_ = std::max(0, std::min(10, v));
+    if (pcSpeaker_ && !musicMuted_)
+        pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+}
+
+void AudioManager::SetMusicMuted(bool muted) {
+    musicMuted_ = muted;
+    if (pcSpeaker_) {
+        if (muted) {
+            pcSpeaker_->SetAmplitude(0);
+        } else {
+            pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+        }
+    }
 }
 
 float AudioManager::RPMToPitchMultiplier(int16_t rpm) {

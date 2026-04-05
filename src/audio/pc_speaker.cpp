@@ -203,7 +203,7 @@ void PCSpeaker::FillBuffer(int16_t* buf, int frames)
         if (gate_ && frequency_ > 0.0f) {
             phase_ += frequency_ / (float)sample_rate_;
             if (phase_ >= 1.0f) phase_ -= 1.0f;
-            sample = (phase_ < 0.5f) ? 8000 : -8000;
+            sample = (phase_ < 0.5f) ? amplitude_ : (int16_t)(-amplitude_);
         }
 
         buf[i] = sample;

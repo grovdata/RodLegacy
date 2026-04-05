@@ -152,6 +152,7 @@ void Garage::InitGameMenuDialog() {
             case 5:
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Options");
                 gameMenuDialog->Hide();
+                InitOptionsDialog();
                 SetActiveDialog(optionsDialog.get());
                 break;
         }
@@ -213,10 +214,18 @@ void Garage::InitOptionsDialog() {
     ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, "-", nullptr, false, 3};
     ButtonConfig backButton = {backRect, "Back", nullptr, true, 5};
 
+    AudioManager* am = state.GetAssets().GetAudioManager();
+    int sfxVol   = am ? am->GetSfxVolume()   : 8;
+    int musicVol = am ? am->GetMusicVolume() : 8;
+
+    char sfxLabel[32], musicLabel[32];
+    snprintf(sfxLabel,   sizeof(sfxLabel),   "Sound: %d%%", sfxVol * 10);
+    snprintf(musicLabel, sizeof(musicLabel), "Music: %d%%", musicVol * 10);
+
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{optionsDialogRect.x, optionsDialogRect.y + 3, optionsDialogRect.w, 10}, "Options", {0xFF, 0xFF, 0xFF, 0xFF}, true},
-        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 70, labelWidth, 10}, "Sound Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
-        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 90, labelWidth, 10}, "Music Volume:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 70, labelWidth, 10}, sfxLabel,   {0xFF, 0xFF, 0xFF, 0xFF}, false},
+        DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 90, labelWidth, 10}, musicLabel, {0xFF, 0xFF, 0xFF, 0xFF}, false},
         DialogTextConfig{SDL_Rect{optionsDialogRect.x + 5, 110, labelWidth, 10}, "Fullscreen:", {0xFF, 0xFF, 0xFF, 0xFF}, false},
     };
 
@@ -254,29 +263,21 @@ void Garage::InitOptionsDialog() {
         this->hud->SetText(zone.GetText());
     };
     optionsDialogConfig.onButtonPressed = [this](int buttonIndex) {
+        AudioManager* am = state.GetAssets().GetAudioManager();
         switch (buttonIndex) {
             case 0:
-                LOG_INFO("Options: Sound Volume Up");
-                // TODO: Increase sound volume
-                // state.audio.IncreaseSoundVolume();
+                if (am) { am->SetSfxVolume(am->GetSfxVolume() + 1); state.GetAssets().SaveSettings(); rebuildOptions_ = true; }
                 break;
             case 1:
-                LOG_INFO("Options: Sound Volume Down");
-                // TODO: Decrease sound volume
-                // state.audio.DecreaseSoundVolume();
+                if (am) { am->SetSfxVolume(am->GetSfxVolume() - 1); state.GetAssets().SaveSettings(); rebuildOptions_ = true; }
                 break;
             case 2:
-                LOG_INFO("Options: Music Volume Up");
-                // TODO: Increase music volume
-                // state.audio.IncreaseMusicVolume();
+                if (am) { am->SetMusicVolume(am->GetMusicVolume() + 1); state.GetAssets().SaveSettings(); rebuildOptions_ = true; }
                 break;
             case 3:
-                LOG_INFO("Options: Music Volume Down");
-                // TODO: Decrease music volume
-                // state.audio.DecreaseMusicVolume();
+                if (am) { am->SetMusicVolume(am->GetMusicVolume() - 1); state.GetAssets().SaveSettings(); rebuildOptions_ = true; }
                 break;
             case 5:
-                LOG_INFO("Options: Back to menu");
                 optionsDialog->Hide();
                 SetActiveDialog(gameMenuDialog.get());
                 break;

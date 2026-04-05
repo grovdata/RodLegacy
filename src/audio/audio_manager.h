@@ -7,6 +7,8 @@
 #include <memory>
 #include <cstdint>
 
+#include "pc_speaker.h"
+
 // Forward declaration
 class EngineSound;
 
@@ -87,12 +89,37 @@ public:
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);
 
+    // Initialize PC speaker music from a DOS SR.EXE (optional; called after Initialize()).
+    void InitPCSpeaker(const std::string& dosExePath);
+
+    // SFX volume: 0-10, default 8. Affects engine sound and one-shot sounds.
+    int  GetSfxVolume() const   { return sfxVolume_; }
+    void SetSfxVolume(int v);
+
+    // Music volume: 0-10, default 8. Affects PC speaker output amplitude.
+    int  GetMusicVolume() const { return musicVolume_; }
+    void SetMusicVolume(int v);
+
+    bool HasPCSpeaker() const { return pcSpeaker_ != nullptr; }
+
+    // Mute/unmute PC speaker music (the "Squelch it" toggle).
+    void SetMusicMuted(bool muted);
+    bool IsMusicMuted() const { return musicMuted_; }
+
     // Get engine sound for external management
     AudioSample* GetEngineSound() { return GetSample(AudioSampleType::ENGINE_LOOP); }
 
 private:
     std::map<AudioSampleType, AudioSample> samples;
     SDL_AudioDeviceID audioDevice = 0;
+
+    // PC speaker music (optional -- requires DOS SR.EXE)
+    std::unique_ptr<PCSpeaker> pcSpeaker_;
+
+    // Volume levels (0-10)
+    int  sfxVolume_   = 8;
+    int  musicVolume_ = 8;
+    bool musicMuted_  = false;
 
     // Engine sound system (uses EngineSound class for real-time pitch modulation)
     std::unique_ptr<EngineSound> engineSound;

@@ -480,12 +480,30 @@ void Garage::Action(ZoneId zone) {
     case ZONE_GARAGE_CALENDAR:
         ShowCalendarDialog();
         break;
+    case ZONE_GARAGE_MUSIC: {
+        AudioManager* am = state.GetAssets().GetAudioManager();
+        if (am) {
+            bool nowMuted = !am->IsMusicMuted();
+            am->SetMusicMuted(nowMuted);
+            const char* newText = nowMuted ? "Catch some tunes" : "Squelsh it !";
+            SetZoneText(ZONE_GARAGE_MUSIC, strdup(newText));
+            hud->SetText(newText);
+            state.GetAssets().SaveSettings();
+        }
+        break;
+    }
     default:
         break;
     }
 }
 
 void Garage::DrawScene() {
+    if (rebuildOptions_) {
+        rebuildOptions_ = false;
+        InitOptionsDialog();
+        SetActiveDialog(optionsDialog.get());
+    }
+
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
