@@ -567,13 +567,8 @@ static std::map<std::string, std::string> ReadConfigFile() {
     std::string line;
     while (std::getline(f, line)) {
         auto eq = line.find('=');
-        if (eq == std::string::npos) {
-            // Legacy bare-path line (old format) -- treat as game_path
-            if (!line.empty() && kv.find("game_path") == kv.end())
-                kv["game_path"] = line;
-        } else {
-            kv[line.substr(0, eq)] = line.substr(eq + 1);
-        }
+        if (eq == std::string::npos) continue;
+        kv[line.substr(0, eq)] = line.substr(eq + 1);
     }
     return kv;
 }

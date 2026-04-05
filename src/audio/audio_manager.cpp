@@ -7,6 +7,7 @@
 #include <SDL2/SDL.h>
 #include <cstring>
 #include <algorithm>
+#include <random>
 
 // Helper to read big-endian values
 static uint32_t ReadBE32(const uint8_t* data) {
@@ -454,12 +455,10 @@ void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
         return;
     }
 
-    // Find the largest segment -- that's the main music theme.
-    int best = 0;
-    for (int i = 1; i < (int)segments.size(); i++) {
-        if (segments[i].size() > segments[best].size())
-            best = i;
-    }
+    std::vector<SrNote> allNotes;
+    for (const auto& seg : segments)
+        for (const auto& note : seg)
+            allNotes.push_back(note);
 
     pcSpeaker_ = std::make_unique<PCSpeaker>();
     if (!pcSpeaker_->Init()) {
@@ -469,10 +468,10 @@ void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
     }
 
     pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
-    pcSpeaker_->SetNotes(segments[best]);
+    pcSpeaker_->SetNotes(allNotes);
     pcSpeaker_->Play();
-    LOG_INFO("AudioManager: PC speaker music started (segment %d, %zu notes)",
-             best, segments[best].size());
+    LOG_INFO("AudioManager: PC speaker music started (%zu segments, %zu notes total)",
+             segments.size(), allNotes.size());
 }
 
 void AudioManager::SetSfxVolume(int v) {
