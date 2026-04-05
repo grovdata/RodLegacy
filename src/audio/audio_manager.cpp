@@ -474,6 +474,32 @@ void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
              segments.size(), allNotes.size());
 }
 
+void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
+    std::vector<std::vector<SrNote>> segments;
+    if (!sr_exe_parse_music_bytes(data, len, segments)) {
+        LOG_INFO("AudioManager: DOS EXE buffer not recognized as SR.EXE, no PC speaker music");
+        return;
+    }
+
+    std::vector<SrNote> allNotes;
+    for (const auto& seg : segments)
+        for (const auto& note : seg)
+            allNotes.push_back(note);
+
+    pcSpeaker_ = std::make_unique<PCSpeaker>();
+    if (!pcSpeaker_->Init()) {
+        LOG_INFO("AudioManager: PCSpeaker audio init failed");
+        pcSpeaker_.reset();
+        return;
+    }
+
+    pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+    pcSpeaker_->SetNotes(allNotes);
+    pcSpeaker_->Play();
+    LOG_INFO("AudioManager: PC speaker music started (%zu segments, %zu notes total)",
+             segments.size(), allNotes.size());
+}
+
 void AudioManager::SetSfxVolume(int v) {
     sfxVolume_ = std::max(0, std::min(10, v));
     if (engineSound)

@@ -14,9 +14,13 @@ struct SrNote {
                               // 0 = rest (silence for duration_ticks)
 };
 
-// Parse CODE_24 from SR_UNP.EXE. Returns one vector<SrNote> per musical
-// segment (segments are delimited by null-duration terminators in CODE_24).
-// Returns false if the file is not recognized as SR.EXE.
+// Parse CODE_24 from an unpacked DOS SR.EXE image in memory.
+// Returns one vector<SrNote> per musical segment (null-duration terminators in CODE_24).
+// Returns false if the buffer is not recognized as SR.EXE.
+bool sr_exe_parse_music_bytes(const uint8_t* data, size_t size,
+                                std::vector<std::vector<SrNote>>& out_segments);
+
+// Same as sr_exe_parse_music_bytes after reading the file from disk.
 bool sr_exe_parse_music(const std::string& path,
                         std::vector<std::vector<SrNote>>& out_segments);
 

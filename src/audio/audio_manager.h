@@ -92,6 +92,9 @@ public:
     // Initialize PC speaker music from a DOS SR.EXE (optional; called after Initialize()).
     void InitPCSpeaker(const std::string& dosExePath);
 
+    // Same, from an already-unpacked DOS MZ image in memory (e.g. after EXEPACK unpack).
+    void InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len);
+
     // SFX volume: 0-10, default 8. Affects engine sound and one-shot sounds.
     int  GetSfxVolume() const   { return sfxVolume_; }
     void SetSfxVolume(int v);

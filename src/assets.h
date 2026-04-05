@@ -90,6 +90,7 @@ public:
     byte_vector& GetLibStartData() { return libStartData_vec; }
     byte_vector& GetSrData() { return srData_vec; }
     byte_vector& GetSrExeData() { return srExeData_vec; }
+    const byte_vector& GetDosSrExeUnpacked() const { return dosSrExeUnpacked_vec; }
 
     AudioManager* GetAudioManager() { return audioManager; }
     const fs::path& GetBasePath() const { return gameBasePath; }
@@ -122,6 +123,7 @@ private:
     byte_vector libPData_vec;
     byte_vector srData_vec;
     byte_vector srExeData_vec;
+    byte_vector dosSrExeUnpacked_vec;
 
     std::map<StockPalette, Palette> stockPalettes;
 

@@ -1,5 +1,6 @@
 #include "pc_speaker.h"
 #include <fstream>
+#include <vector>
 #include <cstring>
 #include <SDL2/SDL.h>
 
@@ -33,39 +34,28 @@ static const uint8_t TEARDOWN_SIG[] = {
     0xFA, 0xB8, 0x36, 0x00, 0xE6, 0x43, 0x2B, 0xC0, 0xE6, 0x40, 0xE6, 0x40
 };
 
-bool sr_exe_parse_music(const std::string& path,
-                        std::vector<std::vector<SrNote>>& out_segments)
+bool sr_exe_parse_music_bytes(const uint8_t* data, size_t size,
+                              std::vector<std::vector<SrNote>>& out_segments)
 {
-    std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f) return false;
-    auto size = (size_t)f.tellg();
-    f.seekg(0);
-    std::vector<uint8_t> data(size);
-    f.read(reinterpret_cast<char*>(data.data()), (std::streamsize)size);
-
     if (size < 0x20 || data[0] != 'M' || data[1] != 'Z') return false;
 
     uint16_t header_para = (uint16_t)(data[8] | (data[9] << 8));
     uint32_t load_base   = (uint32_t)header_para * 16;
     if (load_base >= size) return false;
 
-    // Validate via teardown signature
     uint32_t td_fo = (0x10fb7 - GHIDRA_BASE) + load_base;
     if (td_fo + sizeof(TEARDOWN_SIG) > size) return false;
-    if (memcmp(&data[td_fo], TEARDOWN_SIG, sizeof(TEARDOWN_SIG)) != 0) return false;
+    if (memcmp(data + td_fo, TEARDOWN_SIG, sizeof(TEARDOWN_SIG)) != 0) return false;
 
-    // Locate CODE_24
     uint32_t c24_fo = (CODE24_LINEAR - GHIDRA_BASE) + load_base;
     if (c24_fo + CODE24_SIZE > size) return false;
 
-    // Verify music signature at offset 4
     if (c24_fo + CODE24_SKIP + sizeof(MUSIC_SIG) > size) return false;
-    if (memcmp(&data[c24_fo + CODE24_SKIP], MUSIC_SIG, sizeof(MUSIC_SIG)) != 0)
+    if (memcmp(data + c24_fo + CODE24_SKIP, MUSIC_SIG, sizeof(MUSIC_SIG)) != 0)
         return false;
 
-    // Parse all segments: (duration, pit) 4-byte pairs; duration==0 ends segment
     out_segments.clear();
-    const uint8_t* seg = &data[c24_fo];
+    const uint8_t* seg = data + c24_fo;
     uint32_t pos = CODE24_SKIP;
 
     while (pos + 4 <= CODE24_SIZE) {
@@ -76,7 +66,7 @@ bool sr_exe_parse_music(const std::string& path,
             uint16_t pit = (uint16_t)(seg[pos + 2] | (seg[pos + 3] << 8));
             pos += 4;
 
-            if (dur == 0) break;  // end of this segment
+            if (dur == 0) break;
 
             segment.push_back({ dur, pit });
         }
@@ -86,6 +76,18 @@ bool sr_exe_parse_music(const std::string& path,
     }
 
     return !out_segments.empty();
+}
+
+bool sr_exe_parse_music(const std::string& path,
+                        std::vector<std::vector<SrNote>>& out_segments)
+{
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return false;
+    auto size = (size_t)f.tellg();
+    f.seekg(0);
+    std::vector<uint8_t> data(size);
+    f.read(reinterpret_cast<char*>(data.data()), (std::streamsize)size);
+    return sr_exe_parse_music_bytes(data.data(), data.size(), out_segments);
 }
 
 // ---------------------------------------------------------------------------

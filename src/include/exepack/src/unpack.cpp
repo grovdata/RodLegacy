@@ -290,7 +290,10 @@ UnpackExeResult unpack_exepack_to_exe_bytes(const std::uint8_t* packed, std::siz
     if (eh.skip_len == 0) {
         return {{}, "invalid EXEPACK skip_len"};
     }
-    const std::size_t skip_bytes = static_cast<std::size_t>(eh.skip_len) * 16 - 1;
+    // skip_len is 1 greater than the number of 16-byte padding paragraphs
+    // between the compressed data and the EXEPACK header (0 means 1 less
+    // than minimum, hence the check above). Correct formula: (skip_len-1)*16.
+    const std::size_t skip_bytes = (static_cast<std::size_t>(eh.skip_len) - 1) * 16;
     if (skip_bytes > body.size()) {
         return {{}, "invalid EXEPACK skip_len"};
     }

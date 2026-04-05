@@ -236,4 +236,15 @@ if host_machine.system() == 'windows'
     c_args += ['-DSDL_MAIN_HANDLED']
 endif
 
+exepack_inc = include_directories('include/exepack/include')
+exepack_cpp_lib = static_library(
+    'exepack_cpp',
+    files('include/exepack/src/mz_exe.cpp', 'include/exepack/src/unpack.cpp'),
+    include_directories: exepack_inc,
+    cpp_args: cpp_args,
+)
+exepack_dep = declare_dependency(
+    link_with: exepack_cpp_lib,
+    include_directories: exepack_inc,
+)
 

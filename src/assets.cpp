@@ -1,6 +1,7 @@
 #include "log.h"
 #include "assets.h"
 
+#include <exepack/unpack.hpp>
 
 #include "bitmap.h"
 #include "spritesheet.h"
@@ -192,12 +193,31 @@ void AssetManager::InitAudio(bool muteAudio) {
     } else {
         LOG_INFO("Audio system initialized successfully");
 
-        // Try to init PC speaker music from DOS EXE (optional).
-        for (const char* name : { "SR_UNP.EXE", "SR.EXE" }) {
-            fs::path exePath = gameBasePath / name;
-            if (fs::exists(exePath)) {
-                audioManager->InitPCSpeaker(exePath.string());
-                break;
+        fs::path srExePath = gameBasePath / "SR.EXE";
+        if (!fs::exists(srExePath)) {
+            LOG_INFO("SR.EXE not found at %s, no PC speaker music", srExePath.string().c_str());
+        } else {
+            std::ifstream exeFile(srExePath, std::ios::binary | std::ios::ate);
+            if (!exeFile) {
+                LOG_INFO("Failed to open %s, no PC speaker music", srExePath.string().c_str());
+            } else {
+                std::streamsize packedSize = exeFile.tellg();
+                exeFile.seekg(0, std::ios::beg);
+                std::vector<uint8_t> packed(static_cast<size_t>(packedSize));
+                if (!exeFile.read(reinterpret_cast<char*>(packed.data()), packedSize)) {
+                    LOG_INFO("Failed to read %s, no PC speaker music", srExePath.string().c_str());
+                } else {
+                    exepack::UnpackExeResult unpacked =
+                        exepack::unpack_exepack_to_exe_bytes(packed.data(), packed.size());
+                    if (!unpacked.ok()) {
+                        LOG_INFO("EXEPACK unpack of SR.EXE failed: %s, no PC speaker music",
+                                 unpacked.error.c_str());
+                    } else {
+                        dosSrExeUnpacked_vec = std::move(unpacked.exe_bytes);
+                        audioManager->InitPCSpeakerFromExeBytes(dosSrExeUnpacked_vec.data(),
+                                                                dosSrExeUnpacked_vec.size());
+                    }
+                }
             }
         }
     }
