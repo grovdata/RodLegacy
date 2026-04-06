@@ -179,22 +179,22 @@ void Garage::InitOptionsDialog() {
     SDL_Rect optionsDialogRect = {60, 50, 200, dialogHeight};
 
     // Button positions
-    SDL_Rect soundVolumeUpRect    = {190, 70, 20, buttonHeight};
-    SDL_Rect soundVolumeDownRect  = {165, 70, 20, buttonHeight};
-    SDL_Rect musicVolumeUpRect    = {190, 90, 20, buttonHeight};
-    SDL_Rect musicVolumeDownRect  = {165, 90, 20, buttonHeight};
+    SDL_Rect soundVolumeUpRect      = {190, 70, 20, buttonHeight - 3};
+    SDL_Rect soundVolumeDownRect    = {165, 70, 20, buttonHeight - 3};
+    SDL_Rect musicVolumeUpRect      = {190, 90, 20, buttonHeight - 3};
+    SDL_Rect musicVolumeDownRect    = {165, 90, 20, buttonHeight - 3};
     SDL_Rect fullscreenCheckboxRect = {optionsDialogRect.x + labelWidth + 10, 109, checkboxSize, checkboxSize};
-    SDL_Rect musicSourceRect      = {optionsDialogRect.x + labelWidth + 10, 128, 50, buttonHeight};
-    SDL_Rect backRect             = {165, backY, buttonWidth, buttonHeight};
+    SDL_Rect musicSourceRect        = {optionsDialogRect.x + labelWidth + 10, 128, 50, buttonHeight};
+    SDL_Rect backRect               = {165, backY, buttonWidth, buttonHeight};
 
     // Zones
-    Zone soundVolumeUpZone  (ZONE_GARAGE_OPTIONS_SOUND_UP,   strdup("+"),              &soundVolumeUpRect);
-    Zone soundVolumeDownZone(ZONE_GARAGE_OPTIONS_SOUND_DOWN, strdup("-"),              &soundVolumeDownRect);
-    Zone musicVolumeUpZone  (ZONE_GARAGE_OPTIONS_MUSIC_UP,   strdup("+"),              &musicVolumeUpRect);
-    Zone musicVolumeDownZone(ZONE_GARAGE_OPTIONS_MUSIC_DOWN, strdup("-"),              &musicVolumeDownRect);
+    Zone soundVolumeUpZone  (ZONE_GARAGE_OPTIONS_SOUND_UP,   strdup("<"),              &soundVolumeUpRect);
+    Zone soundVolumeDownZone(ZONE_GARAGE_OPTIONS_SOUND_DOWN, strdup(">"),              &soundVolumeDownRect);
+    Zone musicVolumeUpZone  (ZONE_GARAGE_OPTIONS_MUSIC_UP,   strdup("<"),              &musicVolumeUpRect);
+    Zone musicVolumeDownZone(ZONE_GARAGE_OPTIONS_MUSIC_DOWN, strdup(">"),              &musicVolumeDownRect);
     Zone fullscreenZone     (ZONE_GARAGE_OPTIONS_FULLSCREEN, strdup("Toggle Fullscreen"), &fullscreenCheckboxRect);
     Zone musicSourceZone    (ZONE_GARAGE_OPTIONS_MUSIC_SOURCE, strdup("Switch music version"), &musicSourceRect);
-    Zone backZone           (ZONE_GARAGE_OPTIONS_BACK,       strdup("Back"),           &backRect);
+    Zone backZone           (ZONE_GARAGE_OPTIONS_BACK,       strdup("Forget it"),           &backRect);
 
     std::vector<Zone> dialogZones = {
         soundVolumeUpZone,
@@ -237,7 +237,7 @@ void Garage::InitOptionsDialog() {
         {SDL_Rect{optionsDialogRect.x + 5, 110, labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false},
     };
     if (showMusicSource) {
-        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, 130, labelWidth, 10}, "Music ver:", {0xFF,0xFF,0xFF,0xFF}, false});
+        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, 130, labelWidth, 10}, "Soundtrack:", {0xFF,0xFF,0xFF,0xFF}, false});
     }
 
     std::vector<SDL_Rect> lines = {
@@ -245,11 +245,11 @@ void Garage::InitOptionsDialog() {
     };
 
     // Buttons (indexed via ButtonConfig::index passed to onButtonPressed)
-    ButtonConfig soundVolumeUpButton   = {soundVolumeUpRect,   "+",   nullptr, false, 0};
-    ButtonConfig soundVolumeDownButton = {soundVolumeDownRect, "-",   nullptr, false, 1};
-    ButtonConfig musicVolumeUpButton   = {musicVolumeUpRect,   "+",   nullptr, false, 2};
-    ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, "-",   nullptr, false, 3};
-    ButtonConfig backButton            = {backRect,            "Back", nullptr, true,  5};
+    ButtonConfig soundVolumeUpButton   = {soundVolumeUpRect,   "<",   nullptr, false, 0};
+    ButtonConfig soundVolumeDownButton = {soundVolumeDownRect, ">",   nullptr, false, 1};
+    ButtonConfig musicVolumeUpButton   = {musicVolumeUpRect,   "<",   nullptr, false, 2};
+    ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, ">",   nullptr, false, 3};
+    ButtonConfig backButton            = {backRect,            "Forget it", nullptr, true,  5};
 
     std::vector<ButtonConfig> buttons = {
         soundVolumeUpButton,
@@ -317,7 +317,4 @@ void Garage::InitOptionsDialog() {
 }
 
 void Garage::InitBumperDialogs() {
-    // Dialogs are now created dynamically in ShowBumperDialog()
-    // This method is kept for compatibility but does nothing
 }
-

@@ -158,6 +158,7 @@ cpp_sources = files(
     'bet_acceptance.cpp',
     'debug_overlay.cpp',
     'audio/audio_manager.cpp',
+    'audio/amiga_music.cpp',
     'audio/engine_sound.cpp',
     'audio/pc_speaker.cpp',
     'ui/button.cpp',

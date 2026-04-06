@@ -32,7 +32,7 @@ namespace fs = std::filesystem;
 #define ORIGINAL_WINDOW_WIDTH GAME_WIDTH
 #define ORIGINAL_WINDOW_HEIGHT GAME_HEIGHT
 
-#define APP_TITLE "OpenSR"
+#define APP_TITLE "RodLegacy"
 
 // speed in pixels/second
 #define SPEED (300)

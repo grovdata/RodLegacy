@@ -1,5 +1,6 @@
 #include "../log.h"
 #include "audio_manager.h"
+#include "amiga_music.h"
 #include "engine_sound.h"
 #include "pc_speaker.h"
 #include "../parsers/adf.h"
@@ -93,6 +94,12 @@ void AudioManager::Shutdown() {
         pcSpeaker_.reset();
     }
 
+    if (amigaMusic_) {
+        amigaMusic_->Stop();
+        amigaMusic_->Shutdown();
+        amigaMusic_.reset();
+    }
+
     // Shutdown engine sound
     if (engineSound) {
         engineSound->Shutdown();
@@ -111,12 +118,11 @@ void AudioManager::Shutdown() {
 bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
 
 void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
-    // msr.note = scene music sequencer data.
-    // srl1.wave = music sample bank (lead tone, bass, drums, hi-hat, guitar).
-    // srl.ins   = instrument map (optional).
-    static const char* NOTE_NAMES[] = { "msr.note", nullptr };
-    static const char* WAVE_NAMES[] = { "srl1.wave", nullptr };
-    static const char* INS_NAMES[]  = { "srl.ins",   nullptr };
+    static const char* NOTE_NAMES[]  = { "msr.note", nullptr };
+    static const char* WAVE1_NAMES[] = { "srl1.wave", nullptr };
+    static const char* WAVE0_NAMES[] = { "srl0.wave", nullptr };
+    static const char* INS_NAMES[]   = { "srl.ins", nullptr };
+    static const char* ENV_NAMES[]   = { "srl.env", nullptr };
 
     auto tryLoad = [&](const char** names) -> AdfFileData* {
         for (int i = 0; names[i]; i++) {
@@ -129,27 +135,35 @@ void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
         return nullptr;
     };
 
-    AdfFileData* noteFile = tryLoad(NOTE_NAMES);
-    AdfFileData* waveFile = tryLoad(WAVE_NAMES);
-    if (!noteFile || !waveFile) {
-        LOG_INFO("AmigaMusic: note or wave file not found in ADF, no Amiga music");
+    AdfFileData* noteFile  = tryLoad(NOTE_NAMES);
+    AdfFileData* wave1File = tryLoad(WAVE1_NAMES);
+    AdfFileData* wave0File = tryLoad(WAVE0_NAMES);
+    AdfFileData* insFile   = tryLoad(INS_NAMES);
+    AdfFileData* envFile   = tryLoad(ENV_NAMES);
+
+    if (!noteFile || !wave1File || !wave0File || !insFile || !envFile) {
+        LOG_INFO("AmigaMusic: required files missing, no Amiga music");
         if (noteFile) free_adf_file_data(noteFile);
-        if (waveFile) free_adf_file_data(waveFile);
+        if (wave1File) free_adf_file_data(wave1File);
+        if (wave0File) free_adf_file_data(wave0File);
+        if (insFile) free_adf_file_data(insFile);
+        if (envFile) free_adf_file_data(envFile);
         return;
     }
 
-    AdfFileData* insFile = tryLoad(INS_NAMES);  // optional
-
     amigaMusic_ = std::make_unique<AmigaMusic>();
-    bool ok = amigaMusic_->Load(
+    bool ok = amigaMusic_->Init() && amigaMusic_->Load(
         noteFile->data, noteFile->size,
-        waveFile->data, waveFile->size,
-        insFile ? insFile->data : nullptr,
-        insFile ? insFile->size : 0);
+        wave1File->data, wave1File->size,
+        wave0File->data, wave0File->size,
+        insFile->data, insFile->size,
+        envFile->data, envFile->size);
 
     free_adf_file_data(noteFile);
-    free_adf_file_data(waveFile);
-    if (insFile) free_adf_file_data(insFile);
+    free_adf_file_data(wave1File);
+    free_adf_file_data(wave0File);
+    free_adf_file_data(insFile);
+    free_adf_file_data(envFile);
 
     if (!ok) {
         LOG_INFO("AmigaMusic: Load() failed, no Amiga music");
@@ -174,7 +188,10 @@ void AudioManager::SetMusicSource(MusicSource src) {
 
     switch (src) {
         case MusicSource::DOS:
-            if (pcSpeaker_) pcSpeaker_->Play();
+            if (pcSpeaker_) {
+                pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+                pcSpeaker_->Play();
+            }
             break;
         case MusicSource::AMIGA:
             if (amigaMusic_) {
