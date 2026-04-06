@@ -203,7 +203,11 @@ bool ParseEnvelopes(const std::vector<uint8_t>& env_bytes, std::vector<EnvelopeD
 }
 
 int NoteToPeriod(int note) {
-    note = std::clamp(note, 0, 99);
+    // Match MusicPlayNote behavior: semitone uses modulo 12, octave shift uses
+    // (10 - note/12). For notes above 10 octaves, no left-shift is applied.
+    if (note < 0) {
+        note = 0;
+    }
     int semitone = note % 12;
     int octave = note / 12;
     int period = kPeriodTable[semitone];
