@@ -9,8 +9,9 @@
 
 #include "pc_speaker.h"
 
-// Forward declaration
+// Forward declarations
 class EngineSound;
+class AmigaMusic;
 
 // Audio sample types
 enum class AudioSampleType {
@@ -89,6 +90,20 @@ public:
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);
 
+    // Which music source is currently active.
+    enum class MusicSource { NONE, DOS, AMIGA };
+
+    // Initialize Amiga music from ADF (optional; called after Initialize()).
+    // Tries to load msr.note + msr.wave + msr.ins from disk1AdfPath.
+    // Does NOT start playback -- call SetMusicSource() afterwards.
+    void InitAmigaMusic(const char* disk1AdfPath);
+
+    // Select and start a music source. Stops the previous one.
+    void SetMusicSource(MusicSource src);
+    MusicSource GetMusicSource() const;
+
+    bool HasAmigaMusic() const;
+
     // Initialize PC speaker music from a DOS SR.EXE (optional; called after Initialize()).
     void InitPCSpeaker(const std::string& dosExePath);
 
@@ -115,6 +130,10 @@ public:
 private:
     std::map<AudioSampleType, AudioSample> samples;
     SDL_AudioDeviceID audioDevice = 0;
+
+    // Amiga music sequencer (optional -- requires Amiga disk1 ADF)
+    std::unique_ptr<AmigaMusic> amigaMusic_;
+    MusicSource musicSource_ = MusicSource::NONE;
 
     // PC speaker music (optional -- requires DOS SR.EXE)
     std::unique_ptr<PCSpeaker> pcSpeaker_;

@@ -8,7 +8,7 @@ adflib_opts.add_cmake_defines({
     'CMAKE_C_FLAGS': '-w'  # Suppress all warnings from ADFlib
 })
 
-adflib_proj = cmake.subproject('ADFlib', 
+adflib_proj = cmake.subproject('ADFlib',
     required: true,
     options: adflib_opts
 )
@@ -175,10 +175,10 @@ cpp_sources = files(
 if host_machine.system() == 'windows'
     # Find ImageMagick for icon conversion
     convert = find_program('convert', required: true)
-    
+
     # Find windres for resource compilation
     windres = find_program('i686-w64-mingw32-windres', required: true)
-    
+
     # Convert PNG to ICO using ImageMagick
     icon_ico = custom_target('icon.ico',
         input: '../data/res/icon.png',
@@ -186,7 +186,7 @@ if host_machine.system() == 'windows'
         command: [convert, '@INPUT@', '-define', 'icon:auto-resize=16,32,48,64,128,256', '@OUTPUT@'],
         build_by_default: true
     )
-    
+
     # Compile resource file
     app_res = custom_target('app.res',
         input: 'app.rc',
@@ -195,7 +195,7 @@ if host_machine.system() == 'windows'
         depends: icon_ico,
         build_by_default: true
     )
-    
+
     # Add resource file to sources
     cpp_sources += app_res
 endif
@@ -247,4 +247,3 @@ exepack_dep = declare_dependency(
     link_with: exepack_cpp_lib,
     include_directories: exepack_inc,
 )
-

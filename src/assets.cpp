@@ -193,6 +193,8 @@ void AssetManager::InitAudio(bool muteAudio) {
     } else {
         LOG_INFO("Audio system initialized successfully");
 
+        audioManager->InitAmigaMusic(disk1Path.string().c_str());
+
         fs::path srExePath = gameBasePath / "SR.EXE";
         if (!fs::exists(srExePath)) {
             LOG_INFO("SR.EXE not found at %s, no PC speaker music", srExePath.string().c_str());
@@ -617,9 +619,34 @@ void AssetManager::SaveGamePath(const fs::path& path) {
     WriteConfigFile(kv);
 }
 
+static AudioManager::MusicSource DefaultMusicSource(AudioManager* am) {
+    if (am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
+    if (am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
+    return AudioManager::MusicSource::NONE;
+}
+
+static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioManager* am) {
+    if (s == "amiga" && am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
+    if (s == "dos"   && am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
+    if (s == "none")                         return AudioManager::MusicSource::NONE;
+    return DefaultMusicSource(am);
+}
+
+static std::string MusicSourceName(AudioManager::MusicSource src) {
+    switch (src) {
+        case AudioManager::MusicSource::AMIGA: return "amiga";
+        case AudioManager::MusicSource::DOS:   return "dos";
+        default:                               return "none";
+    }
+}
+
 void AssetManager::LoadSettings() {
     auto kv = ReadConfigFile();
-    if (kv.empty()) return;
+    if (kv.empty()) {
+        // No saved settings: pick the best available music source and start it.
+        if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager));
+        return;
+    }
     try {
         if (audioManager) {
             auto it = kv.find("sfx_volume");
@@ -628,6 +655,11 @@ void AssetManager::LoadSettings() {
             if (it != kv.end()) audioManager->SetMusicVolume(std::stoi(it->second));
             it = kv.find("music_muted");
             if (it != kv.end()) audioManager->SetMusicMuted(std::stoi(it->second) != 0);
+            it = kv.find("music_source");
+            AudioManager::MusicSource src = (it != kv.end())
+                ? ParseMusicSource(it->second, audioManager)
+                : DefaultMusicSource(audioManager);
+            audioManager->SetMusicSource(src);
         }
     } catch (...) {}
 }
@@ -635,9 +667,10 @@ void AssetManager::LoadSettings() {
 void AssetManager::SaveSettings() {
     auto kv = ReadConfigFile();
     if (audioManager) {
-        kv["sfx_volume"]   = std::to_string(audioManager->GetSfxVolume());
-        kv["music_volume"] = std::to_string(audioManager->GetMusicVolume());
-        kv["music_muted"]  = audioManager->IsMusicMuted() ? "1" : "0";
+        kv["sfx_volume"]    = std::to_string(audioManager->GetSfxVolume());
+        kv["music_volume"]  = std::to_string(audioManager->GetMusicVolume());
+        kv["music_muted"]   = audioManager->IsMusicMuted() ? "1" : "0";
+        kv["music_source"]  = MusicSourceName(audioManager->GetMusicSource());
     }
     WriteConfigFile(kv);
 }

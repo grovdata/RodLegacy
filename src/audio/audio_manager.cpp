@@ -108,6 +108,85 @@ void AudioManager::Shutdown() {
     samples.clear();
 }
 
+bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
+
+void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
+    // msr.note = scene music sequencer data.
+    // srl1.wave = music sample bank (lead tone, bass, drums, hi-hat, guitar).
+    // srl.ins   = instrument map (optional).
+    static const char* NOTE_NAMES[] = { "msr.note", nullptr };
+    static const char* WAVE_NAMES[] = { "srl1.wave", nullptr };
+    static const char* INS_NAMES[]  = { "srl.ins",   nullptr };
+
+    auto tryLoad = [&](const char** names) -> AdfFileData* {
+        for (int i = 0; names[i]; i++) {
+            AdfFileData* d = extract_adf_file_to_memory(disk1AdfPath, names[i]);
+            if (d) {
+                LOG_INFO("AmigaMusic: loaded %s (%u bytes)", names[i], (unsigned)d->size);
+                return d;
+            }
+        }
+        return nullptr;
+    };
+
+    AdfFileData* noteFile = tryLoad(NOTE_NAMES);
+    AdfFileData* waveFile = tryLoad(WAVE_NAMES);
+    if (!noteFile || !waveFile) {
+        LOG_INFO("AmigaMusic: note or wave file not found in ADF, no Amiga music");
+        if (noteFile) free_adf_file_data(noteFile);
+        if (waveFile) free_adf_file_data(waveFile);
+        return;
+    }
+
+    AdfFileData* insFile = tryLoad(INS_NAMES);  // optional
+
+    amigaMusic_ = std::make_unique<AmigaMusic>();
+    bool ok = amigaMusic_->Load(
+        noteFile->data, noteFile->size,
+        waveFile->data, waveFile->size,
+        insFile ? insFile->data : nullptr,
+        insFile ? insFile->size : 0);
+
+    free_adf_file_data(noteFile);
+    free_adf_file_data(waveFile);
+    if (insFile) free_adf_file_data(insFile);
+
+    if (!ok) {
+        LOG_INFO("AmigaMusic: Load() failed, no Amiga music");
+        amigaMusic_.reset();
+        return;
+    }
+
+    LOG_INFO("AmigaMusic: initialized successfully");
+}
+
+AudioManager::MusicSource AudioManager::GetMusicSource() const {
+    return musicSource_;
+}
+
+void AudioManager::SetMusicSource(MusicSource src) {
+    // Stop whatever is currently playing.
+    if (pcSpeaker_) pcSpeaker_->Stop();
+    if (amigaMusic_) amigaMusic_->Stop();
+
+    musicSource_ = src;
+    if (musicMuted_) return;
+
+    switch (src) {
+        case MusicSource::DOS:
+            if (pcSpeaker_) pcSpeaker_->Play();
+            break;
+        case MusicSource::AMIGA:
+            if (amigaMusic_) {
+                amigaMusic_->SetVolume(musicVolume_ / 10.0f);
+                amigaMusic_->Play();
+            }
+            break;
+        case MusicSource::NONE:
+            break;
+    }
+}
+
 bool AudioManager::LoadAudioFromADF(const char* adfPath, const char* filename) {
     LOG_INFO("AudioManager: Loading %s from %s", filename, adfPath);
 
@@ -467,10 +546,9 @@ void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
         return;
     }
 
-    pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+    pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
     pcSpeaker_->SetNotes(allNotes);
-    pcSpeaker_->Play();
-    LOG_INFO("AudioManager: PC speaker music started (%zu segments, %zu notes total)",
+    LOG_INFO("AudioManager: PC speaker music loaded (%zu segments, %zu notes total)",
              segments.size(), allNotes.size());
 }
 
@@ -493,10 +571,9 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
         return;
     }
 
-    pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+    pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
     pcSpeaker_->SetNotes(allNotes);
-    pcSpeaker_->Play();
-    LOG_INFO("AudioManager: PC speaker music started (%zu segments, %zu notes total)",
+    LOG_INFO("AudioManager: PC speaker music loaded (%zu segments, %zu notes total)",
              segments.size(), allNotes.size());
 }
 
@@ -508,18 +585,24 @@ void AudioManager::SetSfxVolume(int v) {
 
 void AudioManager::SetMusicVolume(int v) {
     musicVolume_ = std::max(0, std::min(10, v));
-    if (pcSpeaker_ && !musicMuted_)
+    if (musicMuted_) return;
+    if (musicSource_ == MusicSource::DOS && pcSpeaker_)
         pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+    if (musicSource_ == MusicSource::AMIGA && amigaMusic_)
+        amigaMusic_->SetVolume(musicVolume_ / 10.0f);
 }
 
 void AudioManager::SetMusicMuted(bool muted) {
     musicMuted_ = muted;
-    if (pcSpeaker_) {
-        if (muted) {
-            pcSpeaker_->SetAmplitude(0);
-        } else {
+    if (muted) {
+        if (pcSpeaker_)  pcSpeaker_->SetAmplitude(0);
+        if (amigaMusic_) amigaMusic_->SetVolume(0.0f);
+    } else {
+        // Re-apply volume only to the active source.
+        if (musicSource_ == MusicSource::DOS && pcSpeaker_)
             pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
-        }
+        if (musicSource_ == MusicSource::AMIGA && amigaMusic_)
+            amigaMusic_->SetVolume(musicVolume_ / 10.0f);
     }
 }
 

@@ -26,6 +26,7 @@ executable('rodlegacy',
         adflib_dep,
         lodepng_dep,
         tinyfiledialogs_dep,
+        exepack_dep,
     ],
     cpp_args: cpp_args,
     c_args: c_args,
@@ -45,8 +46,23 @@ executable('pc_speaker_test',
         'src/audio/pc_speaker_test.cpp',
     ],
     include_directories: inc_dirs,
-    dependencies: [sdl2_dep],
+    dependencies: [sdl2_dep, exepack_dep],
     cpp_args: cpp_args,
 )
+
+
+sdl3_dep = dependency('sdl3', required: false)
+if sdl3_dep.found()
+    executable('amiga_music_player',
+        sources: [
+            'src/tools/music_player/music_player.cpp',
+            'src/parsers/adf.c',
+        ],
+        include_directories: [inc_dirs],
+        dependencies: [sdl3_dep, adflib_dep],
+        cpp_args: cpp_args,
+        c_args: c_args,
+    )
+endif
 
 subdir('tests')
