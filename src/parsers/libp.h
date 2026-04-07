@@ -684,9 +684,9 @@ constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for match
 // ============================================================================
 
 // srs0.wave - Racing Engine Sound
-// Total file size: 480 bytes
+// Empirically this matches original game timbre best.
 constexpr uint32_t SRS0_ENGINE_LOOP_OFFSET = 0x0000;  // Racing engine loop
-constexpr uint32_t SRS0_ENGINE_LOOP_LENGTH = 480;     // Bytes (looped)
+constexpr uint32_t SRS0_ENGINE_LOOP_LENGTH = 0x0200;  // Bytes (looped)
 constexpr uint16_t SRS0_ENGINE_IDLE_PERIOD = 252;     // Period at idle RPM (~14204 Hz)
 constexpr uint16_t SRS0_ENGINE_MAX_PERIOD = 193;      // Period at max RPM (~18548 Hz)
 constexpr uint32_t SRS0_ENGINE_BASE_RATE = 16000;     // Base sample rate (Hz), pitch-modulated by RPM

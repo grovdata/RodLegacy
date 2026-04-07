@@ -410,6 +410,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         // Always stop first to ensure clean restart
         audioManager->StopLoop(0);
         LOG_INFO("StartAnimateCar: Stopped existing audio");
+        lastAnimationEnginePeriod = -1;
         
         // Reset engine start timer
         waitingForEngineStart = false;
@@ -427,11 +428,13 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
             
             // Pre-configure the engine loop period (will start after delay)
             audioManager->UpdateEnginePeriod(605);
+            lastAnimationEnginePeriod = 605;
             LOG_INFO("StartAnimateCar: Will start ENGINE_LOOP after %.3fs", ENGINE_START_DURATION);
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
-            // Driving in: start at high pitch (period 320), drop to low (period 800)
-            LOG_INFO("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 320");
-            audioManager->UpdateEnginePeriod(320);  // Set period BEFORE starting (fixes high-pitch glitch)
+            // Driving in: mostly constant low pitch, then deeper drop near full stop.
+            LOG_INFO("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 605");
+            audioManager->UpdateEnginePeriod(605);
+            lastAnimationEnginePeriod = 605;
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
         }
     }
@@ -499,22 +502,11 @@ int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
         return 605;
     }
     
-    // Driving in: High pitch → Low pitch (period increases)
-    // Match the car's exponential slowdown curve
-    // Start at high pitch, drop to low as car slows
-    
-    if (progress < 0.6) {
-        // First 60%: Stay at medium-high pitch
-        return 320;  // ~11186 Hz
-    } else if (progress < 0.85) {
-        // 60-85%: Gradual drop as car slows
-        float t = (progress - 0.6f) / 0.25f;  // 0 to 1
-        return static_cast<int16_t>(320 + (t * (600 - 320)));  // 320 -> 600
-    } else {
-        // Last 15%: Final drop to low rumble as car settles
-        float t = (progress - 0.85f) / 0.15f;  // 0 to 1
-        return static_cast<int16_t>(600 + (t * (800 - 600)));  // 600 -> 800
+    // Driving in: keep engine tone constant, then one final low drop near stop.
+    if (progress < 0.92) {
+        return 605;
     }
+    return 800;
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
@@ -560,9 +552,6 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 carBitmap->UpdateWheelAnimation(exitSpeed * deltaTime);
                 carBitmap->Move({carx, cary});
             }
-
-            if (audioManager)
-                audioManager->UpdateEnginePeriod(605);
 
             if (carx >= GAME_WIDTH + 50) {
                 exitingCar = false;
@@ -635,11 +624,17 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             }
 
             if (audioManager) {
-                double audioDist = idlePos.x + GAME_WIDTH;
-                double audioProgress = (audioDist > 0)
-                    ? std::clamp((carx + GAME_WIDTH) / audioDist, 0.0, 1.0)
-                    : 0.0;
-                audioManager->UpdateEnginePeriod(GetCarAnimationPeriod(audioProgress, isDrivingIn));
+                if (isDrivingIn) {
+                    double audioDist = idlePos.x + GAME_WIDTH;
+                    double audioProgress = (audioDist > 0)
+                        ? std::clamp((carx + GAME_WIDTH) / audioDist, 0.0, 1.0)
+                        : 0.0;
+                    const int16_t targetPeriod = GetCarAnimationPeriod(audioProgress, true);
+                    if (targetPeriod != lastAnimationEnginePeriod) {
+                        audioManager->UpdateEnginePeriod(targetPeriod);
+                        lastAnimationEnginePeriod = targetPeriod;
+                    }
+                }
             }
 
             if (done) {

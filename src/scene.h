@@ -121,6 +121,7 @@ private:
     double engineStartTimer = 0;  // Timer for engine start sample duration
     bool exitingCar = false;
     bool waitingForEngineStart = false;  // True when playing engine start sample
+    int16_t lastAnimationEnginePeriod = -1;  // Avoid continuous period rewrites
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
     const double ENGINE_START_DURATION = CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);

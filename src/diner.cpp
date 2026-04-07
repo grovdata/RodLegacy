@@ -320,13 +320,7 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
 
     CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
 
-    // Start engine sound for opponent driving in
-    if (audioManager) {
-        // Set engine period for driving in (similar to garage drive-in)
-        audioManager->UpdateEnginePeriod(320);  // Period 320 = ~11186 Hz (high pitch)
-        audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
-        LOG_INFO("Diner::StartAnimateCar - Engine sound started for opponent drive-in");
-    }
+    // Audio start for drive-in is handled by CarScene::StartAnimateCar.
 }
 
 void Diner::UpdateDebugInfo() {

@@ -27,7 +27,7 @@ bool EngineSound::Initialize(const std::vector<int8_t>& sampleData) {
     SDL_zero(desired);
     desired.freq = 22050;
     desired.format = AUDIO_S16SYS;  // 16-bit signed, system byte order
-    desired.channels = 1;  // Mono
+    desired.channels = 2;  // Stereo (Amiga uses paired Paula channels)
     desired.samples = 2048;
     desired.callback = AudioCallback;
     desired.userdata = this;
@@ -80,7 +80,11 @@ void EngineSound::Start() {
 
     LOG_INFO("EngineSound::Start - freqMult=%.3f", currentFreqMultiplier);
     playing = true;
-    samplePosition = 0;
+    samplePositionL = 0.0f;
+    // Tiny initial skew between channels better matches sequential channel trigger timing.
+    samplePositionR = baseSample.size() > 1 ? 1.0f : 0.0f;
+    filterStateL = 0.0f;
+    filterStateR = 0.0f;
     SDL_PauseAudioDevice(audioDevice, 0);  // Unpause
 }
 
@@ -99,9 +103,14 @@ void EngineSound::UpdateRPM(int16_t rpm) {
 }
 
 void EngineSound::UpdatePeriod(int16_t period) {
+    if (period <= 0) return;
+
+    // Decompiled Amiga engine path applies a small positive offset here.
+    const int16_t amigaAdjustedPeriod = static_cast<int16_t>(period + 6);
+
     // Calculate frequency from Amiga period: freq = 3579545 / period
     // Then calculate multiplier relative to base sample rate (16000 Hz)
-    float frequency = 3579545.0f / period;
+    float frequency = 3579545.0f / static_cast<float>(amigaAdjustedPeriod);
     currentFreqMultiplier = frequency / 16000.0f;
     // LOG_INFO("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
 }
@@ -111,10 +120,11 @@ void EngineSound::SetVolume(float volume) {
 }
 
 float EngineSound::RPMToFrequencyMultiplier(int16_t rpm) {
-    // Amiga period table for engine sound (17 levels, 0-16)
-    // Calculated from 3579545 / period
-    static const float freqs[17] = {14204.5f, 14375.7f, 14610.4f, 14852.9f, 15040.1f, 15297.2f, 15563.2f, 15768.9f,
-                                     16051.8f, 16345.0f, 16572.0f, 16884.6f, 17209.4f, 17461.2f, 17808.7f, 18170.3f, 18546.9f};
+    // Amiga engine levels mapped to Paula periods (idle->redline).
+    static const int periods[17] = {
+        252, 249, 245, 241, 238, 234, 230, 227, 223,
+        219, 216, 212, 208, 205, 201, 197, 193
+    };
 
     // Convert game RPM (1500-7000) to Amiga velocity (0-130)
     // Linear mapping
@@ -142,8 +152,10 @@ float EngineSound::RPMToFrequencyMultiplier(int16_t rpm) {
     else if (velocity > 13) level = 2;
     else if (velocity > 0) level = 1;
 
-    // Return frequency multiplier relative to 16000 Hz base
-    return freqs[level] / 16000.0f;
+    // Match the decompiled path that applies a +6 period bias.
+    const int adjustedPeriod = periods[level] + 6;
+    const float frequency = 3579545.0f / static_cast<float>(adjustedPeriod);
+    return frequency / 16000.0f;
 }
 
 void EngineSound::AudioCallback(void* userdata, Uint8* stream, int len) {
@@ -157,28 +169,58 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
         return;
     }
 
-    // Simple approach: output directly as 16-bit samples
-    // The device expects 16-bit at audioSpec.freq Hz
+    // Output directly as 16-bit samples.
     int16_t* output = reinterpret_cast<int16_t*>(stream);
-    int numSamples = len / 2;  // 16-bit = 2 bytes per sample
+    const int channels = audioSpec.channels > 0 ? audioSpec.channels : 1;
+    const int numFrames = len / (static_cast<int>(sizeof(int16_t)) * channels);
 
     // Sample step accounts for:
     // - The pitch multiplier (set by UpdateRPM or UpdatePeriod)
     // - The ratio between sample rate (16000 Hz) and device rate (22050 Hz)
     float sampleStep = currentFreqMultiplier * (16000.0f / audioSpec.freq);
 
-    for (int i = 0; i < numSamples; i++) {
-        // Get sample from base (signed 8-bit)
-        int8_t sample8 = baseSample[static_cast<size_t>(samplePosition) % baseSample.size()];
+    const float sampleCount = static_cast<float>(baseSample.size());
+    auto sampleAt = [&](float pos) -> float {
+        const size_t idx0 = static_cast<size_t>(pos);
+        const size_t idx1 = (idx0 + 1U) % baseSample.size();
+        const float frac = pos - static_cast<float>(idx0);
+        const float s0 = static_cast<float>(baseSample[idx0]);
+        const float s1 = static_cast<float>(baseSample[idx1]);
+        return s0 + (s1 - s0) * frac;
+    };
 
-        // Convert to 16-bit and apply volume
-        int16_t sample16 = static_cast<int16_t>(sample8) * 256;
-        output[i] = static_cast<int16_t>(sample16 * currentVolume);
+    // Mild low-pass to better match Paula's less-bright output.
+    const float lowpassAlpha = 0.18f;
 
-        // Advance through sample with pitch shifting
-        samplePosition += sampleStep;
-        if (samplePosition >= baseSample.size()) {
-            samplePosition = std::fmod(samplePosition, static_cast<float>(baseSample.size()));
+    for (int frame = 0; frame < numFrames; frame++) {
+        // Linear interpolation reduces aliasing compared to nearest-neighbor lookup.
+        const float leftSample = sampleAt(samplePositionL);
+        const float rightSample = sampleAt(samplePositionR);
+
+        filterStateL += lowpassAlpha * (leftSample - filterStateL);
+        filterStateR += lowpassAlpha * (rightSample - filterStateR);
+
+        const int16_t left16 = static_cast<int16_t>(filterStateL * 256.0f * currentVolume);
+        const int16_t right16 = static_cast<int16_t>(filterStateR * 256.0f * currentVolume);
+
+        if (channels >= 2) {
+            output[frame * channels + 0] = left16;
+            output[frame * channels + 1] = right16;
+            for (int ch = 2; ch < channels; ch++) {
+                output[frame * channels + ch] = left16;
+            }
+        } else {
+            output[frame] = static_cast<int16_t>((left16 + right16) / 2);
+        }
+
+        // Advance through sample with pitch shifting.
+        samplePositionL += sampleStep;
+        samplePositionR += sampleStep;
+        if (samplePositionL >= sampleCount) {
+            samplePositionL = std::fmod(samplePositionL, sampleCount);
+        }
+        if (samplePositionR >= sampleCount) {
+            samplePositionR = std::fmod(samplePositionR, sampleCount);
         }
     }
 }

@@ -46,7 +46,10 @@ private:
     int16_t currentRPM = 1500;
     float currentFreqMultiplier = 1.0f;  // Current frequency multiplier (updated by RPM or period)
     float currentVolume = 0.5f;
-    float samplePosition = 0.0f;  // Current position in base sample for looping (float for smooth pitch)
+    float samplePositionL = 0.0f;  // Left voice position
+    float samplePositionR = 0.0f;  // Right voice position
+    float filterStateL = 0.0f;
+    float filterStateR = 0.0f;
 
     // Audio callback (static wrapper)
     static void AudioCallback(void* userdata, Uint8* stream, int len);

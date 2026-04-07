@@ -250,7 +250,7 @@ void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
     // Racing engine sound - LOOPED and pitch-modulated based on RPM
     // Periods: idle=252 (~14204 Hz), max=193 (~18548 Hz)
     // Audio is SIGNED 8-bit
-    if (size >= SRS0_ENGINE_LOOP_LENGTH) {
+    if (size >= static_cast<size_t>(SRS0_ENGINE_LOOP_OFFSET + SRS0_ENGINE_LOOP_LENGTH)) {
         AudioSample engineSample;
         LoadRawAudio(data + SRS0_ENGINE_LOOP_OFFSET, SRS0_ENGINE_LOOP_LENGTH,
                      engineSample, SRS0_ENGINE_BASE_RATE);
