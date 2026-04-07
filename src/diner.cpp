@@ -42,7 +42,7 @@ void Diner::Init(bool debugMode) {
 
     // Zone covering the parked opponent car area (car idles at x=82 in diner)
     SDL_Rect challengeRect = {82, 85, 200, 75};
-    Zone challengeZone(ZONE_DINER_CHALLENGE_OPPONENT, strdup("Challenge!"), &challengeRect);
+    Zone challengeZone(ZONE_DINER_CHALLENGE_OPPONENT, strdup("Click to race"), &challengeRect);
 
     zones.push_back(order);
     zones.push_back(opponent);
@@ -111,7 +111,7 @@ void Diner::Init(bool debugMode) {
     initStartTime = SDL_GetTicks64();
 }
 
-Diner::~Diner() {    
+Diner::~Diner() {
     // Smart pointers will automatically clean up
     opponentCarBitmaps.clear();
     carBitmap = nullptr;
@@ -187,7 +187,7 @@ void Diner::DrawScene() {
             animatingCar = true;
         }
         // Still draw everything else while waiting
-        
+
         // Draw waitress animations first (before mask)
         if (waitressLeft) {
             waitressLeft->Draw();
@@ -195,18 +195,18 @@ void Diner::DrawScene() {
         if (waitressRight) {
             waitressRight->Draw();
         }
-        
+
         // Draw the masked screen background (to mask parts of waitress animation)
         if (maskedScreenBackgroundTexture) {
             SDL_Rect screenMaskRect = {0, 68, 256, 41};
             SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
         }
-        
+
         // Draw other drawables (phonebook guy, etc.)
         if (phonebookGuy) {
             phonebookGuy->Draw();
         }
-        
+
         for (auto& b : bubbles) {
             b->Draw();
         }
@@ -276,7 +276,7 @@ void Diner::DrawMaskAfterCar() {
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
         SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
     }
-    
+
     CarScene::DrawMaskAfterCar();
 }
 
@@ -287,7 +287,7 @@ std::string Diner::GetOpponentText(Opponent *opponent) {
 
 void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     if (animatingCar && carBitmap) return;
-    
+
     this->currentOpponent = state.GetNextOpponent();
     if (!currentOpponent) return;
 
@@ -295,7 +295,7 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
 
     std::string oppoText = GetOpponentText(currentOpponent);
     std::string opponentId = currentOpponent->driver.name;
-    
+
     hud->SetText(strdup(oppoText.c_str()));
     SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
 
@@ -310,16 +310,16 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     }
 
     int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), currentOpponent->car->GetModel().index);
-    this->cary = carYOffset;    
+    this->cary = carYOffset;
 
     // Reset state for new opponent
     exitingCar = false;
     debugWaitTimer = 0;
     engineSoundStarted = false;
     LOG_INFO("Diner::StartAnimateCar - Reset state: exitingCar=0, debugWaitTimer=0, engineSoundStarted=0");
-    
+
     CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
-    
+
     // Start engine sound for opponent driving in
     if (audioManager) {
         // Set engine period for driving in (similar to garage drive-in)
@@ -331,32 +331,32 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
 
 void Diner::UpdateDebugInfo() {
     if (!debugMode) return;
-    
+
     CarScene::UpdateDebugInfo();
-        
+
     if (debugOverlay) {
         debugOverlay->Clear();
-        
-        debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
 
-        if (currentOpponent && carBitmap) {        
+        debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));
+
+        if (currentOpponent && carBitmap) {
             debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
             debugOverlay->AddLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
             debugOverlay->AddLine("roof chopped: " + std::string(currentOpponent->car->IsRoofChopped() ? "Yes" : "No"));
             debugOverlay->AddLine("bumpers stripped: " + std::string(currentOpponent->car->IsBumpersStripped() ? "Yes" : "No"));
-            debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));            
+            debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));
             debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
             debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
             debugOverlay->AddLine("offsetYTires: " + std::to_string(carBitmap->GetWheelsYOffset()));
-            debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));            
+            debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));
             debugOverlay->AddLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
-            debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));            
+            debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));
             debugOverlay->AddLine("offsetXDecal: " + std::to_string(offset.offsetXDecal) + " Y: " + std::to_string(offset.offsetYDecal));
-            
+
         }
-        
+
         debugOverlay->AddLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
     }
 }
@@ -412,7 +412,7 @@ bool Diner::PushEvent(SDL_Event *event) {
 void Diner::FadeOut() {
     // Reset animation state during fade out (safer than during hotkey press)
     OnSceneExit();
-    
+
     // Call parent implementation
     Scene::FadeOut();
 }
@@ -423,23 +423,23 @@ void Diner::UpdateCarAnimation(double deltaTime) {
     static bool lastExitingCar = false;
     static double debugTimer = 0;
     debugTimer += deltaTime;
-    
+
     if (debugTimer >= 1.0) {  // Log every second
-        LOG_INFO("Diner::UpdateCarAnimation - animatingCar=%d, exitingCar=%d, carBitmap=%p, currentAnimationType=%d", 
+        LOG_INFO("Diner::UpdateCarAnimation - animatingCar=%d, exitingCar=%d, carBitmap=%p, currentAnimationType=%d",
                 animatingCar, exitingCar, (void*)carBitmap, (int)currentAnimationType);
         debugTimer = 0;
     }
-    
+
     // Call parent implementation first
     CarScene::UpdateCarAnimation(deltaTime);
-    
+
     // Debug and fix the wait timer for OPPONENT_CONTINUOUS
     if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && !exitingCar && carBitmap) {
         debugWaitTimer += deltaTime;
         if (debugWaitTimer >= 0.5) {  // Log every 0.5 seconds
             LOG_INFO("Diner::UpdateCarAnimation - Waiting for exit: waitTimer=%.1f, WAIT_BEFORE_EXIT=3.0", debugWaitTimer);
         }
-        
+
         // Hold the timer while a challenge dialog is in progress
         if (!CanStartCarExit()) {
             debugWaitTimer = 0;
@@ -459,7 +459,7 @@ void Diner::UpdateCarAnimation(double deltaTime) {
             exitLogTimer = 0;
         }
     }
-    
+
     // Check for state changes
     if (exitingCar != lastExitingCar) {
         LOG_INFO("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
@@ -469,11 +469,11 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         LOG_INFO("Diner::UpdateCarAnimation - animatingCar changed: %d -> %d", lastAnimatingCar, animatingCar);
         lastAnimatingCar = animatingCar;
     }
-    
+
     // Check if exit animation just started
     if (exitingCar && !engineSoundStarted) {
         LOG_INFO("Diner::UpdateCarAnimation - Opponent car starting to drive away, starting engine sound");
-        
+
         // Start engine sound when opponent car starts driving away
         if (audioManager) {
             // Set engine period for driving away (similar to reverse out)
@@ -483,18 +483,18 @@ void Diner::UpdateCarAnimation(double deltaTime) {
             LOG_INFO("Diner::UpdateCarAnimation - Engine sound started for opponent exit");
         }
     }
-    
+
     // Reset flag when exit animation completes
     if (!exitingCar && engineSoundStarted) {
         engineSoundStarted = false;
         LOG_INFO("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
     }
-    
+
 }
 
 void Diner::OnCarAnimationComplete() {
     LOG_INFO("Diner::OnCarAnimationComplete - Opponent car reached idle position, stopping drive-in engine sound");
-    
+
     // Stop the drive-in engine sound when car reaches idle position
     if (audioManager) {
         audioManager->StopLoop(0);  // Channel 0 is engine sound
@@ -528,15 +528,15 @@ void Diner::OnSceneExit() {
 
 void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight) {
     if (!waitressLeft || !waitressRight) return;
-    
+
     waitressAnimTime += deltaTime;
-    
+
     switch (waitressState) {
         case WAITRESS_ENTERING: {
             // Move waitress right from -40 to 208
             double progress = waitressAnimTime * waitressSpeed;
             int currentX = -40 + (int)progress;
-            
+
             if (currentX >= 208) {
                 // Reached target position, switch to pause
                 waitressRight->SetPosition(208, 68);
@@ -549,7 +549,7 @@ void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLef
             }
             break;
         }
-        
+
         case WAITRESS_PAUSED: {
             // Wait for pause duration
             if (waitressAnimTime >= waitressPauseTime) {
@@ -563,12 +563,12 @@ void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLef
             }
             break;
         }
-        
+
         case WAITRESS_EXITING: {
             // Move waitress left from 208 to off-screen left
             double progress = waitressAnimTime * waitressSpeed;
             int currentX = 208 - (int)progress;
-            
+
             if (currentX <= -40) {
                 // Exited screen, hide and reset
                 waitressLeft->SetVisible(false);
@@ -582,7 +582,7 @@ void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLef
             }
             break;
         }
-        
+
         case WAITRESS_HIDDEN: {
             // Wait a bit before starting the sequence again
             if (waitressAnimTime >= 5.0) { // 5 second delay before repeating

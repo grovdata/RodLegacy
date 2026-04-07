@@ -577,8 +577,7 @@ struct SpriteAnimationInfo {
     const SpriteRect* frames;    // Array of frame rectangles
 };
 
-// Frame definitions for animated sprites
-// Frame definitions ordered from smallest to largest for intuitive distance-based animation
+// Misc frame definitions
 static const SpriteRect RACING_TREE2_FRAMES[] = {
     {10, 139, 8, 7}, {0, 137, 10, 9}, {56, 133, 11, 11}, {68, 133, 14, 13}, {0, 122, 16, 15}, {15, 122, 19, 17}, {34, 122, 22, 20}, {56, 108, 26, 25}, {47, 76, 34, 32}, {0, 76, 48, 46}, {0, 0, 77, 76}
 };

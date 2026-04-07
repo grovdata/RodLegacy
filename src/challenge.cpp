@@ -9,12 +9,12 @@
 // ---------------------------------------------------------------------------
 
 const std::vector<std::string> Challenge::kInsults = {
-    "Get lost!",
-    "Give me a break!",
-    "Get outta my face!",
-    "Buzz off!",
-    "Whadda loser!",
-    "Chicken!"
+    "  Get lost!",
+    "  Give me a break!",
+    "  Get outta my face!",
+    "  Buzz off!",
+    "  Whadda loser!",
+    "  Chicken!"
 };
 
 const std::vector<std::string> Challenge::kRejections = {
@@ -195,7 +195,8 @@ void Challenge::ShowRoadBetDialog() {
 }
 
 void Challenge::ShowSpeech(const std::string& text) {
-    bubble = std::make_unique<Bubble>(text, BUBBLE_LEFT, 85, 90, false);
+    // TODO: Should adjust depending on car model
+    bubble = std::make_unique<Bubble>(text, BUBBLE_RIGHT, 85, 70, false);
     bubble->SetVisible(true);
 }
 
