@@ -26,7 +26,7 @@ AudioManager::~AudioManager() {
     Shutdown();
 }
 
-bool AudioManager::Initialize(const char* disk1AdfPath) {
+bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) {
     LOG_INFO("AudioManager: Initializing...");
 
     // Initialize SDL audio subsystem if not already done
@@ -37,17 +37,17 @@ bool AudioManager::Initialize(const char* disk1AdfPath) {
         }
     }
 
-    // Load audio files from ADF first
-    if (!LoadAudioFromADF(disk1AdfPath, "srs0.wave")) {
-        LOG_INFO("Warning: Failed to load srs0.wave (racing engine sound)");
-    }
-
-    if (!LoadAudioFromADF(disk1AdfPath, "srl0.wave")) {
-        LOG_INFO("Warning: Failed to load srl0.wave (other racing sounds)");
-    }
-
-    if (!LoadAudioFromADF(disk1AdfPath, "srl1.wave")) {
-        LOG_INFO("Warning: Failed to load srl1.wave (music samples)");
+    // Load audio files from ADF image
+    if (disk1AdfData && disk1AdfSize > 0) {
+        if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srs0.wave")) {
+            LOG_INFO("Warning: Failed to load srs0.wave (racing engine sound)");
+        }
+        if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srl0.wave")) {
+            LOG_INFO("Warning: Failed to load srl0.wave (other racing sounds)");
+        }
+        if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srl1.wave")) {
+            LOG_INFO("Warning: Failed to load srl1.wave (music samples)");
+        }
     }
 
     // Initialize engine sound system with the extracted engine sample
@@ -117,7 +117,9 @@ void AudioManager::Shutdown() {
 
 bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
 
-void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
+void AudioManager::InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize) {
+    LOG_INFO("AmigaMusic: init from %zu byte ADF buffer", disk1AdfSize);
+
     static const char* NOTE_NAMES[]  = { "msr.note", nullptr };
     static const char* WAVE1_NAMES[] = { "srl1.wave", nullptr };
     static const char* WAVE0_NAMES[] = { "srl0.wave", nullptr };
@@ -126,11 +128,12 @@ void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
 
     auto tryLoad = [&](const char** names) -> AdfFileData* {
         for (int i = 0; names[i]; i++) {
-            AdfFileData* d = extract_adf_file_to_memory(disk1AdfPath, names[i]);
+            AdfFileData* d = extract_adf_file_from_buffer(disk1AdfData, disk1AdfSize, names[i]);
             if (d) {
-                LOG_INFO("AmigaMusic: loaded %s (%u bytes)", names[i], (unsigned)d->size);
+                LOG_INFO("AmigaMusic: loaded %s (%zu bytes)", names[i], d->size);
                 return d;
             }
+            LOG_INFO("AmigaMusic: %s not found in ADF", names[i]);
         }
         return nullptr;
     };
@@ -142,7 +145,9 @@ void AudioManager::InitAmigaMusic(const char* disk1AdfPath) {
     AdfFileData* envFile   = tryLoad(ENV_NAMES);
 
     if (!noteFile || !wave1File || !wave0File || !insFile || !envFile) {
-        LOG_INFO("AmigaMusic: required files missing, no Amiga music");
+        LOG_INFO("AmigaMusic: required files missing (note=%d wave1=%d wave0=%d ins=%d env=%d)",
+                 noteFile != nullptr, wave1File != nullptr, wave0File != nullptr,
+                 insFile != nullptr, envFile != nullptr);
         if (noteFile) free_adf_file_data(noteFile);
         if (wave1File) free_adf_file_data(wave1File);
         if (wave0File) free_adf_file_data(wave0File);
@@ -204,10 +209,10 @@ void AudioManager::SetMusicSource(MusicSource src) {
     }
 }
 
-bool AudioManager::LoadAudioFromADF(const char* adfPath, const char* filename) {
-    LOG_INFO("AudioManager: Loading %s from %s", filename, adfPath);
+bool AudioManager::LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, const char* filename) {
+    LOG_INFO("AudioManager: Loading %s from ADF buffer", filename);
 
-    AdfFileData* fileData = extract_adf_file_to_memory(adfPath, filename);
+    AdfFileData* fileData = extract_adf_file_from_buffer(adfData, adfSize, filename);
     if (!fileData) {
         LOG_INFO("AudioManager: Failed to extract %s from ADF", filename);
         return false;

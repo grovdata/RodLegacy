@@ -119,6 +119,7 @@ private:
     SFont_Font* debugFont;
     SFont_Font* newspaperFont;
 
+    byte_vector disk1Adf_vec;  // full disk1 ADF image bytes (from file or zip)
     byte_vector libStartData_vec;
     byte_vector libPData_vec;
     byte_vector srData_vec;

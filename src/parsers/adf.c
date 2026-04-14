@@ -1,6 +1,8 @@
 #include "adflib.h"
 #include "adf.h"
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 struct AdfDevice* adf_mount_device(const char* filename, int readonly) {
     return adfDevOpen(filename, readonly ? ADF_ACCESS_MODE_READONLY : ADF_ACCESS_MODE_READWRITE);
@@ -96,6 +98,32 @@ cleanup:
     }
     adfLibCleanUp();
 
+    return result;
+}
+
+struct AdfFileData* extract_adf_file_from_buffer(const unsigned char *adf_data, size_t adf_size,
+                                                  const char *file_to_extract) {
+    // ADFlib requires a file path, so we write a temp file, extract from it, then delete it.
+    char tempPath[1024];
+#ifdef _WIN32
+    char tempDir[512] = "";
+    GetTempPathA(sizeof(tempDir), tempDir);
+    snprintf(tempPath, sizeof(tempPath), "%s\\rodlegacy_adf_tmp_%p.adf", tempDir, (void*)adf_data);
+#else
+    snprintf(tempPath, sizeof(tempPath), "/tmp/rodlegacy_adf_tmp_%p.adf", (void*)adf_data);
+#endif
+
+    FILE *f = fopen(tempPath, "wb");
+    if (!f) {
+        fprintf(stderr, "extract_adf_file_from_buffer: cannot create temp file %s\n", tempPath);
+        return NULL;
+    }
+    fwrite(adf_data, 1, adf_size, f);
+    fclose(f);
+
+    struct AdfFileData *result = extract_adf_file_to_memory(tempPath, file_to_extract);
+
+    remove(tempPath);
     return result;
 }
 

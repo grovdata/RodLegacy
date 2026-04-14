@@ -86,6 +86,7 @@ class Garage : public CarScene {
     void ShowPaintDialog();
     void ShowCarInfoDialog();
     void ShowCalendarDialog();
+    void ShowTransmissionDialog();
     SDL_Point GetCalendarDateHighlightPosition(int month, int day);
     void ShowStickerDialog();
     void LoadCustomStickers();
@@ -100,7 +101,7 @@ class Garage : public CarScene {
    public:
     Garage();
     ~Garage();
-    
+
     void InitCarBitmaps();
     CarBitmap* GetOrCreateCarBitmap(Car* car);
 

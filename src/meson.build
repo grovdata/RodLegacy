@@ -119,7 +119,11 @@ endif
 
 # C sources
 c_sources = files(
-    'SFont.c'
+    'SFont.c',
+    'miniz.c',
+    'miniz_tdef.c',
+    'miniz_tinfl.c',
+    'miniz_zip.c'
 )
 
 # C++ sources
@@ -170,6 +174,8 @@ cpp_sources = files(
     'dialogs/list_dialog.cpp',
     'dialogs/colorpicker.cpp',
     'ui/rectangle.cpp',
+    'zip_utils.cpp',
+    'config_screen.cpp',
 )
 
 # Windows resource compilation

@@ -13,6 +13,7 @@
 #include "debug_overlay.h"
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
+#include "config_screen.h"
 #include "utils.h"
 #include <filesystem>
 #include <fstream>
@@ -171,6 +172,7 @@ int main(int argc, char* argv[]) {
 
     bool debugMode = false;
     bool muteAudio = false;
+    bool forceConfig = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
@@ -178,12 +180,15 @@ int main(int argc, char* argv[]) {
             useOriginalSize = true;
         } else if (strcmp(argv[i], "--mute") == 0) {
             muteAudio = true;
+        } else if (strcmp(argv[i], "-config") == 0) {
+            forceConfig = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
             printf("  --debug          Enable debug mode\n");
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
+            printf("  -config          Show setup screen even if game files are already configured\n");
             printf("  --help, -h       Show this help message\n");
             return 0;
         }
@@ -281,37 +286,27 @@ int main(int argc, char* argv[]) {
 
 
     fs::path gamePath;
-    try {
-        gamePath = AssetManager::FindGameDirectory();
-    } catch (const AssetLoadError& e) {
-        const char* selectedPath = tinyfd_selectFolderDialog("Select game data folder", nullptr);
+    bool needsConfig = forceConfig;
+    if (!needsConfig) {
+        try {
+            gamePath = AssetManager::FindGameDirectory();
+        } catch (const AssetLoadError&) {
+            needsConfig = true;
+        }
+    }
 
-        if (selectedPath != nullptr) {
-            fs::path gameDataPath = fs::path(selectedPath);
-            if (AssetManager::ValidateGamePath(gameDataPath)) {
-                gamePath = gameDataPath;
-                AssetManager::SaveGamePath(gameDataPath);
-                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Game data: %s (folder picker)", gamePath.string().c_str());
-            } else {
-                SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error",
-                    "Failed to load game files from selected folder.\nPlease ensure SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are present.", win);
-                SDL_DestroyRenderer(renderer);
-                SDL_DestroyWindow(win);
-                SDL_JoystickClose(controller);
-                Mix_CloseAudio();
-                SDL_Quit();
-                return 1;
-            }
-        } else {
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No game files found",
-                "Failed to find game files and no folder selected.\nSR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf are required.", win);
+    if (needsConfig) {
+        gamePath = ConfigScreen::Run(renderer, controller);
+        if (gamePath.empty()) {
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
             SDL_JoystickClose(controller);
             Mix_CloseAudio();
             SDL_Quit();
-            return 1;
+            return 0;
         }
+        AssetManager::SaveGamePath(gamePath);
+        LOG_INFO("Game data: %s (config screen)", gamePath.string().c_str());
     }
 
     // Now that we have a valid game path, initialize the game state

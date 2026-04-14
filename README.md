@@ -47,3 +47,4 @@ StreetRod Legacy use these fine libraries:
  - [ISO88591-8x16 font](https://github.com/epto/epto-fonts)
  - [tinyfiledialogs](http://tinyfiledialogs.sourceforge.net)
  - [doctest](https://github.com/doctest/doctest)
+ - [miniz](https://github.com/richgel999/miniz)

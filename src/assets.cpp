@@ -9,6 +9,7 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "embedded_loader.h"
+#include "zip_utils.h"
 #include <functional>
 #include <fstream>
 
@@ -111,59 +112,86 @@ void AssetManager::InitMousePointers() {
     }
 }
 
+// Helper: extract a named file from an ADF, which may be on disk or in a memory buffer.
+// Returns a byte vector; throws AssetLoadError on failure.
+static byte_vector ExtractFromAdf(const fs::path* adfPath,
+                                   const byte_vector* adfBuf,
+                                   const char* fileName) {
+    AdfFileData* data = nullptr;
+    if (adfPath) {
+        data = extract_adf_file_to_memory(adfPath->string().c_str(), fileName);
+    } else if (adfBuf) {
+        data = extract_adf_file_from_buffer(adfBuf->data(), adfBuf->size(), fileName);
+    }
+    if (!data) {
+        throw AssetLoadError(std::string("Failed to extract ") + fileName + " from ADF");
+    }
+    byte_vector result(static_cast<uint8_t*>(data->data),
+                       static_cast<uint8_t*>(data->data) + data->size);
+    free_adf_file_data(data);
+    return result;
+}
+
 void AssetManager::InitGameFiles() {
-    fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
-    fs::path disk2Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2]);
+    const char* disk1Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]; // "SR1AMIGA_DISK1.adf"
+    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2]; // "SR1AMIGA_DISK2.adf"
 
-    SrLibStatus disk1Status = SrLibVerifyChecksum(disk1Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
-    if (disk1Status != SrLibStatusSuccess) {
-        throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (expected checksum: " + std::to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]) + ", actual checksum: " + std::to_string(disk1Status) + ")");
+    fs::path disk1Direct = gameBasePath / disk1Name;
+    fs::path disk2Direct = gameBasePath / disk2Name;
+    fs::path zipPath     = gameBasePath / "sr1amiga.zip";
+
+    bool useDirectAdfs = fs::exists(disk1Direct) && fs::exists(disk2Direct);
+    bool useZip        = !useDirectAdfs && fs::exists(zipPath);
+
+    if (!useDirectAdfs && !useZip) {
+        throw AssetLoadError("No ADF files or sr1amiga.zip found in game directory");
     }
 
-    SrLibStatus disk2Status = SrLibVerifyChecksum(disk2Path.string().c_str(), SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]);
-    if (disk2Status != SrLibStatusSuccess) {
-        throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (expected checksum: " + std::to_string(SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]) + ", actual checksum: " + std::to_string(disk2Status) + ")");
+    // For direct ADF files, verify checksums (existing behaviour).
+    if (useDirectAdfs) {
+        SrLibStatus s1 = SrLibVerifyChecksum(disk1Direct.string().c_str(),
+                                              SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
+        if (s1 != SrLibStatusSuccess) {
+            throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (checksum mismatch)");
+        }
+        SrLibStatus s2 = SrLibVerifyChecksum(disk2Direct.string().c_str(),
+                                              SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]);
+        if (s2 != SrLibStatusSuccess) {
+            throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (checksum mismatch)");
+        }
     }
 
-    AdfFileData *srExeData = extract_adf_file_to_memory(disk1Path.string().c_str(), "Street_Rod");
-    if (!srExeData) {
-        throw AssetLoadError("Failed to extract Street_Rod executable from ADF");
-    }
-    srExeData_vec.assign(
-        static_cast<uint8_t*>(srExeData->data),
-        static_cast<uint8_t*>(srExeData->data) + srExeData->size
-    );
-    free_adf_file_data(srExeData);
+    // Load ADF bytes: either read file path or extract from zip into memory.
+    const fs::path* path1 = nullptr;
+    const fs::path* path2 = nullptr;
+    byte_vector disk1Buf, disk2Buf;
 
-    AdfFileData *libStartData = extract_adf_file_to_memory(disk1Path.string().c_str(), "libstart.p");
-    if (!libStartData) {
-        throw AssetLoadError("Failed to extract libstart.p from ADF");
+    if (useDirectAdfs) {
+        LOG_INFO("Loading game files from ADF files in %s", gameBasePath.string().c_str());
+        // Read full disk1 ADF into memory for audio use
+        std::ifstream f(disk1Direct, std::ios::binary | std::ios::ate);
+        if (f) {
+            auto sz = f.tellg();
+            f.seekg(0);
+            disk1Adf_vec.resize(static_cast<size_t>(sz));
+            f.read(reinterpret_cast<char*>(disk1Adf_vec.data()), sz);
+        }
+        path1 = &disk1Direct;
+        path2 = &disk2Direct;
+    } else {
+        LOG_INFO("Loading game files from sr1amiga.zip in %s", gameBasePath.string().c_str());
+        disk1Buf = ZipExtractToMemory(zipPath, disk1Name);
+        disk2Buf = ZipExtractToMemory(zipPath, disk2Name);
+        if (disk1Buf.empty() || disk2Buf.empty()) {
+            throw AssetLoadError("Failed to extract ADF files from sr1amiga.zip");
+        }
+        disk1Adf_vec = disk1Buf;  // keep a copy for audio
     }
-    libStartData_vec.assign(
-        static_cast<uint8_t*>(libStartData->data),
-        static_cast<uint8_t*>(libStartData->data) + libStartData->size
-    );
-    free_adf_file_data(libStartData);
 
-    AdfFileData *libPData = extract_adf_file_to_memory(disk2Path.string().c_str(), "lib.p");
-    if (!libPData) {
-        throw AssetLoadError("Failed to extract lib.p from ADF");
-    }
-    libPData_vec.assign(
-        static_cast<uint8_t*>(libPData->data),
-        static_cast<uint8_t*>(libPData->data) + libPData->size
-    );
-    free_adf_file_data(libPData);
-
-    AdfFileData *srData = extract_adf_file_to_memory(disk2Path.string().c_str(), "SR_Data");
-    if (!srData) {
-        throw AssetLoadError("Failed to extract SR_Data from ADF");
-    }
-    srData_vec.assign(
-        static_cast<uint8_t*>(srData->data),
-        static_cast<uint8_t*>(srData->data) + srData->size
-    );
-    free_adf_file_data(srData);
+    srExeData_vec    = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "Street_Rod");
+    libStartData_vec = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "libstart.p");
+    libPData_vec     = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "lib.p");
+    srData_vec       = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "SR_Data");
 
     LOG_INFO("Found all required Amiga game files.");
 }
@@ -184,43 +212,51 @@ void AssetManager::InitAudio(bool muteAudio) {
 
     audioManager = new AudioManager();
 
-    fs::path disk1Path = ResolvePath(SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]);
-
-    if (!audioManager->Initialize(disk1Path.string().c_str())) {
+    if (!audioManager->Initialize(disk1Adf_vec.data(), disk1Adf_vec.size())) {
         LOG_INFO("Warning: Audio initialization failed, continuing without audio");
         delete audioManager;
         audioManager = nullptr;
     } else {
         LOG_INFO("Audio system initialized successfully");
 
-        audioManager->InitAmigaMusic(disk1Path.string().c_str());
+        if (!disk1Adf_vec.empty()) {
+            audioManager->InitAmigaMusic(disk1Adf_vec.data(), disk1Adf_vec.size());
+        }
 
-        fs::path srExePath = gameBasePath / "SR.EXE";
-        if (!fs::exists(srExePath)) {
-            LOG_INFO("SR.EXE not found at %s, no PC speaker music", srExePath.string().c_str());
-        } else {
-            std::ifstream exeFile(srExePath, std::ios::binary | std::ios::ate);
-            if (!exeFile) {
-                LOG_INFO("Failed to open %s, no PC speaker music", srExePath.string().c_str());
-            } else {
-                std::streamsize packedSize = exeFile.tellg();
-                exeFile.seekg(0, std::ios::beg);
-                std::vector<uint8_t> packed(static_cast<size_t>(packedSize));
-                if (!exeFile.read(reinterpret_cast<char*>(packed.data()), packedSize)) {
-                    LOG_INFO("Failed to read %s, no PC speaker music", srExePath.string().c_str());
-                } else {
-                    exepack::UnpackExeResult unpacked =
-                        exepack::unpack_exepack_to_exe_bytes(packed.data(), packed.size());
-                    if (!unpacked.ok()) {
-                        LOG_INFO("EXEPACK unpack of SR.EXE failed: %s, no PC speaker music",
-                                 unpacked.error.c_str());
-                    } else {
-                        dosSrExeUnpacked_vec = std::move(unpacked.exe_bytes);
-                        audioManager->InitPCSpeakerFromExeBytes(dosSrExeUnpacked_vec.data(),
-                                                                dosSrExeUnpacked_vec.size());
-                    }
-                }
+        // Load SR.EXE: try on-disk first, then inside sr1pc.zip.
+        byte_vector srExePacked;
+        fs::path srExePath    = gameBasePath / "SR.EXE";
+        fs::path sr1pcZipPath = gameBasePath / "sr1pc.zip";
+
+        if (fs::exists(srExePath)) {
+            std::ifstream f(srExePath, std::ios::binary | std::ios::ate);
+            if (f) {
+                auto sz = f.tellg();
+                f.seekg(0);
+                srExePacked.resize(static_cast<size_t>(sz));
+                if (!f.read(reinterpret_cast<char*>(srExePacked.data()), sz))
+                    srExePacked.clear();
             }
+        } else if (fs::exists(sr1pcZipPath)) {
+            srExePacked = ZipExtractToMemory(sr1pcZipPath, "SR1/SR.EXE");
+            if (srExePacked.empty())
+                LOG_INFO("sr1pc.zip found but SR1/SR.EXE not inside, no PC speaker music");
+        }
+
+        if (!srExePacked.empty()) {
+            exepack::UnpackExeResult unpacked =
+                exepack::unpack_exepack_to_exe_bytes(srExePacked.data(), srExePacked.size());
+            if (!unpacked.ok()) {
+                LOG_INFO("EXEPACK unpack of SR.EXE failed: %s", unpacked.error.c_str());
+            } else {
+                dosSrExeUnpacked_vec = std::move(unpacked.exe_bytes);
+                audioManager->InitPCSpeakerFromExeBytes(dosSrExeUnpacked_vec.data(),
+                                                        dosSrExeUnpacked_vec.size());
+                LOG_INFO("PC speaker music loaded from %s",
+                         fs::exists(srExePath) ? "SR.EXE" : "sr1pc.zip");
+            }
+        } else if (!fs::exists(srExePath) && !fs::exists(sr1pcZipPath)) {
+            LOG_INFO("No SR.EXE or sr1pc.zip found, no PC speaker music");
         }
     }
 }
@@ -413,24 +449,31 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
 }
 
 void AssetManager::InitDosAssets() {
-    fs::path lib2Path = gameBasePath / "LIB2";
-    if (!fs::exists(lib2Path)) {
-        LOG_INFO("LIB2 file not found at %s, DOS decals will not be available", lib2Path.string().c_str());
-        return;
-    }
+    fs::path lib2Path     = gameBasePath / "LIB2";
+    fs::path sr1pcZipPath = gameBasePath / "sr1pc.zip";
 
-    std::ifstream file(lib2Path, std::ios::binary | std::ios::ate);
-    if (!file) {
-        LOG_INFO("Failed to open LIB2 file");
-        return;
-    }
-
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    lib2Data_vec.resize(size);
-    if (!file.read(reinterpret_cast<char*>(lib2Data_vec.data()), size)) {
-        LOG_INFO("Failed to read LIB2 file");
-        lib2Data_vec.clear();
+    if (fs::exists(lib2Path)) {
+        std::ifstream file(lib2Path, std::ios::binary | std::ios::ate);
+        if (!file) {
+            LOG_INFO("Failed to open LIB2 file");
+            return;
+        }
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        lib2Data_vec.resize(size);
+        if (!file.read(reinterpret_cast<char*>(lib2Data_vec.data()), size)) {
+            LOG_INFO("Failed to read LIB2 file");
+            lib2Data_vec.clear();
+            return;
+        }
+    } else if (fs::exists(sr1pcZipPath)) {
+        lib2Data_vec = ZipExtractToMemory(sr1pcZipPath, "SR1/LIB2");
+        if (lib2Data_vec.empty()) {
+            LOG_INFO("sr1pc.zip found but SR1/LIB2 not inside, DOS decals unavailable");
+            return;
+        }
+    } else {
+        LOG_INFO("No LIB2 or sr1pc.zip found, DOS decals unavailable");
         return;
     }
 
@@ -524,25 +567,19 @@ fs::path AssetManager::FindGameDirectory() {
 }
 
 bool AssetManager::ValidateGamePath(const fs::path& path) {
-    std::vector<fs::path> gameFiles = {
-        "SR1AMIGA_DISK1.adf",
-        "SR1AMIGA_DISK2.adf",
-        "font.png",
-        "bee.png",
-        "lemon.png",
-        "icon.png"
-    };
-
-    bool hasAllFiles = true;
-
-    for (const auto& file : gameFiles) {
-        if (!fs::exists(path / file)) {
-            LOG_WARN("Missing file: %s", (path / file).string().c_str());
-            hasAllFiles = false;
-        }
+    // Accept raw ADF files side by side
+    if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
+        return true;
     }
-
-    return hasAllFiles;
+    // Accept sr1amiga.zip containing both disks
+    fs::path zip = path / "sr1amiga.zip";
+    if (fs::exists(zip) &&
+        ZipContainsFile(zip, "SR1AMIGA_DISK1.adf") &&
+        ZipContainsFile(zip, "SR1AMIGA_DISK2.adf")) {
+        return true;
+    }
+    LOG_WARN("ValidateGamePath: no valid game files in %s", path.string().c_str());
+    return false;
 }
 
 void AssetManager::SetCustomPath(const std::string& customPath) {
@@ -628,7 +665,8 @@ static AudioManager::MusicSource DefaultMusicSource(AudioManager* am) {
 static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioManager* am) {
     if (s == "amiga" && am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (s == "dos"   && am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
-    if (s == "none")                         return AudioManager::MusicSource::NONE;
+    // "none" may have been saved when no music source was available (e.g. broken zip loading).
+    // Fall back to the best available source so the user gets music after a fix.
     return DefaultMusicSource(am);
 }
 

@@ -26,6 +26,11 @@ void adf_unmount_volume(struct AdfVolume* vol);
 
 // File extraction functions
 struct AdfFileData* extract_adf_file_to_memory(const char *adf_path, const char *file_to_extract);
+
+// Extract a file from an ADF image held in memory (uses a temp file internally).
+struct AdfFileData* extract_adf_file_from_buffer(const unsigned char *adf_data, size_t adf_size,
+                                                  const char *file_to_extract);
+
 void free_adf_file_data(struct AdfFileData* data);
 
 #ifdef __cplusplus

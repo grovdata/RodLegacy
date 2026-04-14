@@ -62,14 +62,14 @@ public:
     AudioManager();
     ~AudioManager();
 
-    // Initialize audio system and load samples from ADF
-    bool Initialize(const char* disk1AdfPath);
+    // Initialize audio system and load samples from ADF image in memory
+    bool Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize);
 
     // Shutdown audio system
     void Shutdown();
 
-    // Load specific audio files from ADF
-    bool LoadAudioFromADF(const char* adfPath, const char* filename);
+    // Load a specific audio file from an ADF image in memory
+    bool LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, const char* filename);
 
     // Get a loaded sample by type
     AudioSample* GetSample(AudioSampleType type);
@@ -93,10 +93,9 @@ public:
     // Which music source is currently active.
     enum class MusicSource { NONE, DOS, AMIGA };
 
-    // Initialize Amiga music from ADF (optional; called after Initialize()).
-    // Tries to load msr.note + msr.wave + msr.ins from disk1AdfPath.
+    // Initialize Amiga music from ADF image in memory (optional; called after Initialize()).
     // Does NOT start playback -- call SetMusicSource() afterwards.
-    void InitAmigaMusic(const char* disk1AdfPath);
+    void InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize);
 
     // Select and start a music source. Stops the previous one.
     void SetMusicSource(MusicSource src);
