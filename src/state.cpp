@@ -12,6 +12,7 @@
 #include "debug_overlay.h"
 #include "parsers/libp.h"
 #include "parsers/adf.h"
+#include "zip_utils.h"
 #include <fstream>
 #include <cstring>
 
@@ -397,9 +398,22 @@ std::vector<State::HallEntry> State::LoadHallDat() const {
         }
     }
 
-    // 2. Fall back to ADF disk2
-    fs::path disk2Path = assets.GetBasePath() / SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
-    AdfFileData* adfData = extract_adf_file_to_memory(disk2Path.string().c_str(), "hall_dat");
+    // 2. Fall back to ADF disk2 (direct file or inside sr1amiga.zip)
+    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
+    fs::path disk2Path = assets.GetBasePath() / disk2Name;
+    AdfFileData* adfData = nullptr;
+
+    if (fs::exists(disk2Path)) {
+        adfData = extract_adf_file_to_memory(disk2Path.string().c_str(), "hall_dat");
+    } else {
+        fs::path zipPath = assets.GetBasePath() / "sr1amiga.zip";
+        if (fs::exists(zipPath)) {
+            std::vector<uint8_t> disk2Buf = ZipExtractToMemory(zipPath, disk2Name);
+            if (!disk2Buf.empty())
+                adfData = extract_adf_file_from_buffer(disk2Buf.data(), disk2Buf.size(), "hall_dat");
+        }
+    }
+
     if (adfData) {
         auto entries = ParseHallDat(adfData->data, adfData->size);
         free_adf_file_data(adfData);

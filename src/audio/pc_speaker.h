@@ -24,6 +24,24 @@ bool sr_exe_parse_music_bytes(const uint8_t* data, size_t size,
 bool sr_exe_parse_music(const std::string& path,
                         std::vector<std::vector<SrNote>>& out_segments);
 
+// Parse songs from a DOS SR.EXE image using the in-EXE playlist structure.
+// CODE_24 contains short patterns (indexed 0-4) that songs assemble via a playlist.
+// out_songs: each entry is the full note sequence for one song.
+// out_bridge: the "bridge" notes played between songs (the intro scale, pattern 0).
+// Returns false if the playlist cannot be found/parsed; caller should fall back to
+// sr_exe_parse_music_bytes in that case.
+bool sr_exe_parse_songs(const uint8_t* data, size_t size,
+                        std::vector<std::vector<SrNote>>& out_songs,
+                        std::vector<SrNote>& out_bridge);
+
+// Build the 5 known SR1 songs by assembling CODE_24 segments at hardcoded indices.
+// Song structure identified by ear (bridge seg repeated 3x before melody):
+//   song1: 0x3, 1,1          song2: 3x3, 4,4,5
+//   song3: 6x3, 7,7,8,9,9,10,11  song4: 12x3, 13,13,13,14  song5: 15x3, 16,17
+// Returns false if segs has fewer than 18 entries.
+bool sr_exe_build_known_songs(const std::vector<std::vector<SrNote>>& segs,
+                              std::vector<std::vector<SrNote>>& out_songs);
+
 // ---- PC Speaker synthesizer -------------------------------------------------
 //
 // Square-wave synthesis via SDL audio callback. A ~72.8 Hz scheduler fires

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <cstring>
+#include <random>
 #include <SDL2/SDL.h>
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,163 @@ bool sr_exe_parse_music_bytes(const uint8_t* data, size_t size,
     }
 
     return !out_segments.empty();
+}
+
+bool sr_exe_parse_songs(const uint8_t* data, size_t size,
+                        std::vector<std::vector<SrNote>>& out_songs,
+                        std::vector<SrNote>& out_bridge)
+{
+    // Validate and locate EXE sections (same checks as sr_exe_parse_music_bytes).
+    if (size < 0x20 || data[0] != 'M' || data[1] != 'Z') return false;
+
+    uint16_t header_para = (uint16_t)(data[8] | (data[9] << 8));
+    uint32_t load_base   = (uint32_t)header_para * 16;
+    if (load_base >= size) return false;
+
+    uint32_t td_fo = (0x10fb7u - GHIDRA_BASE) + load_base;
+    if (td_fo + sizeof(TEARDOWN_SIG) > size) return false;
+    if (memcmp(data + td_fo, TEARDOWN_SIG, sizeof(TEARDOWN_SIG)) != 0) return false;
+
+    uint32_t c24_fo = (CODE24_LINEAR - GHIDRA_BASE) + load_base;
+    if (c24_fo + CODE24_SIZE > size) return false;
+    if (c24_fo + CODE24_SKIP + sizeof(MUSIC_SIG) > size) return false;
+    if (memcmp(data + c24_fo + CODE24_SKIP, MUSIC_SIG, sizeof(MUSIC_SIG)) != 0) return false;
+
+    // Parse CODE_24 into raw segments.
+    std::vector<std::vector<SrNote>> segs;
+    {
+        const uint8_t* base = data + c24_fo;
+        uint32_t pos = CODE24_SKIP;
+        while (pos + 4 <= CODE24_SIZE) {
+            std::vector<SrNote> seg;
+            while (pos + 4 <= CODE24_SIZE) {
+                uint16_t dur = (uint16_t)(base[pos]   | (base[pos+1] << 8));
+                uint16_t pit = (uint16_t)(base[pos+2] | (base[pos+3] << 8));
+                pos += 4;
+                if (dur == 0) break;
+                seg.push_back({dur, pit});
+            }
+            if (!seg.empty()) segs.push_back(std::move(seg));
+        }
+    }
+    if (segs.empty()) return false;
+
+    // Map playlist pattern indices 0-4 to segments:
+    //   index 0 = intro (ascending scale; first note is C6 at pit=0x0474)
+    //   indices 1-4 = non-intro/non-rest segments in CODE_24 order
+    // A rest segment has all notes with pit_divisor == 0.
+    auto isIntro = [](const std::vector<SrNote>& s) {
+        return !s.empty() && s[0].duration_ticks == 5 && s[0].pit_divisor == 0x0474;
+    };
+    auto isRest = [](const std::vector<SrNote>& s) {
+        for (const auto& n : s)
+            if (n.pit_divisor != 0) return false;
+        return !s.empty();
+    };
+
+    // pat[0..4]: pointers into segs (stable; segs not modified after this).
+    const std::vector<SrNote>* pat[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+    int nSongs = 0;
+    for (const auto& seg : segs) {
+        if (!pat[0] && isIntro(seg)) {
+            pat[0] = &seg;
+        } else if (!isIntro(seg) && !isRest(seg) && nSongs < 4) {
+            pat[1 + nSongs] = &seg;
+            nSongs++;
+        }
+    }
+    if (!pat[0]) return false;
+
+    // Locate the playlist in the file:
+    //   DS segment base: 0x4E960 (linear, Ghidra view)
+    //   Playlist offset within DS: 0x5858
+    //   playlist_linear = 0x4E960 + 0x5858 = 0x541B8
+    //   playlist_fo = (0x541B8 - GHIDRA_BASE) + load_base
+    //               = c24_fo + (0x541B8 - CODE24_LINEAR)
+    //               = c24_fo + 0x15B08
+    uint32_t pl_fo = c24_fo + 0x15B08u;
+    if (pl_fo + 2 > size) return false;
+
+    // Read playlist: uint16_t stream.
+    //   0-4      = pattern index
+    //   0x79AA   = runtime random pattern (BSS; pick random 1..nSongs at runtime)
+    //   0xFFFF   = block terminator; empty block after terminator = playlist end
+    //   anything else = end of playlist data
+    std::vector<std::vector<uint16_t>> blocks;
+    {
+        std::vector<uint16_t> cur;
+        for (int i = 0; i < 512 && pl_fo + 2 <= size; ++i, pl_fo += 2) {
+            uint16_t v = (uint16_t)(data[pl_fo] | (data[pl_fo+1] << 8));
+            if (v == 0xFFFF) {
+                if (cur.empty()) break;  // empty block = playlist end
+                blocks.push_back(std::move(cur));
+                cur.clear();
+            } else if (v <= 4 || v == 0x79AA) {
+                cur.push_back(v);
+            } else {
+                if (!cur.empty()) blocks.push_back(std::move(cur));
+                break;
+            }
+        }
+        if (!cur.empty()) blocks.push_back(std::move(cur));
+    }
+    if (blocks.empty()) return false;
+
+    // Bridge = intro scale (pattern 0) played once.
+    out_bridge = *pat[0];
+
+    // Build songs from blocks that contain any non-zero pattern index.
+    // Blocks containing only index 0 are bridge/intro-only -- skip them.
+    std::mt19937 rng(std::random_device{}());
+    out_songs.clear();
+
+    for (const auto& block : blocks) {
+        bool hasMelody = false;
+        for (uint16_t e : block)
+            if (e != 0) { hasMelody = true; break; }
+        if (!hasMelody) continue;
+
+        std::vector<SrNote> song;
+        for (uint16_t e : block) {
+            int idx;
+            if (e == 0x79AA) {
+                // Runtime random: pick a random non-intro pattern.
+                idx = nSongs >= 1 ? std::uniform_int_distribution<int>(1, nSongs)(rng) : 0;
+            } else {
+                idx = (int)e;
+            }
+            if (idx >= 0 && idx < 5 && pat[idx])
+                for (const auto& n : *pat[idx]) song.push_back(n);
+        }
+        if (!song.empty()) out_songs.push_back(std::move(song));
+    }
+
+    return !out_songs.empty();
+}
+
+bool sr_exe_build_known_songs(const std::vector<std::vector<SrNote>>& segs,
+                              std::vector<std::vector<SrNote>>& out_songs)
+{
+    if (segs.size() < 18) return false;
+
+    static const int kDefs[][13] = {
+        {0, 0, 0, 1, 1,                   -1},
+        {3, 3, 3, 4, 4, 5,                -1},
+        {6, 6, 6, 7, 7, 8, 9, 9, 10, 11, -1},
+        {12, 12, 12, 13, 13, 13, 14,      -1},
+        {15, 15, 15, 16, 17,              -1},
+    };
+    static const char* kNames[] = {"song1", "song2", "song3", "song4", "song5"};
+    (void)kNames;
+
+    out_songs.clear();
+    for (const auto& def : kDefs) {
+        std::vector<SrNote> song;
+        for (int i = 0; def[i] >= 0; ++i)
+            for (const auto& n : segs[(size_t)def[i]]) song.push_back(n);
+        out_songs.push_back(std::move(song));
+    }
+    return true;
 }
 
 bool sr_exe_parse_music(const std::string& path,

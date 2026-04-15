@@ -8,6 +8,7 @@
 #include <SDL2/SDL.h>
 #include <cstring>
 #include <algorithm>
+#include <fstream>
 #include <random>
 
 // Helper to read big-endian values
@@ -464,7 +465,7 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
     }
 
     const AudioSample& sample = it->second;
-    LOG_INFO("AudioManager::PlaySound - Playing sample %d at %.2f Hz, volume %.2f",
+    LOG_INFO("AudioManager::PlaySound - Playing sample %d at %u Hz, volume %.2f",
             static_cast<int>(type), sample.sampleRate, volume);
 
     if (audioDevice == 0) {
@@ -549,42 +550,89 @@ void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
     // not yet implemented
 }
 
+// CODE_24 segment classification helpers.
+// Intro = ascending scale: first note is (dur=5, pit=0x0474).
+static bool IsIntroSegment(const std::vector<SrNote>& seg) {
+    return !seg.empty() && seg[0].duration_ticks == 5 && seg[0].pit_divisor == 0x0474;
+}
+
+// Rest = all notes are silent (pit_divisor == 0).
+static bool IsRestSegment(const std::vector<SrNote>& seg) {
+    for (const auto& n : seg)
+        if (n.pit_divisor != 0) return false;
+    return !seg.empty();
+}
+
+// Fallback: build a shuffled playlist treating each CODE_24 segment as a song.
+// Used when the segment count doesn't match the expected 18-segment SR.EXE layout.
+static std::vector<SrNote> BuildShuffledPlaylist(const std::vector<std::vector<SrNote>>& segments) {
+    const std::vector<SrNote>* intro = nullptr;
+    std::vector<size_t> songIdxs;
+
+    for (size_t i = 0; i < segments.size(); ++i) {
+        if (IsIntroSegment(segments[i])) {
+            intro = &segments[i];
+        } else if (!IsRestSegment(segments[i])) {
+            songIdxs.push_back(i);
+        }
+    }
+
+    if (songIdxs.empty()) {
+        // No songs identified -- fall back to flat concatenation.
+        std::vector<SrNote> all;
+        for (const auto& seg : segments)
+            for (const auto& n : seg)
+                all.push_back(n);
+        return all;
+    }
+
+    std::shuffle(songIdxs.begin(), songIdxs.end(),
+                 std::default_random_engine(std::random_device{}()));
+
+    std::vector<SrNote> playlist;
+    for (size_t idx : songIdxs) {
+        if (intro)
+            for (const auto& n : *intro) playlist.push_back(n);
+        for (const auto& n : segments[idx]) playlist.push_back(n);
+    }
+    return playlist;
+}
+
 void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
-    std::vector<std::vector<SrNote>> segments;
-    if (!sr_exe_parse_music(dosExePath, segments)) {
-        LOG_INFO("AudioManager: %s not recognized as SR.EXE, no PC speaker music", dosExePath.c_str());
+    std::ifstream f(dosExePath, std::ios::binary | std::ios::ate);
+    if (!f) {
+        LOG_INFO("AudioManager: cannot open %s, no PC speaker music", dosExePath.c_str());
         return;
     }
-
-    std::vector<SrNote> allNotes;
-    for (const auto& seg : segments)
-        for (const auto& note : seg)
-            allNotes.push_back(note);
-
-    pcSpeaker_ = std::make_unique<PCSpeaker>();
-    if (!pcSpeaker_->Init()) {
-        LOG_INFO("AudioManager: PCSpeaker audio init failed");
-        pcSpeaker_.reset();
-        return;
-    }
-
-    pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
-    pcSpeaker_->SetNotes(allNotes);
-    LOG_INFO("AudioManager: PC speaker music loaded (%zu segments, %zu notes total)",
-             segments.size(), allNotes.size());
+    auto fsz = (size_t)f.tellg();
+    f.seekg(0);
+    std::vector<uint8_t> buf(fsz);
+    f.read(reinterpret_cast<char*>(buf.data()), (std::streamsize)fsz);
+    AudioManager::InitPCSpeakerFromExeBytes(buf.data(), buf.size());
 }
 
 void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
-    std::vector<std::vector<SrNote>> segments;
-    if (!sr_exe_parse_music_bytes(data, len, segments)) {
+    std::vector<std::vector<SrNote>> segs;
+    if (!sr_exe_parse_music_bytes(data, len, segs)) {
         LOG_INFO("AudioManager: DOS EXE buffer not recognized as SR.EXE, no PC speaker music");
         return;
     }
 
-    std::vector<SrNote> allNotes;
-    for (const auto& seg : segments)
-        for (const auto& note : seg)
-            allNotes.push_back(note);
+    std::vector<SrNote> playlist;
+    std::vector<std::vector<SrNote>> songs;
+    if (sr_exe_build_known_songs(segs, songs)) {
+        std::vector<int> order;
+        for (int i = 0; i < (int)songs.size(); i++) order.push_back(i);
+        std::shuffle(order.begin(), order.end(),
+                     std::default_random_engine(std::random_device{}()));
+        for (int i : order)
+            for (const auto& n : songs[(size_t)i]) playlist.push_back(n);
+        LOG_INFO("AudioManager: PC speaker playlist built (%zu songs, %zu notes)",
+                 songs.size(), playlist.size());
+    } else {
+        LOG_INFO("AudioManager: unexpected segment count (%zu), using fallback", segs.size());
+        playlist = BuildShuffledPlaylist(segs);
+    }
 
     pcSpeaker_ = std::make_unique<PCSpeaker>();
     if (!pcSpeaker_->Init()) {
@@ -594,9 +642,8 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
     }
 
     pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
-    pcSpeaker_->SetNotes(allNotes);
-    LOG_INFO("AudioManager: PC speaker music loaded (%zu segments, %zu notes total)",
-             segments.size(), allNotes.size());
+    pcSpeaker_->SetNotes(playlist);
+    LOG_INFO("AudioManager: PC speaker music loaded (%zu notes in shuffled playlist)", playlist.size());
 }
 
 void AudioManager::SetSfxVolume(int v) {
