@@ -68,6 +68,8 @@ class Garage : public CarScene {
     std::unique_ptr<Bitmap> paintCanPreview;
     std::unique_ptr<Dialog> carInfoDialog;
     std::unique_ptr<Dialog> calendarDialog;
+    std::unique_ptr<Dialog> radioDialog;
+    bool rebuildRadio_ = false;
     std::unique_ptr<Dialog> stickerDialog;
     std::vector<std::unique_ptr<Bitmap>> customStickerBitmaps;
     std::vector<std::string> customStickerPaths;
@@ -86,6 +88,7 @@ class Garage : public CarScene {
     void ShowPaintDialog();
     void ShowCarInfoDialog();
     void ShowCalendarDialog();
+    void ShowRadioDialog();
     void ShowTransmissionDialog();
     SDL_Point GetCalendarDateHighlightPosition(int month, int day);
     void ShowStickerDialog();

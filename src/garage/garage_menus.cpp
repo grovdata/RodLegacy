@@ -318,3 +318,86 @@ void Garage::InitOptionsDialog() {
 
 void Garage::InitBumperDialogs() {
 }
+
+void Garage::ShowRadioDialog() {
+    AudioManager* am = state.GetAssets().GetAudioManager();
+    if (!am || !am->HasPCSpeaker()) return;
+
+    const int dw = 144, dh = 46;
+    const int dx = (320 - dw) / 2, dy = 60;
+    SDL_Rect dlgRect = {dx, dy, dw, dh};
+
+    // Button row at bottom of dialog
+    const int btnY  = dy + dh - 18;
+    const int btnH  = 14;
+    SDL_Rect prevRect  = {dx + 4,          btnY, 24, btnH};
+    SDL_Rect ppRect    = {dx + 32,         btnY, 50, btnH};
+    SDL_Rect nextRect  = {dx + 86,         btnY, 24, btnH};
+    SDL_Rect closeRect = {dx + dw - 28,    btnY, 24, btnH};
+
+    Zone prevZone (ZONE_GARAGE_RADIO_PREV,       strdup("Previous song"), &prevRect);
+    Zone ppZone   (ZONE_GARAGE_RADIO_PLAY_PAUSE, strdup("Play / Pause"),  &ppRect);
+    Zone nextZone (ZONE_GARAGE_RADIO_NEXT,       strdup("Next song"),     &nextRect);
+    Zone closeZone(ZONE_GARAGE_RADIO_CLOSE,      strdup("Close"),         &closeRect);
+
+    std::string songName = am->GetCurrentPCSongName();
+    char nameLabel[64];
+    snprintf(nameLabel, sizeof(nameLabel), "%s (%d/%d)",
+             songName.c_str(),
+             am->GetCurrentPCSongIndex() + 1,
+             am->GetPCSongCount());
+
+    const bool paused = am->IsPCSpeakerPaused();
+
+    std::vector<DialogTextConfig> texts = {
+        {SDL_Rect{dx, dy + 4, dw, 10}, nameLabel, {0xFF, 0xFF, 0xFF, 0xFF}, true},
+    };
+
+    std::vector<SDL_Rect> lines = {
+        {dx + 2, btnY - 3, dw - 4, 1},
+    };
+
+    ButtonConfig prevBtn  = {prevRect,  "<<", nullptr, false, 0};
+    ButtonConfig ppBtn    = {ppRect, paused ? "Play" : "Pause", nullptr, false, 1};
+    ButtonConfig nextBtn  = {nextRect,  ">>", nullptr, false, 2};
+    ButtonConfig closeBtn = {closeRect, "X",  nullptr, false, 3};
+
+    DialogConfig cfg;
+    cfg.bounds          = dlgRect;
+    cfg.backgroundColor = {0, 208, 0, 255};
+    cfg.borderColor     = {0, 111, 239, 255};
+    cfg.font            = state.GetAssets().GetMainFont();
+    cfg.texts           = texts;
+    cfg.lines           = lines;
+    cfg.buttons         = {prevBtn, ppBtn, nextBtn, closeBtn};
+    cfg.zones           = {prevZone, ppZone, nextZone, closeZone};
+    cfg.contentAreas    = {dlgRect};
+    cfg.onZoneHover     = [this](Zone& zone) { hud->SetText(zone.GetText()); };
+    cfg.onDismiss       = [this]() {
+        radioDialog->Hide();
+        SetActiveDialog(nullptr);
+    };
+    cfg.onButtonPressed = [this](int idx) {
+        AudioManager* am = state.GetAssets().GetAudioManager();
+        if (!am) return;
+        switch (idx) {
+            case 0: am->PrevPCSong();      rebuildRadio_ = true; break;
+            case 1:
+                if (am->IsPCSpeakerPaused()) am->ResumePCSpeaker();
+                else                         am->PausePCSpeaker();
+                rebuildRadio_ = true;
+                break;
+            case 2: am->NextPCSong();      rebuildRadio_ = true; break;
+            case 3:
+                radioDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+
+    if (radioDialog && radioDialog->IsVisible())
+        radioDialog->Hide();
+    radioDialog = std::make_unique<Dialog>(cfg);
+    radioDialog->Show();
+    SetActiveDialog(radioDialog.get());
+}

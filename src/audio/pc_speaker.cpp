@@ -311,6 +311,22 @@ void PCSpeaker::Stop()
     frequency_ = 0.0f;
 }
 
+void PCSpeaker::Pause()
+{
+    if (!paused_ && device_) {
+        SDL_PauseAudioDevice(device_, 1);
+        paused_ = true;
+    }
+}
+
+void PCSpeaker::Resume()
+{
+    if (paused_ && device_) {
+        SDL_PauseAudioDevice(device_, 0);
+        paused_ = false;
+    }
+}
+
 void PCSpeaker::TickISR()
 {
     if (do_play_.exchange(false)) {

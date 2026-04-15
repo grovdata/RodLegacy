@@ -618,32 +618,69 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
         return;
     }
 
-    std::vector<SrNote> playlist;
-    std::vector<std::vector<SrNote>> songs;
-    if (sr_exe_build_known_songs(segs, songs)) {
-        std::vector<int> order;
-        for (int i = 0; i < (int)songs.size(); i++) order.push_back(i);
-        std::shuffle(order.begin(), order.end(),
-                     std::default_random_engine(std::random_device{}()));
-        for (int i : order)
-            for (const auto& n : songs[(size_t)i]) playlist.push_back(n);
-        LOG_INFO("AudioManager: PC speaker playlist built (%zu songs, %zu notes)",
-                 songs.size(), playlist.size());
+    if (sr_exe_build_known_songs(segs, pcSongs_)) {
+        pcSongNames_ = {"Song 1", "Song 2", "Song 3", "Song 4", "Song 5"};
+        LOG_INFO("AudioManager: PC speaker: %zu songs loaded", pcSongs_.size());
     } else {
         LOG_INFO("AudioManager: unexpected segment count (%zu), using fallback", segs.size());
-        playlist = BuildShuffledPlaylist(segs);
+        // Fallback: one big playlist as a single "song".
+        pcSongs_.clear();
+        pcSongs_.push_back(BuildShuffledPlaylist(segs));
+        pcSongNames_ = {"Music"};
     }
+    currentPCSong_ = 0;
 
     pcSpeaker_ = std::make_unique<PCSpeaker>();
     if (!pcSpeaker_->Init()) {
         LOG_INFO("AudioManager: PCSpeaker audio init failed");
         pcSpeaker_.reset();
+        pcSongs_.clear();
+        pcSongNames_.clear();
         return;
     }
 
     pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
-    pcSpeaker_->SetNotes(playlist);
-    LOG_INFO("AudioManager: PC speaker music loaded (%zu notes in shuffled playlist)", playlist.size());
+    pcSpeaker_->SetNotes(pcSongs_[0]);
+    LOG_INFO("AudioManager: PC speaker music loaded (%zu songs)", pcSongs_.size());
+}
+
+void AudioManager::NextPCSong() {
+    if (!pcSpeaker_ || pcSongs_.empty()) return;
+    currentPCSong_ = (currentPCSong_ + 1) % (int)pcSongs_.size();
+    pcSpeaker_->SetNotes(pcSongs_[(size_t)currentPCSong_]);
+    pcSpeaker_->Play();
+}
+
+void AudioManager::PrevPCSong() {
+    if (!pcSpeaker_ || pcSongs_.empty()) return;
+    currentPCSong_ = (currentPCSong_ - 1 + (int)pcSongs_.size()) % (int)pcSongs_.size();
+    pcSpeaker_->SetNotes(pcSongs_[(size_t)currentPCSong_]);
+    pcSpeaker_->Play();
+}
+
+void AudioManager::PausePCSpeaker() {
+    if (pcSpeaker_) pcSpeaker_->Pause();
+}
+
+void AudioManager::ResumePCSpeaker() {
+    if (pcSpeaker_) pcSpeaker_->Resume();
+}
+
+bool AudioManager::IsPCSpeakerPaused() const {
+    return pcSpeaker_ && pcSpeaker_->IsPaused();
+}
+
+int AudioManager::GetCurrentPCSongIndex() const {
+    return currentPCSong_;
+}
+
+int AudioManager::GetPCSongCount() const {
+    return (int)pcSongs_.size();
+}
+
+std::string AudioManager::GetCurrentPCSongName() const {
+    if (pcSongNames_.empty()) return "";
+    return pcSongNames_[(size_t)currentPCSong_];
 }
 
 void AudioManager::SetSfxVolume(int v) {

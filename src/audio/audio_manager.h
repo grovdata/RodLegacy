@@ -123,6 +123,16 @@ public:
     void SetMusicMuted(bool muted);
     bool IsMusicMuted() const { return musicMuted_; }
 
+    // Song navigation (DOS PC speaker only).
+    void NextPCSong();
+    void PrevPCSong();
+    void PausePCSpeaker();
+    void ResumePCSpeaker();
+    bool IsPCSpeakerPaused() const;
+    int  GetCurrentPCSongIndex() const;
+    int  GetPCSongCount() const;
+    std::string GetCurrentPCSongName() const;
+
     // Get engine sound for external management
     AudioSample* GetEngineSound() { return GetSample(AudioSampleType::ENGINE_LOOP); }
 
@@ -136,6 +146,9 @@ private:
 
     // PC speaker music (optional -- requires DOS SR.EXE)
     std::unique_ptr<PCSpeaker> pcSpeaker_;
+    std::vector<std::vector<SrNote>> pcSongs_;
+    std::vector<std::string>         pcSongNames_;
+    int                              currentPCSong_ = 0;
 
     // Volume levels (0-10)
     int  sfxVolume_   = 8;

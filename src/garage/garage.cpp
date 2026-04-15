@@ -503,6 +503,10 @@ void Garage::DrawScene() {
         InitOptionsDialog();
         SetActiveDialog(optionsDialog.get());
     }
+    if (rebuildRadio_) {
+        rebuildRadio_ = false;
+        ShowRadioDialog();
+    }
 
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
@@ -650,6 +654,19 @@ bool Garage::PushEvent(SDL_Event* event) {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
         return true;
+    }
+    // Right-click on the radio opens the song control dialog.
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+        static const SDL_Rect radioRect = {259, 61, 25, 12};
+        int mx = event->button.x, my = event->button.y;
+        if (mx >= radioRect.x && mx < radioRect.x + radioRect.w &&
+            my >= radioRect.y && my < radioRect.y + radioRect.h) {
+            AudioManager* am = state.GetAssets().GetAudioManager();
+            if (am && am->HasPCSpeaker()) {
+                ShowRadioDialog();
+                return true;
+            }
+        }
     }
     return CarScene::PushEvent(event);
 }
