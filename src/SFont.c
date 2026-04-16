@@ -24,9 +24,9 @@
 #include <SDL.h>
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include "SFont.h"
-#include <stdlib.h>
 
 static Uint32 GetPixel(SDL_Surface *Surface, Sint32 X, Sint32 Y)
 {
@@ -190,5 +190,70 @@ void SFont_WriteCenter(SDL_Surface *Surface, const SFont_Font *Font,
 {
     SFont_Write(Surface, Font, Surface->w/2 - SFont_TextWidth(Font, text)/2,
 	    	y, text);
+}
+
+SFont_Font* SFont_InitFontDirect(
+    const uint8_t* pixels, int pixel_row_stride,
+    const int* x_offsets, const int* glyph_widths, const int* advance_widths,
+    int first_char, int num_chars, int ysize,
+    uint8_t fg_r, uint8_t fg_g, uint8_t fg_b)
+{
+    int i, row, px;
+
+    if (!pixels || num_chars <= 0 || ysize <= 0 || first_char < 33)
+        return NULL;
+
+    /* Surface width: one 1-pixel pink marker per char + advance pixels per char
+     * + one sentinel pink marker at the end. */
+    int surf_w = 1; /* sentinel */
+    for (i = 0; i < num_chars; i++)
+        surf_w += 1 + advance_widths[i];
+    int surf_h = ysize + 1; /* row 0: pink markers; rows 1..ysize: glyphs */
+
+    SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, surf_w, surf_h, 32,
+                                                       SDL_PIXELFORMAT_RGBA8888);
+    if (!surf)
+        return NULL;
+
+    /* Fill fully transparent */
+    SDL_FillRect(surf, NULL, SDL_MapRGBA(surf->format, 0, 0, 0, 0));
+
+    SDL_LockSurface(surf);
+
+    Uint32 pink        = SDL_MapRGBA(surf->format, 255, 0, 255, 255);
+    Uint32 fg_color    = SDL_MapRGBA(surf->format, fg_r, fg_g, fg_b, 255);
+    Uint32 transparent = SDL_MapRGBA(surf->format, 0, 0, 0, 0);
+
+    int sx = 0; /* current x position in the surface */
+    for (i = 0; i < num_chars; i++) {
+        /* Row 0: pink marker (1 pixel wide) */
+        Uint32* r0 = (Uint32*)((Uint8*)surf->pixels + 0 * surf->pitch);
+        r0[sx] = pink;
+
+        /* Rows 1..ysize: glyph pixels */
+        int gw   = glyph_widths[i];
+        int xoff = x_offsets[i];
+        for (row = 0; row < ysize; row++) {
+            Uint32* rn = (Uint32*)((Uint8*)surf->pixels + (row + 1) * surf->pitch);
+            for (px = 0; px < gw; px++) {
+                uint8_t bit = pixels[row * pixel_row_stride + xoff + px];
+                rn[sx + 1 + px] = bit ? fg_color : transparent;
+            }
+        }
+
+        sx += 1 + advance_widths[i];
+    }
+
+    /* Sentinel pink at end */
+    Uint32* r0 = (Uint32*)((Uint8*)surf->pixels + 0 * surf->pitch);
+    r0[sx] = pink;
+
+    SDL_UnlockSurface(surf);
+
+    /* SFont_InitFont scans row 0 for pink runs and builds CharPos[]. */
+    SFont_Font* font = SFont_InitFont(surf);
+    if (!font)
+        SDL_FreeSurface(surf);
+    return font;
 }
 

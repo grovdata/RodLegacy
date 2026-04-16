@@ -37,6 +37,7 @@
 #define SFONT_H
 
 #include <SDL.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +85,31 @@ int SFont_TextHeight(const SFont_Font *Font);
 
 /* Blits a string to Surface with centered x position */
 void SFont_WriteCenter(SDL_Surface *Surface, const SFont_Font *Font, int y, const char *text);
+
+/*
+** Initializes a font directly from raw in-memory glyph data, without a PNG.
+**
+** pixels:            byte-per-pixel array (1 = foreground, 0 = background),
+**                    row-major, pixel_row_stride bytes per row.
+** pixel_row_stride:  bytes per row in the pixels array (>= max x_offsets[i]+glyph_widths[i]).
+** x_offsets:         x column in pixels[] where each glyph starts (num_chars entries).
+** glyph_widths:      pixel width of each glyph (num_chars entries).
+** advance_widths:    how far to advance x after printing each char (num_chars entries).
+** first_char:        ASCII code of the first character (must be >= 33, i.e. '!').
+**                    Space (0x20) is handled by SFont_Write internally and must not
+**                    be included.
+** num_chars:         number of characters.
+** ysize:             glyph height in pixels.
+** fg_r, fg_g, fg_b:  foreground colour for lit glyph pixels.
+**
+** Returns a newly allocated SFont_Font, or NULL on error.
+** Caller is responsible for freeing it with SFont_FreeFont.
+*/
+SFont_Font* SFont_InitFontDirect(
+    const uint8_t* pixels, int pixel_row_stride,
+    const int* x_offsets, const int* glyph_widths, const int* advance_widths,
+    int first_char, int num_chars, int ysize,
+    uint8_t fg_r, uint8_t fg_g, uint8_t fg_b);
 
 #ifdef __cplusplus
 }

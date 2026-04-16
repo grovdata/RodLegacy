@@ -133,6 +133,17 @@ public:
     int  GetPCSongCount() const;
     std::string GetCurrentPCSongName() const;
 
+    // Source-agnostic music control (works for whichever source is active).
+    bool HasActiveMusic() const;
+    void NextSong();
+    void PrevSong();
+    void PauseMusic();
+    void ResumeMusic();
+    bool IsMusicPaused() const;
+    std::string GetCurrentSongName() const;
+    int  GetCurrentSongIndex() const;
+    int  GetSongCount() const;
+
     // Get engine sound for external management
     AudioSample* GetEngineSound() { return GetSample(AudioSampleType::ENGINE_LOOP); }
 

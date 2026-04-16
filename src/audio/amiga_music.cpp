@@ -101,6 +101,19 @@ void AmigaMusic::Play() {
 
 void AmigaMusic::Stop() {
     playing_.store(false);
+    paused_.store(false);
+}
+
+void AmigaMusic::Pause() {
+    paused_.store(true);
+}
+
+void AmigaMusic::Resume() {
+    paused_.store(false);
+}
+
+bool AmigaMusic::IsPaused() const {
+    return paused_.load();
 }
 
 void AmigaMusic::SetVolume(float volume) {
@@ -115,7 +128,7 @@ void AmigaMusic::AudioCallback(void* userdata, uint8_t* stream, int len) {
 }
 
 void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
-    if (!loaded_.load() || !playing_.load()) {
+    if (!loaded_.load() || !playing_.load() || paused_.load()) {
         std::memset(buffer, 0, static_cast<size_t>(frames) * sizeof(int16_t));
         return;
     }

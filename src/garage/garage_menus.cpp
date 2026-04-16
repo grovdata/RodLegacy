@@ -321,7 +321,9 @@ void Garage::InitBumperDialogs() {
 
 void Garage::ShowRadioDialog() {
     AudioManager* am = state.GetAssets().GetAudioManager();
-    if (!am || !am->HasPCSpeaker()) return;
+    if (!am || !am->HasActiveMusic()) return;
+
+    const bool multiSong = am->GetSongCount() > 1;
 
     const int dw = 144, dh = 46;
     const int dx = (320 - dw) / 2, dy = 60;
@@ -340,14 +342,18 @@ void Garage::ShowRadioDialog() {
     Zone nextZone (ZONE_GARAGE_RADIO_NEXT,       strdup("Next song"),     &nextRect);
     Zone closeZone(ZONE_GARAGE_RADIO_CLOSE,      strdup("Close"),         &closeRect);
 
-    std::string songName = am->GetCurrentPCSongName();
+    std::string songName = am->GetCurrentSongName();
     char nameLabel[64];
-    snprintf(nameLabel, sizeof(nameLabel), "%s (%d/%d)",
-             songName.c_str(),
-             am->GetCurrentPCSongIndex() + 1,
-             am->GetPCSongCount());
+    if (multiSong) {
+        snprintf(nameLabel, sizeof(nameLabel), "%s (%d/%d)",
+                 songName.c_str(),
+                 am->GetCurrentSongIndex() + 1,
+                 am->GetSongCount());
+    } else {
+        snprintf(nameLabel, sizeof(nameLabel), "%s", songName.c_str());
+    }
 
-    const bool paused = am->IsPCSpeakerPaused();
+    const bool paused = am->IsMusicPaused();
 
     std::vector<DialogTextConfig> texts = {
         {SDL_Rect{dx, dy + 4, dw, 10}, nameLabel, {0xFF, 0xFF, 0xFF, 0xFF}, true},
@@ -361,6 +367,12 @@ void Garage::ShowRadioDialog() {
     ButtonConfig ppBtn    = {ppRect, paused ? "Play" : "Pause", nullptr, false, 1};
     ButtonConfig nextBtn  = {nextRect,  ">>", nullptr, false, 2};
     ButtonConfig closeBtn = {closeRect, "X",  nullptr, false, 3};
+
+    // Disable prev/next for single-track sources
+    if (!multiSong) {
+        prevBtn.text = "";
+        nextBtn.text = "";
+    }
 
     DialogConfig cfg;
     cfg.bounds          = dlgRect;
@@ -381,13 +393,13 @@ void Garage::ShowRadioDialog() {
         AudioManager* am = state.GetAssets().GetAudioManager();
         if (!am) return;
         switch (idx) {
-            case 0: am->PrevPCSong();      rebuildRadio_ = true; break;
+            case 0: am->PrevSong();   rebuildRadio_ = true; break;
             case 1:
-                if (am->IsPCSpeakerPaused()) am->ResumePCSpeaker();
-                else                         am->PausePCSpeaker();
+                if (am->IsMusicPaused()) am->ResumeMusic();
+                else                     am->PauseMusic();
                 rebuildRadio_ = true;
                 break;
-            case 2: am->NextPCSong();      rebuildRadio_ = true; break;
+            case 2: am->NextSong();   rebuildRadio_ = true; break;
             case 3:
                 radioDialog->Hide();
                 SetActiveDialog(nullptr);

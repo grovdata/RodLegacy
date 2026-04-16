@@ -24,6 +24,9 @@ public:
 
     void Play();
     void Stop();
+    void Pause();
+    void Resume();
+    bool IsPaused() const;
     void SetVolume(float volume);
 
 private:
@@ -95,6 +98,7 @@ private:
 
     std::atomic<bool> loaded_ {false};
     std::atomic<bool> playing_ {false};
+    std::atomic<bool> paused_ {false};
     std::atomic<float> volume_scale_ {0.8f};
 
     SDL_AudioDeviceID device_ = 0;

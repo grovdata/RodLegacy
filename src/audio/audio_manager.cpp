@@ -683,6 +683,56 @@ std::string AudioManager::GetCurrentPCSongName() const {
     return pcSongNames_[(size_t)currentPCSong_];
 }
 
+// --- Source-agnostic music control ---
+
+bool AudioManager::HasActiveMusic() const {
+    if (musicSource_ == MusicSource::DOS)   return HasPCSpeaker();
+    if (musicSource_ == MusicSource::AMIGA) return HasAmigaMusic();
+    return false;
+}
+
+void AudioManager::NextSong() {
+    if (musicSource_ == MusicSource::DOS) NextPCSong();
+    // Amiga has a single continuous track -- no-op
+}
+
+void AudioManager::PrevSong() {
+    if (musicSource_ == MusicSource::DOS) PrevPCSong();
+}
+
+void AudioManager::PauseMusic() {
+    if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Pause();
+    if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Pause();
+}
+
+void AudioManager::ResumeMusic() {
+    if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Resume();
+    if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Resume();
+}
+
+bool AudioManager::IsMusicPaused() const {
+    if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  return pcSpeaker_->IsPaused();
+    if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return amigaMusic_->IsPaused();
+    return false;
+}
+
+std::string AudioManager::GetCurrentSongName() const {
+    if (musicSource_ == MusicSource::DOS)   return GetCurrentPCSongName();
+    if (musicSource_ == MusicSource::AMIGA) return "Amiga Music";
+    return "";
+}
+
+int AudioManager::GetCurrentSongIndex() const {
+    if (musicSource_ == MusicSource::DOS) return GetCurrentPCSongIndex();
+    return 0;
+}
+
+int AudioManager::GetSongCount() const {
+    if (musicSource_ == MusicSource::DOS) return GetPCSongCount();
+    if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return 1;
+    return 0;
+}
+
 void AudioManager::SetSfxVolume(int v) {
     sfxVolume_ = std::max(0, std::min(10, v));
     if (engineSound)

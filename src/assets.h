@@ -133,6 +133,7 @@ private:
     void InitFonts();
     void InitMousePointers();
     void InitGameFiles();
+    void LoadAmigaFontFromExe();
     void InitStockPalettes();
     void InitAudio(bool muteAudio = false);
     void InitDosAssets();
