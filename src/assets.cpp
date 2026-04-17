@@ -52,20 +52,6 @@ AssetManager::~AssetManager() {
 void AssetManager::InitFonts() {
     LOG_INFO("Loading fonts from embedded resources");
 
-    // Load main font from embedded data
-    SDL_Surface* mainFontSurface = LoadSurfaceFromMemory(
-        embedded_font_png,
-        embedded_font_png_len
-    );
-    if (!mainFontSurface) {
-        throw AssetLoadError("Failed to load embedded main font");
-    }
-    mainFont = SFont_InitFont(mainFontSurface);
-    if (!mainFont) {
-        SDL_FreeSurface(mainFontSurface);
-        throw AssetLoadError("Failed to initialize main font");
-    }
-
     // Load newspaper font from embedded data
     SDL_Surface* newspaperFontSurface = LoadSurfaceFromMemory(
         embedded_bee_png,
@@ -94,7 +80,7 @@ void AssetManager::InitFonts() {
         throw AssetLoadError("Failed to initialize debug font");
     }
 
-    LOG_INFO("All fonts loaded successfully from embedded resources");
+    LOG_INFO("Newspaper and debug fonts loaded from embedded resources");
 }
 
 void AssetManager::LoadAmigaFontFromExe() {

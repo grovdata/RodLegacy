@@ -739,18 +739,6 @@ void SrLibDataCleanupCarString(char* str) {
     }
     *dst = '\0';
 
-    // Replace single backticks (`) with a space
-    src = dst = str;
-    while (*src) {
-        if (*src == '`') {
-            *dst++ = ' ';
-            src++;
-        } else {
-            *dst++ = *src++;
-        }
-    }
-    *dst = '\0';
-
     // Replace plus signs (+) with spaces
     src = dst = str;
     while (*src) {
