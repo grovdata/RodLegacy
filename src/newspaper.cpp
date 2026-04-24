@@ -1,11 +1,11 @@
 #include "log.h"
 #include "newspaper.h"
+#include <sstream>
 #include "state.h"
 #include "car.h"
 #include "spritesheet.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
-#include <sstream>
 
 const std::string autoParts = "------------ PARTS ------------";
 const std::string usedCars = "---------- USED CARS ----------";
@@ -22,7 +22,7 @@ void Newspaper::Init(bool debugMode) {
     InitPageOne();
     LoadClassifiedsData();
     InitPageAds();
-    
+
     // Create the large surface with all ads after data is loaded
     CreateAllAdsSurface();
 
@@ -76,7 +76,7 @@ void Newspaper::InitPageOne() {
     AmigaLibAsset headlineAsset = NEWSPAPER_NO_SOLDIERS_IN_VIETNAM;
     headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, headlineAsset});
     headline.SetPosition(0, 136);
-    headline.SetVisible(true); 
+    headline.SetVisible(true);
 
     const SDL_Rect masks[5][2] = {
         {{0, 0, 144, 16}, {146, 0, 175, 30}},
@@ -94,7 +94,7 @@ void Newspaper::InitPageOne() {
     SDL_FillRect(headline.GetSurface(), &headlineMaskRect[0], SDL_MapRGBA(headline.GetSurface()->format, 240, 240, 240, 255));
     SDL_FillRect(headline.GetSurface(), &headlineMaskRect[1], SDL_MapRGBA(headline.GetSurface()->format, 240, 240, 240, 255));
     headline.UpdateFromSurface();
-    
+
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
     date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
     date.SetText("  " + state.GetGameDateString() + "  ", true, GAME_WIDTH);
@@ -142,7 +142,7 @@ void Newspaper::InitPageAds() {
     // Create dynamic classified ads BEFORE updating adsArea surface
     CreateClassifiedAds();
     CreateUsedCarAds();
-    
+
     // Create single clickable zone for the ads area
     SDL_Rect adsZoneRect = {64, 0, 192, 190};
     Zone adsZone(ZONE_MAGAZINE_ADS_AREA, const_cast<char*>("Click on an ad to view details"), &adsZoneRect);
@@ -153,7 +153,7 @@ void Newspaper::InitPageAds() {
 
 void Newspaper::CreateClassifiedAds() {
     classifiedAds.clear();
-    
+
     // Create 6 label slots (6 ads per page, variable height)
     // We'll update their text content and position when the page changes
     for (int i = 0; i < adsPerPage; i++) {
@@ -162,14 +162,14 @@ void Newspaper::CreateClassifiedAds() {
         uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
         adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
         adLabel.SetVisible(false); // Will be shown based on current page
-        
+
         classifiedAds.push_back(adLabel);
     }
 }
 
 void Newspaper::CreateUsedCarAds() {
     usedCarAds.clear();
-    
+
     // Create 7 label slots (6.5 ads per page, variable height)
     // We'll update their text content and position when the page changes
     for (int i = 0; i < adsPerPage + 1; i++) {
@@ -178,130 +178,11 @@ void Newspaper::CreateUsedCarAds() {
         uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
         adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
         adLabel.SetVisible(false); // Will be shown based on current page
-        
+
         usedCarAds.push_back(adLabel);
     }
 }
 
-std::string Newspaper::WordWrap(const std::string& text, int maxWidthPixels) {
-    SFont_Font* font = state.GetAssets().GetMainFont();
-    if (!font) {
-        return text; // Fallback if font not available
-    }
-    
-    // Check if text already fits
-    if (SFont_TextWidth(font, text.c_str()) <= maxWidthPixels) {
-        return text;
-    }
-    
-    std::string result;
-    std::string currentLine;
-    std::istringstream iss(text);
-    std::string word;
-    
-    while (iss >> word) {
-        std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-        
-        if (SFont_TextWidth(font, testLine.c_str()) <= maxWidthPixels) {
-            currentLine = testLine;
-            
-            // If the word ends with a period, consider breaking here for better readability
-            if (word.back() == '.' && SFont_TextWidth(font, testLine.c_str()) > maxWidthPixels * 0.7) {
-                // If we're more than 70% full and just finished a sentence, break here
-                if (!result.empty()) {
-                    result += "\n";
-                }
-                result += currentLine;
-                currentLine.clear();
-            }
-        } else {
-            if (!currentLine.empty()) {
-                if (!result.empty()) {
-                    result += "\n";
-                }
-                result += currentLine;
-            }
-            currentLine = word;
-        }
-    }
-    
-    if (!currentLine.empty()) {
-        if (!result.empty()) {
-            result += "\n";
-        }
-        result += currentLine;
-    }
-    
-    return result;
-}
-
-std::string Newspaper::FormatClassifiedAd(const ClassifiedEntry_t& entry, int index) {
-    std::string result;
-    
-    // Format: "CarName AdText $Price"
-    if (entry.carName && entry.adText) {
-        result = std::string(entry.carName);
-        
-        if (strlen(entry.adText) > 0) {
-            result += " " + std::string(entry.adText);
-        }
-        
-        if (entry.price > 0) {
-            result += " $" + std::to_string(entry.price);
-        }
-        
-        // Apply word wrapping to each line (max 180 pixels per line)
-        std::string wrappedResult;
-        std::istringstream iss(result);
-        std::string line;
-        while (std::getline(iss, line)) {
-            if (!wrappedResult.empty()) {
-                wrappedResult += "\n";
-            }
-            wrappedResult += WordWrap(line, 180);
-        }
-        result = wrappedResult;
-    } else {
-        result = "Car #" + std::to_string(index + 1) + "\nDetails unavailable";
-    }
-    
-    return result;
-}
-
-std::string Newspaper::FormatUsedCarAd(const CarMetadata_t& metadata, int index) {
-    std::string result;
-    
-    // Format: "CarName AdText $Price"
-    if (metadata.classified.carName && metadata.classified.adText) {
-        result = std::string(metadata.classified.carName);
-        
-        if (strlen(metadata.classified.adText) > 0) {
-            result += " " + std::string(metadata.classified.adText);
-        }
-        
-        if (metadata.classified.price > 0) {
-            result += " $" + std::to_string(metadata.classified.price);
-        } else {
-            result += " Price on request";
-        }
-        
-        // Apply word wrapping to each line (max 180 pixels per line)
-        std::string wrappedResult;
-        std::istringstream iss(result);
-        std::string line;
-        while (std::getline(iss, line)) {
-            if (!wrappedResult.empty()) {
-                wrappedResult += "\n";
-            }
-            wrappedResult += WordWrap(line, 180);
-        }
-        result = wrappedResult;
-    } else {
-        result = "Used Car #" + std::to_string(index + 1) + "\nCall for details";
-    }
-    
-    return result;
-}
 
 void Newspaper::UpdatePageContent() {
     // Use the new viewport system
@@ -318,7 +199,7 @@ void Newspaper::AddDivider(int /* y */) {
 void Newspaper::DrawScene() {
     Scene::DrawScene();
     exit.Draw();
-    
+
     headline.Draw();
     date.Draw();
     headingLeft.Draw();
@@ -332,12 +213,12 @@ void Newspaper::DrawScene() {
     for (auto& ad : classifiedAds) {
         ad.Draw();
     }
-    
+
     // Draw used car ads
     for (auto& ad : usedCarAds) {
         ad.Draw();
     }
-    
+
     // Draw active dialog
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
@@ -376,7 +257,7 @@ void Newspaper::Action(ZoneId zone) {
         return;
     }
 
-    switch (zone) { 
+    switch (zone) {
         case ZONE_MAGAZINE_AUTO_PARTS:
             currentPage = 1;
             smoothScrollOffset = 0; // Reset smooth scroll when changing sections
@@ -434,7 +315,7 @@ void Newspaper::Update() {
     previous.SetVisible(currentPage > 0);
     next.SetVisible(currentPage > 0);
     adsArea.SetVisible(currentPage > 0);
-    
+
     // Headers are now part of the large surface
 
     SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, currentPage == 0);
@@ -443,7 +324,7 @@ void Newspaper::Update() {
     SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, currentPage > 0);
     SetZoneEnabled(ZONE_MAGAZINE_NEXT, currentPage > 0);
     SetZoneEnabled(ZONE_MAGAZINE_ADS_AREA, currentPage > 0); // Only enable ads area zone when on ads pages
-    
+
     // Update page content
     UpdatePageContent();
 }
@@ -470,23 +351,23 @@ void Newspaper::HandleAdClick(int adIndex) {
 
 void Newspaper::CreateAllAdsSurface() {
     LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries", carMetadata.size());
-    
+
     // Calculate total height needed for all ads
     int totalHeight = 0;
-    
+
     // Add space for PARTS header only (no ads yet)
     totalHeight += 60; // Header (20px) + spacing (40px)
-    
+
     // Add space for used car ads (continuous list, not pages)
     totalHeight += 20; // USED CARS header
     totalHeight += carMetadata.size() * 25; // Rough estimate for all car ads
-    
+
     // Add some padding
     totalHeight += 100;
-    
+
     allAdsSurfaceHeight = totalHeight;
     LOG_INFO("CreateAllAdsSurface: Calculated total height: %d", totalHeight);
-    
+
     // Create the large surface
     allAdsSurface = Bitmap(192, totalHeight, 32);
     SDL_Surface* surface = allAdsSurface.GetSurface();
@@ -496,43 +377,43 @@ void Newspaper::CreateAllAdsSurface() {
         return;
     }
     SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 255, 255, 255, 255));
-    
+
     // Clear ad positions
     adPositions.clear();
-    
+
     // Get the main font once for all rendering
     SFont_Font* mainFont = state.GetAssets().GetMainFont();
     if (!mainFont) {
         LOG_INFO("ERROR: GetMainFont() returned NULL");
         return;
     }
-    
+
     int currentY = 0;
-    
+
     // Draw PARTS header only (no ads yet)
     {
         // Create header label
-        
+
         Label headerLabel;
         uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
         headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(autoParts, false, 184);
         headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
-        
+
         // Center the header text
         int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), autoParts.c_str());
         int centerX = (192 - textWidth) / 2;
-        
+
         // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
         LOG_INFO("Rendered PARTS header at Y=%d", currentY);
         currentY += 20;
-        
+
         // Add some space after the header
         currentY += 40;
     }
-    
+
     // Draw USED CARS header
     {
         // Create header label
@@ -541,75 +422,104 @@ void Newspaper::CreateAllAdsSurface() {
         headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(usedCars, false, 184);
         headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
-        
+
         // Center the header text
         int textWidth = SFont_TextWidth(mainFont, usedCars.c_str());
         int centerX = (192 - textWidth) / 2;
-        
+
         // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, surface, &headerRect);
         LOG_INFO("Rendered USED CARS header at Y=%d", currentY);
         currentY += 20;
     }
-    
+
     // Draw all used car ads (no page concept, just continuous list)
+    //
+    // Original DOS layout (reversed from FUN_1000_09cb in SR.EXE):
+    //   - Car name is rendered at left column x=LEFT_COL, current row y.
+    //   - Lines from data that start with '+' (stored here as '\t'-prefixed) are
+    //     rendered at RIGHT_COL on the SAME row as the car name (no y advance).
+    //     At most one feature line per entry in the actual game data.
+    //   - All other lines advance y by lineHeight and render at LEFT_COL.
+    //   - The price string (e.g. "$1450") is stored as the last regular line in adText.
     {
-        // Draw top divider line
+        const int LEFT_COL = 1;
+        // Minimum right column x. For car names wider than this, the feature
+        // text is placed just after the name end + a small gap instead.
+        const int RIGHT_COL_MIN = 96;
+        const int RIGHT_COL_GAP = 4;
+        const int lineHeight = SFont_TextHeight(mainFont);
+
+        SDL_SetSurfaceColorMod(mainFont->Surface, 0, 0, 0);
+
+        // Draw top divider line (1px top margin above first ad)
+        currentY += 1;
         SDL_Rect topDividerRect = {0, currentY, 192, 1};
         SDL_FillRect(surface, &topDividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
-        currentY += 2; // +1 for top divider + 1 for spacing
-        
+        currentY += 2;
+
         for (int i = 0; i < (int)carMetadata.size(); i++) {
-            std::string adText = FormatUsedCarAd(carMetadata[i], i);
-            
-            // Count lines in the ad text to determine height
-            int lineCount = 1;
-            for (char c : adText) {
-                if (c == '\n') lineCount++;
+            const ClassifiedEntry_t& entry = carMetadata[i].classified;
+            const char* carName = entry.carName ? entry.carName : "";
+            int adStartY = currentY;
+
+            // Car name: left column, current row
+            SFont_Write(surface, mainFont, LEFT_COL, currentY, carName);
+
+            // Right column: at least RIGHT_COL_MIN, but pushed right if the car
+            // name extends past that to avoid overlap.
+            int carNameWidth = SFont_TextWidth(mainFont, carName);
+            int featureX = std::max(RIGHT_COL_MIN, LEFT_COL + carNameWidth + RIGHT_COL_GAP);
+
+            // Render adText lines.
+            // '\t'-prefixed lines go in the right column at the same y as car name.
+            // All other lines advance y and render at left column.
+            if (entry.adText && entry.adText[0]) {
+                std::istringstream ss(entry.adText);
+                std::string line;
+                while (std::getline(ss, line)) {
+                    if (!line.empty() && line[0] == '\t') {
+                        SFont_Write(surface, mainFont, featureX, currentY, line.c_str() + 1);
+                    } else {
+                        currentY += lineHeight;
+                        SFont_Write(surface, mainFont, LEFT_COL, currentY, line.c_str());
+                    }
+                }
             }
-            
-            // Calculate more accurate height based on line count
-            int adHeight = 8 + (lineCount * 6); // 8px base + 6px per line
+
+            int adHeight = (currentY - adStartY) + lineHeight;
             AdPosition adPos;
             adPos.adIndex = i;
-            adPos.startY = currentY;
-            adPos.endY = currentY + adHeight;
+            adPos.startY = adStartY;
+            adPos.endY = adStartY + adHeight;
             adPos.isUsedCar = true;
             adPositions.push_back(adPos);
-            
-            // Create a temporary label to render the text
-            Label tempLabel;
-            tempLabel.Init(mainFont, 0, currentY, SDL_MapRGB(surface->format, 0, 0, 0));
-            tempLabel.SetText(adText, false, 184);
-            tempLabel.UpdateFromSurface(); // Make sure the label surface is updated
-            
-            // Render the label to the large surface
-            SDL_Rect destRect = {1, currentY, 184, adHeight};
-            SDL_BlitSurface(tempLabel.GetSurface(), NULL, surface, &destRect);
-            
-            // Calculate next ad position
-            currentY += adHeight;
-            
-            // Draw divider line (except after the last ad)
+
+            currentY += lineHeight;  // advance past last rendered row
+
+            // Draw divider line (4px bottom margin below each ad, except the last)
             if (i < (int)carMetadata.size() - 1) {
+                currentY += 4;
                 SDL_Rect dividerRect = {0, currentY, 192, 1};
                 SDL_FillRect(surface, &dividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
-                currentY += 2; // +1 for divider + 1 for spacing
+                currentY += 2;
             }
         }
+
+        SDL_SetSurfaceColorMod(mainFont->Surface, 255, 255, 255);
     }
-    
+
     // Update the surface
     allAdsSurface.UpdateFromSurface();
-    
+
     // Debug: Check surface content
     SDL_Surface* debugSurface = allAdsSurface.GetSurface();
     if (debugSurface) {
-        LOG_INFO("Surface format: %dx%d, %d bpp, %s", 
+        LOG_INFO("Surface format: %dx%d, %d bpp, %s",
                debugSurface->w, debugSurface->h, debugSurface->format->BitsPerPixel,
                SDL_GetPixelFormatName(debugSurface->format->format));
-        
+
         // Check if surface has any non-white pixels
         SDL_LockSurface(debugSurface);
         Uint32* pixels = (Uint32*)debugSurface->pixels;
@@ -624,10 +534,10 @@ void Newspaper::CreateAllAdsSurface() {
         SDL_UnlockSurface(debugSurface);
         LOG_INFO("Surface has %d non-white pixels out of %d total", nonWhitePixels, debugSurface->w * debugSurface->h);
     }
-    
+
     // Save to file for debugging (after updating the surface)
     SaveAdsSurfaceToFile();
-    
+
     LOG_INFO("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
     LOG_INFO("Total ads rendered: %zu", adPositions.size());
 }
@@ -637,16 +547,16 @@ void Newspaper::UpdateViewport() {
     if (allAdsSurfaceHeight <= 0) {
         return;
     }
-    
+
     SDL_Surface* allAdsSurfacePtr = allAdsSurface.GetSurface();
     SDL_Surface* adsAreaSurfacePtr = adsArea.GetSurface();
     if (!allAdsSurfacePtr || !adsAreaSurfacePtr) {
         return;
     }
-    
+
     // Calculate viewport position based on current page
     int viewportY = 0;
-    
+
     if (currentPage >= 1 && currentPage <= 3) {
         // PARTS header pages (all show the same header)
         viewportY = 0; // Always start at the beginning (PARTS header)
@@ -655,14 +565,14 @@ void Newspaper::UpdateViewport() {
         // Skip PARTS section: header (20px) + spacing (40px)
         int partsSectionHeight = 60; // header + spacing
         int pageScrollOffset = (currentPage - 4) * 190; // 190px per "page" of scrolling
-        
+
         // Calculate base viewport position
         viewportY = partsSectionHeight + pageScrollOffset;
-        
+
         // Add smooth scroll offset (always add it, but clamp the result)
         viewportY += smoothScrollOffset;
-        
-        
+
+
         // Clamp viewport to prevent scrolling beyond content
         int maxViewportY = allAdsSurfaceHeight - 190; // 190 is viewport height
         if (viewportY > maxViewportY) {
@@ -674,18 +584,18 @@ void Newspaper::UpdateViewport() {
             smoothScrollOffset = 0;
         }
     }
-    
+
     // Set the viewport
     adsViewport = {0, viewportY, 192, 190};
-    
+
     // Clear the ads area
     SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, 255, 255, 255, 255));
-    
+
         // Blit the viewport from the large surface
         if (viewportY < allAdsSurfaceHeight) {
             SDL_Rect srcRect = adsViewport;
             SDL_Rect destRect = {0, 0, 192, 190};
-        
+
             // Check for surface format mismatch (the likely cause of corruption)
             if (allAdsSurfacePtr->format->format != adsAreaSurfacePtr->format->format) {
                 // Convert and blit
@@ -699,22 +609,22 @@ void Newspaper::UpdateViewport() {
                 SDL_BlitSurface(allAdsSurfacePtr, &srcRect, adsAreaSurfacePtr, &destRect);
             }
         }
-    
+
     adsArea.UpdateFromSurface();
 }
 
 void Newspaper::SaveAdsSurfaceToFile() {
     // Save the large surface to a PNG file for debugging using the existing Bitmap method
     LOG_INFO("Saving all ads surface to PNG...");
-    
+
     // Debug: Check surface format
     SDL_Surface* surface = allAdsSurface.GetSurface();
     if (surface) {
-        LOG_INFO("Surface format: %dx%d, %d bpp, %s", 
+        LOG_INFO("Surface format: %dx%d, %d bpp, %s",
                surface->w, surface->h, surface->format->BitsPerPixel,
                SDL_GetPixelFormatName(surface->format->format));
     }
-    
+
     allAdsSurface.SaveBitmap(999); // Use a unique index for the ads surface
     LOG_INFO("Saved all ads surface to sprite_999.png");
 }
@@ -722,14 +632,14 @@ void Newspaper::SaveAdsSurfaceToFile() {
 int Newspaper::FindAdAtPosition(int mouseY) {
     // Convert mouse Y position to position in the large surface
     int surfaceY = mouseY + adsViewport.y;
-    
+
     // Find which ad contains this Y position
     for (const auto& adPos : adPositions) {
         if (surfaceY >= adPos.startY && surfaceY < adPos.endY) {
             return adPos.adIndex;
         }
     }
-    
+
     return -1; // No ad found at this position
 }
 

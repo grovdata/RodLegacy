@@ -724,11 +724,9 @@ std::vector<uint8_t> BitmapParser::ReadImage(const std::string& filename, Bitmap
 
 
 void SrLibDataCleanupCarString(char* str) {
-    char* src;
-    char* dst;
-
     // Replace double backticks (``) with a space
-    src = dst = str;
+    char* src = str;
+    char* dst = str;
     while (*src) {
         if (src[0] == '`' && src[1] == '`') {
             *dst++ = ' ';
@@ -739,17 +737,10 @@ void SrLibDataCleanupCarString(char* str) {
     }
     *dst = '\0';
 
-    // Replace plus signs (+) with spaces
-    src = dst = str;
-    while (*src) {
-        if (*src == '+') {
-            *dst++ = ' ';
-            src++;
-        } else {
-            *dst++ = *src++;
-        }
+    // Strip leading '+' (field type marker - feature lines start with '+')
+    if (str[0] == '+') {
+        memmove(str, str + 1, strlen(str));  // includes null terminator
     }
-    *dst = '\0';
 
     // Keep trailing periods - don't remove them
 }
@@ -822,6 +813,15 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
         }
         ptr += lineLen + 1;  // Skip past null terminator
 
+        if (!lineStr[0]) {
+            break;  // empty string = end of entry
+        }
+
+        // Check for '+' prefix before cleanup (it marks a feature/right-column line).
+        // In the original DOS code (FUN_1000_09cb), '+' lines are rendered at a different
+        // x position on the SAME row as the car name; non-'+' lines advance y by 9px.
+        bool isFeature = (lineStr[0] == '+');
+
         char* line = (char*)malloc(lineLen + 1);
         if (!line) {
             free(name);
@@ -829,35 +829,21 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
             return false;
         }
         strcpy(line, lineStr);
-        SrLibDataCleanupCarString(line);
+        SrLibDataCleanupCarString(line);  // strips leading '+' if isFeature
 
         const char* dollarPos = strchr(line, '$');
-        if (!lineStr[0] || dollarPos) {
-            // Found price or empty line
-            if (dollarPos) {
-                // Extract price from the line
-                outClassified.price = atoi(dollarPos + 1);
 
-                // Add the text before the $ to the ad text
-                if (dollarPos > line) {
-                    // Truncate the line at the $ position
-                    *((char*)dollarPos) = '\0';
-                    if (adText[0] && adText[strlen(adText)-1] != ' ') {
-                        strcat(adText, " ");
-                    }
-                    strcat(adText, line);
-                }
-            }
-            free(line);
+        // Append to adText: lines separated by '\n', feature lines prefixed with '\t'
+        if (adText[0]) strcat(adText, "\n");
+        if (isFeature) strcat(adText, "\t");
+        strcat(adText, line);  // price lines keep their '$' in the string
+
+        free(line);
+
+        if (dollarPos) {
+            outClassified.price = atoi(dollarPos + 1);
             break;
         }
-
-        // Append line to ad text with space (if needed)
-        if (adText[0] && adText[strlen(adText)-1] != ' ') {
-            strcat(adText, " ");
-        }
-        strcat(adText, line);
-        free(line);
     }
     outClassified.adText = adText;
     return true;

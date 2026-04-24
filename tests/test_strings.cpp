@@ -14,16 +14,22 @@ TEST_CASE("double backticks replaced by single space") {
     CHECK(std::string(s) == "1959 Chevrolet");
 }
 
-TEST_CASE("single backtick replaced by space") {
+TEST_CASE("single backtick is preserved (narrow space handled by SFont)") {
     char s[] = "Hot`Rod";
+    SrLibDataCleanupCarString(s);
+    CHECK(std::string(s) == "Hot`Rod");
+}
+
+TEST_CASE("leading plus sign is stripped (field type marker)") {
+    char s[] = "+Hot Rod";
     SrLibDataCleanupCarString(s);
     CHECK(std::string(s) == "Hot Rod");
 }
 
-TEST_CASE("plus sign replaced by space") {
+TEST_CASE("plus sign mid-string is preserved") {
     char s[] = "Hot+Rod";
     SrLibDataCleanupCarString(s);
-    CHECK(std::string(s) == "Hot Rod");
+    CHECK(std::string(s) == "Hot+Rod");
 }
 
 TEST_CASE("string with no special chars is unchanged") {
@@ -38,10 +44,10 @@ TEST_CASE("empty string is unchanged") {
     CHECK(std::string(s) == "");
 }
 
-TEST_CASE("multiple special chars all replaced") {
+TEST_CASE("double backtick to space, single backtick and mid-plus preserved") {
     char s[] = "A``B`C+D";
     SrLibDataCleanupCarString(s);
-    CHECK(std::string(s) == "A B C D");
+    CHECK(std::string(s) == "A B`C+D");
 }
 
 TEST_CASE("trailing period is preserved") {
@@ -50,10 +56,10 @@ TEST_CASE("trailing period is preserved") {
     CHECK(std::string(s) == "Nice car.");
 }
 
-TEST_CASE("consecutive plus signs each become a space") {
-    char s[] = "A++B";
+TEST_CASE("leading double plus: first stripped, rest preserved") {
+    char s[] = "++B";
     SrLibDataCleanupCarString(s);
-    CHECK(std::string(s) == "A  B");
+    CHECK(std::string(s) == "+B");
 }
 
 TEST_CASE("double backtick at end of string") {
@@ -63,10 +69,10 @@ TEST_CASE("double backtick at end of string") {
 }
 
 TEST_CASE("mixed backtick types") {
-    // double backtick first, then single
+    // double backtick becomes space, single backtick is preserved
     char s[] = "A``B`C";
     SrLibDataCleanupCarString(s);
-    CHECK(std::string(s) == "A B C");
+    CHECK(std::string(s) == "A B`C");
 }
 
 } // TEST_SUITE

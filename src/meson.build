@@ -211,7 +211,6 @@ endif
 python3 = find_program('python3')
 embedded_resources = custom_target('embedded_resources',
     input: [
-        '../data/font/font.png',
         '../data/font/bee.png',
         '../data/font/lemon.png',
         '../data/res/icon.png',

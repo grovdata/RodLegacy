@@ -1,109 +1,108 @@
 name: Build Windows Release
 
 on:
-  release:
-    types: [ published ]
+    release:
+        types: [published]
 
 jobs:
-  build-windows:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-depth: 0
+    build-windows:
+        runs-on: ubuntu-latest
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+                  fetch-depth: 0
 
-    - name: Cache Docker layers
-      uses: actions/cache@v3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image
-      run: |
-        # Build the Docker image for Windows cross-compilation with caching
-        docker buildx build --load --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
+            - name: Cache Docker layers
+              uses: actions/cache@v3
+              with:
+                  path: /tmp/.buildx-cache
+                  key: ${{ runner.os }}-buildx-${{ github.sha }}
+                  restore-keys: |
+                      ${{ runner.os }}-buildx-
 
-    - name: Update subprojects
-      run: |
-        # Update subprojects in the container
-        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-          cd /project &&
-          meson subprojects update
-        "
+            - name: Build Docker image
+              run: |
+                  # Build the Docker image for Windows cross-compilation with caching
+                  docker buildx build --load --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
 
-    - name: Configure build
-      run: |
-        # Configure the build with meson
-        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-          cd /project &&
-          meson setup builddir --cross-file /cross-mingw.txt
-        "
+            - name: Update subprojects
+              run: |
+                  # Update subprojects in the container
+                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+                    cd /project &&
+                    meson subprojects update
+                  "
 
-    - name: Compile project
-      run: |
-        # Compile the project with ninja
-        docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-          cd /project/builddir &&
-          ninja
-        "
+            - name: Configure build
+              run: |
+                  # Configure the build with meson
+                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+                    cd /project &&
+                    meson setup builddir --cross-file /cross-mingw.txt
+                  "
 
-    - name: Create release directory
-      run: |
-        mkdir -p release
-        cp builddir/src/open_sr.exe release/
-        cp -r data/font/font.png release/
-        cp -r data/font/bee.png release/
-        cp -r data/font/lemon.png release/
-        cp -r data/res/icon.png release/
-        echo "Street Rod Legacy Windows Build" > release/README.txt
-        echo "=================================" >> release/README.txt
-        echo "" >> release/README.txt
-        echo "To run the game:" >> release/README.txt
-        echo "1. Extract all files to a folder" >> release/README.txt
-        echo "2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder" >> release/README.txt
-        echo "3. Run open_sr.exe" >> release/README.txt
-        echo "" >> release/README.txt
-        echo "Controls:" >> release/README.txt
-        echo "- Mouse: Navigate and click" >> release/README.txt
-        echo "- Ctrl+F: Toggle fullscreen" >> release/README.txt
-        echo "- Escape: Exit game" >> release/README.txt
+            - name: Compile project
+              run: |
+                  # Compile the project with ninja
+                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
+                    cd /project/builddir &&
+                    ninja
+                  "
 
-    - name: Create zip file for release
-      run: |
-        cd release
-        zip -r ../streetrod-legacy-windows.zip .
-        cd ..
+            - name: Create release directory
+              run: |
+                  mkdir -p release
+                  cp builddir/src/open_sr.exe release/
+                  cp -r data/font/bee.png release/
+                  cp -r data/font/lemon.png release/
+                  cp -r data/res/icon.png release/
+                  echo "Street Rod Legacy Windows Build" > release/README.txt
+                  echo "=================================" >> release/README.txt
+                  echo "" >> release/README.txt
+                  echo "To run the game:" >> release/README.txt
+                  echo "1. Extract all files to a folder" >> release/README.txt
+                  echo "2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder" >> release/README.txt
+                  echo "3. Run open_sr.exe" >> release/README.txt
+                  echo "" >> release/README.txt
+                  echo "Controls:" >> release/README.txt
+                  echo "- Mouse: Navigate and click" >> release/README.txt
+                  echo "- Ctrl+F: Toggle fullscreen" >> release/README.txt
+                  echo "- Escape: Exit game" >> release/README.txt
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: streetrod-legacy-windows
-        path: release/
-        retention-days: 30
+            - name: Create zip file for release
+              run: |
+                  cd release
+                  zip -r ../streetrod-legacy-windows.zip .
+                  cd ..
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: streetrod-legacy-windows.zip
-        body: |
-          Windows build of Street Rod Legacy
-          
-          ## Installation
-          1. Extract the zip file
-          2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder
-          3. Run open_sr.exe
-          
-          ## Controls
-          - Mouse: Navigate and click
-          - Ctrl+F: Toggle fullscreen
-          - Escape: Exit game
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: streetrod-legacy-windows
+                  path: release/
+                  retention-days: 30
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: streetrod-legacy-windows.zip
+                  body: |
+                      Windows build of Street Rod Legacy
+
+                      ## Installation
+                      1. Extract the zip file
+                      2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder
+                      3. Run open_sr.exe
+
+                      ## Controls
+                      - Mouse: Navigate and click
+                      - Ctrl+F: Toggle fullscreen
+                      - Escape: Exit game
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
