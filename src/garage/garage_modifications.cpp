@@ -611,20 +611,6 @@ void Garage::ShowStickerDialog() {
     std::map<std::string, DialogBitmap> bitmaps;
     std::vector<Zone> zones;
 
-    const ZoneId decalZoneIds[] = {
-        ZONE_GARAGE_STICKER_DECAL_0, ZONE_GARAGE_STICKER_DECAL_1, ZONE_GARAGE_STICKER_DECAL_2, ZONE_GARAGE_STICKER_DECAL_3,
-        ZONE_GARAGE_STICKER_DECAL_4, ZONE_GARAGE_STICKER_DECAL_5, ZONE_GARAGE_STICKER_DECAL_6, ZONE_GARAGE_STICKER_DECAL_7
-    };
-    const ZoneId dosZoneIds[] = {
-        ZONE_GARAGE_STICKER_DOS_0, ZONE_GARAGE_STICKER_DOS_1, ZONE_GARAGE_STICKER_DOS_2, ZONE_GARAGE_STICKER_DOS_3,
-        ZONE_GARAGE_STICKER_DOS_4, ZONE_GARAGE_STICKER_DOS_5, ZONE_GARAGE_STICKER_DOS_6, ZONE_GARAGE_STICKER_DOS_7
-    };
-    const ZoneId customZoneIds[] = {
-        ZONE_GARAGE_STICKER_CUSTOM_0, ZONE_GARAGE_STICKER_CUSTOM_1, ZONE_GARAGE_STICKER_CUSTOM_2, ZONE_GARAGE_STICKER_CUSTOM_3,
-        ZONE_GARAGE_STICKER_CUSTOM_4, ZONE_GARAGE_STICKER_CUSTOM_5, ZONE_GARAGE_STICKER_CUSTOM_6, ZONE_GARAGE_STICKER_CUSTOM_7,
-        ZONE_GARAGE_STICKER_CUSTOM_8, ZONE_GARAGE_STICKER_CUSTOM_9, ZONE_GARAGE_STICKER_CUSTOM_10, ZONE_GARAGE_STICKER_CUSTOM_11,
-        ZONE_GARAGE_STICKER_CUSTOM_12, ZONE_GARAGE_STICKER_CUSTOM_13, ZONE_GARAGE_STICKER_CUSTOM_14, ZONE_GARAGE_STICKER_CUSTOM_15,
-    };
 
     // Populate visible cells based on scroll position
     // Layout: items 0-7 = Amiga stock, 8-15 = DOS (if available), then custom
@@ -647,7 +633,7 @@ void Garage::ShowStickerDialog() {
                 db.zOrder = 0;
                 db.sourceRect = src;
                 bitmaps["decal_" + std::to_string(itemIndex)] = db;
-                zones.push_back(Zone(decalZoneIds[itemIndex], strdup(SrLibCarDecalNames[itemIndex]), &dest));
+                zones.push_back(Zone("decal_" + std::to_string(itemIndex), SrLibCarDecalNames[itemIndex], dest));
             } else if (dosDecalCount > 0 && itemIndex < 8 + dosDecalCount) {
                 // DOS sticker - use native dimensions, center in cell, scale only if too big
                 int dosIndex = itemIndex - 8;
@@ -675,7 +661,7 @@ void Garage::ShowStickerDialog() {
                     db.rect = centered;
                     db.zOrder = 0;
                     bitmaps["dos_" + std::to_string(dosIndex)] = db;
-                    zones.push_back(Zone(dosZoneIds[dosIndex], strdup(SrLibCarDecalNames[8 + dosIndex]), &dest));
+                    zones.push_back(Zone("dos_" + std::to_string(dosIndex), SrLibCarDecalNames[8 + dosIndex], dest));
                 }
             } else {
                 // Custom sticker
@@ -690,7 +676,7 @@ void Garage::ShowStickerDialog() {
                     std::transform(stickerName.begin(), stickerName.end(), stickerName.begin(), ::tolower);
                     stickerName[0] = std::toupper(stickerName[0]);
                 }
-                zones.push_back(Zone(customZoneIds[customIndex], strdup(stickerName.c_str()), &dest));
+                zones.push_back(Zone("custom_" + std::to_string(customIndex), stickerName, dest));
             }
         }
     }
@@ -704,10 +690,10 @@ void Garage::ShowStickerDialog() {
     SDL_Rect scrollDownRect   = {scrollX, dialogRect.y + dialogH - 31, scrollBtnW, scrollBtnH};
     SDL_Rect scrollBottomRect = {scrollX, dialogRect.y + dialogH - 15, scrollBtnW, scrollBtnH};
 
-    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_TOP, strdup("\\"), &scrollTopRect));
-    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_UP, strdup("<"), &scrollUpRect));
-    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_DOWN, strdup(">"), &scrollDownRect));
-    zones.push_back(Zone(ZONE_GARAGE_STICKER_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect));
+    zones.push_back(Zone("sticker_scroll_top",    "\\", scrollTopRect));
+    zones.push_back(Zone("sticker_scroll_up",     "<",  scrollUpRect));
+    zones.push_back(Zone("sticker_scroll_down",   ">",  scrollDownRect));
+    zones.push_back(Zone("sticker_scroll_bottom", "/",  scrollBottomRect));
 
     std::vector<ButtonConfig> buttons;
     ButtonConfig scrollTopBtn = {scrollTopRect, "\\", nullptr, false, 1};
@@ -739,7 +725,7 @@ void Garage::ShowStickerDialog() {
     stickerCfg.buttons = buttons;
     stickerCfg.font = state.GetAssets().GetMainFont();
     stickerCfg.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     stickerCfg.onButtonPressed = [this, maxScrollRow](int index) {
         switch (index) {
@@ -770,19 +756,15 @@ void Garage::ShowStickerDialog() {
         }
     };
     stickerCfg.onZoneClick = [this](Zone& zone) {
-        ZoneId id = zone.GetId();
-
-        // Handle stock decals
-        if (id >= ZONE_GARAGE_STICKER_DECAL_0 && id <= ZONE_GARAGE_STICKER_DECAL_7) {
-            int decalIndex = id - ZONE_GARAGE_STICKER_DECAL_0;
+        const std::string& id = zone.GetId();
+        auto applySticker = [&](auto applyFn) {
             Car* car = state.GetCurrentCar();
             if (car && car->CanAddDecal()) {
                 int money = state.GetBankroll();
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
                     state.AdvanceGameHours(1);
-                    car->SetDecal((SrLibCarDecal)decalIndex);
-                    car->SetCustomDecalPath("");
+                    applyFn(car);
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                     GetOrCreateCarBitmap(car)->StartStickerWipe();
                 }
@@ -790,50 +772,33 @@ void Garage::ShowStickerDialog() {
             stickerScrollRow = 0;
             stickerDialog->Hide();
             SetActiveDialog(nullptr);
+        };
+
+        if (id.rfind("decal_", 0) == 0) {
+            int decalIndex = std::stoi(id.substr(6));
+            applySticker([decalIndex](Car* car) {
+                car->SetDecal((SrLibCarDecal)decalIndex);
+                car->SetCustomDecalPath("");
+            });
             return;
         }
-
-        // Handle DOS decals
-        if (id >= ZONE_GARAGE_STICKER_DOS_0 && id <= ZONE_GARAGE_STICKER_DOS_7) {
-            int dosIndex = id - ZONE_GARAGE_STICKER_DOS_0;
-            Car* car = state.GetCurrentCar();
-            if (car && car->CanAddDecal()) {
-                int money = state.GetBankroll();
-                if (money >= 5) {
-                    state.SetBankroll(money - 5);
-                    state.AdvanceGameHours(1);
-                    car->SetDecal((SrLibCarDecal)(dosIndex + SrLibCarDecalDosSeDecal1));
-                    car->SetCustomDecalPath("");
-                    GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
-                    GetOrCreateCarBitmap(car)->StartStickerWipe();
-                }
-            }
-            stickerScrollRow = 0;
-            stickerDialog->Hide();
-            SetActiveDialog(nullptr);
+        if (id.rfind("dos_", 0) == 0) {
+            int dosIndex = std::stoi(id.substr(4));
+            applySticker([dosIndex](Car* car) {
+                car->SetDecal((SrLibCarDecal)(dosIndex + SrLibCarDecalDosSeDecal1));
+                car->SetCustomDecalPath("");
+            });
             return;
         }
-
-        // Handle custom stickers
-        if (id >= ZONE_GARAGE_STICKER_CUSTOM_0 && id <= ZONE_GARAGE_STICKER_CUSTOM_15) {
-            int customIndex = id - ZONE_GARAGE_STICKER_CUSTOM_0;
+        if (id.rfind("custom_", 0) == 0) {
+            int customIndex = std::stoi(id.substr(7));
             if (customIndex >= 0 && customIndex < (int)customStickerPaths.size()) {
-                Car* car = state.GetCurrentCar();
-                if (car && car->CanAddDecal()) {
-                    int money = state.GetBankroll();
-                    if (money >= 5) {
-                        state.SetBankroll(money - 5);
-                        state.AdvanceGameHours(1);
-                        car->SetDecal(SrLibCarDecalCustom);
-                        car->SetCustomDecalPath(customStickerPaths[customIndex]);
-                        GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
-                        GetOrCreateCarBitmap(car)->StartStickerWipe();
-                    }
-                }
+                std::string path = customStickerPaths[customIndex];
+                applySticker([path](Car* car) {
+                    car->SetDecal(SrLibCarDecalCustom);
+                    car->SetCustomDecalPath(path);
+                });
             }
-            stickerScrollRow = 0;
-            stickerDialog->Hide();
-            SetActiveDialog(nullptr);
             return;
         }
     };
@@ -976,12 +941,12 @@ void Garage::ShowTireDialog() {
     SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
 
-    Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
-    Zone forgetItZone(ZONE_GARAGE_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
-    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("\\"), &scrollTopRect);
-    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &scrollDownRect);
-    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &scrollUpRect);
-    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
+    Zone switchItZone("tire_switch_it",     "Switch it", switchItRect);
+    Zone forgetItZone("tire_forget_it",     "Forget it", forgetItRect);
+    Zone scrollTopZone("tire_scroll_top",   "\\",        scrollTopRect);
+    Zone scrollDownZone("tire_scroll_down", ">",         scrollDownRect);
+    Zone scrollUpZone("tire_scroll_up",     "<",         scrollUpRect);
+    Zone scrollBottomZone("tire_scroll_bottom", "/",     scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {switchItRect, "Switch it", nullptr, true,  0},
@@ -1008,7 +973,7 @@ void Garage::ShowTireDialog() {
     dialogConfig.contentAreas = {topRect, bottomRect};
     dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {

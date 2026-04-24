@@ -5,6 +5,8 @@
 #include "cardata.h"
 #include "debug_overlay.h"
 #include "animated_bitmap.h"
+#include "scene_layout.h"
+#include "embedded_resources.h"
 #include <cstdlib>
 
 double carAnimationTimeDiner = 0;
@@ -15,6 +17,25 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     carBitmap = nullptr;
     isPaused = false;
     challenge = std::make_unique<Challenge>();
+
+    zones = SceneLayout::Load(embedded_diner_toml);
+
+    GetZone("goto_garage").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        sceneTransitioningTo = SCENE_GARAGE;
+        FadeOut();
+        state.MoveToScene(SCENE_GARAGE);
+    };
+    GetZone("call").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        if (state.GetKnownOpponents().empty()) bubbles[0]->SetVisible(true);
+        else ShowCallListDialog();
+    };
+    GetZone("challenge_opponent").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        if (carBitmap && !animatingCar && !exitingCar && currentOpponent)
+            challenge->Open(state.GetAssets().GetMainFont());
+    };
 }
 
 void Diner::Init(bool debugMode) {
@@ -27,28 +48,6 @@ void Diner::Init(bool debugMode) {
     SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
     roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
     SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
-
-    SDL_Rect orderRect = {132, 53, 27, 9};
-    Zone order(ZONE_DINER_ORDER, strdup("Order"), &orderRect);
-
-    SDL_Rect opponentRect = {194, 65, 29, 59};
-    Zone opponent(ZONE_DINER_CALL, strdup("Look for opponent"), &opponentRect);
-
-    SDL_Rect garageRect = {0, 170, 320, 30};
-    Zone garage(ZONE_DINER_GOTO_GARAGE, strdup("Back to the garage"), &garageRect);
-
-    SDL_Rect backgroundRect = {0, 0, 320, 169};
-    Zone backgroundZone(ZONE_DINER_BACKGROUND, strdup(""), &backgroundRect);
-
-    // Zone covering the parked opponent car area (car idles at x=82 in diner)
-    SDL_Rect challengeRect = {82, 85, 200, 75};
-    Zone challengeZone(ZONE_DINER_CHALLENGE_OPPONENT, strdup("Click to race"), &challengeRect);
-
-    zones.push_back(order);
-    zones.push_back(opponent);
-    zones.push_back(garage);
-    zones.push_back(challengeZone);
-    zones.push_back(backgroundZone);
 
     auto guyBubble = std::make_unique<Bubble>("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
     guyBubble->SetVisible(false);
@@ -124,26 +123,6 @@ SDL_Point Diner::GetCarIdlePosition() {
     return {x, y};
 }
 
-void Diner::Action(ZoneId zone) {
-    if (sceneTransition != SCENE_SOLID) {
-        return;
-    }
-
-    if (zone == ZONE_DINER_GOTO_GARAGE) {
-        sceneTransitioningTo = SCENE_GARAGE;
-        FadeOut();
-        state.MoveToScene(SCENE_GARAGE);
-    } else if (zone == ZONE_DINER_CALL) {
-        if (state.GetKnownOpponents().empty()) {
-            bubbles[0]->SetVisible(true);
-        } else {
-            ShowCallListDialog();
-        }
-    } else if (zone == ZONE_DINER_CHALLENGE_OPPONENT) {
-        if (carBitmap && !animatingCar && !exitingCar && currentOpponent)
-            challenge->Open(state.GetAssets().GetMainFont());
-    }
-}
 
 void Diner::DrawScene() {
     currentTime = SDL_GetTicks64() / 1000.0;
@@ -296,8 +275,8 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
     std::string oppoText = GetOpponentText(currentOpponent);
     std::string opponentId = currentOpponent->driver.name;
 
-    hud->SetText(strdup(oppoText.c_str()));
-    SetZoneText(ZONE_DINER_BACKGROUND, strdup(oppoText.c_str()));
+    hud->SetText(oppoText.c_str());
+    SetZoneText("background", oppoText);
 
     auto existingBitmap = opponentCarBitmaps.find(opponentId);
     if (existingBitmap != opponentCarBitmaps.end()) {
@@ -611,12 +590,12 @@ void Diner::ShowCallListDialog() {
     SDL_Rect scrollDownRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
 
-    Zone callZone(ZONE_DINER_BUTTON_CALL, strdup("Call"), &callRect);
-    Zone forgetItZone(ZONE_DINER_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
-    Zone scrollTopZone(ZONE_DINER_SCROLL_TOP, strdup("\\"), &scrollTopRect);
-    Zone scrollUpZone(ZONE_DINER_SCROLL_UP, strdup("<"), &scrollUpRect);
-    Zone scrollDownZone(ZONE_DINER_SCROLL_DOWN, strdup(">"), &scrollDownRect);
-    Zone scrollBottomZone(ZONE_DINER_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
+    Zone callZone("diner_call", "Call", callRect);
+    Zone forgetItZone("diner_forget_it", "Forget it", forgetItRect);
+    Zone scrollTopZone("diner_scroll_top", "\\", scrollTopRect);
+    Zone scrollUpZone("diner_scroll_up", "<", scrollUpRect);
+    Zone scrollDownZone("diner_scroll_down", ">", scrollDownRect);
+    Zone scrollBottomZone("diner_scroll_bottom", "/", scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {callRect, "Call", nullptr, true, 0},
@@ -646,7 +625,7 @@ void Diner::ShowCallListDialog() {
     dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {

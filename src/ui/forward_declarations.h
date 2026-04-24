@@ -2,7 +2,7 @@
 
 // Include essential types that are needed everywhere
 #include "../types.h"
-#include "../ui/zone.h"  // For ZoneId enum
+#include "../ui/zone.h"
 #include "../assets.h"   // For Asset struct
 #include "button_config.h"  // For ButtonConfig struct
 

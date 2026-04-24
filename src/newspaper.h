@@ -83,6 +83,5 @@ public:
 
     void Init(bool debugMode) override;
     void DrawScene() override;
-    void Action(ZoneId zone) override;
     bool PushEvent(SDL_Event *event) override;
 };

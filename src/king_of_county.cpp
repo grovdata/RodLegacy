@@ -87,4 +87,3 @@ bool KingOfCounty::PushEvent(SDL_Event* event) {
     return Scene::PushEvent(event);
 }
 
-void KingOfCounty::Action(ZoneId /*zone*/) {}

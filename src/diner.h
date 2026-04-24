@@ -71,8 +71,6 @@ class Diner: public CarScene {
 
         SDL_Point GetCarIdlePosition() override;
 
-        void Action(ZoneId zone) override;
-
         void DrawScene() override;
         void DrawMaskAfterCar() override;
         // void SetStatusBar(char *text) override;

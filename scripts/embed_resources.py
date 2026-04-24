@@ -34,18 +34,31 @@ def generate_resources(input_files, output_dir):
             with open(input_file, 'rb') as f:
                 data = f.read()
             
-            # Write C array in source file
-            c.write(f'const unsigned char {var_name}[] = {{\n')
-            for i in range(0, len(data), 12):
-                chunk = data[i:i+12]
-                c.write('  ' + ', '.join(f'0x{b:02x}' for b in chunk) + ',\n')
-            c.write('};\n\n')
-            c.write(f'const size_t {var_name}_len = {len(data)};\n\n')
-            
-            # Write header declarations
-            h.write(f'// {basename}\n')
-            h.write(f'extern const unsigned char {var_name}[];\n')
-            h.write(f'extern const size_t {var_name}_len;\n\n')
+            is_text = input_file.endswith(('.toml', '.txt', '.json'))
+
+            if is_text:
+                # Embed as null-terminated C string
+                c.write(f'const char {var_name}[] = {{\n')
+                for i in range(0, len(data), 12):
+                    chunk = data[i:i+12]
+                    c.write('  ' + ', '.join(f'0x{b:02x}' for b in chunk) + ',\n')
+                c.write('  0x00\n};\n\n')
+
+                h.write(f'// {basename}\n')
+                h.write(f'extern const char {var_name}[];\n\n')
+            else:
+                # Write C array in source file
+                c.write(f'const unsigned char {var_name}[] = {{\n')
+                for i in range(0, len(data), 12):
+                    chunk = data[i:i+12]
+                    c.write('  ' + ', '.join(f'0x{b:02x}' for b in chunk) + ',\n')
+                c.write('};\n\n')
+                c.write(f'const size_t {var_name}_len = {len(data)};\n\n')
+
+                # Write header declarations
+                h.write(f'// {basename}\n')
+                h.write(f'extern const unsigned char {var_name}[];\n')
+                h.write(f'extern const size_t {var_name}_len;\n\n')
         
         h.write('#ifdef __cplusplus\n')
         h.write('}\n')

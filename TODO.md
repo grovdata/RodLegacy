@@ -1,27 +1,14 @@
 # To do in dissassembly / reversing
 
-## Investigate how cheating works
-There are money cheats in the game.
-
-### MS-DOS
-
-[Link](https://www.streetrodonline.com/2013/11/22/how-to-get-more-money-in-street-rod/)
-
-- Buy the 1949 Chevrolet 2dr Styleline for $475
-- Remove the transmission
-- Completely remove the engine
-- Sell the car for $30000
-
-### Amiga
-
-[Link](https://eab.abime.net/showthread.php?t=16819&page=6&styleid=4)
-
-- Buy any car or buy the cheapest one, and try to sell it for the same price you bought it for
-- They will offer a lower price. Refuse it, then try it again. They will offer a higher price. Refuse it, then sell the car for $22,001.
+- [ ] Understand delays/timings between scene transitions, etc. so it looks better
 
 # Current progress
 
 - [x] Garage
+  - [ ] Selling cars
+    - [ ] Add asking price dialog and the price "haggling" flow
+    - [ ] Add original game car selling cheat (see RodLegacyResearc/docs/gameplay.md)
+  - [ ] Selling parts
   - [x] Engine dialog
     - [x] Tuning engine
     - [ ] Swapping parts
@@ -42,11 +29,23 @@ There are money cheats in the game.
         - [x] Mask spray can with car color
         - [x] Implement painting with stock colors
         - [ ] Custom color?
-    - [x] Newspaper
+    - [ ] Newspaper
+        - [x] Buying cars with dialogs
+        - [ ] Buying parts
+        - [ ] Updating headlines from the current date
+        - [ ] Close newspaper by clicking in the bottom-right area
+        - [ ] Improvement: pull more historic headlines to use randomly?
     - [x] Changing tires
-    - [x] Radio
+    - [x] Radio mute/unmute
 
-- [x] Diner
+- [ ] Diner
+    - [ ] Fix actor animations
+    - [ ] Add jail state
+
+- [ ] Gas station
+    - [ ] Fix actor animation
+    - [ ] Implement filling up gas
+  
 
 # Chores
 

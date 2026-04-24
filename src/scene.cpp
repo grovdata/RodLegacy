@@ -114,23 +114,19 @@ void Scene::ToggleDebugMode() {
     }
 }
 
-ZoneId Scene::CheckMouseHover(int x, int y) {
-    for (size_t i = 0; i < zones.size(); i++) {
-        Zone zone = zones.at(i);
+Zone* Scene::FindZone(int x, int y) {
+    for (auto& zone : zones) {
         if (zone.IsInsideZone(x, y)) {
-            hud->Clear();
-            hud->SetText(zone.GetText());            
-            return zone.GetId();
+            hud->SetText(zone.GetText().c_str());
+            return &zone;
         }
     }
-    // If no hover, clear bar
-    hud->Clear();    
-    return ZONE_NULL;
+    hud->Clear();
+    return nullptr;
 }
 
-void Scene::SetZoneText(ZoneId id, char* text) {
-   for (size_t i = 0; i < zones.size(); i++) {
-        Zone zone = zones.at(i);
+void Scene::SetZoneText(const std::string& id, const std::string& text) {
+    for (auto& zone : zones) {
         if (zone.GetId() == id) {
             zone.SetText(text);
             return;
@@ -138,9 +134,8 @@ void Scene::SetZoneText(ZoneId id, char* text) {
     }
 }
 
-void Scene::SetZoneRect(ZoneId id, SDL_Rect *rect) {
-   for (size_t i = 0; i < zones.size(); i++) {
-        Zone& zone = zones.at(i);
+void Scene::SetZoneRect(const std::string& id, SDL_Rect rect) {
+    for (auto& zone : zones) {
         if (zone.GetId() == id) {
             zone.SetRect(rect);
             return;
@@ -148,9 +143,8 @@ void Scene::SetZoneRect(ZoneId id, SDL_Rect *rect) {
     }
 }
 
-void Scene::SetZoneEnabled(ZoneId id, bool enabled) {
-    for (size_t i = 0; i < zones.size(); i++) {
-        Zone& zone = zones.at(i);
+void Scene::SetZoneEnabled(const std::string& id, bool enabled) {
+    for (auto& zone : zones) {
         if (zone.GetId() == id) {
             zone.SetEnabled(enabled);
             return;
@@ -158,15 +152,14 @@ void Scene::SetZoneEnabled(ZoneId id, bool enabled) {
     }
 }
 
-Zone& Scene::GetZone(ZoneId id) {
-    for (size_t i = 0; i < zones.size(); i++) {
-        if (zones[i].GetId() == id) {
-            return zones[i];
+Zone& Scene::GetZone(const std::string& id) {
+    for (auto& zone : zones) {
+        if (zone.GetId() == id) {
+            return zone;
         }
     }
-    LOG_WARN("Scene::GetZone: Zone not found: %d", id);
-    // Need a static Zone object to return in case of failure
-    static Zone nullZone(ZONE_NULL, const_cast<char*>(""), new SDL_Rect{0,0,0,0});
+    LOG_WARN("Scene::GetZone: Zone not found: %s", id.c_str());
+    static Zone nullZone("", "", SDL_Rect{0, 0, 0, 0});
     return nullZone;
 }
 
@@ -231,24 +224,21 @@ bool Scene::PushEvent(SDL_Event *event) {
     
     // Handle mouse events for scene zones
     if (event->type == SDL_MOUSEMOTION) {
-        ZoneId z = CheckMouseHover(event->motion.x, event->motion.y);
+        FindZone(event->motion.x, event->motion.y);
         return false;
     }
-    
+
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         Uint32 t = event->common.timestamp;
         if (lastActionTimestamp == 0 || static_cast<Uint32>(t - lastActionTimestamp) >= 200) {
-            ZoneId z = CheckMouseHover(event->button.x, event->button.y);
+            Zone* z = FindZone(event->button.x, event->button.y);
             lastActionTimestamp = t;
-            Action(z);
+            if (z && z->onClick) z->onClick();
             return true;
         }
         return false;
     }
     return false;
-}
-
-void Scene::Action(ZoneId zone) {
 }
 
 void Scene::FadeIn() {

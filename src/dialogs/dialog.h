@@ -1,7 +1,7 @@
 #pragma once
 #include "../global.h"
 #include "../SFont.h"
-#include "../ui/zone.h"  // For ZoneId
+#include "../ui/zone.h"
 #include "../ui/rectangle.h"
 #include "../assets.h"   // For Asset
 #include "../ui/button_config.h"  // For ButtonConfig

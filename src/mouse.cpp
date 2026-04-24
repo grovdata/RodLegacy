@@ -258,25 +258,25 @@ float Mouse::CalculateDistance(int x1, int y1, int x2, int y2) {
     return sqrt(dx * dx + dy * dy);
 }
 
-ZoneId Mouse::FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY) {
-    ZoneId closestZone = ZONE_NULL;
+const Zone* Mouse::FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY) {
+    const Zone* closest = nullptr;
     float closestDistance = std::numeric_limits<float>::max();
-    
+
     for (const auto& zone : zones) {
-        if (!zone.IsInsideZone(mouseX, mouseY)) continue; // Skip if mouse is already in zone
-        
+        if (!zone.IsInsideZone(mouseX, mouseY)) continue;
+
         SDL_Rect zoneRect = zone.GetRect();
         int zoneCenterX = zoneRect.x + zoneRect.w / 2;
         int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-        
+
         float distance = CalculateDistance(mouseX, mouseY, zoneCenterX, zoneCenterY);
         if (distance < closestDistance) {
             closestDistance = distance;
-            closestZone = zone.GetId();
+            closest = &zone;
         }
     }
-    
-    return closestZone;
+
+    return closest;
 }
 
 void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) {
@@ -288,25 +288,23 @@ void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) 
     int currentX = rect.x + rect.w / 2;
     int currentY = rect.y + rect.h / 2;
     
-    ZoneId bestZone = ZONE_NULL;
+    const Zone* best = nullptr;
     float bestScore = std::numeric_limits<float>::max();
-    
+
     for (const auto& zone : zones) {
-        if (!zone.IsInsideZone(currentX, currentY)) continue; // Skip if already in this zone
-        
+        if (!zone.IsInsideZone(currentX, currentY)) continue;
+
         SDL_Rect zoneRect = zone.GetRect();
         int zoneCenterX = zoneRect.x + zoneRect.w / 2;
         int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-        
-        // Calculate direction vector from current position to zone center
+
         int dx = zoneCenterX - currentX;
         int dy = zoneCenterY - currentY;
-        
-        // Check if zone is in the desired direction
+
         bool inDirection = false;
         switch (direction) {
             case DPadDirection::UP:
-                inDirection = (dy < 0); // Zone is above current position
+                inDirection = (dy < 0);
                 break;
             case DPadDirection::DOWN:
                 inDirection = (dy > 0); // Zone is below current position
@@ -344,73 +342,52 @@ void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) 
         
         if (score < bestScore) {
             bestScore = score;
-            bestZone = zone.GetId();
+            best = &zone;
         }
     }
-    
-    // If no zone found in direction, try jumping to any zone
-    if (bestZone == ZONE_NULL) {
+
+    if (!best) {
         JumpToClosestZone(scene);
         return;
     }
-    
-    // Find the zone and jump to its center
-    for (const auto& zone : zones) {
-        if (zone.GetId() == bestZone) {
-            SDL_Rect zoneRect = zone.GetRect();
-            int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-            int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-            
-            // Move mouse to zone center
-            rect.x = zoneCenterX - rect.w / 2;
-            rect.y = zoneCenterY - rect.h / 2;
-            
-            // Clamp to screen bounds
-            rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
-            rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
-            break;
-        }
+
+    {
+        SDL_Rect zoneRect = best->GetRect();
+        int zoneCenterX = zoneRect.x + zoneRect.w / 2;
+        int zoneCenterY = zoneRect.y + zoneRect.h / 2;
+        rect.x = zoneCenterX - rect.w / 2;
+        rect.y = zoneCenterY - rect.h / 2;
+        rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
+        rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
     }
 }
 
 void Mouse::JumpToClosestZone(Scene* scene) {
     if (!scene) return;
-    
+
     const std::vector<Zone>& zones = scene->GetZones();
     if (zones.empty()) {
-        // No zones available, jump to center of screen
         rect.x = (GAME_WIDTH - rect.w) / 2;
         rect.y = (GAME_HEIGHT - rect.h) / 2;
         return;
     }
-    
+
     int currentX = rect.x + rect.w / 2;
     int currentY = rect.y + rect.h / 2;
-    
-    ZoneId closestZone = FindClosestZone(zones, currentX, currentY);
-    
-    if (closestZone == ZONE_NULL) {
-        // No suitable zone found, jump to center of screen
+
+    const Zone* closest = FindClosestZone(zones, currentX, currentY);
+
+    if (!closest) {
         rect.x = (GAME_WIDTH - rect.w) / 2;
         rect.y = (GAME_HEIGHT - rect.h) / 2;
         return;
     }
-    
-    // Find the zone and jump to its center
-    for (const auto& zone : zones) {
-        if (zone.GetId() == closestZone) {
-            SDL_Rect zoneRect = zone.GetRect();
-            int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-            int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-            
-            // Move mouse to zone center
-            rect.x = zoneCenterX - rect.w / 2;
-            rect.y = zoneCenterY - rect.h / 2;
-            
-            // Clamp to screen bounds
-            rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
-            rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
-            break;
-        }
-    }
-} 
+
+    SDL_Rect zoneRect = closest->GetRect();
+    int zoneCenterX = zoneRect.x + zoneRect.w / 2;
+    int zoneCenterY = zoneRect.y + zoneRect.h / 2;
+    rect.x = zoneCenterX - rect.w / 2;
+    rect.y = zoneCenterY - rect.h / 2;
+    rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
+    rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
+}

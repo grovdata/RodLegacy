@@ -9,6 +9,7 @@
 #include "debug_overlay.h"
 #include "audio/audio_manager.h"
 #include "utils.h"
+#include <string>
 #include <vector>
 #include <memory>
 
@@ -24,7 +25,7 @@ class Car;
 class Scene: public IDrawableContainer {
    private:
 
-    ZoneId CheckMouseHover(int x, int y);
+    Zone* FindZone(int x, int y);
     void UpdateFade(Uint64 deltaTime);
 
 
@@ -82,7 +83,6 @@ class Scene: public IDrawableContainer {
     virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
     virtual void OnSceneExit();
 
-    virtual void Action(ZoneId zone);
     void Draw();                // Non-virtual: manages render target + fade color mod
     virtual void DrawScene();  // Override in derived classes for scene-specific drawing
     virtual void DrawExtra() {} // Override in derived classes for additional drawing
@@ -91,10 +91,10 @@ class Scene: public IDrawableContainer {
     virtual Dialog *GetActiveDialog();
     virtual void SetActiveDialog(Dialog *dialog);
 
-    void SetZoneText(ZoneId id, char* text);
-    void SetZoneRect(ZoneId id, SDL_Rect *rect);
-    void SetZoneEnabled(ZoneId id, bool enabled);
-    Zone& GetZone(ZoneId id);
+    void SetZoneText(const std::string& id, const std::string& text);
+    void SetZoneRect(const std::string& id, SDL_Rect rect);
+    void SetZoneEnabled(const std::string& id, bool enabled);
+    Zone& GetZone(const std::string& id);
     const std::vector<Zone>& GetZones() const { return zones; }
     virtual void DrawDebugUI() {}
 

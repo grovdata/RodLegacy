@@ -29,12 +29,12 @@ void Garage::InitGameMenuDialog() {
     SDL_Rect quitGameRect = {164, 112, buttonWidth, buttonHeight};
     SDL_Rect forgetItRect = {164, 130, buttonWidth, buttonHeight};
 
-    Zone saveGameZone(ZONE_GARAGE_MENU_SAVE_GAME, strdup("Save Game"), &saveGameRect);
-    Zone oldGameZone(ZONE_GARAGE_MENU_OLD_GAME, strdup("Old Game"), &oldGameRect);
-    Zone newGameZone(ZONE_GARAGE_MENU_NEW_GAME, strdup("New Game"), &newGameRect);
-    Zone optionsZone(ZONE_GARAGE_MENU_OPTIONS, strdup("Options"), &optionsRect);
-    Zone quitGameZone(ZONE_GARAGE_MENU_QUIT_GAME, strdup("Quit"), &quitGameRect);
-    Zone forgetItZone(ZONE_GARAGE_MENU_FORGET_IT, strdup("Forget it"), &forgetItRect);
+    Zone saveGameZone("save_game", "Save Game", saveGameRect);
+    Zone oldGameZone("old_game", "Old Game", oldGameRect);
+    Zone newGameZone("new_game", "New Game", newGameRect);
+    Zone optionsZone("options", "Options", optionsRect);
+    Zone quitGameZone("quit", "Quit", quitGameRect);
+    Zone forgetItZone("forget_it", "Forget it", forgetItRect);
 
     std::vector<Zone> dialogZones = {
         saveGameZone,
@@ -123,7 +123,7 @@ void Garage::InitGameMenuDialog() {
     menuDialogConfig.contentAreas = std::vector<SDL_Rect>{menuDialogRect};
     menuDialogConfig.font = state.GetAssets().GetMainFont();
     menuDialogConfig.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     menuDialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
@@ -188,13 +188,13 @@ void Garage::InitOptionsDialog() {
     SDL_Rect backRect               = {165, backY, buttonWidth, buttonHeight};
 
     // Zones
-    Zone soundVolumeUpZone  (ZONE_GARAGE_OPTIONS_SOUND_UP,   strdup("<"),              &soundVolumeUpRect);
-    Zone soundVolumeDownZone(ZONE_GARAGE_OPTIONS_SOUND_DOWN, strdup(">"),              &soundVolumeDownRect);
-    Zone musicVolumeUpZone  (ZONE_GARAGE_OPTIONS_MUSIC_UP,   strdup("<"),              &musicVolumeUpRect);
-    Zone musicVolumeDownZone(ZONE_GARAGE_OPTIONS_MUSIC_DOWN, strdup(">"),              &musicVolumeDownRect);
-    Zone fullscreenZone     (ZONE_GARAGE_OPTIONS_FULLSCREEN, strdup("Toggle Fullscreen"), &fullscreenCheckboxRect);
-    Zone musicSourceZone    (ZONE_GARAGE_OPTIONS_MUSIC_SOURCE, strdup("Switch music version"), &musicSourceRect);
-    Zone backZone           (ZONE_GARAGE_OPTIONS_BACK,       strdup("Forget it"),           &backRect);
+    Zone soundVolumeUpZone  ("sound_up",    "<",                    soundVolumeUpRect);
+    Zone soundVolumeDownZone("sound_down",  ">",                    soundVolumeDownRect);
+    Zone musicVolumeUpZone  ("music_up",    "<",                    musicVolumeUpRect);
+    Zone musicVolumeDownZone("music_down",  ">",                    musicVolumeDownRect);
+    Zone fullscreenZone     ("fullscreen",  "Toggle Fullscreen",    fullscreenCheckboxRect);
+    Zone musicSourceZone    ("music_source","Switch music version",  musicSourceRect);
+    Zone backZone           ("back",        "Forget it",            backRect);
 
     std::vector<Zone> dialogZones = {
         soundVolumeUpZone,
@@ -278,7 +278,7 @@ void Garage::InitOptionsDialog() {
     optionsDialogConfig.contentAreas    = std::vector<SDL_Rect>{optionsDialogRect};
     optionsDialogConfig.font            = state.GetAssets().GetMainFont();
     optionsDialogConfig.onZoneHover     = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     optionsDialogConfig.onButtonPressed = [this, canCycleMusicSource](int buttonIndex) {
         AudioManager* am = state.GetAssets().GetAudioManager();
@@ -337,10 +337,10 @@ void Garage::ShowRadioDialog() {
     SDL_Rect nextRect  = {dx + 86,         btnY, 24, btnH};
     SDL_Rect closeRect = {dx + dw - 28,    btnY, 24, btnH};
 
-    Zone prevZone (ZONE_GARAGE_RADIO_PREV,       strdup("Previous song"), &prevRect);
-    Zone ppZone   (ZONE_GARAGE_RADIO_PLAY_PAUSE, strdup("Play / Pause"),  &ppRect);
-    Zone nextZone (ZONE_GARAGE_RADIO_NEXT,       strdup("Next song"),     &nextRect);
-    Zone closeZone(ZONE_GARAGE_RADIO_CLOSE,      strdup("Close"),         &closeRect);
+    Zone prevZone ("radio_prev",  "Previous song", prevRect);
+    Zone ppZone   ("radio_pp",   "Play / Pause",  ppRect);
+    Zone nextZone ("radio_next", "Next song",     nextRect);
+    Zone closeZone("radio_close","Close",          closeRect);
 
     std::string songName = am->GetCurrentSongName();
     char nameLabel[64];
@@ -384,7 +384,7 @@ void Garage::ShowRadioDialog() {
     cfg.buttons         = {prevBtn, ppBtn, nextBtn, closeBtn};
     cfg.zones           = {prevZone, ppZone, nextZone, closeZone};
     cfg.contentAreas    = {dlgRect};
-    cfg.onZoneHover     = [this](Zone& zone) { hud->SetText(zone.GetText()); };
+    cfg.onZoneHover     = [this](Zone& zone) { hud->SetText(zone.GetText().c_str()); };
     cfg.onDismiss       = [this]() {
         radioDialog->Hide();
         SetActiveDialog(nullptr);

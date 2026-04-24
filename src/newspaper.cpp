@@ -6,12 +6,53 @@
 #include "spritesheet.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
+#include "scene_layout.h"
+#include "embedded_resources.h"
 
 const std::string autoParts = "------------ PARTS ------------";
 const std::string usedCars = "---------- USED CARS ----------";
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
     currentPage = 0;
+
+    zones = SceneLayout::Load(embedded_newspaper_toml);
+
+    GetZone("auto_parts").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        currentPage = 1;
+        smoothScrollOffset = 0;
+        LOG_INFO("Page: %d of %d", currentPage, totalPages);
+        Update();
+    };
+    GetZone("used_cars").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        currentPage = 4;
+        smoothScrollOffset = 0;
+        LOG_INFO("Page: %d of %d", currentPage, totalPages);
+        Update();
+    };
+    GetZone("back_to_garage").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        state.MoveToScene(SCENE_GARAGE);
+    };
+    GetZone("back_to_garage2").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        state.MoveToScene(SCENE_GARAGE);
+    };
+    GetZone("previous").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        if (currentPage > 0) currentPage--; else currentPage = totalPages;
+        smoothScrollOffset = 0;
+        LOG_INFO("Page: %d of %d", currentPage, totalPages);
+        Update();
+    };
+    GetZone("next").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        if (currentPage < totalPages) currentPage++; else currentPage = 0;
+        smoothScrollOffset = 0;
+        LOG_INFO("Page: %d of %d", currentPage, totalPages);
+        Update();
+    };
 }
 
 Newspaper::~Newspaper() {
@@ -29,30 +70,6 @@ void Newspaper::Init(bool debugMode) {
     Update();
     // Common
 
-    SDL_Rect autoPartsRect = {0, 0, GAME_WIDTH, 32};
-    Zone autoPartsZone(ZONE_MAGAZINE_AUTO_PARTS, strdup("Auto Parts"), &autoPartsRect);
-
-    SDL_Rect usedCarsRect = {0, 33, GAME_WIDTH, 33};
-    Zone usedCarsZone(ZONE_MAGAZINE_USED_CARS, strdup("Used Cars"), &usedCarsRect);
-
-    SDL_Rect backToGarageRect = {0, 66, GAME_WIDTH, 125};
-    Zone backToGarageZone(ZONE_MAGAZINE_BACK_TO_GARAGE, strdup("Go to the garage"), &backToGarageRect);
-
-    SDL_Rect previousRect = {0, 0, 64, 190};
-    Zone previousZone(ZONE_MAGAZINE_PREVIOUS, strdup("Previous page"), &previousRect);
-
-    SDL_Rect nextRect = {GAME_WIDTH - 64, 0, 64, 190};
-    Zone nextZone(ZONE_MAGAZINE_NEXT, strdup("Next page"), &nextRect);
-
-    SDL_Rect backToGarage2Rect = {0, 199, GAME_WIDTH, 125};
-    Zone backToGarage2Zone(ZONE_MAGAZINE_BACK_TO_GARAGE2, strdup("Go to the garage"), &backToGarage2Rect);
-
-    zones.push_back(autoPartsZone);
-    zones.push_back(usedCarsZone);
-    zones.push_back(backToGarageZone);
-    zones.push_back(previousZone);
-    zones.push_back(nextZone);
-    zones.push_back(backToGarage2Zone);
 }
 
 void Newspaper::InitPageOne() {
@@ -145,7 +162,15 @@ void Newspaper::InitPageAds() {
 
     // Create single clickable zone for the ads area
     SDL_Rect adsZoneRect = {64, 0, 192, 190};
-    Zone adsZone(ZONE_MAGAZINE_ADS_AREA, const_cast<char*>("Click on an ad to view details"), &adsZoneRect);
+    Zone adsZone("ads_area", "Click on an ad to view details", adsZoneRect);
+    adsZone.onClick = [this] {
+        int adsAreaX = lastClickX - 64;
+        int adsAreaY = lastClickY;
+        if (adsAreaX >= 0 && adsAreaX < 192 && adsAreaY >= 0 && adsAreaY < 190) {
+            int adIndex = FindAdAtPosition(adsAreaY);
+            if (adIndex >= 0) HandleAdClick(adIndex);
+        }
+    };
     zones.push_back(adsZone);
 
     adsArea.UpdateFromSurface();
@@ -251,60 +276,6 @@ bool Newspaper::PushEvent(SDL_Event *event) {
     return Scene::PushEvent(event);
 }
 
-void Newspaper::Action(ZoneId zone) {
-    Scene::Action(zone);
-    if (sceneTransition != SCENE_SOLID) {
-        return;
-    }
-
-    switch (zone) {
-        case ZONE_MAGAZINE_AUTO_PARTS:
-            currentPage = 1;
-            smoothScrollOffset = 0; // Reset smooth scroll when changing sections
-            break;
-        case ZONE_MAGAZINE_USED_CARS:
-            currentPage = 4;
-            smoothScrollOffset = 0; // Reset smooth scroll when changing sections
-            break;
-        case ZONE_MAGAZINE_BACK_TO_GARAGE:
-            state.MoveToScene(SCENE_GARAGE);
-            break;
-        case ZONE_MAGAZINE_PREVIOUS:
-            if (currentPage > 0) {
-                currentPage--;
-            } else {
-                currentPage = totalPages;
-            }
-            smoothScrollOffset = 0; // Reset smooth scroll when changing pages
-            break;
-        case ZONE_MAGAZINE_NEXT:
-            if (currentPage < totalPages) {
-                currentPage++;
-            } else {
-                currentPage = 0;
-            }
-            smoothScrollOffset = 0; // Reset smooth scroll when changing pages
-            break;
-        case ZONE_MAGAZINE_ADS_AREA:
-            {
-                // Use cached click position (in logical/game coordinates)
-                int adsAreaX = lastClickX - 64; // ads area starts at x=64
-                int adsAreaY = lastClickY;
-
-                if (adsAreaX >= 0 && adsAreaX < 192 && adsAreaY >= 0 && adsAreaY < 190) {
-                    int adIndex = FindAdAtPosition(adsAreaY);
-                    if (adIndex >= 0) {
-                        HandleAdClick(adIndex);
-                    }
-                }
-            }
-            break;
-    }
-
-    LOG_INFO("Page: %d of %d", currentPage, totalPages);
-
-    Update();
-}
 
 void Newspaper::Update() {
     background->SetVisible(currentPage == 0);
@@ -318,12 +289,12 @@ void Newspaper::Update() {
 
     // Headers are now part of the large surface
 
-    SetZoneEnabled(ZONE_MAGAZINE_AUTO_PARTS, currentPage == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_USED_CARS, currentPage == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_BACK_TO_GARAGE, currentPage == 0);
-    SetZoneEnabled(ZONE_MAGAZINE_PREVIOUS, currentPage > 0);
-    SetZoneEnabled(ZONE_MAGAZINE_NEXT, currentPage > 0);
-    SetZoneEnabled(ZONE_MAGAZINE_ADS_AREA, currentPage > 0); // Only enable ads area zone when on ads pages
+    SetZoneEnabled("auto_parts", currentPage == 0);
+    SetZoneEnabled("used_cars", currentPage == 0);
+    SetZoneEnabled("back_to_garage", currentPage == 0);
+    SetZoneEnabled("previous", currentPage > 0);
+    SetZoneEnabled("next", currentPage > 0);
+    SetZoneEnabled("ads_area", currentPage > 0);
 
     // Update page content
     UpdatePageContent();

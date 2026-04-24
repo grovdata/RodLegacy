@@ -3,30 +3,27 @@
 #include "state.h"
 #include "parsers/libp.h"
 #include "animated_bitmap.h"
+#include "scene_layout.h"
+#include "embedded_resources.h"
 #include <memory>
 double carAnimationTimeGasStation = 0;
 
 GasStation::GasStation() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_SCREEN}) {
-    SDL_Rect pumpRect = {40, 105, 42, 73};
-    Zone pump(ZONE_GAS_STATION_PUMP, strdup("The pump"), &pumpRect);
-    
-    SDL_Rect ragRect = {95, 176, 22, 14};
-    Zone rag(ZONE_GAS_STATION_RAG, strdup("A rag"), &ragRect);
+    zones = SceneLayout::Load(embedded_gas_station_toml);
 
-    SDL_Rect gasCapRect = {30, 30, 12, 12};
-    Zone gasCap(ZONE_GAS_STATION_GAS_CAP, strdup("A gas cap"), &gasCapRect);
-
-    SDL_Rect rearWindowRect = {80, 80, 24, 12};
-    Zone rearWindow(ZONE_GAS_STATION_CAR_WINDOW_REAR, strdup("A rear window"), &rearWindowRect);
-
-    SDL_Rect frontWindowRect = {120, 120, 24, 12};
-    Zone frontWindow(ZONE_GAS_STATION_CAR_WINDOW_FRONT, strdup("A front window"), &frontWindowRect);
-
-    zones.push_back(pump);
-    zones.push_back(rag);
-    zones.push_back(gasCap);
-    zones.push_back(rearWindow);
-    zones.push_back(frontWindow);
+    GetZone("pump").onClick = [this] {
+        if (carBitmap && sceneState == GAS_STATION_IDLE) {
+            sceneState = GAS_STATION_HANDLEOFF;
+            carBitmap->SetGasCapRemoved(true);
+            carBitmap->SetPumpingHandleVisible(true);
+            auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
+            if (pumpNoHandle) pumpNoHandle->SetVisible(true);
+        }
+        currentPointer = SrLibAmigaSpriteAssetMousePointerPump;
+    };
+    GetZone("rag").onClick = [this] {
+        currentPointer = SrLibAmigaSpriteAssetMousePointerRag;
+    };
 
     carx = -GAME_WIDTH;
     cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().index);
@@ -85,33 +82,6 @@ void GasStation::Init(bool initialDebugMode) {
     initStartTime = SDL_GetTicks64();
 }
 
-void GasStation::Action(ZoneId zone) {
-    if (carBitmap){
-        carBitmap->SetGasCapRemoved(false);
-        carBitmap->SetPumpingHandleVisible(false);
-        auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
-        if (pumpNoHandle) {
-            pumpNoHandle->SetVisible(false);
-        }
-    }
-    
-    if (zone == ZONE_GAS_STATION_PUMP) {
-        if (carBitmap && sceneState == GAS_STATION_IDLE) {
-            sceneState = GAS_STATION_HANDLEOFF;
-            carBitmap->SetGasCapRemoved(true);
-            carBitmap->SetPumpingHandleVisible(true);
-            auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
-            if (pumpNoHandle) {
-                pumpNoHandle->SetVisible(true);
-            }
-        }
-        currentPointer = SrLibAmigaSpriteAssetMousePointerPump;
-    } else if (zone == ZONE_GAS_STATION_RAG) {
-        currentPointer = SrLibAmigaSpriteAssetMousePointerRag;
-    } else {
-        currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
-    }
-}
 
 SDL_Point GasStation::GetCarIdlePosition() {
     int x = SrLibQueryGetCarIdleX(SCENE_GAS_STATION);
@@ -188,13 +158,13 @@ void GasStation::UpdateCarAnimation(double deltaTime) {
     CarClickBoxes_t clickBoxes = metadata.clickBoxes;
     
     SDL_Rect gasCapRect = {carx + clickBoxes.clickBoxGasCap.x, cary + clickBoxes.clickBoxGasCap.y, clickBoxes.clickBoxGasCap.width, clickBoxes.clickBoxGasCap.height};
-    SetZoneRect(ZONE_GAS_STATION_GAS_CAP, &gasCapRect);
+    SetZoneRect("gas_cap", gasCapRect);
 
     SDL_Rect rearWindowRect = {metadata.offsets.offsetXRearTire + clickBoxes.clickBoxRearWindow.x, cary + clickBoxes.clickBoxRearWindow.y, clickBoxes.clickBoxRearWindow.width, clickBoxes.clickBoxRearWindow.height};
-    SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_REAR, &rearWindowRect);
+    SetZoneRect("car_window_rear", rearWindowRect);
 
     SDL_Rect frontWindowRect = {metadata.offsets.offsetXRearTire + clickBoxes.clickBoxFrontWindow.x, cary + clickBoxes.clickBoxFrontWindow.y, clickBoxes.clickBoxFrontWindow.width, clickBoxes.clickBoxFrontWindow.height};
-    SetZoneRect(ZONE_GAS_STATION_CAR_WINDOW_FRONT, &frontWindowRect);
+    SetZoneRect("car_window_front", frontWindowRect);
 }
 
 void GasStation::UpdateDebugInfo() {
@@ -229,6 +199,15 @@ void GasStation::UpdateDebugInfo() {
 }
 
 bool GasStation::PushEvent(SDL_Event* event) {
+    if (event->type == SDL_MOUSEBUTTONDOWN) {
+        if (carBitmap) {
+            carBitmap->SetGasCapRemoved(false);
+            carBitmap->SetPumpingHandleVisible(false);
+            auto pumpNoHandle = dynamic_cast<Bitmap*>(GetDrawable("pump_no_handle"));
+            if (pumpNoHandle) pumpNoHandle->SetVisible(false);
+        }
+        currentPointer = SrLibAmigaSpriteAssetMousePointerHand;
+    }
     bool consumed = Scene::PushEvent(event);
     if (!debugMode) return consumed;
 
@@ -240,7 +219,7 @@ bool GasStation::PushEvent(SDL_Event* event) {
             case SDLK_RIGHT:
             case SDLK_UP:
             case SDLK_DOWN: {
-                Zone& rearWindow = GetZone(ZONE_GAS_STATION_CAR_WINDOW_REAR);
+                Zone& rearWindow = GetZone("car_window_rear");
                 SDL_Rect targetRect = rearWindow.GetRect();
                 int delta = (event->key.keysym.mod & KMOD_SHIFT) ? 5 : 1;
                 switch (event->key.keysym.sym) {
@@ -257,7 +236,7 @@ bool GasStation::PushEvent(SDL_Event* event) {
                         targetRect.y += delta;
                         break;
                 }
-                rearWindow.SetRect(&targetRect);
+                rearWindow.SetRect(targetRect);
                 return true;
             }
         }

@@ -51,8 +51,8 @@ private:
     };
     GamepadDebugInfo gamepadDebug;
     
-    // Find closest zone to current mouse position
-    ZoneId FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY);
+    // Find closest zone to current mouse position, returns nullptr if none
+    const Zone* FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY);
     
     // Calculate distance between two points
     float CalculateDistance(int x1, int y1, int x2, int y2);

@@ -36,12 +36,12 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect tuneKnobRect = {124, 22, 16, 10};
 
 
-    Zone tuneZone(ZONE_GARAGE_ENGINE_OVERVIEW_TUNE, strdup("Tune"), &tuneRect);
-    Zone partsZone(ZONE_GARAGE_ENGINE_OVERVIEW_PARTS, strdup("Parts"), &partsRect);
-    Zone doneZone(ZONE_GARAGE_ENGINE_OVERVIEW_DONE, strdup("Done"), &doneRect);
-    Zone retardZone(ZONE_GARAGE_ENGINE_OVERVIEW_RETARD, strdup("Retard"), &retardRect);
-    Zone advanceZone(ZONE_GARAGE_ENGINE_OVERVIEW_ADVANCE, strdup("Advance"), &advanceRect);
-    Zone doneTuneZone(ZONE_GARAGE_ENGINE_TUNE_DONE, strdup("Done"), &partsRect);
+    Zone tuneZone("tune", "Tune", tuneRect);
+    Zone partsZone("parts", "Parts", partsRect);
+    Zone doneZone("done", "Done", doneRect);
+    Zone retardZone("retard", "Retard", retardRect);
+    Zone advanceZone("advance", "Advance", advanceRect);
+    Zone doneTuneZone("done_tune", "Done", partsRect);
 
     std::vector<Zone> engineDialogZones = {tuneZone, partsZone, doneZone};
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
@@ -180,7 +180,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     };
     
     auto zoneHoverWrapper = zoneHoverCallback ? zoneHoverCallback : [](Zone& zone) {
-        LOG_INFO("Engine Bay Zone Hover: %s (Zone ID: %d)", zone.GetText(), zone.GetId());
+        LOG_INFO("Engine Bay Zone Hover: %s (Zone ID: %s)", zone.GetText().c_str(), zone.GetId().c_str());
     };
 
     // Create overview dialog

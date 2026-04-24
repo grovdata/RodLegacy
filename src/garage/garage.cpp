@@ -7,88 +7,114 @@
 #include "state.h"
 #include "engine_bay.h"
 #include "embedded_loader.h"
+#include "embedded_resources.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
 #include "parsers/libp.h"
+#include "scene_layout.h"
 #include <SDL_image.h>
 #include <algorithm>
 
 Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
-
-   SDL_Rect bottleRect = {7, 161, 8, 24};
-    Zone bottle(ZONE_GARAGE_DRINK, strdup("Wanna drink ?"), &bottleRect);
-
-    SDL_Rect newsPaperRect = {15, 158, 44, 25};
-    Zone newsPaper(ZONE_GARAGE_NEWSPAPER, strdup("Check out the newspaper"), &newsPaperRect);
-
-    SDL_Rect changeTiresRect = {136, 157, 26, 29};
-    Zone changeTires(ZONE_GARAGE_TIRES, strdup("Change tires"), &changeTiresRect);
-
-    SDL_Rect newPaintJobRect = {228, 160, 33, 24};
-    Zone newPaintJob(ZONE_GARAGE_PAINT_JOB, strdup("New paint job - $20"), &newPaintJobRect);
-
-    SDL_Rect gasRect = {288, 161, 23, 26};
-    Zone gas(ZONE_GARAGE_GAS_CAN, strdup("Wanna tank ?"), &gasRect);
-
-    SDL_Rect carInfoRect = {290, 107, 27, 14};
-    Zone carInfo(ZONE_GARAGE_CAR_INFO, strdup("Car info"), &carInfoRect);
-
-    SDL_Rect calendarRect = {299, 56, 16, 45};
-    Zone calendar(ZONE_GARAGE_CALENDAR, strdup("Calendar"), &calendarRect);
-
-    SDL_Rect radioRect = {259, 61, 25, 12};
-    Zone radio(ZONE_GARAGE_MUSIC, strdup("Squelsh it !"), &radioRect);
-
-    SDL_Rect stickersRect = {216, 63, 17, 10};
-    Zone stickers(ZONE_GARAGE_STICKERS, strdup("Stickers - $5"), &stickersRect);
-
-    SDL_Rect partsRect = {203, 79, 17, 19};
-    Zone parts(ZONE_GARAGE_SELL_PARTS, strdup("Sell parts"), &partsRect);
-
-    SDL_Rect menuRect = {156, 65, 33, 14};
-    Zone menu(ZONE_GARAGE_MENU, strdup("Time to quit"), &menuRect);
-
-    SDL_Rect carsRect = {69, 41, 200, 16};
-    Zone cars(ZONE_GARAGE_CAR_LIST, strdup("Cars"), &carsRect);
-
-    SDL_Rect streetRect = {0, 42, 40, 62};
-    Zone street(ZONE_GARAGE_GOTO_DINER, strdup("Hit the street"), &streetRect);
-
-    SDL_Rect rearBumperRect = {290, 107, 27, 14};
-    Zone rearBumper(ZONE_GARAGE_REAR_BUMPER, strdup("Rear bumper"), &rearBumperRect);
-
-    SDL_Rect frontBumperRect = {290, 107, 27, 14};
-    Zone frontBumper(ZONE_GARAGE_FRONT_BUMPER, strdup("Front bumper"), &frontBumperRect);
-
-    SDL_Rect roofRect = {290, 107, 27, 14};
-    Zone roof(ZONE_GARAGE_CHOPPED_ROOF, strdup("Roof"), &roofRect);
-
-    SDL_Rect transmissionRect = {290, 107, 27, 14};
-    Zone transmission(ZONE_GARAGE_TRANSMISSION, strdup("Transmission"), &transmissionRect);
-
-    SDL_Rect engineRect = {290, 107, 27, 14};
-    Zone engine(ZONE_GARAGE_ENGINE, strdup("Pop the hood"), &engineRect);
-
     signRect = {72, 44, 195, 12};
 
-    zones.push_back(bottle);
-    zones.push_back(newsPaper);
-    zones.push_back(changeTires);
-    zones.push_back(newPaintJob);
-    zones.push_back(gas);
-    zones.push_back(carInfo);
-    zones.push_back(calendar);
-    zones.push_back(radio);
-    zones.push_back(stickers);
-    zones.push_back(parts);
-    zones.push_back(menu);
-    zones.push_back(cars);
-    zones.push_back(street);
-    zones.push_back(rearBumper);
-    zones.push_back(frontBumper);
-    zones.push_back(roof);
-    zones.push_back(transmission);
-    zones.push_back(engine);
+    zones = SceneLayout::Load(embedded_garage_toml);
+
+    GetZone("drink").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        bubbles[0]->SetVisible(true);
+    };
+    GetZone("newspaper").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        state.MoveToScene(SCENE_NEWSPAPER);
+    };
+    GetZone("tires").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        if (state.GetSpareTires().empty()) bubbles[2]->SetVisible(true);
+        else ShowTireDialog();
+    };
+    GetZone("paint_job").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowPaintDialog();
+    };
+    GetZone("gas_can").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        state.MoveToScene(SCENE_GAS_STATION);
+    };
+    GetZone("car_info").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowCarInfoDialog();
+    };
+    GetZone("calendar").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowCalendarDialog();
+    };
+    GetZone("music").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        AudioManager* am = state.GetAssets().GetAudioManager();
+        if (am) {
+            bool nowMuted = !am->IsMusicMuted();
+            am->SetMusicMuted(nowMuted);
+            const std::string newText = nowMuted ? "Catch some tunes" : "Squelsh it !";
+            SetZoneText("music", newText);
+            hud->SetText(newText.c_str());
+            state.GetAssets().SaveSettings();
+        }
+    };
+    GetZone("stickers").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        stickerScrollRow = 0;
+        ShowStickerDialog();
+    };
+    GetZone("sell_parts").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        bubbles[1]->SetVisible(true);
+    };
+    GetZone("menu").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        SetActiveDialog((Dialog*)gameMenuDialog.get());
+    };
+    GetZone("car_list").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        sortedOwnedCars.clear();
+        for (auto& car : state.GetOwnedCars()) sortedOwnedCars.push_back(car);
+        std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](Car* a, Car* b) {
+            return a->GetModel().name < b->GetModel().name;
+        });
+        std::vector<std::string> labels;
+        FreeCarListSwatches();
+        for (const auto& car : sortedOwnedCars) {
+            labels.push_back(car->GetModel().name);
+            carListSwatches.push_back(CarBitmap::CreateColorSwatch(car->GetColor()));
+        }
+        carSelectDialog->SetLabels(labels, carListSwatches);
+        SetActiveDialog((Dialog*)carSelectDialog.get());
+    };
+    GetZone("goto_diner").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        state.MoveToScene(SCENE_DINER);
+    };
+    GetZone("rear_bumper").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowBumperDialog(false);
+    };
+    GetZone("front_bumper").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowBumperDialog(true);
+    };
+    GetZone("roof").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowRoofDialog();
+    };
+    GetZone("transmission").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        ShowTransmissionDialog();
+    };
+    GetZone("engine").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
+        engineBay->ResetToOverview();
+        SetActiveDialog((Dialog*)engineBay->GetDialog());
+    };
 
     auto bubbleDrink = std::make_unique<Bubble>("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
     bubbleDrink->SetVisible(false);
@@ -155,13 +181,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};  // bottom
 
     // Dialog zones
-    Zone switchItZone(ZONE_GARAGE_BUTTON_SWITCH_IT, strdup("Switch it"), &switchItRect);
-    Zone sellItZone(ZONE_GARAGE_BUTTON_SELL_IT, strdup("Sell it"), &sellItRect);
-    Zone forgetItZone(ZONE_GARAGE_BUTTON_FORGET_IT, strdup("Forget it"), &forgetItRect);
-    Zone scrollTopZone(ZONE_GARAGE_BUTTON_SCROLL_TOP, strdup("\\"), &scrollTopRect);
-    Zone scrollDownZone(ZONE_GARAGE_BUTTON_SCROLL_DOWN, strdup(">"), &scrollDownRect);
-    Zone scrollUpZone(ZONE_GARAGE_BUTTON_SCROLL_UP, strdup("<"), &scrollUpRect);
-    Zone scrollBottomZone(ZONE_GARAGE_BUTTON_SCROLL_BOTTOM, strdup("/"), &scrollBottomRect);
+    Zone switchItZone("switch_it",    "Switch it", switchItRect);
+    Zone sellItZone  ("sell_it",      "Sell it",   sellItRect);
+    Zone forgetItZone("car_forget_it","Forget it", forgetItRect);
+    Zone scrollTopZone   ("scroll_top",    "\\", scrollTopRect);
+    Zone scrollDownZone  ("scroll_down",   ">",  scrollDownRect);
+    Zone scrollUpZone    ("scroll_up",     "<",  scrollUpRect);
+    Zone scrollBottomZone("scroll_bottom", "/",  scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {
@@ -216,7 +242,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText());
+        this->hud->SetText(zone.GetText().c_str());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
@@ -334,7 +360,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             }
         },
         [this](Zone& zone) {
-            this->hud->SetText(zone.GetText());
+            this->hud->SetText(zone.GetText().c_str());
         }
     );
 
@@ -401,101 +427,6 @@ void Garage::UpdateSign() {
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 }
 
-void Garage::Action(ZoneId zone) {
-    if (sceneTransition != SCENE_SOLID) {
-        return;
-    }
-    if (tireChangePhase != TireChangePhase::IDLE) {
-        return;
-    }
-
-    switch (zone)
-    {
-    case ZONE_GARAGE_GOTO_DINER:
-        state.MoveToScene(SCENE_DINER);
-        break;
-    case ZONE_GARAGE_NEWSPAPER:
-        state.MoveToScene(SCENE_NEWSPAPER);
-        break;
-    case ZONE_GARAGE_GAS_CAN:
-        state.MoveToScene(SCENE_GAS_STATION);
-        break;
-    case ZONE_GARAGE_DRINK:
-        bubbles[0]->SetVisible(true);
-        break;
-    case ZONE_GARAGE_SELL_PARTS:
-        bubbles[1]->SetVisible(true);
-        break;
-    case ZONE_GARAGE_TIRES:
-        if (state.GetSpareTires().empty()) {
-            bubbles[2]->SetVisible(true);
-        } else {
-            ShowTireDialog();
-        }
-        break;
-    case ZONE_GARAGE_CAR_LIST: {
-        sortedOwnedCars.clear();
-        for (auto& car : state.GetOwnedCars()) {
-            sortedOwnedCars.push_back(car);
-        }
-        std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](Car* a, Car* b) {
-            return a->GetModel().name < b->GetModel().name;
-        });
-        std::vector<std::string> labels;
-        FreeCarListSwatches();
-        for (const auto& car : sortedOwnedCars) {
-            labels.push_back(car->GetModel().name);
-            carListSwatches.push_back(CarBitmap::CreateColorSwatch(car->GetColor()));
-        }
-        carSelectDialog->SetLabels(labels, carListSwatches);
-        SetActiveDialog((Dialog*)carSelectDialog.get());
-        break;
-    }
-    case ZONE_GARAGE_CAR_INFO:
-        ShowCarInfoDialog();
-        break;
-    case ZONE_GARAGE_MENU:
-        SetActiveDialog((Dialog*)gameMenuDialog.get());
-        break;
-    case ZONE_GARAGE_ENGINE:
-        engineBay->ResetToOverview();
-        SetActiveDialog((Dialog*)engineBay->GetDialog());
-        break;
-    case ZONE_GARAGE_FRONT_BUMPER:
-        ShowBumperDialog(true);  // true = front bumper
-        break;
-    case ZONE_GARAGE_REAR_BUMPER:
-        ShowBumperDialog(false);  // false = rear bumper
-        break;
-    case ZONE_GARAGE_CHOPPED_ROOF:
-        ShowRoofDialog();
-        break;
-    case ZONE_GARAGE_PAINT_JOB:
-        ShowPaintDialog();
-        break;
-    case ZONE_GARAGE_STICKERS:
-        stickerScrollRow = 0;
-        ShowStickerDialog();
-        break;
-    case ZONE_GARAGE_CALENDAR:
-        ShowCalendarDialog();
-        break;
-    case ZONE_GARAGE_MUSIC: {
-        AudioManager* am = state.GetAssets().GetAudioManager();
-        if (am) {
-            bool nowMuted = !am->IsMusicMuted();
-            am->SetMusicMuted(nowMuted);
-            const char* newText = nowMuted ? "Catch some tunes" : "Squelsh it !";
-            SetZoneText(ZONE_GARAGE_MUSIC, strdup(newText));
-            hud->SetText(newText);
-            state.GetAssets().SaveSettings();
-        }
-        break;
-    }
-    default:
-        break;
-    }
-}
 
 void Garage::DrawScene() {
     if (rebuildOptions_) {
@@ -594,19 +525,19 @@ void Garage::DrawScene() {
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
 
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
-        SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
+        SetZoneRect("rear_bumper", rearBumperRect);
 
         SDL_Rect choppedRoofRect = {carx + clickBoxes.clickBoxChoppedRoof.x, cary + clickBoxes.clickBoxChoppedRoof.y, clickBoxes.clickBoxChoppedRoof.width, clickBoxes.clickBoxChoppedRoof.height};
-        SetZoneRect(ZONE_GARAGE_CHOPPED_ROOF, &choppedRoofRect);
+        SetZoneRect("roof", choppedRoofRect);
 
         SDL_Rect frontBumperRect = {carx + clickBoxes.clickBoxFrontBumper.x, cary + clickBoxes.clickBoxFrontBumper.y, clickBoxes.clickBoxFrontBumper.width, clickBoxes.clickBoxFrontBumper.height};
-        SetZoneRect(ZONE_GARAGE_FRONT_BUMPER, &frontBumperRect);
+        SetZoneRect("front_bumper", frontBumperRect);
 
         SDL_Rect transmissionRect = {carx + clickBoxes.clickBoxTransmission.x, cary + clickBoxes.clickBoxTransmission.y, clickBoxes.clickBoxTransmission.width, clickBoxes.clickBoxTransmission.height};
-        SetZoneRect(ZONE_GARAGE_TRANSMISSION, &transmissionRect);
+        SetZoneRect("transmission", transmissionRect);
 
         SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
-        SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
+        SetZoneRect("engine", engineRect);
     }
 
 
@@ -714,19 +645,19 @@ void Garage::UpdateCarZones() {
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
 
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
-        SetZoneRect(ZONE_GARAGE_REAR_BUMPER, &rearBumperRect);
+        SetZoneRect("rear_bumper", rearBumperRect);
 
         SDL_Rect choppedRoofRect = {carx + clickBoxes.clickBoxChoppedRoof.x, cary + clickBoxes.clickBoxChoppedRoof.y, clickBoxes.clickBoxChoppedRoof.width, clickBoxes.clickBoxChoppedRoof.height};
-        SetZoneRect(ZONE_GARAGE_CHOPPED_ROOF, &choppedRoofRect);
+        SetZoneRect("roof", choppedRoofRect);
 
         SDL_Rect frontBumperRect = {carx + clickBoxes.clickBoxFrontBumper.x, cary + clickBoxes.clickBoxFrontBumper.y, clickBoxes.clickBoxFrontBumper.width, clickBoxes.clickBoxFrontBumper.height};
-        SetZoneRect(ZONE_GARAGE_FRONT_BUMPER, &frontBumperRect);
+        SetZoneRect("front_bumper", frontBumperRect);
 
         SDL_Rect transmissionRect = {carx + clickBoxes.clickBoxTransmission.x, cary + clickBoxes.clickBoxTransmission.y, clickBoxes.clickBoxTransmission.width, clickBoxes.clickBoxTransmission.height};
-        SetZoneRect(ZONE_GARAGE_TRANSMISSION, &transmissionRect);
+        SetZoneRect("transmission", transmissionRect);
 
         SDL_Rect engineRect = {carx + clickBoxes.clickBoxEngine.x, cary + clickBoxes.clickBoxEngine.y, clickBoxes.clickBoxEngine.width, clickBoxes.clickBoxEngine.height};
-        SetZoneRect(ZONE_GARAGE_ENGINE, &engineRect);
+        SetZoneRect("engine", engineRect);
     }
 }
 

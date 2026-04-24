@@ -26,5 +26,4 @@ public:
     void Init(bool debugMode) override;
     void DrawScene() override;
     bool PushEvent(SDL_Event* event) override;
-    void Action(ZoneId zone) override;
 };
