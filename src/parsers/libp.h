@@ -18,7 +18,12 @@
 #include <iomanip>
 #include <string>
 
+// lodepng is built as plain C (LODEPNG_NO_COMPILE_CPP); wrap for C++ linkage.
+#include <cstring>
+#include <cstdlib>
+extern "C" {
 #include "lodepng.h"
+}
 
 enum SrLibFile {
     SrLibFileAmigaLibStart = 0,

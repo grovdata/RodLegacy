@@ -1,0 +1,161 @@
+#pragma once
+// Race simulation port: BuildCarPhysicsTables (0x2437f0), base performance
+// (0x2435f0), PlayerCarPhysics (0x23c5d6), UpdateRaceScroll (0x244818),
+// AdvanceTrackSegment (0x23b4a0), UpdateNPCEngine (0x2444c2),
+// UpdateNPCAI (0x244870), CheckTrackEdgeCollision (0x23b620).
+// See RodLegacyResearch/docs/driving/physics.md and track-data.md.
+// One Tick() = one original frame (the Amiga ran this once per rendered
+// frame; we tick at a fixed 50 Hz).
+
+#include <cstdint>
+
+#include "race/race_types.h"
+
+namespace srrace {
+
+// Input word bits (original A4-0x3f0c).
+constexpr uint16_t INPUT_THROTTLE = 0x01;
+constexpr uint16_t INPUT_BRAKE = 0x02;
+constexpr uint16_t INPUT_STEER_LEFT = 0x04;   // steer -1
+constexpr uint16_t INPUT_STEER_RIGHT = 0x08;  // steer +1
+constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
+
+// End/crash flag bits (original A4+0x4bc6).
+constexpr uint16_t END_FINISHED = 0x01;
+constexpr uint16_t END_ENGINE_BLOWN = 0x04;
+constexpr uint16_t END_TRANS_DROPPED = 0x10;
+constexpr uint16_t END_WALL_HIT = 0x20;
+constexpr uint16_t END_GAVE_UP = 0x40;
+constexpr uint16_t END_STALLED = 0x80;
+
+// Car configuration in original part-class terms.
+struct CarSetup {
+    int carbClass = 0;      // 0=2bbl, 1=4bbl, 2=racing
+    int transClass = 2;     // 0=auto, 1=3spd, 2=4spd, 3=racing
+    int engineClass = 2;    // 0..3 row in eng_x_mani matrix; V6=1, V8=2
+    int manifoldClass = 0;  // 0..4 column in eng_x_mani; stock=0, perf=3, racing=4
+    int tireClass = 0;      // 0=stock, 1=brand, 2=racing slicks
+    int weightClass = 4;    // 0..7, indexes weight_pts
+    int tuneOffset = 0;     // |tune distance from perfect|, 0..8
+    int carbWear = 0;       // wear values 0..10000
+    int engineWear = 0;
+    int transWear = 0;
+    int tireWear = 0;
+    bool bumpersStripped = false;
+    bool supercharger = false;
+    int driverSkill = 130;  // 0..130 (0x82); player uses 130
+};
+
+struct PowerRow {
+    int16_t rpmThreshold;
+    int16_t rpmGain;
+    int16_t rpmLoss;
+};
+
+// Tables built once per race per car (original A4+0x4b1e..0x4b9e block).
+// Gear 0 is neutral; driving gears are 1..numGears.
+struct CarTables {
+    int numGears = 4;          // driving gears, 3 or 4
+    bool automatic = false;
+    int16_t ratio[5] = {0};    // rpm = ratio * mph / 100, per gear (index 0 unused)
+    PowerRow rows[5][3] = {};  // torque curve rows per gear
+    int16_t autoShiftRpm = 4500;  // carb band end (redline tab)
+    int16_t steeringStrength = 9;
+    int16_t handling = 2;      // drift factor from tire class + wear
+    int16_t perfScore = 70;    // base performance 70..200 (capped 130 for AI)
+};
+
+// Base performance score (FUN_002435f0). Returns ~70..200.
+int ComputeBasePerformance(const CarSetup& setup);
+
+// Fills tables from the setup (BuildCarPhysicsTables).
+void BuildCarTables(const CarSetup& setup, CarTables& tables);
+
+// Per-car dynamic state.
+struct CarState {
+    int16_t speed = 0;       // mph
+    int16_t rpm = 1500;      // idle 1500, redline 5700
+    int16_t gear = 0;        // 0 = neutral, 1..numGears driving
+    int16_t steerVel = 0;    // input integrator, +-24
+    int16_t heading = 0;     // road-direction the car is pointing
+    int16_t lateral = 2560;  // road spans 1500..3300
+    int32_t segPos = RACE_START_SEG;
+    int16_t scrollAcc = 0;
+    int16_t scrollStep = 0;
+    uint16_t endFlags = 0;   // END_* bits
+    bool offRoad = false;
+    int32_t tick = 0;
+    int32_t redlineTicks = 0;   // held-at-redline counter
+    int32_t distanceAcc = 0;
+    // wear accumulated during the race, added to part wear (0..10000)
+    int32_t engineWearDelta = 0;
+    int32_t transWearDelta = 0;
+    int32_t tireWearDelta = 0;
+};
+
+// NPC AI extras.
+struct NpcState {
+    int16_t lateralTarget = 2400;
+    int16_t targetSpeedNormal = 0;  // perf*70/100
+    int16_t targetSpeedRisky = 0;   // perf*80/100
+    int16_t stallTicks = 0;
+    bool gaveUp = false;
+};
+
+class RaceSim {
+public:
+    // track must outlive the sim. raceType: 0 = drag (finish 380),
+    // 1 = road (finish 1020).
+    void Init(const TrackData* track, int raceType,
+              const CarSetup& playerSetup, const CarSetup& npcSetup,
+              uint32_t rngSeed);
+
+    // Advances one frame. inputBits = INPUT_* mask.
+    void Tick(uint16_t inputBits);
+
+    const CarState& Player() const { return player; }
+    const CarState& Npc() const { return npc; }
+    const CarTables& PlayerTables() const { return playerTables; }
+    const CarTables& NpcTables() const { return npcTables; }
+    const NpcState& NpcAi() const { return npcAi; }
+    int RaceType() const { return raceType; }
+    int FinishSegment() const { return finishSeg; }
+
+    bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
+    bool PlayerCrashed() const {
+        return (player.endFlags & (END_ENGINE_BLOWN | END_TRANS_DROPPED |
+                                   END_WALL_HIT | END_STALLED)) != 0;
+    }
+    bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
+
+    // Road edges at the player's current segment (updated per tick).
+    int16_t RoadEdgeLeft() const { return edgeLeft; }
+    int16_t RoadEdgeRight() const { return edgeRight; }
+
+private:
+    void PlayerPhysics(uint16_t inputBits);
+    void UpdateScroll(CarState& car);
+    void UpdateSteering(uint16_t inputBits);
+    void ApplyLateralDrift(CarState& car, int16_t handling);
+    void CheckEdgeCollision();
+    void NpcEngine();
+    void NpcAiUpdate();
+    void EngineTick(CarState& car, const CarTables& tables, bool throttle,
+                    bool brake, bool shift);
+
+    const TrackData* track = nullptr;
+    int raceType = 1;
+    int finishSeg = ROAD_FINISH_SEG;
+    CarSetup playerSetup, npcSetup;
+    CarTables playerTables, npcTables;
+    CarState player, npc;
+    NpcState npcAi;
+    int16_t edgeLeft = 1500, edgeRight = 3300;
+    int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
+    RaceRng rng;
+};
+
+// Speed (mph) -> scroll step 0..16 (SpeedToScrollStep 0x24476c).
+int SpeedToScrollStep(int speedMph);
+
+}  // namespace srrace

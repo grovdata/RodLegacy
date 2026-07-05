@@ -145,6 +145,8 @@ cpp_sources = files(
     'diner.cpp',
     'driving.cpp',
     'racing.cpp',
+    'race/track_gen.cpp',
+    'race/race_sim.cpp',
     'challenge.cpp',
     'garage/garage.cpp',
     'garage/garage_menus.cpp',

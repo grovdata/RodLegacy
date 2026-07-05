@@ -1,2257 +1,1061 @@
-/*
-https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/SmallerProjects/OneLoneCoder_RetroArcadeRacer.cpp
-*/
-#include "global.h"
 #include "racing.h"
-#include "state.h"
+
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstring>
+#include <cstdio>
 #include <memory>
 
-Racing::Racing() {
-        #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-            const Uint32 rmask = 0xff000000;
-            const Uint32 gmask = 0x00ff0000;
-            const Uint32 bmask = 0x0000ff00;
-            const Uint32 amask = 0x000000ff;
-        #else
-            const Uint32 rmask = 0x000000ff;
-            const Uint32 gmask = 0x0000ff00;
-            const Uint32 bmask = 0x00ff0000;
-            const Uint32 amask = 0xff000000;
-        #endif
-	pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
-	
-	// Initialize HUD
-	// Palette indices: 4 = 0x0333 (dark gray #303030), 24 = 0x0A94 (tan #a09040)
-	hud = new HUD(StockPaletteAmigaDriving, 4, 24);
-	hud->SetVisible(true);
-	
-	// Initialize track reader
-		trackReader = std::make_unique<TrackReader>();
-		
-		// Load sprite bitmaps for roadside objects
-		LoadSpriteBitmaps();
-		
-		// OLD: Hardcoded track definition (now replaced by Street Rod track data)
-		// This will be populated by LoadTrackData() when called from Driving scene
-		// Temporary fallback track for testing
-		if (vecTrack.empty()) {
-			vecTrack.push_back(std::make_pair(0.0f, 100.0f));		// Default straight section
-			SDL_Log("Racing constructor: Using fallback track (Street Rod data not loaded yet)");
-		} else {
-			SDL_Log("Racing constructor: vecTrack already has %zu segments", vecTrack.size());
-		}
+#include "car.h"
+#include "car_system.h"
+#include "engine_part.h"
+#include "global.h"
+#include "part.h"
+#include "race/track_gen.h"
+#include "state.h"
 
-		// Calculate total track distance, so we can set lap times
-		fTrackDistance = 0.0f;
-		for (auto t : vecTrack)
-			fTrackDistance += t.second;
+namespace {
 
-		listLapTimes = { 0,0,0,0,0 };
-		fCurrentLapTime = 0.0f;
-	}
+constexpr int kForwardRows = 15;
+constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
+constexpr float kFixedStepSeconds = 0.02f;
+constexpr float kMaxAccumulatedSeconds = 0.2f;
+
+constexpr int kHorizonY = 46;
+constexpr int kClipTop = 4;
+constexpr int kClipBottom = 85;
+
+// Races run at night in the original game.
+constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
+constexpr SDL_Color kGrassA = {0, 146, 0, 255};
+constexpr SDL_Color kGrassB = {0, 113, 0, 255};
+constexpr SDL_Color kRoadA = {66, 60, 66, 255};
+constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
+constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
+constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
+constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
+constexpr SDL_Color kArchGray = {60, 60, 60, 255};
+
+constexpr std::array<std::array<std::array<uint8_t, 2>, 11>, 20> kSpriteScale = {{
+    {{{56, 87}, {34, 52}, {23, 35}, {19, 29}, {15, 24}, {13, 20}, {11, 17}, {10, 15}, {9, 14}, {7, 11}, {6, 9}}},
+    {{{7, 14}, {5, 9}, {3, 6}, {2, 5}, {2, 4}, {1, 3}, {1, 3}, {1, 2}, {1, 1}, {1, 1}, {1, 1}}},
+    {{{14, 19}, {9, 12}, {7, 8}, {5, 7}, {4, 5}, {3, 4}, {3, 3}, {2, 3}, {2, 3}, {1, 2}, {1, 1}}},
+    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
+    {{{30, 21}, {18, 13}, {13, 9}, {10, 7}, {8, 6}, {7, 5}, {6, 4}, {5, 4}, {4, 3}, {4, 3}, {3, 2}}},
+    {{{25, 57}, {15, 35}, {11, 25}, {8, 19}, {7, 16}, {6, 14}, {5, 12}, {4, 10}, {4, 9}, {3, 8}, {2, 6}}},
+    {{{89, 31}, {54, 19}, {38, 13}, {30, 10}, {24, 8}, {20, 7}, {18, 6}, {15, 5}, {13, 5}, {12, 4}, {9, 3}}},
+    {{{19, 9}, {12, 7}, {8, 5}, {7, 3}, {6, 2}, {4, 1}, {3, 1}, {3, 1}, {2, 1}, {1, 1}, {1, 1}}},
+    {{{19, 9}, {12, 7}, {8, 5}, {7, 3}, {6, 2}, {4, 1}, {3, 1}, {3, 1}, {2, 1}, {1, 1}, {1, 1}}},
+    {{{29, 82}, {17, 49}, {12, 35}, {10, 27}, {8, 22}, {7, 19}, {6, 16}, {5, 14}, {4, 12}, {4, 10}, {3, 8}}},
+    {{{68, 70}, {41, 42}, {29, 29}, {22, 23}, {18, 19}, {16, 16}, {14, 14}, {12, 12}, {10, 10}, {8, 8}, {7, 7}}},
+    {{{80, 76}, {48, 46}, {34, 32}, {26, 25}, {22, 20}, {18, 17}, {16, 15}, {14, 13}, {12, 11}, {10, 10}, {8, 8}}},
+    {{{56, 23}, {34, 14}, {23, 10}, {19, 8}, {15, 6}, {13, 5}, {11, 4}, {10, 4}, {9, 3}, {7, 3}, {6, 2}}},
+    {{{64, 23}, {39, 14}, {27, 10}, {21, 8}, {17, 6}, {15, 5}, {13, 4}, {11, 3}, {10, 2}, {8, 2}, {6, 1}}},
+    {{{56, 23}, {34, 14}, {23, 10}, {19, 8}, {15, 6}, {13, 5}, {11, 4}, {10, 4}, {9, 3}, {7, 3}, {6, 2}}},
+    {{{25, 57}, {15, 35}, {11, 25}, {8, 19}, {7, 16}, {6, 14}, {5, 12}, {4, 10}, {4, 9}, {3, 8}, {2, 6}}},
+    {{{25, 54}, {15, 33}, {11, 23}, {8, 18}, {7, 15}, {6, 13}, {5, 11}, {4, 9}, {4, 8}, {3, 7}, {2, 5}}},
+    {{{25, 54}, {15, 33}, {11, 23}, {8, 18}, {7, 15}, {6, 13}, {5, 11}, {4, 9}, {4, 8}, {3, 7}, {2, 5}}},
+    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
+    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
+}};
+
+int ClampInt(int v, int lo, int hi) {
+    return std::max(lo, std::min(hi, v));
+}
+
+int ToRaceType(SrTrackType trackType) {
+    return trackType == SR_TRACK_DRAG_RACE ? 0 : 1;
+}
+
+}  // namespace
+
+Racing::Racing() : rng(static_cast<uint32_t>(SDL_GetTicks())) {
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+    const Uint32 rmask = 0xff000000;
+    const Uint32 gmask = 0x00ff0000;
+    const Uint32 bmask = 0x0000ff00;
+    const Uint32 amask = 0x000000ff;
+#else
+    const Uint32 rmask = 0x000000ff;
+    const Uint32 gmask = 0x0000ff00;
+    const Uint32 bmask = 0x00ff0000;
+    const Uint32 amask = 0xff000000;
+#endif
+    pixels = SDL_CreateRGBSurface(0, GAME_WIDTH, GAME_RACING_HEIGHT, 32, rmask, gmask, bmask, amask);
+    hud = new HUD(StockPaletteAmigaDriving, 4, 24);
+    hud->SetVisible(true);
+    LoadSpriteBitmaps();
+    ResetForNewRace();
+}
 
 Racing::Racing(AudioManager* audioMgr) : Racing() {
-	audioManager = audioMgr;
-	SDL_Log("Racing: Audio manager initialized (%p)", audioManager);
-	// Note: Don't start engine sound here - it's started in the first Draw() call
+    audioManager = audioMgr;
 }
 
 Racing::~Racing() {
-	// Stop engine sound when exiting race
-	if (audioManager) {
-		audioManager->StopLoop(0);  // Channel 0 is engine sound
-		SDL_Log("Racing: Engine sound stopped");
-	}
-	
-	if (hud) {
-		delete hud;
-		hud = nullptr;
-	}
-	// Note: audioManager is not owned by Racing, so don't delete it
-}
-
-void Racing::Draw(float fElapsedTime, SDL_Event *event) {
-	// Calculate proper delta time
-	Uint64 currentTime = SDL_GetTicks64();
-	float deltaTime = 0.0f;
-	
-	if (firstUpdate) {
-		deltaTime = 1.0f / 60.0f; // Default to 60 FPS on first update
-		firstUpdate = false;
-		
-		// Start engine sound on first draw (when race actually begins)
-		if (audioManager && !engineSoundStarted) {
-			audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
-			SDL_Log("Racing: Engine sound started");
-			engineSoundStarted = true;
-		}
-	} else {
-		deltaTime = (currentTime - lastUpdateTime) / 1000.0f;
-		// Cap delta time to prevent huge jumps
-		if (deltaTime > 0.1f) deltaTime = 0.1f; // Max 100ms
-		if (deltaTime < 0.0f) deltaTime = 1.0f / 60.0f; // Fallback to 60 FPS
-	}
-	lastUpdateTime = currentTime;
-
-	// Handle control input
-	int nCarDirection = 0;
-
-	// Handle crash recovery
-	if (bCrashed) {
-		fCrashRecoveryTime -= deltaTime;
-		if (bShowCrashOverlay) {
-			fCrashOverlayTime += deltaTime;
-			// Hide overlay after 3 seconds
-			if (fCrashOverlayTime >= 3.0f) {
-				bShowCrashOverlay = false;
-			}
-		}
-		if (fCrashRecoveryTime <= 0.0f) {
-			bCrashed = false;
-			bShowCrashOverlay = false; // Hide overlay when crash recovery is complete
-			velocity = 1500; // Reset to idle RPM
-			fSpeed = 0.0f;
-			fCarPos *= 0.5f; // Move car back toward center
-		} else {
-			// During crash, no control and car slows down (faster than normal deceleration)
-			velocity -= static_cast<int16_t>(deceleration * 2.0f);
-			if (velocity < 1500) velocity = 1500;
-		}
-	}
-
-	// Car Curvature is accumulated left/right input, but inversely proportional to speed
-	// i.e. it is harder to turn at high speed
-
-	bool goLeft = false;
-	bool goRight = false;
-	bool accelerate = false;
-
-	// Check current keyboard state for sustained input (like holding keys)
-	const Uint8* keyboardState = SDL_GetKeyboardState(NULL);
-	if (keyboardState && !bCrashed) {
-		goLeft = keyboardState[SDL_SCANCODE_LEFT];
-		goRight = keyboardState[SDL_SCANCODE_RIGHT];
-		accelerate = keyboardState[SDL_SCANCODE_UP];
-		
-		// Handle gear shifting (original game controls: Space=up, Space+Down=down)
-		bool spacePressed = keyboardState[SDL_SCANCODE_SPACE];
-		bool downPressed = keyboardState[SDL_SCANCODE_DOWN];
-		
-		// Determine shift intention based on combination
-		bool shiftUpNow = spacePressed && !downPressed;      // Space alone = shift up
-		bool shiftDownNow = spacePressed && downPressed;     // Space + Down = shift down
-		
-		// Trigger shift on press (with debounce)
-		if (shiftUpNow && !shiftUpPressed) {
-			ShiftGear(1);
-		}
-		if (shiftDownNow && !shiftDownPressed) {
-			ShiftGear(-1);
-		}
-		
-		shiftUpPressed = shiftUpNow;
-		shiftDownPressed = shiftDownNow;
-	}
-
-	// Update physics with new system
-	UpdatePhysics(deltaTime, accelerate);
-
-	// Update player curvature (steering input)
-	if (!bCrashed) {
-		if (goLeft) {
-			fPlayerCurvature -= 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
-			nCarDirection = -1;
-		}
-		else if (goRight) {
-			fPlayerCurvature += 0.7f * deltaTime * (1.0f - fSpeed / 2.0f);
-			nCarDirection = +1;
-		}
-		// No auto-centering - player must steer to stay on road
-	}
-
-	// Calculate car position relative to road center
-	// In first-person view, difference between player and track curvature = off-road amount
-	fCarPos = fPlayerCurvature - fTrackCurvature;
-
-	// Decrease grace period timer
-	if (raceStartGracePeriod > 0.0f) {
-		raceStartGracePeriod -= deltaTime;
-	}
-	
-	// Check if car is too far off road (crash condition)
-	// When steering doesn't match the road curve, you go off-road
-	// Add grace period at race start to prevent immediate crashes
-	if (!bCrashed && fabs(fCarPos) > 1.2f && fSpeed > 0.3f && raceStartGracePeriod <= 0.0f) {
-		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Crash triggered! fCarPos=%.3f, fPlayerCurv=%.3f, fTrackCurv=%.3f, fSpeed=%.3f",
-		        fCarPos, fPlayerCurvature, fTrackCurvature, fSpeed);
-		HandleCrash();
-	}
-
-	// Clamp Speed
-	if (fSpeed < 0.0f)	fSpeed = 0.0f;
-	if (fSpeed > 1.0f)	fSpeed = 1.0f;
-
-	// Move car along track according to car speed
-	// Higher gears = faster track progress at same RPM
-	// Calculate effective speed based on velocity and gear ratio
-	int16_t currentRatio = gearRatios[currentGear];
-	float gearMultiplier = 100.0f / currentRatio; // Higher gear (lower ratio) = faster
-	fDistance += (105.0f * fSpeed * gearMultiplier) * deltaTime;
-	
-	// Check for sprite encounters
-	CheckForSpriteEncounters(fDistance);
-
-	// Get Point on track
-	float fOffset = 0;
-	int nTrackSection = 0;
-
-	// Lap Timing and counting
-	fCurrentLapTime += deltaTime;
-	if (fDistance >= fTrackDistance && raceOutcome == RaceOutcome::Ongoing)
-	{
-		// Player crossed finish line — record outcome then stop advancing.
-		if (!opponentActive || fDistance <= opponentDistance) {
-			raceOutcome = RaceOutcome::PlayerWon;
-		} else {
-			raceOutcome = RaceOutcome::PlayerLost;
-		}
-		listLapTimes.push_front(fCurrentLapTime);
-		listLapTimes.pop_back();
-		fCurrentLapTime = 0.0f;
-	}
-	// Freeze distance at finish once outcome is decided.
-	if (raceOutcome != RaceOutcome::Ongoing) {
-		fDistance = fTrackDistance;
-	}
-
-	// Find position on track (could optimise)
-	while (nTrackSection < static_cast<int>(vecTrack.size()) && fOffset <= fDistance)
-	{
-		fOffset += vecTrack[nTrackSection].second;
-		nTrackSection++;
-	}
-	
-	// Log track progress
-	LogTrackProgress(fDistance, nTrackSection);
-
-	// Interpolate towards target track curvature more smoothly (with bounds checking)
-	float fTargetCurvature = 0.0f; // Default to straight
-	if (nTrackSection > 0 && nTrackSection <= static_cast<int>(vecTrack.size()) && !vecTrack.empty()) {
-		int segmentIndex = nTrackSection - 1;
-		if (segmentIndex >= 0 && segmentIndex < static_cast<int>(vecTrack.size())) {
-			fTargetCurvature = vecTrack[segmentIndex].first;
-		}
-	}
-	// Only update track curvature when moving
-	if (fSpeed > 0.01f) {
-		float fTrackCurveDiff = (fTargetCurvature - fCurvature) * deltaTime * 0.5f; // Reduced interpolation speed
-		fCurvature += fTrackCurveDiff;
-		fTrackCurvature += (fCurvature) * deltaTime * fSpeed * 0.7f;
-	}
-
-	// Draw sky
-	for (int y = 0; y < GAME_RACING_HEIGHT / 2; y++)
-		for (int x = 0; x < GAME_WIDTH; x++)
-			PutPixel(pixels, x, y, black);
-
-	// Draw Scenery - commented out for performance
-	// Hills would be a rectified sine wave, where the phase is adjusted by accumulated track curvature
-	// for (int x = 0; x < GAME_WIDTH; x++)
-	// {
-	// 	int nHillHeight = (int)(fabs(sinf(x * 0.01f + fTrackCurvature) * 16.0f));
-	// 	for (int y = (GAME_RACING_HEIGHT / 2) - nHillHeight; y < GAME_RACING_HEIGHT / 2; y++)
-	// 		PutPixel(pixels, x, y, yellow);
-	// }
-
-	if (SDL_LockSurface(pixels) != 0) {
-		// Handle error: Unable to lock surface
-		SDL_Log("Unable to lock surface: %s", SDL_GetError());
-		return;
-	}
-
-
-	// Debug logging disabled to improve performance
-	// SDL_Log("ACC: %d L: %d R: %d T: %.1f D: %f S: %d\n", accelerate, goLeft, goRight, fElapsedTime, fDistance, nTrackSection);
-
-	// Draw cloud layer with parallax scrolling based on steering while moving
-	if (cloudSprite && cloudSprite->GetSurface()) {
-		SDL_Surface* cloudSurface = cloudSprite->GetSurface();
-		int startY = 0;
-		
-		// Calculate horizontal offset with gradual decay when not turning
-		static float cloudVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
-			cloudVelocity = fPlayerCurvature * fSpeed * 5.0f; // Much slower
-		} else {
-			cloudVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
-		}
-		static float cloudOffsetAccum = 0.0f;
-		cloudOffsetAccum += cloudVelocity * deltaTime;
-		int cloudOffset = (int)cloudOffsetAccum % (cloudSurface->w);
-		if (cloudOffset < 0) cloudOffset += cloudSurface->w;
-		
-		// Draw clouds with wrapping - draw twice to handle wrap-around seamlessly
-		for (int pass = 0; pass < 2; pass++) {
-			int drawX = -cloudOffset + (pass * cloudSurface->w);
-			
-			// Only draw if this pass is visible on screen
-			if (drawX < GAME_WIDTH && (drawX + cloudSurface->w) > 0) {
-				for (int y = 0; y < cloudSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
-					for (int x = 0; x < cloudSurface->w; x++) {
-						int screenX = drawX + x;
-						if (screenX >= 0 && screenX < GAME_WIDTH) {
-							// Get pixel from cloud sprite
-							Uint32* cloudPixels = (Uint32*)cloudSurface->pixels;
-							Uint32 pixel = cloudPixels[y * cloudSurface->w + x];
-							
-							// Convert to SDL_Color
-							Uint8 r, g, b, a;
-							SDL_GetRGBA(pixel, cloudSurface->format, &r, &g, &b, &a);
-							
-							// Only draw non-transparent pixels
-							if (a > 0) {
-								SDL_Color cloudColor = {r, g, b, a};
-								PutPixel(pixels, screenX, startY + y, cloudColor);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Draw mountain horizon as background with parallax scrolling based on car velocity
-	if (mountainSprite && mountainSprite->GetSurface()) {
-		SDL_Surface* mountainSurface = mountainSprite->GetSurface();
-		int startY = 47;
-		
-		// Calculate horizontal offset with gradual decay when not turning
-		static float mountainVelocity = 0.0f;
-		if (fSpeed > 0.01f && fabs(fPlayerCurvature) > 0.01f) { // Actively turning AND moving
-			mountainVelocity = fPlayerCurvature * fSpeed * 2.5f; // Much slower than clouds
-		} else {
-			mountainVelocity *= 0.85f; // Stronger decay when not turning (15% reduction per frame)
-		}
-		static float mountainOffsetAccum = 0.0f;
-		mountainOffsetAccum += mountainVelocity * deltaTime;
-		int scrollOffset = (int)mountainOffsetAccum % mountainSurface->w;
-		if (scrollOffset < 0) scrollOffset += mountainSurface->w;
-		
-		// Draw mountains with wrapping - draw twice to handle wrap-around seamlessly
-		for (int pass = 0; pass < 2; pass++) {
-			int drawX = -scrollOffset + (pass * mountainSurface->w);
-			
-			// Only draw if this pass is visible on screen
-			if (drawX < GAME_WIDTH && (drawX + mountainSurface->w) > 0) {
-				for (int y = 0; y < mountainSurface->h && (startY + y) < GAME_RACING_HEIGHT; y++) {
-					for (int x = 0; x < mountainSurface->w; x++) {
-						int screenX = drawX + x;
-						if (screenX >= 0 && screenX < GAME_WIDTH) {
-							// Get pixel from mountain sprite
-							Uint32* mountainPixels = (Uint32*)mountainSurface->pixels;
-							Uint32 pixel = mountainPixels[y * mountainSurface->w + x];
-							
-							// Convert to SDL_Color
-							Uint8 r, g, b, a;
-							SDL_GetRGBA(pixel, mountainSurface->format, &r, &g, &b, &a);
-							
-							// Only draw non-transparent pixels
-							if (a > 0) {
-								SDL_Color mountainColor = {r, g, b, a};
-								PutPixel(pixels, screenX, startY + y, mountainColor);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Draw Track - Each row is split into grass, clip-board and track
-	// Render from horizon to bottom of screen (inclusive)
-	for (int y = 0; y <= GAME_RACING_HEIGHT / 2; y++) {
-		for (int x = 0; x < GAME_WIDTH; x++) {
-
-			// Perspective is used to modify the width of the track row segments
-			float fPerspective = (float)y / (GAME_RACING_HEIGHT/2.0f);
-			// Original Street Rod: horizon width 68px, bottom width 313px out of 320px screen
-			// Need much wider road: horizon 21%, bottom 98% (before halving)
-			float fRoadWidth = 0.21f + fPerspective * 0.98f; // Min 21% Max 98% to match original
-			float fClipWidth = 0.0f; // Remove clip border - no red/white stripes
-			float fMidLineWidth = fRoadWidth * 0.03;
-			fRoadWidth *= 0.8f;	// Halve it as track is symmetrical around center of track, but offset...
-
-		// ...depending on where the middle point is, which is defined by the current
-		// track curvature. Balanced curvature effect.
-		float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - fPerspective), 2.5f);
-		
-		// Shift road laterally based on car position (first-person view)
-		// This is a simple horizontal shift, not a curve
-		// When fCarPos is positive (turning right), road shifts left (you see more grass on left)
-		// When fCarPos is negative (turning left), road shifts right (you see more grass on right)
-		fMiddlePoint -= fCarPos * 0.25f; // Linear shift, no perspective effect
-
-			// Work out segment boundaries
-			int nLeftGrass = (fMiddlePoint - fRoadWidth - fClipWidth) * GAME_WIDTH;
-			int nLeftClip = (fMiddlePoint - fRoadWidth) * GAME_WIDTH;
-			int nRightClip = (fMiddlePoint + fRoadWidth) * GAME_WIDTH;
-			int nRightGrass = (fMiddlePoint + fRoadWidth + fClipWidth) * GAME_WIDTH;
-			int nLeftMidline = (fMiddlePoint - fMidLineWidth) * GAME_WIDTH;
-			int nRightMidline = (fMiddlePoint + fMidLineWidth) * GAME_WIDTH;
-
-			int nRow = GAME_RACING_HEIGHT / 2 + y;
-
-			// Using periodic oscillatory functions to give lines, where the phase is controlled
-			// by the distance around the track. These take some fine tuning to give the right "feel"
-			SDL_Color nGrassColour = sinf(20.0f *  powf(1.0f - fPerspective,3) + fDistance * 0.1f) > 0.0f ? green : darkGreen;
-			SDL_Color nClipColour = sinf(80.0f *  powf(1.0f - fPerspective, 2) + fDistance) > 0.0f ? red : white;
-
-            // Flash red if crashed
-            SDL_Color nRoadColour = bCrashed ? SDL_Color{170, 0, 0, 255} : black;
-
-			// Draw the row segments
-			if (x >= 0 && x < nLeftGrass)
-				PutPixel(pixels, x, nRow, nGrassColour);
-			if (x >= nLeftGrass && x < nLeftClip)
-				PutPixel(pixels, x, nRow, nClipColour);
-			if (x >= nLeftClip && x < nRightClip)
-				PutPixel(pixels, x, nRow, nRoadColour);
-			// Draw dashed center line
-			if (x >= nLeftMidline && x < nRightMidline) {
-				// Create dash pattern based on distance and perspective
-				float dashPhase = -fDistance * 0.3f + y * 0.3f; // Higher multiplier for shorter dashes
-				bool drawDash = sinf(dashPhase) > 0.7f; // Higher threshold for longer gaps between dashes
-				if (drawDash) {
-					PutPixel(pixels, x, nRow, yellow);
-				}
-			}
-			if (x >= nRightClip && x < nRightGrass)
-				PutPixel(pixels, x, nRow, nClipColour);
-			if (x >= nRightGrass && x < GAME_WIDTH)
-				PutPixel(pixels, x, nRow, nGrassColour);
-
-
-		}
-	}
-
-	// Draw off-road indicator bar at bottom of screen
-	// Shows how far off-road the car is (player curvature vs track curvature)
-	int indicatorY = GAME_RACING_HEIGHT - 5;
-	int centerX = GAME_WIDTH / 2;
-	
-	// Draw center line (road center)
-	for (int y = indicatorY - 8; y < indicatorY; y++) {
-		PutPixel(pixels, centerX, y, white);
-	}
-	
-	// Draw car position indicator
-	int carIndicatorX = centerX + (int)(fCarPos * 50.0f); // Scale for visibility
-	SDL_Color carColor = bCrashed ? SDL_Color{255, 0, 0, 255} : 
-	                     (fabs(fCarPos) > 1.0f) ? SDL_Color{255, 165, 0, 255} : // Orange warning
-	                     SDL_Color{0, 255, 0, 255}; // Green = safe
-	
-	// Draw car indicator (larger dot)
-	for (int dy = -3; dy <= 3; dy++) {
-		for (int dx = -3; dx <= 3; dx++) {
-			int px = carIndicatorX + dx;
-			int py = indicatorY - 4 + dy;
-			if (px >= 0 && px < GAME_WIDTH && py >= 0 && py < GAME_RACING_HEIGHT) {
-				PutPixel(pixels, px, py, carColor);
-			}
-		}
-	}
-	
-	// Draw overhead signs LAST (after clouds, mountains, road, indicators)
-	// This ensures arch posts are visible in sky AND yellow ground is on top of road
-	DrawOverheadSigns(fDistance);
-	
-	SDL_UnlockSurface(pixels);
-	
-	// Draw sprite bitmaps after unlocking the surface
-	DrawRoadsideSprites(fDistance);
-	
-	// Draw overhead sign bitmaps after unlocking
-	DrawOverheadSignBitmaps(fDistance);
-	
-	// Update and draw opponent
-	if (opponentActive) {
-		UpdateOpponent(deltaTime);
-		DrawOpponent();
-	}
-
-	// Draw Car - car position on road is proportional to difference between
-	// current accumulated track curvature, and current accumulated player curvature
-	// i.e. if they are similar, the car will be in the middle of the track
-	// fCarPos = fPlayerCurvature - fTrackCurvature;
-	// int nCarPos = GAME_WIDTH / 2 + ((int)(GAME_WIDTH * fCarPos) / 2.0) - 7; // Offset for sprite
-
-	// auto disp_time = [](float t) // Little lambda to turn floating point seconds into minutes:seconds:millis string
-	// {
-	// 	int nMinutes = t / 60.0f;
-	// 	int nSeconds = t - (nMinutes * 60.0f);
-	// 	int nMilliSeconds = (t - (float)nSeconds) * 1000.0f;
-	// 	return to_wstring(nMinutes) + L"." + to_wstring(nSeconds) + L":" + to_wstring(nMilliSeconds);
-	// };
-
-	// Display current laptime
-	// DrawString(10, 8, disp_time(fCurrentLapTime));
-
-	// Display last 5 lap times
-	// int j = 10;
-	// for (auto l : listLapTimes)
-	// {
-	// 	DrawString(10, j, disp_time(l));
-	// 	j++;
-	// }
-	
-	// Draw rearview mirror as the absolute last thing (after all sprites)
-	DrawRearviewMirror(6); // Lower value to leave room for mini road
-
-	// Update and draw HUD
-	// Convert fDistance from track units to miles (using scale factor from track analysis)
-	// Scale factor: 2.200 feet per segment = 0.000417 miles per unit
-	float distanceInMiles = fDistance * 0.000417f;
-	
-	// Convert velocity to mph
-	// Speed depends on both RPM (velocity) and gear ratio
-	// Higher gear = faster at same RPM
-	// Reuse gearMultiplier calculated earlier for distance
-	int speedMph = static_cast<int>((velocity / 70.0f) * gearMultiplier);
-	
-	// Format gear display
-	char gearText[32];
-	if (isAutomatic) {
-		snprintf(gearText, sizeof(gearText), "Gear: D");
-	} else {
-		snprintf(gearText, sizeof(gearText), "Gear: %d", currentGear + 1);
-	}
-	
-	// Format HUD text with fixed-width fields to prevent jumping
-	char hudText[128];
-	const char* warning = "";
-	if (transmissionDamage > 0) {
-		warning = " ⚠️ OVER-REV!";
-	}
-	snprintf(hudText, sizeof(hudText), "Distance:%5.2f miles  Speed:%3d mph  RPM:%4d%s", 
-	         distanceInMiles, speedMph, rpm, warning);
-	
-	hud->Clear();
-	// Add Gear text at position (6, 0) relative to HUD bar (absolute screen pos 6, 191)
-	hud->AddText(6, 0, gearText);
-	// Main text starts after Gear text (around X=55 to leave space)
-	hud->AddText(55, 0, hudText);
-	hud->Draw();
-
-//		return true;
+    if (audioManager) {
+        audioManager->StopLoop(0);
+    }
+    if (hud) {
+        delete hud;
+        hud = nullptr;
+    }
+    if (pixels) {
+        SDL_FreeSurface(pixels);
+        pixels = nullptr;
+    }
 }
 
 void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
-	// Check if the surface is valid and within bounds
-	if (s == nullptr) {
-		return;
-	}
-
-	// Check if the pixel coordinates are within the surface bounds
-	if (x < 0 || x >= s->w || y < 0 || y >= s->h) {
-		return;
-	}
-
-	// Get the pixel format of the surface
-	SDL_PixelFormat* format = s->format;
-
-	// Calculate the pixel offset based on the coordinates
-	int pixelOffset = y * s->pitch + x * format->BytesPerPixel;
-
-	// Get a pointer to the pixel data at the calculated offset
-	Uint8* pixel = (Uint8*)s->pixels + pixelOffset;
-
-	// Set the pixel color
-	*(pixel + format->Rshift / 8) = c.r;   // Red component
-	*(pixel + format->Gshift / 8) = c.g;   // Green component
-	*(pixel + format->Bshift / 8) = c.b;   // Blue component
-	if (format->BytesPerPixel > 3) {
-		*(pixel + format->Ashift / 8) = c.a; // Alpha component (if exists)
-	}
-}
-
-// Street Rod track integration methods
-void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType) {
-    SDL_Log("Racing::LoadTrackData() - Loading %s track",
-           trackType == SR_TRACK_ROAD_RACE ? "Road Race" : "Drag Race");
-    
-    currentTrackType = trackType;
-    
-    if (trackReader && trackReader->LoadTrackData(binaryData)) {
-        // Extract track coordinates 
-        int maxSegments = (trackType == SR_TRACK_ROAD_RACE) ? 500 : 200;
-        currentTrackSegments = trackReader->ExtractTrackCoordinates(trackType, maxSegments);
-        
-        SDL_Log("Loaded %zu track segments", currentTrackSegments.size());
-        
-        if (!currentTrackSegments.empty()) {
-            // Convert to racing format
-            ConvertTrackCoordinatesToRacing();
-            SDL_Log("Converted to %zu racing track sections", vecTrack.size());
-            
-            // Load roadside sprites for this track
-            currentRoadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
-            SDL_Log("Loaded %zu roadside sprites", currentRoadsideSprites.size());
-            
-            // Reset sprite tracking
-            passedSprites.clear();
-            lastLoggedDistance = -1.0f;
-            
-            // Reset progress tracking
-            lastProgressLogDistance = -1.0f;
-            lastLoggedSegment = -1;
-            
-            // Recalculate total track distance
-            fTrackDistance = 0.0f;
-            for (auto t : vecTrack) {
-                fTrackDistance += t.second;
-            }
-            SDL_Log("Total track distance: %.1f units", fTrackDistance);
-        } else {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No track segments loaded!");
-        }
-    } else {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load track data!");
-    }
-}
-
-void Racing::SetTrackType(SrTrackType trackType) {
-    // This will be used to switch tracks dynamically if needed
-    currentTrackType = trackType;
-}
-
-void Racing::ResetForNewRace() {
-    fDistance = 0.0f;
-    fSpeed = 0.0f;
-    fCarPos = 0.0f;
-    fCurvature = 0.0f;
-    fTrackCurvature = 0.0f;
-    fPlayerCurvature = 0.0f;
-    bCrashed = false;
-    bShowCrashOverlay = false;
-    fCrashRecoveryTime = 0.0f;
-    fCrashOverlayTime = 0.0f;
-    velocity = 1500;
-    rpm = 1500;
-    intermediate = 0;
-    currentGear = 0;
-    transmissionDamage = 0;
-    raceStartGracePeriod = 3.0f;
-    raceOutcome = RaceOutcome::Ongoing;
-    engineSoundStarted = false;
-    firstUpdate = true;
-    passedSprites.clear();
-    lastLoggedDistance = -1.0f;
-    lastProgressLogDistance = -1.0f;
-    lastLoggedSegment = -1;
-    SDL_Log("Racing::ResetForNewRace - race state reset");
-}
-
-void Racing::ConvertTrackCoordinatesToRacing() {
-    vecTrack.clear();
-    
-    if (currentTrackSegments.empty()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No track segments to convert!");
+    if (!s || x < 0 || x >= s->w || y < 0 || y >= s->h) {
         return;
     }
-    
-    SDL_Log("Converting %zu segments to racing format...", currentTrackSegments.size());
-    
-    for (size_t i = 0; i < currentTrackSegments.size(); ++i) {
-        const auto& segment = currentTrackSegments[i];
-        
-        // Calculate segment length
-        float length = CalculateSegmentLength(segment);
-        
-        // Calculate curvature based on direction change
-        float curvature = 0.0f;
-        if (i > 0) {
-            curvature = CalculateSegmentCurvature(currentTrackSegments[i-1], segment);
-        }
-        
-        // Scale length to reasonable racing units - fix excessive scaling
-        float scaledLength = length * 2.0f;  // Reduced from 15.0f - was way too large
-        if (scaledLength < 5.0f) scaledLength = 5.0f; // Reduced minimum segment length
-        
-        // Scale curvature more aggressively to make track differences visible
-        float scaledCurvature = curvature * 0.8f;  // Increased from 0.1f
-        if (scaledCurvature > 0.4f) scaledCurvature = 0.4f;   // Increased limits
-        if (scaledCurvature < -0.4f) scaledCurvature = -0.4f;
-        
-        vecTrack.push_back(std::make_pair(scaledCurvature, scaledLength));
-        
-        // Debug output for first few segments
-        if (i < 5) {
-            SDL_Log("Segment %zu: length=%.1f, curvature=%.3f (scaled: %.1f, %.3f)",
-                   i, length, curvature, scaledLength, scaledCurvature);
-        }
+    const int offset = y * s->pitch + x * s->format->BytesPerPixel;
+    Uint8* pixel = static_cast<Uint8*>(s->pixels) + offset;
+    *(pixel + s->format->Rshift / 8) = c.r;
+    *(pixel + s->format->Gshift / 8) = c.g;
+    *(pixel + s->format->Bshift / 8) = c.b;
+    if (s->format->BytesPerPixel > 3) {
+        *(pixel + s->format->Ashift / 8) = c.a;
     }
 }
 
-float Racing::CalculateSegmentLength(const SrTrackCoordSegment& segment) {
-    int dx = segment.xEnd - segment.xStart;
-    int dy = segment.yEnd - segment.yStart;
-    return sqrt(dx * dx + dy * dy);
-}
-
-float Racing::CalculateSegmentCurvature(const SrTrackCoordSegment& segment1, const SrTrackCoordSegment& segment2) {
-    // Calculate direction vectors
-    float dx1 = segment1.xEnd - segment1.xStart;
-    float dy1 = segment1.yEnd - segment1.yStart;
-    float dx2 = segment2.xEnd - segment2.xStart;
-    float dy2 = segment2.yEnd - segment2.yStart;
-    
-    // Normalize direction vectors
-    float len1 = sqrt(dx1 * dx1 + dy1 * dy1);
-    float len2 = sqrt(dx2 * dx2 + dy2 * dy2);
-    
-    if (len1 == 0 || len2 == 0) return 0.0f;
-    
-    dx1 /= len1; dy1 /= len1;
-    dx2 /= len2; dy2 /= len2;
-    
-    // Calculate angle between vectors using cross product
-    // Positive = right turn, negative = left turn
-    float cross = dx1 * dy2 - dy1 * dx2;
-    
-    // Scale the curvature based on the magnitude of direction change
-    return cross;
-}
-
-void Racing::CheckForSpriteEncounters(float currentDistance) {
-    if (currentRoadsideSprites.empty()) {
-        return; // No sprites loaded
-    }
-    
-    // Only check every few units to avoid spam
-    if (fabs(currentDistance - lastLoggedDistance) < 10.0f) {
+void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue) {
+    if (!renderer) {
         return;
     }
-    
-    // Look for sprites near current position
-    const float ENCOUNTER_DISTANCE = 15.0f; // How close we need to be to "encounter" a sprite
-    
-    for (size_t i = 0; i < currentRoadsideSprites.size(); ++i) {
-        const auto& sprite = currentRoadsideSprites[i];
-        
-        // Check both sprite positions in the record
-        float spritePos1 = static_cast<float>(sprite.trackPosition1);
-        float spritePos2 = static_cast<float>(sprite.trackPosition2);
-        
-        // Check if we're close to sprite 1
-        if (fabs(currentDistance - spritePos1) <= ENCOUNTER_DISTANCE) {
-            int spriteKey = (i * 2); // Unique key for sprite 1 in this record
-            if (passedSprites.find(spriteKey) == passedSprites.end()) {
-                passedSprites.insert(spriteKey);
-                char binBuf[9];
-                for (int bit = 7; bit >= 0; bit--) {
-                    snprintf(&binBuf[7 - bit], 2, "%d", (sprite.spriteId1 >> bit) & 1);
-                }
-                binBuf[8] = '\0';
-                SDL_Log("PASSED: %s (ID:%d, Hex:0x%02X, Bin:%s, LEFT SIDE) at position %.1f (distance: %.1f)",
-                       TrackReader::GetSpriteName(sprite.spriteId1), sprite.spriteId1, sprite.spriteId1,
-                       binBuf, spritePos1, currentDistance);
-            }
-        }
-        
-        // Check if we're close to sprite 2
-        if (sprite.spriteId2 != 0 && fabs(currentDistance - spritePos2) <= ENCOUNTER_DISTANCE) {
-            int spriteKey = (i * 2) + 1; // Unique key for sprite 2 in this record
-            if (passedSprites.find(spriteKey) == passedSprites.end()) {
-                passedSprites.insert(spriteKey);
-                char binBuf2[9];
-                for (int bit = 7; bit >= 0; bit--) {
-                    snprintf(&binBuf2[7 - bit], 2, "%d", (sprite.spriteId2 >> bit) & 1);
-                }
-                binBuf2[8] = '\0';
-                SDL_Log("PASSED: %s (ID:%d, Hex:0x%02X, Bin:%s, RIGHT SIDE) at position %.1f (distance: %.1f)",
-                       TrackReader::GetSpriteName(sprite.spriteId2), sprite.spriteId2, sprite.spriteId2,
-                       binBuf2, spritePos2, currentDistance);
-            }
-        }
-    }
-    
-    lastLoggedDistance = currentDistance;
-    
-    // Reset passed sprites when completing a lap
-    if (currentDistance < lastLoggedDistance - 100.0f) {
-        SDL_Log("LAP COMPLETED - Resetting sprite tracking");
-        passedSprites.clear();
-    }
+    constexpr int kNeedleRadius = 14;
+    constexpr int kCenterRadius = 5;
+    constexpr float kPi = 3.14159265358979323846f;
+    constexpr float kStartAngle = 240.0f * kPi / 180.0f;
+    constexpr float kSweepAngle = -240.0f * kPi / 180.0f;
+    float t = (value - minValue) / (maxValue - minValue);
+    t = std::max(0.0f, std::min(1.0f, t));
+    const float angle = kStartAngle + kSweepAngle * t;
+    const int startX = centerX + static_cast<int>(kCenterRadius * std::cos(angle));
+    const int startY = centerY - static_cast<int>(kCenterRadius * std::sin(angle));
+    const int endX = centerX + static_cast<int>(kNeedleRadius * std::cos(angle));
+    const int endY = centerY - static_cast<int>(kNeedleRadius * std::sin(angle));
+    SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
+    SDL_RenderDrawLine(renderer, startX, startY, endX, endY);
 }
 
-void Racing::LogTrackProgress(float currentDistance, int currentSegment) {
-    // Log progress every 100 distance units or when changing segments significantly
-    const float PROGRESS_LOG_INTERVAL = 100.0f;
-    const int SEGMENT_LOG_INTERVAL = 10; // Log every 10 segments
-    
-    bool shouldLogDistance = (fabs(currentDistance - lastProgressLogDistance) >= PROGRESS_LOG_INTERVAL);
-    bool shouldLogSegment = (abs(currentSegment - lastLoggedSegment) >= SEGMENT_LOG_INTERVAL);
-    
-    if (shouldLogDistance || shouldLogSegment) {
-        // Calculate completion percentage
-        float completionPercentage = (fTrackDistance > 0) ? (currentDistance / fTrackDistance) * 100.0f : 0.0f;
-        
-        // Get current segment info if available
-        const char* trackTypeName = (currentTrackType == SR_TRACK_ROAD_RACE) ? "Road Race" : "Drag Race";
-        
-        // Determine if current segment is curved or straight (with bounds checking)
-        const char* segmentType = "UNKNOWN";
-        if (currentSegment > 0 && currentSegment <= static_cast<int>(vecTrack.size()) && !vecTrack.empty()) {
-            int segmentIndex = currentSegment - 1;
-            if (segmentIndex >= 0 && segmentIndex < static_cast<int>(vecTrack.size())) {
-                float curvature = vecTrack[segmentIndex].first;
-                if (fabs(curvature) < 0.05f) {
-                    segmentType = "STRAIGHT";
-                } else if (curvature > 0) {
-                    segmentType = "RIGHT TURN";
-                } else {
-                    segmentType = "LEFT TURN";
-                }
-            }
-        }
-        
-        SDL_Log("PROGRESS: %.1f%% complete | Distance: %.1f/%.1f | Segment: %d/%zu (%s) | Track: %s",
-               completionPercentage,
-               currentDistance,
-               fTrackDistance,
-               currentSegment,
-               vecTrack.size(),
-               segmentType,
-               trackTypeName);
-        
-        lastProgressLogDistance = currentDistance;
-        lastLoggedSegment = currentSegment;
-    }
-    
-    // Special log for lap completion
-    if (currentDistance < lastProgressLogDistance - 50.0f) {
-        SDL_Log("LAP COMPLETED! Starting new lap on %s track",
-               (currentTrackType == SR_TRACK_ROAD_RACE) ? "Road Race" : "Drag Race");
-        lastProgressLogDistance = 0.0f;
-        lastLoggedSegment = 0;
-    }
-}
-
-void Racing::DrawRoadsideSprites(float currentDistance) {
-    if (currentRoadsideSprites.empty()) {
+void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom) {
+    if (!bitmap || dstW <= 0 || dstH <= 0) {
         return;
     }
-    
-    // Look for sprites near current position and render them as simple visual indicators
-    const float VISIBLE_DISTANCE = 200.0f; // How far ahead/behind we can see sprites
-    
-    for (const auto& sprite : currentRoadsideSprites) {
-        // Check both sprite positions in the record
-        float spritePos1 = static_cast<float>(sprite.spriteId1 != 0 ? sprite.trackPosition1 : 0);
-        float spritePos2 = static_cast<float>(sprite.spriteId2 != 0 ? sprite.trackPosition2 : 0);
-        
-        // Draw sprite 1 if visible
-        if (sprite.spriteId1 != 0) {
-            float distance = spritePos1 - currentDistance;
-            if (distance >= -50.0f && distance <= VISIBLE_DISTANCE) {
-                DrawSpriteIndicator(distance, sprite.spriteId1, true); // true = left side
-                
-                // Check collision with sprite (when sprite is very close)
-                if (!bCrashed && distance >= -5.0f && distance <= 10.0f) {
-                    if (CheckCarCollisionWithSprite(distance, true)) {
-                        HandleCrash();
-                    }
-                }
-            }
-        }
-        
-        // Draw sprite 2 if visible
-        if (sprite.spriteId2 != 0) {
-            float distance = spritePos2 - currentDistance;
-            if (distance >= -50.0f && distance <= VISIBLE_DISTANCE) {
-                DrawSpriteIndicator(distance, sprite.spriteId2, false); // false = right side
-                
-                // Check collision with sprite (when sprite is very close)
-                if (!bCrashed && distance >= -5.0f && distance <= 10.0f) {
-                    if (CheckCarCollisionWithSprite(distance, false)) {
-                        HandleCrash();
-                    }
-                }
-            }
-        }
+    SDL_Surface* src = bitmap->GetSurface();
+    if (!src || src->w <= 0 || src->h <= 0) {
+        return;
     }
-}
 
-void Racing::DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide) {
-    // Convert distance to screen Y position (perspective)
-    if (distance < 0) return; // Don't draw sprites behind us
-    
-    float perspective = 1.0f - (distance / 100.0f); // Reduce distance scaling for better perspective range
-    if (perspective <= 0) return;
-    
-    int screenY = static_cast<int>((GAME_RACING_HEIGHT / 2) + perspective * (GAME_RACING_HEIGHT / 2));
-    if (screenY >= GAME_RACING_HEIGHT) return;
-    
-    // Calculate road width at this perspective (same as road rendering)
-    float fRoadWidth = 0.21f + perspective * 0.98f;
-    fRoadWidth *= 0.8f;
-    
-    // Middle point with curvature effect
-    float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
-    
-    // Shift road laterally based on car position (must match road rendering)
-    fMiddlePoint -= fCarPos * 0.25f; // Linear shift, no perspective effect
-    
-    // Calculate sprite position (clearly off the road - at roadside)
-    int spriteX;
-    if (leftSide) {
-        spriteX = static_cast<int>((fMiddlePoint - fRoadWidth - 0.05f) * GAME_WIDTH); // Just left of road edge
-    } else {
-        spriteX = static_cast<int>((fMiddlePoint + fRoadWidth + 0.05f) * GAME_WIDTH); // Just right of road edge
+    int drawX = dstX;
+    int drawY = dstY;
+    if (anchorRight) {
+        drawX -= dstW;
     }
-    
-    // Choose the appropriate sprite bitmap and handle animation
-    Bitmap* spriteBitmap = nullptr;
-    SDL_Rect animFrameRect = {0, 0, 0, 0}; // For animated sprites
-    bool useAnimation = false;
-    spriteId = 32;
-    
-    // Check if this sprite has animation data (don't override spriteId)
-    const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(spriteId);
-    
-    switch (spriteId) {
-        case 30: // Telephone Pole (RACING_TELEPHONE_POLES)
-            spriteBitmap = telephonePoleSprite.get();
-            break;
-        case 33: // Road Posts
-        case 22: // Road Posts (alt)
-            spriteBitmap = roadPostSprite.get();
-            break;
-        case 31: // Tree 31 (RACING_TREE1) - use TREE2 sprite for consistency
-            spriteBitmap = treeSprite.get();
-            break;
-        case 32: // Tree 32 (RACING_TREE2) - ANIMATED!
-            spriteBitmap = treeSprite.get();
-            if (animInfo && animInfo->frameCount > 1) {
-                // Distance thresholds for each frame transition (11 frames total)
-                // Frame 0 = smallest (far away), Frame 10 = largest (close up)
-                static const float frameDistances[] = {
-                    100.0f, 85.0f, 70.0f, 58.0f, 48.0f, 40.0f, 33.0f, 27.0f, 22.0f, 18.0f, 0.0f
-                };
-                
-                uint8_t frame = 0;
-                for (int i = 0; i < animInfo->frameCount; i++) {
-                    if (distance < frameDistances[i]) {
-                        frame = i;
-                        break;
-                    }
-                }
-                frame = std::min(frame, static_cast<uint8_t>(animInfo->frameCount - 1));
-                
-                SpriteRect frameRect = GetAnimationFrameRect(animInfo, frame);
-                // Convert SpriteRect to SDL_Rect manually
-                animFrameRect = {
-                    static_cast<int>(frameRect.x),
-                    static_cast<int>(frameRect.y),
-                    static_cast<int>(frameRect.w),
-                    static_cast<int>(frameRect.h)
-                };
-                useAnimation = true;
-                
-                // Debug output for tree animation
-                static int debugCount = 0;
-                if (debugCount < 20) {
-                    SDL_Log("Tree #%d: distance=%.1f, perspective=%.3f, frame=%d/%d, rect=(%d,%d,%d,%d)",
-                           spriteId, distance, perspective, frame, animInfo->frameCount,
-                           animFrameRect.x, animFrameRect.y, animFrameRect.w, animFrameRect.h);
-                    debugCount++;
-                }
-            }
-            break;
-        case 25: // Bush (RACING_BUSH)
-            spriteBitmap = bushSprite.get();
-            break;
-        default:
-            // Use road posts as default for unknown sprites
-            spriteBitmap = roadPostSprite.get();
-            break;
+    if (anchorBottom) {
+        drawY -= dstH;
     }
-    
-    if (spriteBitmap && spriteBitmap->GetSurface()) {
-        SDL_Surface* spriteSurface = spriteBitmap->GetSurface();
-        // Bitmap sprite rendering active
-        
-        // Determine source rectangle (animation frame or full sprite)
-        SDL_Rect srcRect;
-        if (useAnimation) {
-            // Use the specific animation frame
-            srcRect = animFrameRect;
-        } else {
-            // Use the entire sprite
-            srcRect = {0, 0, spriteSurface->w, spriteSurface->h};
+
+    for (int y = 0; y < dstH; ++y) {
+        const int py = drawY + y;
+        if (py < 0 || py >= pixels->h) {
+            continue;
         }
-        
-        // Use sprite frames at their intended pixel dimensions (no scaling)
-        int spriteWidth = srcRect.w;
-        int spriteHeight = srcRect.h;
-        
-        // Center the sprite horizontally and place it on the ground
-        int drawX = spriteX - spriteWidth / 2;
-        int drawY = screenY - spriteHeight;
-        
-        // Set up destination rectangle (1:1 pixel mapping)
-        SDL_Rect dstRect = {drawX, drawY, spriteWidth, spriteHeight};
-        
-        // Store original source rectangle for proper clamping with animation frames
-        SDL_Rect originalSrcRect = srcRect;
-        
-        // Clamp destination rectangle to screen bounds (1:1 pixel mapping, no scaling)
-        if (dstRect.x < 0) {
-            int leftClip = -dstRect.x;
-            srcRect.x = originalSrcRect.x + leftClip;
-            srcRect.w = originalSrcRect.w - leftClip;
-            dstRect.w += dstRect.x;
-            dstRect.x = 0;
-        }
-        if (dstRect.x + dstRect.w > GAME_WIDTH) {
-            int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
-            srcRect.w = originalSrcRect.w - overflow;
-            dstRect.w -= overflow;
-        }
-        if (dstRect.y < 0) {
-            int topClip = -dstRect.y;
-            srcRect.y = originalSrcRect.y + topClip;
-            srcRect.h = originalSrcRect.h - topClip;
-            dstRect.h += dstRect.y;
-            dstRect.y = 0;
-        }
-        if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
-            int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
-            srcRect.h = originalSrcRect.h - overflow;
-            dstRect.h -= overflow;
-        }
-        
-        // Only draw if there's something visible
-        if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
-            int result = SDL_BlitSurface(spriteBitmap->GetSurface(), &srcRect, pixels, &dstRect);
-            if (result != 0) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_BlitSurface failed: %s", SDL_GetError());
+        const int srcY = (y * src->h) / dstH;
+        for (int x = 0; x < dstW; ++x) {
+            const int px = drawX + x;
+            if (px < 0 || px >= pixels->w) {
+                continue;
             }
+            const int srcX = (x * src->w) / dstW;
+            Uint32 srcPixel = 0;
+            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + srcY * src->pitch + srcX * src->format->BytesPerPixel;
+            std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+            Uint8 r = 0;
+            Uint8 g = 0;
+            Uint8 b = 0;
+            Uint8 a = 255;
+            SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+            if (a == 0) {
+                continue;
+            }
+            PutPixel(pixels, px, py, {r, g, b, a});
         }
     }
 }
 
 void Racing::LoadSpriteBitmaps() {
-    SDL_Log("Racing: Loading sprite bitmaps from AssetManager...");
-    
-    // Load telephone pole sprite (asset ID 30)
-    auto* telephonePoleAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TELEPHONE_POLES});
-    if (telephonePoleAsset) {
-        telephonePoleSprite = std::make_unique<Bitmap>(*telephonePoleAsset);
-        if (telephonePoleSprite->GetSurface()) {
-            SDL_Log("Racing: Loaded telephone pole sprite (%dx%d)",
-                   telephonePoleSprite->GetSurface()->w, telephonePoleSprite->GetSurface()->h);
+    for (int slot = 0; slot < 20; ++slot) {
+        const int assetId = RACING_ROAD_POST + slot;
+        Bitmap* asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(assetId)});
+        if (asset) {
+            roadsideSprites[slot] = std::make_unique<Bitmap>(*asset);
         }
-    } else {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Racing: Failed to load telephone pole sprite");
     }
-    
-    // Load tree sprite (asset ID 32 - RACING_TREE2 for animation)
-    auto* treeAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_TREE2});
-    if (treeAsset) {
-        treeSprite = std::make_unique<Bitmap>(*treeAsset);
-        if (treeSprite->GetSurface()) {
-            SDL_Log("Racing: Loaded tree sprite RACING_TREE2 (%dx%d)",
-                   treeSprite->GetSurface()->w, treeSprite->GetSurface()->h);
-        }
-    } else {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Racing: Failed to load tree sprite RACING_TREE2");
-    }
-    
-    // Load bush sprite (asset ID 25)
-    auto* bushAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_BUSH});
-    if (bushAsset) {
-        bushSprite = std::make_unique<Bitmap>(*bushAsset);
-        if (bushSprite->GetSurface()) {
-            printf("Racing: Loaded bush sprite (%dx%d)\n", 
-                   bushSprite->GetSurface()->w, bushSprite->GetSurface()->h);
-        }
-    } else {
-        printf("Racing: Failed to load bush sprite\n");
-    }
-    
-    // Load road post sprite (asset ID 22)
-    auto* roadPostAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_ROAD_POST});
-    if (roadPostAsset) {
-        roadPostSprite = std::make_unique<Bitmap>(*roadPostAsset);
-        if (roadPostSprite->GetSurface()) {
-            printf("Racing: Loaded road post sprite (%dx%d)\n", 
-                   roadPostSprite->GetSurface()->w, roadPostSprite->GetSurface()->h);
-        }
-    } else {
-        printf("Racing: Failed to load road post sprite\n");
-    }
-    
-    // Load mountain sprite (asset ID 13) for horizon
+
     auto* mountainAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_MOUNTAINS});
     if (mountainAsset) {
         mountainSprite = std::make_unique<Bitmap>(*mountainAsset);
-        if (mountainSprite->GetSurface()) {
-            printf("Racing: Loaded mountain sprite (%dx%d)\n", 
-                   mountainSprite->GetSurface()->w, mountainSprite->GetSurface()->h);
-        }
-    } else {
-        printf("Racing: Failed to load mountain sprite\n");
     }
-    
-    // Load cloud sprite (asset ID 12) for sky with parallax scrolling
     auto* cloudAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CLOUDS});
     if (cloudAsset) {
         cloudSprite = std::make_unique<Bitmap>(*cloudAsset);
-        if (cloudSprite->GetSurface()) {
-            printf("Racing: Loaded cloud sprite (%dx%d)\n", 
-                   cloudSprite->GetSurface()->w, cloudSprite->GetSurface()->h);
-        }
-    } else {
-        printf("Racing: Failed to load cloud sprite\n");
     }
-    
-    // Load rearview mirror horizon sprite (asset ID 82)
-    auto* rearviewAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HORIZON_REARVIEWMIRROR});
-    if (rearviewAsset) {
-        rearviewMirrorSprite = std::make_unique<Bitmap>(*rearviewAsset);
-        if (rearviewMirrorSprite->GetSurface()) {
-            printf("Racing: Loaded rearview mirror sprite (%dx%d)\n", 
-                   rearviewMirrorSprite->GetSurface()->w, rearviewMirrorSprite->GetSurface()->h);
-        }
-    } else {
-        printf("Racing: Failed to load rearview mirror sprite\n");
+    auto* mirrorAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_HORIZON_REARVIEWMIRROR});
+    if (mirrorAsset) {
+        rearviewMirrorSprite = std::make_unique<Bitmap>(*mirrorAsset);
     }
-    
-    // Load overhead sign sprites (these are rendered as pseudo-3D trapezoids)
-    // Discovery: Original game renders these as trapezoids ABOVE the road, not as blitted sprites
-    printf("Racing: Loading overhead sign sprites...\n");
-    
-    auto* countryLineAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTY_LINE});
-    if (countryLineAsset) {
-        signCountryLineSprite = std::make_unique<Bitmap>(*countryLineAsset);
-        printf("Racing: Loaded COUNTRY LINE sign (ID 14) - finish line arch\n");
+    auto* countyAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_COUNTY_LINE});
+    if (countyAsset) {
+        signCountyLineSprite = std::make_unique<Bitmap>(*countyAsset);
     }
-    
-    auto* route69Asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_ROUTE_69});
-    if (route69Asset) {
-        signRoute69Sprite = std::make_unique<Bitmap>(*route69Asset);
-        printf("Racing: Loaded ROUTE 69 sign (ID 33) - overhead arch\n");
+    auto* routeAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_ROUTE_69});
+    if (routeAsset) {
+        signRoute69Sprite = std::make_unique<Bitmap>(*routeAsset);
     }
-    
-    auto* cityLimitsAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_CITY_LIMITS});
-    if (cityLimitsAsset) {
-        signCityLimitsSprite = std::make_unique<Bitmap>(*cityLimitsAsset);
-        printf("Racing: Loaded CITY LIMITS sign (ID 34) - overhead arch\n");
-    }
-    
-    auto* exit48Asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_EXIT_48});
-    if (exit48Asset) {
-        signExit48Sprite = std::make_unique<Bitmap>(*exit48Asset);
-        printf("Racing: Loaded EXIT 48 sign (ID 35) - overhead arch\n");
+    auto* exitAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_SIGN_EXIT_48});
+    if (exitAsset) {
+        signExit48Sprite = std::make_unique<Bitmap>(*exitAsset);
     }
 }
 
-void Racing::DrawRearviewMirror(int mirrorLevel) {
-    
-    // Draw a fully opaque red rectangle for testing - adjust Y for racing surface
-    // Original coordinates: 242,23 (screen coords) -> 242,9 (racing surface coords)  
-    SDL_Rect mirrorRect = {242, 9, 76, 21}; // Y=23-14=9 (racing surface offset)
-    Uint32 black = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
-    SDL_FillRect(pixels, &mirrorRect, black);
-    
-    // Add horizon sprite if available
-    if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
-        SDL_Surface* horizonSprite = rearviewMirrorSprite->GetSurface();
-        
-        // Set clipping rectangle to mirror bounds
-        SDL_Rect clipRect = {242, 9, 76, 21};
-        SDL_SetClipRect(pixels, &clipRect);
-        
-        // Draw horizon sprite - SDL will automatically clip it
-        SDL_Rect srcRect = {1, 0, 76, 11};
-        SDL_Rect dstRect = {242, 9 + mirrorLevel, 76, 11};
-        SDL_BlitSurface(horizonSprite, &srcRect, pixels, &dstRect);
-        
-        // Draw mini road below horizon sprite
-        const int MIRROR_X = 242;
-        const int MIRROR_Y = 9;
-        const int MIRROR_WIDTH = 76;
-        const int MIRROR_HEIGHT = 21;
-        
-        int roadStartY = mirrorLevel + 11; // Start after horizon sprite
-        int roadEndY = MIRROR_Y + MIRROR_HEIGHT; // Bottom of mirror
-        
-        if (roadStartY < roadEndY) {
-            float roadHeight = (float)(roadEndY - roadStartY);
-            
-            for (int y = roadStartY; y < roadEndY; y++) {
-                // Calculate perspective (0.0 at top, 1.0 at bottom)
-                float perspective = (y - roadStartY) / roadHeight;
-                
-                // Road width with perspective (narrower at top, wider at bottom)
-                float roadWidthRatio = 0.4f + perspective * 0.5f; // 40% to 90% of mirror width
-                int roadWidth = (int)(MIRROR_WIDTH * roadWidthRatio);
-                
-                // Apply reverse curvature (opposite of main road for rearview)
-                int curveShift = (int)(-fCurvature * perspective * 20.0f);
-                
-                // Calculate road boundaries
-                int roadCenter = MIRROR_X + MIRROR_WIDTH / 2 + curveShift;
-                int roadLeft = roadCenter - roadWidth / 2;
-                int roadRight = roadCenter + roadWidth / 2;
-                
-                // Draw the row
-                for (int x = MIRROR_X; x < MIRROR_X + MIRROR_WIDTH; x++) {
-                    Uint32 color;
-                    
-                    if (x >= roadLeft && x <= roadRight) {
-                        // Road surface - black
-                        color = SDL_MapRGBA(pixels->format, 0, 0, 0, 255);
-                        
-                        // Animated center line dashes (opposite direction for rearview)
-                        if (abs(x - roadCenter) <= 1) {
-                            float dashPhase = fDistance * 0.3f + y * 0.3f; // Positive fDistance for reverse
-                            if (sinf(dashPhase) > 0.7f) {
-                                color = SDL_MapRGBA(pixels->format, 255, 255, 0, 255);
-                            }
-                        }
-                    } else {
-                        // Grass - green
-                        color = SDL_MapRGBA(pixels->format, 0, 119, 0, 255);
-                    }
-                    
-                    Uint32* pixelPtr = (Uint32*)((Uint8*)pixels->pixels + y * pixels->pitch + x * pixels->format->BytesPerPixel);
-                    *pixelPtr = color;
-                }
-            }
-        }
-        
-        // Remove clipping
-        SDL_SetClipRect(pixels, nullptr);
-    }
-}
-
-bool Racing::CheckCarCollisionWithSprite(float spriteDistance, bool leftSide) {
-    // Check if car trajectory will hit the roadside sprite
-    // In first-person view, fCarPos = fPlayerCurvature - fTrackCurvature
-    // Negative fCarPos = drifting left, Positive = drifting right
-    
-    const float COLLISION_THRESHOLD = 0.8f; // How far off-road before hitting sprites
-    const float COLLISION_DISTANCE = 5.0f; // Must be within this distance
-    
-    if (spriteDistance > COLLISION_DISTANCE) return false;
-    
-    // Check if car is drifting toward the sprite's side
-    if (leftSide && fCarPos < -COLLISION_THRESHOLD) {
-        return true; // Drifting left into left-side sprite
-    }
-    
-    if (!leftSide && fCarPos > COLLISION_THRESHOLD) {
-        return true; // Drifting right into right-side sprite
-    }
-    
-    return false;
-}
-
-void Racing::HandleCrash() {
-	if (bCrashed) return; // Already crashed
-	
-	bCrashed = true;
-	fCrashRecoveryTime = 2.0f; // 2 second crash recovery time
-	bShowCrashOverlay = true; // Show crash overlay
-	fCrashOverlayTime = 0.0f; // Reset overlay timer
-	
-	SDL_Log("💥 CRASH! Speed: %.2f, Car Position: %.2f", fSpeed, fCarPos);
-}
-
-// ============================================================================
-// PHYSICS IMPLEMENTATION
-// Based on Street Rod assembly code analysis (racing.md lines 49084-49620)
-// ============================================================================
-
-void Racing::UpdatePhysics(float deltaTime, bool accelerating) {
-	// Constants from assembly analysis
-	// NOTE: velocity variable represents engine RPM, not road speed
-	const int16_t MIN_RPM = 1500;           // Idle RPM
-	const int16_t MAX_RPM_MANUAL = 7000;    // Max over-rev
-	const int16_t MAX_RPM_AUTO = 5690;      // Auto transmission limit
-	
-	// Original game ran at ~60 FPS (racing.md line 49: "60 FPS on 7MHz 68000")
-	// Scale our per-frame values to match that timing
-	const float TARGET_FPS = 60.0f;
-	const float frameScale = deltaTime * TARGET_FPS;  // 1.0 at 60fps, 0.5 at 120fps, etc.
-	
-	// Initialize intermediate on first update (matches original game: velocity * gear_ratio)
-	static bool initialized = false;
-	if (!initialized) {
-		intermediate = (velocity * gearRatios[currentGear]) / 100;
-		initialized = true;
-		SDL_Log("🏁 Physics initialized: velocity=%d, intermediate=%d, gear=%d (target: %.0f fps)", 
-		        velocity, intermediate, currentGear + 1, TARGET_FPS);
-	}
-	
-	// Original game logic from assembly (racing.md lines 1106-1111):
-	// - Acceleration is added to INTERMEDIATE (constant per frame @ 60fps)
-	// - Deceleration is subtracted from VELOCITY (not intermediate!)
-	int16_t currentRatio = gearRatios[currentGear];
-	
-	if (accelerating && !bCrashed) {
-		// ADD.W D0,19424(A4) - add acceleration to intermediate
-		// Scale by frameScale to maintain consistent timing
-		intermediate += static_cast<int16_t>(acceleration * frameScale);
-	}
-	
-	// Calculate velocity from intermediate BEFORE applying deceleration
-	// velocity = intermediate / gear_ratio
-	velocity = (intermediate * 100) / currentRatio;
-	
-	// Apply deceleration to VELOCITY (not intermediate) - matches original
-	if (!accelerating && !bCrashed) {
-		// SUB.W D4,19410(A4) - subtract deceleration from velocity
-		// Scale by frameScale for frame-rate independence
-		velocity -= static_cast<int16_t>(deceleration * frameScale);
-		// Recalculate intermediate to stay in sync
-		intermediate = (velocity * currentRatio) / 100;
-	}
-	
-	// Crash recovery - faster deceleration applied to velocity
-	if (bCrashed) {
-		velocity -= static_cast<int16_t>(deceleration * 2.0f * frameScale);
-		intermediate = (velocity * currentRatio) / 100;
-	}
-	
-	// Clamp velocity (RPM)
-	if (velocity < MIN_RPM) {
-		velocity = MIN_RPM;
-		// Also clamp intermediate to match
-		intermediate = (velocity * currentRatio) / 100;
-	}
-	
-	int16_t maxRpm = isAutomatic ? MAX_RPM_AUTO : MAX_RPM_MANUAL;
-	if (velocity > maxRpm) {
-		velocity = maxRpm;
-		// Also clamp intermediate to match
-		intermediate = (velocity * currentRatio) / 100;
-	}
-	
-	// Update RPM (same as velocity in this game)
-	UpdateRPM();
-	
-	// Update engine sound pitch
-	if (audioManager) {
-		audioManager->UpdateEnginePitch(rpm);
-	}
-	
-	// Check for transmission damage
-	UpdateTransmissionDamage();
-	
-	// Automatic transmission logic
-	if (isAutomatic) {
-		AutoUpshift();   // Shift up near redline
-		AutoDownshift(); // Shift down at low RPM
-	} else if (rpm < 2500) {
-		// Manual transmission can still auto-downshift at very low RPM (stall prevention)
-		AutoDownshift();
-	}
-	
-	// Update display speed (normalized 0-1 for compatibility)
-	fSpeed = (velocity - MIN_RPM) / static_cast<float>(MAX_RPM_MANUAL - MIN_RPM);
-	if (fSpeed < 0.0f) fSpeed = 0.0f;
-	if (fSpeed > 1.0f) fSpeed = 1.0f;
-}
-
-void Racing::ShiftGear(int direction) {
-	if (isAutomatic) return; // Can't manually shift automatic
-	
-	int16_t newGear = currentGear + direction;
-	
-	// Clamp to valid gear range
-	if (newGear < 0) newGear = 0;
-	if (newGear > maxGear) newGear = maxGear;
-	
-	if (newGear != currentGear) {
-		int16_t oldGear = currentGear;
-		int16_t oldRPM = rpm;
-		int16_t oldRatio = gearRatios[currentGear];
-		int16_t newRatio = gearRatios[newGear];
-		
-		// When shifting, keep intermediate constant and recalculate velocity
-		// This simulates the car maintaining its road speed while engine RPM changes
-		// From real physics: RPM = wheel_speed * gear_ratio
-		// When gear ratio decreases (shift UP), RPM decreases
-		// new_velocity = old_velocity * (new_ratio / old_ratio)
-		velocity = (velocity * newRatio) / oldRatio;
-		
-		// Recalculate intermediate for new gear
-		intermediate = (velocity * newRatio) / 100;
-		
-		currentGear = newGear;
-		UpdateRPM();
-		
-		SDL_Log("⚙️  SHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
-		        oldGear + 1, currentGear + 1,
-		        oldRatio / 100.0f, newRatio / 100.0f,
-		        oldRPM, rpm);
-	}
-}
-
-void Racing::UpdateRPM() {
-	// In Street Rod, velocity IS the engine RPM
-	// The gear ratios affect how fast the car moves, not the displayed RPM
-	// RPM is simply the current velocity value
-	rpm = velocity;
-	
-	// Clamp RPM to reasonable range
-	if (rpm < 1500) rpm = 1500;
-	if (rpm > 7000) rpm = 7000;
-}
-
-void Racing::UpdateTransmissionDamage() {
-	const int16_t REDLINE = 5700;
-	const int16_t DANGER_ZONE = 6000;    // Damage starts here, not at redline
-	const int16_t DAMAGE_RPM_THRESH = 6200;
-	
-	if (velocity >= DANGER_ZONE) {
-		// Damage increases faster at higher RPM
-		int16_t damageRate = 1;
-		if (velocity >= DAMAGE_RPM_THRESH) {
-			damageRate = (velocity / 1000) - 4; // More damage at very high RPM
-		}
-		transmissionDamage += damageRate;
-		
-		// Calculate damage threshold based on current RPM
-		// More forgiving - need to stay over-revved longer to blow transmission
-		int16_t damageThreshold = (velocity / 100) + 50;
-		
-		if (transmissionDamage > damageThreshold) {
-			// TRANSMISSION BLOWN - RACE OVER
-			bCrashed = true;
-			fCrashRecoveryTime = 5.0f; // Longer recovery for transmission failure
-			velocity = 0;
-			fSpeed = 0.0f;
-			SDL_Log("💥 TRANSMISSION FAILURE! Over-revved at %d RPM (damage: %d/%d)", 
-			        rpm, transmissionDamage, damageThreshold);
-		} else if (transmissionDamage > damageThreshold / 2) {
-			// Warning - getting close to failure
-			static int warningCount = 0;
-			if (warningCount % 60 == 0) {
-				SDL_Log("⚠️  WARNING: Transmission damage at %d/%d (RPM: %d)", 
-				       transmissionDamage, damageThreshold, rpm);
-			}
-			warningCount++;
-		}
-	} else {
-		// Reset damage when below danger zone
-		transmissionDamage = 0;
-	}
-}
-
-void Racing::AutoUpshift() {
-	// For automatic transmission: shift up before hitting redline
-	const int16_t AUTO_UPSHIFT_RPM = 5400;  // Shift at ~5400 RPM (300 below redline)
-	
-	// Only upshift if we have more gears available
-	if (rpm >= AUTO_UPSHIFT_RPM && currentGear < maxGear) {
-		int16_t oldGear = currentGear;
-		int16_t oldRPM = rpm;
-		int16_t oldRatio = gearRatios[currentGear];
-		int16_t newRatio = gearRatios[currentGear + 1];
-		
-		// Apply gear shift logic
-		velocity = (velocity * newRatio) / oldRatio;
-		intermediate = (velocity * newRatio) / 100;
-		currentGear++;
-		UpdateRPM();
-		
-		SDL_Log("⚙️  AUTO UPSHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
-		        oldGear + 1, currentGear + 1,
-		        oldRatio / 100.0f, newRatio / 100.0f,
-		        oldRPM, rpm);
-	}
-}
-
-void Racing::AutoDownshift() {
-	const int16_t LOW_RPM_THRESH = 2000;
-	
-	// Auto downshift when RPM is too low for current gear
-	if (rpm < LOW_RPM_THRESH && currentGear > 0) {
-		int16_t oldGear = currentGear;
-		int16_t oldRPM = rpm;
-		int16_t oldRatio = gearRatios[currentGear];
-		int16_t newRatio = gearRatios[currentGear - 1];
-		
-		// Apply gear shift logic
-		velocity = (velocity * newRatio) / oldRatio;
-		intermediate = (velocity * newRatio) / 100;
-		currentGear--;
-		UpdateRPM();
-		
-		SDL_Log("⚙️  AUTO DOWNSHIFT: Gear %d→%d (ratio %.2f→%.2f) RPM: %d→%d", 
-		        oldGear + 1, currentGear + 1,
-		        oldRatio / 100.0f, newRatio / 100.0f,
-		        oldRPM, rpm);
-	}
-}
-
-void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, 
-                              float value, float minValue, float maxValue) {
-	if (!renderer) return;
-	
-	const int NEEDLE_RADIUS = 14;
-	const int CENTERPOINT_RADIUS = 5; // Clear space for centerpoint decoration
-	
-	// Angle sweep: clockwise from 7 o'clock (240°) to 5 o'clock (300°) = 240° sweep
-	const float START_ANGLE = 240.0f * M_PI / 180.0f;  // 7 o'clock position
-	const float SWEEP_ANGLE = -240.0f * M_PI / 180.0f; // 240° clockwise
-	
-	// Calculate needle angle based on value
-	float t = (value - minValue) / (maxValue - minValue);
-	t = std::max(0.0f, std::min(1.0f, t));
-	float angle = START_ANGLE + SWEEP_ANGLE * t;
-	
-	// Calculate needle start position (outside centerpoint) and end position
-	int needleStartX = centerX + static_cast<int>(CENTERPOINT_RADIUS * cos(angle));
-	int needleStartY = centerY - static_cast<int>(CENTERPOINT_RADIUS * sin(angle));
-	int needleEndX = centerX + static_cast<int>(NEEDLE_RADIUS * cos(angle));
-	int needleEndY = centerY - static_cast<int>(NEEDLE_RADIUS * sin(angle));
-	
-	// Draw the needle (brown/orange color #604000)
-	SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
-	SDL_RenderDrawLine(renderer, needleStartX, needleStartY, needleEndX, needleEndY);
-}
-
-void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
-	// Tachometer: center at (145, 129), range 1500-7000 RPM
-	DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(rpm), 1500.0f, 7000.0f);
-}
-
-void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
-	// Speedometer: center at (196, 129), range 0-140 MPH
-	// Calculate MPH from RPM and gear ratio
-	int16_t currentRatio = gearRatios[currentGear];
-	float gearMultiplier = 100.0f / currentRatio;
-	float speedMph = (velocity / 70.0f) * gearMultiplier;
-	
-	DrawGaugeNeedle(renderer, 196, 129, speedMph, 0.0f, 140.0f);
-}
-
-SDL_Surface* Racing::GetSurface() {
-	return pixels;
-}
-
-// Overhead Sign Rendering Implementation
-// Based on reverse engineering of Street Rod Amiga assembly code
-//
-// KEY DISCOVERY: Overhead signs are ARCH STRUCTURES that the player drives UNDER!
-// They consist of vertical posts on road edges + horizontal bar + sign bitmap on bar.
-//
-// Original Amiga Implementation:
-// - Track data contains flag $0005 for special segments (overhead arches)
-// - Dispatcher routes to handlers based on segment index
-// - Handlers render multiple trapezoids:
-//   1. Left vertical post (trapezoid at left road edge)
-//   2. Right vertical post (trapezoid at right road edge)
-//   3. Horizontal bar connecting posts at top
-//   4. Sign bitmap rendered ON the horizontal bar
-// - Uses same polygon renderer (SECSTRT_26 → LAB_0296 → Amiga Blitter)
-//
-// Overhead Arch Signs (verified in-game):
-//   ID 14: COUNTRY LINE (last arch = finish line)
-//   ID 33: ROUTE 69
-//   ID 34: CITY LIMITS
-//   ID 35: EXIT 48
-//
-// Arch Structure:
-//   [SIGN TEXT]
-//   ============  <- horizontal bar (trapezoid)
-//   |          |  <- vertical posts (trapezoids)
-//   |   ROAD   |
-//   |          |
-//  YOU DRIVE UNDER THIS!
-
-void Racing::DrawOverheadSigns(float currentDistance) {
-    // NOTE: We need track segment data with flags to detect $0005 (overhead arch) segments
-    // For now, hardcode test positions based on typical track layout
-    // TODO: Parse track flags from binary data to detect actual overhead sign positions
-    
-    // Estimated overhead sign positions (distance along track)
-    // These would normally come from track data with flag $0005
-    struct OverheadSign {
-        float position;
-        uint16_t signId;
-    };
-    
-    // Example positions - replace with actual track data parsing
-    static const OverheadSign signs[] = {
-        {150.0f, 33},  // ROUTE 69
-        {350.0f, 34},  // CITY LIMITS
-        {550.0f, 35},  // EXIT 48
-        {fTrackDistance * 0.95f, 14}, // COUNTRY LINE near finish
-    };
-    
-    const float VISIBLE_DISTANCE = 300.0f;
-    
-    for (const auto& sign : signs) {
-        float distance = sign.position - currentDistance;
-        
-        // Handle wraparound for lap completion
-        if (distance < -fTrackDistance / 2) {
-            distance += fTrackDistance;
-        }
-        
-        // Only draw if sign is ahead and visible
-        if (distance > 0 && distance <= VISIBLE_DISTANCE) {
-            DrawOverheadSignTrapezoid(distance, sign.signId);
-        }
-    }
-}
-
-void Racing::DrawOverheadSignTrapezoid(float distance, uint16_t signId) {
-    // Get the appropriate sign sprite
-    Bitmap* signBitmap = nullptr;
-    const char* signName = "Unknown";
-    
-    switch (signId) {
-        case 14: // COUNTRY LINE (finish)
-            signBitmap = signCountryLineSprite.get();
-            signName = "COUNTRY LINE";
-            break;
-        case 33: // ROUTE 69
-            signBitmap = signRoute69Sprite.get();
-            signName = "ROUTE 69";
-            break;
-        case 34: // CITY LIMITS
-            signBitmap = signCityLimitsSprite.get();
-            signName = "CITY LIMITS";
-            break;
-        case 35: // EXIT 48
-            signBitmap = signExit48Sprite.get();
-            signName = "EXIT 48";
-            break;
-        default:
-            return;
-    }
-
-    // Until all frames added
-    signBitmap = signCountryLineSprite.get();
-    
-    if (!signBitmap || !signBitmap->GetSurface()) {
-        return; // Sign sprite not loaded
-    }
-    
-    // Calculate perspective for this distance
-    // Allow arches to be visible from further away
-    float perspective = 1.0f - (distance / 200.0f);
-    if (perspective <= 0 || perspective > 1.0f) return;
-    
-    // Original Amiga approach: Draw an ARCH structure with posts and horizontal bar
-    // Structure:
-    //   [SIGN TEXT]
-    //   ============  <- horizontal bar
-    //   |          |  <- vertical posts on each side
-    //   |   ROAD   |
-    
-    int horizonY = GAME_RACING_HEIGHT / 2;
-    int roadBottomY = horizonY + (int)(perspective * (GAME_RACING_HEIGHT / 2));
-    
-    // Calculate road width at this perspective
-    float fRoadWidth = 0.21f + perspective * 0.98f;
-    fRoadWidth *= 0.8f;
-    
-    // Middle point with curvature effect (same as road)
-    float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
-    fMiddlePoint -= fCarPos * 0.25f; // Shift with car position
-    
-    // Calculate post positions at road edges
-    int roadCenterX = (int)(fMiddlePoint * GAME_WIDTH);
-    int roadWidthPixels = (int)(fRoadWidth * GAME_WIDTH);
-    int leftPostX = roadCenterX - roadWidthPixels;
-    int rightPostX = roadCenterX + roadWidthPixels;
-    
-    // Post dimensions scale with perspective
-    // Posts need to be TALL arches you drive under!
-    int postWidth = (int)(8.0f * perspective + 3.0f); // 3-11 pixels wide
-    int postHeight = (int)(120.0f * perspective + 30.0f); // 30-150 pixels tall (MUCH taller!)
-    int barHeight = (int)(12.0f * perspective + 4.0f); // 4-16 pixels tall
-    
-    // Minimum visible size - allow tiny arches in distance
-    if (postHeight < 3) return;
-    
-    // Position arch above road
-    int archTopY = roadBottomY - postHeight;
-    int barTopY = archTopY;
-    int barBottomY = barTopY + barHeight;
-    
-    SDL_Color archColor = {255, 0, 0, 255}; // RED for arch structure
-    SDL_Color yellowGroundColor = {255, 255, 0, 255}; // YELLOW ground marking
-    
-    // NOTE: Surface is already locked by caller
-    
-    // Draw YELLOW GROUND SURFACE under the arch (road marking)
-    // This is a warning zone painted on the road BEFORE the arch
-    // Zone ENDS at the arch position (where you pass under it)
-    // TODO: Extract exact zone start/end distances from track data flag $0005
-    
-    // Yellow zone ends where arch posts are (at roadBottomY perspective)
-    // and extends backwards on the road surface
-    int zoneEndY = roadBottomY;  // End AT the arch
-    int zoneStartY = zoneEndY - (int)(perspective + 2.5f); // Shorter zone: 10-30px
-    
-    for (int y = zoneStartY; y <= zoneEndY && y >= horizonY && y < GAME_RACING_HEIGHT; y++) {
-        // Calculate road width at THIS scanline's perspective
-        float linePerspective = (float)(y - horizonY) / (float)(GAME_RACING_HEIGHT / 2);
-        float lineRoadWidth = (0.21f + linePerspective * 0.98f) * 0.8f;
-        float lineMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - linePerspective), 2.5f);
-        lineMiddlePoint -= fCarPos * 0.25f;
-        
-        int lineCenterX = (int)(lineMiddlePoint * GAME_WIDTH);
-        int lineWidthPixels = (int)(lineRoadWidth * GAME_WIDTH);
-        int lineLeftX = lineCenterX - lineWidthPixels;
-        int lineRightX = lineCenterX + lineWidthPixels;
-        
-        // Draw yellow marking across road width
-        for (int x = lineLeftX; x <= lineRightX && x >= 0 && x < GAME_WIDTH; x++) {
-            PutPixel(pixels, x, y, yellowGroundColor);
-        }
-    }
-    
-    // Draw LEFT POST (vertical trapezoid)
-    for (int y = archTopY; y < roadBottomY && y < GAME_RACING_HEIGHT; y++) {
-        // Draw posts even ABOVE horizon (into sky area) for tall arches!
-        if (y >= 0) {  // Only check screen bounds, not horizon
-            // Slight perspective taper
-            float postPerspective = (float)(y - archTopY) / (float)postHeight;
-            int width = (int)(postWidth * (1.0f + postPerspective * 0.3f));
-            for (int x = leftPostX; x < leftPostX + width && x >= 0 && x < GAME_WIDTH; x++) {
-                PutPixel(pixels, x, y, archColor);
-            }
-        }
-    }
-    
-    // Draw RIGHT POST (vertical trapezoid)
-    for (int y = archTopY; y < roadBottomY && y < GAME_RACING_HEIGHT; y++) {
-        // Draw posts even ABOVE horizon (into sky area) for tall arches!
-        if (y >= 0) {  // Only check screen bounds, not horizon
-            float postPerspective = (float)(y - archTopY) / (float)postHeight;
-            int width = (int)(postWidth * (1.0f + postPerspective * 0.3f));
-            for (int x = rightPostX - width; x < rightPostX && x >= 0 && x < GAME_WIDTH; x++) {
-                PutPixel(pixels, x, y, archColor);
-            }
-        }
-    }
-    
-    // Draw HORIZONTAL BAR connecting the posts
-    for (int y = barTopY; y < barBottomY && y >= 0 && y < GAME_RACING_HEIGHT; y++) {
-        for (int x = leftPostX; x <= rightPostX && x >= 0 && x < GAME_WIDTH; x++) {
-            PutPixel(pixels, x, y, archColor);
-        }
-    }
-    
-    // Debug: Log arch rendering details
-    static int lastLoggedSign = -1;
-    static int frameCount = 0;
-    frameCount++;
-    // if ((signId != lastLoggedSign && distance < 100.0f) || frameCount % 60 == 0) {
-    //     printf("🏛️  RED ARCH: %s at distance %.1f (perspective %.3f)\n", signName, distance, perspective);
-    //     printf("    Posts: Left=%d Right=%d, width=%dpx, HEIGHT=%dpx 🔺\n", 
-    //            leftPostX, rightPostX, postWidth, postHeight);
-    //     printf("    Arch spans: y=%d (top) to y=%d (road), total %dpx tall\n", 
-    //            archTopY, roadBottomY, roadBottomY - archTopY);
-    //     printf("    Bar: y=%d-%d (height=%dpx)\n", barTopY, barBottomY, barHeight);
-    //     printf("    Yellow zone: y=%d to y=%d (%dpx)\n", 
-    //            zoneStartY, zoneEndY, zoneEndY - zoneStartY);
-    //     printf("    Horizon: y=%d, RoadBottom/Arch: y=%d\n", horizonY, roadBottomY);
-    //     lastLoggedSign = signId;
-    // }
-    
-    // NOTE: Surface will be unlocked by caller, then sign bitmap will be drawn separately
-}
-
-void Racing::DrawOverheadSignBitmaps(float currentDistance) {
-    // Draw sign bitmaps using frame-based scaling (like trees)
-    // This must match the arch positions calculated in DrawOverheadSigns
-    
-    struct OverheadSign {
-        float position;
-        uint16_t signId;
-    };
-    
-    // Same positions as in DrawOverheadSigns
-    static const OverheadSign signs[] = {
-        {150.0f, 33},  // ROUTE 69
-        {350.0f, 34},  // CITY LIMITS
-        {550.0f, 35},  // EXIT 48
-        {fTrackDistance * 0.95f, 14}, // COUNTY LINE near finish
-    };
-    
-    const float VISIBLE_DISTANCE = 300.0f;
-    
-    for (const auto& sign : signs) {
-        float distance = sign.position - currentDistance;
-        
-        // Handle wraparound for lap completion
-        if (distance < -fTrackDistance / 2) {
-            distance += fTrackDistance;
-        }
-        
-        // Only draw if sign is ahead and visible
-        if (distance > 0 && distance <= VISIBLE_DISTANCE) {
-            // TODO: Use different sprites when frames are added for all signs
-            // For now, always use COUNTY LINE sprite with frames
-            Bitmap* signBitmap = signCountryLineSprite.get();
-            const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(RACING_SIGN_COUNTY_LINE);
-            
-            if (!signBitmap || !signBitmap->GetSurface()) {
-                continue;
-            }
-            
-            // Calculate same perspective and positions as DrawOverheadSignTrapezoid
-            float perspective = 1.0f - (distance / 200.0f);
-            if (perspective <= 0 || perspective > 1.0f) continue;
-            
-            int horizonY = GAME_RACING_HEIGHT / 2;
-            int roadBottomY = horizonY + (int)(perspective * (GAME_RACING_HEIGHT / 2));
-            
-            float fRoadWidth = 0.21f + perspective * 0.98f;
-            fRoadWidth *= 0.8f;
-            
-            float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
-            fMiddlePoint -= fCarPos * 0.25f;
-            
-            int roadCenterX = (int)(fMiddlePoint * GAME_WIDTH);
-            int postHeight = (int)(120.0f * perspective + 30.0f);
-            int barHeight = (int)(12.0f * perspective + 4.0f);
-            int archTopY = roadBottomY - postHeight;
-            int barTopY = archTopY;
-            
-            // Use frame-based rendering if animation info exists
-            SDL_Rect srcRect = {0, 0, 0, 0};
-            
-            if (animInfo && animInfo->frameCount > 1) {
-                // Select frame based on distance (11 frames, far to near)
-                // Increased distances so larger frames appear earlier
-                // Frame 0 = smallest (far away, distance >= 200)
-                // Frame 10 = largest (very close, distance < 60)
-                static const float frameDistances[] = {
-                    200.0f, 180.0f, 160.0f, 140.0f, 120.0f, 100.0f, 85.0f, 70.0f, 60.0f, 50.0f, 0.0f
-                };
-                
-                uint8_t frame = 0;
-                for (int i = 0; i < animInfo->frameCount; i++) {
-                    if (distance >= frameDistances[i]) {
-                        frame = i;
-                        break; // Found the first threshold we exceed
-                    }
-                }
-                
-                SpriteRect frameRect = GetAnimationFrameRect(animInfo, frame);
-                srcRect = {
-                    static_cast<int>(frameRect.x),
-                    static_cast<int>(frameRect.y),
-                    static_cast<int>(frameRect.w),
-                    static_cast<int>(frameRect.h)
-                };
-            } else {
-                // No animation, use full sprite
-                SDL_Surface* surface = signBitmap->GetSurface();
-                srcRect = {0, 0, surface->w, surface->h};
-            }
-            
-            // Position sign centered on horizontal bar
-            int signX = roadCenterX - srcRect.w / 2;
-            int signY = barTopY + (barHeight - srcRect.h) / 2;
-            
-            SDL_Rect dstRect = {signX, signY, srcRect.w, srcRect.h};
-            
-            // Clip to screen bounds
-            SDL_Rect originalSrcRect = srcRect;
-            if (dstRect.x < 0) {
-                int leftClip = -dstRect.x;
-                srcRect.x = originalSrcRect.x + leftClip;
-                srcRect.w = originalSrcRect.w - leftClip;
-                dstRect.w += dstRect.x;
-                dstRect.x = 0;
-            }
-            if (dstRect.x + dstRect.w > GAME_WIDTH) {
-                int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
-                srcRect.w = originalSrcRect.w - overflow;
-                dstRect.w -= overflow;
-            }
-            if (dstRect.y < 0) {
-                int topClip = -dstRect.y;
-                srcRect.y = originalSrcRect.y + topClip;
-                srcRect.h = originalSrcRect.h - topClip;
-                dstRect.h += dstRect.y;
-                dstRect.y = 0;
-            }
-            if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
-                int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
-                srcRect.h = originalSrcRect.h - overflow;
-                dstRect.h -= overflow;
-            }
-            
-            if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {                
-                SDL_BlitSurface(signBitmap->GetSurface(), &srcRect, pixels, &dstRect);
-            }
-        }
-    }
-}
-
-// ============================================================================
-// OPPONENT CAR IMPLEMENTATION
-// ============================================================================
-
-// Helper to load opponent sprite with modified palette (palette index 7 = car color)
 std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
     byte_vector& libFile = state.GetAssets().GetLibPData();
     BitmapParser bp;
-    
-    // Get the bitmap entry and raw image data
     auto imageEntries = state.GetAssets().GetImageEntries();
     BitmapEntry_t entry = imageEntries.second[spriteId];
     std::vector<uint8_t> data = bp.ReadImage(libFile, entry, spriteId, imageEntries.first);
-    
-    // Get the original palette
+
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, spriteId);
-    
-    // Modify palette index 7 to be the opponent's car color
     std::vector<uint16_t> opponentCarPalette = GetStandardCarColor(opponentColor);
     if (opponentCarPalette.size() > 7) {
-        palData[7] = opponentCarPalette[7];  // Replace palette index 7 with opponent's color
+        palData[7] = opponentCarPalette[7];
     }
-    
-    // Convert modified palette and create bitmap
+
     Palette pal = bp.PreparePalette(palData, true);
-    Palette emptyCarPalette;  // No car palette replacement needed
+    Palette emptyCarPalette;
     std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, entry, pal, emptyCarPalette, spriteId);
-    
-    std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
+    auto bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height);
     bitmap->SetDimensions(entry.width, entry.height);
-    
     return bitmap;
 }
 
 void Racing::LoadOpponentCarSprites() {
-    printf("Racing: Loading opponent car sprites (Type=%d, Color=%d)...\n", 
-           opponentCarType, static_cast<int>(opponentColor));
-    
-    // Load sprites with palette index 7 modified to opponent's car color
-    
-    // Only load sprites for the specific car type to save memory
     switch (opponentCarType) {
-        case 0: // Chevy
-            printf("Racing: Loading Chevy opponent sprites...\n");
+        case 0:
             opponentChevyFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE);
             opponentChevyRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_REAR_SIDE);
-            
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < 7; ++i) {
                 opponentChevyRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_REAR_1 + i);
             }
-            
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 4; ++i) {
                 opponentChevyBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY_BEHIND_1 + i);
             }
             break;
-            
-        case 1: // Chrysler
-            printf("Racing: Loading Chrysler opponent sprites...\n");
+        case 1:
             opponentChryslerFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE);
             opponentChryslerRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_REAR_SIDE);
-            
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < 7; ++i) {
                 opponentChryslerRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_REAR_1 + i);
             }
-            
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 4; ++i) {
                 opponentChryslerBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHRYSLER_BEHIND_1 + i);
             }
             break;
-            
-        case 2: // Cop
-            printf("Racing: Loading Cop opponent sprites...\n");
+        case 2:
             opponentCopFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_FRONT_SIDE);
             opponentCopRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_REAR_SIDE);
-            
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < 7; ++i) {
                 opponentCopRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_REAR_1 + i);
             }
-            
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 4; ++i) {
                 opponentCopBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_BEHIND_1 + i);
             }
             break;
-            
         default:
-            printf("Racing: Unknown opponent car type %d, defaulting to Chevy\n", opponentCarType);
             opponentCarType = 0;
-            LoadOpponentCarSprites(); // Recursively load with corrected type
-            return;
+            LoadOpponentCarSprites();
+            break;
     }
-    
-    printf("Racing: Opponent car sprites loaded successfully\n");
 }
 
-void Racing::InitializeOpponent() {
-    printf("Racing: Initializing opponent...\n");
-    
-    // Get current opponent from state
-    Opponent* opponent = state.GetCurrentOpponent();
-    if (!opponent || !opponent->car) {
-        printf("Racing: No opponent found, disabling opponent\n");
-        opponentActive = false;
-        return;
+srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) const {
+    srrace::CarSetup setup;
+    setup.weightClass = 4;
+    setup.driverSkill = isPlayer ? 130 : 100;
+
+    if (!car) {
+        setup.transClass = automaticOverride ? 0 : 2;
+        return setup;
     }
-    
-    // Set opponent properties
-    opponentActive = true;
-    opponentDistance = 0.0f;   // Start at same position as player (fair start)
-    opponentSpeed = 0.2f;      // Start at low speed so player can catch up
-    opponentCarPos = 0.0f;     // Start in center of road
-    
-    // Get opponent car color
-    opponentColor = opponent->car->GetColor();
-    
-    // Determine opponent car sprite type based on car vendor
-    CarModel opponentModel = opponent->car->GetModel();
-    CarVendor_t vendor = opponentModel.vendor;
-    
-    // Map vendor to opponent sprite type
-    // 0 = Chevy sprites (GM cars)
-    // 1 = Chrysler sprites (Chrysler/Dodge/Plymouth/Valiant cars)
-    // Cop (type 2) ignored for now as requested
-    switch (vendor) {
-        case CarVendorGM:  // GM = Chevrolet, Oldsmobile, Pontiac
-            opponentCarType = 0;
+
+    switch (car->GetCarburator().partType.carburetorType) {
+        case CARB_2BARREL: setup.carbClass = 0; break;
+        case CARB_4BARREL: setup.carbClass = 1; break;
+        case CARB_4BARREL_RACING: setup.carbClass = 2; break;
+        default: setup.carbClass = 0; break;
+    }
+
+    switch (car->GetGearbox().partType.transmissionType) {
+        case TRANS_AUTO_GM:
+        case TRANS_AUTO_FORD:
+        case TRANS_AUTO_CHRYSLER:
+            setup.transClass = 0;
             break;
-        case CarVendorChrysler:  // Chrysler = Dodge, Plymouth, Valiant
-            opponentCarType = 1;
+        case TRANS_3SPD_GM:
+        case TRANS_3SPD_FORD:
+        case TRANS_3SPD_CHRYSLER:
+            setup.transClass = 1;
             break;
-        case CarVendorFord:  // Ford, Mercury, Thunderbird
-        case CarVendorCustom:
-        case CarVendorUnknown:
+        case TRANS_4SPD_GM:
+        case TRANS_4SPD_FORD:
+        case TRANS_4SPD_CHRYSLER:
+        case TRANS_4SPD_UNIVERSAL:
+            setup.transClass = 2;
+            break;
+        case TRANS_RACING_GM:
+        case TRANS_RACING_FORD:
+        case TRANS_RACING_CHRYSLER:
+            setup.transClass = 3;
+            break;
         default:
-            // Default to Chevy sprites for Ford and other vendors
-            opponentCarType = 0;
+            setup.transClass = 2;
             break;
     }
-    
-    printf("Racing: Opponent initialized - Type=%d, Color=%d\n", opponentCarType, static_cast<int>(opponentColor));
-    
-    // Load opponent sprites with the correct color
+
+    if (automaticOverride) {
+        setup.transClass = 0;
+    } else if (setup.transClass == 0) {
+        setup.transClass = 2;
+    }
+
+    switch (car->GetEngine().engineType) {
+        case CarEngineGM_V6:
+        case CarEngineFord_V6:
+        case CarEngineChrysler_V6:
+            setup.engineClass = 1;
+            break;
+        default:
+            setup.engineClass = 2;
+            break;
+    }
+
+    switch (car->GetManifold().partType.manifoldType) {
+        case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
+        case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
+        case MANIFOLD_RACING: setup.manifoldClass = 4; break;
+        default: setup.manifoldClass = 0; break;
+    }
+
+    switch (car->GetWheelType()) {
+        case STOCK: setup.tireClass = 0; break;
+        case BRAND: setup.tireClass = 1; break;
+        case RACING: setup.tireClass = 2; break;
+        default: setup.tireClass = 0; break;
+    }
+
+    setup.tuneOffset = ClampInt(std::abs(car->GetTuneLevel() - 9), 0, 8);
+    setup.carbWear = ClampInt(car->GetCarburator().wear, 0, 10000);
+    setup.engineWear = ClampInt(car->GetEngine().wear, 0, 10000);
+    setup.transWear = ClampInt(car->GetGearbox().wear, 0, 10000);
+    setup.tireWear = ClampInt(car->GetTires().wear, 0, 10000);
+    setup.bumpersStripped = car->IsBumpersStripped();
+    return setup;
+}
+
+void Racing::InitializeRaceSimulation() {
+    trackVariant = rng.Next(10);
+    srrace::RoadLayoutInit(track, rng);
+    srrace::GenerateTrackShapes(track, trackVariant);
+
+    const Car* playerCar = state.GetCurrentCar();
+    srrace::CarSetup playerSetup = BuildCarSetupFromCar(playerCar, true);
+
+    srrace::CarSetup npcSetup;
+    Opponent* opponent = state.GetCurrentOpponent();
+    if (opponent && opponent->car) {
+        npcSetup = BuildCarSetupFromCar(opponent->car, false);
+    } else {
+        npcSetup = playerSetup;
+        npcSetup.driverSkill = 100;
+    }
+
+    sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup, static_cast<uint32_t>(SDL_GetTicks()));
+    simInitialized = true;
+    fixedAccumulator = 0.0f;
+    prevSpaceDown = false;
+    pendingShift = false;
+    firstPlayerFinishTick = -1;
+    firstNpcFinishTick = -1;
+    simTickCounter = 0;
+    raceOutcome = RaceOutcome::Ongoing;
+    bShowCrashOverlay = false;
+    crashHandled = false;
+    crashOverlayEndMs = 0;
+}
+
+void Racing::SetTrackType(SrTrackType trackType) {
+    currentTrackType = trackType;
+}
+
+SrTrackType Racing::GetTrackType() const {
+    return currentTrackType;
+}
+
+void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType) {
+    (void)binaryData;
+    SetTrackType(trackType);
+    InitializeRaceSimulation();
+}
+
+void Racing::ResetForNewRace() {
+    engineSoundStarted = false;
+    InitializeRaceSimulation();
+}
+
+void Racing::SetTransmissionType(bool automatic) {
+    automaticOverride = automatic;
+}
+
+void Racing::SetOpponentActive(bool active) {
+    opponentActive = active;
+}
+
+void Racing::SetOpponentCarType(int carType) {
+    opponentCarType = carType;
     LoadOpponentCarSprites();
 }
 
-void Racing::UpdateOpponent(float deltaTime) {
-    if (!opponentActive) return;
-    
-    // Simple opponent AI: follow track with slight speed variation
-    // Keep opponent at moderate speed so player can catch up
-    const float OPPONENT_BASE_SPEED = 0.25f; // Slower - around 25% of max speed
-    const float OPPONENT_SKILL_VARIATION = 0.1f; // Allow for some variation (±5%)
-    
-    // Update opponent speed with some variation (simulates different driving skill)
-    static float skillTimer = 0.0f;
-    skillTimer += deltaTime;
-    if (skillTimer > 4.0f) { // Change speed every 4 seconds
-        skillTimer = 0.0f;
-        // Random variation between -0.5 and +0.5, scaled by OPPONENT_SKILL_VARIATION
-        float randomFactor = ((rand() % 100) / 100.0f) - 0.5f;
-        opponentSpeed = OPPONENT_BASE_SPEED + randomFactor * OPPONENT_SKILL_VARIATION;
-        
-        // Clamp to reasonable range (15-40% speed)
-        if (opponentSpeed < 0.15f) opponentSpeed = 0.15f;
-        if (opponentSpeed > 0.4f) opponentSpeed = 0.4f;
-    }
-    
-    // Move opponent along track (using same speed scaling as player)
-    opponentDistance += (105.0f * opponentSpeed) * deltaTime;
-    
-    // Handle opponent crossing finish line.
-    if (opponentDistance >= fTrackDistance && raceOutcome == RaceOutcome::Ongoing) {
-        raceOutcome = RaceOutcome::PlayerLost;
-    }
-    if (raceOutcome != RaceOutcome::Ongoing) {
-        opponentDistance = fTrackDistance;
-    }
-    
-    // Simple steering for opponent (follow track curvature with some variation)
-    // Opponent tries to stay near center with slight lateral movement
-    float targetCarPos = 0.0f; // Try to stay in center
-    opponentCarPos += (targetCarPos - opponentCarPos) * deltaTime * 2.0f;
+void Racing::SetOpponentColor(StandardCarColor color) {
+    opponentColor = color;
+    LoadOpponentCarSprites();
 }
 
-void Racing::DrawOpponent() {
-    if (!opponentActive) return;
-    
-    // Calculate relative distance between player and opponent
-    float relativeDistance = opponentDistance - fDistance;
-    
-    // Handle wraparound for lap completion
-    if (relativeDistance > fTrackDistance / 2) {
-        relativeDistance -= fTrackDistance;
-    } else if (relativeDistance < -fTrackDistance / 2) {
-        relativeDistance += fTrackDistance;
-    }
-    
-    // Only draw if opponent is visible (within reasonable distance)
-    const float MAX_VISIBLE_DISTANCE = 200.0f;
-    if (fabs(relativeDistance) > MAX_VISIBLE_DISTANCE) {
+void Racing::InitializeOpponent() {
+    Opponent* opponent = state.GetCurrentOpponent();
+    if (!opponent || !opponent->car) {
+        opponentActive = false;
         return;
     }
-    
-    // Determine which sprite to show based on relative position
-    // Note: REAR_1 = biggest (closest), REAR_7 = smallest (farthest)
-    // Distance thresholds are tight to keep opponent visible in windshield (not hidden by dashboard)
-    Bitmap* spriteToShow = nullptr;
-    
-    if (relativeDistance < -35.0f) {
-        // Player is far behind opponent - show REAR_7 to REAR_5 (smallest views)
-        // Tight distance range so opponent stays visible in windshield
-        float distRange = (-relativeDistance - 35.0f) / 20.0f; // 0.0 at -35, 1.0 at -55
-        distRange = std::min(1.0f, std::max(0.0f, distRange));
-        int rearFrame = 6 - static_cast<int>(distRange * 2.0f); // REAR_7 (6) to REAR_5 (4)
-        rearFrame = std::max(4, std::min(6, rearFrame));
-        
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
-            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
-            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+
+    opponentActive = true;
+    opponentColor = opponent->car->GetColor();
+    CarVendor_t vendor = opponent->car->GetModel().vendor;
+    switch (vendor) {
+        case CarVendorGM:
+            opponentCarType = 0;
+            break;
+        case CarVendorChrysler:
+            opponentCarType = 1;
+            break;
+        case CarVendorFord:
+        case CarVendorCustom:
+        case CarVendorUnknown:
+        default:
+            opponentCarType = 0;
+            break;
+    }
+    LoadOpponentCarSprites();
+}
+
+float Racing::GetSpeed() const {
+    return static_cast<float>(sim.Player().speed);
+}
+
+int16_t Racing::GetCurrentGear() const {
+    return sim.Player().gear;
+}
+
+int16_t Racing::GetRPM() const {
+    return sim.Player().rpm;
+}
+
+int16_t Racing::GetVelocity() const {
+    return sim.Player().rpm;
+}
+
+bool Racing::IsTransmissionDamaged() const {
+    return sim.Player().transWearDelta > 0;
+}
+
+bool Racing::IsAutomatic() const {
+    if (!simInitialized) {
+        return automaticOverride;
+    }
+    return sim.PlayerTables().automatic;
+}
+
+bool Racing::ShouldShowCrashOverlay() const {
+    return bShowCrashOverlay;
+}
+
+void Racing::HideCrashOverlay() {
+    bShowCrashOverlay = false;
+}
+
+RaceOutcome Racing::GetRaceOutcome() const {
+    return raceOutcome;
+}
+
+void Racing::ResetRaceOutcome() {
+    raceOutcome = RaceOutcome::Ongoing;
+}
+
+int Racing::ProjectX(const srrace::CarState& player, int seg, int d, int curveDelta, int lateral) const {
+    (void)seg;
+    const int adjustedLat = lateral + (curveDelta * d) / 4;
+    const int numerator = 4 * (player.lateral - adjustedLat);
+    return 160 - numerator / d;
+}
+
+int Racing::BuildRowTableAndGetLastVisible() {
+    const srrace::CarState& p = sim.Player();
+    const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
+    const int elevAtCar = track.elev[segBase];
+    int previousY = 100000;
+    int lastVisible = 0;
+
+    for (int k = 0; k < kForwardRows; ++k) {
+        int d = 4;
+        if (k > 0) {
+            d = 12 + 8 * (k - 1) - p.scrollAcc;
+            d = std::max(4, d);
         }
-    } else if (relativeDistance < -20.0f) {
-        // Player is moderately behind - show REAR_5 to REAR_3 (medium views)
-        float distRange = (-relativeDistance - 20.0f) / 15.0f; // 0.0 at -20, 1.0 at -35
-        distRange = std::min(1.0f, std::max(0.0f, distRange));
-        int rearFrame = 4 - static_cast<int>(distRange * 2.0f); // REAR_5 (4) to REAR_3 (2)
-        rearFrame = std::max(2, std::min(4, rearFrame));
-        
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
-            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
-            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+        const int seg = ClampInt(segBase + k, 0, kTrackSegments - 1);
+        const int curveDelta = p.heading - track.curve[seg];
+        const int elevDelta = elevAtCar - track.elev[seg];
+        int16_t edgeLeft = 1500;
+        int16_t edgeRight = 3300;
+        srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
+
+        RowProjection row;
+        row.distance = d;
+        row.seg = seg;
+        row.curveDelta = curveDelta;
+        row.leftX = ProjectX(p, seg, d, curveDelta, edgeLeft);
+        row.rightX = ProjectX(p, seg, d, curveDelta, edgeRight);
+        row.shoulderLX = ProjectX(p, seg, d, curveDelta, edgeLeft - 400);
+        row.shoulderRX = ProjectX(p, seg, d, curveDelta, edgeRight + 400);
+        row.y = ClampInt(kHorizonY + 400 / d + 4 * elevDelta, kClipTop, kClipBottom + 30);
+        row.archY = row.y - std::max(12, 480 / d);
+        rows[k] = row;
+    }
+
+    previousY = rows[0].y + 1;
+    for (int k = 0; k < kForwardRows; ++k) {
+        if (rows[k].y < previousY) {
+            lastVisible = k;
+            previousY = rows[k].y;
+        } else {
+            break;
         }
-    } else if (relativeDistance < -12.0f) {
-        // Player is getting closer - show REAR_3 to REAR_2
-        float distRange = (-relativeDistance - 12.0f) / 8.0f; // 0.0 at -12, 1.0 at -20
-        distRange = std::min(1.0f, std::max(0.0f, distRange));
-        int rearFrame = 2 - static_cast<int>(distRange); // REAR_3 (2) to REAR_2 (1)
-        rearFrame = std::max(1, std::min(2, rearFrame));
-        
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyRear[rearFrame].get(); break;
-            case 1: spriteToShow = opponentChryslerRear[rearFrame].get(); break;
-            case 2: spriteToShow = opponentCopRear[rearFrame].get(); break;
+    }
+    return lastVisible;
+}
+
+void Racing::RenderSkyAndParallax(float frameSeconds) {
+    for (int y = 0; y <= kClipBottom; ++y) {
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, kSkyColor);
         }
-    } else if (relativeDistance < -8.0f) {
-        // Player is close behind - show REAR_1 (biggest rear view)
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyRear[0].get(); break; // REAR_1 is index 0
-            case 1: spriteToShow = opponentChryslerRear[0].get(); break;
-            case 2: spriteToShow = opponentCopRear[0].get(); break;
+    }
+
+    const srrace::CarState& p = sim.Player();
+    cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
+    mountainOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.0025f;
+
+    if (cloudSprite && cloudSprite->GetSurface()) {
+        SDL_Surface* src = cloudSprite->GetSurface();
+        const int baseOffset = ((static_cast<int>(cloudOffsetAccum) % src->w) + src->w) % src->w;
+        for (int pass = 0; pass < 2; ++pass) {
+            const int drawX = -baseOffset + pass * src->w;
+            for (int y = 0; y < src->h; ++y) {
+                for (int x = 0; x < src->w; ++x) {
+                    const int px = drawX + x;
+                    if (px < 0 || px >= GAME_WIDTH || y < 0 || y >= GAME_RACING_HEIGHT) {
+                        continue;
+                    }
+                    Uint32 srcPixel = 0;
+                    const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
+                    std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+                    Uint8 r = 0;
+                    Uint8 g = 0;
+                    Uint8 b = 0;
+                    Uint8 a = 255;
+                    SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+                    if (a > 0) {
+                        PutPixel(pixels, px, y, {r, g, b, a});
+                    }
+                }
+            }
         }
-    } else if (relativeDistance < -3.0f) {
-        // Player is very close behind opponent - show REAR_SIDE (angled rear view)
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyRearSide.get(); break;
-            case 1: spriteToShow = opponentChryslerRearSide.get(); break;
-            case 2: spriteToShow = opponentCopRearSide.get(); break;
+    }
+
+    if (mountainSprite && mountainSprite->GetSurface()) {
+        SDL_Surface* src = mountainSprite->GetSurface();
+        const int baseOffset = ((static_cast<int>(mountainOffsetAccum) % src->w) + src->w) % src->w;
+        const int startY = 47;
+        for (int pass = 0; pass < 2; ++pass) {
+            const int drawX = -baseOffset + pass * src->w;
+            for (int y = 0; y < src->h; ++y) {
+                const int py = startY + y;
+                if (py < 0 || py >= GAME_RACING_HEIGHT) {
+                    continue;
+                }
+                for (int x = 0; x < src->w; ++x) {
+                    const int px = drawX + x;
+                    if (px < 0 || px >= GAME_WIDTH) {
+                        continue;
+                    }
+                    Uint32 srcPixel = 0;
+                    const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
+                    std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+                    Uint8 r = 0;
+                    Uint8 g = 0;
+                    Uint8 b = 0;
+                    Uint8 a = 255;
+                    SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+                    if (a > 0) {
+                        PutPixel(pixels, px, py, {r, g, b, a});
+                    }
+                }
+            }
         }
-    } else if (relativeDistance < 8.0f) {
-        // Player is beside opponent - show FRONT_SIDE view
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyFrontSide.get(); break;
-            case 1: spriteToShow = opponentChryslerFrontSide.get(); break;
-            case 2: spriteToShow = opponentCopFrontSide.get(); break;
+    }
+}
+
+void Racing::RenderRoad(int lastVisible) {
+    for (int y = kClipTop; y <= kClipBottom; ++y) {
+        SDL_Color grass = (y & 1) ? kGrassA : kGrassB;
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, grass);
+        }
+    }
+
+    for (int k = 0; k < lastVisible; ++k) {
+        const RowProjection& nearRow = rows[k];
+        const RowProjection& farRow = rows[k + 1];
+        if (nearRow.y <= farRow.y) {
+            continue;
+        }
+
+        const int yStart = ClampInt(nearRow.y - 1, kClipTop, kClipBottom);
+        const int yEnd = ClampInt(farRow.y, kClipTop, kClipBottom);
+        for (int y = yStart; y >= yEnd; --y) {
+            const int dy = std::max(1, nearRow.y - farRow.y);
+            const int fromNear = nearRow.y - y;
+            const int lx = nearRow.leftX + ((farRow.leftX - nearRow.leftX) * fromNear) / dy;
+            const int rx = nearRow.rightX + ((farRow.rightX - nearRow.rightX) * fromNear) / dy;
+            const int left = ClampInt(std::min(lx, rx), -200, 520);
+            const int right = ClampInt(std::max(lx, rx), -200, 520);
+            if (right < 0 || left >= GAME_WIDTH) {
+                continue;
+            }
+
+            const uint16_t flags = track.flags[nearRow.seg];
+            const bool city = (flags & 0x0001) != 0;
+            const SDL_Color roadColor = city ? kRoadCity : kRoadA;
+            const int drawL = std::max(0, left);
+            const int drawR = std::min(GAME_WIDTH - 1, right);
+            for (int x = drawL; x <= drawR; ++x) {
+                PutPixel(pixels, x, y, roadColor);
+            }
+
+            if (city) {
+                for (int i = 0; i < 2; ++i) {
+                    const int curbL = drawL + i;
+                    const int curbR = drawR - i;
+                    if (curbL >= 0 && curbL < GAME_WIDTH) {
+                        PutPixel(pixels, curbL, y, kCurbGray);
+                    }
+                    if (curbR >= 0 && curbR < GAME_WIDTH) {
+                        PutPixel(pixels, curbR, y, kCurbGray);
+                    }
+                }
+            }
+
+            if ((flags & 0x0008) != 0) {
+                const int midpoint = (nearRow.y + farRow.y) / 2;
+                if (y > midpoint) {
+                    const int cx = (left + right) / 2;
+                    const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
+                    PutPixel(pixels, cx, y, dashColor);
+                    PutPixel(pixels, cx + 1, y, dashColor);
+                }
+            }
+        }
+    }
+
+    if (lastVisible >= 1) {
+        const RowProjection& row0 = rows[0];
+        const RowProjection& row1 = rows[1];
+        const int yStart = ClampInt(row0.y, kClipTop, kClipBottom);
+        for (int y = yStart; y <= kClipBottom; ++y) {
+            const int dy = std::max(1, row0.y - row1.y);
+            const int extra = y - row0.y;
+            const int lx = row0.leftX + ((row0.leftX - row1.leftX) * extra) / dy;
+            const int rx = row0.rightX + ((row0.rightX - row1.rightX) * extra) / dy;
+            const int left = std::max(0, std::min(lx, rx));
+            const int right = std::min(GAME_WIDTH - 1, std::max(lx, rx));
+            const SDL_Color roadColor = (track.flags[row0.seg] & 0x0001) ? kRoadCity : kRoadA;
+            for (int x = left; x <= right; ++x) {
+                PutPixel(pixels, x, y, roadColor);
+            }
+        }
+    }
+
+    if (lastVisible == kForwardRows - 1) {
+        const int horizonFillEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
+        for (int y = kClipTop; y < horizonFillEnd; ++y) {
+            const SDL_Color grass = (y & 1) ? kGrassA : kGrassB;
+            for (int x = 0; x < GAME_WIDTH; ++x) {
+                PutPixel(pixels, x, y, grass);
+            }
         }
     } else {
-        // Player is ahead of opponent - show opponent BEHIND
-        // Use BEHIND_1 to BEHIND_4 based on distance (getting smaller)
-        float distRange = (relativeDistance - 8.0f) / 30.0f; // 0.0 at 8, 1.0 at 38
-        int behindFrame = std::min(3, std::max(0, static_cast<int>(distRange * 4.0f)));
-        
-        switch (opponentCarType) {
-            case 0: spriteToShow = opponentChevyBehind[behindFrame].get(); break;
-            case 1: spriteToShow = opponentChryslerBehind[behindFrame].get(); break;
-            case 2: spriteToShow = opponentCopBehind[behindFrame].get(); break;
+        const int skyEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
+        for (int y = kClipTop; y < skyEnd; ++y) {
+            for (int x = 0; x < GAME_WIDTH; ++x) {
+                PutPixel(pixels, x, y, kSkyColor);
+            }
         }
-    }
-    
-    if (!spriteToShow || !spriteToShow->GetSurface()) {
-        return;
-    }
-    
-    // Calculate screen position for opponent
-    // Use similar perspective calculation as roadside sprites
-    float distance = fabs(relativeDistance);
-    float perspective = 1.0f - (distance / 100.0f);
-    if (perspective <= 0 || perspective > 1.0f) return;
-    
-    int horizonY = GAME_RACING_HEIGHT / 2;
-    int screenY = horizonY + static_cast<int>(perspective * (GAME_RACING_HEIGHT / 2));
-    if (screenY >= GAME_RACING_HEIGHT) return;
-    
-    // Calculate road width and position at this perspective
-    float fRoadWidth = 0.21f + perspective * 0.98f;
-    fRoadWidth *= 0.8f;
-    
-    float fMiddlePoint = 0.5f + fCurvature * 0.4f * powf((1.0f - perspective), 2.5f);
-    fMiddlePoint -= fCarPos * 0.25f; // Shift with player car position
-    
-    // Add opponent's lateral position offset
-    fMiddlePoint += opponentCarPos * 0.2f;
-    
-    int screenX = static_cast<int>(fMiddlePoint * GAME_WIDTH);
-    
-    // Get sprite dimensions
-    SDL_Surface* spriteSurface = spriteToShow->GetSurface();
-    int spriteWidth = spriteSurface->w;
-    int spriteHeight = spriteSurface->h;
-    
-    // Position sprite centered horizontally and on the ground
-    int drawX = screenX - spriteWidth / 2;
-    int drawY = screenY - spriteHeight;
-    
-    // Set up destination rectangle
-    SDL_Rect dstRect = {drawX, drawY, spriteWidth, spriteHeight};
-    SDL_Rect srcRect = {0, 0, spriteWidth, spriteHeight};
-    
-    // Clamp to screen bounds
-    SDL_Rect originalSrcRect = srcRect;
-    if (dstRect.x < 0) {
-        int leftClip = -dstRect.x;
-        srcRect.x = originalSrcRect.x + leftClip;
-        srcRect.w = originalSrcRect.w - leftClip;
-        dstRect.w += dstRect.x;
-        dstRect.x = 0;
-    }
-    if (dstRect.x + dstRect.w > GAME_WIDTH) {
-        int overflow = (dstRect.x + dstRect.w) - GAME_WIDTH;
-        srcRect.w = originalSrcRect.w - overflow;
-        dstRect.w -= overflow;
-    }
-    if (dstRect.y < 0) {
-        int topClip = -dstRect.y;
-        srcRect.y = originalSrcRect.y + topClip;
-        srcRect.h = originalSrcRect.h - topClip;
-        dstRect.h += dstRect.y;
-        dstRect.y = 0;
-    }
-    if (dstRect.y + dstRect.h > GAME_RACING_HEIGHT) {
-        int overflow = (dstRect.y + dstRect.h) - GAME_RACING_HEIGHT;
-        srcRect.h = originalSrcRect.h - overflow;
-        dstRect.h -= overflow;
-    }
-    
-    // Draw the opponent car sprite
-    if (srcRect.w > 0 && srcRect.h > 0 && dstRect.w > 0 && dstRect.h > 0) {
-        SDL_BlitSurface(spriteSurface, &srcRect, pixels, &dstRect);
     }
 }
 
+void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags) {
+    const int left = row.leftX;
+    const int right = row.rightX;
+    if (right - left < 4) {
+        return;
+    }
+
+    const int yTop = ClampInt(row.archY, 0, GAME_RACING_HEIGHT - 1);
+    const int yBottom = ClampInt(row.y, 0, GAME_RACING_HEIGHT - 1);
+    if (yBottom <= yTop) {
+        return;
+    }
+
+    for (int y = yTop; y <= yBottom; ++y) {
+        PutPixel(pixels, left, y, kArchGray);
+        PutPixel(pixels, left + 1, y, kArchGray);
+        PutPixel(pixels, right, y, kArchGray);
+        PutPixel(pixels, right - 1, y, kArchGray);
+    }
+
+    const int barHeight = std::max(3, (yBottom - yTop) / 4);
+    for (int y = yTop; y < std::min(GAME_RACING_HEIGHT, yTop + barHeight); ++y) {
+        for (int x = std::max(0, left); x <= std::min(GAME_WIDTH - 1, right); ++x) {
+            PutPixel(pixels, x, y, kArchGray);
+        }
+    }
+
+    int bannerWidth = ((right - left) * 3) / 4;
+    if (bannerWidth < 8) {
+        return;
+    }
+
+    Bitmap* banner = nullptr;
+    if (flags & 0x8000) {
+        banner = signRoute69Sprite.get();
+    } else if (flags & 0x4000) {
+        banner = signExit48Sprite.get();
+    } else if (flags & 0x2000 || flags & 0x1000) {
+        banner = signCountyLineSprite.get();
+    }
+    if (!banner || !banner->GetSurface()) {
+        return;
+    }
+
+    SDL_Surface* src = banner->GetSurface();
+    const int bannerHeight = std::max(1, bannerWidth * src->h / std::max(1, src->w));
+    const int centerX = (left + right) / 2;
+    DrawNearestNeighborScaled(banner, centerX - bannerWidth / 2, yTop + 1, bannerWidth, bannerHeight, false, false);
+}
+
+void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
+    auto drawSlot = [&](int slot, int k, int side, bool centerInRoad) {
+        if (slot < 0 || slot >= 20 || !roadsideSprites[slot]) {
+            return;
+        }
+        const RowProjection& row = rows[k];
+        const int sr = ClampInt(k - 2, 0, 10);
+        const int w = kSpriteScale[slot][sr][0];
+        const int h = kSpriteScale[slot][sr][1];
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        if (centerInRoad) {
+            const int x = (row.leftX + row.rightX) / 2 - w / 2;
+            DrawNearestNeighborScaled(roadsideSprites[slot].get(), x, row.y, w, h, false, true);
+        } else if (side < 0) {
+            DrawNearestNeighborScaled(roadsideSprites[slot].get(), row.leftX - 2, row.y, w, h, true, true);
+        } else {
+            DrawNearestNeighborScaled(roadsideSprites[slot].get(), row.rightX + 2, row.y, w, h, false, true);
+        }
+    };
+
+    for (int k = std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
+        const int seg = rows[k].seg;
+        if (seg < 0 || seg >= kTrackSegments) {
+            continue;
+        }
+        const uint16_t L = track.left[seg];
+        const uint16_t R = track.right[seg];
+        const uint16_t F = track.flags[seg];
+        const bool city = (F & 0x0001) != 0;
+
+        if ((F & 0x0004) == 0) {
+            if (L & 0x0020) drawSlot(0, k, -1, false);
+            if (L & 0x0100) drawSlot(4, k, -1, false);
+            if (L & 0x0800) drawSlot(3, k, -1, false);
+            if (L & 0x1000) drawSlot(6, k, -1, false);
+            if (L & 0x0001) drawSlot(1, k, -1, city);
+            if (L & 0x0004) drawSlot(7, k, -1, false);
+            if (L & 0x0008) drawSlot(8, k, -1, false);
+            if (L & 0x0040) drawSlot(city ? 2 : 10, k, -1, false);
+            if (L & 0x0080) drawSlot(11, k, -1, false);
+
+            if (R & 0x0004) drawSlot(7, k, +1, false);
+            if (R & 0x0008) drawSlot(8, k, +1, false);
+            if (R & 0x0040) drawSlot(city ? 2 : 10, k, +1, false);
+            if (R & 0x0080) drawSlot(11, k, +1, false);
+            if (R & 0x0020) drawSlot(0, k, +1, false);
+            if (R & 0x0100) drawSlot(4, k, +1, false);
+            if (R & 0x0800) drawSlot(3, k, +1, false);
+            if (R & 0x1000) drawSlot(6, k, +1, false);
+            if (R & 0x2000) drawSlot(18, k, +1, false);
+            if (R & 0x4000) drawSlot(19, k, +1, false);
+            if (R & 0x0001) drawSlot(1, k, +1, city);
+
+            if (F & 0x0002) drawSlot(9, k, +1, false);
+            if (F & 0x0100) drawSlot(5, k, +1, false);
+            if (F & 0x0800) drawSlot(15, k, +1, false);
+            if (F & 0x0200) drawSlot(16, k, +1, false);
+            if (F & 0x0400) drawSlot(17, k, +1, false);
+        }
+
+        if (F & 0xf000) {
+            DrawOverheadArch(rows[k], F);
+        }
+    }
+}
+
+void Racing::DrawNpcCar(int lastVisible) {
+    if (!opponentActive) {
+        return;
+    }
+
+    const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
+    if (delta < 0 || delta > 14) {
+        return;
+    }
+
+    const int k = ClampInt(delta, 0, std::min(lastVisible, 14));
+    const RowProjection& row = rows[k];
+    int frameIndex = ClampInt(k / 2, 0, 6);
+    Bitmap* sprite = nullptr;
+    switch (opponentCarType) {
+        case 0: sprite = opponentChevyRear[frameIndex].get(); break;
+        case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
+        case 2: sprite = opponentCopRear[frameIndex].get(); break;
+        default: sprite = opponentChevyRear[frameIndex].get(); break;
+    }
+    if (!sprite || !sprite->GetSurface()) {
+        return;
+    }
+
+    const srrace::CarState& p = sim.Player();
+    const int x = ProjectX(p, row.seg, row.distance, row.curveDelta, sim.Npc().lateral);
+    const int roadWidth = std::max(20, row.rightX - row.leftX);
+    const int dstW = std::max(8, roadWidth / 3);
+    SDL_Surface* src = sprite->GetSurface();
+    const int dstH = std::max(6, dstW * src->h / std::max(1, src->w));
+    DrawNearestNeighborScaled(sprite, x - dstW / 2, row.y, dstW, dstH, false, true);
+}
+
+void Racing::DrawRearviewMirror() {
+    const int mirrorX = 242;
+    const int mirrorY = 9;
+    const int mirrorW = 76;
+    const int mirrorH = 21;
+    for (int y = mirrorY; y < mirrorY + mirrorH; ++y) {
+        for (int x = mirrorX; x < mirrorX + mirrorW; ++x) {
+            PutPixel(pixels, x, y, {0, 0, 0, 255});
+        }
+    }
+
+    if (!rearviewMirrorSprite || !rearviewMirrorSprite->GetSurface()) {
+        return;
+    }
+    SDL_Surface* src = rearviewMirrorSprite->GetSurface();
+    const int srcX0 = 1;
+    const int srcY0 = 0;
+    const int srcW = 76;
+    const int srcH = 11;
+    const int dstY = mirrorY + 6;
+    for (int y = 0; y < srcH; ++y) {
+        for (int x = 0; x < srcW; ++x) {
+            const int dstX = mirrorX + x;
+            const int py = dstY + y;
+            if (dstX < 0 || dstX >= GAME_WIDTH || py < 0 || py >= GAME_RACING_HEIGHT) {
+                continue;
+            }
+            const int sx = srcX0 + x;
+            const int sy = srcY0 + y;
+            Uint32 srcPixel = 0;
+            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + sy * src->pitch + sx * src->format->BytesPerPixel;
+            std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+            Uint8 r = 0;
+            Uint8 g = 0;
+            Uint8 b = 0;
+            Uint8 a = 255;
+            SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+            if (a > 0) {
+                PutPixel(pixels, dstX, py, {r, g, b, a});
+            }
+        }
+    }
+}
+
+void Racing::DrawHud() {
+    if (!hud) {
+        return;
+    }
+    char gearText[16];
+    if (IsAutomatic()) {
+        std::snprintf(gearText, sizeof(gearText), "Gear: %s",
+                      sim.Player().gear == 0 ? "N" : "D");
+    } else if (sim.Player().gear == 0) {
+        std::snprintf(gearText, sizeof(gearText), "Gear: N");
+    } else {
+        std::snprintf(gearText, sizeof(gearText), "Gear: %d", sim.Player().gear);
+    }
+    char infoText[128];
+    const int distanceToFinish = std::max(sim.FinishSegment() - static_cast<int>(sim.Player().segPos), 0);
+    std::snprintf(infoText, sizeof(infoText), "Speed: %3d mph  RPM: %4d  To finish: %d",
+                  static_cast<int>(sim.Player().speed),
+                  static_cast<int>(sim.Player().rpm),
+                  distanceToFinish);
+    hud->Clear();
+    hud->AddText(6, 0, gearText);
+    hud->AddText(68, 0, infoText);
+    hud->Draw();
+}
+
+void Racing::HandleOutcomeAfterTicks() {
+    const Uint32 now = SDL_GetTicks();
+    if (sim.PlayerCrashed() && !crashHandled) {
+        bShowCrashOverlay = true;
+        crashHandled = true;
+        crashOverlayEndMs = now + 3000;
+        return;
+    }
+
+    if (crashHandled && bShowCrashOverlay && now >= crashOverlayEndMs) {
+        bShowCrashOverlay = false;
+        if (raceOutcome == RaceOutcome::Ongoing) {
+            raceOutcome = RaceOutcome::PlayerLost;
+        }
+    }
+
+    if (raceOutcome != RaceOutcome::Ongoing) {
+        return;
+    }
+
+    if (sim.PlayerFinished()) {
+        if (sim.NpcAi().gaveUp) {
+            raceOutcome = RaceOutcome::PlayerWon;
+            return;
+        }
+        if (sim.NpcFinished() && firstNpcFinishTick >= 0 && firstNpcFinishTick < firstPlayerFinishTick) {
+            raceOutcome = RaceOutcome::PlayerLost;
+        } else {
+            raceOutcome = RaceOutcome::PlayerWon;
+        }
+    }
+}
+
+void Racing::Draw(float fElapsedTime, SDL_Event* event) {
+    (void)event;
+    if (!simInitialized) {
+        InitializeRaceSimulation();
+    }
+    if (!engineSoundStarted && audioManager) {
+        audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
+        engineSoundStarted = true;
+    }
+
+    fixedAccumulator += std::max(0.0f, fElapsedTime);
+    fixedAccumulator = std::min(fixedAccumulator, kMaxAccumulatedSeconds);
+
+    const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
+    uint16_t baseInput = 0;
+    const bool up = keyboard && keyboard[SDL_SCANCODE_UP];
+    const bool down = keyboard && keyboard[SDL_SCANCODE_DOWN];
+    const bool left = keyboard && keyboard[SDL_SCANCODE_LEFT];
+    const bool right = keyboard && keyboard[SDL_SCANCODE_RIGHT];
+    const bool space = keyboard && keyboard[SDL_SCANCODE_SPACE];
+
+    if (up) baseInput |= srrace::INPUT_THROTTLE;
+    if (down && !up) baseInput |= srrace::INPUT_BRAKE;
+    if (left) baseInput |= srrace::INPUT_STEER_LEFT;
+    if (right) baseInput |= srrace::INPUT_STEER_RIGHT;
+    if (space && !prevSpaceDown) {
+        pendingShift = true;
+    }
+    prevSpaceDown = space;
+
+    while (fixedAccumulator >= kFixedStepSeconds) {
+        uint16_t inputBits = baseInput;
+        if (pendingShift) {
+            inputBits |= srrace::INPUT_SHIFT;
+            pendingShift = false;
+        }
+        sim.Tick(inputBits);
+        ++simTickCounter;
+
+        if (firstPlayerFinishTick < 0 && (sim.Player().endFlags & srrace::END_FINISHED)) {
+            firstPlayerFinishTick = simTickCounter;
+        }
+        if (firstNpcFinishTick < 0 && (sim.Npc().endFlags & srrace::END_FINISHED)) {
+            firstNpcFinishTick = simTickCounter;
+        }
+        fixedAccumulator -= kFixedStepSeconds;
+    }
+
+    HandleOutcomeAfterTicks();
+
+    if (audioManager) {
+        audioManager->UpdateEnginePitch(sim.Player().rpm);
+    }
+
+    if (SDL_LockSurface(pixels) != 0) {
+        return;
+    }
+
+    RenderSkyAndParallax(fElapsedTime);
+    const int lastVisible = BuildRowTableAndGetLastVisible();
+    RenderRoad(lastVisible);
+    DrawRoadsideAndArchSprites(lastVisible);
+    DrawNpcCar(lastVisible);
+    DrawRearviewMirror();
+
+    SDL_UnlockSurface(pixels);
+    DrawHud();
+}
+
+void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
+    DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(sim.Player().rpm), 1500.0f, 7000.0f);
+}
+
+void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
+    DrawGaugeNeedle(renderer, 196, 129, static_cast<float>(sim.Player().speed), 0.0f, 140.0f);
+}
+
+SDL_Surface* Racing::GetSurface() {
+    return pixels;
+}

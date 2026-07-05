@@ -1,22 +1,21 @@
-#pragma once  // Add header guard
+#pragma once
 
-/*
-https://raw.githubusercontent.com/OneLoneCoder/Javidx9/master/ConsoleGameEngine/SmallerProjects/OneLoneCoder_RetroArcadeRacer.cpp
-*/
-
-#include <iostream>
-#include <string>
-#include <list>
-#include <set>
-#include <memory>
 #include <SDL2/SDL.h>
+
+#include <array>
+#include <cstdint>
+#include <memory>
 #include <vector>
-#include "scene.h"
-#include "parsers/libp.h"
-#include "parsers/carcolor.h"
-#include "bitmap.h"
-#include "ui/hud.h"
+
 #include "audio/audio_manager.h"
+#include "bitmap.h"
+#include "parsers/carcolor.h"
+#include "parsers/libp.h"
+#include "race/race_sim.h"
+#include "race/race_types.h"
+#include "ui/hud.h"
+
+class Car;
 
 enum class RaceOutcome {
     Ongoing,
@@ -25,200 +24,126 @@ enum class RaceOutcome {
 };
 
 class Racing {
-
 private:
+    struct RowProjection {
+        int y = 0;
+        int leftX = 0;
+        int rightX = 0;
+        int shoulderLX = 0;
+        int shoulderRX = 0;
+        int archY = 0;
+        int distance = 4;
+        int seg = 0;
+        int curveDelta = 0;
+    };
 
-	SDL_Color black = { 0, 0, 0, 255 };
-	SDL_Color yellow = { 255, 238, 0, 255 };
-	SDL_Color white = { 255, 255, 255, 255 };
-	SDL_Color red = { 170, 0, 0, 255 };
-	SDL_Color green = { 0, 119, 0, 255 };
-	SDL_Color darkGreen = { 0, 119, 0, 255 };
-	SDL_Color grey = { 200, 200, 200, 255 };
+    HUD* hud = nullptr;
+    SDL_Surface* pixels = nullptr;
+    AudioManager* audioManager = nullptr;
+    bool engineSoundStarted = false;
 
-	HUD* hud = nullptr;
-	SDL_Surface* pixels = nullptr;
-	AudioManager* audioManager = nullptr;
-	bool engineSoundStarted = false;  // Track if engine sound has been started for this race
+    SrTrackType currentTrackType = SR_TRACK_ROAD_RACE;
+    bool automaticOverride = false;
+    bool simInitialized = false;
+    bool bShowCrashOverlay = false;
+    bool crashHandled = false;
+    Uint32 crashOverlayEndMs = 0;
+    float fixedAccumulator = 0.0f;
+    bool prevSpaceDown = false;
+    bool pendingShift = false;
+    int firstPlayerFinishTick = -1;
+    int firstNpcFinishTick = -1;
+    int simTickCounter = 0;
 
-	float fDistance = 0.0f;			// Distance car has travelled around track
-	float fCurvature = 0.0f;		// Current track curvature, lerped between track sections
-	float fTrackCurvature = 0.0f;	// Accumulation of track curvature
-	float fTrackDistance = 0.0f;	// Total distance of track
+    srrace::TrackData track {};
+    srrace::RaceRng rng;
+    int trackVariant = 0;
+    srrace::RaceSim sim;
+    std::array<RowProjection, 15> rows {};
 
-	float fCarPos = 0.0f;			// Current car position (-1.0 to 1.0, 0 = center)
-	float fPlayerCurvature = 0.0f;			// Accumulation of player curvature
-	float fSpeed = 0.0f;			// Current player speed
-	bool bCrashed = false;			// Whether the car has crashed
-	float fCrashRecoveryTime = 0.0f;	// Time to recover from crash
-	bool bShowCrashOverlay = false;		// Whether to show crash overlay
-	float fCrashOverlayTime = 0.0f;		// Time crash overlay has been shown
+    float cloudOffsetAccum = 0.0f;
+    float mountainOffsetAccum = 0.0f;
 
-	// Physics variables (based on Street Rod assembly analysis)
-	int16_t velocity = 1500;		// Current velocity/RPM value (1500 = idle, 5700 = redline)
-	int16_t intermediate = 0;		// velocity * gear_ratio (represents road speed, preserved across shifts)
-	int16_t rpm = 1500;				// Current engine RPM (same as velocity - this IS the engine speed)
-	int16_t currentGear = 0;		// Current gear (0 = 1st, 1 = 2nd, 2 = 3rd, 3 = 4th)
-	int16_t maxGear = 3;			// Maximum gear (3 = 4-speed transmission)
-	int16_t gearRatios[4] = {280, 190, 135, 100};  // Gear ratios scaled by 100 (2.80, 1.90, 1.35, 1.00)
-	int16_t transmissionDamage = 0;	// Over-rev damage accumulator
-	bool isAutomatic = false;		// Transmission type
-	float acceleration = 15.0f;		// Acceleration rate (added to intermediate per frame @ 60fps)
-	float deceleration = 10.0f;		// Deceleration rate (subtracted from velocity per frame @ 60fps)
+    std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
+    std::unique_ptr<Bitmap> mountainSprite;
+    std::unique_ptr<Bitmap> cloudSprite;
+    std::unique_ptr<Bitmap> rearviewMirrorSprite;
+    std::unique_ptr<Bitmap> signCountyLineSprite;
+    std::unique_ptr<Bitmap> signRoute69Sprite;
+    std::unique_ptr<Bitmap> signExit48Sprite;
 
-	// Input state
-	bool shiftUpPressed = false;	// Track shift up button state
-	bool shiftDownPressed = false;	// Track shift down button state
+    std::unique_ptr<Bitmap> opponentChevyFrontSide;
+    std::unique_ptr<Bitmap> opponentChevyRearSide;
+    std::unique_ptr<Bitmap> opponentChevyRear[7];
+    std::unique_ptr<Bitmap> opponentChevyBehind[4];
+    std::unique_ptr<Bitmap> opponentChryslerFrontSide;
+    std::unique_ptr<Bitmap> opponentChryslerRearSide;
+    std::unique_ptr<Bitmap> opponentChryslerRear[7];
+    std::unique_ptr<Bitmap> opponentChryslerBehind[4];
+    std::unique_ptr<Bitmap> opponentCopFrontSide;
+    std::unique_ptr<Bitmap> opponentCopRearSide;
+    std::unique_ptr<Bitmap> opponentCopRear[7];
+    std::unique_ptr<Bitmap> opponentCopBehind[4];
 
-	// Timing management
-	Uint64 lastUpdateTime = 0;		// Last update time in milliseconds
-	bool firstUpdate = true;		// Flag to handle first update
-	float raceStartGracePeriod = 3.0f;	// Grace period at race start (no crashes)
-
-	std::vector<std::pair<float, float>> vecTrack; // Track sections, sharpness of bend, length of section
-
-	// Street Rod track data integration
-	std::unique_ptr<TrackReader> trackReader;
-	std::vector<SrTrackCoordSegment> currentTrackSegments;
-	std::vector<SrRoadSideSpriteRecord> currentRoadsideSprites;
-	SrTrackType currentTrackType = SR_TRACK_ROAD_RACE;
-
-	// Sprite tracking for logging
-	std::set<int> passedSprites;  // Track which sprites we've already passed
-	float lastLoggedDistance = -1.0f;
-
-	// Track progress logging
-	float lastProgressLogDistance = -1.0f;
-	int lastLoggedSegment = -1;
-
-	// Sprite bitmaps for rendering
-	std::unique_ptr<Bitmap> telephonePoleSprite;
-	std::unique_ptr<Bitmap> treeSprite;
-	std::unique_ptr<Bitmap> bushSprite;
-	std::unique_ptr<Bitmap> roadPostSprite;
-	std::unique_ptr<Bitmap> mountainSprite;
-	std::unique_ptr<Bitmap> cloudSprite;
-	std::unique_ptr<Bitmap> rearviewMirrorSprite;
-
-	// Overhead sign sprites (rendered as pseudo-3D trapezoids spanning the road)
-	std::unique_ptr<Bitmap> signCountryLineSprite;  // ID 14 - finish line
-	std::unique_ptr<Bitmap> signRoute69Sprite;      // ID 33
-	std::unique_ptr<Bitmap> signCityLimitsSprite;   // ID 34
-	std::unique_ptr<Bitmap> signExit48Sprite;       // ID 35
-
-	// Opponent car sprites (3 car types: Chevy, Chrysler, Cop)
-	// Each car type has: FRONT_SIDE, REAR_SIDE, REAR_1-7, BEHIND_1-4
-	std::unique_ptr<Bitmap> opponentChevyFrontSide;
-	std::unique_ptr<Bitmap> opponentChevyRearSide;
-	std::unique_ptr<Bitmap> opponentChevyRear[7];     // REAR_1 to REAR_7
-	std::unique_ptr<Bitmap> opponentChevyBehind[4];   // BEHIND_1 to BEHIND_4
-
-	std::unique_ptr<Bitmap> opponentChryslerFrontSide;
-	std::unique_ptr<Bitmap> opponentChryslerRearSide;
-	std::unique_ptr<Bitmap> opponentChryslerRear[7];
-	std::unique_ptr<Bitmap> opponentChryslerBehind[4];
-
-	std::unique_ptr<Bitmap> opponentCopFrontSide;
-	std::unique_ptr<Bitmap> opponentCopRearSide;
-	std::unique_ptr<Bitmap> opponentCopRear[7];
-	std::unique_ptr<Bitmap> opponentCopBehind[4];
-
-	// Opponent state
-	bool opponentActive = false;
-	float opponentDistance = 0.0f;         // Opponent's distance along track
-	float opponentSpeed = 0.5f;            // Opponent's speed (0-1)
-	float opponentCarPos = 0.0f;           // Opponent's lateral position
-	int opponentCarType = 0;               // 0=Chevy, 1=Chrysler, 2=Cop
-	StandardCarColor opponentColor = CarColorRed;  // Opponent's car color
-
-	std::list<float> listLapTimes;		// List of previous lap times
-	float fCurrentLapTime;			// Current lap time
-
+    bool opponentActive = false;
+    int opponentCarType = 0;
+    StandardCarColor opponentColor = CarColorRed;
     RaceOutcome raceOutcome = RaceOutcome::Ongoing;
 
-	// Move to generic
-	void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
-
-	// Street Rod track integration methods
-	void LoadStreetRodTrack(const std::vector<uint8_t>& binaryData, SrTrackType trackType);
-	void ConvertTrackCoordinatesToRacing();
-	float CalculateSegmentCurvature(const SrTrackCoordSegment& segment1, const SrTrackCoordSegment& segment2);
-	float CalculateSegmentLength(const SrTrackCoordSegment& segment);
-	void CheckForSpriteEncounters(float currentDistance);
-	void LogTrackProgress(float currentDistance, int currentSegment);
-	void DrawRoadsideSprites(float currentDistance);
-	void DrawSpriteIndicator(float distance, uint16_t spriteId, bool leftSide);
-	void LoadSpriteBitmaps();
-	void DrawRearviewMirror(int mirrorLevel);
-	bool CheckCarCollisionWithSprite(float spriteDistance, bool leftSide);
-	void HandleCrash();
-
-	// Overhead sign rendering (pseudo-3D trapezoids)
-	void DrawOverheadSigns(float currentDistance);
-	void DrawOverheadSignTrapezoid(float distance, uint16_t signId);
-	void DrawOverheadSignBitmaps(float currentDistance);
-
-	// Opponent car management (internal methods)
-	void LoadOpponentCarSprites();
-	std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);  // Load sprite with modified palette index 7
-	void UpdateOpponent(float deltaTime);
-	void DrawOpponent();
-
-	// Physics methods
-	void UpdatePhysics(float deltaTime, bool accelerating);
-	void ShiftGear(int direction);
-	void UpdateRPM();
-	void UpdateTransmissionDamage();
-	void AutoUpshift();
-	void AutoDownshift();
-
-	// Gauge needle helper
-	void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY,
-	                     float value, float minValue, float maxValue);
+    void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
+    void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue);
+    void LoadSpriteBitmaps();
+    void DrawRearviewMirror();
+    std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);
+    void LoadOpponentCarSprites();
+    void InitializeRaceSimulation();
+    srrace::CarSetup BuildCarSetupFromCar(const Car* car, bool isPlayer) const;
+    int RaceTypeFromTrackType(SrTrackType trackType) const;
+    int ProjectX(const srrace::CarState& player, int seg, int d, int curveDelta, int lateral) const;
+    int BuildRowTableAndGetLastVisible();
+    void RenderSkyAndParallax(float frameSeconds);
+    void RenderRoad(int lastVisible);
+    void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom);
+    void DrawRoadsideAndArchSprites(int lastVisible);
+    void DrawOverheadArch(const RowProjection& row, uint16_t flags);
+    void DrawNpcCar(int lastVisible);
+    void DrawHud();
+    void HandleOutcomeAfterTicks();
 
 public:
-
     Racing();
     Racing(AudioManager* audioMgr);
     ~Racing();
-	void Draw(float fElapsedTime, SDL_Event *event);
+
+    void Draw(float fElapsedTime, SDL_Event* event);
     SDL_Surface* GetSurface();
 
-    // Gauges (public - called by Driving scene to draw on top of dashboard)
     void DrawTachometerNeedleToRenderer(SDL_Renderer* renderer);
     void DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer);
 
-    // Street Rod track loading
     void LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType trackType = SR_TRACK_ROAD_RACE);
     void SetTrackType(SrTrackType trackType);
-    SrTrackType GetTrackType() const { return currentTrackType; }
+    SrTrackType GetTrackType() const;
 
-    // Car configuration
-    void SetTransmissionType(bool automatic) { isAutomatic = automatic; }
+    void SetTransmissionType(bool automatic);
 
-    // Opponent configuration
-    void InitializeOpponent();  // Initialize opponent from current state
-    void SetOpponentActive(bool active) { opponentActive = active; }
-    void SetOpponentCarType(int carType) { opponentCarType = carType; }
-    void SetOpponentColor(StandardCarColor color) { opponentColor = color; }
+    void InitializeOpponent();
+    void SetOpponentActive(bool active);
+    void SetOpponentCarType(int carType);
+    void SetOpponentColor(StandardCarColor color);
 
-    // Get current car speed for animations
-    float GetSpeed() const { return fSpeed; }
+    float GetSpeed() const;
 
-    // Get physics state
-    int16_t GetCurrentGear() const { return currentGear; }
-    int16_t GetRPM() const { return rpm; }
-    int16_t GetVelocity() const { return velocity; }
-    bool IsTransmissionDamaged() const { return transmissionDamage > 0; }
-    bool IsAutomatic() const { return isAutomatic; }
+    int16_t GetCurrentGear() const;
+    int16_t GetRPM() const;
+    int16_t GetVelocity() const;
+    bool IsTransmissionDamaged() const;
+    bool IsAutomatic() const;
 
-    // Crash overlay state
-    bool ShouldShowCrashOverlay() const { return bShowCrashOverlay; }
-    void HideCrashOverlay() { bShowCrashOverlay = false; }
+    bool ShouldShowCrashOverlay() const;
+    void HideCrashOverlay();
 
-    // Race outcome — set once player or opponent crosses finish line.
-    RaceOutcome GetRaceOutcome() const { return raceOutcome; }
-    void ResetRaceOutcome() { raceOutcome = RaceOutcome::Ongoing; }
+    RaceOutcome GetRaceOutcome() const;
+    void ResetRaceOutcome();
     void ResetForNewRace();
-
 };
