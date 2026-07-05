@@ -12,13 +12,13 @@
 
 #include <tuple>
 #include <vector>
+#include <map>
 #include <fstream>
 #include <cstdint>
 #include <iomanip>
+#include <string>
 
-extern "C" {
 #include "lodepng.h"
-}
 
 enum SrLibFile {
     SrLibFileAmigaLibStart = 0,
@@ -982,6 +982,12 @@ struct BitmapOffset_t {
     uint8_t offsetYGasCap;
 };
 
+struct BitmapReplacement_t {
+    int index;
+    BitmapEntry_t entry;
+    std::vector<uint8_t> planarData;
+};
+
 struct ClassifiedEntry_t {
     int year;
     char* carName;
@@ -1159,8 +1165,11 @@ class BitmapParser {
     std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::vector<uint8_t>& data);
 	std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::string& filename);
     std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1);
+    std::vector<uint8_t>                                 ChunkyToPlanar(const std::vector<SrLibColor>& pixels, BitmapEntry_t entry, const Palette& palette, std::string* error = nullptr);
     std::vector<uint8_t>                                 GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     std::vector<uint8_t>                                 GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
+    std::vector<uint8_t>                                 PackData(const BitmapEntry_t& bitmapEntry, const std::vector<uint8_t>& planarData);
+    std::vector<uint8_t>                                 BuildAmigaLibP(const std::vector<uint8_t>& originalData, const std::map<int, std::vector<uint8_t>>& replacementPlanarData);
     std::vector<uint8_t>                                 UnpackData(const std::vector<std::pair<int, uint8_t>> &rle, const BitmapEntry_t &sprite, const std::vector<uint8_t> &data);
     std::vector<uint8_t>                                 ReadImage(const std::vector<uint8_t>& data, BitmapEntry_t entry, int index, int totalEntriesCount);
     std::vector<uint8_t>                                 ReadImage(const std::string& filename, BitmapEntry_t entry, int index, int totalEntriesCount);
@@ -1299,6 +1308,7 @@ class DataParser {
         CarMetadata_t*         SrLibDataReadDataFromFile(const char* filename, int* outCount);
         CarMetadata_t*         SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
         PartMetadata_t*        SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
+        std::vector<uint8_t>   SrLibDataWriteCarMetadataToBuffer(const std::vector<uint8_t>& data, const std::vector<CarMetadata_t>& metadata, std::string* error = nullptr);
         int                    GetCarIndex(AmigaLibAsset asset);
 
         // New: Transmission data parsing

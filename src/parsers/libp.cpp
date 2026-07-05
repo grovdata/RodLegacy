@@ -8,8 +8,39 @@
 #include <set>
 #include <cmath>
 #include <algorithm>
+#include <map>
 
 #include "carcolor.h"
+
+static void WriteUint16BE(std::vector<uint8_t>& out, uint16_t value) {
+    out.push_back((value >> 8) & 0xFF);
+    out.push_back(value & 0xFF);
+}
+
+static void WriteUint32BE(std::vector<uint8_t>& out, uint32_t value) {
+    out.push_back((value >> 24) & 0xFF);
+    out.push_back((value >> 16) & 0xFF);
+    out.push_back((value >> 8) & 0xFF);
+    out.push_back(value & 0xFF);
+}
+
+static void WriteBitmapEntryBE(std::vector<uint8_t>& out, const BitmapEntry_t& entry) {
+    WriteUint16BE(out, entry.width);
+    WriteUint16BE(out, entry.height);
+    out.push_back(entry.depth);
+    out.push_back(entry.unknown1);
+    out.insert(out.end(), entry.rleDictionary, entry.rleDictionary + sizeof(entry.rleDictionary));
+    WriteUint32BE(out, entry.offset);
+    WriteUint16BE(out, entry.sizePacked);
+}
+
+static size_t ExpectedPlanarSize(const BitmapEntry_t& entry) {
+    return ((size_t)entry.width * (size_t)entry.height * (size_t)entry.depth) / 8;
+}
+
+static bool SameColor(const SrLibColor& a, const SrLibColor& b) {
+    return a.r == b.r && a.g == b.g && a.b == b.b;
+}
 
 
 const char* SrLibCarDecalNames[16] = {
@@ -133,6 +164,77 @@ std::vector<uint8_t> BitmapParser::GetPackedData(const std::vector<uint8_t>& dat
     );
 }
 
+std::vector<uint8_t> BitmapParser::PackData(const BitmapEntry_t& bitmapEntry, const std::vector<uint8_t>& planarData) {
+    if (planarData.size() != ExpectedPlanarSize(bitmapEntry)) {
+        throw std::runtime_error("Planar data size does not match bitmap dimensions.");
+    }
+
+    std::vector<uint8_t> packed;
+    for (size_t i = 0; i < planarData.size(); ) {
+        uint8_t value = planarData[i];
+
+        if (value == 0x00 || value == 0xFF) {
+            size_t run = 1;
+            while (i + run < planarData.size() && planarData[i + run] == value && run < 256) {
+                run++;
+            }
+            packed.push_back(value);
+            packed.push_back((uint8_t)(run - 1));
+            i += run;
+        } else {
+            packed.push_back(value);
+            i++;
+        }
+    }
+
+    return packed;
+}
+
+std::vector<uint8_t> BitmapParser::BuildAmigaLibP(const std::vector<uint8_t>& originalData,
+    const std::map<int, std::vector<uint8_t>>& replacementPlanarData) {
+    auto [count, entries] = ReadEntries(originalData);
+    if (count <= 0 || entries.empty()) {
+        throw std::runtime_error("Cannot rebuild empty or invalid Amiga bitmap library.");
+    }
+
+    std::vector<BitmapEntry_t> newEntries = entries;
+    std::vector<std::vector<uint8_t>> payloads(entries.size());
+    uint32_t currentOffset = 0;
+
+    for (int i = 0; i < count; ++i) {
+        auto replacement = replacementPlanarData.find(i);
+        if (replacement != replacementPlanarData.end()) {
+            if (replacement->second.size() != ExpectedPlanarSize(entries[i])) {
+                throw std::runtime_error("Replacement planar data size does not match bitmap entry.");
+            }
+
+            memset(newEntries[i].rleDictionary, 0, sizeof(newEntries[i].rleDictionary));
+            payloads[i] = PackData(newEntries[i], replacement->second);
+        } else {
+            payloads[i] = GetPackedData(originalData, entries[i], count);
+        }
+
+        if (payloads[i].size() > UINT16_MAX) {
+            throw std::runtime_error("Packed bitmap data is too large for Amiga bitmap record.");
+        }
+        newEntries[i].offset = currentOffset;
+        newEntries[i].sizePacked = (uint16_t)payloads[i].size();
+        currentOffset += (uint32_t)payloads[i].size();
+    }
+
+    std::vector<uint8_t> out;
+    out.reserve(2 + newEntries.size() * sizeof(BitmapEntry_t) + currentOffset);
+    WriteUint16BE(out, (uint16_t)count);
+    for (const auto& entry : newEntries) {
+        WriteBitmapEntryBE(out, entry);
+    }
+    for (const auto& payload : payloads) {
+        out.insert(out.end(), payload.begin(), payload.end());
+    }
+
+    return out;
+}
+
 std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, uint8_t>>& rle, const BitmapEntry_t& sprite, const std::vector<uint8_t>& data) {
     int p = 0;
     int width = sprite.width / 8;
@@ -250,6 +352,66 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
     }
 
     return chunkyData;
+}
+
+std::vector<uint8_t> BitmapParser::ChunkyToPlanar(const std::vector<SrLibColor>& pixels,
+    BitmapEntry_t entry, const Palette& palette, std::string* error) {
+    if (entry.width <= 0 || entry.height <= 0 || entry.depth <= 0 || entry.width % 8 != 0) {
+        if (error) *error = "Invalid bitmap dimensions or depth.";
+        return {};
+    }
+
+    const size_t expectedPixels = (size_t)entry.width * (size_t)entry.height;
+    if (pixels.size() != expectedPixels) {
+        if (error) *error = "PNG pixel count does not match bitmap dimensions.";
+        return {};
+    }
+
+    const int maxColors = 1 << entry.depth;
+    if ((int)palette.size() < maxColors) {
+        if (error) *error = "Selected palette does not contain enough colors for bitmap depth.";
+        return {};
+    }
+
+    const int planeSize = (entry.width / 8) * entry.height;
+    std::vector<uint8_t> planar((size_t)planeSize * entry.depth, 0);
+
+    for (int y = 0; y < entry.height; ++y) {
+        for (int x = 0; x < entry.width; ++x) {
+            const SrLibColor& pixel = pixels[(size_t)y * entry.width + x];
+            int paletteIndex = -1;
+
+            if (pixel.a < 128) {
+                paletteIndex = 0;
+            } else {
+                for (int i = 0; i < maxColors; ++i) {
+                    if (SameColor(pixel, palette[i])) {
+                        paletteIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (paletteIndex < 0) {
+                if (error) {
+                    std::ostringstream oss;
+                    oss << "Pixel at " << x << "," << y << " is not in the selected palette.";
+                    *error = oss.str();
+                }
+                return {};
+            }
+
+            const int byteOffset = (y * entry.width + x) / 8;
+            const uint8_t bit = 1 << (7 - (x % 8));
+            for (int plane = 0; plane < entry.depth; ++plane) {
+                if (paletteIndex & (1 << plane)) {
+                    planar[(size_t)plane * planeSize + byteOffset] |= bit;
+                }
+            }
+        }
+    }
+
+    return planar;
 }
 
 // Converts 12bit palette to RGB and adds EHB colors needed for the Amiga graphics
@@ -849,6 +1011,110 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
     return true;
 }
 
+static constexpr size_t SR_DATA_OFFSETS_START = 0x34C;
+static constexpr size_t SR_DATA_CLICKBOX_START = 0x484;
+static constexpr size_t SR_DATA_CLICKBOX_GASSTATION_START = 0x68c;
+static constexpr size_t SR_DATA_CLASSIFIEDS_START = 0x854;
+
+static size_t SrBoundedStrnlen(const char* str, size_t maxLen) {
+    size_t len = 0;
+    while (len < maxLen && str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+static bool ValidateByteValue(int value, const char* fieldName, int carIndex, std::string* error) {
+    if (value < 0 || value > 255) {
+        if (error) {
+            std::ostringstream oss;
+            oss << fieldName << " for car " << carIndex << " must be between 0 and 255.";
+            *error = oss.str();
+        }
+        return false;
+    }
+    return true;
+}
+
+static bool ValidateSrDataBounds(size_t dataSize, std::string* error) {
+    const size_t offsetsEnd = SR_DATA_OFFSETS_START + CAR_PLAYER_MODEL_COUNT * 12;
+    const size_t clickEnd = SR_DATA_CLICKBOX_START + CAR_PLAYER_MODEL_COUNT * 20;
+    const size_t gasClickEnd = SR_DATA_CLICKBOX_GASSTATION_START + CAR_PLAYER_MODEL_COUNT * 4;
+    if (dataSize < offsetsEnd || dataSize < clickEnd || dataSize < gasClickEnd || dataSize < SR_DATA_CLASSIFIEDS_START) {
+        if (error) *error = "SR_data is too small for known car metadata blocks.";
+        return false;
+    }
+    return true;
+}
+
+static bool FindClassifiedsEnd(const std::vector<uint8_t>& data, size_t* outEnd, std::string* error) {
+    if (data.size() < SR_DATA_CLASSIFIEDS_START) {
+        if (error) *error = "SR_data is too small for classifieds block.";
+        return false;
+    }
+
+    const uint8_t* ptr = data.data() + SR_DATA_CLASSIFIEDS_START;
+    const uint8_t* end = data.data() + data.size();
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+        if (ptr >= end) {
+            if (error) *error = "Classifieds block ended before all car entries.";
+            return false;
+        }
+
+        const char* nameStr = (const char*)ptr;
+        size_t nameLen = SrBoundedStrnlen(nameStr, (size_t)(end - ptr));
+        if (ptr + nameLen >= end) {
+            if (error) *error = "Classified car name is missing a terminator.";
+            return false;
+        }
+        ptr += nameLen + 1;
+
+        while (true) {
+            if (ptr >= end) {
+                if (error) *error = "Classified ad text is missing a terminator.";
+                return false;
+            }
+            const char* lineStr = (const char*)ptr;
+            size_t lineLen = SrBoundedStrnlen(lineStr, (size_t)(end - ptr));
+            if (ptr + lineLen >= end) {
+                if (error) *error = "Classified ad line is missing a terminator.";
+                return false;
+            }
+            ptr += lineLen + 1;
+            if (lineLen == 0 || strchr(lineStr, '$')) {
+                break;
+            }
+        }
+    }
+
+    *outEnd = (size_t)(ptr - data.data());
+    return true;
+}
+
+static void AppendCString(std::vector<uint8_t>& out, const std::string& value) {
+    out.insert(out.end(), value.begin(), value.end());
+    out.push_back(0);
+}
+
+static void AppendClassified(std::vector<uint8_t>& out, const ClassifiedEntry_t& classified) {
+    AppendCString(out, classified.carName ? classified.carName : "");
+
+    std::string adText = classified.adText ? classified.adText : "";
+    size_t start = 0;
+    while (start <= adText.size()) {
+        size_t nl = adText.find('\n', start);
+        std::string line = adText.substr(start, nl == std::string::npos ? std::string::npos : nl - start);
+        if (!line.empty() && line[0] == '\t') {
+            line[0] = '+';
+        }
+        AppendCString(out, line);
+        if (line.find('$') != std::string::npos || nl == std::string::npos) {
+            break;
+        }
+        start = nl + 1;
+    }
+}
+
 /// @brief Reads info about cars from data file (SR_data)
 /// @param data Pointer to data buffer
 /// @param dataSize Size of data buffer
@@ -971,6 +1237,90 @@ cleanup:
     free(result);
     *outCount = 0;
     return NULL;
+}
+
+std::vector<uint8_t> DataParser::SrLibDataWriteCarMetadataToBuffer(const std::vector<uint8_t>& data,
+    const std::vector<CarMetadata_t>& metadata, std::string* error) {
+    if (metadata.size() != CAR_PLAYER_MODEL_COUNT) {
+        if (error) *error = "Expected 25 car metadata entries.";
+        return {};
+    }
+    if (!ValidateSrDataBounds(data.size(), error)) {
+        return {};
+    }
+
+    size_t classifiedsEnd = 0;
+    if (!FindClassifiedsEnd(data, &classifiedsEnd, error)) {
+        return {};
+    }
+
+    std::vector<uint8_t> out = data;
+
+    uint8_t* ptr = out.data() + SR_DATA_OFFSETS_START;
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+        const BitmapOffset_t& offsets = metadata[i].offsets;
+        *ptr++ = offsets.offsetXRearTire;
+        *ptr++ = offsets.offsetXFrontTire;
+        *ptr++ = offsets.offsetXDriver;
+        *ptr++ = offsets.offsetYDriver;
+        *ptr++ = offsets.offsetXChoppedRoof;
+        *ptr++ = offsets.offsetXAirScoop;
+        *ptr++ = offsets.offsetYAirScoop;
+        *ptr++ = offsets.offsetYRearBumper;
+        *ptr++ = offsets.offsetXFrontBumper;
+        *ptr++ = offsets.offsetYFrontBumper;
+        *ptr++ = offsets.offsetXDecal;
+        *ptr++ = offsets.offsetYDecal;
+    }
+
+    ptr = out.data() + SR_DATA_CLICKBOX_START;
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+        const CarClickBoxes_t& clickBoxes = metadata[i].clickBoxes;
+        const ClickBox_t boxes[] = {
+            clickBoxes.clickBoxRearBumper,
+            clickBoxes.clickBoxChoppedRoof,
+            clickBoxes.clickBoxTransmission,
+            clickBoxes.clickBoxEngine,
+            clickBoxes.clickBoxFrontBumper,
+        };
+        for (const auto& box : boxes) {
+            if (!ValidateByteValue(box.x, "click x", i, error) ||
+                !ValidateByteValue(box.y, "click y", i, error) ||
+                !ValidateByteValue(box.width, "click width", i, error) ||
+                !ValidateByteValue(box.height, "click height", i, error)) {
+                return {};
+            }
+            *ptr++ = (uint8_t)box.x;
+            *ptr++ = (uint8_t)box.y;
+            *ptr++ = (uint8_t)box.width;
+            *ptr++ = (uint8_t)box.height;
+        }
+    }
+
+    ptr = out.data() + SR_DATA_CLICKBOX_GASSTATION_START;
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+        const CarClickBoxes_t& clickBoxes = metadata[i].clickBoxes;
+        if (!ValidateByteValue(clickBoxes.clickBoxGasCap.x, "gas cap click x", i, error) ||
+            !ValidateByteValue(clickBoxes.clickBoxGasCap.y, "gas cap click y", i, error) ||
+            !ValidateByteValue(clickBoxes.clickBoxRearWindow.x, "rear window click x", i, error) ||
+            !ValidateByteValue(clickBoxes.clickBoxRearWindow.y, "rear window click y", i, error)) {
+            return {};
+        }
+        *ptr++ = (uint8_t)clickBoxes.clickBoxGasCap.x;
+        *ptr++ = (uint8_t)clickBoxes.clickBoxGasCap.y;
+        *ptr++ = (uint8_t)clickBoxes.clickBoxRearWindow.x;
+        *ptr++ = (uint8_t)clickBoxes.clickBoxRearWindow.y;
+    }
+
+    std::vector<uint8_t> rebuilt;
+    rebuilt.reserve(out.size() + 256);
+    rebuilt.insert(rebuilt.end(), out.begin(), out.begin() + SR_DATA_CLASSIFIEDS_START);
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
+        AppendClassified(rebuilt, metadata[i].classified);
+    }
+    rebuilt.insert(rebuilt.end(), out.begin() + classifiedsEnd, out.end());
+
+    return rebuilt;
 }
 
 /// @brief Reads info about parts from game binary (Street_Rod),
