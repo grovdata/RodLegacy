@@ -34,7 +34,7 @@ private:
         int archY = 0;
         int distance = 4;
         int seg = 0;
-        int curveDelta = 0;
+        int roadDelta = 0;  // heading - elev[seg] for ProjectForwardX
     };
 
     HUD* hud = nullptr;
@@ -99,7 +99,7 @@ private:
     void InitializeRaceSimulation();
     srrace::CarSetup BuildCarSetupFromCar(const Car* car, bool isPlayer) const;
     int RaceTypeFromTrackType(SrTrackType trackType) const;
-    int ProjectX(const srrace::CarState& player, int seg, int d, int curveDelta, int lateral) const;
+    int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
     void RenderSkyAndParallax(float frameSeconds);
     void RenderRoad(int lastVisible);

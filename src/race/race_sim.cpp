@@ -391,11 +391,15 @@ void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
 }
 
 void RaceSim::UpdateScroll(CarState& car) {
+    const int32_t prevSeg = car.segPos;
     car.scrollStep = static_cast<int16_t>(SpeedToScrollStep(car.speed));
     car.scrollAcc = static_cast<int16_t>(car.scrollAcc + car.scrollStep);
     if (car.scrollAcc > 7) {
         car.segPos += (car.scrollAcc >> 3);
         car.scrollAcc = static_cast<int16_t>(car.scrollAcc & 7);
+    }
+    if (car.segPos != prevSeg && track != nullptr) {
+        car.curveAtCar = track->curve[ClampTrackIndex(car.segPos)];
     }
     if (car.segPos >= finishSeg) {
         car.endFlags |= END_FINISHED;

@@ -20,7 +20,6 @@ namespace {
 constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 constexpr float kFixedStepSeconds = 0.02f;
-constexpr float kMaxAccumulatedSeconds = 0.2f;
 
 constexpr int kHorizonY = 46;
 constexpr int kClipTop = 4;
@@ -505,17 +504,16 @@ void Racing::ResetRaceOutcome() {
     raceOutcome = RaceOutcome::Ongoing;
 }
 
-int Racing::ProjectX(const srrace::CarState& player, int seg, int d, int curveDelta, int lateral) const {
-    (void)seg;
-    const int adjustedLat = lateral + (curveDelta * d) / 4;
-    const int numerator = 4 * (player.lateral - adjustedLat);
+int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const {
+    const int adjustedLat = lateral + (roadDelta * d) / 4;
+    const int numerator = (d >> 1) + 4 * (player.lateral - adjustedLat);
     return 160 - numerator / d;
 }
 
 int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
-    const int elevAtCar = track.elev[segBase];
+    const int curveAtCar = p.curveAtCar;
     int previousY = 100000;
     int lastVisible = 0;
 
@@ -525,9 +523,10 @@ int Racing::BuildRowTableAndGetLastVisible() {
             d = 12 + 8 * (k - 1) - p.scrollAcc;
             d = std::max(4, d);
         }
-        const int seg = ClampInt(segBase + k, 0, kTrackSegments - 1);
-        const int curveDelta = p.heading - track.curve[seg];
-        const int elevDelta = elevAtCar - track.elev[seg];
+        // BuildForwardRowTables advances segment pointers before each row.
+        const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
+        const int roadDelta = p.heading - track.elev[seg];
+        const int rowCurveDelta = curveAtCar - track.curve[seg];
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
@@ -535,12 +534,12 @@ int Racing::BuildRowTableAndGetLastVisible() {
         RowProjection row;
         row.distance = d;
         row.seg = seg;
-        row.curveDelta = curveDelta;
-        row.leftX = ProjectX(p, seg, d, curveDelta, edgeLeft);
-        row.rightX = ProjectX(p, seg, d, curveDelta, edgeRight);
-        row.shoulderLX = ProjectX(p, seg, d, curveDelta, edgeLeft - 400);
-        row.shoulderRX = ProjectX(p, seg, d, curveDelta, edgeRight + 400);
-        row.y = ClampInt(kHorizonY + 400 / d + 4 * elevDelta, kClipTop, kClipBottom + 30);
+        row.roadDelta = roadDelta;
+        row.leftX = ProjectX(p, d, roadDelta, edgeLeft);
+        row.rightX = ProjectX(p, d, roadDelta, edgeRight);
+        row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
+        row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
+        row.y = ClampInt(kHorizonY + 400 / d + 4 * rowCurveDelta, kClipTop, kClipBottom + 30);
         row.archY = row.y - std::max(12, 480 / d);
         rows[k] = row;
     }
@@ -679,12 +678,13 @@ void Racing::RenderRoad(int lastVisible) {
             }
 
             if ((flags & 0x0008) != 0) {
-                const int midpoint = (nearRow.y + farRow.y) / 2;
-                if (y > midpoint) {
-                    const int cx = (left + right) / 2;
-                    const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
-                    PutPixel(pixels, cx, y, dashColor);
-                    PutPixel(pixels, cx + 1, y, dashColor);
+                const int cx = (left + right) / 2;
+                const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
+                for (int i = 0; i < 4; ++i) {
+                    const int px = cx - 1 + i;
+                    if (px >= drawL && px <= drawR) {
+                        PutPixel(pixels, px, y, dashColor);
+                    }
                 }
             }
         }
@@ -869,7 +869,7 @@ void Racing::DrawNpcCar(int lastVisible) {
     }
 
     const srrace::CarState& p = sim.Player();
-    const int x = ProjectX(p, row.seg, row.distance, row.curveDelta, sim.Npc().lateral);
+    const int x = ProjectX(p, row.distance, row.roadDelta, sim.Npc().lateral);
     const int roadWidth = std::max(20, row.rightX - row.leftX);
     const int dstW = std::max(8, roadWidth / 3);
     SDL_Surface* src = sprite->GetSurface();
@@ -990,7 +990,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     }
 
     fixedAccumulator += std::max(0.0f, fElapsedTime);
-    fixedAccumulator = std::min(fixedAccumulator, kMaxAccumulatedSeconds);
+    fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
 
     const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
     uint16_t baseInput = 0;
@@ -1009,7 +1009,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     }
     prevSpaceDown = space;
 
-    while (fixedAccumulator >= kFixedStepSeconds) {
+    if (fixedAccumulator >= kFixedStepSeconds) {
         uint16_t inputBits = baseInput;
         if (pendingShift) {
             inputBits |= srrace::INPUT_SHIFT;
