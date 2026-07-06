@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
-            printf("  --debug          Enable debug mode\n");
+            printf("  --debug          Enable debug mode (F9 flyby on driving scene)\n");
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
             printf("  -config          Show setup screen even if game files are already configured\n");

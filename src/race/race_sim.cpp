@@ -211,6 +211,33 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     }
 }
 
+void RaceSim::SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
+                             int16_t lateral, int16_t curveAtCar) {
+    if (track == nullptr) {
+        return;
+    }
+    player.segPos = ClampTrackIndex(segPos);
+    player.scrollAcc = static_cast<int16_t>(ClampValue<int>(scrollAcc, 0, 7));
+    player.scrollStep = 0;
+    player.speed = 0;
+    player.rpm = 1500;
+    player.heading = heading;
+    player.lateral = lateral;
+    player.curveAtCar = curveAtCar;
+    player.endFlags &= static_cast<uint16_t>(~END_FINISHED);
+    player.offRoad = false;
+
+    const int seg = ClampTrackIndex(player.segPos);
+    const int segAhead = ClampTrackIndex(player.segPos + 4);
+    RoadEdges(track->flags[seg], edgeLeft, edgeRight);
+    RoadEdges(track->flags[segAhead], edgeLeftAhead, edgeRightAhead);
+}
+
+void RaceSim::SetNpcDebugPose(int32_t segPos, int16_t lateral) {
+    npc.segPos = ClampTrackIndex(segPos);
+    npc.lateral = lateral;
+}
+
 void RaceSim::Tick(uint16_t inputBits) {
     if (track == nullptr) {
         return;

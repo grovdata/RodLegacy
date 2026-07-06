@@ -75,6 +75,7 @@ private:
         void Start();
 
         void DrawScene() override;
+        void UpdateDebugInfo() override;
         bool PushEvent(SDL_Event *event) override;
 
         void SetState(DrivingState state);

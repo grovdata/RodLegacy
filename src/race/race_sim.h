@@ -129,6 +129,11 @@ public:
     }
     bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
 
+    // Flyby / debug camera: sets player pose without running physics.
+    void SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
+                        int16_t lateral, int16_t curveAtCar);
+    void SetNpcDebugPose(int32_t segPos, int16_t lateral);
+
     // Road edges at the player's current segment (updated per tick).
     int16_t RoadEdgeLeft() const { return edgeLeft; }
     int16_t RoadEdgeRight() const { return edgeRight; }

@@ -11,9 +11,12 @@
 #include "car_system.h"
 #include "engine_part.h"
 #include "global.h"
+#include "log.h"
 #include "part.h"
 #include "race/track_gen.h"
 #include "state.h"
+
+#include <filesystem>
 
 namespace {
 
@@ -21,9 +24,10 @@ constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 constexpr float kFixedStepSeconds = 0.02f;
 
-constexpr int kHorizonY = 46;
-constexpr int kClipTop = 4;
-constexpr int kClipBottom = 85;
+constexpr int kHorizonY = 60;
+constexpr int kClipTop = 18;
+constexpr int kClipBottom = 99;
+constexpr int kRoadCenterLat = 2400;
 
 // Races run at night in the original game.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
@@ -514,8 +518,6 @@ int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
     const int curveAtCar = p.curveAtCar;
-    int previousY = 100000;
-    int lastVisible = 0;
 
     for (int k = 0; k < kForwardRows; ++k) {
         int d = 4;
@@ -537,6 +539,7 @@ int Racing::BuildRowTableAndGetLastVisible() {
         row.roadDelta = roadDelta;
         row.leftX = ProjectX(p, d, roadDelta, edgeLeft);
         row.rightX = ProjectX(p, d, roadDelta, edgeRight);
+        row.centerX = ProjectX(p, d, roadDelta, kRoadCenterLat);
         row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
         row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
         row.y = ClampInt(kHorizonY + 400 / d + 4 * rowCurveDelta, kClipTop, kClipBottom + 30);
@@ -544,16 +547,15 @@ int Racing::BuildRowTableAndGetLastVisible() {
         rows[k] = row;
     }
 
-    previousY = rows[0].y + 1;
-    for (int k = 0; k < kForwardRows; ++k) {
-        if (rows[k].y < previousY) {
-            lastVisible = k;
-            previousY = rows[k].y;
-        } else {
-            break;
+    int horizonRow = 0;
+    int minY = rows[0].y;
+    for (int k = 1; k < kForwardRows; ++k) {
+        if (rows[k].y < minY) {
+            minY = rows[k].y;
+            horizonRow = k;
         }
     }
-    return lastVisible;
+    return horizonRow;
 }
 
 void Racing::RenderSkyAndParallax(float frameSeconds) {
@@ -597,7 +599,7 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
     if (mountainSprite && mountainSprite->GetSurface()) {
         SDL_Surface* src = mountainSprite->GetSurface();
         const int baseOffset = ((static_cast<int>(mountainOffsetAccum) % src->w) + src->w) % src->w;
-        const int startY = 47;
+        const int startY = 61;
         for (int pass = 0; pass < 2; ++pass) {
             const int drawX = -baseOffset + pass * src->w;
             for (int y = 0; y < src->h; ++y) {
@@ -628,6 +630,19 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
 }
 
 void Racing::RenderRoad(int lastVisible) {
+    auto drawDash = [&](int y, int cx, int drawL, int drawR, uint16_t flags) {
+        if ((flags & 0x0008) == 0) {
+            return;
+        }
+        const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
+        for (int i = 0; i < 4; ++i) {
+            const int px = cx - 1 + i;
+            if (px >= drawL && px <= drawR) {
+                PutPixel(pixels, px, y, dashColor);
+            }
+        }
+    };
+
     for (int y = kClipTop; y <= kClipBottom; ++y) {
         SDL_Color grass = (y & 1) ? kGrassA : kGrassB;
         for (int x = 0; x < GAME_WIDTH; ++x) {
@@ -649,13 +664,15 @@ void Racing::RenderRoad(int lastVisible) {
             const int fromNear = nearRow.y - y;
             const int lx = nearRow.leftX + ((farRow.leftX - nearRow.leftX) * fromNear) / dy;
             const int rx = nearRow.rightX + ((farRow.rightX - nearRow.rightX) * fromNear) / dy;
+            const int cx = nearRow.centerX + ((farRow.centerX - nearRow.centerX) * fromNear) / dy;
             const int left = ClampInt(std::min(lx, rx), -200, 520);
             const int right = ClampInt(std::max(lx, rx), -200, 520);
             if (right < 0 || left >= GAME_WIDTH) {
                 continue;
             }
 
-            const uint16_t flags = track.flags[nearRow.seg];
+            const int seg = (fromNear * 2 >= dy) ? nearRow.seg : farRow.seg;
+            const uint16_t flags = track.flags[seg];
             const bool city = (flags & 0x0001) != 0;
             const SDL_Color roadColor = city ? kRoadCity : kRoadA;
             const int drawL = std::max(0, left);
@@ -677,16 +694,7 @@ void Racing::RenderRoad(int lastVisible) {
                 }
             }
 
-            if ((flags & 0x0008) != 0) {
-                const int cx = (left + right) / 2;
-                const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
-                for (int i = 0; i < 4; ++i) {
-                    const int px = cx - 1 + i;
-                    if (px >= drawL && px <= drawR) {
-                        PutPixel(pixels, px, y, dashColor);
-                    }
-                }
-            }
+            drawDash(y, cx, drawL, drawR, flags);
         }
     }
 
@@ -694,17 +702,21 @@ void Racing::RenderRoad(int lastVisible) {
         const RowProjection& row0 = rows[0];
         const RowProjection& row1 = rows[1];
         const int yStart = ClampInt(row0.y, kClipTop, kClipBottom);
+        const int dy = std::max(1, row0.y - row1.y);
+        const uint16_t nearFlags = track.flags[row0.seg];
+        const bool nearCity = (nearFlags & 0x0001) != 0;
+        const SDL_Color nearRoadColor = nearCity ? kRoadCity : kRoadA;
         for (int y = yStart; y <= kClipBottom; ++y) {
-            const int dy = std::max(1, row0.y - row1.y);
             const int extra = y - row0.y;
             const int lx = row0.leftX + ((row0.leftX - row1.leftX) * extra) / dy;
             const int rx = row0.rightX + ((row0.rightX - row1.rightX) * extra) / dy;
+            const int cx = row0.centerX + ((row0.centerX - row1.centerX) * extra) / dy;
             const int left = std::max(0, std::min(lx, rx));
             const int right = std::min(GAME_WIDTH - 1, std::max(lx, rx));
-            const SDL_Color roadColor = (track.flags[row0.seg] & 0x0001) ? kRoadCity : kRoadA;
             for (int x = left; x <= right; ++x) {
-                PutPixel(pixels, x, y, roadColor);
+                PutPixel(pixels, x, y, nearRoadColor);
             }
+            drawDash(y, cx, left, right, nearFlags);
         }
     }
 
@@ -845,7 +857,11 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
 }
 
 void Racing::DrawNpcCar(int lastVisible) {
-    if (!opponentActive) {
+    if (flybyMode) {
+        if (!flybyNpcVisible) {
+            return;
+        }
+    } else if (!opponentActive) {
         return;
     }
 
@@ -946,21 +962,332 @@ void Racing::DrawHud() {
     hud->Draw();
 }
 
-void Racing::HandleOutcomeAfterTicks() {
-    const Uint32 now = SDL_GetTicks();
-    if (sim.PlayerCrashed() && !crashHandled) {
-        bShowCrashOverlay = true;
-        crashHandled = true;
-        crashOverlayEndMs = now + 3000;
+void Racing::SetDebugFeaturesEnabled(bool enabled) {
+    debugFeaturesEnabled = enabled;
+    if (!enabled && flybyMode) {
+        flybyMode = false;
+        opponentActive = opponentActiveBeforeFlyby;
+    }
+}
+
+std::string Racing::FormatSegmentFlags(uint16_t flags) {
+    std::string out;
+    if (flags & 0x0001) out += "city ";
+    if (flags & 0x0002) out += "sign ";
+    if (flags & 0x0004) out += "side ";
+    if (flags & 0x0008) out += "dash ";
+    if (flags & 0x0010) out += "dashW ";
+    if ((flags & 0x00e0) == 0x0020) out += "narrowL ";
+    else if ((flags & 0x00e0) == 0x0040) out += "narrowR ";
+    else if ((flags & 0x00e0) == 0x0080) out += "narrowB ";
+    if (flags & 0x0100) out += "spr5 ";
+    if (flags & 0x0200) out += "upHill ";
+    if (flags & 0x0400) out += "dnHill ";
+    if (flags & 0x0800) out += "narrowWarn ";
+    if (flags & 0xf000) out += "arch ";
+    if (out.empty()) {
+        out = "straight";
+    }
+    return out;
+}
+
+void Racing::ApplyFlybyCamera() {
+    const int seg = ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1);
+    const int16_t curveAtCar = track.curve[seg];
+    sim.SetCameraState(flybySeg, flybyScrollAcc, flybyHeading, flybyLateral, curveAtCar);
+    if (flybyNpcVisible) {
+        sim.SetNpcDebugPose(flybySeg + 6, 2560);
+    } else {
+        sim.SetNpcDebugPose(flybySeg - 20, 2560);
+    }
+}
+
+void Racing::FlybyScroll(int scrollDelta) {
+    if (scrollDelta == 0) {
+        return;
+    }
+    int32_t seg = flybySeg;
+    int acc = static_cast<int>(flybyScrollAcc) + scrollDelta;
+    while (acc > 7) {
+        seg += 1;
+        acc -= 8;
+    }
+    while (acc < 0) {
+        seg -= 1;
+        acc += 8;
+    }
+    constexpr int kMaxSeg = srrace::TRACK_SEGMENTS - 1;
+    if (seg < 0) {
+        seg = 0;
+        acc = 0;
+    } else if (seg > kMaxSeg) {
+        seg = kMaxSeg;
+        acc = 7;
+    }
+    flybySeg = seg;
+    flybyScrollAcc = static_cast<int16_t>(acc);
+    ApplyFlybyCamera();
+}
+
+void Racing::FlybyJumpSegments(int segDelta) {
+    if (segDelta == 0) {
+        return;
+    }
+    int32_t seg = flybySeg + segDelta;
+    seg = std::max<int32_t>(0, std::min<int32_t>(seg, srrace::TRACK_SEGMENTS - 1));
+    flybySeg = seg;
+    ApplyFlybyCamera();
+}
+
+void Racing::UpdateFlybyMovement(float frameSeconds) {
+    const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
+    if (!keyboard) {
         return;
     }
 
-    if (crashHandled && bShowCrashOverlay && now >= crashOverlayEndMs) {
+    static float scrollRepeat = 0.0f;
+    const bool forward = keyboard[SDL_SCANCODE_RIGHTBRACKET] != 0;
+    const bool backward = keyboard[SDL_SCANCODE_LEFTBRACKET] != 0;
+    if (!forward && !backward) {
+        scrollRepeat = 0.0f;
+        return;
+    }
+
+    scrollRepeat += frameSeconds;
+    const float interval = (keyboard[SDL_SCANCODE_LSHIFT] || keyboard[SDL_SCANCODE_RSHIFT]) ? 0.03f : 0.06f;
+    if (scrollRepeat < interval) {
+        return;
+    }
+    scrollRepeat = 0.0f;
+
+    const bool shift = keyboard[SDL_SCANCODE_LSHIFT] || keyboard[SDL_SCANCODE_RSHIFT];
+    const int step = shift ? 8 : 1;
+    FlybyScroll(forward ? step : -step);
+}
+
+bool Racing::ToggleFlybyMode() {
+    if (!debugFeaturesEnabled) {
+        return false;
+    }
+    if (!simInitialized) {
+        InitializeRaceSimulation();
+    }
+
+    if (!flybyMode) {
+        const srrace::CarState& p = sim.Player();
+        flybySeg = p.segPos;
+        flybyScrollAcc = p.scrollAcc;
+        flybyHeading = p.heading;
+        flybyLateral = p.lateral;
+        opponentActiveBeforeFlyby = opponentActive;
+        opponentActive = false;
+        flybyNpcVisible = false;
+        raceOutcome = RaceOutcome::Ongoing;
         bShowCrashOverlay = false;
-        if (raceOutcome == RaceOutcome::Ongoing) {
-            raceOutcome = RaceOutcome::PlayerLost;
+    } else {
+        opponentActive = opponentActiveBeforeFlyby;
+    }
+
+    flybyMode = !flybyMode;
+    if (flybyMode) {
+        ApplyFlybyCamera();
+    }
+    return true;
+}
+
+bool Racing::OnFlybyKeyDown(SDL_Keycode key) {
+    if (!flybyMode) {
+        return false;
+    }
+
+    switch (key) {
+        case SDLK_EQUALS:
+        case SDLK_KP_PLUS:
+            flybyHeading = static_cast<int16_t>(flybyHeading + 1);
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_MINUS:
+        case SDLK_KP_MINUS:
+            flybyHeading = static_cast<int16_t>(flybyHeading - 1);
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_COMMA:
+            flybyLateral = static_cast<int16_t>(flybyLateral - 40);
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_PERIOD:
+            flybyLateral = static_cast<int16_t>(flybyLateral + 40);
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_LEFTBRACKET: {
+            const Uint8* kb = SDL_GetKeyboardState(nullptr);
+            const bool ctrl = kb && (kb[SDL_SCANCODE_LCTRL] || kb[SDL_SCANCODE_RCTRL]);
+            if (ctrl) {
+                FlybyJumpSegments(-10);
+                return true;
+            }
+            return false;
+        }
+        case SDLK_RIGHTBRACKET: {
+            const Uint8* kb = SDL_GetKeyboardState(nullptr);
+            const bool ctrl = kb && (kb[SDL_SCANCODE_LCTRL] || kb[SDL_SCANCODE_RCTRL]);
+            if (ctrl) {
+                FlybyJumpSegments(10);
+                return true;
+            }
+            return false;
+        }
+        case SDLK_HOME:
+            flybySeg = srrace::RACE_START_SEG;
+            flybyScrollAcc = 0;
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_END:
+            flybySeg = sim.FinishSegment() - 1;
+            flybyScrollAcc = 0;
+            ApplyFlybyCamera();
+            return true;
+        case SDLK_PAGEUP:
+            FlybyJumpSegments(50);
+            return true;
+        case SDLK_PAGEDOWN:
+            FlybyJumpSegments(-50);
+            return true;
+        case SDLK_n:
+            flybyNpcVisible = !flybyNpcVisible;
+            ApplyFlybyCamera();
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+std::vector<std::string> Racing::GetFlybyDebugLines(int lastVisibleRow) const {
+    std::vector<std::string> lines;
+    if (!flybyMode) {
+        return lines;
+    }
+
+    const int seg = ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1);
+    char buf[160];
+    std::snprintf(buf, sizeof(buf), "FLYBY seg %d +%d/8  var %d  %s",
+                  seg, static_cast<int>(flybyScrollAcc), trackVariant,
+                  currentTrackType == SR_TRACK_DRAG_RACE ? "drag" : "road");
+    lines.push_back(buf);
+
+    std::snprintf(buf, sizeof(buf), "curve %d elev %d  heading %d  lat %d",
+                  static_cast<int>(track.curve[seg]),
+                  static_cast<int>(track.elev[seg]),
+                  static_cast<int>(flybyHeading),
+                  static_cast<int>(flybyLateral));
+    lines.push_back(buf);
+
+    std::snprintf(buf, sizeof(buf), "flags 0x%04x %s  Lobj 0x%04x Robj 0x%04x",
+                  static_cast<unsigned>(track.flags[seg]),
+                  FormatSegmentFlags(track.flags[seg]).c_str(),
+                  static_cast<unsigned>(track.left[seg]),
+                  static_cast<unsigned>(track.right[seg]));
+    lines.push_back(buf);
+
+    if (lastVisibleRow >= 0 && lastVisibleRow < static_cast<int>(rows.size())) {
+        const RowProjection& row = rows[static_cast<size_t>(lastVisibleRow)];
+        std::snprintf(buf, sizeof(buf), "row0 seg %d y %d L %d R %d d %d",
+                      row.seg, row.y, row.leftX, row.rightX, row.distance);
+        lines.push_back(buf);
+    }
+
+    lines.push_back("[ ] step  shift+[ ] seg  ctrl+[ ] +/-10seg");
+    lines.push_back("=/- heading  ,/. lateral  Home/End start/finish");
+    lines.push_back("PgUp/Dn +/-50seg  N toggle NPC  F9 exit flyby");
+    lines.push_back("P save road PNG (no cockpit)");
+    return lines;
+}
+
+bool Racing::SaveRoadViewPng(std::string* savedPath) {
+    if (!pixels) {
+        return false;
+    }
+
+    namespace fs = std::filesystem;
+    const fs::path dir = "roadfly";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+
+    const int seg = flybyMode
+                        ? ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1)
+                        : ClampInt(static_cast<int>(sim.Player().segPos), 0, srrace::TRACK_SEGMENTS - 1);
+    const int acc = flybyMode ? static_cast<int>(flybyScrollAcc) : static_cast<int>(sim.Player().scrollAcc);
+    const char* trackTag = currentTrackType == SR_TRACK_DRAG_RACE ? "drag" : "road";
+
+    std::string path;
+    for (int n = 0; n < 10000; ++n) {
+        char buf[192];
+        if (n == 0) {
+            std::snprintf(buf, sizeof(buf), "roadfly/%s_seg%03d_acc%d_var%d.png",
+                          trackTag, seg, acc, trackVariant);
+        } else {
+            std::snprintf(buf, sizeof(buf), "roadfly/%s_seg%03d_acc%d_var%d_%d.png",
+                          trackTag, seg, acc, trackVariant, n);
+        }
+        path = buf;
+        if (!fs::exists(path)) {
+            break;
         }
     }
+
+    SDL_Surface* src = pixels;
+    sdl2::SurfacePtr converted;
+    if (src->format->format != SDL_PIXELFORMAT_RGBA32) {
+        converted = sdl2::SurfacePtr(SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGBA32, 0));
+        if (!converted) {
+            LOG_INFO("SaveRoadViewPng: surface convert failed: %s", SDL_GetError());
+            return false;
+        }
+        src = converted.get();
+    }
+
+    if (IMG_SavePNG(src, path.c_str()) != 0) {
+        LOG_INFO("SaveRoadViewPng: save failed: %s", SDL_GetError());
+        return false;
+    }
+
+    LOG_INFO("Road view saved: %s", path.c_str());
+    if (savedPath != nullptr) {
+        *savedPath = path;
+    }
+    return true;
+}
+
+void Racing::DrawFlybyHud(int lastVisible) {
+    if (!hud) {
+        return;
+    }
+    hud->Clear();
+    hud->AddText(6, 0, "FLYBY");
+    const std::vector<std::string> lines = GetFlybyDebugLines(lastVisible);
+    int y = 10;
+    for (size_t i = 1; i < lines.size() && i < 4; ++i) {
+        hud->AddText(6, y, lines[i].c_str());
+        y += 10;
+    }
+    hud->Draw();
+}
+
+void Racing::HandleOutcomeAfterTicks() {
+    // if (sim.PlayerCrashed() && !crashHandled) {
+    //     bShowCrashOverlay = true;
+    //     crashHandled = true;
+    //     crashOverlayEndMs = now + 3000;
+    //     return;
+    // }
+
+    // if (crashHandled && bShowCrashOverlay && now >= crashOverlayEndMs) {
+    //     bShowCrashOverlay = false;
+    //     if (raceOutcome == RaceOutcome::Ongoing) {
+    //         raceOutcome = RaceOutcome::PlayerLost;
+    //     }
+    // }
 
     if (raceOutcome != RaceOutcome::Ongoing) {
         return;
@@ -989,45 +1316,49 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         engineSoundStarted = true;
     }
 
-    fixedAccumulator += std::max(0.0f, fElapsedTime);
-    fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
+    if (flybyMode) {
+        UpdateFlybyMovement(fElapsedTime);
+    } else {
+        fixedAccumulator += std::max(0.0f, fElapsedTime);
+        fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
 
-    const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
-    uint16_t baseInput = 0;
-    const bool up = keyboard && keyboard[SDL_SCANCODE_UP];
-    const bool down = keyboard && keyboard[SDL_SCANCODE_DOWN];
-    const bool left = keyboard && keyboard[SDL_SCANCODE_LEFT];
-    const bool right = keyboard && keyboard[SDL_SCANCODE_RIGHT];
-    const bool space = keyboard && keyboard[SDL_SCANCODE_SPACE];
+        const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
+        uint16_t baseInput = 0;
+        const bool up = keyboard && keyboard[SDL_SCANCODE_UP];
+        const bool down = keyboard && keyboard[SDL_SCANCODE_DOWN];
+        const bool left = keyboard && keyboard[SDL_SCANCODE_LEFT];
+        const bool right = keyboard && keyboard[SDL_SCANCODE_RIGHT];
+        const bool space = keyboard && keyboard[SDL_SCANCODE_SPACE];
 
-    if (up) baseInput |= srrace::INPUT_THROTTLE;
-    if (down && !up) baseInput |= srrace::INPUT_BRAKE;
-    if (left) baseInput |= srrace::INPUT_STEER_LEFT;
-    if (right) baseInput |= srrace::INPUT_STEER_RIGHT;
-    if (space && !prevSpaceDown) {
-        pendingShift = true;
+        if (up) baseInput |= srrace::INPUT_THROTTLE;
+        if (down && !up) baseInput |= srrace::INPUT_BRAKE;
+        if (left) baseInput |= srrace::INPUT_STEER_LEFT;
+        if (right) baseInput |= srrace::INPUT_STEER_RIGHT;
+        if (space && !prevSpaceDown) {
+            pendingShift = true;
+        }
+        prevSpaceDown = space;
+
+        if (fixedAccumulator >= kFixedStepSeconds) {
+            uint16_t inputBits = baseInput;
+            if (pendingShift) {
+                inputBits |= srrace::INPUT_SHIFT;
+                pendingShift = false;
+            }
+            sim.Tick(inputBits);
+            ++simTickCounter;
+
+            if (firstPlayerFinishTick < 0 && (sim.Player().endFlags & srrace::END_FINISHED)) {
+                firstPlayerFinishTick = simTickCounter;
+            }
+            if (firstNpcFinishTick < 0 && (sim.Npc().endFlags & srrace::END_FINISHED)) {
+                firstNpcFinishTick = simTickCounter;
+            }
+            fixedAccumulator -= kFixedStepSeconds;
+        }
+
+        HandleOutcomeAfterTicks();
     }
-    prevSpaceDown = space;
-
-    if (fixedAccumulator >= kFixedStepSeconds) {
-        uint16_t inputBits = baseInput;
-        if (pendingShift) {
-            inputBits |= srrace::INPUT_SHIFT;
-            pendingShift = false;
-        }
-        sim.Tick(inputBits);
-        ++simTickCounter;
-
-        if (firstPlayerFinishTick < 0 && (sim.Player().endFlags & srrace::END_FINISHED)) {
-            firstPlayerFinishTick = simTickCounter;
-        }
-        if (firstNpcFinishTick < 0 && (sim.Npc().endFlags & srrace::END_FINISHED)) {
-            firstNpcFinishTick = simTickCounter;
-        }
-        fixedAccumulator -= kFixedStepSeconds;
-    }
-
-    HandleOutcomeAfterTicks();
 
     if (audioManager) {
         audioManager->UpdateEnginePitch(sim.Player().rpm);
@@ -1038,14 +1369,18 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     }
 
     RenderSkyAndParallax(fElapsedTime);
-    const int lastVisible = BuildRowTableAndGetLastVisible();
-    RenderRoad(lastVisible);
-    DrawRoadsideAndArchSprites(lastVisible);
-    DrawNpcCar(lastVisible);
+    lastVisibleRow = BuildRowTableAndGetLastVisible();
+    RenderRoad(lastVisibleRow);
+    DrawRoadsideAndArchSprites(lastVisibleRow);
+    DrawNpcCar(lastVisibleRow);
     DrawRearviewMirror();
 
     SDL_UnlockSurface(pixels);
-    DrawHud();
+    if (flybyMode) {
+        DrawFlybyHud(lastVisibleRow);
+    } else {
+        DrawHud();
+    }
 }
 
 void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {

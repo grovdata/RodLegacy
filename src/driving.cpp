@@ -182,6 +182,10 @@ void Driving::Init(bool debugMode) {
     
     // Load track data for debugging/development
     LoadTrackData();
+
+    if (racing) {
+        racing->SetDebugFeaturesEnabled(debugMode);
+    }
 }
 
 void Driving::LoadTrackData() {
@@ -438,25 +442,27 @@ void Driving::DrawScene() {
         
         racing->Draw(deltaTime, lastEvent);
 
-        // Check race outcome.
-        RaceOutcome outcome = racing->GetRaceOutcome();
-        if (outcome != RaceOutcome::Ongoing) {
-            bool won = (outcome == RaceOutcome::PlayerWon);
-            RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
-                                ? RaceType::Drag : RaceType::Road;
-            bool endGame = state.OnRaceFinished(raceType, won);
-            racing->ResetRaceOutcome();
-            state.AdvanceGameHours(2);
-            if (endGame) {
-                LOG_INFO("Driving: end-game triggered (King beaten in drag)");
-                state.MoveToScene(SCENE_KING_OF_COUNTY);
-            } else {
-                state.MoveToScene(SCENE_DINER);
+        if (!racing->IsFlybyMode()) {
+            // Check race outcome.
+            RaceOutcome outcome = racing->GetRaceOutcome();
+            if (outcome != RaceOutcome::Ongoing) {
+                bool won = (outcome == RaceOutcome::PlayerWon);
+                RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
+                                    ? RaceType::Drag : RaceType::Road;
+                bool endGame = state.OnRaceFinished(raceType, won);
+                racing->ResetRaceOutcome();
+                state.AdvanceGameHours(2);
+                if (endGame) {
+                    LOG_INFO("Driving: end-game triggered (King beaten in drag)");
+                    state.MoveToScene(SCENE_KING_OF_COUNTY);
+                } else {
+                    state.MoveToScene(SCENE_DINER);
+                }
             }
         }
 
         // Update dice animation based on car movement
-        bool carIsMoving = racing->GetSpeed() > 0.1f; // Consider car moving if speed > 0.1
+        bool carIsMoving = !racing->IsFlybyMode() && racing->GetSpeed() > 0.1f;
         UpdateDiceAnimation(deltaTime, carIsMoving);
         
         // Get the updated racing surface and create texture
@@ -496,7 +502,7 @@ void Driving::DrawScene() {
     }
     
     // Handle crash state - set proper driving state
-    bool isCrashed = racing && racing->ShouldShowCrashOverlay();
+    bool isCrashed = racing && !racing->IsFlybyMode() && racing->ShouldShowCrashOverlay();
     
     // Only change state when crash state changes
     if (isCrashed != lastCrashState) {
@@ -515,11 +521,43 @@ void Driving::DrawScene() {
         // Hide crash overlay when crash is over
         crashOverlayBitmap->SetVisible(false);
     }
+
+    if (debugMode && debugOverlay) {
+        if (racing && racing->IsFlybyMode()) {
+            debugOverlay->Clear();
+            const std::vector<std::string> lines =
+                racing->GetFlybyDebugLines(racing->GetLastVisibleRow());
+            for (const std::string& line : lines) {
+                debugOverlay->AddLine(line);
+            }
+        }
+        debugOverlay->Draw();
+    }
 }
 
 bool Driving::PushEvent(SDL_Event *event) {
+    if (debugMode && event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_p && racing) {
+        std::string path;
+        if (racing->SaveRoadViewPng(&path)) {
+            LOG_INFO("Saved road view: %s\n", path.c_str());
+        }
+        return true;
+    }
+
+    if (racing && racing->IsFlybyMode() && event->type == SDL_KEYDOWN) {
+        if (racing->OnFlybyKeyDown(event->key.keysym.sym)) {
+            return true;
+        }
+    }
+
     bool consumed = Scene::PushEvent(event);
     lastEvent = event;
+
+    if (debugMode && event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F9) {
+        if (racing && racing->ToggleFlybyMode()) {
+            return true;
+        }
+    }
 
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
@@ -567,6 +605,28 @@ bool Driving::PushEvent(SDL_Event *event) {
         }
     }
     return consumed;
+}
+
+void Driving::UpdateDebugInfo() {
+    if (!debugMode) {
+        return;
+    }
+    Scene::UpdateDebugInfo();
+
+    if (!racing || !debugOverlay) {
+        return;
+    }
+
+    if (!racing->IsFlybyMode()) {
+        return;
+    }
+
+    debugOverlay->Clear();
+    const std::vector<std::string> lines =
+        racing->GetFlybyDebugLines(racing->GetLastVisibleRow());
+    for (const std::string& line : lines) {
+        debugOverlay->AddLine(line);
+    }
 }
 
 // Timer callback no longer needed - racing is updated in Draw() method

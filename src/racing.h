@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "audio/audio_manager.h"
@@ -29,6 +30,7 @@ private:
         int y = 0;
         int leftX = 0;
         int rightX = 0;
+        int centerX = 0;
         int shoulderLX = 0;
         int shoulderRX = 0;
         int archY = 0;
@@ -90,6 +92,16 @@ private:
     StandardCarColor opponentColor = CarColorRed;
     RaceOutcome raceOutcome = RaceOutcome::Ongoing;
 
+    bool debugFeaturesEnabled = false;
+    bool flybyMode = false;
+    bool flybyNpcVisible = false;
+    int32_t flybySeg = srrace::RACE_START_SEG;
+    int16_t flybyScrollAcc = 0;
+    int16_t flybyHeading = 0;
+    int16_t flybyLateral = 2560;
+    bool opponentActiveBeforeFlyby = false;
+    int lastVisibleRow = -1;
+
     void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
     void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue);
     void LoadSpriteBitmaps();
@@ -108,7 +120,13 @@ private:
     void DrawOverheadArch(const RowProjection& row, uint16_t flags);
     void DrawNpcCar(int lastVisible);
     void DrawHud();
+    void DrawFlybyHud(int lastVisible);
     void HandleOutcomeAfterTicks();
+    void ApplyFlybyCamera();
+    void UpdateFlybyMovement(float frameSeconds);
+    void FlybyScroll(int scrollDelta);
+    void FlybyJumpSegments(int segDelta);
+    static std::string FormatSegmentFlags(uint16_t flags);
 
 public:
     Racing();
@@ -146,4 +164,12 @@ public:
     RaceOutcome GetRaceOutcome() const;
     void ResetRaceOutcome();
     void ResetForNewRace();
+
+    void SetDebugFeaturesEnabled(bool enabled);
+    bool IsFlybyMode() const { return flybyMode; }
+    bool ToggleFlybyMode();
+    bool OnFlybyKeyDown(SDL_Keycode key);
+    std::vector<std::string> GetFlybyDebugLines(int lastVisibleRow) const;
+    int GetLastVisibleRow() const { return lastVisibleRow; }
+    bool SaveRoadViewPng(std::string* savedPath = nullptr);
 };
