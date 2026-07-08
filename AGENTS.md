@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
 
 ## Project Overview
 
@@ -48,5 +48,6 @@ Build system: Meson + Ninja. Dependencies are vendored as Meson subprojects in `
 
 - Use SDL2 logging (`SDL_Log`, etc.) and stdlib equivalents in game code
 - `parsers/libp.h` and `parsers/libp.cpp` must not require SDL
+- Avoid using C++ templates whenever possible
 - No emojis in logging messages
 - C++17 standard with smart pointers for ownership

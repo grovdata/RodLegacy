@@ -582,6 +582,24 @@ struct SpriteAnimationInfo {
     const SpriteRect* frames;    // Array of frame rectangles
 };
 
+static const SpriteRect LIBP_32_TREE_FRAMES[] = {
+    {0, 0, 77, 76}, {0, 76, 48, 46}, {48, 76, 34, 32}, {56, 108, 26, 25}, 
+    {34, 122, 22, 20}, {16, 122, 18, 17}, {0, 122, 16, 15}, {68, 133, 14, 13}, 
+    {56, 133, 12, 11}, {0, 137, 10, 10}, {10, 139, 8, 8}
+};
+
+static const SpriteRect LIBP_37_RACING_SIGN_TURN_LEFT[] = {
+    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, 
+    {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, 
+    {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+};
+
+static const SpriteRect LIBP_38_RACING_SIGN_TURN_RIGHT[] = {
+    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, 
+    {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, 
+    {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+};
+
 // Misc frame definitions
 static const SpriteRect RACING_TREE2_FRAMES[] = {
     {10, 139, 8, 7}, {0, 137, 10, 9}, {56, 133, 11, 11}, {68, 133, 14, 13}, {0, 122, 16, 15}, {15, 122, 19, 17}, {34, 122, 22, 20}, {56, 108, 26, 25}, {47, 76, 34, 32}, {0, 76, 48, 46}, {0, 0, 77, 76}
@@ -1034,6 +1052,7 @@ enum StockPalette {
     StockPaletteAmigaJukebox = 2,
     StockPaletteAmigaTitleScreen = 3,
     StockPaletteAmigaDriving = 4,
+    StockPaletteAmigaDrivingLow = 5,
 };
 
 
