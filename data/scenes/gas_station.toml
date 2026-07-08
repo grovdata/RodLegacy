@@ -1,0 +1,25 @@
+[[zones]]
+id = "pump"
+text = "The pump"
+rect = [40, 105, 42, 73]
+
+[[zones]]
+id = "rag"
+text = "A rag"
+rect = [95, 176, 22, 14]
+
+# Dynamic zones - rects updated at runtime based on car position
+[[zones]]
+id = "gas_cap"
+text = "A gas cap"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "car_window_rear"
+text = "A rear window"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "car_window_front"
+text = "A front window"
+rect = [0, 0, 0, 0]

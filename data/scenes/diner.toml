@@ -1,0 +1,24 @@
+[[zones]]
+id = "order"
+text = "Order"
+rect = [132, 53, 27, 9]
+
+[[zones]]
+id = "call"
+text = "Look for opponent"
+rect = [194, 65, 29, 59]
+
+[[zones]]
+id = "challenge_opponent"
+text = "Click to race"
+rect = [82, 85, 200, 75]
+
+[[zones]]
+id = "goto_garage"
+text = "Back to the garage"
+rect = [0, 170, 320, 30]
+
+[[zones]]
+id = "background"
+text = ""
+rect = [0, 0, 320, 169]

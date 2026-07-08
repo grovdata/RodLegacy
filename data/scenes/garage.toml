@@ -1,0 +1,90 @@
+[[zones]]
+id = "drink"
+text = "Wanna drink ?"
+rect = [0, 161, 15, 25]
+
+[[zones]]
+id = "newspaper"
+text = "Check out the newspaper"
+rect = [15, 158, 44, 25]
+
+[[zones]]
+id = "tires"
+text = "Change tires"
+rect = [136, 157, 26, 29]
+
+[[zones]]
+id = "paint_job"
+text = "New paint job - $20"
+rect = [228, 160, 33, 24]
+
+[[zones]]
+id = "gas_can"
+text = "Wanna tank ?"
+rect = [288, 161, 23, 26]
+
+[[zones]]
+id = "car_info"
+text = "Car info"
+rect = [290, 107, 27, 14]
+
+[[zones]]
+id = "calendar"
+text = "Calendar"
+rect = [299, 56, 16, 45]
+
+[[zones]]
+id = "music"
+text = "Squelsh it !"
+rect = [259, 61, 25, 12]
+
+[[zones]]
+id = "stickers"
+text = "Stickers - $5"
+rect = [216, 63, 17, 10]
+
+[[zones]]
+id = "sell_parts"
+text = "Sell parts"
+rect = [203, 79, 17, 19]
+
+[[zones]]
+id = "menu"
+text = "Time to quit"
+rect = [156, 65, 33, 14]
+
+[[zones]]
+id = "select_car"
+text = "Cars"
+rect = [69, 41, 200, 16]
+
+[[zones]]
+id = "goto_diner"
+text = "Hit the street"
+rect = [0, 42, 40, 62]
+
+# Dynamic zones - rects are updated at runtime based on car position
+[[zones]]
+id = "rear_bumper"
+text = "Rear bumper"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "front_bumper"
+text = "Front bumper"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "roof"
+text = "Roof"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "transmission"
+text = "Transmission"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "engine"
+text = "Pop the hood"
+rect = [0, 0, 0, 0]

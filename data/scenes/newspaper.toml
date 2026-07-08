@@ -1,0 +1,29 @@
+[[zones]]
+id = "auto_parts"
+text = "Auto Parts"
+rect = [0, 0, 320, 32]
+
+[[zones]]
+id = "used_cars"
+text = "Used Cars"
+rect = [0, 33, 320, 33]
+
+[[zones]]
+id = "back_to_garage"
+text = "Go to the garage"
+rect = [0, 66, 320, 125]
+
+[[zones]]
+id = "previous"
+text = "Previous page"
+rect = [0, 0, 64, 190]
+
+[[zones]]
+id = "next"
+text = "Next page"
+rect = [256, 0, 64, 190]
+
+[[zones]]
+id = "back_to_garage2"
+text = "Go to the garage"
+rect = [0, 199, 320, 125]
