@@ -126,10 +126,10 @@ TEST_CASE("GenerateTrackShapes matches Python simulator ground truth") {
         CHECK(ChecksumRight(track) == expected.right_checksum);
         CHECK(track.elev[1089] == expected.final_elev);
 
-        for (size_t i = 0; i < CURVE_SPOTS.size(); ++i) {
+        for (std::size_t i = 0; i < CURVE_SPOTS.size(); ++i) {
             CHECK(track.curve[CURVE_SPOTS[i]] == expected.curve_spots[i]);
         }
-        for (size_t i = 0; i < ELEV_SPOTS.size(); ++i) {
+        for (std::size_t i = 0; i < ELEV_SPOTS.size(); ++i) {
             CHECK(track.elev[ELEV_SPOTS[i]] == expected.elev_spots[i]);
         }
     }
@@ -159,7 +159,7 @@ TEST_CASE("RoadLayoutInit builds city, countryside, finish, and S-curve structur
         CHECK((track.right[i] & 0x0001) != 0);
     }
 
-    for (size_t k = 0; k < GENTLE.size(); ++k) {
+    for (std::size_t k = 0; k < GENTLE.size(); ++k) {
         CHECK(track.curve[220 + static_cast<int>(k)] == GENTLE[k]);
         CHECK(track.curve[240 + static_cast<int>(k)] == -GENTLE[k]);
         CHECK(track.curve[270 + static_cast<int>(k)] == GENTLE[k]);

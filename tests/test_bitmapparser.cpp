@@ -371,10 +371,10 @@ TEST_CASE("unknown asset returns (0, 0)") {
 
 TEST_SUITE("BitmapParser::GetPalette") {
 
-TEST_CASE("index < 45 returns standard PAL1") {
+TEST_CASE("index < 45 returns driving low") {
     BitmapParser p;
     auto result = p.GetPalette(SrLibFileAmigaLibP, SPEECH_BUBBLE_ARROW_RIGHT); // index 0
-    auto expected = BitmapParser::GetStockPalette(StockPaletteAmigaDiner);
+    auto expected = BitmapParser::GetStockPalette(StockPaletteAmigaDrivingLow);
     CHECK(result == expected);
 }
 

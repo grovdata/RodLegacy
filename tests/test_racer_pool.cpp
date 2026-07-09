@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include <algorithm>
 #include "racer_pool.h"
 #include "parsers/libp.h"
 
