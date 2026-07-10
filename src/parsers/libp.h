@@ -582,15 +582,32 @@ struct SpriteAnimationInfo {
     const SpriteRect* frames;    // Array of frame rectangles
 };
 
+static const SpriteRect LIBP_21_PALM_TREE[] = {
+    {107, 74, 6, 10}, {107, 65, 6, 9}, {104, 49, 9, 16}, {104, 35, 9, 14}, 
+    {90, 54, 11, 18}, {90, 35, 14, 17}, {76, 52, 14, 24}, {56, 52, 20, 29}, 
+    {90, 0, 23, 35}, {56, 1, 34, 51}, {0, 0, 56, 87}
+};
+
 static const SpriteRect LIBP22_ROAD_POST[] = {
     {0, 0, 7, 14}, {7, 0, 5, 9}, {8, 9, 3, 6}, {0, 14, 2, 5}, 
     {3, 14, 2, 4}, {6, 15, 1, 3}
+};
+
+static const SpriteRect LIBP_23_THING[] = {
+    {17, 22, 1, 1}, {19, 21, 1, 2}, {21, 20, 2, 3}, {12, 21, 3, 3}, 
+    {8, 20, 4, 4}, {5, 20, 3, 5}, {0, 20, 5, 6}, {14, 0, 9, 19}, 
+    {0, 1, 14, 18}
 };
 
 static const SpriteRect LIBP_32_TREE_FRAMES[] = {
     {0, 0, 77, 76}, {0, 76, 48, 46}, {48, 76, 34, 32}, {56, 108, 26, 25}, 
     {34, 122, 22, 20}, {16, 122, 18, 17}, {0, 122, 16, 15}, {68, 133, 14, 13}, 
     {56, 133, 12, 11}, {0, 137, 10, 10}, {10, 139, 8, 8}
+};
+
+static const SpriteRect LIBP_33_ROUTE69[] = {
+    {33, 42, 6, 2}, {36, 37, 11, 4}, {23, 37, 12, 5}, {34, 31, 15, 6}, 
+    {33, 23, 20, 8}, {0, 37, 23, 10}, {0, 23, 34, 14}, {0, 0, 56, 23}
 };
 
 static const SpriteRect LIBP_37_RACING_SIGN_TURN_LEFT[] = {
@@ -655,6 +672,9 @@ static const SpriteRect CAR_JACK_FRAMES[] = {
 
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
+    {RACING_PALM_TREE, 11, 100, true, LIBP_21_PALM_TREE},
+    {RACING_UNKNOWN_THING2, 9, 100, true, LIBP_23_THING},
+    {RACING_SIGN_ROUTE_69, 8, 100, true, LIBP_33_ROUTE69},
     {RACING_ROAD_POST, 6, 150, true, LIBP22_ROAD_POST},
     {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
     {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
