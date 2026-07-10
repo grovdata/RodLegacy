@@ -1,6 +1,10 @@
 # To do in dissassembly / reversing
 
 - [ ] Understand delays/timings between scene transitions, etc. so it looks better
+- [ ] Racing: map ALL roadside objects to pre-drawn frames (RodEdit composite editor +
+      SPRITE_ANIMATIONS[] entries), then remove the nearest-neighbor scaling fallback in
+      racing.cpp (kSpriteScale table + scaling path in DrawNearestNeighborScaled). Only
+      road post and tree2 are mapped so far.
 
 # Current progress
 

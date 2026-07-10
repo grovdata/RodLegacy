@@ -67,6 +67,9 @@ private:
     float mountainOffsetAccum = 0.0f;
 
     std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
+    // Per-slot animation frames (pre-drawn scale levels) when the sprite has them;
+    // nullptr slots fall back to kSpriteScale nearest-neighbor scaling.
+    std::array<const SpriteAnimationInfo*, 20> roadsideAnim {};
     std::unique_ptr<Bitmap> mountainSprite;
     std::unique_ptr<Bitmap> cloudSprite;
     std::unique_ptr<Bitmap> rearviewMirrorSprite;
@@ -115,7 +118,8 @@ private:
     int BuildRowTableAndGetLastVisible();
     void RenderSkyAndParallax(float frameSeconds);
     void RenderRoad(int lastVisible);
-    void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom);
+    void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
+                                   int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1);
     void DrawRoadsideAndArchSprites(int lastVisible);
     void DrawOverheadArch(const RowProjection& row, uint16_t flags);
     void DrawNpcCar(int lastVisible);

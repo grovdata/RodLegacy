@@ -582,6 +582,11 @@ struct SpriteAnimationInfo {
     const SpriteRect* frames;    // Array of frame rectangles
 };
 
+static const SpriteRect LIBP22_ROAD_POST[] = {
+    {0, 0, 7, 14}, {7, 0, 5, 9}, {8, 9, 3, 6}, {0, 14, 2, 5}, 
+    {3, 14, 2, 4}, {6, 15, 1, 3}
+};
+
 static const SpriteRect LIBP_32_TREE_FRAMES[] = {
     {0, 0, 77, 76}, {0, 76, 48, 46}, {48, 76, 34, 32}, {56, 108, 26, 25}, 
     {34, 122, 22, 20}, {16, 122, 18, 17}, {0, 122, 16, 15}, {68, 133, 14, 13}, 
@@ -650,6 +655,7 @@ static const SpriteRect CAR_JACK_FRAMES[] = {
 
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
+    {RACING_ROAD_POST, 6, 150, true, LIBP22_ROAD_POST},
     {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
     {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
     {ENGINE_BELT_ANIMATION, 4, 500, true, ENGINE_BELT_FRAMES},

@@ -144,12 +144,25 @@ void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, f
     SDL_RenderDrawLine(renderer, startX, startY, endX, endY);
 }
 
-void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom) {
+void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
+                                       int srcX0, int srcY0, int srcW, int srcH) {
     if (!bitmap || dstW <= 0 || dstH <= 0) {
         return;
     }
     SDL_Surface* src = bitmap->GetSurface();
     if (!src || src->w <= 0 || src->h <= 0) {
+        return;
+    }
+
+    // Default to the whole surface; otherwise sample from the given sub-rect
+    // (used to blit a single pre-drawn animation frame from a composite sheet).
+    if (srcW <= 0) srcW = src->w;
+    if (srcH <= 0) srcH = src->h;
+    srcX0 = std::max(0, std::min(srcX0, src->w - 1));
+    srcY0 = std::max(0, std::min(srcY0, src->h - 1));
+    srcW = std::min(srcW, src->w - srcX0);
+    srcH = std::min(srcH, src->h - srcY0);
+    if (srcW <= 0 || srcH <= 0) {
         return;
     }
 
@@ -167,13 +180,13 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
         if (py < 0 || py >= pixels->h) {
             continue;
         }
-        const int srcY = (y * src->h) / dstH;
+        const int srcY = srcY0 + (y * srcH) / dstH;
         for (int x = 0; x < dstW; ++x) {
             const int px = drawX + x;
             if (px < 0 || px >= pixels->w) {
                 continue;
             }
-            const int srcX = (x * src->w) / dstW;
+            const int srcX = srcX0 + (x * srcW) / dstW;
             Uint32 srcPixel = 0;
             const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + srcY * src->pitch + srcX * src->format->BytesPerPixel;
             std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
@@ -197,6 +210,9 @@ void Racing::LoadSpriteBitmaps() {
         if (asset) {
             roadsideSprites[slot] = std::make_unique<Bitmap>(*asset);
         }
+        // Prefer pre-drawn frames (a composite sheet with one frame per distance)
+        // when the sprite has animation info; otherwise the kSpriteScale fallback runs.
+        roadsideAnim[slot] = GetSpriteAnimationInfo(static_cast<uint16_t>(assetId));
     }
 
     auto* mountainAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_MOUNTAINS});
@@ -795,18 +811,49 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
         const RowProjection& row = rows[k];
         const int sr = ClampInt(k - 2, 0, 10);
-        const int w = kSpriteScale[slot][sr][0];
-        const int h = kSpriteScale[slot][sr][1];
+
+        int w = 0, h = 0;
+        int srcX0 = 0, srcY0 = 0, srcW = -1, srcH = -1;
+        const SpriteAnimationInfo* anim = roadsideAnim[slot];
+        if (anim && anim->frames && anim->frameCount > 0) {
+            // sr grows with distance (0 = nearest). Frame arrays are authored in
+            // either order, so normalize by frame area: nearest always picks the
+            // largest frame. The chosen frame is blitted at its native size (no
+            // scaling) straight from the composite sheet.
+            const int last = anim->frameCount - 1;
+            const int srClamped = ClampInt(sr, 0, last);
+            const SpriteRect& f0 = anim->frames[0];
+            const SpriteRect& fN = anim->frames[last];
+            const bool smallestFirst = (fN.w * fN.h) > (f0.w * f0.h);
+            const int frameIdx = smallestFirst ? (last - srClamped) : srClamped;
+            const SpriteRect& fr = anim->frames[frameIdx];
+            w = fr.w;
+            h = fr.h;
+            srcX0 = fr.x;
+            srcY0 = fr.y;
+            srcW = fr.w;
+            srcH = fr.h;
+        } else {
+            // TODO: temporary fallback. Nearest-neighbor scaling of a single bitmap
+            // is not how the original game draws scenery. Once every roadside object
+            // has pre-drawn frames mapped (author them in RodEdit's composite editor
+            // and add SPRITE_ANIMATIONS[] entries in libp.h), delete this branch, the
+            // kSpriteScale table, and the scaling path of DrawNearestNeighborScaled.
+            w = kSpriteScale[slot][sr][0];
+            h = kSpriteScale[slot][sr][1];
+        }
         if (w <= 0 || h <= 0) {
             return;
         }
+
+        Bitmap* sprite = roadsideSprites[slot].get();
         if (centerInRoad) {
             const int x = (row.leftX + row.rightX) / 2 - w / 2;
-            DrawNearestNeighborScaled(roadsideSprites[slot].get(), x, row.y, w, h, false, true);
+            DrawNearestNeighborScaled(sprite, x, row.y, w, h, false, true, srcX0, srcY0, srcW, srcH);
         } else if (side < 0) {
-            DrawNearestNeighborScaled(roadsideSprites[slot].get(), row.leftX - 2, row.y, w, h, true, true);
+            DrawNearestNeighborScaled(sprite, row.leftX - 2, row.y, w, h, true, true, srcX0, srcY0, srcW, srcH);
         } else {
-            DrawNearestNeighborScaled(roadsideSprites[slot].get(), row.rightX + 2, row.y, w, h, false, true);
+            DrawNearestNeighborScaled(sprite, row.rightX + 2, row.y, w, h, false, true, srcX0, srcY0, srcW, srcH);
         }
     };
 
