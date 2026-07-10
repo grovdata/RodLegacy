@@ -32,7 +32,6 @@ constexpr int kRoadCenterLat = 2400;
 // Races run at night in the original game.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
 constexpr SDL_Color kGrassA = {0, 146, 0, 255};
-constexpr SDL_Color kGrassB = {0, 113, 0, 255};
 constexpr SDL_Color kRoadA = {66, 60, 66, 255};
 constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
@@ -65,6 +64,18 @@ constexpr std::array<std::array<std::array<uint8_t, 2>, 11>, 20> kSpriteScale = 
 
 int ClampInt(int v, int lo, int hi) {
     return std::max(lo, std::min(hi, v));
+}
+
+// Pick the pre-drawn frame for a given distance row (sr grows with distance,
+// 0 = nearest). Frame arrays may be authored smallest- or largest-first, so
+// normalize by frame area: nearest always maps to the largest frame.
+int SelectFrameIndexForDistance(const SpriteAnimationInfo* anim, int sr) {
+    const int last = anim->frameCount - 1;
+    const int srClamped = ClampInt(sr, 0, last);
+    const SpriteRect& f0 = anim->frames[0];
+    const SpriteRect& fN = anim->frames[last];
+    const bool smallestFirst = (fN.w * fN.h) > (f0.w * f0.h);
+    return smallestFirst ? (last - srClamped) : srClamped;
 }
 
 int ToRaceType(SrTrackType trackType) {
@@ -660,9 +671,8 @@ void Racing::RenderRoad(int lastVisible) {
     };
 
     for (int y = kClipTop; y <= kClipBottom; ++y) {
-        SDL_Color grass = (y & 1) ? kGrassA : kGrassB;
         for (int x = 0; x < GAME_WIDTH; ++x) {
-            PutPixel(pixels, x, y, grass);
+            PutPixel(pixels, x, y, kGrassA);
         }
     }
 
@@ -739,9 +749,8 @@ void Racing::RenderRoad(int lastVisible) {
     if (lastVisible == kForwardRows - 1) {
         const int horizonFillEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
         for (int y = kClipTop; y < horizonFillEnd; ++y) {
-            const SDL_Color grass = (y & 1) ? kGrassA : kGrassB;
             for (int x = 0; x < GAME_WIDTH; ++x) {
-                PutPixel(pixels, x, y, grass);
+                PutPixel(pixels, x, y, kGrassA);
             }
         }
     } else {
@@ -754,7 +763,7 @@ void Racing::RenderRoad(int lastVisible) {
     }
 }
 
-void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags) {
+void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) {
     const int left = row.leftX;
     const int right = row.rightX;
     if (right - left < 4) {
@@ -787,20 +796,37 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags) {
     }
 
     Bitmap* banner = nullptr;
+    uint16_t bannerId = 0;
     if (flags & 0x8000) {
         banner = signRoute69Sprite.get();
+        bannerId = RACING_SIGN_ROUTE_69;
     } else if (flags & 0x4000) {
         banner = signExit48Sprite.get();
+        bannerId = RACING_SIGN_EXIT_48;
     } else if (flags & 0x2000 || flags & 0x1000) {
         banner = signCountyLineSprite.get();
+        bannerId = RACING_SIGN_COUNTY_LINE;
     }
     if (!banner || !banner->GetSurface()) {
         return;
     }
 
+    const int centerX = (left + right) / 2;
+
+    // These sign assets are composite sheets of pre-drawn scale frames. Step
+    // through them by distance (same as roadside objects) so the sign grows as we
+    // approach, blitting the chosen frame at native size rather than scaling the
+    // whole sheet.
+    const SpriteAnimationInfo* anim = GetSpriteAnimationInfo(bannerId);
+    if (anim && anim->frames && anim->frameCount > 0) {
+        const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
+        DrawNearestNeighborScaled(banner, centerX - fr.w / 2, yTop + 1, fr.w, fr.h, false, false,
+                                  fr.x, fr.y, fr.w, fr.h);
+        return;
+    }
+
     SDL_Surface* src = banner->GetSurface();
     const int bannerHeight = std::max(1, bannerWidth * src->h / std::max(1, src->w));
-    const int centerX = (left + right) / 2;
     DrawNearestNeighborScaled(banner, centerX - bannerWidth / 2, yTop + 1, bannerWidth, bannerHeight, false, false);
 }
 
@@ -816,17 +842,9 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         int srcX0 = 0, srcY0 = 0, srcW = -1, srcH = -1;
         const SpriteAnimationInfo* anim = roadsideAnim[slot];
         if (anim && anim->frames && anim->frameCount > 0) {
-            // sr grows with distance (0 = nearest). Frame arrays are authored in
-            // either order, so normalize by frame area: nearest always picks the
-            // largest frame. The chosen frame is blitted at its native size (no
-            // scaling) straight from the composite sheet.
-            const int last = anim->frameCount - 1;
-            const int srClamped = ClampInt(sr, 0, last);
-            const SpriteRect& f0 = anim->frames[0];
-            const SpriteRect& fN = anim->frames[last];
-            const bool smallestFirst = (fN.w * fN.h) > (f0.w * f0.h);
-            const int frameIdx = smallestFirst ? (last - srClamped) : srClamped;
-            const SpriteRect& fr = anim->frames[frameIdx];
+            // Blit the distance-appropriate frame at its native size (no scaling)
+            // straight from the composite sheet.
+            const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
             w = fr.w;
             h = fr.h;
             srcX0 = fr.x;
@@ -898,7 +916,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
 
         if (F & 0xf000) {
-            DrawOverheadArch(rows[k], F);
+            DrawOverheadArch(rows[k], F, ClampInt(k - 2, 0, 10));
         }
     }
 }

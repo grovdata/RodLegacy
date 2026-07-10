@@ -121,7 +121,7 @@ private:
     void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
                                    int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1);
     void DrawRoadsideAndArchSprites(int lastVisible);
-    void DrawOverheadArch(const RowProjection& row, uint16_t flags);
+    void DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr);
     void DrawNpcCar(int lastVisible);
     void DrawHud();
     void DrawFlybyHud(int lastVisible);
