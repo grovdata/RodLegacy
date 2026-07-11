@@ -622,7 +622,11 @@ static const SpriteRect LIBP_23_RACING_BUSH[] = {
     {18, 21, 13, 9}, {0, 21, 18, 14}, {0, 0, 28, 21}
 };
 
-// Add to SPRITE_ANIMATIONS[]:
+static const SpriteRect LIBP_31_TREE[] = {
+    {41, 102, 6, 6}, {40, 126, 6, 8}, {48, 124, 9, 10}, {57, 122, 12, 12},
+    {36, 112, 12, 14}, {20, 112, 15, 16}, {0, 112, 20, 19}, {48, 99, 21, 23}, 
+    {41, 70, 29, 29}, {0, 70, 41, 42}, {11, 4, 55, 66}
+};
 
 
 static const SpriteRect LIBP_32_TREE_FRAMES[] = {
@@ -703,7 +707,8 @@ static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_DRIVE_IN, 11, 100, true, LIBP_16_GUS_GAS_SIGN},
     {RACING_PALM_TREE, 11, 100, true, LIBP_21_PALM_TREE},
     {RACING_UNKNOWN_THING2, 9, 100, true, LIBP_23_THING},
-    {RACING_BUSH, 7, 100, true, MY_SPRITE_FRAMES},
+    {RACING_BUSH, 7, 100, true, LIBP_23_RACING_BUSH},
+    {RACING_TREE1, 11, 100, true, LIBP_31_TREE},
     {RACING_SIGN_ROUTE_69, 8, 100, true, LIBP_33_ROUTE69},
     {RACING_ROAD_POST, 6, 150, true, LIBP22_ROAD_POST},
     {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
