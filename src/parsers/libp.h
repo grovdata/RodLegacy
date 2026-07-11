@@ -582,6 +582,24 @@ struct SpriteAnimationInfo {
     const SpriteRect* frames;    // Array of frame rectangles
 };
 
+static const SpriteRect LIBP_15_GARAGE_SIGN[] = {
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {38, 42, 26, 18}, {0, 43, 38, 25}, {0, 0, 64, 43}
+};
+
+static const SpriteRect LIBP_15_GUS_GAS_SIGN[] = {
+    {18, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
+};
+
+static const SpriteRect LIBP_16_GUS_GAS_SIGN[] = {
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
+};
+
 static const SpriteRect LIBP_21_PALM_TREE[] = {
     {107, 74, 6, 10}, {107, 65, 6, 9}, {104, 49, 9, 16}, {104, 35, 9, 14}, 
     {90, 54, 11, 18}, {90, 35, 14, 17}, {76, 52, 14, 24}, {56, 52, 20, 29}, 
@@ -672,6 +690,9 @@ static const SpriteRect CAR_JACK_FRAMES[] = {
 
 // Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
+    {RACING_SIGN_GARAGE, 11, 100, true, LIBP_15_GARAGE_SIGN},
+    {RACING_SIGN_GUS_GAS, 11, 100, true, LIBP_15_GUS_GAS_SIGN},
+    {RACING_DRIVE_IN, 11, 100, true, LIBP_16_GUS_GAS_SIGN},
     {RACING_PALM_TREE, 11, 100, true, LIBP_21_PALM_TREE},
     {RACING_UNKNOWN_THING2, 9, 100, true, LIBP_23_THING},
     {RACING_SIGN_ROUTE_69, 8, 100, true, LIBP_33_ROUTE69},
