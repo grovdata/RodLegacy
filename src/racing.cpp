@@ -568,7 +568,7 @@ int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int l
 int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
-    const int curveAtCar = p.curveAtCar;
+    const int elevAtCar = p.elevAtCar;
 
     for (int k = 0; k < kForwardRows; ++k) {
         int d = 4;
@@ -577,13 +577,13 @@ int Racing::BuildRowTableAndGetLastVisible() {
             d = std::max(4, d);
         }
         // BuildForwardRowTables (0x23abbe): the horizontal projection (road_d,
-        // ProjectForwardX) reads the elev[] array (A4+0x1098) and the vertical
-        // projection (row_c, ProjectForwardY) reads the curve[] array (A4+0x7d8).
-        // In this engine elev[] is what bends the road left/right (and drives the
-        // lateral drift); curve[] is what moves it up/down. Do NOT swap these.
+        // ProjectForwardX) reads the curve[] array (A4+0x1098) and the vertical
+        // projection (row_c, ProjectForwardY) reads the elev[] array (A4+0x7d8).
+        // In this engine curve[] is what bends the road left/right (and drives the
+        // lateral drift); elev[] is what moves it up/down. Do NOT swap these.
         const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
-        const int roadDelta = p.heading - track.elev[seg];
-        const int rowCurveDelta = curveAtCar - track.curve[seg];
+        const int roadDelta = p.heading - track.curve[seg];
+        const int rowElevDelta = elevAtCar - track.elev[seg];
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
@@ -597,7 +597,7 @@ int Racing::BuildRowTableAndGetLastVisible() {
         row.centerX = ProjectX(p, d, roadDelta, kRoadCenterLat);
         row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
         row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
-        row.y = ClampInt(kHorizonY + 400 / d + 4 * rowCurveDelta, kClipTop, kClipBottom + 30);
+        row.y = ClampInt(kHorizonY + 400 / d + 4 * rowElevDelta, kClipTop, kClipBottom + 30);
         // Overhead gantry crossbar height (RenderOverheadArch 0x237bf4):
         //   y - 4*(y - elevated_y), and elevated_y = y - 400/d, so y - 1600/d.
         row.archY = row.y - 1600 / d;
@@ -1104,8 +1104,8 @@ std::string Racing::FormatSegmentFlags(uint16_t flags) {
     else if ((flags & 0x00e0) == 0x0040) out += "narrowR ";
     else if ((flags & 0x00e0) == 0x0080) out += "narrowB ";
     if (flags & 0x0100) out += "spr5 ";
-    if (flags & 0x0200) out += "upHill ";
-    if (flags & 0x0400) out += "dnHill ";
+    if (flags & 0x0200) out += "curveL ";
+    if (flags & 0x0400) out += "curveR ";
     if (flags & 0x0800) out += "narrowWarn ";
     if (flags & 0xf000) out += "arch ";
     if (out.empty()) {
@@ -1116,8 +1116,8 @@ std::string Racing::FormatSegmentFlags(uint16_t flags) {
 
 void Racing::ApplyFlybyCamera() {
     const int seg = ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1);
-    const int16_t curveAtCar = track.curve[seg];
-    sim.SetCameraState(flybySeg, flybyScrollAcc, flybyHeading, flybyLateral, curveAtCar);
+    const int16_t elevAtCar = track.elev[seg];
+    sim.SetCameraState(flybySeg, flybyScrollAcc, flybyHeading, flybyLateral, elevAtCar);
     if (flybyNpcVisible) {
         sim.SetNpcDebugPose(flybySeg + 6, 2560);
     } else {

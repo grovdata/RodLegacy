@@ -87,7 +87,7 @@ struct CarState {
     int16_t steerVel = 0;    // input integrator, +-24 (A4+0x4b0c)
     int16_t slideVel = 0;    // decaying steer momentum (A4+0x4b0e)
     int16_t heading = 0;     // road-direction the car is pointing
-    int16_t curveAtCar = 0;  // snapshot of track.curve[pos] on segment advance
+    int16_t elevAtCar = 0;  // snapshot of track.elev[pos] on segment advance
     int16_t lateral = 2560;  // road spans 1500..3300
     int32_t segPos = RACE_START_SEG;
     int16_t scrollAcc = 0;
@@ -143,7 +143,7 @@ public:
 
     // Flyby / debug camera: sets player pose without running physics.
     void SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
-                        int16_t lateral, int16_t curveAtCar);
+                        int16_t lateral, int16_t elevAtCar);
     void SetNpcDebugPose(int32_t segPos, int16_t lateral);
 
     // Road edges at the player's current segment (updated per tick).

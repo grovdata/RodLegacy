@@ -15,8 +15,8 @@ TrackData MakeFlatTrack() {
         track.left[i] = 0;
         track.right[i] = 0;
         track.flags[i] = 0;
-        track.curve[i] = 0;
         track.elev[i] = 0;
+        track.curve[i] = 0;
     }
     return track;
 }
@@ -172,10 +172,10 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
 TEST_CASE("Steering input counteracts curve drift") {
     TrackData track = MakeFlatTrack();
-    // The road-direction array that pushes the car sideways is elev[] (A4+0x1098),
-    // not curve[] - see ApplyLateralDrift. A non-zero elev[] run creates the drift.
+    // The road-direction array that pushes the car sideways is curve[] (A4+0x1098),
+    // not elev[] - see ApplyLateralDrift. A non-zero curve[] run creates the drift.
     for (int i = 300; i <= 340; ++i) {
-        track.elev[i] = 4;
+        track.curve[i] = 4;
     }
 
     CarSetup setup{};

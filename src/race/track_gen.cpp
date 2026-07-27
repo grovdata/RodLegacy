@@ -5,9 +5,23 @@
 namespace srrace {
 namespace {
 
+// NOTE on curve[] vs elev[]: in this engine curve[] (0x1098) renders as left/right
+// curves and drives the lateral drift; elev[] (0x7d8) renders as up/down hills.
+// The generator's shapes are named for that rendered effect:
+//   - the "ramp" shapes (ShapeCurveLeft/Right, ShapeCurveHump/Dip) write curve[]
+//     via the cur_curve accumulator -> they produce CURVES. ShapeCurveLeft sets
+//     flag 0x0200 (draws the turn-left sign, slot 16); ShapeCurveRight sets 0x0400
+//     (turn-right sign, slot 17) - these are the left/right CURVE markers (the
+//     original mislabelled them uphill/downhill markers).
+//   - the "table" shapes (ShapeHillShallow/Deep) copy the +-5 SHALLOW/DEEP tables
+//     into elev[] -> they produce HILLS.
+// (The original binary's arrays/shapes are labelled the opposite way round; the
+// names here follow what you actually see on screen.)
+
 constexpr int GEN_START = 390;
 constexpr int GEN_LIMIT = 0x442;
 
+// +-5 hill profiles copied into elev[] (rise to a crest, fall to a dip).
 constexpr int16_t SHALLOW[] = {
     1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 0, 0,
     -1, -2, -3, -4, -4, -4, -4, -3, -2, -1,
@@ -38,7 +52,7 @@ constexpr int SHAPE_SEQUENCES[10][12] = {
 
 struct GenState {
     int gen_pos = GEN_START;
-    int cur_elev = 0;
+    int cur_curve = 0;
 };
 
 bool InLimit(int pos) {
@@ -53,13 +67,13 @@ void ClearAll(TrackData& track, int i) {
     track.left[i] = 0;
     track.right[i] = 0;
     track.flags[i] = 0;
-    track.curve[i] = 0;
     track.elev[i] = 0;
+    track.curve[i] = 0;
 }
 
 void ClearGeneratedSegment(TrackData& track, int i, int roadType) {
-    track.curve[i] = 0;
     track.elev[i] = 0;
+    track.curve[i] = 0;
     track.flags[i] = 0;
     track.left[i] &= 0x1801;
     track.right[i] &= 0x1801;
@@ -76,20 +90,20 @@ void ClearObjects(TrackData& track, int pos) {
     }
 }
 
-void BackfillElev(TrackData& track, int start, int end, int elev) {
+void BackfillCurve(TrackData& track, int start, int end, int curve) {
     for (int i = start; i < end; ++i) {
         if (InLimit(i)) {
-            track.elev[i] = static_cast<int16_t>(elev);
+            track.curve[i] = static_cast<int16_t>(curve);
         }
     }
 }
 
-void ShapeUphill(TrackData& track, GenState& state) {
+void ShapeCurveLeft(TrackData& track, GenState& state) {
     const int pos = state.gen_pos;
-    const int curElev = state.cur_elev;
+    const int curCurve = state.cur_curve;
     for (int i = pos; i < pos + 50; ++i) {
         if (InLimit(i)) {
-            track.elev[i] = static_cast<int16_t>(curElev);
+            track.curve[i] = static_cast<int16_t>(curCurve);
         }
     }
     if (InLimit(pos)) {
@@ -102,23 +116,23 @@ void ShapeUphill(TrackData& track, GenState& state) {
     }
     Advance(state, 6);
 
-    int k = curElev / 3;
+    int k = curCurve / 3;
     const int end = k + 40;
     while (k < end && state.gen_pos < GEN_LIMIT) {
         track.flags[state.gen_pos] |= 0x0008;
-        track.elev[state.gen_pos] = static_cast<int16_t>(k * 3);
+        track.curve[state.gen_pos] = static_cast<int16_t>(k * 3);
         ++state.gen_pos;
         ++k;
     }
-    state.cur_elev = k * 3;
+    state.cur_curve = k * 3;
 }
 
-void ShapeDownhill(TrackData& track, GenState& state) {
+void ShapeCurveRight(TrackData& track, GenState& state) {
     const int pos = state.gen_pos;
-    const int curElev = state.cur_elev;
+    const int curCurve = state.cur_curve;
     for (int i = pos; i < pos + 50; ++i) {
         if (InLimit(i)) {
-            track.elev[i] = static_cast<int16_t>(curElev);
+            track.curve[i] = static_cast<int16_t>(curCurve);
         }
     }
     if (InLimit(pos)) {
@@ -130,41 +144,41 @@ void ShapeDownhill(TrackData& track, GenState& state) {
     }
     Advance(state, 3);
 
-    int k = curElev / 3;
+    int k = curCurve / 3;
     const int end = k - 45;
     while (k > end && state.gen_pos < GEN_LIMIT) {
         track.flags[state.gen_pos] |= 0x0008;
-        track.elev[state.gen_pos] = static_cast<int16_t>(k * 3);
+        track.curve[state.gen_pos] = static_cast<int16_t>(k * 3);
         ++state.gen_pos;
         --k;
     }
-    state.cur_elev = k * 3;
+    state.cur_curve = k * 3;
 }
 
-void CopyCurveTable(TrackData& track, GenState& state, const int16_t* table, int count, bool negate) {
+void CopyHillTable(TrackData& track, GenState& state, const int16_t* table, int count, bool negate) {
     int idx = 0;
     while (idx < count && state.gen_pos < GEN_LIMIT) {
         const int pos = state.gen_pos;
         ++state.gen_pos;
-        track.curve[pos] = negate ? static_cast<int16_t>(-table[idx]) : table[idx];
+        track.elev[pos] = negate ? static_cast<int16_t>(-table[idx]) : table[idx];
         ++idx;
     }
 }
 
-void ShapeCurveShallow(TrackData& track, GenState& state, bool negate) {
+void ShapeHillShallow(TrackData& track, GenState& state, bool negate) {
     const int start = state.gen_pos;
     Advance(state, negate ? 10 : 20);
-    CopyCurveTable(track, state, SHALLOW, static_cast<int>(sizeof(SHALLOW) / sizeof(SHALLOW[0])), negate);
+    CopyHillTable(track, state, SHALLOW, static_cast<int>(sizeof(SHALLOW) / sizeof(SHALLOW[0])), negate);
     Advance(state, negate ? 18 : 8);
-    BackfillElev(track, start, state.gen_pos, state.cur_elev);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
-void ShapeCurveDeep(TrackData& track, GenState& state, bool negate) {
+void ShapeHillDeep(TrackData& track, GenState& state, bool negate) {
     const int start = state.gen_pos;
     Advance(state, negate ? 8 : 6);
-    CopyCurveTable(track, state, DEEP, static_cast<int>(sizeof(DEEP) / sizeof(DEEP[0])), negate);
+    CopyHillTable(track, state, DEEP, static_cast<int>(sizeof(DEEP) / sizeof(DEEP[0])), negate);
     Advance(state, negate ? 4 : 6);
-    BackfillElev(track, start, state.gen_pos, state.cur_elev);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
 void ShapeNarrowRight(TrackData& track, GenState& state) {
@@ -193,7 +207,7 @@ void ShapeNarrowRight(TrackData& track, GenState& state) {
         track.flags[state.gen_pos] &= 0x0ff7;
     }
     Advance(state, 4);
-    BackfillElev(track, start, state.gen_pos, state.cur_elev);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
 void ShapeNarrowLeft(TrackData& track, GenState& state) {
@@ -222,7 +236,7 @@ void ShapeNarrowLeft(TrackData& track, GenState& state) {
         track.flags[state.gen_pos] &= 0x0ff7;
     }
     Advance(state, 3);
-    BackfillElev(track, start, state.gen_pos, state.cur_elev);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
 void ShapeNarrowBoth(TrackData& track, GenState& state) {
@@ -246,29 +260,29 @@ void ShapeNarrowBoth(TrackData& track, GenState& state) {
     if (InLimit(state.gen_pos)) {
         track.flags[state.gen_pos] &= 0x0fff;
     }
-    BackfillElev(track, start, state.gen_pos, state.cur_elev);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
 int SlopeSteps(TrackData& track, GenState& state, int count, int step) {
-    int k = state.cur_elev / 3;
+    int k = state.cur_curve / 3;
     for (int i = 0; i < count; ++i) {
         if (state.gen_pos >= GEN_LIMIT) {
             break;
         }
         track.flags[state.gen_pos] |= 0x0008;
-        track.elev[state.gen_pos] = static_cast<int16_t>(k * 3);
+        track.curve[state.gen_pos] = static_cast<int16_t>(k * 3);
         ++state.gen_pos;
         k += step;
     }
     return k * 3;
 }
 
-void ShapeHill(TrackData& track, GenState& state) {
+void ShapeCurveHump(TrackData& track, GenState& state) {
     const int pos = state.gen_pos;
-    const int curElev = state.cur_elev;
+    const int curCurve = state.cur_curve;
     for (int i = pos; i < pos + 90; ++i) {
         if (InLimit(i)) {
-            track.elev[i] = static_cast<int16_t>(curElev);
+            track.curve[i] = static_cast<int16_t>(curCurve);
         }
     }
     Advance(state, 1);
@@ -280,16 +294,16 @@ void ShapeHill(TrackData& track, GenState& state) {
     if (InLimit(state.gen_pos)) {
         track.right[state.gen_pos] |= 0x2000;
     }
-    state.cur_elev = SlopeSteps(track, state, 40, 1);
-    state.cur_elev = SlopeSteps(track, state, 43, -1);
+    state.cur_curve = SlopeSteps(track, state, 40, 1);
+    state.cur_curve = SlopeSteps(track, state, 43, -1);
 }
 
-void ShapeValley(TrackData& track, GenState& state) {
+void ShapeCurveDip(TrackData& track, GenState& state) {
     const int pos = state.gen_pos;
-    const int curElev = state.cur_elev;
+    const int curCurve = state.cur_curve;
     for (int i = pos; i < pos + 90; ++i) {
         if (InLimit(i)) {
-            track.elev[i] = static_cast<int16_t>(curElev);
+            track.curve[i] = static_cast<int16_t>(curCurve);
         }
     }
     Advance(state, 1);
@@ -301,23 +315,23 @@ void ShapeValley(TrackData& track, GenState& state) {
     if (InLimit(state.gen_pos)) {
         track.right[state.gen_pos] |= 0x4000;
     }
-    state.cur_elev = SlopeSteps(track, state, 35, -1);
-    state.cur_elev = SlopeSteps(track, state, 48, 1);
+    state.cur_curve = SlopeSteps(track, state, 35, -1);
+    state.cur_curve = SlopeSteps(track, state, 48, 1);
 }
 
 void RunShape(TrackData& track, GenState& state, int shapeId) {
     switch (shapeId) {
-    case 1: ShapeUphill(track, state); break;
-    case 2: ShapeDownhill(track, state); break;
-    case 3: ShapeCurveShallow(track, state, false); break;
-    case 4: ShapeCurveShallow(track, state, true); break;
-    case 5: ShapeCurveDeep(track, state, false); break;
-    case 6: ShapeCurveDeep(track, state, true); break;
+    case 1: ShapeCurveLeft(track, state); break;
+    case 2: ShapeCurveRight(track, state); break;
+    case 3: ShapeHillShallow(track, state, false); break;
+    case 4: ShapeHillShallow(track, state, true); break;
+    case 5: ShapeHillDeep(track, state, false); break;
+    case 6: ShapeHillDeep(track, state, true); break;
     case 7: ShapeNarrowRight(track, state); break;
     case 8: ShapeNarrowLeft(track, state); break;
     case 9: ShapeNarrowBoth(track, state); break;
-    case 10: ShapeHill(track, state); break;
-    case 11: ShapeValley(track, state); break;
+    case 10: ShapeCurveHump(track, state); break;
+    case 11: ShapeCurveDip(track, state); break;
     default: break;
     }
 }
@@ -551,11 +565,11 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
 
     for (int i = 220; i + 90 < 380;) {
         for (int k = 0; k < 17; ++k) {
-            track.curve[i + k] = GENTLE[k];
+            track.elev[i + k] = GENTLE[k];
         }
         i += 20;
         for (int k = 0; k < 17; ++k) {
-            track.curve[i + k] = static_cast<int16_t>(-GENTLE[k]);
+            track.elev[i + k] = static_cast<int16_t>(-GENTLE[k]);
         }
         i += 30;
     }
@@ -575,8 +589,8 @@ void GenerateTrackShapes(TrackData& track, int variant) {
 
     while (state.gen_pos < TRACK_SEGMENTS) {
         if (InLimit(state.gen_pos)) {
-            track.elev[state.gen_pos] = static_cast<int16_t>(state.cur_elev);
-            track.curve[state.gen_pos] = 0;
+            track.curve[state.gen_pos] = static_cast<int16_t>(state.cur_curve);
+            track.elev[state.gen_pos] = 0;
         }
         ++state.gen_pos;
     }

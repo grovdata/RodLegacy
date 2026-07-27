@@ -31,8 +31,8 @@ struct TrackData {
     uint16_t left[TRACK_SEGMENTS];
     uint16_t right[TRACK_SEGMENTS];
     uint16_t flags[TRACK_SEGMENTS];
-    int16_t curve[TRACK_SEGMENTS];
     int16_t elev[TRACK_SEGMENTS];
+    int16_t curve[TRACK_SEGMENTS];
 };
 
 // Road width from flags bits 5-7 -> lateral edges.
