@@ -206,7 +206,6 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     if (track != nullptr) {
         int seg = ClampTrackIndex(player.segPos);
         player.curveAtCar = track->curve[seg];
-        player.elevAtCar = track->elev[seg];
         RoadEdges(track->flags[seg], edgeLeft, edgeRight);
         seg = ClampTrackIndex(player.segPos + 4);
         RoadEdges(track->flags[seg], edgeLeftAhead, edgeRightAhead);
@@ -231,7 +230,6 @@ void RaceSim::SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
     player.heading = heading;
     player.lateral = lateral;
     player.curveAtCar = curveAtCar;
-    player.elevAtCar = track->elev[ClampTrackIndex(player.segPos)];
     player.endFlags &= static_cast<uint16_t>(~END_FINISHED);
     player.offRoad = false;
     phase = RacePhase::Running;  // debug camera is not staged
@@ -482,8 +480,11 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
     // road direction. (No steering-strength scaling here; the original uses a
     // fixed /2.)
     if (sv != 0 && player.speed != 0) {
-        const int curve = track->curve[ClampTrackIndex(player.segPos)];
-        if (std::abs(player.heading - sv - curve) < 200) {
+        // Heading is measured against the road-direction array, which in this
+        // engine is elev[] (A4+0x1098) - the same array that drives the lateral
+        // drift and the horizontal road projection (RenderTrackFrame 0x23b77c).
+        const int roadDir = track->elev[ClampTrackIndex(player.segPos)];
+        if (std::abs(player.heading - sv - roadDir) < 200) {
             player.heading = static_cast<int16_t>(player.heading - ((sv >> 1) + 1));
         }
     }
@@ -491,8 +492,11 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
 
 void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
     const int seg = ClampTrackIndex(car.segPos);
-    const int curve = track->curve[seg];
-    const int drift = (car.heading - curve) * (car.scrollStep + handling) / 4;
+    // Lateral drift uses the road-direction array elev[] (A4+0x1098), NOT curve[]
+    // - physics.md had this backwards. This is the same array the horizontal road
+    // projection reads, so the road and the car stay coupled through a bend.
+    const int roadDir = track->elev[seg];
+    const int drift = (car.heading - roadDir) * (car.scrollStep + handling) / 4;
     car.lateral = static_cast<int16_t>(car.lateral - drift);
 }
 
@@ -505,9 +509,7 @@ void RaceSim::UpdateScroll(CarState& car) {
         car.scrollAcc = static_cast<int16_t>(car.scrollAcc & 7);
     }
     if (car.segPos != prevSeg && track != nullptr) {
-        const int seg = ClampTrackIndex(car.segPos);
-        car.curveAtCar = track->curve[seg];
-        car.elevAtCar = track->elev[seg];
+        car.curveAtCar = track->curve[ClampTrackIndex(car.segPos)];
     }
     if (car.segPos >= finishSeg) {
         car.endFlags |= END_FINISHED;

@@ -172,8 +172,10 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
 TEST_CASE("Steering input counteracts curve drift") {
     TrackData track = MakeFlatTrack();
+    // The road-direction array that pushes the car sideways is elev[] (A4+0x1098),
+    // not curve[] - see ApplyLateralDrift. A non-zero elev[] run creates the drift.
     for (int i = 300; i <= 340; ++i) {
-        track.curve[i] = 4;
+        track.elev[i] = 4;
     }
 
     CarSetup setup{};

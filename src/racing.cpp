@@ -39,7 +39,7 @@ constexpr int kRoadCenterLat = 2400;
 // Races run at night in the original game.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
 constexpr SDL_Color kGrassA = {0, 146, 0, 255};
-constexpr SDL_Color kRoadA = {66, 60, 66, 255};
+constexpr SDL_Color kRoadA = {0, 0, 0, 255};
 constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
 constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
@@ -568,7 +568,7 @@ int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int l
 int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
-    const int elevAtCar = p.elevAtCar;
+    const int curveAtCar = p.curveAtCar;
 
     for (int k = 0; k < kForwardRows; ++k) {
         int d = 4;
@@ -576,14 +576,14 @@ int Racing::BuildRowTableAndGetLastVisible() {
             d = 12 + 8 * (k - 1) - p.scrollAcc;
             d = std::max(4, d);
         }
-        // BuildForwardRowTables advances segment pointers before each row.
-        // Horizontal bend comes from the road-direction array (curve[]) - the
-        // same array the lateral drift and steering physics use - so steering to
-        // match the curve both stops the drift and centers the road. Vertical
-        // comes from the elevation array (elev[]). (These were swapped before.)
+        // BuildForwardRowTables (0x23abbe): the horizontal projection (road_d,
+        // ProjectForwardX) reads the elev[] array (A4+0x1098) and the vertical
+        // projection (row_c, ProjectForwardY) reads the curve[] array (A4+0x7d8).
+        // In this engine elev[] is what bends the road left/right (and drives the
+        // lateral drift); curve[] is what moves it up/down. Do NOT swap these.
         const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
-        const int roadDelta = p.heading - track.curve[seg];
-        const int rowCurveDelta = elevAtCar - track.elev[seg];
+        const int roadDelta = p.heading - track.elev[seg];
+        const int rowCurveDelta = curveAtCar - track.curve[seg];
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
