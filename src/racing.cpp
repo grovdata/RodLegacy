@@ -216,7 +216,9 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
 
 void Racing::LoadSpriteBitmaps() {
     for (int slot = 0; slot < 20; ++slot) {
-        const int assetId = RACING_ROAD_POST + slot;
+        // slot is the roadside_sprite_table record index (0 = palm); record N =
+        // lib.p asset id 21 + N (see roadside_sprite_table.md).
+        const int assetId = RACING_PALM_TREE + slot;
         Bitmap* asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(assetId)});
         if (asset) {
             roadsideSprites[slot] = std::make_unique<Bitmap>(*asset);

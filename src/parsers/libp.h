@@ -600,61 +600,95 @@ static const SpriteRect LIBP_16_GUS_GAS_SIGN[] = {
     {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 
-static const SpriteRect LIBP_21_PALM_TREE[] = {
-    {107, 74, 6, 10}, {107, 65, 6, 9}, {104, 49, 9, 16}, {104, 35, 9, 14}, 
-    {90, 54, 11, 18}, {90, 35, 14, 17}, {76, 52, 14, 24}, {56, 52, 20, 29}, 
-    {90, 0, 23, 35}, {56, 1, 34, 51}, {0, 0, 56, 87}
+// ============================================================================
+// Roadside object frame tables - EXACT data from roadside_sprite_table
+// (Amiga static 0x2469a0, 20 records x 0x36 bytes). Each record's per-scale-row
+// 4 bytes = {srcX, srcY, width, height}; frames are listed largest (nearest) ->
+// smallest (farthest).
+//
+// Record N is lib.p asset id (21 + N): record 0 = palm tree = id 21, matching
+// RodEdit and the AmigaLibAsset enum. (The table's own leading word is id+1, an
+// internal load handle - do NOT read it as the asset id.)
+// ============================================================================
+
+static const SpriteRect FRAMES_PALM_TREE[] = {
+    {0, 0, 56, 87}, {56, 0, 34, 52}, {90, 0, 23, 35}, {56, 52, 19, 29}, {75, 52, 15, 24}, {90, 35, 13, 20}, {90, 55, 11, 17}, {103, 35, 10, 15}, {104, 50, 9, 14}, {106, 64, 7, 11}, {107, 75, 6, 9}
 };
 
-static const SpriteRect LIBP22_ROAD_POST[] = {
-    {0, 0, 7, 14}, {7, 0, 5, 9}, {8, 9, 3, 6}, {0, 14, 2, 5}, 
-    {3, 14, 2, 4}, {6, 15, 1, 3}
+static const SpriteRect FRAMES_ROAD_POST[] = {
+    {0, 0, 7, 14}, {7, 0, 5, 9}, {8, 9, 3, 6}, {0, 14, 2, 5}, {3, 14, 2, 4}, {6, 15, 1, 3}, {8, 15, 1, 3}, {10, 16, 1, 2}, {9, 18, 1, 1}, {9, 18, 1, 1}, {9, 18, 1, 1}
 };
 
-static const SpriteRect LIBP_23_THING[] = {
-    {17, 22, 1, 1}, {19, 21, 1, 2}, {21, 20, 2, 3}, {12, 21, 3, 3}, 
-    {8, 20, 4, 4}, {5, 20, 3, 5}, {0, 20, 5, 6}, {14, 0, 9, 19}, 
-    {0, 1, 14, 18}
+static const SpriteRect FRAMES_THING2[] = {
+    {0, 0, 14, 19}, {14, 0, 9, 12}, {14, 12, 7, 8}, {0, 20, 5, 7}, {5, 20, 4, 5}, {9, 20, 3, 4}, {12, 21, 3, 3}, {21, 14, 2, 3}, {21, 20, 2, 3}, {19, 21, 1, 2}, {17, 22, 1, 1}
 };
 
-static const SpriteRect LIBP_23_RACING_BUSH[] = {
-    {15, 35, 6, 3}, {8, 35, 6, 5}, {0, 35, 8, 5}, {21, 30, 10, 7}, 
-    {18, 21, 13, 9}, {0, 21, 18, 14}, {0, 0, 28, 21}
+static const SpriteRect FRAMES_SIGN_ROAD_WORK_AHEAD[] = {
+    {0, 0, 32, 63}, {0, 63, 20, 38}, {20, 74, 14, 27}, {32, 0, 11, 21}, {32, 36, 9, 17}, {32, 21, 7, 15}, {32, 53, 6, 13}, {34, 90, 5, 11}, {34, 80, 5, 10}, {35, 72, 4, 8}, {36, 66, 3, 6}
 };
 
-static const SpriteRect LIBP_31_TREE[] = {
-    {41, 102, 6, 6}, {40, 126, 6, 8}, {48, 124, 9, 10}, {57, 122, 12, 12},
-    {36, 112, 12, 14}, {20, 112, 15, 16}, {0, 112, 20, 19}, {48, 99, 21, 23}, 
-    {41, 70, 29, 29}, {0, 70, 41, 42}, {11, 4, 55, 66}
+static const SpriteRect FRAMES_BUSH[] = {
+    {0, 0, 30, 21}, {0, 21, 18, 13}, {18, 21, 13, 9}, {21, 30, 10, 7}, {0, 34, 8, 6}, {8, 35, 7, 5}, {15, 35, 6, 4}, {26, 37, 5, 4}, {22, 38, 4, 3}, {18, 39, 4, 3}, {15, 40, 3, 2}
 };
 
-
-static const SpriteRect LIBP_32_TREE_FRAMES[] = {
-    {0, 0, 77, 76}, {0, 76, 48, 46}, {48, 76, 34, 32}, {56, 108, 26, 25}, 
-    {34, 122, 22, 20}, {16, 122, 18, 17}, {0, 122, 16, 15}, {68, 133, 14, 13}, 
-    {56, 133, 12, 11}, {0, 137, 10, 10}, {10, 139, 8, 8}
+static const SpriteRect FRAMES_SIGN_SPEED_LIMIT_35[] = {
+    {0, 0, 25, 57}, {0, 57, 15, 35}, {15, 67, 11, 25}, {25, 0, 8, 19}, {25, 19, 7, 16}, {25, 35, 6, 14}, {25, 49, 5, 12}, {26, 82, 4, 10}, {26, 73, 4, 9}, {26, 65, 3, 8}, {30, 60, 2, 6}
 };
 
-static const SpriteRect LIBP_33_ROUTE69[] = {
-    {33, 42, 6, 2}, {36, 37, 11, 4}, {23, 37, 12, 5}, {34, 31, 15, 6}, 
-    {33, 23, 20, 8}, {0, 37, 23, 10}, {0, 23, 34, 14}, {0, 0, 56, 23}
+static const SpriteRect FRAMES_OBSTRUCTION[] = {
+    {0, 0, 89, 31}, {0, 31, 54, 19}, {54, 37, 38, 13}, {0, 50, 30, 10}, {30, 50, 24, 8}, {54, 50, 20, 7}, {54, 31, 18, 6}, {77, 50, 15, 5}, {72, 31, 13, 5}, {80, 55, 12, 4}, {54, 57, 9, 3}
 };
 
-static const SpriteRect LIBP_37_RACING_SIGN_TURN_LEFT[] = {
-    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, 
-    {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, 
-    {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+static const SpriteRect FRAMES_ROCK1[] = {
+    {0, 0, 19, 9}, {0, 9, 12, 7}, {0, 16, 8, 5}, {18, 8, 7, 3}, {12, 9, 6, 2}, {13, 12, 4, 1}, {13, 14, 3, 1}, {16, 16, 3, 1}, {17, 18, 2, 1}, {18, 20, 1, 1}, {18, 20, 1, 1}
 };
 
-static const SpriteRect LIBP_38_RACING_SIGN_TURN_RIGHT[] = {
-    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, 
-    {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, 
-    {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+static const SpriteRect FRAMES_ROCK2[] = {
+    {0, 0, 19, 9}, {0, 9, 12, 7}, {0, 16, 8, 5}, {18, 8, 7, 3}, {12, 9, 6, 2}, {13, 12, 4, 1}, {13, 14, 3, 1}, {16, 16, 3, 1}, {17, 18, 2, 1}, {18, 20, 1, 1}, {18, 20, 1, 1}
 };
 
-// Misc frame definitions
-static const SpriteRect RACING_TREE2_FRAMES[] = {
-    {10, 139, 8, 7}, {0, 137, 10, 9}, {56, 133, 11, 11}, {68, 133, 14, 13}, {0, 122, 16, 15}, {15, 122, 19, 17}, {34, 122, 22, 20}, {56, 108, 26, 25}, {47, 76, 34, 32}, {0, 76, 48, 46}, {0, 0, 77, 76}
+static const SpriteRect FRAMES_TELEPHONE_POLES[] = {
+    {0, 0, 29, 82}, {29, 0, 17, 49}, {29, 49, 12, 35}, {41, 57, 10, 27}, {46, 35, 8, 22}, {46, 16, 7, 19}, {46, 0, 6, 16}, {51, 70, 5, 14}, {51, 58, 4, 12}, {52, 0, 4, 10}, {53, 10, 3, 8}
+};
+
+static const SpriteRect FRAMES_TREE1[] = {
+    {0, 0, 68, 70}, {0, 70, 41, 42}, {41, 70, 29, 29}, {48, 99, 22, 23}, {0, 112, 18, 19}, {18, 112, 16, 16}, {34, 112, 14, 14}, {58, 122, 12, 12}, {48, 124, 10, 10}, {40, 126, 8, 8}, {41, 102, 7, 7}
+};
+
+static const SpriteRect FRAMES_TREE2[] = {
+    {0, 0, 80, 76}, {0, 76, 48, 46}, {48, 76, 34, 32}, {56, 108, 26, 25}, {34, 122, 22, 20}, {16, 122, 18, 17}, {0, 122, 16, 15}, {68, 133, 14, 13}, {56, 133, 12, 11}, {0, 137, 10, 10}, {10, 139, 8, 8}
+};
+
+static const SpriteRect FRAMES_SIGN_ROUTE_69[] = {
+    {0, 0, 56, 23}, {0, 23, 34, 14}, {0, 37, 23, 10}, {34, 23, 19, 8}, {34, 31, 15, 6}, {23, 37, 13, 5}, {36, 37, 11, 4}, {23, 43, 10, 4}, {33, 44, 9, 3}, {42, 44, 7, 3}, {33, 42, 6, 2}
+};
+
+static const SpriteRect FRAMES_SIGN_CITY_LIMITS[] = {
+    {0, 0, 64, 23}, {0, 23, 39, 14}, {39, 27, 27, 10}, {0, 37, 21, 8}, {21, 37, 17, 6}, {38, 37, 15, 5}, {53, 37, 13, 4}, {55, 42, 11, 3}, {45, 43, 10, 2}, {36, 43, 8, 2}, {29, 44, 6, 1}
+};
+
+static const SpriteRect FRAMES_SIGN_EXIT_48[] = {
+    {0, 0, 56, 23}, {0, 23, 34, 14}, {0, 37, 23, 10}, {34, 23, 19, 8}, {34, 31, 15, 6}, {23, 37, 13, 5}, {36, 37, 11, 4}, {23, 43, 10, 4}, {33, 44, 9, 3}, {42, 44, 7, 3}, {33, 42, 6, 2}
+};
+
+static const SpriteRect FRAMES_SIGN_MERGE[] = {
+    {0, 0, 25, 57}, {0, 57, 15, 35}, {15, 67, 11, 25}, {25, 0, 8, 19}, {25, 19, 7, 16}, {25, 35, 6, 14}, {25, 49, 5, 12}, {26, 82, 4, 10}, {26, 73, 4, 9}, {26, 65, 3, 8}, {30, 60, 2, 6}
+};
+
+static const SpriteRect FRAMES_SIGN_TURN_LEFT[] = {
+    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+};
+
+static const SpriteRect FRAMES_SIGN_TURN_RIGHT[] = {
+    {0, 0, 25, 54}, {0, 54, 15, 33}, {15, 64, 11, 23}, {25, 0, 8, 18}, {25, 18, 7, 15}, {25, 33, 6, 13}, {25, 46, 5, 11}, {26, 78, 4, 9}, {26, 70, 4, 8}, {26, 63, 3, 7}, {26, 58, 2, 5}
+};
+
+static const SpriteRect FRAMES_SIGN_MULTITURN_LEFT[] = {
+    {0, 0, 32, 63}, {0, 63, 20, 38}, {20, 74, 14, 27}, {32, 0, 11, 21}, {32, 36, 9, 17}, {32, 21, 7, 15}, {32, 53, 6, 13}, {34, 90, 5, 11}, {34, 80, 5, 10}, {35, 72, 4, 8}, {36, 66, 3, 6}
+};
+
+static const SpriteRect FRAMES_SIGN_MULTITURN_RIGHT[] = {
+    {0, 0, 32, 63}, {0, 63, 20, 38}, {20, 74, 14, 27}, {32, 0, 11, 21}, {32, 36, 9, 17}, {32, 21, 7, 15}, {32, 53, 6, 13}, {34, 90, 5, 11}, {34, 80, 5, 10}, {35, 72, 4, 8}, {36, 66, 3, 6}
 };
 
 static const SpriteRect RACING_SIGN_COUNTY_LINE_FRAMES[] = {
@@ -705,13 +739,29 @@ static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_SIGN_GARAGE, 11, 100, true, LIBP_15_GARAGE_SIGN},
     {RACING_SIGN_GUS_GAS, 11, 100, true, LIBP_15_GUS_GAS_SIGN},
     {RACING_DRIVE_IN, 11, 100, true, LIBP_16_GUS_GAS_SIGN},
-    {RACING_PALM_TREE, 11, 100, true, LIBP_21_PALM_TREE},
-    {RACING_UNKNOWN_THING2, 9, 100, true, LIBP_23_THING},
-    {RACING_BUSH, 7, 100, true, LIBP_23_RACING_BUSH},
-    {RACING_TREE1, 11, 100, true, LIBP_31_TREE},
-    {RACING_SIGN_ROUTE_69, 8, 100, true, LIBP_33_ROUTE69},
-    {RACING_ROAD_POST, 6, 150, true, LIBP22_ROAD_POST},
-    {RACING_TREE2, 11, 150, true, RACING_TREE2_FRAMES},
+    // Roadside objects (roadside_sprite_table @ Amiga 0x2469a0). Record N =
+    // lib.p asset id (21 + N); keyed here by that id so name, frames and the
+    // loaded bitmap all agree (palm = 21, matching RodEdit).
+    {RACING_PALM_TREE,            11, 100, true, FRAMES_PALM_TREE},                // id21
+    {RACING_ROAD_POST,            11, 100, true, FRAMES_ROAD_POST},                // id22
+    {RACING_UNKNOWN_THING2,       11, 100, true, FRAMES_THING2},                   // id23
+    {RACING_SIGN_ROAD_WORK_AHEAD, 11, 100, true, FRAMES_SIGN_ROAD_WORK_AHEAD},     // id24
+    {RACING_BUSH,                 11, 100, true, FRAMES_BUSH},                     // id25
+    {RACING_SIGN_SPEED_LIMIT_35,  11, 100, true, FRAMES_SIGN_SPEED_LIMIT_35},      // id26
+    {RACING_OBSTRUCTION,          11, 100, true, FRAMES_OBSTRUCTION},              // id27
+    {RACING_ROCK1,                11, 100, true, FRAMES_ROCK1},                    // id28
+    {RACING_ROCK2,                11, 100, true, FRAMES_ROCK2},                    // id29
+    {RACING_TELEPHONE_POLES,      11, 100, true, FRAMES_TELEPHONE_POLES},          // id30
+    {RACING_TREE1,                11, 100, true, FRAMES_TREE1},                    // id31
+    {RACING_TREE2,                11, 100, true, FRAMES_TREE2},                    // id32
+    {RACING_SIGN_ROUTE_69,        11, 100, true, FRAMES_SIGN_ROUTE_69},            // id33
+    {RACING_SIGN_CITY_LIMITS,     11, 100, true, FRAMES_SIGN_CITY_LIMITS},         // id34
+    {RACING_SIGN_EXIT_48,         11, 100, true, FRAMES_SIGN_EXIT_48},             // id35
+    {RACING_SIGN_MERGE,           11, 100, true, FRAMES_SIGN_MERGE},               // id36
+    {RACING_SIGN_TURN_LEFT,       11, 100, true, FRAMES_SIGN_TURN_LEFT},           // id37
+    {RACING_SIGN_TURN_RIGHT,      11, 100, true, FRAMES_SIGN_TURN_RIGHT},          // id38
+    {RACING_SIGN_MULTITURN_LEFT,  11, 100, true, FRAMES_SIGN_MULTITURN_LEFT},      // id39
+    {RACING_SIGN_MULTITURN_RIGHT, 11, 100, true, FRAMES_SIGN_MULTITURN_RIGHT},     // id40
     {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
     {ENGINE_BELT_ANIMATION, 4, 500, true, ENGINE_BELT_FRAMES},
     {ENGINE_PISTON_LEFT_ANIMATION, 8, 500, true, ENGINE_PISTON_LEFT_FRAMES},
