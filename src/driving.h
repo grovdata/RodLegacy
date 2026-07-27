@@ -6,6 +6,7 @@
 #include "racing.h"
 #include "types.h"
 #include "parsers/libp.h"
+#include "ui/bubble.h"
 
 #include <vector>
 #include <memory>
@@ -34,6 +35,12 @@ class Driving: public Scene {
 
     DrivingState currentState = DRIVING_STATE_NORMAL;
 
+    // Race-end pause: freeze the scene, show the reason in a bubble, and wait for
+    // any key to return to the garage.
+    bool raceEnded = false;
+    bool raceEndPendingKing = false;  // King beaten in a drag -> end-game screen instead
+    std::unique_ptr<Bubble> raceEndBubble;
+
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;
     Bitmap* wheelLeftHand2;
@@ -59,6 +66,7 @@ private:
     void LoadTrackData();
     void UpdateDiceAnimation(float deltaTime, bool carIsMoving);
     void DrawCrashOverlay();
+    void DrawSteeringDot();
 
     public:
         Driving();

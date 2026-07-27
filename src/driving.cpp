@@ -7,6 +7,7 @@
 #include <fstream>
 #include <vector>
 #include <cstring>
+#include <cmath>
 
 Driving::Driving() : Scene() {
     LOG_INFO("Driving::Driving() constructor called\n");
@@ -23,6 +24,11 @@ Driving::Driving() : Scene() {
 void Driving::Init(bool debugMode) {
     LOG_INFO("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
+
+    // Fresh race: clear any leftover race-end pause state.
+    raceEnded = false;
+    raceEndPendingKing = false;
+    raceEndBubble.reset();
     
     
     auto dashboard = [&]() {        
@@ -436,35 +442,40 @@ void Driving::DrawScene() {
 
     // Update racing simulation
     if (racing) {
-        // Get frame delta time in seconds, with a reasonable maximum to prevent huge jumps
-        float deltaTime = state.GetElapsedTime() / 1000.0f;
-        if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
-        
-        racing->Draw(deltaTime, lastEvent);
+        // While the race-end bubble is up the scene is frozen (no ticking); the
+        // last rendered frame stays on screen until any key returns to the garage.
+        if (!raceEnded) {
+            // Get frame delta time in seconds, with a reasonable maximum to prevent huge jumps
+            float deltaTime = state.GetElapsedTime() / 1000.0f;
+            if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
 
-        if (!racing->IsFlybyMode()) {
-            // Check race outcome.
-            RaceOutcome outcome = racing->GetRaceOutcome();
-            if (outcome != RaceOutcome::Ongoing) {
-                bool won = (outcome == RaceOutcome::PlayerWon);
-                RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
-                                    ? RaceType::Drag : RaceType::Road;
-                bool endGame = state.OnRaceFinished(raceType, won);
-                racing->ResetRaceOutcome();
-                state.AdvanceGameHours(2);
-                if (endGame) {
-                    LOG_INFO("Driving: end-game triggered (King beaten in drag)");
-                    state.MoveToScene(SCENE_KING_OF_COUNTY);
-                } else {
-                    state.MoveToScene(SCENE_DINER);
+            racing->Draw(deltaTime, lastEvent);
+
+            if (!racing->IsFlybyMode()) {
+                // Race ended: record the result, then pause and show the reason.
+                RaceOutcome outcome = racing->GetRaceOutcome();
+                if (outcome != RaceOutcome::Ongoing) {
+                    bool won = (outcome == RaceOutcome::PlayerWon);
+                    RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
+                                        ? RaceType::Drag : RaceType::Road;
+                    const std::string reason = racing->GetRaceEndReason();
+                    raceEndPendingKing = state.OnRaceFinished(raceType, won);
+                    racing->ResetRaceOutcome();
+                    state.AdvanceGameHours(2);
+
+                    LOG_INFO("Driving: race ended (%s); press any key for garage",
+                             reason.c_str());
+                    raceEnded = true;
+                    raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_RIGHT, 85, 40, false);
+                    raceEndBubble->SetVisible(true);
                 }
             }
+
+            // Update dice animation based on car movement
+            bool carIsMoving = !racing->IsFlybyMode() && racing->GetSpeed() > 0.1f;
+            UpdateDiceAnimation(deltaTime, carIsMoving);
         }
 
-        // Update dice animation based on car movement
-        bool carIsMoving = !racing->IsFlybyMode() && racing->GetSpeed() > 0.1f;
-        UpdateDiceAnimation(deltaTime, carIsMoving);
-        
         // Get the updated racing surface and create texture
         SDL_Surface* racingSurface = racing->GetSurface();
         if (racingSurface) {
@@ -489,6 +500,19 @@ void Driving::DrawScene() {
         clockDrawable->SetVisible(isAutomatic);
     }
     
+    // Steering wheel follows the eased steering position (slide velocity), so the
+    // dot and hands re-center over several frames after the stick is released
+    // instead of snapping. Onset is immediate; release decays to center.
+    if (racing && !racing->IsFlybyMode() && !racing->ShouldShowCrashOverlay()) {
+        const int steer = racing->GetSteerDisplay();
+        DrivingState wheelState = (steer > 0) ? DRIVING_STATE_TURNING_RIGHT
+                                : (steer < 0) ? DRIVING_STATE_TURNING_LEFT
+                                              : DRIVING_STATE_NORMAL;
+        if (wheelState != currentState) {
+            SetState(wheelState);
+        }
+    }
+
     // Draw all interior elements using drawable system
     DrawAll();
     
@@ -500,7 +524,10 @@ void Driving::DrawScene() {
         }
         racing->DrawSpeedometerNeedleToRenderer(renderer);
     }
-    
+
+    // Red steering-wheel dot (rides the wheel rim, re-centers with the steering).
+    DrawSteeringDot();
+
     // Handle crash state - set proper driving state
     bool isCrashed = racing && !racing->IsFlybyMode() && racing->ShouldShowCrashOverlay();
     
@@ -533,9 +560,25 @@ void Driving::DrawScene() {
         }
         debugOverlay->Draw();
     }
+
+    // Race-end reason bubble, drawn on top of the frozen scene.
+    if (raceEnded && raceEndBubble) {
+        raceEndBubble->Draw();
+    }
 }
 
 bool Driving::PushEvent(SDL_Event *event) {
+    // Once the race has ended, any key dismisses the reason bubble and returns
+    // to the garage (or the end-game screen if the King was just beaten).
+    if (raceEnded && event->type == SDL_KEYDOWN) {
+        raceEnded = false;
+        raceEndBubble.reset();
+        const bool endGame = raceEndPendingKing;
+        raceEndPendingKing = false;
+        state.MoveToScene(endGame ? SCENE_KING_OF_COUNTY : SCENE_GARAGE);
+        return true;
+    }
+
     if (debugMode && event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_p && racing) {
         std::string path;
         if (racing->SaveRoadViewPng(&path)) {
@@ -562,10 +605,9 @@ bool Driving::PushEvent(SDL_Event *event) {
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
             case SDLK_LEFT:
-                SetState(DRIVING_STATE_TURNING_LEFT);
-                return true;
             case SDLK_RIGHT:
-                SetState(DRIVING_STATE_TURNING_RIGHT);
+                // Wheel animation is driven per-frame from the eased steering
+                // position (DrawScene), so it re-centers gradually on release.
                 return true;
             case SDLK_UP:
                 break;
@@ -598,7 +640,8 @@ bool Driving::PushEvent(SDL_Event *event) {
         switch (event->key.keysym.sym) {
             case SDLK_LEFT:
             case SDLK_RIGHT:
-                SetState(DRIVING_STATE_NORMAL);
+                // Do not snap the wheel to center here; the per-frame update lets
+                // it ease back over several frames (original slide-velocity decay).
                 return true;
             case SDLK_UP:
                 break;
@@ -641,5 +684,37 @@ void Driving::DrawCrashOverlay() {
     if (crashOverlayBitmap) {
         crashOverlayBitmap->SetVisible(true);
         crashOverlayBitmap->Draw();
+    }
+}
+
+void Driving::DrawSteeringDot() {
+    if (!racing || racing->IsFlybyMode() || racing->ShouldShowCrashOverlay()) {
+        return;
+    }
+
+    // The dot rides the top of the steering-wheel rim: twelve o'clock when
+    // centered, rotating with the eased steering position so it swings out as you
+    // turn and drifts back to center over a few frames on release.
+    //
+    // Geometry is in the 320x200 dashboard space (same as the gauge needles).
+    // TUNE these four to sit the dot on your wheel rim.
+    constexpr float kWheelCx = 171.0f;     // wheel center X (between the gauges)
+    constexpr float kWheelCy = 182.0f;     // wheel center Y
+    constexpr float kWheelR = 82.0f;       // rim radius the dot travels on
+    constexpr float kRadPerUnit = 0.045f;  // steer units -> radians (max ~ +-0.8)
+    constexpr float kDotR = 1.5f;               // dot radius in pixels
+
+    const float steer = static_cast<float>(racing->GetSteerDisplay());
+    const float theta = steer * kRadPerUnit;  // +steer (right) swings the dot right
+    const int dx = static_cast<int>(std::lround(kWheelCx + kWheelR * std::sin(theta)));
+    const int dy = static_cast<int>(std::lround(kWheelCy - kWheelR * std::cos(theta)));
+
+    SDL_SetRenderDrawColor(renderer, 220, 30, 30, 255);
+    for (int y = -kDotR; y <= kDotR; ++y) {
+        for (int x = -kDotR; x <= kDotR; ++x) {
+            if (x * x + y * y <= kDotR * kDotR) {
+                SDL_RenderDrawPoint(renderer, dx + x, dy + y);
+            }
+        }
     }
 }

@@ -159,6 +159,14 @@ public:
     int16_t GetCurrentGear() const;
     int16_t GetRPM() const;
     int16_t GetVelocity() const;
+    // Eased steering position for the dashboard wheel: >0 right, <0 left, magnitude
+    // up to ~24. Decays toward 0 over several frames after the stick is released
+    // (the original's slide velocity A4+0x4b0e), so the wheel re-centers gradually.
+    int16_t GetSteerDisplay() const;
+
+    // Short human-readable reason the race ended (e.g. "CRASHED", "YOU WIN!").
+    // Call while the outcome is still set (before ResetRaceOutcome).
+    std::string GetRaceEndReason() const;
     bool IsTransmissionDamaged() const;
     bool IsAutomatic() const;
 

@@ -205,6 +205,8 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
 
     if (track != nullptr) {
         int seg = ClampTrackIndex(player.segPos);
+        player.curveAtCar = track->curve[seg];
+        player.elevAtCar = track->elev[seg];
         RoadEdges(track->flags[seg], edgeLeft, edgeRight);
         seg = ClampTrackIndex(player.segPos + 4);
         RoadEdges(track->flags[seg], edgeLeftAhead, edgeRightAhead);
@@ -229,6 +231,7 @@ void RaceSim::SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
     player.heading = heading;
     player.lateral = lateral;
     player.curveAtCar = curveAtCar;
+    player.elevAtCar = track->elev[ClampTrackIndex(player.segPos)];
     player.endFlags &= static_cast<uint16_t>(~END_FINISHED);
     player.offRoad = false;
     phase = RacePhase::Running;  // debug camera is not staged
@@ -502,7 +505,9 @@ void RaceSim::UpdateScroll(CarState& car) {
         car.scrollAcc = static_cast<int16_t>(car.scrollAcc & 7);
     }
     if (car.segPos != prevSeg && track != nullptr) {
-        car.curveAtCar = track->curve[ClampTrackIndex(car.segPos)];
+        const int seg = ClampTrackIndex(car.segPos);
+        car.curveAtCar = track->curve[seg];
+        car.elevAtCar = track->elev[seg];
     }
     if (car.segPos >= finishSeg) {
         car.endFlags |= END_FINISHED;

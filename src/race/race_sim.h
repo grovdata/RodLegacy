@@ -87,7 +87,8 @@ struct CarState {
     int16_t steerVel = 0;    // input integrator, +-24 (A4+0x4b0c)
     int16_t slideVel = 0;    // decaying steer momentum (A4+0x4b0e)
     int16_t heading = 0;     // road-direction the car is pointing
-    int16_t curveAtCar = 0;  // A4+0x197a, snapshot of track_curve[pos] on segment advance
+    int16_t curveAtCar = 0;  // snapshot of track.curve[pos] on segment advance
+    int16_t elevAtCar = 0;   // snapshot of track.elev[pos]; hill baseline for the vertical projection
     int16_t lateral = 2560;  // road spans 1500..3300
     int32_t segPos = RACE_START_SEG;
     int16_t scrollAcc = 0;

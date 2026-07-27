@@ -517,6 +517,21 @@ int16_t Racing::GetVelocity() const {
     return sim.Player().rpm;
 }
 
+int16_t Racing::GetSteerDisplay() const {
+    return sim.Player().slideVel;
+}
+
+std::string Racing::GetRaceEndReason() const {
+    const uint16_t flags = sim.Player().endFlags;
+    if (flags & srrace::END_WALL_HIT)      return "CRASHED";
+    if (flags & srrace::END_ENGINE_BLOWN)  return "ENGINE BLEW";
+    if (flags & srrace::END_TRANS_DROPPED) return "TRANSMISSION DROPPED";
+    if (flags & srrace::END_STALLED)       return "JUMPED THE START";
+    if (raceOutcome == RaceOutcome::PlayerWon)  return "YOU WIN!";
+    if (raceOutcome == RaceOutcome::PlayerLost) return "YOU LOSE";
+    return "RACE OVER";
+}
+
 bool Racing::IsTransmissionDamaged() const {
     return sim.Player().transWearDelta > 0;
 }
@@ -553,7 +568,7 @@ int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int l
 int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
-    const int curveAtCar = p.curveAtCar;
+    const int elevAtCar = p.elevAtCar;
 
     for (int k = 0; k < kForwardRows; ++k) {
         int d = 4;
@@ -562,9 +577,13 @@ int Racing::BuildRowTableAndGetLastVisible() {
             d = std::max(4, d);
         }
         // BuildForwardRowTables advances segment pointers before each row.
+        // Horizontal bend comes from the road-direction array (curve[]) - the
+        // same array the lateral drift and steering physics use - so steering to
+        // match the curve both stops the drift and centers the road. Vertical
+        // comes from the elevation array (elev[]). (These were swapped before.)
         const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
-        const int roadDelta = p.heading - track.elev[seg];
-        const int rowCurveDelta = curveAtCar - track.curve[seg];
+        const int roadDelta = p.heading - track.curve[seg];
+        const int rowCurveDelta = elevAtCar - track.elev[seg];
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
