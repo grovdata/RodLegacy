@@ -22,7 +22,14 @@ namespace {
 
 constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
-constexpr float kFixedStepSeconds = 0.02f;
+
+// Physics tick rate (Hz). The Amiga race loop (RoadRaceMainLoop 0x2360c2) is NOT
+// vblank-locked: it runs one physics step per rendered frame, and on a stock
+// A500 that is well under 50 fps, so a true 50 Hz sim feels ~2-2.5x too fast.
+// TUNE THIS: lower = slower race, higher = faster. Rendering stays at GAME_FPS
+// and just samples the sim, so this only changes physics speed/feel.
+constexpr int kPhysicsHz = 15;
+constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
 
 constexpr int kHorizonY = 60;
 constexpr int kClipTop = 18;
