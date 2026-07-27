@@ -446,6 +446,9 @@ int main(int argc, char* argv[]) {
         //     LOG_INFO("No current scene available for gamepad debug info");
         // }
 
+        // Clear to black. Scenes (e.g. racing gauges/dot) leave the draw color
+        // set to their last color, so reset it here or the clear tints everything.
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
         Scene *scene = state.GetCurrentScene();

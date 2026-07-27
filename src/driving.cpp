@@ -487,6 +487,9 @@ void Driving::DrawScene() {
             // Create new texture from racing surface
             roadTexture = SDL_CreateTextureFromSurface(renderer, racingSurface);
             if (roadTexture) {
+                // Force nearest-neighbor: the global scale-quality hint is set
+                // after the renderer is created, so it isn't reliably applied.
+                SDL_SetTextureScaleMode(roadTexture, SDL_ScaleModeNearest);
                 SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
             }
         }

@@ -598,7 +598,9 @@ int Racing::BuildRowTableAndGetLastVisible() {
         row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
         row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
         row.y = ClampInt(kHorizonY + 400 / d + 4 * rowCurveDelta, kClipTop, kClipBottom + 30);
-        row.archY = row.y - std::max(12, 480 / d);
+        // Overhead gantry crossbar height (RenderOverheadArch 0x237bf4):
+        //   y - 4*(y - elevated_y), and elevated_y = y - 400/d, so y - 1600/d.
+        row.archY = row.y - 1600 / d;
         rows[k] = row;
     }
 
@@ -811,7 +813,8 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
         PutPixel(pixels, right - 1, y, kArchGray);
     }
 
-    const int barHeight = std::max(3, (yBottom - yTop) / 4);
+    // Thin crossbar (the arch is now tall; a quarter-height slab would look wrong).
+    const int barHeight = ClampInt((yBottom - yTop) / 20, 2, 8);
     for (int y = yTop; y < std::min(GAME_RACING_HEIGHT, yTop + barHeight); ++y) {
         for (int x = std::max(0, left); x <= std::min(GAME_WIDTH - 1, right); ++x) {
             PutPixel(pixels, x, y, kArchGray);
@@ -978,12 +981,11 @@ void Racing::DrawNpcCar(int lastVisible) {
     }
 
     const srrace::CarState& p = sim.Player();
-    const int x = ProjectX(p, row.distance, row.roadDelta, sim.Npc().lateral);
-    const int roadWidth = std::max(20, row.rightX - row.leftX);
-    const int dstW = std::max(8, roadWidth / 3);
     SDL_Surface* src = sprite->GetSurface();
-    const int dstH = std::max(6, dstW * src->h / std::max(1, src->w));
-    DrawNearestNeighborScaled(sprite, x - dstW / 2, row.y, dstW, dstH, false, true);
+    const int x = ProjectX(p, row.distance, row.roadDelta, sim.Npc().lateral);
+    // Blit the pre-drawn LOD frame at its native size (no scaling between frames);
+    // distance is conveyed by which frame is picked, not by resizing one bitmap.
+    DrawNearestNeighborScaled(sprite, x - src->w / 2, row.y, src->w, src->h, false, true);
 }
 
 void Racing::DrawRearviewMirror() {
@@ -1044,12 +1046,12 @@ void Racing::DrawRearviewMirror() {
             }
             if (behind && behind->GetSurface()) {
                 SDL_Surface* bs = behind->GetSurface();
-                const int scale = ClampInt(9 + delta, 2, 8);  // delta -1 -> 8 (near)
-                const int w = ClampInt(bs->w * scale / 8, 6, mirrorW - 4);
-                const int h = ClampInt(bs->h * scale / 8, 4, mirrorH - 2);
+                // Native LOD frame (no scaling); crop to fit the mirror glass.
+                const int w = std::min(bs->w, mirrorW - 2);
+                const int h = std::min(bs->h, mirrorH - 2);
                 const int cx = mirrorX + mirrorW / 2 - w / 2;
                 const int cy = mirrorY + mirrorH - h - 1;
-                DrawNearestNeighborScaled(behind, cx, cy, w, h, false, true);
+                DrawNearestNeighborScaled(behind, cx, cy, w, h, false, false, 0, 0, w, h);
             }
         }
     }
