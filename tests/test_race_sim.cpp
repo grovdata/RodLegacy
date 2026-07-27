@@ -22,13 +22,27 @@ TrackData MakeFlatTrack() {
 }
 
 uint16_t ThrottleWithShiftIfNeeded(const RaceSim& sim) {
-    uint16_t input = INPUT_THROTTLE;
     const CarState& player = sim.Player();
     const CarTables& tables = sim.PlayerTables();
-    if (player.gear < tables.numGears - 1 && player.rpm >= tables.autoShiftRpm) {
-        input |= INPUT_SHIFT;
+    const bool canShiftUp = player.gear < tables.numGears - 1;
+    uint16_t input = 0;
+    if (canShiftUp && player.rpm >= tables.autoShiftRpm) {
+        input |= INPUT_SHIFT | INPUT_THROTTLE;  // bang the next gear under power
+    } else if (player.rpm >= 5600) {
+        // Top gear near redline: lift off so we don't grenade the engine by
+        // sitting on the limiter (the original blows after ~15 ticks held there).
+    } else {
+        input |= INPUT_THROTTLE;
     }
     return input;
+}
+
+// Idle on the line until the staging countdown ends, so the caller can floor it
+// at the green without triggering a false start.
+void RunOutCountdown(RaceSim& sim) {
+    for (int i = 0; i < 400 && sim.InCountdown(); ++i) {
+        sim.Tick(0);
+    }
 }
 
 }  // namespace
@@ -134,6 +148,7 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
     RaceSim sim;
     sim.Init(&track, 0, playerSetup, npcSetup, 0x12345678u);
+    RunOutCountdown(sim);
 
     bool finished = false;
     for (int i = 0; i < 6000; ++i) {
@@ -175,6 +190,7 @@ TEST_CASE("Steering input counteracts curve drift") {
 
     RaceSim noSteer;
     noSteer.Init(&track, 1, setup, npcSetup, 0x1122u);
+    RunOutCountdown(noSteer);
     for (int i = 0; i < 4000 && noSteer.Player().segPos < 305; ++i) {
         noSteer.Tick(ThrottleWithShiftIfNeeded(noSteer));
     }
@@ -205,6 +221,7 @@ TEST_CASE("Steering input counteracts curve drift") {
 
     RaceSim withSteerAdaptive;
     withSteerAdaptive.Init(&track, 1, setup, npcSetup, 0x3344u);
+    RunOutCountdown(withSteerAdaptive);
     for (int i = 0; i < 4000 && withSteerAdaptive.Player().segPos < 305; ++i) {
         withSteerAdaptive.Tick(ThrottleWithShiftIfNeeded(withSteerAdaptive));
     }
@@ -228,6 +245,68 @@ TEST_CASE("Steering input counteracts curve drift") {
     const int driftWithSteer = withSteerAdaptive.Player().lateral - lateralStartWithSteer;
 
     CHECK(std::abs(driftWithSteer) <= std::abs(driftNoSteer));
+}
+
+TEST_CASE("Rolling before the green is a false start") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0xabcu);
+    REQUIRE(sim.InCountdown());
+    // Slam it in gear and floor it before the light.
+    for (int i = 0; i < 20 && sim.InCountdown(); ++i) {
+        sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);
+    }
+    CHECK((sim.Player().endFlags & END_STALLED) != 0);
+}
+
+TEST_CASE("A maxed-wear engine grenades during the race") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.engineWear = 9899;  // 0x26ab; one tick of extra wear pushes it over
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0x5u);
+    RunOutCountdown(sim);
+    bool blown = false;
+    for (int i = 0; i < 300; ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if ((sim.Player().endFlags & END_ENGINE_BLOWN) != 0) {
+            blown = true;
+            break;
+        }
+    }
+    CHECK(blown);
+}
+
+TEST_CASE("A worn manual transmission drops on a hard shift") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 2;     // manual 4-speed
+    setup.transWear = 9900;   // > 0x26ab: drops on the first shift
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x9u);
+    RunOutCountdown(sim);
+    bool dropped = false;
+    for (int i = 0; i < 300; ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if ((sim.Player().endFlags & END_TRANS_DROPPED) != 0) {
+            dropped = true;
+            break;
+        }
+    }
+    CHECK(dropped);
 }
 
 }  // namespace srrace

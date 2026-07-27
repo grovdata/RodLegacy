@@ -1002,6 +1002,31 @@ void Racing::DrawRearviewMirror() {
             }
         }
     }
+
+    // Show the opponent in the mirror when it is behind us (originally the mirror
+    // renders the rear view with the NPC in it; here we blit the "behind" sprite
+    // into the glass, growing as it closes). Full rear-view road pass is TODO.
+    if (opponentActive) {
+        const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
+        if (delta < 0 && delta >= -8) {
+            const int idx = ClampInt((-delta) / 2, 0, 3);
+            Bitmap* behind = nullptr;
+            switch (opponentCarType) {
+                case 1: behind = opponentChryslerBehind[idx].get(); break;
+                case 2: behind = opponentCopBehind[idx].get(); break;
+                default: behind = opponentChevyBehind[idx].get(); break;
+            }
+            if (behind && behind->GetSurface()) {
+                SDL_Surface* bs = behind->GetSurface();
+                const int scale = ClampInt(9 + delta, 2, 8);  // delta -1 -> 8 (near)
+                const int w = ClampInt(bs->w * scale / 8, 6, mirrorW - 4);
+                const int h = ClampInt(bs->h * scale / 8, 4, mirrorH - 2);
+                const int cx = mirrorX + mirrorW / 2 - w / 2;
+                const int cy = mirrorY + mirrorH - h - 1;
+                DrawNearestNeighborScaled(behind, cx, cy, w, h, false, true);
+            }
+        }
+    }
 }
 
 void Racing::DrawHud() {
@@ -1026,6 +1051,9 @@ void Racing::DrawHud() {
     hud->Clear();
     hud->AddText(6, 0, gearText);
     hud->AddText(68, 0, infoText);
+    if (sim.InCountdown()) {
+        hud->AddText(104, 45, "STAGE - WAIT FOR GREEN");
+    }
     hud->Draw();
 }
 
@@ -1342,21 +1370,20 @@ void Racing::DrawFlybyHud(int lastVisible) {
 }
 
 void Racing::HandleOutcomeAfterTicks() {
-    // if (sim.PlayerCrashed() && !crashHandled) {
-    //     bShowCrashOverlay = true;
-    //     crashHandled = true;
-    //     crashOverlayEndMs = now + 3000;
-    //     return;
-    // }
-
-    // if (crashHandled && bShowCrashOverlay && now >= crashOverlayEndMs) {
-    //     bShowCrashOverlay = false;
-    //     if (raceOutcome == RaceOutcome::Ongoing) {
-    //         raceOutcome = RaceOutcome::PlayerLost;
-    //     }
-    // }
-
     if (raceOutcome != RaceOutcome::Ongoing) {
+        return;
+    }
+
+    // A crash / blown engine / dropped transmission / false start ends the race
+    // as a loss (original: any A4+0x4bc6 failure bit exits the frame loop). Show
+    // the crash overlay for a wall hit before settling the outcome.
+    if (sim.PlayerCrashed()) {
+        if (!crashHandled) {
+            crashHandled = true;
+            bShowCrashOverlay = true;
+            crashOverlayEndMs = SDL_GetTicks() + 3000;
+        }
+        raceOutcome = RaceOutcome::PlayerLost;
         return;
     }
 
@@ -1370,6 +1397,12 @@ void Racing::HandleOutcomeAfterTicks() {
         } else {
             raceOutcome = RaceOutcome::PlayerWon;
         }
+        return;
+    }
+
+    // The opponent crossed the line first and the player has not finished -> loss.
+    if (sim.NpcFinished() && !sim.NpcAi().gaveUp) {
+        raceOutcome = RaceOutcome::PlayerLost;
     }
 }
 

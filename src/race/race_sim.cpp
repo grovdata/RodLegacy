@@ -198,6 +198,11 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npcAi.stallTicks = 0;
     npcAi.gaveUp = false;
 
+    // Staging countdown before the green (UpdatePhysics 0x2364e8 picks a random
+    // launch time). ~2-3s at 50 Hz; leaving the line early is a false start.
+    phase = RacePhase::Countdown;
+    countdownTicks = 100 + rng.Next(50);
+
     if (track != nullptr) {
         int seg = ClampTrackIndex(player.segPos);
         RoadEdges(track->flags[seg], edgeLeft, edgeRight);
@@ -226,6 +231,7 @@ void RaceSim::SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
     player.curveAtCar = curveAtCar;
     player.endFlags &= static_cast<uint16_t>(~END_FINISHED);
     player.offRoad = false;
+    phase = RacePhase::Running;  // debug camera is not staged
 
     const int seg = ClampTrackIndex(player.segPos);
     const int segAhead = ClampTrackIndex(player.segPos + 4);
@@ -243,7 +249,34 @@ void RaceSim::Tick(uint16_t inputBits) {
         return;
     }
 
-    if ((player.endFlags & (END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED)) == 0) {
+    // A player failure (crash, blown engine, dropped trans, false start) freezes
+    // the car; the race is over (UpdatePhysics returns non-zero on flags 0x4bc6).
+    if (phase == RacePhase::Ended) {
+        return;
+    }
+
+    if (phase == RacePhase::Countdown) {
+        // The engine can rev on the line, but if the car actually rolls before
+        // the green it is a false start (UpdatePhysics 0x2364e8 state 1).
+        if ((player.endFlags & END_FAILURE_MASK) == 0) {
+            PlayerPhysics(inputBits);
+            UpdateSteering(inputBits);
+            UpdateScroll(player);
+            if (player.speed > 0 || player.segPos > RACE_START_SEG) {
+                player.endFlags |= END_STALLED;  // jumped the start
+                phase = RacePhase::Ended;
+            }
+        }
+        if (countdownTicks > 0) {
+            --countdownTicks;
+            if (countdownTicks == 0) {
+                phase = RacePhase::Running;
+            }
+        }
+        return;
+    }
+
+    if ((player.endFlags & END_FAILURE_MASK) == 0) {
         PlayerPhysics(inputBits);
         UpdateSteering(inputBits);
     }
@@ -262,6 +295,10 @@ void RaceSim::Tick(uint16_t inputBits) {
     RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
 
     CheckEdgeCollision();
+
+    if ((player.endFlags & END_FAILURE_MASK) != 0) {
+        phase = RacePhase::Ended;
+    }
 }
 
 void RaceSim::PlayerPhysics(uint16_t inputBits) {
@@ -327,6 +364,13 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         car.engineWearDelta += 1;
     }
 
+    // Engine grenades once total wear passes 0x26ab (PlayerCarPhysics 0x23c5d6
+    // checks this every tick, independent of the redline-hold blow above).
+    const int baseEngineWear = (&car == &player) ? playerSetup.engineWear : npcSetup.engineWear;
+    if (baseEngineWear + static_cast<int>(car.engineWearDelta) > 0x26ab) {
+        car.endFlags |= END_ENGINE_BLOWN;
+    }
+
     bool doShift = false;
     if (shift) {
         doShift = (throttle && car.gear < tables.numGears) || (!throttle && car.gear > 0);
@@ -340,6 +384,19 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
 
     if (doShift) {
         car.transWearDelta += (car.rpm < 5001) ? 3 : 15;
+
+        // Transmission drops (PlayerCarPhysics 0x23c5d6): worn past 0x26ab, or a
+        // money-shift - a manual box banged under throttle above 5000 rpm, at a
+        // wear-scaled random chance. The original rolls a 15-bit random against
+        // wear/100+100, so it is rare when fresh (~0.3%/shift) and grows with wear.
+        const int baseTransWear = (&car == &player) ? playerSetup.transWear : npcSetup.transWear;
+        const int totalTransWear = baseTransWear + static_cast<int>(car.transWearDelta);
+        const bool moneyShift = !tables.automatic && throttle && car.rpm > 5000 &&
+                                rng.Next(32768) < (totalTransWear / 100 + 100);
+        if (totalTransWear > 0x26ab || moneyShift) {
+            car.endFlags |= END_TRANS_DROPPED;
+        }
+
         if (throttle) {
             car.gear = static_cast<int16_t>(std::min(car.gear + 1, tables.numGears));
         } else {
@@ -394,20 +451,39 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
         steer += 1;
     }
 
-    if (steer == 0) {
-        player.steerVel = 0;
-    } else {
-        if (Sign(player.steerVel) != 0 && Sign(player.steerVel) != steer) {
-            player.steerVel = 0;
+    // Steer/slide velocity model (PlayerCarPhysics 0x23c5d6). steerVel is the
+    // input integrator (+-24); slideVel carries the momentum and decays, so the
+    // car keeps drifting briefly after the stick is released or reversed.
+    int sv = player.steerVel;
+    int pv = player.slideVel;
+    if (steer != 0 && (Sign(sv) == 0 || Sign(sv) == steer)) {
+        // Re-steering the same way recovers the decayed slide momentum.
+        if (Sign(pv) == steer && std::abs(sv) < std::abs(pv)) {
+            sv = pv;
         }
-        player.steerVel = static_cast<int16_t>(ClampValue<int>(player.steerVel + 2 * steer, -24, 24));
+        sv = ClampValue<int>(sv + 2 * steer, -24, 24);
+        pv = sv;
+    } else {
+        sv = 0;  // released, or reversed direction
     }
+    // slideVel decays ~1/4 + 1 toward zero each tick (68k ASR = arithmetic shift).
+    if (pv != 0) {
+        pv += (pv < 0) ? ((-pv >> 2) + 1) : -((pv >> 2) + 1);
+    }
+    player.steerVel = static_cast<int16_t>(sv);
+    player.slideVel = static_cast<int16_t>(pv);
 
-    const int curveValue = track->curve[ClampTrackIndex(player.segPos)];
-    const int steerScale = std::max<int>(playerTables.steeringStrength, 1);
-    const int headingDelta = ((player.steerVel * steerScale) / 9) + Sign(player.steerVel);
-    player.heading = static_cast<int16_t>(player.heading - headingDelta);
-    player.heading = static_cast<int16_t>(ClampValue<int>(player.heading, curveValue - 200, curveValue + 200));
+    // Heading follows steer velocity (RenderTrackFrame 0x23b77c):
+    //   heading -= steerVel/2 + 1
+    // only while the car is moving and its heading stays within +-200 of the
+    // road direction. (No steering-strength scaling here; the original uses a
+    // fixed /2.)
+    if (sv != 0 && player.speed != 0) {
+        const int curve = track->curve[ClampTrackIndex(player.segPos)];
+        if (std::abs(player.heading - sv - curve) < 200) {
+            player.heading = static_cast<int16_t>(player.heading - ((sv >> 1) + 1));
+        }
+    }
 }
 
 void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
@@ -468,15 +544,25 @@ void RaceSim::CheckEdgeCollision() {
 }
 
 void RaceSim::NpcAiUpdate() {
-    const int npcSeg = ClampTrackIndex(npc.segPos);
-    int16_t npcEdgeLeft = 1500;
-    int16_t npcEdgeRight = 3300;
-    RoadEdges(track->flags[npcSeg], npcEdgeLeft, npcEdgeRight);
-    int target = ((npcEdgeLeft + npcEdgeRight) / 2) + 100;
+    // Aim for the midpoint of the road a few segments ahead (UpdateNPCAI 0x244870
+    // steers to the average of the look-ahead edges, not a fixed center).
+    const int aheadSeg = ClampTrackIndex(npc.segPos + 4);
+    int16_t aheadLeft = 1500;
+    int16_t aheadRight = 3300;
+    RoadEdges(track->flags[aheadSeg], aheadLeft, aheadRight);
+    const int center = (aheadLeft + aheadRight) / 2;
+    int target = center;
 
     const int segDiff = npc.segPos - player.segPos;
     if (std::abs(segDiff) <= 5) {
-        target = (player.lateral < 2400) ? (target + 250) : (target - 250);
+        // Block the player's line when ahead, swing to the open side when behind
+        // (UpdateNPCAI swerves +300 to block / -200 to give room).
+        const bool playerLeft = player.lateral < center;
+        if (segDiff >= 0) {
+            target = center + (playerLeft ? -200 : 300);
+        } else {
+            target = center + (playerLeft ? 300 : -200);
+        }
     }
 
     npcAi.lateralTarget = static_cast<int16_t>(target);

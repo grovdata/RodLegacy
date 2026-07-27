@@ -26,7 +26,15 @@ constexpr uint16_t END_ENGINE_BLOWN = 0x04;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
 constexpr uint16_t END_GAVE_UP = 0x40;
-constexpr uint16_t END_STALLED = 0x80;
+constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false start
+
+// Player failure states that freeze the car and end the race as a loss.
+constexpr uint16_t END_FAILURE_MASK =
+    END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED;
+
+// Race phase: staging countdown -> running -> ended (matches the UpdatePhysics
+// 0x2364e8 state machine: launch light, then the race, then a frozen car).
+enum class RacePhase : uint8_t { Countdown, Running, Ended };
 
 // Car configuration in original part-class terms.
 struct CarSetup {
@@ -76,7 +84,8 @@ struct CarState {
     int16_t speed = 0;       // mph
     int16_t rpm = 1500;      // idle 1500, redline 5700
     int16_t gear = 0;        // 0 = neutral, 1..numGears driving
-    int16_t steerVel = 0;    // input integrator, +-24
+    int16_t steerVel = 0;    // input integrator, +-24 (A4+0x4b0c)
+    int16_t slideVel = 0;    // decaying steer momentum (A4+0x4b0e)
     int16_t heading = 0;     // road-direction the car is pointing
     int16_t curveAtCar = 0;  // A4+0x197a, snapshot of track_curve[pos] on segment advance
     int16_t lateral = 2560;  // road spans 1500..3300
@@ -121,6 +130,9 @@ public:
     const NpcState& NpcAi() const { return npcAi; }
     int RaceType() const { return raceType; }
     int FinishSegment() const { return finishSeg; }
+    RacePhase Phase() const { return phase; }
+    bool InCountdown() const { return phase == RacePhase::Countdown; }
+    int CountdownTicks() const { return countdownTicks; }
 
     bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
     bool PlayerCrashed() const {
@@ -159,6 +171,8 @@ private:
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;
+    RacePhase phase = RacePhase::Running;
+    int countdownTicks = 0;
 };
 
 // Speed (mph) -> scroll step 0..16 (SpeedToScrollStep 0x24476c).
