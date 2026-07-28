@@ -64,6 +64,9 @@ private:
     std::array<RowProjection, 15> rows {};
 
     float cloudOffsetAccum = 0.0f;
+    // Currently shown NPC rear LOD frame; changed with hysteresis so it does not
+    // flip back and forth when the longitudinal gap hovers on a frame boundary.
+    int npcRearFrame = 0;
     // Sprite-space row of the lowest opaque mountain pixel (the range's base).
     // Cached on first use so the silhouette can be anchored on the horizon
     // regardless of transparent padding below it in the bitmap. -1 = uncomputed.
@@ -128,7 +131,7 @@ private:
     void DrawStartLight();
     void RenderRoad(int lastVisible);
     void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
-                                   int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1);
+                                   int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1, bool flipX = false);
     void DrawRoadsideAndArchSprites(int lastVisible);
     void DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr);
     void DrawNpcCar(int lastVisible);

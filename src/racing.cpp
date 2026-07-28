@@ -44,7 +44,7 @@ constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
 constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
 constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
-constexpr SDL_Color kArchGray = {60, 60, 60, 255};
+constexpr SDL_Color kArchColor = {180, 32, 32, 255};  // overhead gantry: red
 
 constexpr std::array<std::array<std::array<uint8_t, 2>, 11>, 20> kSpriteScale = {{
     {{{56, 87}, {34, 52}, {23, 35}, {19, 29}, {15, 24}, {13, 20}, {11, 17}, {10, 15}, {9, 14}, {7, 11}, {6, 9}}},
@@ -163,7 +163,7 @@ void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, f
 }
 
 void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
-                                       int srcX0, int srcY0, int srcW, int srcH) {
+                                       int srcX0, int srcY0, int srcW, int srcH, bool flipX) {
     if (!bitmap || dstW <= 0 || dstH <= 0) {
         return;
     }
@@ -204,7 +204,8 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
             if (px < 0 || px >= pixels->w) {
                 continue;
             }
-            const int srcX = srcX0 + (x * srcW) / dstW;
+            const int col = (x * srcW) / dstW;
+            const int srcX = flipX ? (srcX0 + srcW - 1 - col) : (srcX0 + col);
             Uint32 srcPixel = 0;
             const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + srcY * src->pitch + srcX * src->format->BytesPerPixel;
             std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
@@ -450,6 +451,7 @@ void Racing::InitializeRaceSimulation() {
     crashHandled = false;
     crashOverlayEndMs = 0;
     startLightHeight = 32;  // full; retracts once the car launches
+    npcRearFrame = 0;
 }
 
 void Racing::SetTrackType(SrTrackType trackType) {
@@ -725,6 +727,17 @@ void Racing::RenderMountains(int horizonY) {
     // Place the lowest opaque row on the row just above the horizon so the range
     // sits directly on the ground, peaks rising into the sky.
     const int startY = horizonY - 1 - mountainOpaqueBottom;
+
+    // Repaint the mountain band as sky before blitting so nothing (e.g. the crest
+    // grass fill) shows through the transparent gaps between/above the peaks.
+    // Clouds sit above kClipTop and are not touched.
+    const int bandTop = std::max(kClipTop, startY);
+    for (int y = bandTop; y < horizonY && y < GAME_RACING_HEIGHT; ++y) {
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, kSkyColor);
+        }
+    }
+
     for (int pass = 0; pass < 2; ++pass) {
         const int drawX = -baseOffset + pass * src->w;
         for (int y = 0; y < src->h; ++y) {
@@ -939,17 +952,17 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
     }
 
     for (int y = yTop; y <= yBottom; ++y) {
-        PutPixel(pixels, left, y, kArchGray);
-        PutPixel(pixels, left + 1, y, kArchGray);
-        PutPixel(pixels, right, y, kArchGray);
-        PutPixel(pixels, right - 1, y, kArchGray);
+        PutPixel(pixels, left, y, kArchColor);
+        PutPixel(pixels, left + 1, y, kArchColor);
+        PutPixel(pixels, right, y, kArchColor);
+        PutPixel(pixels, right - 1, y, kArchColor);
     }
 
     // Thin crossbar (the arch is now tall; a quarter-height slab would look wrong).
     const int barHeight = ClampInt((yBottom - yTop) / 20, 2, 8);
     for (int y = yTop; y < std::min(GAME_RACING_HEIGHT, yTop + barHeight); ++y) {
         for (int x = std::max(0, left); x <= std::min(GAME_WIDTH - 1, right); ++x) {
-            PutPixel(pixels, x, y, kArchGray);
+            PutPixel(pixels, x, y, kArchColor);
         }
     }
 
@@ -1102,6 +1115,7 @@ void Racing::DrawNpcCar(int lastVisible) {
                        + (np.scrollAcc - p.scrollAcc);
 
     int k = 0;
+    bool flipX = false;
     Bitmap* sprite = nullptr;
     // Only while genuinely level; switch to the rear LOD frames as soon as the
     // NPC pulls ahead, so the near-size side view doesn't linger up the road.
@@ -1115,6 +1129,8 @@ void Racing::DrawNpcCar(int lastVisible) {
             default: sprite = opponentChevyFrontSide.get(); break;
         }
         k = 0;  // nearest depth, beside the player
+        // The side sprite faces one way; mirror it when the NPC is on our right.
+        flipX = np.lateral > p.lateral;
     } else {
         // Pulled ahead: pre-drawn rear LOD frames (distance = which frame).
         const int delta = static_cast<int>(np.segPos - p.segPos);
@@ -1122,7 +1138,14 @@ void Racing::DrawNpcCar(int lastVisible) {
             return;  // behind -> handled by the rear-view mirror
         }
         k = ClampInt(delta, 0, std::min(lastVisible, 14));
-        const int frameIndex = ClampInt(k / 2, 0, 6);
+        // Pick the LOD frame from the FINE gap (longDist, ~8 units/segment) with a
+        // hysteresis deadband so it doesn't toggle when the gap sits on a boundary.
+        const int lo = npcRearFrame * 16 - 3;
+        const int hi = (npcRearFrame + 1) * 16 + 3;
+        if (longDist >= hi || longDist < lo) {
+            npcRearFrame = ClampInt(longDist / 16, 0, 6);
+        }
+        const int frameIndex = npcRearFrame;
         switch (opponentCarType) {
             case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
             case 2: sprite = opponentCopRear[frameIndex].get(); break;
@@ -1138,7 +1161,7 @@ void Racing::DrawNpcCar(int lastVisible) {
     const int x = ProjectX(p, row.distance, row.roadDelta, np.lateral);
     // Blit at native size (no scaling between frames); distance is conveyed by
     // which frame is picked, not by resizing one bitmap.
-    DrawNearestNeighborScaled(sprite, x - src->w / 2, row.y, src->w, src->h, false, true);
+    DrawNearestNeighborScaled(sprite, x - src->w / 2, row.y, src->w, src->h, false, true, 0, 0, -1, -1, flipX);
 }
 
 void Racing::DrawRearviewMirror() {
@@ -1146,47 +1169,124 @@ void Racing::DrawRearviewMirror() {
     const int mirrorY = 9;
     const int mirrorW = 76;
     const int mirrorH = 21;
-    for (int y = mirrorY; y < mirrorY + mirrorH; ++y) {
-        for (int x = mirrorX; x < mirrorX + mirrorW; ++x) {
-            PutPixel(pixels, x, y, {0, 0, 0, 255});
+
+    // Rear-view scene into the glass: horizon backdrop (asset 82), the road
+    // receding behind the player with center dashes, roadside object LODs, then
+    // the NPC. Everything is clipped to the glass rect.
+    const int gLeft = mirrorX + 1;
+    const int gRight = mirrorX + mirrorW - 2;
+    const int gTop = mirrorY + 1;
+    const int gBottom = mirrorY + mirrorH - 2;
+    const int centerX = mirrorX + mirrorW / 2;   // 280, matches ProjectMirrorX
+    const srrace::CarState& p = sim.Player();
+    const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
+    const int laneOff = p.lateral - kRoadCenterLat;   // player offset from road center
+
+    // Manual, glass-clipped blit of a sprite frame with its bottom-left anchored
+    // at (dstLeft, dstBottom). Sprites in the mirror must never spill outside it.
+    auto blitClipped = [&](Bitmap* bmp, const SpriteRect& fr, int dstLeft, int dstBottom) {
+        SDL_Surface* s = bmp ? bmp->GetSurface() : nullptr;
+        if (!s) return;
+        for (int yy = 0; yy < fr.h; ++yy) {
+            const int py = dstBottom - (fr.h - 1) + yy;
+            if (py < gTop || py > gBottom) continue;
+            for (int xx = 0; xx < fr.w; ++xx) {
+                const int px = dstLeft + xx;
+                if (px < gLeft || px > gRight) continue;
+                Uint32 sp = 0;
+                const Uint8* ptr = static_cast<const Uint8*>(s->pixels) + (fr.y + yy) * s->pitch + (fr.x + xx) * s->format->BytesPerPixel;
+                std::memcpy(&sp, ptr, s->format->BytesPerPixel);
+                Uint8 r = 0, g = 0, b = 0, a = 255;
+                SDL_GetRGBA(sp, s->format, &r, &g, &b, &a);
+                if (a > 0) PutPixel(pixels, px, py, {r, g, b, a});
+            }
+        }
+    };
+
+    // Grass base for the whole glass.
+    for (int y = gTop; y <= gBottom; ++y) {
+        for (int x = gLeft; x <= gRight; ++x) {
+            PutPixel(pixels, x, y, kGrassA);
         }
     }
 
-    if (!rearviewMirrorSprite || !rearviewMirrorSprite->GetSurface()) {
-        return;
+    // Horizon backdrop: asset 82 (RACING_HORIZON_REARVIEWMIRROR) across the top of
+    // the glass; the road vanishes at its lower edge.
+    int horizonY = gTop + 6;
+    if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
+        SDL_Surface* h = rearviewMirrorSprite->GetSurface();
+        const int hh = std::min(h->h, gBottom - gTop);
+        for (int yy = 0; yy < hh; ++yy) {
+            for (int x = gLeft; x <= gRight; ++x) {
+                const int sx = 1 + (x - gLeft);           // skip the 1px border
+                if (sx >= h->w) continue;
+                Uint32 sp = 0;
+                const Uint8* ptr = static_cast<const Uint8*>(h->pixels) + yy * h->pitch + sx * h->format->BytesPerPixel;
+                std::memcpy(&sp, ptr, h->format->BytesPerPixel);
+                Uint8 r = 0, g = 0, b = 0, a = 255;
+                SDL_GetRGBA(sp, h->format, &r, &g, &b, &a);
+                if (a > 0) PutPixel(pixels, x, gTop + yy, {r, g, b, a});
+            }
+        }
+        horizonY = gTop + hh - 1;
     }
-    SDL_Surface* src = rearviewMirrorSprite->GetSurface();
-    const int srcX0 = 1;
-    const int srcY0 = 0;
-    const int srcW = 76;
-    const int srcH = 11;
-    const int dstY = mirrorY + 6;
-    for (int y = 0; y < srcH; ++y) {
-        for (int x = 0; x < srcW; ++x) {
-            const int dstX = mirrorX + x;
-            const int py = dstY + y;
-            if (dstX < 0 || dstX >= GAME_WIDTH || py < 0 || py >= GAME_RACING_HEIGHT) {
-                continue;
-            }
-            const int sx = srcX0 + x;
-            const int sy = srcY0 + y;
-            Uint32 srcPixel = 0;
-            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + sy * src->pitch + sx * src->format->BytesPerPixel;
-            std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
-            Uint8 r = 0;
-            Uint8 g = 0;
-            Uint8 b = 0;
-            Uint8 a = 255;
-            SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
-            if (a > 0) {
-                PutPixel(pixels, dstX, py, {r, g, b, a});
-            }
+
+    const int denom = std::max(1, gBottom - horizonY);
+    // Road center x, half-width and behind-segment at a glass scanline y.
+    auto roadAtY = [&](int y, int& cx, int& halfW, int& seg) {
+        const int t = ((y - horizonY) * 256) / denom;          // 0 far .. 256 near
+        const int behind = ClampInt(1 + ((256 - t) * 7) / 256, 1, 8);
+        seg = ClampInt(segBase - behind, 0, kTrackSegments - 1);
+        const int curveBehind = track.curve[seg] - p.heading;
+        halfW = 1 + (t * (mirrorW * 42 / 100)) / 256;
+        cx = centerX - (laneOff * halfW) / 1200 + (curveBehind * t) / 256;
+    };
+
+    // Road surface + center dashes.
+    for (int y = horizonY; y <= gBottom; ++y) {
+        int cx = 0, halfW = 0, seg = 0;
+        roadAtY(y, cx, halfW, seg);
+        const int rl = std::max(gLeft, cx - halfW);
+        const int rr = std::min(gRight, cx + halfW);
+        for (int x = rl; x <= rr; ++x) {
+            PutPixel(pixels, x, y, kRoadA);
+        }
+        // Alternate rows so the center line reads as dashes, not a solid stripe.
+        if ((track.flags[seg] & 0x0008) && (((y - horizonY) & 1) == 0) && cx >= rl && cx <= rr) {
+            PutPixel(pixels, cx, y, (track.flags[seg] & 0x0010) ? kDashWhite : kDashYellow);
         }
     }
 
-    // Show the opponent in the mirror when it is behind us (originally the mirror
-    // renders the rear view with the NPC in it; here we blit the "behind" sprite
-    // into the glass, growing as it closes). Full rear-view road pass is TODO.
+    // Roadside object LODs behind: smallest frame at the road edge per behind row.
+    auto slotForFlags = [](uint16_t f) -> int {
+        if (f & 0x0001) return 1;   // building / main
+        if (f & 0x0020) return 0;   // palm
+        if (f & 0x0100) return 4;
+        if (f & 0x0800) return 3;
+        if (f & 0x0040) return 10;
+        if (f & 0x0004) return 7;
+        if (f & 0x0008) return 8;
+        return -1;
+    };
+    for (int behind = 2; behind <= 7; ++behind) {
+        const int t = 256 - ((behind - 1) * 256) / 7;
+        const int y = horizonY + (t * denom) / 256;
+        if (y < horizonY || y > gBottom) continue;
+        int cx = 0, halfW = 0, seg = 0;
+        roadAtY(y, cx, halfW, seg);
+        for (int side = 0; side < 2; ++side) {
+            const uint16_t f = side ? track.right[seg] : track.left[seg];
+            const int slot = slotForFlags(f);
+            if (slot < 0 || !roadsideSprites[slot]) continue;
+            const SpriteAnimationInfo* anim = roadsideAnim[slot];
+            if (!anim || !anim->frames || anim->frameCount <= 0) continue;
+            const SpriteRect& fr = anim->frames[anim->frameCount - 1];   // farthest/smallest
+            const int dstLeft = side ? (cx + halfW) : (cx - halfW - fr.w);
+            blitClipped(roadsideSprites[slot].get(), fr, dstLeft, y);
+        }
+    }
+
+    // Show the opponent in the mirror when it is behind us, growing as it closes.
     if (opponentActive) {
         const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
         if (delta < 0 && delta >= -8) {
