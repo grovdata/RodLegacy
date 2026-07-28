@@ -468,6 +468,10 @@ void Driving::DrawScene() {
                     raceEnded = true;
                     raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_RIGHT, 85, 40, false);
                     raceEndBubble->SetVisible(true);
+                    // A crash holds the screen for at least 4s before any key can
+                    // dismiss it; other outcomes are dismissable immediately.
+                    raceEndDismissAllowedMs = racing->ShouldShowCrashOverlay()
+                                              ? SDL_GetTicks() + 4000 : 0;
                 }
             }
 
@@ -574,6 +578,10 @@ bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
     // to the garage (or the end-game screen if the King was just beaten).
     if (raceEnded && event->type == SDL_KEYDOWN) {
+        // Hold the crash screen for its minimum display time; ignore keys until then.
+        if (SDL_GetTicks() < raceEndDismissAllowedMs) {
+            return true;
+        }
         raceEnded = false;
         raceEndBubble.reset();
         const bool endGame = raceEndPendingKing;

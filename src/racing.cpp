@@ -523,12 +523,25 @@ int16_t Racing::GetSteerDisplay() const {
 
 std::string Racing::GetRaceEndReason() const {
     const uint16_t flags = sim.Player().endFlags;
-    if (flags & srrace::END_WALL_HIT)      return "CRASHED";
-    if (flags & srrace::END_ENGINE_BLOWN)  return "ENGINE BLEW";
-    if (flags & srrace::END_TRANS_DROPPED) return "TRANSMISSION DROPPED";
-    if (flags & srrace::END_STALLED)       return "JUMPED THE START";
-    if (raceOutcome == RaceOutcome::PlayerWon)  return "YOU WIN!";
+    if (flags & srrace::END_WALL_HIT)      return "You lose. Take a walk, sucker.";
+    if (flags & srrace::END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
+    if (flags & srrace::END_TRANS_DROPPED) return "You just dropped your`transmission,klutz`!";
+    if (flags & srrace::END_STALLED)       return "Ya jumped the light, speedy`!";
+    if (raceOutcome == RaceOutcome::PlayerWon)  return "You won! Too bad you didn't bet, though.";
+    // TODO: Show depending on bet
+    // "You won! Too bad you didn't bet, though."
+    // "Big deal. Ten lousy bucks."
+    // "Big deal. Twenty-five bucks."
+    // "Fifty smackers. Not bad."
+    // "A hundred smackers, hot shot."    
+    // "You just won a helluva car."
     if (raceOutcome == RaceOutcome::PlayerLost) return "YOU LOSE";
+    // TODO: Different lose conditions
+    //  "Lucky you weren't killed, 'cause the car is totaled. You get $123 for scrap."
+    //  "Lucky you're so slow. You only lost the race."
+    //  "Lucky you're so slow. You only lost the race. But you need new tires."
+    //  "You've been sentenced for debts, Ace`!" // Caught by the cop
+    
     return "RACE OVER";
 }
 

@@ -40,6 +40,9 @@ class Driving: public Scene {
     bool raceEnded = false;
     bool raceEndPendingKing = false;  // King beaten in a drag -> end-game screen instead
     std::unique_ptr<Bubble> raceEndBubble;
+    // Earliest tick at which a keypress may dismiss the race-end screen. A crash
+    // holds the screen for a minimum time so the crash view is actually seen.
+    Uint32 raceEndDismissAllowedMs = 0;
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;
