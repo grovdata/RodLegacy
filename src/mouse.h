@@ -19,6 +19,9 @@ private:
     SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
     std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
     
+    // When false, the custom cursor is not drawn (e.g. in the driving scene).
+    bool visible = true;
+
     // Gamepad support
     bool gamepadActive = false;
     bool dPadPressed = false;
@@ -101,8 +104,12 @@ public:
     void UpdateGamepad(Scene* scene);
 
     void Draw() {
+        if (!visible) return;
         SDL_RenderCopy(renderer, cursorTexture, NULL, &rect);
     }
+
+    void SetVisible(bool v) { visible = v; }
+    bool IsVisible() const { return visible; }
 
     void SetPointerType(SrLibAmigaSpriteAsset type) {
         if (pointerTextures.find(type) != pointerTextures.end()) {

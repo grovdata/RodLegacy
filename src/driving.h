@@ -91,4 +91,6 @@ private:
 
         void SetState(DrivingState state);
         void OnFadeComplete() override;
+        // Driven with the wheel/pedals; no pointer cursor in this scene.
+        bool WantsPointer() const override { return false; }
 };

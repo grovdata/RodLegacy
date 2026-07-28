@@ -83,6 +83,10 @@ class Scene: public IDrawableContainer {
     virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
     virtual void OnSceneExit();
 
+    // Whether the custom mouse pointer should show in this scene. Applied
+    // centrally on scene entry (FadeIn); override to false to hide it.
+    virtual bool WantsPointer() const { return true; }
+
     void Draw();                // Non-virtual: manages render target + fade color mod
     virtual void DrawScene();  // Override in derived classes for scene-specific drawing
     virtual void DrawExtra() {} // Override in derived classes for additional drawing

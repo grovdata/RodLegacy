@@ -245,6 +245,9 @@ void Scene::FadeIn() {
     fadeAlpha = 255;
     fadeStartTime = SDL_GetTicks64();
     sceneTransition = SCENE_FADE_IN;
+    // Scene entry owns cursor visibility: each scene declares whether it wants
+    // the pointer, so the next scene entered always sets it correctly.
+    mouse.SetVisible(WantsPointer());
 }
 
 void Scene::FadeOut() {
