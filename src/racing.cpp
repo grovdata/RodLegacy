@@ -275,7 +275,17 @@ std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, spriteId);
     std::vector<uint16_t> opponentCarPalette = GetStandardCarColor(opponentColor);
     if (opponentCarPalette.size() > 7) {
-        palData[7] = opponentCarPalette[7];
+        // Recolor the car body. Index 7 is the documented recolor slot, but some
+        // sprites (e.g. the front-side view, asset 83) also carry the magenta
+        // placeholder (#f000c0 = Amiga RGB4 0x0F0C) at other palette indices, so
+        // replace every occurrence or those body pixels render as raw magenta.
+        const uint16_t carColor = opponentCarPalette[7];
+        palData[7] = carColor;
+        for (uint16_t& c : palData) {
+            if (c == 0x0F0C) {
+                c = carColor;
+            }
+        }
     }
 
     Palette pal = bp.PreparePalette(palData, true);
@@ -634,7 +644,11 @@ int Racing::BuildRowTableAndGetLastVisible() {
 }
 
 void Racing::RenderSkyAndParallax(float frameSeconds) {
-    for (int y = 0; y <= kClipBottom; ++y) {
+    // Clear the WHOLE surface, not just the visible clip. Row projection clamps
+    // the nearest rows to kClipBottom+30, so near sprites (the alongside NPC) can
+    // draw into rows kClipBottom+1..GAME_RACING_HEIGHT; if those are not cleared
+    // every frame the sprite ghosts there after the car drives away.
+    for (int y = 0; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
         }
@@ -812,7 +826,10 @@ void Racing::RenderRoad(int lastVisible) {
         }
     };
 
-    for (int y = kClipTop; y <= kClipBottom; ++y) {
+    // Fill grass down the WHOLE surface, not just to kClipBottom: the bottom rows
+    // (kClipBottom+1..GAME_RACING_HEIGHT) are visible through the side-mirror gap,
+    // so the ground must render there too (otherwise it reads as black).
+    for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kGrassA);
         }
@@ -825,7 +842,9 @@ void Racing::RenderRoad(int lastVisible) {
             continue;
         }
 
-        const int yStart = ClampInt(nearRow.y - 1, kClipTop, kClipBottom);
+        // Extend the nearest segment to the bottom of the surface so the road
+        // (not just grass) shows through the side-mirror gap below kClipBottom.
+        const int yStart = ClampInt(nearRow.y - 1, kClipTop, GAME_RACING_HEIGHT - 1);
         const int yEnd = ClampInt(farRow.y, kClipTop, kClipBottom);
         for (int y = yStart; y >= yEnd; --y) {
             const int dy = std::max(1, nearRow.y - farRow.y);
@@ -869,12 +888,13 @@ void Racing::RenderRoad(int lastVisible) {
     if (lastVisible >= 1) {
         const RowProjection& row0 = rows[0];
         const RowProjection& row1 = rows[1];
-        const int yStart = ClampInt(row0.y, kClipTop, kClipBottom);
+        const int yStart = ClampInt(row0.y, kClipTop, GAME_RACING_HEIGHT - 1);
         const int dy = std::max(1, row0.y - row1.y);
         const uint16_t nearFlags = track.flags[row0.seg];
         const bool nearCity = (nearFlags & 0x0001) != 0;
         const SDL_Color nearRoadColor = nearCity ? kRoadCity : kRoadA;
-        for (int y = yStart; y <= kClipBottom; ++y) {
+        // Extend the near road to the bottom of the surface (visible via the mirror).
+        for (int y = yStart; y < GAME_RACING_HEIGHT; ++y) {
             const int extra = y - row0.y;
             const int lx = row0.leftX + ((row0.leftX - row1.leftX) * extra) / dy;
             const int rx = row0.rightX + ((row0.rightX - row1.rightX) * extra) / dy;
@@ -1073,30 +1093,51 @@ void Racing::DrawNpcCar(int lastVisible) {
         return;
     }
 
-    const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
-    if (delta < 0 || delta > 14) {
-        return;
-    }
+    const srrace::CarState& p = sim.Player();
+    const srrace::CarState& np = sim.Npc();
 
-    const int k = ClampInt(delta, 0, std::min(lastVisible, 14));
-    const RowProjection& row = rows[k];
-    int frameIndex = ClampInt(k / 2, 0, 6);
+    // Fine longitudinal gap in scroll units (original view-state distance
+    // 0x237ea8: (npc.seg - player.seg)*8 + (npc.scroll - player.scroll)).
+    const int longDist = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8
+                       + (np.scrollAcc - p.scrollAcc);
+
+    int k = 0;
     Bitmap* sprite = nullptr;
-    switch (opponentCarType) {
-        case 0: sprite = opponentChevyRear[frameIndex].get(); break;
-        case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
-        case 2: sprite = opponentCopRear[frameIndex].get(); break;
-        default: sprite = opponentChevyRear[frameIndex].get(); break;
+    // Only while genuinely level; switch to the rear LOD frames as soon as the
+    // NPC pulls ahead, so the near-size side view doesn't linger up the road.
+    if (longDist > -4 && longDist < 2) {
+        // Alongside: the NPC is level with the player, so it starts BESIDE the
+        // car with the front-side view (original states 0/1; e.g. Chevy asset
+        // 83), chosen by the opponent's car class, not the rear LOD frames.
+        switch (opponentCarType) {
+            case 1: sprite = opponentChryslerFrontSide.get(); break;
+            case 2: sprite = opponentCopFrontSide.get(); break;
+            default: sprite = opponentChevyFrontSide.get(); break;
+        }
+        k = 0;  // nearest depth, beside the player
+    } else {
+        // Pulled ahead: pre-drawn rear LOD frames (distance = which frame).
+        const int delta = static_cast<int>(np.segPos - p.segPos);
+        if (delta < 0 || delta > 14) {
+            return;  // behind -> handled by the rear-view mirror
+        }
+        k = ClampInt(delta, 0, std::min(lastVisible, 14));
+        const int frameIndex = ClampInt(k / 2, 0, 6);
+        switch (opponentCarType) {
+            case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
+            case 2: sprite = opponentCopRear[frameIndex].get(); break;
+            default: sprite = opponentChevyRear[frameIndex].get(); break;
+        }
     }
     if (!sprite || !sprite->GetSurface()) {
         return;
     }
 
-    const srrace::CarState& p = sim.Player();
+    const RowProjection& row = rows[k];
     SDL_Surface* src = sprite->GetSurface();
-    const int x = ProjectX(p, row.distance, row.roadDelta, sim.Npc().lateral);
-    // Blit the pre-drawn LOD frame at its native size (no scaling between frames);
-    // distance is conveyed by which frame is picked, not by resizing one bitmap.
+    const int x = ProjectX(p, row.distance, row.roadDelta, np.lateral);
+    // Blit at native size (no scaling between frames); distance is conveyed by
+    // which frame is picked, not by resizing one bitmap.
     DrawNearestNeighborScaled(sprite, x - src->w / 2, row.y, src->w, src->h, false, true);
 }
 
