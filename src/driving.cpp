@@ -83,27 +83,27 @@ void Driving::Init(bool debugMode) {
     AddDrawable("clock", clock);
 
     // Load plush dice
-    auto plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1});
+    auto plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1_NEUTRAL});
     plushDice->SetPosition(259, 45);
     plushDice->SetVisible(true);
     AddDrawable("plush_dice1", plushDice);
 
-    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE2_LEFT1});
     plushDice->SetPosition(253, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice2", plushDice);
 
-    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE3_LEFT2});
     plushDice->SetPosition(250, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice3", plushDice);
 
-    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE4_RIGHT1});
     plushDice->SetPosition(267, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice4", plushDice);
 
-    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5});
+    plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE5_RIGHT2});
     plushDice->SetPosition(274, 45);
     plushDice->SetVisible(false);
     AddDrawable("plush_dice5", plushDice);
@@ -374,66 +374,52 @@ void Driving::OnFadeComplete() {
              state.GetPendingIsPinkSlip() ? 1 : 0);
 }
 
-void Driving::UpdateDiceAnimation(float deltaTime, bool carIsMoving) {
-    if (!carIsMoving) {
-        // Reset timer when car is not moving - dice stop
-        diceAnimationTimer = 0.0f;
-        
-        // Reset to dice 1 (neutral position) when car stops
-        if (currentDiceIndex != 0) {
-            // Hide current dice
-            std::string currentDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
-            auto currentDiceDrawable = GetDrawable(currentDiceName);
-            if (currentDiceDrawable) {
-                currentDiceDrawable->SetVisible(false);
-            }
-            
-            // Set to dice 1 (index 0) and show it
-            currentDiceIndex = 0;
-            diceAnimationForward = true; // Reset direction to forward for next movement
-            
-            std::string neutralDiceName = "plush_dice1";
-            auto neutralDiceDrawable = GetDrawable(neutralDiceName);
-            if (neutralDiceDrawable) {
-                neutralDiceDrawable->SetVisible(true);
-            }
+void Driving::UpdateDiceAnimation(float deltaTime) {
+    // The plush dice swing as a continuous pendulum, matching the original
+    // (RenderPlayerCar 0x238b28): a tilt -2..2 steps +-1 each race frame and
+    // reverses at its bounds, so the dice keep moving even on a straight road.
+    // Steering shifts one bound so the swing biases away from the turn (inertia).
+    // When the car is stopped it swings on until it crosses centre, then settles.
+    const bool moving = racing && racing->GetSpeed() > 0.1f;
+    const int steer = racing ? racing->GetSteerDisplay() : 0;   // <0 left, >0 right
+    int lo = -2;
+    int hi = 2;
+    if (steer < 0) {
+        lo = -1;    // steering left: bias the swing toward the right (+)
+    } else if (steer > 0) {
+        hi = 1;     // steering right: bias the swing toward the left (-)
+    }
+
+    diceStepTimer += deltaTime * 1000.0f;
+    while (diceStepTimer >= DICE_SWING_STEP_MS) {
+        diceStepTimer -= DICE_SWING_STEP_MS;
+        if (!moving && diceTilt == 0) {
+            diceStepTimer = 0.0f;   // stopped and centred: hold
+            break;
         }
+        if (diceTilt >= hi) {
+            diceDir = -1;
+        } else if (diceTilt <= lo) {
+            diceDir = 1;
+        }
+        diceTilt += diceDir;
+    }
+
+    // Map tilt -2..2 to the frame in screen-x order: -2 LEFT2(2), -1 LEFT1(1),
+    // 0 NEUTRAL(0), +1 RIGHT1(3), +2 RIGHT2(4).
+    const int mag = std::abs(diceTilt);
+    const int idx = (diceTilt < 0) ? mag : (diceTilt > 0 ? 2 + mag : 0);
+    if (idx == currentDiceIndex) {
         return;
     }
-    
-    // Update animation timer only when car is moving
-    diceAnimationTimer += deltaTime;
-    
-    // Check if it's time to change dice
-    if (diceAnimationTimer >= DICE_ANIMATION_INTERVAL) {
-        diceAnimationTimer = 0.0f; // Reset timer
-        
-        // Hide current dice
-        std::string currentDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
-        auto currentDiceDrawable = GetDrawable(currentDiceName);
-        if (currentDiceDrawable) {
-            currentDiceDrawable->SetVisible(false);
-        }
-        
-        // Move to next dice with bidirectional cycling
-        if (diceAnimationForward) {
-            currentDiceIndex++;
-            if (currentDiceIndex >= 4) { // Reached dice 5 (index 4)
-                diceAnimationForward = false; // Start going backward
-            }
-        } else {
-            currentDiceIndex--;
-            if (currentDiceIndex <= 0) { // Reached dice 1 (index 0)
-                diceAnimationForward = true; // Start going forward again
-            }
-        }
-        
-        // Show new dice
-        std::string newDiceName = "plush_dice" + std::to_string(currentDiceIndex + 1);
-        auto newDiceDrawable = GetDrawable(newDiceName);
-        if (newDiceDrawable) {
-            newDiceDrawable->SetVisible(true);
-        }
+    auto oldDice = GetDrawable("plush_dice" + std::to_string(currentDiceIndex + 1));
+    if (oldDice) {
+        oldDice->SetVisible(false);
+    }
+    currentDiceIndex = idx;
+    auto newDice = GetDrawable("plush_dice" + std::to_string(idx + 1));
+    if (newDice) {
+        newDice->SetVisible(true);
     }
 }
 
@@ -468,16 +454,15 @@ void Driving::DrawScene() {
                     raceEnded = true;
                     raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_LEFT, 85, 40, false);
                     raceEndBubble->SetVisible(true);
-                    // A crash holds the screen for at least 4s before any key can
-                    // dismiss it; other outcomes are dismissable immediately.
-                    raceEndDismissAllowedMs = racing->ShouldShowCrashOverlay()
-                                              ? SDL_GetTicks() + 4000 : 0;
+                    // Hold every race-end message on screen for a minimum time
+                    // before any key can dismiss it, so a still-held accelerator
+                    // (or other key) can't skip the win/loss/crash message.
+                    raceEndDismissAllowedMs = SDL_GetTicks() + 4000;
                 }
             }
 
-            // Update dice animation based on car movement
-            bool carIsMoving = !racing->IsFlybyMode() && racing->GetSpeed() > 0.1f;
-            UpdateDiceAnimation(deltaTime, carIsMoving);
+            // Dice pendulum swing.
+            UpdateDiceAnimation(deltaTime);
         }
 
         // Get the updated racing surface and create texture

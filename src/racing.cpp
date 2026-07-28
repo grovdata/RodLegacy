@@ -558,6 +558,11 @@ std::string Racing::GetRaceEndReason() const {
     //  "Lucky you're so slow. You only lost the race."
     //  "Lucky you're so slow. You only lost the race. But you need new tires."
     //  "You've been sentenced for debts, Ace`!" // Caught by the cop
+
+    //  "Oh, well, it could have been worse.\n $123 for parts and you are back on the streets." 
+    // <- this one above is displayed as a dialog, not bubble. With dismiss button "Junk it"
+    // Can also have a "Fix it" button, I guess if player affords it?
+
     
     return "RACE OVER";
 }

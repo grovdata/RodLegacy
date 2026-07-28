@@ -59,15 +59,18 @@ class Driving: public Scene {
     Bitmap* wheelTurningRightOpposite;
 
     // Dice animation state
-    int currentDiceIndex = 0;          // Current visible dice (0-4)
-    float diceAnimationTimer = 0.0f;   // Timer for dice animation
-    bool diceAnimationForward = true;  // Direction: true = forward (1→5), false = backward (5→1)
-    static constexpr float DICE_ANIMATION_INTERVAL = 1.5f; // Change dice every 1.5s when moving
+    int currentDiceIndex = 0;          // Current visible dice frame (0 = NEUTRAL..4)
+    int diceTilt = 0;                  // Pendulum position -2..2 (original A4-0x1380)
+    int diceDir = 1;                   // Swing direction +-1 (original A4-0x137e)
+    float diceStepTimer = 0.0f;        // Accumulator for one +-1 pendulum step
+    // Milliseconds per +-1 pendulum step (the original advances one step per race
+    // frame; this decouples the swing rate from our display frame rate).
+    static constexpr float DICE_SWING_STEP_MS = 130.0f;
 
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
     void LoadTrackData();
-    void UpdateDiceAnimation(float deltaTime, bool carIsMoving);
+    void UpdateDiceAnimation(float deltaTime);
     void DrawCrashOverlay();
     void DrawSteeringDot();
 

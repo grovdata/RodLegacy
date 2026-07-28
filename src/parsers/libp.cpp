@@ -795,6 +795,13 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                     break; // Continue to general logic below
             }
 
+            // Roadside objects and signs use the full driving palette; the LOW
+            // palette gave the signs wrong colors. (Backdrop/interior 11..20 and
+            // the rest of the <45 range stay on PAL_DRIVING_LOW.)
+            if (a >= RACING_PALM_TREE && a <= RACING_SIGN_PLAY_BLOCKOUT) {
+                return PAL_DRIVING;
+            }
+
             if (index < 45) {
                 return PAL_DRIVING_LOW;
             } else if (index >= 45 && index <= 80) {
