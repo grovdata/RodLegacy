@@ -23,8 +23,6 @@ Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool aut
     bubble->SetVisible(true);
     bubble->SetPosition(xPos, yPos);
 
-    fontSurface.reset(SDL_CreateRGBSurface(0, 256, 64, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
-
     UpdateText(text);
 
     if (autoDismiss) {
@@ -60,18 +58,29 @@ void Bubble::Draw() {
 }
 
 void Bubble::UpdateText(std::string& text) {
+    SFont_Font* font = state.GetAssets().GetMainFont();
+
+    // Size the surface to the whole string so nothing is clipped. Previously a
+    // fixed 256x64 surface (and a 50-char buffer) cropped longer text. The +2
+    // avoids SFont clipping the last glyph (same workaround as Label).
+    int textW = SFont_TextWidth(font, text.c_str()) + 2;
+    int textH = SFont_TextHeight(font);
+    fontSurface.reset(SDL_CreateRGBSurface(0, textW, textH, 32,
+                                           0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+
     SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
-    
-    char buf[50];
-    snprintf(buf, 50, "%s", text.c_str());
-    SFont_Write(fontSurface.get(), state.GetAssets().GetMainFont(), 0, 0, buf);
-    
+    SFont_Write(fontSurface.get(), font, 0, 0, text.c_str());
+
     fontTexture.reset(SDL_CreateTextureFromSurface(renderer, fontSurface.get()));
     SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);
 
+    // Inset the text from the bubble's left/top edge so it doesn't butt against
+    // the border.
+    constexpr int kTextPadX = 8;
+    constexpr int kTextPadY = 6;
     SDL_Rect rect = bubble->GetPosition();
-    fontRect.x = rect.x;
-    fontRect.y = rect.y + 6;
+    fontRect.x = rect.x + kTextPadX;
+    fontRect.y = rect.y + kTextPadY;
     fontRect.w = fontSurface->w;
     fontRect.h = fontSurface->h;
 }

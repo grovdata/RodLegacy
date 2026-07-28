@@ -167,9 +167,16 @@ int SFont_TextWidth(const SFont_Font *Font, const char *text)
 	return 0;
 
     for(c = text; *c != '\0'; c++) {
+        /* Match SFont_Write's advances exactly, or a surface sized from this
+         * width will clip the text. Write advances a space by a fixed 5px
+         * (spaces have no glyph in the font), not by CharPos[2]-CharPos[1]. */
+        if (*c == ' ') {
+            width += 5;
+            continue;
+        }
 	charoffset = ((int) *c - 33) * 2 + 1;
-	/* skip spaces and nonprintable characters */
-        if (*c == ' ' || charoffset < 0 || charoffset > Font->MaxPos) {
+	/* nonprintable characters */
+        if (charoffset < 0 || charoffset > Font->MaxPos) {
             width += Font->CharPos[2]-Font->CharPos[1];
 	    continue;
 	}

@@ -38,7 +38,7 @@ constexpr int kRoadCenterLat = 2400;
 
 // Races run at night in the original game.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
-constexpr SDL_Color kGrassA = {0, 146, 0, 255};
+constexpr SDL_Color kGrassA = {0, 112, 0, 255};
 constexpr SDL_Color kRoadA = {0, 0, 0, 255};
 constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
@@ -259,6 +259,10 @@ void Racing::LoadSpriteBitmaps() {
     if (exitAsset) {
         signExit48Sprite = std::make_unique<Bitmap>(*exitAsset);
     }
+    auto* lightAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RED_LIGHTS});
+    if (lightAsset) {
+        startLightSprite = std::make_unique<Bitmap>(*lightAsset);
+    }
 }
 
 std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
@@ -435,6 +439,7 @@ void Racing::InitializeRaceSimulation() {
     bShowCrashOverlay = false;
     crashHandled = false;
     crashOverlayEndMs = 0;
+    startLightHeight = 32;  // full; retracts once the car launches
 }
 
 void Racing::SetTrackType(SrTrackType trackType) {
@@ -637,7 +642,6 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
 
     const srrace::CarState& p = sim.Player();
     cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
-    mountainOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.0025f;
 
     if (cloudSprite && cloudSprite->GetSurface()) {
         SDL_Surface* src = cloudSprite->GetSurface();
@@ -666,34 +670,129 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
         }
     }
 
-    if (mountainSprite && mountainSprite->GetSurface()) {
-        SDL_Surface* src = mountainSprite->GetSurface();
-        const int baseOffset = ((static_cast<int>(mountainOffsetAccum) % src->w) + src->w) % src->w;
-        const int startY = 61;
-        for (int pass = 0; pass < 2; ++pass) {
-            const int drawX = -baseOffset + pass * src->w;
-            for (int y = 0; y < src->h; ++y) {
-                const int py = startY + y;
-                if (py < 0 || py >= GAME_RACING_HEIGHT) {
+}
+
+// Mountains are the horizon backdrop: drawn AFTER the road fill so the grass/sky
+// scanlines can't overwrite them, with the sprite's base sitting on the horizon
+// (row 60). They scroll horizontally with heading (mountainOffsetAccum) but do
+// not move vertically. horizonY tracks the road's per-frame vanishing point so
+// the mountain base meets the ground where road and sky meet.
+void Racing::RenderMountains(int horizonY) {
+    if (!mountainSprite || !mountainSprite->GetSurface()) {
+        return;
+    }
+    SDL_Surface* src = mountainSprite->GetSurface();
+    // Horizontal pan matches the original backdrop (0x236c1e): the mountain X
+    // offset is a DIRECT function of the current heading (heading*2 % width), not
+    // an integral of speed over time. It pans as you steer / the road curves and
+    // returns as heading returns, instead of drifting.
+    const int heading = sim.Player().heading;
+    const int baseOffset = (((heading * 2) % src->w) + src->w) % src->w;
+
+    // Find the lowest opaque row once: the bitmap has transparent padding below
+    // the range, so anchoring by src->h would leave the silhouette floating in
+    // the sky. Anchor the real base on the horizon instead.
+    if (mountainOpaqueBottom < 0) {
+        mountainOpaqueBottom = src->h - 1;
+        for (int y = src->h - 1; y >= 0; --y) {
+            bool rowOpaque = false;
+            for (int x = 0; x < src->w; ++x) {
+                Uint32 sp = 0;
+                const Uint8* p = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
+                std::memcpy(&sp, p, src->format->BytesPerPixel);
+                Uint8 r = 0, g = 0, b = 0, a = 255;
+                SDL_GetRGBA(sp, src->format, &r, &g, &b, &a);
+                if (a > 0) { rowOpaque = true; break; }
+            }
+            if (rowOpaque) { mountainOpaqueBottom = y; break; }
+        }
+    }
+
+    // Place the lowest opaque row on the row just above the horizon so the range
+    // sits directly on the ground, peaks rising into the sky.
+    const int startY = horizonY - 1 - mountainOpaqueBottom;
+    for (int pass = 0; pass < 2; ++pass) {
+        const int drawX = -baseOffset + pass * src->w;
+        for (int y = 0; y < src->h; ++y) {
+            const int py = startY + y;
+            if (py < kClipTop || py >= horizonY || py >= GAME_RACING_HEIGHT) {
+                continue;
+            }
+            for (int x = 0; x < src->w; ++x) {
+                const int px = drawX + x;
+                if (px < 0 || px >= GAME_WIDTH) {
                     continue;
                 }
-                for (int x = 0; x < src->w; ++x) {
-                    const int px = drawX + x;
-                    if (px < 0 || px >= GAME_WIDTH) {
-                        continue;
-                    }
-                    Uint32 srcPixel = 0;
-                    const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
-                    std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
-                    Uint8 r = 0;
-                    Uint8 g = 0;
-                    Uint8 b = 0;
-                    Uint8 a = 255;
-                    SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
-                    if (a > 0) {
-                        PutPixel(pixels, px, py, {r, g, b, a});
-                    }
+                Uint32 srcPixel = 0;
+                const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
+                std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+                Uint8 r = 0;
+                Uint8 g = 0;
+                Uint8 b = 0;
+                Uint8 a = 255;
+                SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+                if (a > 0) {
+                    PutPixel(pixels, px, py, {r, g, b, a});
                 }
+            }
+        }
+    }
+}
+
+// Start light (original DrawStartLight 0x237d5e): lib.p asset 97, a 48x32 sheet
+// with two 24x32 frames. RED during the staging countdown, GREEN once the race
+// launches, then it retracts (height 32 -> 0 by 4/frame) as the car rolls away.
+void Racing::DrawStartLight() {
+    if (flybyMode || !startLightSprite || !startLightSprite->GetSurface()) {
+        return;
+    }
+    const srrace::RacePhase phase = sim.Phase();
+    // Gone once fully retracted or the race is over.
+    if (phase == srrace::RacePhase::Ended || startLightHeight <= 0) {
+        return;
+    }
+
+    const bool green = (phase != srrace::RacePhase::Countdown);
+    // Retract as the car launches; held full while stationary in staging.
+    if (green && sim.Player().speed > 0) {
+        startLightHeight -= 4;
+        if (startLightHeight <= 0) {
+            startLightHeight = 0;
+            return;
+        }
+    }
+
+    // Frame 0 = RED (srcX 24), frame 1 = GREEN (srcX 0); see RACING_LIGHT_FRAMES.
+    const SpriteRect& frame = RACING_LIGHT_FRAMES[green ? 1 : 0];
+    SDL_Surface* src = startLightSprite->GetSurface();
+    const int dstX = 130;               // original dest (0x82, 0x12)
+    // Original dest y is 0x12 (18) in the full 320x200 frame. Our road-view
+    // surface is inset by Driving's roadRect.y (14), so subtract it to land at
+    // the same on-screen height (the light hangs from the top of the windshield).
+    const int dstY = 18 - 14;
+    const int srcYoff = 32 - startLightHeight;  // retract from the bottom (srcY = 32 - h)
+    for (int y = 0; y < startLightHeight; ++y) {
+        const int sy = frame.y + srcYoff + y;
+        const int py = dstY + y;
+        if (py < 0 || py >= GAME_RACING_HEIGHT) {
+            continue;
+        }
+        for (int x = 0; x < frame.w; ++x) {
+            const int sx = frame.x + x;
+            const int px = dstX + x;
+            if (px < 0 || px >= GAME_WIDTH) {
+                continue;
+            }
+            Uint32 srcPixel = 0;
+            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + sy * src->pitch + sx * src->format->BytesPerPixel;
+            std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+            Uint8 r = 0;
+            Uint8 g = 0;
+            Uint8 b = 0;
+            Uint8 a = 255;
+            SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+            if (a > 0) {
+                PutPixel(pixels, px, py, {r, g, b, a});
             }
         }
     }
@@ -1512,8 +1611,10 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     RenderSkyAndParallax(fElapsedTime);
     lastVisibleRow = BuildRowTableAndGetLastVisible();
     RenderRoad(lastVisibleRow);
+    RenderMountains(rows[lastVisibleRow].y);
     DrawRoadsideAndArchSprites(lastVisibleRow);
     DrawNpcCar(lastVisibleRow);
+    DrawStartLight();
     DrawRearviewMirror();
 
     SDL_UnlockSurface(pixels);

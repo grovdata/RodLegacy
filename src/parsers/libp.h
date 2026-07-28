@@ -695,6 +695,10 @@ static const SpriteRect RACING_SIGN_COUNTY_LINE_FRAMES[] = {
     {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 
+static const SpriteRect RACING_LIGHT_FRAMES[] = {
+    {24, 0, 24, 32}, {0, 0, 24, 32}
+};
+
 // Engine animation frame definitions
 // Belt animation: 2x2 grid of 86x53 frames
 static const SpriteRect ENGINE_BELT_FRAMES[] = {
@@ -763,6 +767,7 @@ static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_SIGN_MULTITURN_LEFT,  11, 100, true, FRAMES_SIGN_MULTITURN_LEFT},      // id39
     {RACING_SIGN_MULTITURN_RIGHT, 11, 100, true, FRAMES_SIGN_MULTITURN_RIGHT},     // id40
     {RACING_SIGN_COUNTY_LINE, 11, 150, true, RACING_SIGN_COUNTY_LINE_FRAMES},
+    {RACING_RED_LIGHTS, 2, 8000, false, RACING_LIGHT_FRAMES},
     {ENGINE_BELT_ANIMATION, 4, 500, true, ENGINE_BELT_FRAMES},
     {ENGINE_PISTON_LEFT_ANIMATION, 8, 500, true, ENGINE_PISTON_LEFT_FRAMES},
     {ENGINE_PISTON_RIGHT_ANIMATION, 8, 500, true, ENGINE_PISTON_RIGHT_FRAMES},

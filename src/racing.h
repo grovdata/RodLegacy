@@ -64,7 +64,10 @@ private:
     std::array<RowProjection, 15> rows {};
 
     float cloudOffsetAccum = 0.0f;
-    float mountainOffsetAccum = 0.0f;
+    // Sprite-space row of the lowest opaque mountain pixel (the range's base).
+    // Cached on first use so the silhouette can be anchored on the horizon
+    // regardless of transparent padding below it in the bitmap. -1 = uncomputed.
+    int mountainOpaqueBottom = -1;
 
     std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
     // Per-slot animation frames (pre-drawn scale levels) when the sprite has them;
@@ -72,6 +75,10 @@ private:
     std::array<const SpriteAnimationInfo*, 20> roadsideAnim {};
     std::unique_ptr<Bitmap> mountainSprite;
     std::unique_ptr<Bitmap> cloudSprite;
+    std::unique_ptr<Bitmap> startLightSprite;
+    // Start-light reveal height (0..32). Held full during the staging countdown,
+    // then retracts by 4/frame as the car launches (original A4-0x13d0).
+    int startLightHeight = 32;
     std::unique_ptr<Bitmap> rearviewMirrorSprite;
     std::unique_ptr<Bitmap> signCountyLineSprite;
     std::unique_ptr<Bitmap> signRoute69Sprite;
@@ -117,6 +124,8 @@ private:
     int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
     void RenderSkyAndParallax(float frameSeconds);
+    void RenderMountains(int horizonY);
+    void DrawStartLight();
     void RenderRoad(int lastVisible);
     void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
                                    int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1);

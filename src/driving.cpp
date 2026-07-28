@@ -466,7 +466,7 @@ void Driving::DrawScene() {
                     LOG_INFO("Driving: race ended (%s); press any key for garage",
                              reason.c_str());
                     raceEnded = true;
-                    raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_RIGHT, 85, 40, false);
+                    raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_LEFT, 85, 40, false);
                     raceEndBubble->SetVisible(true);
                     // A crash holds the screen for at least 4s before any key can
                     // dismiss it; other outcomes are dismissable immediately.
