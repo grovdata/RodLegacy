@@ -67,10 +67,10 @@ private:
     // Currently shown NPC rear LOD frame; changed with hysteresis so it does not
     // flip back and forth when the longitudinal gap hovers on a frame boundary.
     int npcRearFrame = 0;
-    // Sprite-space row of the lowest opaque mountain pixel (the range's base).
-    // Cached on first use so the silhouette can be anchored on the horizon
-    // regardless of transparent padding below it in the bitmap. -1 = uncomputed.
-    int mountainOpaqueBottom = -1;
+    // Sprite-space row where the mountain silhouette meets the foothill green
+    // band it is drawn on. Cached on first use; this row is what sits on the
+    // horizon, not the bitmap's lowest opaque row. -1 = uncomputed.
+    int mountainBaseRow = -1;
 
     std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
     // Per-slot animation frames (pre-drawn scale levels) when the sprite has them;

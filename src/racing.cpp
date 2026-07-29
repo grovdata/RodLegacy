@@ -31,14 +31,22 @@ constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 constexpr int kPhysicsHz = 15;
 constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
 
-constexpr int kHorizonY = 60;
-constexpr int kClipTop = 18;
-constexpr int kClipBottom = 99;
+// Driving composites this road-view surface into the 320x200 frame at screen
+// y = 14 (Driving::roadRect), so surface_y = screen_y - kViewOffsetY. Every Y
+// constant taken from the original (which works in full-screen coordinates) has
+// to be converted, or the whole road view sits 14 rows too low and its vanishing
+// point no longer meets the base of the mountain backdrop.
+constexpr int kViewOffsetY = 14;
+constexpr int kHorizonY = 60 - kViewOffsetY;    // ProjectForwardY base, screen 60
+constexpr int kClipTop = 18 - kViewOffsetY;     // forward viewport clip, screen 18..99
+constexpr int kClipBottom = 99 - kViewOffsetY;
 constexpr int kRoadCenterLat = 2400;
 
-// Races run at night in the original game.
+// Races run at night in the original game. The grass green is the same green
+// baked into the mountain backdrop's foothill band, so backdrop and ground read
+// as one continuous field (see docs/driving/rendering.md).
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
-constexpr SDL_Color kGrassA = {0, 119, 0, 255};
+constexpr SDL_Color kGrassA = {0, 112, 0, 255};
 constexpr SDL_Color kRoadA = {0, 0, 0, 255};
 constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
@@ -651,7 +659,11 @@ int Racing::BuildRowTableAndGetLastVisible() {
 }
 
 void Racing::RenderSkyAndParallax(float frameSeconds) {
-    // Clear the WHOLE surface, not just the visible clip. 
+    // Clear the WHOLE surface, not just the visible clip. Row projection clamps
+    // the nearest rows to kClipBottom+30, so near sprites (the alongside NPC) can
+    // draw into rows kClipBottom+1..GAME_RACING_HEIGHT; if those are not cleared
+    // every frame the sprite ghosts there after the car drives away.
+    for (int y = 0; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
         }
@@ -706,28 +718,41 @@ void Racing::RenderMountains(int horizonY) {
     const int heading = sim.Player().heading;
     const int baseOffset = (((heading * 2) % src->w) + src->w) % src->w;
 
-    // Find the lowest opaque row once: the bitmap has transparent padding below
-    // the range, so anchoring by src->h would leave the silhouette floating in
-    // the sky. Anchor the real base on the horizon instead.
-    if (mountainOpaqueBottom < 0) {
-        mountainOpaqueBottom = src->h - 1;
-        for (int y = src->h - 1; y >= 0; --y) {
-            bool rowOpaque = false;
+    // Find the sprite row the range actually stands on, once. The bitmap is a
+    // mountain silhouette sitting on a solid band of the ground green (plus
+    // transparent padding below that), and in the original backdrop fill
+    // (0x236c1e) the silhouette/foothill boundary IS the horizon. Anchoring by
+    // the lowest opaque row instead pushed the whole range up by the height of
+    // the foothill band, leaving a green gap between the peaks and the road.
+    if (mountainBaseRow < 0) {
+        auto rowKind = [&](int y) {  // 0 = transparent, 1 = all foothill green, 2 = silhouette
+            bool opaque = false;
             for (int x = 0; x < src->w; ++x) {
                 Uint32 sp = 0;
                 const Uint8* p = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
                 std::memcpy(&sp, p, src->format->BytesPerPixel);
                 Uint8 r = 0, g = 0, b = 0, a = 255;
                 SDL_GetRGBA(sp, src->format, &r, &g, &b, &a);
-                if (a > 0) { rowOpaque = true; break; }
+                if (a == 0) { continue; }
+                opaque = true;
+                if (r != kGrassA.r || g != kGrassA.g || b != kGrassA.b) { return 2; }
             }
-            if (rowOpaque) { mountainOpaqueBottom = y; break; }
+            return opaque ? 1 : 0;
+        };
+        mountainBaseRow = src->h - 1;
+        for (int y = src->h - 1; y >= 0; --y) {
+            const int kind = rowKind(y);
+            if (kind == 0 || kind == 1) { continue; }  // padding / foothill band
+            mountainBaseRow = y;
+            break;
         }
     }
 
-    // Place the lowest opaque row on the row just above the horizon so the range
-    // sits directly on the ground, peaks rising into the sky.
-    const int startY = horizonY - 1 - mountainOpaqueBottom;
+    // Put the base of the silhouette on the row just above the horizon so the
+    // range stands on the ground, peaks rising into the sky. The foothill band
+    // below it falls past the horizon and is clipped away; the ground fill has
+    // already painted that same green there.
+    const int startY = horizonY - 1 - mountainBaseRow;
 
     // Repaint the mountain band as sky before blitting so nothing (e.g. the crest
     // grass fill) shows through the transparent gaps between/above the peaks.
@@ -794,10 +819,9 @@ void Racing::DrawStartLight() {
     const SpriteRect& frame = RACING_LIGHT_FRAMES[green ? 1 : 0];
     SDL_Surface* src = startLightSprite->GetSurface();
     const int dstX = 130;               // original dest (0x82, 0x12)
-    // Original dest y is 0x12 (18) in the full 320x200 frame. Our road-view
-    // surface is inset by Driving's roadRect.y (14), so subtract it to land at
-    // the same on-screen height (the light hangs from the top of the windshield).
-    const int dstY = 18 - 14;
+    // Original dest y is 0x12 (18) in the full 320x200 frame; convert to the
+    // surface's local space so the light hangs from the top of the windshield.
+    const int dstY = 18 - kViewOffsetY;
     const int srcYoff = 32 - startLightHeight;  // retract from the bottom (srcY = 32 - h)
     for (int y = 0; y < startLightHeight; ++y) {
         const int sy = frame.y + srcYoff + y;

@@ -802,6 +802,12 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 return PAL_DRIVING;
             }
 
+            // The hood sits above the copperlist's 6/7 register split, so it uses
+            // the dark brown pair instead of the hand/skin tones in the LOW palette.
+            if (a == RACING_HOOD || a == RACING_INTERIOR_1) {
+                return PAL_DRIVING_HOOD;
+            }
+
             if (index < 45) {
                 return PAL_DRIVING_LOW;
             } else if (index >= 45 && index <= 80) {
