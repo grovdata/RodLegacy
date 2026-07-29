@@ -1808,6 +1808,13 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         }
 
         HandleOutcomeAfterTicks();
+
+        // Race just ended: cut the engine loop so it doesn't keep running under
+        // the frozen race-end bubble.
+        if (raceOutcome != RaceOutcome::Ongoing && engineSoundStarted && audioManager) {
+            audioManager->StopLoop(0);
+            engineSoundStarted = false;
+        }
     }
 
     if (audioManager) {
