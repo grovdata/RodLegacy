@@ -184,8 +184,6 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npc.rpm = 1500;
     player.gear = 0;
     npc.gear = 0;
-    player.lateral = 2560;
-    npc.lateral = 2400;
     player.segPos = RACE_START_SEG;
     npc.segPos = RACE_START_SEG;
     player.endFlags = 0;
@@ -197,8 +195,27 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     player.autoDrive = false;   // automatics stage in N
     npc.autoDrive = false;
 
-    npcAi = NpcState{};
-    npcAi.lateralTarget = 2400;
+    // Starting lanes. The player sits at a fixed 0xa00, and the opponent is
+    // placed 200 left of the road centre - NOT on the centre line (the original
+    // race init does `lateral = ((edgeLeft + edgeRight) >> 1) - 200` and seeds
+    // its steering target with the same value). That matters: centring the
+    // opponent leaves only a 160-unit gap, inside the 180 that CheckNpcContact
+    // counts as laterally overlapping, so the pair start the race already
+    // touching and the first car to pull ahead "rear-ends" the other.
+    {
+        int startSeg = ClampTrackIndex(RACE_START_SEG);
+        int16_t startLeft = 1500;
+        int16_t startRight = 3300;
+        if (track != nullptr) {
+            RoadEdges(track->flags[startSeg], startLeft, startRight);
+        }
+        const int16_t npcStart = static_cast<int16_t>(((startLeft + startRight) >> 1) - 200);
+        player.lateral = 2560;
+        npc.lateral = npcStart;
+
+        npcAi = NpcState{};
+        npcAi.lateralTarget = npcStart;
+    }
     npcAi.targetSpeedNormal = static_cast<int16_t>((npcTables.perfScore * 70) / 100);
     npcAi.targetSpeedRisky = static_cast<int16_t>((npcTables.perfScore * 80) / 100);
     npcAi.stallTicks = 0;
@@ -328,11 +345,20 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     // driving gears are 1..numGears.
     const int gear = ClampValue<int>(car.gear, 0, tables.numGears);
     const PowerRow* gearRows = tables.rows[gear];
+    // rpmThreshold is the row's UPPER bound: the three rows span [0, bandStart],
+    // [bandStart, bandEnd] and [bandEnd, 5700]. The original walks them with
+    // `while (row[i].upper < rpm) ++i` capped at 2 (BuildCarPhysicsTables
+    // 0x2437f0 lays the bounds out in pairs, PlayerCarPhysics 0x23c5d6 walks
+    // them), i.e. the first row whose upper bound still covers the current rpm.
+    // We were comparing against rows 1 and 2 instead of 0 and 1, which shifted
+    // the whole power band up one row: full power was applied from bandEnd all
+    // the way to the limiter, where the original drops to a tenth of it. That is
+    // what made the engine so easy to wind past the redline.
     int rowIndex = 0;
-    if (car.rpm >= gearRows[1].rpmThreshold) {
+    if (car.rpm > gearRows[0].rpmThreshold) {
         rowIndex = 1;
     }
-    if (car.rpm >= gearRows[2].rpmThreshold) {
+    if (car.rpm > gearRows[1].rpmThreshold) {
         rowIndex = 2;
     }
     const int gain = gearRows[rowIndex].rpmGain;
@@ -459,9 +485,17 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     }
 
     if (car.gear == 0) {
-        // Neutral: engine revs freely, the car coasts down.
+        // Neutral. Standing still the engine revs freely - that is the blip on
+        // the start line, and the rpm gain above is all that moves the needle.
+        // ROLLING, though, the original pins the needle straight to road speed
+        // (PlayerCarPhysics 0x23c5d6: `speed -= 1; rpm = speed*30 + 1500`), so
+        // you cannot wind it up while coasting out of gear. We kept accumulating
+        // the rpm gain instead, which let the engine scream to the limiter in
+        // neutral at any speed - the reason revving felt so much quicker than the
+        // real thing.
         if (car.speed > 0) {
             car.speed = static_cast<int16_t>(car.speed - 1);
+            car.rpm = static_cast<int16_t>(car.speed * 30 + 1500);
         }
     } else {
         const int ratio = std::max<int>(tables.ratio[car.gear], 1);
@@ -627,18 +661,29 @@ void RaceSim::CheckNpcContact() {
     const int latGap = npc.lateral - player.lateral;
     const int latAbs = std::abs(latGap);
 
-    const bool justAhead = (longGap >= 0 && longGap < 11);
-    const bool alongside = (longGap > -11 && longGap < 11);
+    // Both outcomes require the pair to be level, which in the original means the
+    // render view state is 0 or 2, and those are only assigned for longGap in
+    // [-7, 9). The rear-end test additionally checks longGap < 11, but that never
+    // widens anything - state 2 has already capped it at 9. Reading that 11 as
+    // the window instead let the crash fire a whole segment further back than the
+    // original allows, which is enough to catch a blocking NPC you never touched.
+    const bool level = (longGap > -8 && longGap < 9);
+    if (!level) {
+        npcContactTicks = 0;
+        return;
+    }
 
-    // Rear-ended it: directly ahead, overlapping laterally, and we are closing.
-    if (justAhead && latAbs < 180 &&
+    // Rear-ended it: laterally overlapping (state 2) and closing.
+    if (latAbs < 180 &&
         SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed)) {
         player.endFlags |= (END_FINISHED | END_HIT_NPC);
         npcContactTicks = 0;
         return;
     }
 
-    if (!alongside || latAbs >= 180 || player.scrollStep <= 1) {
+    // Running alongside with the opponent clear of our line (state 0 is level
+    // with the NPC off to the side, not overlapping) - this is the side-swipe.
+    if (latAbs < 180 || player.scrollStep <= 1) {
         npcContactTicks = 0;
         return;
     }

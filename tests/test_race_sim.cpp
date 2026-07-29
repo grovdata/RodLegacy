@@ -193,6 +193,11 @@ TEST_CASE("Steering input counteracts curve drift") {
     RaceSim noSteer;
     noSteer.Init(&track, 1, setup, npcSetup, 0x1122u);
     RunOutCountdown(noSteer);
+    // Park the opponent far up the road. This test is about curve drift versus
+    // steering input, and holding the throttle without ever steering otherwise
+    // rear-ends the blocking NPC long before segment 305 - a real outcome, but
+    // not the one under test here.
+    noSteer.SetNpcDebugPose(900, 2200);
     for (int i = 0; i < 4000 && noSteer.Player().segPos < 305; ++i) {
         noSteer.Tick(ThrottleWithShiftIfNeeded(noSteer));
     }
@@ -224,6 +229,7 @@ TEST_CASE("Steering input counteracts curve drift") {
     RaceSim withSteerAdaptive;
     withSteerAdaptive.Init(&track, 1, setup, npcSetup, 0x3344u);
     RunOutCountdown(withSteerAdaptive);
+    withSteerAdaptive.SetNpcDebugPose(900, 2200);   // as above: keep the opponent out of it
     for (int i = 0; i < 4000 && withSteerAdaptive.Player().segPos < 305; ++i) {
         withSteerAdaptive.Tick(ThrottleWithShiftIfNeeded(withSteerAdaptive));
     }
@@ -309,6 +315,54 @@ TEST_CASE("An automatic engages drive on the shift input and pulls away") {
     }
     CHECK(sim.Player().speed > 0);
     CHECK(sim.Player().gear > 1);             // and it upshifts on its own
+}
+
+TEST_CASE("Rolling in neutral pins the rpm to road speed, standing still it revs") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 2;     // manual 4-speed
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x2468u);
+    RunOutCountdown(sim);
+    sim.SetNpcDebugPose(900, 2200);
+
+    // Build some speed in first, then drop it back into neutral.
+    for (int i = 0; i < 12; ++i) {
+        sim.Tick(INPUT_THROTTLE | (i == 0 ? INPUT_SHIFT : 0));
+    }
+    REQUIRE(sim.Player().gear > 0);
+    REQUIRE(sim.Player().speed > 0);
+    while (sim.Player().gear > 0) {
+        sim.Tick(INPUT_SHIFT);           // no throttle: shift down
+    }
+    REQUIRE(sim.Player().speed > 0);
+
+    // Now hold the throttle while coasting out of gear. The needle must track
+    // road speed, not run away on the rpm gain.
+    for (int i = 0; i < 20 && sim.Player().speed > 0; ++i) {
+        sim.Tick(INPUT_THROTTLE);
+        const CarState& p = sim.Player();
+        CHECK(p.rpm == p.speed * 30 + 1500);
+    }
+    CHECK(sim.Player().rpm < 5000);
+
+    // Stationary in neutral, though, it must still rev - that is the start-line
+    // blip, and the rpm gain is what drives it.
+    RaceSim standing;
+    standing.Init(&track, 1, setup, setup, 0x2468u);
+    RunOutCountdown(standing);
+    REQUIRE(standing.Player().gear == 0);
+    REQUIRE(standing.Player().speed == 0);
+    const int16_t rpmBefore = standing.Player().rpm;
+    for (int i = 0; i < 4; ++i) {
+        standing.Tick(INPUT_THROTTLE);
+    }
+    CHECK(standing.Player().speed == 0);
+    CHECK(standing.Player().rpm > rpmBefore);
 }
 
 TEST_CASE("An automatic cannot be blown by holding the throttle") {
