@@ -192,6 +192,8 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npcContactTicks = 0;
     bumpStunTicks = 0;
     npcBumpEvent = false;
+    finishSnapshot = false;
+    playerAheadAtFinish = false;
     player.autoDrive = false;   // automatics stage in N
     npc.autoDrive = false;
 
@@ -254,6 +256,8 @@ void RaceSim::SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
     player.lateral = lateral;
     player.elevAtCar = elevAtCar;
     player.endFlags &= static_cast<uint16_t>(~END_FINISHED);
+    npc.endFlags &= static_cast<uint16_t>(~END_FINISHED);
+    finishSnapshot = false;
     player.offRoad = false;
     phase = RacePhase::Running;  // debug camera is not staged
 
@@ -319,7 +323,13 @@ void RaceSim::Tick(uint16_t inputBits) {
     RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
 
     CheckEdgeCollision();
-    CheckNpcContact();
+    // All car-to-car contact is gated on the player still being short of the
+    // line (RaceLogicUpdate 0x244d50 tests `pos < finish` before either the
+    // rear-end or the side-swipe), so the roll-out cannot be crashed out.
+    if (player.segPos < finishSeg) {
+        CheckNpcContact();
+    }
+    CheckFinish();
 
     if ((player.endFlags & END_FAILURE_MASK) != 0) {
         phase = RacePhase::Ended;
@@ -364,9 +374,20 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     const int gain = gearRows[rowIndex].rpmGain;
     const int loss = gearRows[rowIndex].rpmLoss;
 
-    const bool pastFinish = (car.segPos >= finishSeg);
+    // Roll-out past the line (PlayerCarPhysics 0x23c5d6, at the very top of the
+    // function): once `finish < pos` - strictly past, so the finish segment
+    // itself is still raced - the throttle and the steering are taken away, the
+    // brake is forced on, and speed sheds a flat 15 mph a tick on top of the
+    // braking below. The forced brake is the point: it puts the speed model in
+    // its decay branch, which is the only path that reaches 0, and a standstill
+    // is what ends the race (CheckFinish).
+    const bool pastFinish = (car.segPos > finishSeg);
     if (pastFinish) {
         throttle = false;
+        brake = true;
+        if (car.speed > 15) {
+            car.speed = static_cast<int16_t>(car.speed - 15);
+        }
     }
 
     if (throttle) {
@@ -484,37 +505,38 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         }
     }
 
-    if (car.gear == 0) {
-        // Neutral. Standing still the engine revs freely - that is the blip on
-        // the start line, and the rpm gain above is all that moves the needle.
-        // ROLLING, though, the original pins the needle straight to road speed
-        // (PlayerCarPhysics 0x23c5d6: `speed -= 1; rpm = speed*30 + 1500`), so
-        // you cannot wind it up while coasting out of gear. We kept accumulating
-        // the rpm gain instead, which let the engine scream to the limiter in
-        // neutral at any speed - the reason revving felt so much quicker than the
-        // real thing.
-        if (car.speed > 0) {
-            car.speed = static_cast<int16_t>(car.speed - 1);
-            car.rpm = static_cast<int16_t>(car.speed * 30 + 1500);
+    // Speed. This is one if/else in the original, NOT a drive step followed by a
+    // braking pass (PlayerCarPhysics 0x23c5d6):
+    //
+    //   if !braking && (!offroad || speed < 9):   drive - speed follows rpm
+    //   else:                                     decay - rpm follows speed
+    //
+    // Which way the dependency runs is the whole game. In the decay branch speed
+    // is never re-derived from rpm, so it walks down to 0 while rpm bottoms out
+    // at its 1500 idle floor. Running the two as sequential steps instead let the
+    // next tick recompute `speed = rpm/ratio` from that floored rpm, which pinned
+    // a braking car at ~14 mph forever - nothing could ever come to a stop, and
+    // the roll-out past the finish had no way to terminate.
+    const int curRatio = std::max<int>(tables.ratio[std::max<int>(car.gear, 1)], 1);
+    const bool decaying = brake || (car.offRoad && car.speed >= 9);
+    if (!decaying) {
+        if (car.gear == 0) {
+            // Neutral. Standing still the engine revs freely - that is the blip
+            // on the start line, and the rpm gain above is all that moves the
+            // needle. ROLLING, though, the original pins the needle straight to
+            // road speed (`speed -= 1; rpm = speed*30 + 1500`), so you cannot
+            // wind it up while coasting out of gear.
+            if (car.speed > 0) {
+                car.speed = static_cast<int16_t>(car.speed - 1);
+                car.rpm = static_cast<int16_t>(car.speed * 30 + 1500);
+            }
+        } else {
+            const int ratio = std::max<int>(tables.ratio[car.gear], 1);
+            car.speed = static_cast<int16_t>((car.rpm * 100) / ratio);
         }
     } else {
-        const int ratio = std::max<int>(tables.ratio[car.gear], 1);
-        car.speed = static_cast<int16_t>((car.rpm * 100) / ratio);
-    }
-
-    const int curRatio = std::max<int>(tables.ratio[std::max<int>(car.gear, 1)], 1);
-    if ((brake || car.offRoad) && car.speed > 8) {
         car.speed = static_cast<int16_t>(std::max(0, car.speed - (car.speed / 16 + 2)));
-        if (car.gear > 0) {
-            car.rpm = static_cast<int16_t>(std::max((curRatio * car.speed) / 100, 1500));
-        }
-    }
-
-    if (pastFinish) {
-        car.speed = static_cast<int16_t>(std::max(car.speed - 15, 0));
-        if (car.gear > 0) {
-            car.rpm = static_cast<int16_t>(std::max((curRatio * car.speed) / 100, 1500));
-        }
+        car.rpm = static_cast<int16_t>(std::max((curRatio * car.speed) / 100, 1500));
     }
 
     car.speed = static_cast<int16_t>(ClampValue<int>(car.speed, 0, 130));
@@ -529,6 +551,12 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
     }
     if ((inputBits & INPUT_STEER_RIGHT) != 0) {
         steer += 1;
+    }
+    // Past the line the wheel is taken away (PlayerCarPhysics clears its steering
+    // flag, which zeroes steerVel and leaves only the slide decay running). The
+    // autopilot writes slideVel directly on each segment advance.
+    if (player.segPos > finishSeg) {
+        steer = 0;
     }
 
     // Steer/slide velocity model (PlayerCarPhysics 0x23c5d6). steerVel is the
@@ -589,9 +617,64 @@ void RaceSim::UpdateScroll(CarState& car) {
     }
     if (car.segPos != prevSeg && track != nullptr) {
         car.elevAtCar = track->elev[ClampTrackIndex(car.segPos)];
+        // The original hangs the roll-out autopilot off the segment advance, not
+        // off the frame (AdvanceTrackSegment 0x23b4a0), so it only steps when the
+        // car crosses into a new segment.
+        if (&car == &player && player.segPos > finishSeg) {
+            PostFinishAutopilot();
+        }
     }
-    if (car.segPos >= finishSeg) {
-        car.endFlags |= END_FINISHED;
+}
+
+// Steering past the finish line (AdvanceTrackSegment 0x23b4a0, the `finish < pos`
+// tail). The player no longer has the wheel: the car is walked into a lane and
+// its heading is snapped to the road direction so it tracks straight while it
+// brakes. This also runs for the cop takeover, which reaches the same block.
+void RaceSim::PostFinishAutopilot() {
+    // Lane choice depends on where the opponent sits, so the two cars part to
+    // opposite sides for the drive-off: opponent left of 0x961 -> we take 0xa00,
+    // otherwise we take 0x820.
+    const int16_t lane = (npc.lateral < 0x961) ? 0xa00 : 0x820;
+    const int delta = std::abs(static_cast<int>(player.lateral) - lane);
+    if (delta < 0x65) {
+        player.lateral = lane;
+    } else {
+        // Step to within 100 of the lane on whichever side we are; the next
+        // segment lands exactly on it.
+        player.lateral = static_cast<int16_t>(lane + ((player.lateral <= lane) ? -100 : 100));
+    }
+
+    const int roadDir = track->curve[ClampTrackIndex(player.segPos)];
+    if (roadDir != player.heading) {
+        int slide = (roadDir - player.heading) * -2;
+        slide = ClampValue<int>(slide, -24, 24);
+        player.slideVel = static_cast<int16_t>(slide);
+    }
+    // Heading snaps to the road, so ApplyLateralDrift stops pushing the car
+    // sideways for the rest of the roll-out.
+    player.heading = static_cast<int16_t>(roadDir);
+}
+
+// The race is over once the car has stopped past the line (UpdateRaceScroll
+// 0x244818). The win/loss verdict is NOT decided here - it was latched the first
+// tick either car reached the finish (ComputeNPCPosition 0x243f1c).
+void RaceSim::CheckFinish() {
+    if (!finishSnapshot &&
+        (player.segPos >= finishSeg || npc.segPos >= finishSeg)) {
+        const int gap = (static_cast<int>(npc.segPos) - static_cast<int>(player.segPos)) * 8 +
+                        (npc.scrollAcc - player.scrollAcc);
+        playerAheadAtFinish = (gap <= 0);
+        finishSnapshot = true;
+    }
+
+    if (finishSnapshot && player.segPos >= finishSeg && player.speed < 1) {
+        // The original flags whichever car "finished" in the losing sense, and
+        // the frame loop exits on either flag word being set.
+        if (playerAheadAtFinish) {
+            npc.endFlags |= END_FINISHED;
+        } else {
+            player.endFlags |= END_FINISHED;
+        }
     }
 }
 
@@ -805,7 +888,16 @@ void RaceSim::NpcEngine() {
     const bool shift = throttle &&
         ((npc.gear == 0) ||
          (npc.gear < npcTables.numGears && npc.rpm >= npcTables.autoShiftRpm));
+    const int16_t speedBefore = npc.speed;
     EngineTick(npc, npcTables, throttle, false, shift);
+
+    // The opponent's roll-out is its own rule, not the player's: past the line
+    // it sheds a flat 5 mph a tick, or 10 while it is still close to the player
+    // (UpdateNPCEngine 0x2444c2 tail), applied to the speed it had coming in.
+    if (npc.segPos >= finishSeg) {
+        const int drop = (player.segPos + 5 < npc.segPos) ? 5 : 10;
+        npc.speed = (drop < speedBefore) ? static_cast<int16_t>(speedBefore - drop) : 0;
+    }
 }
 
 }  // namespace srrace

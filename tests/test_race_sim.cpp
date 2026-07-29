@@ -152,6 +152,11 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
     bool finished = false;
     for (int i = 0; i < 6000; ++i) {
+        // Hold the opponent in the far-left lane. Without this the pair start
+        // the race overlapping and the test "finishes" on the rear-end crash
+        // (END_HIT_NPC carries END_FINISHED) a dozen segments off the line,
+        // rather than on reaching 380.
+        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
 
         const CarState& now = sim.Player();
@@ -160,14 +165,17 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
         CHECK(now.rpm >= 1400);
         CHECK(now.rpm <= 5700);
 
-        if ((now.endFlags & END_FINISHED) != 0) {
+        if (sim.RaceOver()) {
             finished = true;
             break;
         }
     }
 
     CHECK(finished);
-    CHECK((sim.Player().endFlags & END_FINISHED) != 0);
+    CHECK((sim.Player().endFlags & END_FAILURE_MASK) == 0);
+    CHECK(sim.Player().segPos > DRAG_FINISH_SEG);
+    CHECK(sim.Player().speed == 0);
+    CHECK(sim.PlayerWonAtLine());
 }
 
 TEST_CASE("Steering input counteracts curve drift") {
@@ -453,6 +461,165 @@ TEST_CASE("A worn manual transmission drops on a hard shift") {
         }
     }
     CHECK(dropped);
+}
+
+namespace {
+
+CarSetup FastSetup() {
+    CarSetup setup{};
+    setup.transClass = 2;
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.manifoldClass = 1;
+    setup.tireClass = 1;
+    setup.weightClass = 4;
+    setup.driverSkill = 130;
+    return setup;
+}
+
+}  // namespace
+
+// The bug this fixes: `speed = rpm/ratio` was recomputed every tick and braking
+// was a post-pass on top of it, so a braking car sprang back to the speed implied
+// by the 1500 rpm idle floor and could never stop. In the original the two are
+// alternatives, not a sequence (PlayerCarPhysics 0x23c5d6).
+TEST_CASE("Braking brings a car to a complete stop") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = FastSetup();
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x1234u);
+    RunOutCountdown(sim);
+    for (int i = 0; i < 200; ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+    }
+    REQUIRE(sim.Player().speed > 50);
+
+    for (int i = 0; i < 400 && sim.Player().speed > 0; ++i) {
+        sim.Tick(INPUT_BRAKE);
+    }
+    CHECK(sim.Player().speed == 0);
+}
+
+TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
+    TrackData track = MakeFlatTrack();
+    CarSetup player = FastSetup();
+    CarSetup npc = FastSetup();
+    npc.transClass = 0;
+    npc.carbClass = 0;
+    npc.engineClass = 0;
+    npc.weightClass = 7;
+
+    RaceSim sim;
+    sim.Init(&track, 1, player, npc, 0x12345678u);
+    RunOutCountdown(sim);
+
+    bool crossed = false;
+    int16_t speedAtLine = 0;
+    int rollOutTicks = 0;
+    for (int i = 0; i < 4000; ++i) {
+        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if (!crossed && sim.Player().segPos >= ROAD_FINISH_SEG) {
+            crossed = true;
+            speedAtLine = sim.Player().speed;
+            // Still racing the instant the line goes by, and still moving.
+            CHECK_FALSE(sim.RaceOver());
+        } else if (crossed) {
+            ++rollOutTicks;
+        }
+        if (sim.RaceOver()) {
+            break;
+        }
+    }
+    REQUIRE(crossed);
+    CHECK(speedAtLine > 50);
+
+    // It ends only once the car has stopped, some way past the line.
+    CHECK(sim.RaceOver());
+    CHECK(sim.Player().speed == 0);
+    CHECK(sim.Player().segPos > ROAD_FINISH_SEG);
+    CHECK(rollOutTicks > 1);
+    CHECK(sim.PlayerWonAtLine());
+}
+
+TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = FastSetup();
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x777u);
+    RunOutCountdown(sim);
+
+    int rollOutTicks = 0;
+    int16_t topRollOutSpeed = 0;
+    for (int i = 0; i < 4000; ++i) {
+        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
+        // Race normally to the line, then bury the throttle and hold full left
+        // lock: past the line neither may have any effect.
+        const bool rolling = sim.RollingOut();
+        sim.Tick(rolling ? static_cast<uint16_t>(INPUT_THROTTLE | INPUT_STEER_LEFT)
+                         : ThrottleWithShiftIfNeeded(sim));
+        if (rolling) {
+            ++rollOutTicks;
+            CHECK(sim.Player().steerVel == 0);
+            topRollOutSpeed = std::max(topRollOutSpeed, sim.Player().speed);
+        }
+        if (sim.RaceOver()) {
+            break;
+        }
+    }
+    CHECK(rollOutTicks > 0);
+    // Speed only ever fell during the roll-out, throttle notwithstanding.
+    CHECK(topRollOutSpeed < 130);
+    CHECK(sim.RaceOver());
+    // No crash, no failure: the roll-out ended the race cleanly.
+    CHECK((sim.Player().endFlags & END_FAILURE_MASK) == 0);
+}
+
+TEST_CASE("The roll-out autopilot walks the car into a lane") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = FastSetup();
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x99u);
+    RunOutCountdown(sim);
+
+    for (int i = 0; i < 4000; ++i) {
+        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
+        sim.Tick(sim.RollingOut() ? 0 : ThrottleWithShiftIfNeeded(sim));
+        if (sim.RaceOver()) {
+            break;
+        }
+    }
+    REQUIRE(sim.RaceOver());
+    // Opponent held left of 0x961, so the player is steered to lane 0xa00.
+    CHECK(sim.Player().lateral == 0xa00);
+    // Heading snapped to the road direction (0 on a flat track), so the car
+    // tracked straight instead of drifting while it braked.
+    CHECK(sim.Player().heading == 0);
+}
+
+TEST_CASE("Losing at the line still runs the roll-out and reports a loss") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = FastSetup();
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, 0x4242u);
+    RunOutCountdown(sim);
+
+    for (int i = 0; i < 4000; ++i) {
+        // Keep the opponent a clear 6 segments up the road and out of our lane,
+        // so it takes the line first.
+        sim.SetNpcDebugPose(sim.Player().segPos + 6, 1550);
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if (sim.RaceOver()) {
+            break;
+        }
+    }
+    REQUIRE(sim.RaceOver());
+    CHECK_FALSE(sim.PlayerWonAtLine());
+    CHECK(sim.Player().speed == 0);
 }
 
 }  // namespace srrace

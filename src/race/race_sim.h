@@ -140,6 +140,19 @@ public:
     bool InCountdown() const { return phase == RacePhase::Countdown; }
     int CountdownTicks() const { return countdownTicks; }
 
+    // Crossing the line does NOT end the race. The original runs a roll-out
+    // past the finish (throttle and steering cut, brake forced on, the car
+    // autopiloted back into a lane) and only stops the frame loop once the car
+    // has come to a standstill - see UpdateRaceScroll 0x244818 and
+    // RodLegacyResearch/docs/driving/physics.md. RaceOver() is that loop-exit
+    // condition; PlayerWonAtLine() is the verdict latched as the line was
+    // crossed, which is what decides the outcome.
+    bool RaceOver() const {
+        return ((player.endFlags | npc.endFlags) & END_FINISHED) != 0;
+    }
+    bool PlayerWonAtLine() const { return playerAheadAtFinish; }
+    bool RollingOut() const { return player.segPos > finishSeg; }
+
     bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
     // Any race-ending failure, not just a crash: a blown engine, a dropped
     // transmission and a jumped start all end the race without wrecking the car.
@@ -170,6 +183,8 @@ public:
 private:
     void PlayerPhysics(uint16_t inputBits);
     void UpdateScroll(CarState& car);
+    void PostFinishAutopilot();
+    void CheckFinish();
     void UpdateSteering(uint16_t inputBits);
     void ApplyLateralDrift(CarState& car, int16_t handling);
     void CheckEdgeCollision();
@@ -190,6 +205,11 @@ private:
     int16_t npcContactTicks = 0;   // consecutive ticks running alongside the NPC
     int16_t bumpStunTicks = 0;     // throttle cut for a couple of ticks after an impact
     bool npcBumpEvent = false;     // one-shot for the audio layer
+    // Finish bookkeeping. `finishSnapshot` is the original's A4-0x3994 latch,
+    // set the first tick either car is at or past the line; `playerAheadAtFinish`
+    // is A4+0x4cc4, the win/loss verdict taken at that instant.
+    bool finishSnapshot = false;
+    bool playerAheadAtFinish = false;
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;

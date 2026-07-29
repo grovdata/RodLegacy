@@ -1731,22 +1731,13 @@ void Racing::HandleOutcomeAfterTicks() {
         return;
     }
 
-    if (sim.PlayerFinished()) {
-        if (sim.NpcAi().gaveUp) {
-            raceOutcome = RaceOutcome::PlayerWon;
-            return;
-        }
-        if (sim.NpcFinished() && firstNpcFinishTick >= 0 && firstNpcFinishTick < firstPlayerFinishTick) {
-            raceOutcome = RaceOutcome::PlayerLost;
-        } else {
-            raceOutcome = RaceOutcome::PlayerWon;
-        }
-        return;
-    }
-
-    // The opponent crossed the line first and the player has not finished -> loss.
-    if (sim.NpcFinished() && !sim.NpcAi().gaveUp) {
-        raceOutcome = RaceOutcome::PlayerLost;
+    // A clean finish is not "the player touched segment 1020" - the sim runs the
+    // roll-out past the line and only reports the race over once the car has
+    // stopped. The verdict was latched as the line was crossed, so there is no
+    // tick-order comparison to make here any more.
+    if (sim.RaceOver()) {
+        raceOutcome = sim.PlayerWonAtLine() ? RaceOutcome::PlayerWon
+                                            : RaceOutcome::PlayerLost;
     }
 }
 
@@ -1798,12 +1789,6 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 audioManager->PlaySound(AudioSampleType::CAR_BASH);
             }
 
-            if (firstPlayerFinishTick < 0 && (sim.Player().endFlags & srrace::END_FINISHED)) {
-                firstPlayerFinishTick = simTickCounter;
-            }
-            if (firstNpcFinishTick < 0 && (sim.Npc().endFlags & srrace::END_FINISHED)) {
-                firstNpcFinishTick = simTickCounter;
-            }
             fixedAccumulator -= kFixedStepSeconds;
         }
 
