@@ -695,34 +695,43 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
 
     const srrace::CarState& p = sim.Player();
     cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
+}
 
-    if (cloudSprite && cloudSprite->GetSurface()) {
-        SDL_Surface* src = cloudSprite->GetSurface();
-        const int baseOffset = ((static_cast<int>(cloudOffsetAccum) % src->w) + src->w) % src->w;
-        for (int pass = 0; pass < 2; ++pass) {
-            const int drawX = -baseOffset + pass * src->w;
-            for (int y = 0; y < src->h; ++y) {
-                for (int x = 0; x < src->w; ++x) {
-                    const int px = drawX + x;
-                    if (px < 0 || px >= GAME_WIDTH || y < 0 || y >= GAME_RACING_HEIGHT) {
-                        continue;
-                    }
-                    Uint32 srcPixel = 0;
-                    const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
-                    std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
-                    Uint8 r = 0;
-                    Uint8 g = 0;
-                    Uint8 b = 0;
-                    Uint8 a = 255;
-                    SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
-                    if (a > 0) {
-                        PutPixel(pixels, px, y, {r, g, b, a});
-                    }
+// Star/cloud band. This CANNOT be drawn with the sky clear above: RenderRoad
+// repaints everything from kClipTop down to the road's vanishing row, which would
+// erase it. The backdrop order in the original is sky, then the cloud band, then
+// the mountains on top (0x236c1e paints both bands before the road), so this runs
+// between the road's sky fill and the mountain blit, and is clipped to the
+// horizon so nothing shows through below the range's base.
+void Racing::RenderClouds(int horizonY) {
+    if (!cloudSprite || !cloudSprite->GetSurface()) {
+        return;
+    }
+    SDL_Surface* src = cloudSprite->GetSurface();
+    const int baseOffset = ((static_cast<int>(cloudOffsetAccum) % src->w) + src->w) % src->w;
+    const int yEnd = std::min({src->h, horizonY, static_cast<int>(GAME_RACING_HEIGHT)});
+    for (int pass = 0; pass < 2; ++pass) {
+        const int drawX = -baseOffset + pass * src->w;
+        for (int y = 0; y < yEnd; ++y) {
+            for (int x = 0; x < src->w; ++x) {
+                const int px = drawX + x;
+                if (px < 0 || px >= GAME_WIDTH) {
+                    continue;
+                }
+                Uint32 srcPixel = 0;
+                const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + y * src->pitch + x * src->format->BytesPerPixel;
+                std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
+                Uint8 r = 0;
+                Uint8 g = 0;
+                Uint8 b = 0;
+                Uint8 a = 255;
+                SDL_GetRGBA(srcPixel, src->format, &r, &g, &b, &a);
+                if (a > 0) {
+                    PutPixel(pixels, px, y, {r, g, b, a});
                 }
             }
         }
     }
-
 }
 
 // Mountains are the horizon backdrop: drawn AFTER the road fill so the grass/sky
@@ -732,6 +741,7 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
 // the mountain base meets the ground where road and sky meet.
 void Racing::RenderMountains(int horizonY) {
     if (!mountainSprite || !mountainSprite->GetSurface()) {
+        RenderClouds(horizonY);   // no range loaded, but the sky still gets its stars
         return;
     }
     SDL_Surface* src = mountainSprite->GetSurface();
@@ -780,13 +790,16 @@ void Racing::RenderMountains(int horizonY) {
 
     // Repaint the mountain band as sky before blitting so nothing (e.g. the crest
     // grass fill) shows through the transparent gaps between/above the peaks.
-    // Clouds sit above kClipTop and are not touched.
     const int bandTop = std::max(kClipTop, startY);
     for (int y = bandTop; y < horizonY && y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
         }
     }
+
+    // Stars/clouds go down after every sky fill and before the range, so the
+    // peaks stand in front of them.
+    RenderClouds(horizonY);
 
     for (int pass = 0; pass < 2; ++pass) {
         const int drawX = -baseOffset + pass * src->w;

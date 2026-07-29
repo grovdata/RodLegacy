@@ -127,6 +127,7 @@ private:
     int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
     void RenderSkyAndParallax(float frameSeconds);
+    void RenderClouds(int horizonY);
     void RenderMountains(int horizonY);
     void DrawStartLight();
     void RenderRoad(int lastVisible);
