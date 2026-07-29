@@ -188,11 +188,11 @@ void Driving::Init(bool debugMode) {
 
     SetState(DRIVING_STATE_NORMAL);
     
-    // Load crash overlay bitmap with current car's color palette
-    StandardCarColor carColor = state.GetCurrentCar()->GetColor();
-    std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+    // Load crash overlay bitmap with current car's color palette. The wrecked
+    // interior shows the buckled hood, so it takes the same ramp as the intact
+    // one rather than the raw car palette.
     byte_vector& libFile = state.GetAssets().GetLibPData();
-    auto crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, carPalette);
+    auto crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, hoodPalette);
     if (crashOverlayAsset) {
         crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
         crashOverlayBitmap->SetVisible(false); // Initially hidden
@@ -283,7 +283,6 @@ void Driving::LoadTrackData() {
                 // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
                 bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
                 racing->SetTransmissionType(isAutomatic);
-                racing->SetTransmissionType(false);
                 LOG_INFO("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
             }
             

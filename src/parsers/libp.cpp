@@ -805,8 +805,10 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
             // The hood sits above the copperlist's register split, so its two
             // colours come from the player car's ramp, not the hand/skin tones
             // baked into PAL_DRIVING_LOW. RACING_INTERIOR_1 holds the hood's
-            // left edge (x 68..71) and needs the same treatment.
-            if (a == RACING_HOOD || a == RACING_INTERIOR_1) {
+            // left edge (x 68..71) and RACING_CRASHED_INTERIOR the wrecked hood,
+            // so both need the same treatment. These are exactly the three assets
+            // PlanarToChunky applies its magenta detection to.
+            if (a == RACING_HOOD || a == RACING_INTERIOR_1 || a == RACING_CRASHED_INTERIOR) {
                 return PAL_DRIVING_HOOD;
             }
 

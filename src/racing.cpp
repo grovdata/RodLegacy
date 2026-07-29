@@ -546,32 +546,43 @@ int16_t Racing::GetSteerDisplay() const {
     return sim.Player().slideVel;
 }
 
+// Race-end bubble text. The strings are the originals, taken verbatim from the
+// message table in the Amiga executable (Street_Rod 0x28cd2 onward); the win
+// lines sit there in stake order, which is what picks between them here.
 std::string Racing::GetRaceEndReason() const {
     const uint16_t flags = sim.Player().endFlags;
     if (flags & srrace::END_WALL_HIT)      return "You lose. Take a walk, sucker.";
     if (flags & srrace::END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
     if (flags & srrace::END_TRANS_DROPPED) return "You just dropped your`transmission,klutz`!";
     if (flags & srrace::END_STALLED)       return "Ya jumped the light, speedy`!";
-    if (raceOutcome == RaceOutcome::PlayerWon)  return "You won! Too bad you didn't bet, though.";
-    // TODO: Show depending on bet
-    // "You won! Too bad you didn't bet, though."
-    // "Big deal. Ten lousy bucks."
-    // "Big deal. Twenty-five bucks."
-    // "Fifty smackers. Not bad."
-    // "A hundred smackers, hot shot."    
-    // "You just won a helluva car."
-    if (raceOutcome == RaceOutcome::PlayerLost) return "YOU LOSE";
-    // TODO: Different lose conditions
-    //  "Lucky you weren't killed, 'cause the car is totaled. You get $123 for scrap."
-    //  "Lucky you're so slow. You only lost the race."
-    //  "Lucky you're so slow. You only lost the race. But you need new tires."
-    //  "You've been sentenced for debts, Ace`!" // Caught by the cop
 
-    //  "Oh, well, it could have been worse.\n $123 for parts and you are back on the streets." 
-    // <- this one above is displayed as a dialog, not bubble. With dismiss button "Junk it"
-    // Can also have a "Fix it" button, I guess if player affords it?
+    if (raceOutcome == RaceOutcome::PlayerWon) {
+        if (state.GetPendingIsPinkSlip()) return "You just won a helluva car.";
+        switch (state.GetPendingBetAmount()) {
+            case 10:  return "Big deal. Ten lousy bucks.";
+            case 25:  return "Big deal. Twenty-five bucks.";
+            case 50:  return "Fifty smackers. Not bad.";
+            case 100: return "A hundred smackers, hot shot.";
+            default:  break;
+        }
+        return "You won! Too bad you didn't bet, though.";
+    }
 
-    
+    if (raceOutcome == RaceOutcome::PlayerLost) {
+        // The original splits this over two lines ("...You only lost" / "the
+        // race."); the bubble is single-line, so join with the ` the font
+        // renders as a space, the same way the failure lines above do.
+        if (sim.Player().tireWearDelta > 0) {
+            return "Lucky you're so slow. You only lost`the race. But you need new tires.";
+        }
+        return "Lucky you're so slow. You only lost`the race.";
+    }
+    // NOT COVERED, both need triggers we have not established:
+    //  "Lucky you weren't killed, 'cause the car`is totaled. You get $N for scrap."
+    //  "You've been sentenced for debts, Ace`!"  (caught by the cop)
+    // and the totaled-car follow-up, which is a dialog rather than a bubble:
+    //  "Oh, well, it could have been worse.\n $N for parts and you are back on
+    //  the streets." with a "Junk it" (and possibly "Fix it") button.
     return "RACE OVER";
 }
 
@@ -1681,13 +1692,17 @@ void Racing::HandleOutcomeAfterTicks() {
     }
 
     // A crash / blown engine / dropped transmission / false start ends the race
-    // as a loss (original: any A4+0x4bc6 failure bit exits the frame loop). Show
-    // the crash overlay for a wall hit before settling the outcome.
+    // as a loss (original: any A4+0x4bc6 failure bit exits the frame loop). Only
+    // a wall hit wrecks the car though, so the smashed-interior overlay is gated
+    // on END_WALL_HIT - blowing the engine, dropping the transmission or jumping
+    // the light leaves you sitting in an intact car.
     if (sim.PlayerCrashed()) {
         if (!crashHandled) {
             crashHandled = true;
-            bShowCrashOverlay = true;
-            crashOverlayEndMs = SDL_GetTicks() + 3000;
+            if (sim.Player().endFlags & srrace::END_WALL_HIT) {
+                bShowCrashOverlay = true;
+                crashOverlayEndMs = SDL_GetTicks() + 3000;
+            }
         }
         raceOutcome = RaceOutcome::PlayerLost;
         return;
@@ -1792,7 +1807,11 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
 }
 
 void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
-    DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(sim.Player().rpm), 1500.0f, 7000.0f);
+    // The tachometer face is printed 0, 10, 20 ... 60 with "X100" under the hub,
+    // so the needle spans 0..6000 rpm. It used to start at 1500 (idle), which put
+    // the needle on the printed 0 while the engine idled and left every reading
+    // 1500 rpm high - the redline band was impossible to judge against the dial.
+    DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(sim.Player().rpm), 0.0f, 6000.0f);
 }
 
 void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
