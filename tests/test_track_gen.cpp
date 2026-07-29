@@ -177,7 +177,11 @@ TEST_CASE("RoadLayoutInit builds city, countryside, finish, and S-curve structur
     CHECK((track.left[130] & 0x0800) != 0);
 }
 
-TEST_CASE("GenerateTrackShapes clears stale generated object bits except preserved mask") {
+// TrackGenerator (0x239e2e) re-clears 380..1119 with three masks, taken from
+// `andi.w #0xf117 / #0x87ff / #0xe7ff` at 0x239e66/0x239e70/0x239e7a. It is NOT
+// the 0x1801 mask the shape functions use: the arch/gantry nibble and the
+// roadside scenery road_layout_init already placed here have to survive.
+TEST_CASE("GenerateTrackShapes re-clear keeps arch and scenery bits") {
     TrackData stale = {};
     TrackData masked = {};
     for (int i = 380; i < TRACK_SEGMENTS; ++i) {
@@ -187,8 +191,9 @@ TEST_CASE("GenerateTrackShapes clears stale generated object bits except preserv
         stale.elev[i] = 123;
         stale.curve[i] = -321;
 
-        masked.left[i] = 0x1801;
-        masked.right[i] = 0x1801;
+        masked.left[i] = 0xe7ff;
+        masked.right[i] = 0x87ff;
+        masked.flags[i] = 0xf117;
     }
 
     srrace::GenerateTrackShapes(stale, 5);
@@ -201,8 +206,31 @@ TEST_CASE("GenerateTrackShapes clears stale generated object bits except preserv
         CHECK(stale.flags[i] == masked.flags[i]);
         CHECK(stale.elev[i] == masked.elev[i]);
         CHECK(stale.curve[i] == masked.curve[i]);
-        CHECK((stale.left[i] & 0x1801) == 0x1801);
-        CHECK((stale.right[i] & 0x1801) == 0x1801);
+    }
+}
+
+// The regression the two-arch report came from: zeroing flags[] in the re-clear
+// wiped the "County line" finish gantry and both random mid-course arches.
+TEST_CASE("Road race keeps its finish gantry and mid-course arches") {
+    for (int seed = 1; seed <= 20; ++seed) {
+        CAPTURE(seed);
+        TrackData track = {};
+        srrace::RaceRng rng(static_cast<uint32_t>(seed) * 0x9e3779b9u);
+        srrace::RoadLayoutInit(track, rng, 1);
+        srrace::GenerateTrackShapes(track, seed % 10);
+
+        // Finish gantry at 1019 (flags |= 0x2010) and the drag-strip gantry at
+        // 379 (0x1010) both survive.
+        CHECK((track.flags[1019] & 0x2000) != 0);
+        CHECK((track.flags[379] & 0x1000) != 0);
+
+        // At least one arch on the pre-finish straight and one in the generated
+        // terrain, i.e. the road race is not down to two.
+        int cityStraight = 0;
+        for (int i = 200; i < 380; ++i) {
+            if ((track.flags[i] & 0xf000) != 0) ++cityStraight;
+        }
+        CHECK(cityStraight >= 2);  // the random 0x8000 plus the 379 gantry
     }
 }
 

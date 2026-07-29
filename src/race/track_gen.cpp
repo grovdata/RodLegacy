@@ -71,12 +71,27 @@ void ClearAll(TrackData& track, int i) {
     track.curve[i] = 0;
 }
 
+// TrackGenerator's re-clear of segments 380..1119 (0x239e2e). The three masks
+// are exact: `andi.w #0xf117 / #0x87ff / #0xe7ff` at 0x239e66/0x239e70/0x239e7a.
+// This is NOT the 0x1801 clear the shape functions use - it deliberately keeps
+// what road_layout_init already placed here:
+//   flags  &= 0xf117 -> keeps the overhead arch/gantry nibble (0xf000), sprite
+//                       slot 5 (0x100), the line-colour bit (0x10) and city /
+//                       sign / side-street (0x7); drops width, dash and the
+//                       curve/narrow marker bits that the shapes re-place.
+//   right  &= 0x87ff / left &= 0xe7ff -> keeps trees, poles, billboards and
+//                       houses; drops only the narrow-warning and barrier bits
+//                       (and the right-side special-building bits).
+// Zeroing flags here wiped the "County line" finish gantry at 1019 and both
+// random arches in 390..989, so a road race showed two arches instead of five
+// and no banner at the finish; the 0x1801 object mask also stripped the
+// scenery from the whole generated two thirds of the course.
 void ClearGeneratedSegment(TrackData& track, int i, int roadType) {
     track.elev[i] = 0;
     track.curve[i] = 0;
-    track.flags[i] = 0;
-    track.left[i] &= 0x1801;
-    track.right[i] &= 0x1801;
+    track.flags[i] &= 0xf117;
+    track.left[i] &= 0xe7ff;
+    track.right[i] &= 0x87ff;
     const int spacing = roadType * 4 + 4;
     if (spacing > 0 && (i + 1) % spacing == 0) {
         track.flags[i] |= 0x0008;
