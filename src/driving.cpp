@@ -31,11 +31,26 @@ void Driving::Init(bool debugMode) {
     raceEndBubble.reset();
     
     
-    auto dashboard = [&]() {        
-        StandardCarColor carColor = state.GetCurrentCar()->GetColor();
-        std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+    // Hood colour ramp for the assets that carry hood pixels. The Amiga
+    // copperlist reloads the hood scanlines' COLOR06/COLOR07 with shades 2 and 3
+    // of the car's ramp: the reference frame's hood is 0x0962/0x0A73, and those
+    // two words occur exactly once in the Amiga executable, as entries 2 and 3
+    // of the golden brown ramp. GetBitmapAssetWithPalette maps palette slot N to
+    // carPalette[N-1], so the two shades have to sit at 5 and 6.
+    auto hoodPalette = [&]() {
+        std::vector<uint16_t> carPalette = GetStandardCarColor(state.GetCurrentCar()->GetColor());
+        if (carPalette.size() >= 7) {
+            carPalette[5] = carPalette[2];
+            carPalette[6] = carPalette[3];
+        }
+        return carPalette;
+    }();
+
+    // The dashboard bitmap includes the hood's left edge, so it takes the same
+    // palette as the hood itself.
+    auto dashboard = [&]() {
         byte_vector& libFile = state.GetAssets().GetLibPData();
-        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, carPalette);    
+        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
     }();
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
@@ -54,11 +69,9 @@ void Driving::Init(bool debugMode) {
     AddDrawable("roof", roof);
 
     // Load hood with current car's color
-    auto hood = [&]() {        
-        StandardCarColor carColor = state.GetCurrentCar()->GetColor();
-        std::vector<uint16_t> carPalette = GetStandardCarColor(carColor);
+    auto hood = [&]() {
         byte_vector& libFile = state.GetAssets().GetLibPData();
-        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, carPalette);    
+        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, hoodPalette);
     }();
     hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
     hood->SetVisible(true);
