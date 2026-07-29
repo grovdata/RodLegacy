@@ -38,7 +38,7 @@ constexpr int kRoadCenterLat = 2400;
 
 // Races run at night in the original game.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
-constexpr SDL_Color kGrassA = {0, 112, 0, 255};
+constexpr SDL_Color kGrassA = {0, 119, 0, 255};
 constexpr SDL_Color kRoadA = {0, 0, 0, 255};
 constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
@@ -651,11 +651,7 @@ int Racing::BuildRowTableAndGetLastVisible() {
 }
 
 void Racing::RenderSkyAndParallax(float frameSeconds) {
-    // Clear the WHOLE surface, not just the visible clip. Row projection clamps
-    // the nearest rows to kClipBottom+30, so near sprites (the alongside NPC) can
-    // draw into rows kClipBottom+1..GAME_RACING_HEIGHT; if those are not cleared
-    // every frame the sprite ghosts there after the car drives away.
-    for (int y = 0; y < GAME_RACING_HEIGHT; ++y) {
+    // Clear the WHOLE surface, not just the visible clip. 
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
         }
