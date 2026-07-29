@@ -183,6 +183,7 @@ public:
     bool IsAutomatic() const;
 
     bool ShouldShowCrashOverlay() const;
+    bool ShouldShowCrashBlood() const;
     void HideCrashOverlay();
 
     RaceOutcome GetRaceOutcome() const;

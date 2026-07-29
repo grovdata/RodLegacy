@@ -551,6 +551,7 @@ int16_t Racing::GetSteerDisplay() const {
 // lines sit there in stake order, which is what picks between them here.
 std::string Racing::GetRaceEndReason() const {
     const uint16_t flags = sim.Player().endFlags;
+    if (flags & srrace::END_HIT_NPC)       return "You lose. Take a walk, sucker.";
     if (flags & srrace::END_WALL_HIT)      return "You lose. Take a walk, sucker.";
     if (flags & srrace::END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
     if (flags & srrace::END_TRANS_DROPPED) return "You just dropped your`transmission,klutz`!";
@@ -599,6 +600,18 @@ bool Racing::IsAutomatic() const {
 
 bool Racing::ShouldShowCrashOverlay() const {
     return bShowCrashOverlay;
+}
+
+// Blood on the windscreen. The original only shows it on a hard enough hit -
+// normally none, a few red pixels on a middling one - but the draw itself is not
+// something I could find in the decompilation, so the trigger below is INFERRED,
+// not verified: ProcessRaceOutcome (0x244d50 region) tiers the crash outcome off
+// the speed at impact (A4+0x4b0a) at 0x1f (31), 0x3c (60) and 0x5b (91) mph, and
+// those tiers line up with "no blood / some / lots". The car freezes on the
+// failure bit, so Player().speed still holds the impact speed here.
+// TUNE THIS once the real condition is known.
+bool Racing::ShouldShowCrashBlood() const {
+    return bShowCrashOverlay && sim.PlayerWrecked() && sim.Player().speed >= 60;
 }
 
 void Racing::HideCrashOverlay() {
@@ -1696,10 +1709,10 @@ void Racing::HandleOutcomeAfterTicks() {
     // a wall hit wrecks the car though, so the smashed-interior overlay is gated
     // on END_WALL_HIT - blowing the engine, dropping the transmission or jumping
     // the light leaves you sitting in an intact car.
-    if (sim.PlayerCrashed()) {
+    if (sim.PlayerFailed()) {
         if (!crashHandled) {
             crashHandled = true;
-            if (sim.Player().endFlags & srrace::END_WALL_HIT) {
+            if (sim.PlayerWrecked()) {
                 bShowCrashOverlay = true;
                 crashOverlayEndMs = SDL_GetTicks() + 3000;
             }
@@ -1768,6 +1781,12 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             }
             sim.Tick(inputBits);
             ++simTickCounter;
+
+            // Side-swiping the opponent bashes metal (original plays the impact
+            // sound three times as the player is shoved clear).
+            if (sim.ConsumeNpcBump() && audioManager) {
+                audioManager->PlaySound(AudioSampleType::CAR_BASH);
+            }
 
             if (firstPlayerFinishTick < 0 && (sim.Player().endFlags & srrace::END_FINISHED)) {
                 firstPlayerFinishTick = simTickCounter;

@@ -31,6 +31,7 @@ class Driving: public Scene {
     
     // Crash overlay bitmap
     std::unique_ptr<Bitmap> crashOverlayBitmap;
+    std::unique_ptr<Bitmap> crashBloodBitmap;
     bool lastCrashState = false; // Track previous crash state to avoid blinking
 
     DrivingState currentState = DRIVING_STATE_NORMAL;

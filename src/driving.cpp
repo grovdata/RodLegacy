@@ -198,6 +198,15 @@ void Driving::Init(bool debugMode) {
         crashOverlayBitmap->SetVisible(false); // Initially hidden
         crashOverlayBitmap->SetPosition(0, 18);
     }
+
+    // Blood on the windscreen, drawn over the wrecked interior on a hard enough
+    // impact. Not car-coloured, so it keeps the plain driving palette.
+    auto* crashBloodAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_BLOOD});
+    if (crashBloodAsset) {
+        crashBloodBitmap = std::make_unique<Bitmap>(*crashBloodAsset);
+        crashBloodBitmap->SetVisible(false);
+        crashBloodBitmap->SetPosition(104, 27);
+    }
     
     // Load track data for debugging/development
     LoadTrackData();
@@ -551,6 +560,9 @@ void Driving::DrawScene() {
     } else if (crashOverlayBitmap && crashOverlayBitmap->IsVisible()) {
         // Hide crash overlay when crash is over
         crashOverlayBitmap->SetVisible(false);
+        if (crashBloodBitmap) {
+            crashBloodBitmap->SetVisible(false);
+        }
     }
 
     if (debugMode && debugOverlay) {
@@ -692,6 +704,11 @@ void Driving::DrawCrashOverlay() {
     if (crashOverlayBitmap) {
         crashOverlayBitmap->SetVisible(true);
         crashOverlayBitmap->Draw();
+    }
+    // Blood goes on top of the wrecked interior, and only on a hard enough hit.
+    if (crashBloodBitmap && racing && racing->ShouldShowCrashBlood()) {
+        crashBloodBitmap->SetVisible(true);
+        crashBloodBitmap->Draw();
     }
 }
 

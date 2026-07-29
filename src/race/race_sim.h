@@ -22,6 +22,7 @@ constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
 
 // End/crash flag bits (original A4+0x4bc6).
 constexpr uint16_t END_FINISHED = 0x01;
+constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
@@ -30,7 +31,10 @@ constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false st
 
 // Player failure states that freeze the car and end the race as a loss.
 constexpr uint16_t END_FAILURE_MASK =
-    END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED;
+    END_HIT_NPC | END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED;
+
+// The two impacts that bend metal and put the wrecked interior on screen.
+constexpr uint16_t END_WRECK_MASK = END_WALL_HIT | END_HIT_NPC;
 
 // Race phase: staging countdown -> running -> ended (matches the UpdatePhysics
 // 0x2364e8 state machine: launch light, then the race, then a frozen car).
@@ -84,6 +88,8 @@ struct CarState {
     int16_t speed = 0;       // mph
     int16_t rpm = 1500;      // idle 1500, redline 5700
     int16_t gear = 0;        // 0 = neutral, 1..numGears driving
+    // Automatic selector (original A4+0x4b2e, 1 = N, 2 = D). Unused on manuals.
+    bool autoDrive = false;
     int16_t steerVel = 0;    // input integrator, +-24 (A4+0x4b0c)
     int16_t slideVel = 0;    // decaying steer momentum (A4+0x4b0e)
     int16_t heading = 0;     // road-direction the car is pointing
@@ -135,9 +141,20 @@ public:
     int CountdownTicks() const { return countdownTicks; }
 
     bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
-    bool PlayerCrashed() const {
-        return (player.endFlags & (END_ENGINE_BLOWN | END_TRANS_DROPPED |
-                                   END_WALL_HIT | END_STALLED)) != 0;
+    // Any race-ending failure, not just a crash: a blown engine, a dropped
+    // transmission and a jumped start all end the race without wrecking the car.
+    // Use PlayerWrecked() for the ones that bend metal.
+    bool PlayerFailed() const {
+        return (player.endFlags & END_FAILURE_MASK) != 0;
+    }
+    bool PlayerWrecked() const { return (player.endFlags & END_WRECK_MASK) != 0; }
+
+    // True for one tick after a side-swipe with the opponent, for the audio
+    // layer to hang the impact sound on. Consuming it clears it.
+    bool ConsumeNpcBump() {
+        const bool hit = npcBumpEvent;
+        npcBumpEvent = false;
+        return hit;
     }
     bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
 
@@ -156,6 +173,7 @@ private:
     void UpdateSteering(uint16_t inputBits);
     void ApplyLateralDrift(CarState& car, int16_t handling);
     void CheckEdgeCollision();
+    void CheckNpcContact();
     void NpcEngine();
     void NpcAiUpdate();
     void EngineTick(CarState& car, const CarTables& tables, bool throttle,
@@ -168,6 +186,10 @@ private:
     CarTables playerTables, npcTables;
     CarState player, npc;
     NpcState npcAi;
+    // Side-swipe bookkeeping (original A4-0x39a4 / A4-0x39a2 / A4-0x1386).
+    int16_t npcContactTicks = 0;   // consecutive ticks running alongside the NPC
+    int16_t bumpStunTicks = 0;     // throttle cut for a couple of ticks after an impact
+    bool npcBumpEvent = false;     // one-shot for the audio layer
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;

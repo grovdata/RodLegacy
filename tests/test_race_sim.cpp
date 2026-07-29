@@ -266,6 +266,96 @@ TEST_CASE("Rolling before the green is a false start") {
     CHECK((sim.Player().endFlags & END_STALLED) != 0);
 }
 
+TEST_CASE("An automatic can rev on the line without jumping the start") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 0;     // automatic
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0xabcu);
+    REQUIRE(sim.PlayerTables().automatic);
+    REQUIRE(sim.InCountdown());
+
+    // Hold the throttle on the line with the selector in N. The box must stay in
+    // neutral so the car never rolls: the engine revs, nothing moves.
+    for (int i = 0; i < 20 && sim.InCountdown(); ++i) {
+        sim.Tick(INPUT_THROTTLE);
+    }
+    CHECK(sim.Player().gear == 0);
+    CHECK(sim.Player().speed == 0);
+    CHECK((sim.Player().endFlags & END_STALLED) == 0);
+    CHECK(sim.Player().rpm > 1500);   // it did actually rev
+}
+
+TEST_CASE("An automatic engages drive on the shift input and pulls away") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 0;     // automatic
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0xabcu);
+    RunOutCountdown(sim);
+
+    sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);   // N -> D
+    CHECK(sim.Player().gear > 0);
+    for (int i = 0; i < 60; ++i) {
+        sim.Tick(INPUT_THROTTLE);             // no further shift input needed
+    }
+    CHECK(sim.Player().speed > 0);
+    CHECK(sim.Player().gear > 1);             // and it upshifts on its own
+}
+
+TEST_CASE("An automatic cannot be blown by holding the throttle") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 0;     // automatic
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0x77u);
+    RunOutCountdown(sim);
+    sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);   // engage drive
+
+    // Flat out for far longer than the ~15 ticks that grenades a manual on the
+    // limiter. The governor holds it below the redline, so it must survive.
+    for (int i = 0; i < 400; ++i) {
+        sim.Tick(INPUT_THROTTLE);
+    }
+    CHECK((sim.Player().endFlags & END_ENGINE_BLOWN) == 0);
+    CHECK(sim.Player().rpm <= 5690);
+}
+
+TEST_CASE("A manual held on the limiter still grenades") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 2;     // manual 4-speed
+
+    RaceSim sim;
+    sim.Init(&track, 0, setup, setup, 0x77u);
+    RunOutCountdown(sim);
+    // Never shift: first gear pins against the limiter and lets go.
+    bool blown = false;
+    for (int i = 0; i < 400; ++i) {
+        sim.Tick(INPUT_THROTTLE);
+        if ((sim.Player().endFlags & END_ENGINE_BLOWN) != 0) {
+            blown = true;
+            break;
+        }
+    }
+    CHECK(blown);
+}
+
 TEST_CASE("A maxed-wear engine grenades during the race") {
     TrackData track = MakeFlatTrack();
     CarSetup setup{};

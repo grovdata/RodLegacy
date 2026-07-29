@@ -191,6 +191,12 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     player.endFlags = 0;
     npc.endFlags = 0;
 
+    npcContactTicks = 0;
+    bumpStunTicks = 0;
+    npcBumpEvent = false;
+    player.autoDrive = false;   // automatics stage in N
+    npc.autoDrive = false;
+
     npcAi = NpcState{};
     npcAi.lateralTarget = 2400;
     npcAi.targetSpeedNormal = static_cast<int16_t>((npcTables.perfScore * 70) / 100);
@@ -296,6 +302,7 @@ void RaceSim::Tick(uint16_t inputBits) {
     RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
 
     CheckEdgeCollision();
+    CheckNpcContact();
 
     if ((player.endFlags & END_FAILURE_MASK) != 0) {
         phase = RacePhase::Ended;
@@ -303,9 +310,15 @@ void RaceSim::Tick(uint16_t inputBits) {
 }
 
 void RaceSim::PlayerPhysics(uint16_t inputBits) {
-    const bool throttle = (inputBits & INPUT_THROTTLE) != 0;
+    bool throttle = (inputBits & INPUT_THROTTLE) != 0;
     const bool brake = (inputBits & INPUT_BRAKE) != 0;
     const bool shift = (inputBits & INPUT_SHIFT) != 0;
+    // A side-swipe knocks the throttle out for a couple of ticks (original
+    // A4-0x39a2, decremented at the top of PlayerCarPhysics 0x23c5d6).
+    if (bumpStunTicks > 0) {
+        bumpStunTicks -= 1;
+        throttle = false;
+    }
     EngineTick(player, playerTables, throttle, brake, shift);
 }
 
@@ -336,12 +349,20 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         car.rpm = static_cast<int16_t>(std::max(1500, car.rpm - loss));
     }
 
-    const int rpmCap = tables.automatic ? 5690 : 5700;
+    // An automatic is governed ten rpm below the redline (PlayerCarPhysics
+    // 0x23c5d6 caps it at 0x163a = 5690 in the `automatic` branch), while the
+    // over-rev blow counts ticks spent past a FIXED 0x1644 = 5700. The gap is the
+    // point: a governed automatic can never reach the threshold, so it cannot be
+    // blown by holding the throttle. Testing the counter against the cap instead
+    // of against 5700 blew automatics the instant they hit the governor - the
+    // exact opposite of the original.
+    constexpr int kRedlineRpm = 5700;
+    const int rpmCap = tables.automatic ? 5690 : kRedlineRpm;
     if (car.rpm > rpmCap) {
         car.rpm = static_cast<int16_t>(rpmCap);
     }
 
-    if (throttle && car.rpm >= rpmCap) {
+    if (throttle && car.rpm >= kRedlineRpm) {
         car.redlineTicks++;
         int wearNow = 0;
         if (&car == &player) {
@@ -375,9 +396,10 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     bool doShift = false;
     if (shift) {
         doShift = (throttle && car.gear < tables.numGears) || (!throttle && car.gear > 0);
-    } else if (tables.automatic && throttle) {
-        // Automatic: engage first gear from neutral, then upshift at the
-        // carb power-band rpm.
+    } else if (tables.automatic && throttle && (car.autoDrive || &car != &player)) {
+        // Automatic in D: engage first gear from neutral, then upshift at the
+        // carb power-band rpm. The original gates this on the selector being past
+        // N (PlayerCarPhysics 0x23c5d6: `automatic && 1 < A4+0x4b2e`).
         if (car.gear == 0 || (car.rpm >= tables.autoShiftRpm && car.gear < tables.numGears)) {
             doShift = true;
         }
@@ -410,6 +432,29 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
             if (car.rpm > 5700) {
                 car.rpm = 5700;
             }
+        }
+    }
+
+    // Player only: the NPC has no selector (the original drives it from
+    // UpdateNPCEngine 0x2444c2, and NpcEngine below synthesises a shift on every
+    // upshift, which would toggle a selector straight back to N).
+    if (tables.automatic && &car == &player) {
+        // Automatic selector, N <-> D (original A4+0x4b2e, PlayerCarPhysics
+        // 0x23c5d6). The shift input toggles it; it drops back to N whenever the
+        // box ends up out of gear or the car coasts to a crawl off the throttle;
+        // and while it is in N the box is held in neutral. That last rule is what
+        // lets an automatic sit on the line and rev without rolling - the throttle
+        // used to engage first gear straight out of neutral, which moved the car
+        // and read as a jumped start.
+        if (shift) {
+            car.autoDrive = !car.autoDrive;
+        }
+        const bool coastingToStop = (car.speed < 5 && !throttle && car.gear > 0);
+        if (coastingToStop || car.gear == 0) {
+            car.autoDrive = false;
+        }
+        if (!car.autoDrive) {
+            car.gear = 0;
         }
     }
 
@@ -550,6 +595,80 @@ void RaceSim::CheckEdgeCollision() {
     }
 }
 
+// Car-to-car contact. The original splits this across two functions: the NPC
+// render pass (RenderNPCCarAndUpdateCopState 0x237ea8) measures the gap between
+// the cars and leaves two flags behind, and RaceLogicUpdate (0x244d50) acts on
+// them the next time round. Both gaps come out of the same numbers we already
+// have:
+//
+//   longGap = (npc.seg - player.seg)*8 + (npc.scroll - player.scroll)
+//   latGap  = npc.lateral - player.lateral
+//
+//   A4-0x1386 "in contact range" = alongside, or just ahead with longGap < 11
+//   A4-0x1384 "rear-ending it"   = just ahead, longGap < 11, |latGap| < 180,
+//                                  and the player closing (npc step < player step)
+//
+// Rear-ending sets endFlags |= 3 - bit 0 ends the race, bit 1 is the crash - and
+// that is the wreck-with-blood screen. Otherwise, running alongside while
+// steering into the opponent eventually shoves the player: lateral +300, heading
+// kicked +-15, throttle cut for two ticks, and the impact sound.
+//
+// The original gates the side-swipe on its smoothed render view state being 0
+// (alongside-left) and on an AI proximity flag; we do not carry that state in the
+// sim, so the geometric window below stands in for it.
+void RaceSim::CheckNpcContact() {
+    if ((player.endFlags & END_FAILURE_MASK) != 0 || (npc.endFlags & END_GAVE_UP) != 0) {
+        npcContactTicks = 0;
+        return;
+    }
+
+    const int longGap = (static_cast<int>(npc.segPos) - static_cast<int>(player.segPos)) * 8 +
+                        (npc.scrollAcc - player.scrollAcc);
+    const int latGap = npc.lateral - player.lateral;
+    const int latAbs = std::abs(latGap);
+
+    const bool justAhead = (longGap >= 0 && longGap < 11);
+    const bool alongside = (longGap > -11 && longGap < 11);
+
+    // Rear-ended it: directly ahead, overlapping laterally, and we are closing.
+    if (justAhead && latAbs < 180 &&
+        SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed)) {
+        player.endFlags |= (END_FINISHED | END_HIT_NPC);
+        npcContactTicks = 0;
+        return;
+    }
+
+    if (!alongside || latAbs >= 180 || player.scrollStep <= 1) {
+        npcContactTicks = 0;
+        return;
+    }
+
+    npcContactTicks = static_cast<int16_t>(npcContactTicks + 1);
+
+    // Steering into the opponent rather than away from it. latGap > 0 puts the
+    // NPC to our right, so steering right (steerVel > 0) is leaning on it.
+    const bool leaningOnIt = (latGap > 0) ? (player.steerVel > 0) : (player.steerVel < 0);
+    if (!leaningOnIt || npcContactTicks <= 3) {
+        return;
+    }
+
+    // The original rolls for it rather than bumping every tick.
+    if (rng.Next(2) != 0) {
+        npcContactTicks = 0;
+        return;
+    }
+
+    // Shoved away from the opponent, not blindly to the right: the original only
+    // ever has the NPC on one side when this fires, so its +300 is "away".
+    player.lateral = static_cast<int16_t>(player.lateral + ((latGap > 0) ? -300 : 300));
+    player.heading = static_cast<int16_t>(player.heading + ((rng.Next(2) == 0) ? -15 : 15));
+    if (player.speed > 20) {
+        bumpStunTicks = 2;
+    }
+    npcBumpEvent = true;
+    npcContactTicks = 0;
+}
+
 void RaceSim::NpcAiUpdate() {
     // Aim for the midpoint of the road a few segments ahead (UpdateNPCAI 0x244870
     // steers to the average of the look-ahead edges, not a fixed center).
@@ -561,7 +680,44 @@ void RaceSim::NpcAiUpdate() {
     int target = center;
 
     const int segDiff = npc.segPos - player.segPos;
-    if (std::abs(segDiff) <= 5) {
+
+    // The two cars never collide in the original: nothing anywhere in the Amiga
+    // binary compares the two laterals for overlap, and END_WALL_HIT comes only
+    // from CheckTrackEdgeCollision (0x23b620), which tests the player against the
+    // road edges and the roadside-object bits. What the original does instead is
+    // refuse the pass. Once the cars are roughly level (segDiff in [-3,3)) and the
+    // NPC is the faster of the two, it stops aiming at the road centre and lines
+    // up a pass; if it is behind and no side has room it aborts and locks itself
+    // one or two segments behind the player, so it sits on your bumper and cannot
+    // get by. Original: UpdateNPCAI 0x244870.
+    if (segDiff >= -3 && segDiff < 3 &&
+        SpeedToScrollStep(player.speed) < SpeedToScrollStep(npc.speed)) {
+        if (segDiff < 0) {
+            // Behind and quicker: commit to a side, or give the pass up. (The
+            // original gates this on the render view state being 9..12, which is
+            // exactly "NPC is behind"; segDiff < 0 is the same test without the
+            // one-frame smoothing lag that state carries.)
+            const int leftLane = player.lateral - 330;
+            if (edgeLeft + 480 < leftLane) {
+                target = leftLane;
+                if (player.lateral - npc.lateral < 280) {
+                    npc.segPos = player.segPos - 1;
+                }
+            } else if (player.lateral + 430 < edgeRight - 30) {
+                target = player.lateral + 630;
+                if (npc.lateral - player.lateral < 580) {
+                    npc.segPos = player.segPos - 2;
+                }
+            } else {
+                // Neither side has room at all.
+                npc.segPos = player.segPos - 2;
+            }
+        } else {
+            // Level or a touch ahead: hold a lane clear of the player's line.
+            target = (npc.lateral < player.lateral) ? (player.lateral - 330)
+                                                    : (player.lateral + 530);
+        }
+    } else if (std::abs(segDiff) <= 5) {
         // Block the player's line when ahead, swing to the open side when behind
         // (UpdateNPCAI swerves +300 to block / -200 to give room).
         const bool playerLeft = player.lateral < center;
