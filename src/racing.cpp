@@ -578,12 +578,17 @@ std::string Racing::GetRaceEndReason() const {
         }
         return "Lucky you're so slow. You only lost`the race.";
     }
-    // NOT COVERED, both need triggers we have not established:
+    // Endings TODO:
     //  "Lucky you weren't killed, 'cause the car`is totaled. You get $N for scrap."
     //  "You've been sentenced for debts, Ace`!"  (caught by the cop)
+    // Cop lose:  "You have been fined $%2d for speeding"
     // and the totaled-car follow-up, which is a dialog rather than a bubble:
     //  "Oh, well, it could have been worse.\n $N for parts and you are back on
     //  the streets." with a "Junk it" (and possibly "Fix it") button.
+    // On win show dialog: "Your winning time %d.%d sec., avg. speed %2d mph.\nCongratulations!"
+    // Drag race lose:  "In %d.%d sec you covered only %2d%% of the distance. Your avg. speed %2d mph."
+ 
+
     return "RACE OVER";
 }
 
