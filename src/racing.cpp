@@ -970,19 +970,16 @@ void Racing::RenderRoad(int lastVisible) {
         }
     }
 
-    if (lastVisible == kForwardRows - 1) {
-        const int horizonFillEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
-        for (int y = kClipTop; y < horizonFillEnd; ++y) {
-            for (int x = 0; x < GAME_WIDTH; ++x) {
-                PutPixel(pixels, x, y, kGrassA);
-            }
-        }
-    } else {
-        const int skyEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
-        for (int y = kClipTop; y < skyEnd; ++y) {
-            for (int x = 0; x < GAME_WIDTH; ++x) {
-                PutPixel(pixels, x, y, kSkyColor);
-            }
+    // Everything above the road's vanishing row is sky. The mountain range is
+    // anchored with its base on that row, so nothing above it is ever ground -
+    // this used to fill grass instead whenever the far row happened to be the
+    // horizon row (the flat-road case, lastVisible == kForwardRows - 1), and
+    // RenderMountains only repaints down from the top of the silhouette, so the
+    // green showed through above the peaks.
+    const int skyEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
+    for (int y = kClipTop; y < skyEnd; ++y) {
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, kSkyColor);
         }
     }
 }
