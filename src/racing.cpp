@@ -1,4 +1,5 @@
 #include "racing.h"
+#include "debug_ui.h"
 
 #include <algorithm>
 #include <array>
@@ -1547,7 +1548,9 @@ void Racing::FlybyJumpSegments(int segDelta) {
 }
 
 void Racing::UpdateFlybyMovement(float frameSeconds) {
-    const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
+    // Key state is polled straight from SDL, bypassing events, so the debug UI's
+    // keyboard capture has to be checked explicitly.
+    const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
     if (!keyboard) {
         return;
     }
@@ -1829,7 +1832,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         fixedAccumulator += std::max(0.0f, fElapsedTime);
         fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
 
-        const Uint8* keyboard = SDL_GetKeyboardState(nullptr);
+        // As above: consult the debug UI before reading raw key state.
+        const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
         uint16_t baseInput = 0;
         const bool up = keyboard && keyboard[SDL_SCANCODE_UP];
         const bool down = keyboard && keyboard[SDL_SCANCODE_DOWN];

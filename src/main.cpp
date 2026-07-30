@@ -11,6 +11,7 @@
 #include "state.h"
 #include "scene.h"
 #include "debug_overlay.h"
+#include "debug_ui.h"
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
 #include "config_screen.h"
@@ -167,6 +168,60 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int argc = 1;
     char* argv[] = { "open_sr.exe", nullptr };
 #else
+
+// Gathers the debug panel contents for one frame. Only reads what main.cpp can
+// already reach; the per-scene diagnostics (Racing's flyby lines) sit behind
+// Driving and would need an accessor chain to surface here.
+static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
+    std::vector<DebugPanel> panels;
+
+    DebugPanel frame{"Frame", {}};
+    frame.lines.push_back("delta: " + std::to_string(frameDelta) + " ms");
+    frame.lines.push_back("fps:   " +
+                          std::to_string(frameDelta > 0 ? 1000 / frameDelta : 0));
+    panels.push_back(std::move(frame));
+
+    DebugPanel game{"Game", {}};
+    game.lines.push_back("date:     " + state.GetGameDateString());
+    game.lines.push_back("hours:    " + std::to_string(state.GetGameHours()));
+    game.lines.push_back("bankroll: $" + std::to_string(state.GetBankroll()));
+    game.lines.push_back("player score:     " + std::to_string(state.GetPlayerScore()));
+    game.lines.push_back("challenger score: " + std::to_string(state.GetChallengerScore()));
+    panels.push_back(std::move(game));
+
+    panels.push_back(DebugPanel{"Input", mouse.GetGamepadDebugLines()});
+    return panels;
+}
+
+
+// Maps a mouse event from window pixels into game pixels, using where the
+// dockspace put the game image this frame. Only used while the debug UI hosts
+// the game; otherwise SDL's logical size already does this.
+static void RemapMouseToGameViewport(SDL_Event& event, const SDL_Rect& vp) {
+    if (vp.w <= 0 || vp.h <= 0) {
+        return;
+    }
+    auto mapX = [&](int x) {
+        return static_cast<int>((static_cast<int64_t>(x - vp.x) * GAME_WIDTH) / vp.w);
+    };
+    auto mapY = [&](int y) {
+        return static_cast<int>((static_cast<int64_t>(y - vp.y) * GAME_HEIGHT) / vp.h);
+    };
+    switch (event.type) {
+        case SDL_MOUSEMOTION:
+            event.motion.x = mapX(event.motion.x);
+            event.motion.y = mapY(event.motion.y);
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+            event.button.x = mapX(event.button.x);
+            event.button.y = mapY(event.button.y);
+            break;
+        default:
+            break;
+    }
+}
+
 int main(int argc, char* argv[]) {
 #endif
 
@@ -241,6 +296,13 @@ int main(int argc, char* argv[]) {
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
+    }
+
+    // Debug UI. Only built with -Ddebug_ui=true; without that option DebugUi is a
+    // stub whose Active() is constant false, so everything below folds away.
+    DebugUi debugUi;
+    if (debugMode) {
+        debugUi.Init(win, renderer, GAME_WIDTH, GAME_HEIGHT);
     }
 
     // tinyfiledialogs doesn't require initialization
@@ -327,7 +389,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Res scaling
-    if (useOriginalSize) {
+    if (debugUi.Active()) {
+        // The dockspace decides where the game is drawn, so SDL's logical-size
+        // mapping would put mouse coordinates in the wrong place. The game
+        // renders into a texture that is already exactly GAME_WIDTH x
+        // GAME_HEIGHT, so no logical scaling is needed; coordinates are mapped
+        // from the viewport rect instead (see RemapMouseToGameViewport).
+        LOG_INFO("Debug UI active - logical scaling left off, dockspace owns layout");
+    } else if (useOriginalSize) {
         // When using original size, no logical scaling - render directly to window
         LOG_INFO("Using original size - no logical scaling applied (1:1 pixel mapping)");
     } else {
@@ -358,6 +427,13 @@ int main(int argc, char* argv[]) {
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            // Quit must always get through, whatever the UI wants.
+            if (debugUi.ProcessEvent(event) && event.type != SDL_QUIT) {
+                continue;
+            }
+            if (debugUi.Active()) {
+                RemapMouseToGameViewport(event, debugUi.GameViewportRect());
+            }
             bool consumed = state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
                 case SDL_QUIT:
@@ -464,9 +540,23 @@ int main(int argc, char* argv[]) {
         // Update scene (handles fade transitions and other per-frame logic)
         scene->Update(delta);
 
+        // With the debug UI up the game renders into an offscreen texture that
+        // the dockspace displays; otherwise it goes straight to the backbuffer.
+        if (debugUi.Active()) {
+            SDL_SetRenderTarget(renderer, debugUi.GameTexture());
+            SDL_RenderClear(renderer);
+        }
+
         scene->Draw();
 
         mouse.Draw();
+
+        if (debugUi.Active()) {
+            SDL_SetRenderTarget(renderer, nullptr);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            debugUi.Draw(BuildDebugPanels(delta));
+        }
 
         SDL_RenderPresent(renderer);
 
@@ -483,6 +573,7 @@ int main(int argc, char* argv[]) {
 
     // tinyfiledialogs doesn't require cleanup
 
+    debugUi.Shutdown();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_JoystickClose(controller);

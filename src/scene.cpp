@@ -182,13 +182,18 @@ void Scene::DrawScene() {
 }
 
 void Scene::Draw() {
+    // Restore whatever target was current on entry rather than assuming the
+    // backbuffer: the caller may be rendering the game into an offscreen
+    // texture, and resetting to nullptr would send the scene past it.
+    SDL_Texture* callerTarget = SDL_GetRenderTarget(renderer);
+
     SDL_SetRenderTarget(renderer, sceneTarget.get());
     SDL_RenderClear(renderer);
 
     DrawScene();
     DrawExtra();
 
-    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_SetRenderTarget(renderer, callerTarget);
 
     Uint8 c = 255 - fadeAlpha;
     SDL_SetTextureColorMod(sceneTarget.get(), c, c, c);

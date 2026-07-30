@@ -27,7 +27,7 @@ executable('rodlegacy',
         lodepng_dep,
         tinyfiledialogs_dep,
         exepack_dep,
-    ],
+    ] + game_extra_deps,
     cpp_args: cpp_args,
     c_args: c_args,
     link_args: host_machine.system() == 'linux' ? [
