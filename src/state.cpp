@@ -325,16 +325,27 @@ void State::PickNextOpponent() {
     }
 }
 
-bool State::OnRaceFinished(RaceType raceType, bool won, bool pink_slip) {
+bool State::OnRaceFinished(RaceType raceType, bool won) {
+    const bool pinkSlip = pendingIsPinkSlip;
     if (won) {
         reputation.RecordWin(raceType);
         if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
             lastChallengerPoolIndex < RACER_POOL_SIZE) {
-            racerPool.OnRaceWon(lastChallengerPoolIndex, pink_slip);
+            racerPool.OnRaceWon(lastChallengerPoolIndex, pinkSlip);
         }
-        if (pendingIsPinkSlip) {
-            // TODO: transfer opponent car to ownedCars
-            LOG_INFO("State::OnRaceFinished - pink slip win, car transfer not yet implemented");
+        if (pinkSlip) {
+            // The stake was the cars: take theirs. The pointer moves rather than
+            // being copied, and the opponent is left without one so the same Car
+            // is never owned twice - they have just lost it, after all.
+            Opponent* opponent = GetCurrentOpponent();
+            if (opponent != nullptr && opponent->car != nullptr) {
+                ownedCars.push_back(opponent->car);
+                LOG_INFO("State::OnRaceFinished - pink slip win: took %s",
+                         opponent->car->GetModel().name.c_str());
+                opponent->car = nullptr;
+            } else {
+                LOG_INFO("State::OnRaceFinished - pink slip win but no opponent car to take");
+            }
         } else {
             bankroll += pendingBetAmount;
         }
@@ -353,15 +364,25 @@ bool State::OnRaceFinished(RaceType raceType, bool won, bool pink_slip) {
             lastChallengerPoolIndex < RACER_POOL_SIZE) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
         }
-        if (pendingIsPinkSlip) {
-            // TODO: remove current car from ownedCars and transfer to opponent
-            LOG_INFO("State::OnRaceFinished - pink slip loss, car transfer not yet implemented");
+        if (pinkSlip) {
+            // TODO: losing a pink slip should take the player's car. Not done
+            // here because losing your only car needs the follow-up the original
+            // has (scrap value, then buying a replacement); without it the game
+            // would be left with no car and nothing to do.
+            LOG_INFO("State::OnRaceFinished - pink slip loss, car forfeit not implemented");
         } else {
             bankroll = std::max(0, bankroll - pendingBetAmount);
         }
         LOG_INFO("State::OnRaceFinished - LOSS $%d bankroll=%d drag_rep=%d road_rep=%d",
                  pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep);
     }
+
+    // The stake is settled, so clear it. Anything that starts a race without
+    // going through SetPendingRace would otherwise inherit this one's terms -
+    // and a stale pink slip would hand over a car for free. The race-end message
+    // is built before this runs, so it still sees the real stake.
+    pendingBetAmount = 0;
+    pendingIsPinkSlip = false;
     return false;
 }
 

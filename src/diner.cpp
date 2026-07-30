@@ -305,33 +305,44 @@ void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
 void Diner::UpdateDebugInfo() {
     if (!debugMode) return;
 
+    // Not gated on debugOverlay: that is only the in-game text widget, and the
+    // debug UI reads this without one. Nor cleared afterwards - the base class
+    // has already filled in the common scene rows and they are worth keeping.
     CarScene::UpdateDebugInfo();
 
-    if (debugOverlay) {
-        debugLines.clear();
+    AddDebugValue("diner", "");
+    AddDebugValue("car pos", std::to_string(carx) + ", " + std::to_string(cary));
+    AddDebugValue("paused", isPaused ? "yes" : "no");
 
-        AddDebugLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));
-
-        if (currentOpponent && carBitmap) {
-            AddDebugLine("Opponent: " + currentOpponent->driver.name);
-            CarModel model = currentOpponent->car->GetModel();
-            BitmapOffset_t offset = model.offsets;
-            AddDebugLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
-            AddDebugLine("roof chopped: " + std::string(currentOpponent->car->IsRoofChopped() ? "Yes" : "No"));
-            AddDebugLine("bumpers stripped: " + std::string(currentOpponent->car->IsBumpersStripped() ? "Yes" : "No"));
-            AddDebugLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));
-            AddDebugLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
-            AddDebugLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
-            AddDebugLine("offsetYTires: " + std::to_string(carBitmap->GetWheelsYOffset()));
-            AddDebugLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));
-            AddDebugLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
-            AddDebugLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));
-            AddDebugLine("offsetXDecal: " + std::to_string(offset.offsetXDecal) + " Y: " + std::to_string(offset.offsetYDecal));
-
-        }
-
-        AddDebugLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
+    if (currentOpponent == nullptr || carBitmap == nullptr) {
+        AddDebugValue("opponent", "none on screen");
+        return;
     }
+
+    const CarModel model = currentOpponent->car->GetModel();
+    const BitmapOffset_t offset = model.offsets;
+
+    AddDebugValue("opponent", "");
+    AddDebugValue("driver", currentOpponent->driver.name);
+    AddDebugValue("model", model.name);
+    AddDebugValue("color", std::to_string(currentOpponent->car->GetColor()));
+    AddDebugValue("roof chopped", currentOpponent->car->IsRoofChopped() ? "yes" : "no");
+    AddDebugValue("bumpers stripped",
+                  currentOpponent->car->IsBumpersStripped() ? "yes" : "no");
+
+    AddDebugValue("sprite offsets", "");
+    AddDebugValue("air scoop", std::to_string(offset.offsetXAirScoop) + ", " +
+                               std::to_string(offset.offsetYAirScoop));
+    AddDebugValue("rear tire x", std::to_string(offset.offsetXRearTire));
+    AddDebugValue("front tire x", std::to_string(offset.offsetXFrontTire));
+    AddDebugValue("tires y", std::to_string(carBitmap->GetWheelsYOffset()));
+    AddDebugValue("driver", std::to_string(offset.offsetXDriver) + ", " +
+                            std::to_string(offset.offsetYDriver));
+    AddDebugValue("chopped roof x", std::to_string(offset.offsetXChoppedRoof));
+    AddDebugValue("front bumper", std::to_string(offset.offsetXFrontBumper) + ", " +
+                                  std::to_string(offset.offsetYFrontBumper));
+    AddDebugValue("decal", std::to_string(offset.offsetXDecal) + ", " +
+                           std::to_string(offset.offsetYDecal));
 }
 
 bool Diner::PushEvent(SDL_Event *event) {

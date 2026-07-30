@@ -169,33 +169,32 @@ void GasStation::UpdateCarAnimation(double deltaTime) {
 
 void GasStation::UpdateDebugInfo() {
     if (!debugMode) return;
-    
+
+    // As in Diner: not gated on debugOverlay, and the base rows are kept.
     CarScene::UpdateDebugInfo();
-        
-    if (debugOverlay) {
-        debugLines.clear();
-        
-        AddDebugLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
 
-        if (carBitmap != nullptr) {
-            CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
-            CarClickBoxes_t clickBoxes = metadata.clickBoxes;
-            
-            AddDebugLine("cap x=" + std::to_string(metadata.offsets.offsetXGasCap) + 
-                                " y=" + std::to_string(metadata.offsets.offsetYGasCap));
+    AddDebugValue("gas station", "");
+    AddDebugValue("car pos", std::to_string(carx) + ", " + std::to_string(cary));
 
-            AddDebugLine("rear: x=" + std::to_string(clickBoxes.clickBoxRearWindow.x) + 
-                                " y=" + std::to_string(clickBoxes.clickBoxRearWindow.y) +
-                                " w=" + std::to_string(clickBoxes.clickBoxRearWindow.width) +
-                                " h=" + std::to_string(clickBoxes.clickBoxRearWindow.height));
-
-            AddDebugLine("front: x=" + std::to_string(clickBoxes.clickBoxFrontWindow.x) + 
-                                " y=" + std::to_string(clickBoxes.clickBoxFrontWindow.y) +
-                                " w=" + std::to_string(clickBoxes.clickBoxFrontWindow.width) +
-                                " h=" + std::to_string(clickBoxes.clickBoxFrontWindow.height));
-        }
-        
+    if (carBitmap == nullptr) {
+        AddDebugValue("car", "not on screen");
+        return;
     }
+
+    const CarMetadata_t metadata =
+        state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+    const CarClickBoxes_t clickBoxes = metadata.clickBoxes;
+
+    auto boxText = [](const auto& box) {
+        return std::to_string(box.x) + ", " + std::to_string(box.y) + "  " +
+               std::to_string(box.width) + "x" + std::to_string(box.height);
+    };
+
+    AddDebugValue("gas cap", std::to_string(metadata.offsets.offsetXGasCap) + ", " +
+                             std::to_string(metadata.offsets.offsetYGasCap));
+    AddDebugValue("click boxes", "");
+    AddDebugValue("rear window", boxText(clickBoxes.clickBoxRearWindow));
+    AddDebugValue("front window", boxText(clickBoxes.clickBoxFrontWindow));
 }
 
 bool GasStation::PushEvent(SDL_Event* event) {

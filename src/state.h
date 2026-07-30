@@ -120,11 +120,11 @@ public:
     // Diner code continues to work unchanged via GetNextOpponent().
     void PickNextOpponent();
 
-    // Call after a race finishes.
-    // won=true → player crossed finish first. pink_slip=true → bet was a pink slip.
+    // Call after a race finishes. won=true means the player crossed first.
+    // Whether the stake was a pink slip is taken from the pending bet.
     // Updates Reputation, RacerPool, and bankroll as appropriate.
     // Returns true if the King was beaten in a drag race (triggers end-game).
-    bool OnRaceFinished(RaceType raceType, bool won, bool pink_slip = false);
+    bool OnRaceFinished(RaceType raceType, bool won);
 
     Reputation& GetReputation() { return reputation; }
     // SR_data driver row (tier / reaction / aggression) for the challenger the
