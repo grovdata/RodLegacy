@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <fstream>
 #include <random>
+#include <set>
 
 // Helper to read big-endian values
 static uint32_t ReadBE32(const uint8_t* data) {
@@ -486,18 +487,27 @@ AudioSample* AudioManager::GetSample(AudioSampleType type) {
 }
 
 void AudioManager::PlaySound(AudioSampleType type, float volume) {
+    // A missing sample or a dead device is a standing condition, and callers
+    // retrigger sounds every few ticks, so report each of these once rather
+    // than on every call.
+    static std::set<int> reportedMissing;
+    static bool reportedNoDevice = false;
+
     auto it = samples.find(type);
     if (it == samples.end() || it->second.data.empty()) {
-        LOG_INFO("AudioManager::PlaySound - Sample %d not found", static_cast<int>(type));
+        if (reportedMissing.insert(static_cast<int>(type)).second) {
+            LOG_INFO("AudioManager::PlaySound - sample %d not loaded", static_cast<int>(type));
+        }
         return;
     }
 
     const AudioSample& sample = it->second;
-    LOG_INFO("AudioManager::PlaySound - Playing sample %d at %u Hz, volume %.2f",
-            static_cast<int>(type), sample.sampleRate, volume);
 
     if (audioDevice == 0) {
-        LOG_INFO("AudioManager::PlaySound - No audio device available");
+        if (!reportedNoDevice) {
+            reportedNoDevice = true;
+            LOG_INFO("AudioManager::PlaySound - no audio device, one-shots are silent");
+        }
         return;
     }
 

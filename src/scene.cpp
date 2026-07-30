@@ -413,7 +413,6 @@ void CarScene::Init(bool debugMode) {
 //}
 
 void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
-    LOG_INFO("CarScene::StartAnimateCar - Entry point (animatingCar=%d, type=%d)", animatingCar, animType);
 
     currentAnimationType = animType;
     
@@ -421,7 +420,6 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     if (audioManager) {
         // Always stop first to ensure clean restart
         audioManager->StopLoop(0);
-        LOG_INFO("StartAnimateCar: Stopped existing audio");
         lastAnimationEnginePeriod = -1;
         
         // Reset engine start timer
@@ -431,7 +429,6 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
             // Reverse out: play engine start sample FIRST, then loop after delay
             // Engine start: 31763 samples at 11025 Hz = ~2.88s duration
-            LOG_INFO("StartAnimateCar: Playing ENGINE_START sample for reverse");
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
             
             // Set flag to wait for engine start to finish
@@ -441,10 +438,8 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
             // Pre-configure the engine loop period (will start after delay)
             audioManager->UpdateEnginePeriod(605);
             lastAnimationEnginePeriod = 605;
-            LOG_INFO("StartAnimateCar: Will start ENGINE_LOOP after %.3fs", ENGINE_START_DURATION);
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
             // Driving in: mostly constant low pitch, then deeper drop near full stop.
-            LOG_INFO("StartAnimateCar: Starting ENGINE_LOOP for drive in at period 605");
             audioManager->UpdateEnginePeriod(605);
             lastAnimationEnginePeriod = 605;
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
@@ -453,7 +448,6 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     
     // For reverse animation with existing bitmap, just start the animation
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
-        LOG_INFO("StartAnimateCar: Starting reverse animation with existing bitmap");
         carAnimationTime = 0;
         carxFloat = carx;
         animatingCar = true;
@@ -462,7 +456,6 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     
     // Use flag instead of null check
     if (car != nullptr && needsNewAnimation) {
-        LOG_INFO("CarScene::StartAnimateCar - starting new animation");
         if (carBitmap == nullptr) {
             carBitmap = new CarBitmap(car, driver, car->GetColor());
         }
@@ -484,8 +477,6 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
         animatingCar = true;
         waitTimer = 0;
         needsNewAnimation = false;  // Reset flag
-        LOG_INFO("CarScene::StartAnimateCar - initialized with x=%d, y=%d, type=%d, animatingCar=%d, time=%f", 
-                carx, cary, (int)animType, animatingCar, carAnimationTime);
     }
 }
 

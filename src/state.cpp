@@ -377,12 +377,6 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
                  pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep);
     }
 
-    // The stake is settled, so clear it. Anything that starts a race without
-    // going through SetPendingRace would otherwise inherit this one's terms -
-    // and a stale pink slip would hand over a car for free. The race-end message
-    // is built before this runs, so it still sees the real stake.
-    pendingBetAmount = 0;
-    pendingIsPinkSlip = false;
     return false;
 }
 

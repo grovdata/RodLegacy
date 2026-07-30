@@ -462,6 +462,8 @@ void Racing::InitializeRaceSimulation() {
     sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup,
              static_cast<uint32_t>(SDL_GetTicks()));
     simInitialized = true;
+    raceBetAmount = state.GetPendingBetAmount();
+    raceIsPinkSlip = state.GetPendingIsPinkSlip();
     fixedAccumulator = 0.0f;
     prevSpaceDown = false;
     pendingShift = false;
@@ -610,8 +612,8 @@ std::string Racing::GetRaceEndReason() const {
     if (flags & srrace::END_STALLED)       return "Ya jumped the light, speedy`!";
 
     if (raceOutcome == RaceOutcome::PlayerWon) {
-        if (state.GetPendingIsPinkSlip()) return "You just won a helluva car.";
-        switch (state.GetPendingBetAmount()) {
+        if (raceIsPinkSlip) return "You just won a helluva car.";
+        switch (raceBetAmount) {
             case 10:  return "Big deal. Ten lousy bucks.";
             case 25:  return "Big deal. Twenty-five bucks.";
             case 50:  return "Fifty smackers. Not bad.";

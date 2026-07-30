@@ -46,6 +46,11 @@ private:
     bool engineSoundStarted = false;
 
     SrTrackType currentTrackType = SR_TRACK_ROAD_RACE;
+    // Terms this race was started on, captured at init. The race-end message is
+    // built from these rather than from State's pending bet, which by then is
+    // settled and no longer describes the race that just ran.
+    int raceBetAmount = 0;
+    bool raceIsPinkSlip = false;
     bool automaticOverride = false;
     bool simInitialized = false;
     bool bShowCrashOverlay = false;

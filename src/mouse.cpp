@@ -132,7 +132,6 @@ void Mouse::UpdateGamepad(Scene* scene) {
     
     if (gamepadDebug.buttonA) { // A button (usually)
         gamepadDebug.lastAction = "Button A (Click)";
-        LOG_INFO("Sending A button click event to scene");
         // Simulate left click at current position
         SDL_Event clickEvent;
         clickEvent.type = SDL_MOUSEBUTTONDOWN;
