@@ -339,10 +339,17 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             // is never owned twice - they have just lost it, after all.
             Opponent* opponent = GetCurrentOpponent();
             if (opponent != nullptr && opponent->car != nullptr) {
-                ownedCars.push_back(opponent->car);
-                LOG_INFO("State::OnRaceFinished - pink slip win: took %s",
-                         opponent->car->GetModel().name.c_str());
+                Car* wonCar = opponent->car;
+                // The pointer moves rather than being copied: Opponent does not
+                // own its car, so leaving it in place would give one Car two
+                // owners. They have just lost it in any case.
                 opponent->car = nullptr;
+                ownedCars.push_back(wonCar);
+                // Drive it away: winning the pink slip means it is yours now,
+                // and the old car stays in the garage alongside it.
+                currentCar = wonCar;
+                LOG_INFO("State::OnRaceFinished - pink slip win: now driving %s",
+                         wonCar->GetModel().name.c_str());
             } else {
                 LOG_INFO("State::OnRaceFinished - pink slip win but no opponent car to take");
             }
