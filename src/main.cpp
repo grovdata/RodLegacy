@@ -190,6 +190,14 @@ static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     panels.push_back(std::move(game));
 
     panels.push_back(DebugPanel{"Input", mouse.GetGamepadDebugLines()});
+
+    // Whatever the active scene wants to expose.
+    Scene* scene = state.GetCurrentScene();
+    if (scene) {
+        for (DebugPanel& panel : scene->GetDebugPanels()) {
+            panels.push_back(std::move(panel));
+        }
+    }
     return panels;
 }
 
@@ -555,7 +563,17 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderTarget(renderer, nullptr);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
-            debugUi.Draw(BuildDebugPanels(delta));
+            {
+                Scene* dbgScene = state.GetCurrentScene();
+                debugUi.Draw(BuildDebugPanels(delta),
+#ifdef RODLEGACY_DEBUG_UI
+                             dbgScene ? [dbgScene]() { dbgScene->DrawDebugControls(); }
+                                      : std::function<void()>{}
+#else
+                             std::function<void()>{}
+#endif
+                );
+            }
         }
 
         SDL_RenderPresent(renderer);

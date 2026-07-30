@@ -122,7 +122,8 @@ bool DebugUi::WantsMouse() const {
     return active && ImGui::GetIO().WantCaptureMouse && !gameHovered;
 }
 
-void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
+void DebugUi::Draw(const std::vector<DebugPanel>& panels,
+                   const std::function<void()>& drawControls) {
     if (!active) {
         return;
     }
@@ -160,6 +161,7 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
         const ImGuiID gameId =
             ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.68f, nullptr, &rightId);
         ImGui::DockBuilderDockWindow("Game", gameId);
+        ImGui::DockBuilderDockWindow("Controls", rightId);
         for (const DebugPanel& panel : panels) {
             ImGui::DockBuilderDockWindow(panel.title.c_str(), rightId);
         }
@@ -205,6 +207,15 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
         }
         ImGui::End();
     }
+
+    if (ImGui::Begin("Controls")) {
+        if (drawControls) {
+            drawControls();
+        } else {
+            ImGui::TextUnformatted("This scene exposes no debug controls.");
+        }
+    }
+    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);

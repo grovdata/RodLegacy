@@ -593,14 +593,14 @@ void Driving::DrawScene() {
 
     if (debugMode && debugOverlay) {
         if (racing && racing->IsFlybyMode()) {
-            debugOverlay->Clear();
+            debugLines.clear();
             const std::vector<std::string> lines =
                 racing->GetFlybyDebugLines(racing->GetLastVisibleRow());
             for (const std::string& line : lines) {
-                debugOverlay->AddLine(line);
+                AddDebugLine(line);
             }
         }
-        debugOverlay->Draw();
+        DrawLegacyDebugOverlay();
     }
 
     // Race-end reason bubble, drawn on top of the frozen scene.
@@ -702,20 +702,26 @@ void Driving::UpdateDebugInfo() {
     }
     Scene::UpdateDebugInfo();
 
-    if (!racing || !debugOverlay) {
-        return;
+    // In flyby the camera readout is the only thing worth the limited space of
+    // the in-game overlay, so it replaces the generic lines.
+    if (racing && racing->IsFlybyMode()) {
+        debugLines.clear();
+        for (const std::string& line :
+             racing->GetFlybyDebugLines(racing->GetLastVisibleRow())) {
+            AddDebugLine(line);
+        }
     }
+}
 
-    if (!racing->IsFlybyMode()) {
-        return;
+std::vector<DebugPanel> Driving::GetDebugPanels() {
+    std::vector<DebugPanel> panels = Scene::GetDebugPanels();
+    if (racing) {
+        // The debug UI has room for both, so the camera readout is its own
+        // panel rather than displacing the scene lines.
+        panels.push_back(DebugPanel{
+            "Racing", racing->GetFlybyDebugLines(racing->GetLastVisibleRow())});
     }
-
-    debugOverlay->Clear();
-    const std::vector<std::string> lines =
-        racing->GetFlybyDebugLines(racing->GetLastVisibleRow());
-    for (const std::string& line : lines) {
-        debugOverlay->AddLine(line);
-    }
+    return panels;
 }
 
 // Timer callback no longer needed - racing is updated in Draw() method

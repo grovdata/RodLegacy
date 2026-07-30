@@ -110,7 +110,7 @@ void Scene::ToggleDebugMode() {
     
     // Clear overlay when toggling off
     if (!debugMode && debugOverlay) {
-        debugOverlay->Clear();
+        debugLines.clear();
     }
 }
 
@@ -174,9 +174,10 @@ void Scene::DrawScene() {
     SDL_RenderCopy(renderer, texture.get(), NULL, &m_backgroundRect);
 
     if (debugMode) {
+        // Zone highlighting stays in the game view; the text goes to the debug
+        // UI when that is built, and to the legacy overlay when it is not.
         DrawDebugZones();
-        UpdateDebugInfo();
-        debugOverlay->Draw();
+        DrawLegacyDebugOverlay();
     }
     hud->Draw();
 }
@@ -330,29 +331,35 @@ void CarScene::OnSceneExit() {
 }
 
 void Scene::UpdateDebugInfo() {
-    // Base implementation - can be overridden by derived classes
-    if (debugOverlay) {
-        debugOverlay->Clear();
-        debugOverlay->AddLine("Scene: " + std::string(typeid(*this).name()));
-        debugOverlay->AddLine("Time: " + std::to_string(SDL_GetTicks64()));
+    debugLines.clear();
+    AddDebugLine("scene: " + std::string(typeid(*this).name()));
+    AddDebugLine("zones: " + std::to_string(zones.size()));
+    AddDebugLine("buttons: " + std::to_string(buttons.size()));
+    AddDebugLine("fade alpha: " + std::to_string(static_cast<int>(fadeAlpha)));
+}
+
+void Scene::DrawLegacyDebugOverlay() {
+#ifndef RODLEGACY_DEBUG_UI
+    if (!debugMode || !debugOverlay) {
+        return;
     }
+    UpdateDebugInfo();
+    debugOverlay->Clear();
+    for (const std::string& line : debugLines) {
+        debugOverlay->AddLine(line);
+    }
+    debugOverlay->Draw();
+#endif
+}
+
+std::vector<DebugPanel> Scene::GetDebugPanels() {
+    UpdateDebugInfo();
+    return { DebugPanel{"Scene", debugLines} };
 }
 
 void Scene::AddGamepadDebugInfo(const Mouse& mouse) {
-    LOG_INFO("AddGamepadDebugInfo called - debugOverlay: %s, debugMode: %s", 
-            debugOverlay ? "EXISTS" : "NULL", debugMode ? "ENABLED" : "DISABLED");
-    
-    if (!debugOverlay) {
-        LOG_INFO("No debug overlay available");
-        return;
-    }
-    
-    std::vector<std::string> gamepadLines = mouse.GetGamepadDebugLines();
-    LOG_INFO("Got %zu gamepad debug lines", gamepadLines.size());
-    
-    for (const auto& line : gamepadLines) {
-        debugOverlay->AddLine(line);
-        LOG_INFO("Added debug line: %s", line.c_str());
+    for (const std::string& line : mouse.GetGamepadDebugLines()) {
+        AddDebugLine(line);
     }
 }
 

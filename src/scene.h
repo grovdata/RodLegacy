@@ -7,6 +7,7 @@
 #include "bitmap.h"
 #include "carbitmap.h"
 #include "debug_overlay.h"
+#include "debug_ui.h"
 #include "audio/audio_manager.h"
 #include "utils.h"
 #include <string>
@@ -56,6 +57,9 @@ class Scene: public IDrawableContainer {
     DebugOverlay* debugOverlay;
     bool debugMode;
     bool debugEnabled;
+    // Text collected by UpdateDebugInfo() for this frame. Rebuilt each time it
+    // is asked for, so overrides just call AddDebugLine().
+    std::vector<std::string> debugLines;
     
     Uint8 fadeAlpha = 255;
     Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
@@ -64,6 +68,9 @@ class Scene: public IDrawableContainer {
     
     virtual void ToggleDebugMode();
     virtual void DrawDebugZones();
+    // Draws the debug text into the game view. Only does anything in builds
+    // without the ImGui debug UI, which otherwise owns the text.
+    void DrawLegacyDebugOverlay();
 
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
@@ -102,7 +109,21 @@ class Scene: public IDrawableContainer {
     const std::vector<Zone>& GetZones() const { return zones; }
     virtual void DrawDebugUI() {}
 
+    // Fills debugLines. Override to add scene specific information; call the
+    // base first to keep the common lines.
     virtual void UpdateDebugInfo();
+    void AddDebugLine(const std::string& text) { debugLines.push_back(text); }
+
+    // Inspector text for the debug UI: runs UpdateDebugInfo() and returns the
+    // result as one panel titled after the scene. Override to supply several
+    // panels instead.
+    virtual std::vector<DebugPanel> GetDebugPanels();
+
+#ifdef RODLEGACY_DEBUG_UI
+    // Interactive debug widgets, drawn inside the UI's Controls panel. Declared
+    // only in debug UI builds because implementations call ImGui directly.
+    virtual void DrawDebugControls() {}
+#endif
 
     // Debug methods
     void AddGamepadDebugInfo(const Mouse& mouse);

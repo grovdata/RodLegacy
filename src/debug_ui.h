@@ -51,7 +51,8 @@ public:
     // Lays out the dockspace, draws the game image and the supplied panels, and
     // submits the draw data. Call once per frame, after the game has been drawn
     // into GameTexture() and the render target has been reset to the backbuffer.
-    void Draw(const std::vector<DebugPanel>& panels);
+    void Draw(const std::vector<DebugPanel>& panels,
+              const std::function<void()>& drawControls = {});
 
     // Where the game image landed on screen this frame, for mapping window
     // mouse coordinates back into game space. Empty until Draw() has run.
@@ -87,7 +88,7 @@ public:
     bool Active() const { return false; }
     bool ProcessEvent(const SDL_Event&) { return false; }
     SDL_Texture* GameTexture() const { return nullptr; }
-    void Draw(const std::vector<DebugPanel>&) {}
+    void Draw(const std::vector<DebugPanel>&, const std::function<void()>& = {}) {}
     SDL_Rect GameViewportRect() const { return SDL_Rect{0, 0, 0, 0}; }
     bool GameViewportHovered() const { return false; }
     bool WantsKeyboard() const { return false; }

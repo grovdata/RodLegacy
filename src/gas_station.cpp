@@ -173,23 +173,23 @@ void GasStation::UpdateDebugInfo() {
     CarScene::UpdateDebugInfo();
         
     if (debugOverlay) {
-        debugOverlay->Clear();
+        debugLines.clear();
         
-        debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
+        AddDebugLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));        
 
         if (carBitmap != nullptr) {
             CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
             CarClickBoxes_t clickBoxes = metadata.clickBoxes;
             
-            debugOverlay->AddLine("cap x=" + std::to_string(metadata.offsets.offsetXGasCap) + 
+            AddDebugLine("cap x=" + std::to_string(metadata.offsets.offsetXGasCap) + 
                                 " y=" + std::to_string(metadata.offsets.offsetYGasCap));
 
-            debugOverlay->AddLine("rear: x=" + std::to_string(clickBoxes.clickBoxRearWindow.x) + 
+            AddDebugLine("rear: x=" + std::to_string(clickBoxes.clickBoxRearWindow.x) + 
                                 " y=" + std::to_string(clickBoxes.clickBoxRearWindow.y) +
                                 " w=" + std::to_string(clickBoxes.clickBoxRearWindow.width) +
                                 " h=" + std::to_string(clickBoxes.clickBoxRearWindow.height));
 
-            debugOverlay->AddLine("front: x=" + std::to_string(clickBoxes.clickBoxFrontWindow.x) + 
+            AddDebugLine("front: x=" + std::to_string(clickBoxes.clickBoxFrontWindow.x) + 
                                 " y=" + std::to_string(clickBoxes.clickBoxFrontWindow.y) +
                                 " w=" + std::to_string(clickBoxes.clickBoxFrontWindow.width) +
                                 " h=" + std::to_string(clickBoxes.clickBoxFrontWindow.height));

@@ -190,7 +190,7 @@ void Diner::DrawScene() {
             b->Draw();
         }
         if (debugMode && debugOverlay) {
-            debugOverlay->Draw();
+            DrawLegacyDebugOverlay();
         }
         return;
     }
@@ -241,7 +241,7 @@ void Diner::DrawScene() {
     }
 
     if (debugMode && debugOverlay) {
-        debugOverlay->Draw();
+        DrawLegacyDebugOverlay();
     }
     hud->Draw();
 
@@ -308,29 +308,29 @@ void Diner::UpdateDebugInfo() {
     CarScene::UpdateDebugInfo();
 
     if (debugOverlay) {
-        debugOverlay->Clear();
+        debugLines.clear();
 
-        debugOverlay->AddLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));
+        AddDebugLine("Car X: " + std::to_string(carx) + " Y: " + std::to_string(cary));
 
         if (currentOpponent && carBitmap) {
-            debugOverlay->AddLine("Opponent: " + currentOpponent->driver.name);
+            AddDebugLine("Opponent: " + currentOpponent->driver.name);
             CarModel model = currentOpponent->car->GetModel();
             BitmapOffset_t offset = model.offsets;
-            debugOverlay->AddLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
-            debugOverlay->AddLine("roof chopped: " + std::string(currentOpponent->car->IsRoofChopped() ? "Yes" : "No"));
-            debugOverlay->AddLine("bumpers stripped: " + std::string(currentOpponent->car->IsBumpersStripped() ? "Yes" : "No"));
-            debugOverlay->AddLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));
-            debugOverlay->AddLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
-            debugOverlay->AddLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
-            debugOverlay->AddLine("offsetYTires: " + std::to_string(carBitmap->GetWheelsYOffset()));
-            debugOverlay->AddLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));
-            debugOverlay->AddLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
-            debugOverlay->AddLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));
-            debugOverlay->AddLine("offsetXDecal: " + std::to_string(offset.offsetXDecal) + " Y: " + std::to_string(offset.offsetYDecal));
+            AddDebugLine("model: " + model.name + " color: " + std::to_string(currentOpponent->car->GetColor()));
+            AddDebugLine("roof chopped: " + std::string(currentOpponent->car->IsRoofChopped() ? "Yes" : "No"));
+            AddDebugLine("bumpers stripped: " + std::string(currentOpponent->car->IsBumpersStripped() ? "Yes" : "No"));
+            AddDebugLine("offsetXAirScoop: " + std::to_string(offset.offsetXAirScoop) + " Y: " + std::to_string(offset.offsetYAirScoop));
+            AddDebugLine("offsetXRearTire: " + std::to_string(offset.offsetXRearTire));
+            AddDebugLine("offsetXFrontTire: " + std::to_string(offset.offsetXFrontTire));
+            AddDebugLine("offsetYTires: " + std::to_string(carBitmap->GetWheelsYOffset()));
+            AddDebugLine("offsetXDriver: " + std::to_string(offset.offsetXDriver) + " Y: " + std::to_string(offset.offsetYDriver));
+            AddDebugLine("offsetXChoppedRoof: " + std::to_string(offset.offsetXChoppedRoof));
+            AddDebugLine("offsetXFrontBumper: " + std::to_string(offset.offsetXFrontBumper) + " Y: " + std::to_string(offset.offsetYFrontBumper));
+            AddDebugLine("offsetXDecal: " + std::to_string(offset.offsetXDecal) + " Y: " + std::to_string(offset.offsetYDecal));
 
         }
 
-        debugOverlay->AddLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
+        AddDebugLine("Paused: " + std::string(isPaused ? "Yes" : "No"));
     }
 }
 

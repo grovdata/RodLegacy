@@ -12,6 +12,20 @@ meson setup build
 ninja -C build
 ```
 
+## Debug UI
+
+An optional Dear ImGui debug UI docks the game alongside inspector panels. It is
+off by default, so release builds link no ImGui at all. Enable it at build time
+and switch it on at run time:
+
+```
+meson setup build -Ddebug_ui=true    # or: meson configure build -Ddebug_ui=true
+ninja -C build
+./build/rodlegacy --debug
+```
+
+Both are required: `-Ddebug_ui=true` compiles it in, `--debug` opens the panels.
+
 # Tests
 
 ```

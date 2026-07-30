@@ -91,6 +91,7 @@ private:
 
         void DrawScene() override;
         void UpdateDebugInfo() override;
+        std::vector<DebugPanel> GetDebugPanels() override;
         bool PushEvent(SDL_Event *event) override;
 
         void SetState(DrivingState state);
