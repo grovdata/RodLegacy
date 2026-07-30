@@ -1439,27 +1439,72 @@ static constexpr int SR_DATA_CARSPEC_ENTRY_COUNT = 26; // 25 regular + King at i
 static constexpr int SR_DATA_KING_DRIVER_INDEX   = 21; // entry 21 = The King
 static constexpr int SR_DATA_KING_CARSPEC_INDEX  = 25; // spec 25 = The King's car
 
+// Both blocks are big-endian on disk, so multi-byte fields are kept as raw
+// byte pairs and read through accessors. Layout verified against every entry of
+// the shipped SR_data; see RodLegacyResearch/docs/formats/sr_data.md.
 #pragma pack(push, 1)
 struct SrDriverData {
-    uint8_t tier;       // [0] difficulty tier: 0=easy, 1=medium, 2=hard
-    uint8_t reaction;   // [1] reaction time 0x0A (fast) – 0x14 (slow)
-    uint8_t aggression; // [2] aggression 0x04 (low) – 0x0C (high)
-    uint8_t pad0;       // [3] always 0x00
-    char    name[6];    // [4..9] driver name, null-terminated within 6 bytes
+    uint8_t tier;         // [0] difficulty tier: 0=easy, 1=medium, 2=hard
+    // Both of the next two FALL as driver index rises, i.e. the driver index is
+    // the difficulty ranking and LOWER IS BETTER in both. The King (21) holds
+    // the minimum of each: reaction 0x0a, aggression 0x04.
+    uint8_t reaction;     // [1] 0x0a (fastest) .. 0x14 (slowest)
+    uint8_t aggression;   // [2] 0x04 (best) .. 0x0c (worst)
+    uint8_t reserved3;    // [3] always 0x00
+    uint8_t portrait[2];  // [4..5] BE lib.p driver portrait asset, ONE-BASED
+    uint8_t name_ptr[4];  // [6..9] BE pointer to the driver's name string
+
+    // There is no inline name in this record - the name lives behind name_ptr.
+    int PortraitAsset() const {
+        return ((portrait[0] << 8) | portrait[1]) - 1;
+    }
+    uint32_t NamePtr() const {
+        return (static_cast<uint32_t>(name_ptr[0]) << 24) |
+               (static_cast<uint32_t>(name_ptr[1]) << 16) |
+               (static_cast<uint32_t>(name_ptr[2]) << 8)  |
+                static_cast<uint32_t>(name_ptr[3]);
+    }
 };
 static_assert(sizeof(SrDriverData) == 10, "SrDriverData must be 10 bytes");
 
 // SR_data car spec block: 26 entries × 14 bytes = 364 bytes.
-// TODO: verify exact field layout against Amiga FUN_002435f0 (ComputeCarPerformanceScore inner).
+// Every field below is verified against all 26 entries of the shipped SR_data.
+// The config word's bit fields are corroborated by the Amiga itself: the game's
+// FUN_00243b9c expands exactly these fields into part indices before scoring,
+// and SetupChallengerEncounter 0x23d3e4 reads the word at +4 as
+// `(word & 0x0c00) >> 10` for the tire class.
 struct SrCarSpecEntry {
-    uint8_t street_cred;    // [0] car class 0-3 (street credibility / tier grouping)
-    uint8_t engine;         // [1] engine index (CarEngine_t, 0-8)
-    uint8_t transmission;   // [2] transmission index (SrTransmissionType, 0-12)
-    uint8_t carburetor;     // [3] carburetor index (0=2bbl, 1=4bbl, 2=racing)
-    uint8_t tires;          // [4] tire index (0=stock, 1=brand, 2=racing)
-    uint8_t condition;      // [5] body condition 0-3
-    uint8_t upgrade_flags;  // [6] bits 0-1 = engine/body upgrade availability
-    uint8_t pad[7];         // [7..13] unused
+    uint8_t price[2];       // [0..1] BE price in dollars; 0 = never for sale
+    uint8_t car_class;      // [2] 0..8 tier; correlates with price and spec
+    uint8_t reserved3;      // [3] always 0x00
+    uint8_t config[2];      // [4..5] BE packed config word, see accessors
+    uint8_t ad_text_ptr[4]; // [6..9] BE pointer to the classified-ad text
+    uint8_t ad_lines;       // [10] ad line count 1..3 (The King = 1)
+    uint8_t reserved11;     // [11] always 0x00
+    uint8_t body[2];        // [12..13] BE lib.p car body asset, ONE-BASED
+
+    int Price() const { return (price[0] << 8) | price[1]; }
+    // The King's car is the only one that is never for sale.
+    bool ForSale() const { return Price() != 0; }
+    int ConfigWord() const { return (config[0] << 8) | config[1]; }
+
+    // Packed config word. Bits 0..14 are all accounted for; bit 15 is always 0.
+    // Brand is stored as a bitmask (bit12=GM, bit13=Ford, bit14=Chrysler), and
+    // >>13 conveniently collapses that to 0/1/2 - which is what the Amiga does.
+    int Brand()         const { return (ConfigWord() >> 13) & 0x7; }  // 0=GM 1=Ford 2=Chrysler
+    int TireClass()     const { return (ConfigWord() >> 10) & 0x3; }  // 0..2
+    int TransClass()    const { return (ConfigWord() >> 8)  & 0x3; }  // 0..3
+    int ManifoldClass() const { return (ConfigWord() >> 6)  & 0x3; }  // 0..3
+    int EngineClass()   const { return (ConfigWord() >> 3)  & 0x7; }  // 0..7
+    int CarbClass()     const { return  ConfigWord()        & 0x7; }  // 0..2
+
+    int BodyAsset() const { return ((body[0] << 8) | body[1]) - 1; }
+    uint32_t AdTextPtr() const {
+        return (static_cast<uint32_t>(ad_text_ptr[0]) << 24) |
+               (static_cast<uint32_t>(ad_text_ptr[1]) << 16) |
+               (static_cast<uint32_t>(ad_text_ptr[2]) << 8)  |
+                static_cast<uint32_t>(ad_text_ptr[3]);
+    }
 };
 static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
 #pragma pack(pop)

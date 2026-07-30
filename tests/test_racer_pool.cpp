@@ -13,20 +13,25 @@ static SrDriverData MakeDriver(uint8_t tier, uint8_t reaction = 0x10,
     d.tier       = tier;
     d.reaction   = reaction;
     d.aggression = aggression;
-    d.pad0       = 0;
+    d.reserved3  = 0;
     return d;
 }
 
-static SrCarSpecEntry MakeSpec(uint8_t classification, uint8_t engine = 0,
-                               uint8_t trans = 0, uint8_t carb = 0,
-                               uint8_t tires = 0, uint8_t condition = 0) {
+// Builds a spec the way SR_data stores one: a class byte plus the packed config
+// word. See RodLegacyResearch/docs/formats/sr_data.md for the bit layout.
+static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
+                               int trans = 0, int carb = 0,
+                               int tires = 0, int manifold = 0,
+                               int brand = 0, int price = 500) {
     SrCarSpecEntry s{};
-    s.street_cred = classification;
-    s.engine         = engine;
-    s.transmission   = trans;
-    s.carburetor     = carb;
-    s.tires          = tires;
-    s.condition      = condition;
+    s.car_class = car_class;
+    s.price[0]  = static_cast<uint8_t>((price >> 8) & 0xff);
+    s.price[1]  = static_cast<uint8_t>(price & 0xff);
+    const int cfg = ((brand & 0x7) << 13) | ((tires & 0x3) << 10) |
+                    ((trans & 0x3) << 8)  | ((manifold & 0x3) << 6) |
+                    ((engine & 0x7) << 3) |  (carb & 0x7);
+    s.config[0] = static_cast<uint8_t>((cfg >> 8) & 0xff);
+    s.config[1] = static_cast<uint8_t>(cfg & 0xff);
     return s;
 }
 
@@ -40,14 +45,16 @@ static std::vector<SrDriverData> MakeDriverTable() {
     return v;
 }
 
-// 26 car specs: 7 class-0, 7 class-1, 7 class-2, 4 class-3, 1 King
+// 26 car specs. Tiering is car_class/3, so classes 0/3/6 land in tiers 0/1/2.
 static std::vector<SrCarSpecEntry> MakeCarSpecTable() {
     std::vector<SrCarSpecEntry> v;
-    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(0));
-    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(1));
-    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(2));
-    for (int i = 0; i < 4; ++i) v.push_back(MakeSpec(3));
-    v.push_back(MakeSpec(3, 8, 12, 2, 2, 3)); // King — index 25
+    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(0));  // tier 0
+    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(3));  // tier 1
+    for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(6));  // tier 2
+    for (int i = 0; i < 4; ++i) v.push_back(MakeSpec(8));  // tier 2 spares
+    // The King, index 25: fully specced, and never for sale (price 0).
+    v.push_back(MakeSpec(8, /*engine*/4, /*trans*/3, /*carb*/2, /*tires*/2,
+                         /*manifold*/2, /*brand*/0, /*price*/0));
     return v;
 }
 
@@ -57,42 +64,73 @@ static std::vector<SrCarSpecEntry> MakeCarSpecTable() {
 
 TEST_SUITE("ComputeCarPerformanceScore") {
 
-TEST_CASE("all-zero spec: base score 70 + class_bonus[0]=0") {
-    SrCarSpecEntry spec{};
-    CHECK(ComputeCarPerformanceScore(spec) == 70);
+// These no longer assert magic numbers. The old suite pinned the exact output
+// of a hand-rolled formula that was reading misaligned struct fields; scoring
+// now goes through srrace::ComputeBasePerformance (the real FUN_002435f0 port),
+// so what is worth asserting is the behaviour, not a constant.
+
+TEST_CASE("an all-stock spec scores the floor") {
+    // Not 70: a spec carries no weight or tune data, so it keeps CarSetup's
+    // defaults (weightClass 4, tuneOffset 0), which score above the bare 70
+    // floor of an all-worst setup. Assert the property rather than the number.
+    const SrCarSpecEntry stock{};
+    const int floorScore = ComputeCarPerformanceScore(stock);
+    CHECK(floorScore >= 70);
+    for (int engine = 0; engine < 8; ++engine) {
+        for (int trans = 0; trans < 4; ++trans) {
+            const auto better = MakeSpec(0, engine, trans, 2, 2, 3);
+            CHECK(ComputeCarPerformanceScore(better) >= floorScore);
+        }
+    }
 }
 
-TEST_CASE("classification 1 adds class bonus") {
-    auto spec = MakeSpec(1); // class_bonus[1] = 15
-    CHECK(ComputeCarPerformanceScore(spec) == 85);
+TEST_CASE("better parts score strictly higher, and the order is sane") {
+    const int stock = ComputeCarPerformanceScore(MakeSpec(0));
+    const int carb  = ComputeCarPerformanceScore(MakeSpec(0, 0, 0, 2));
+    const int loaded = ComputeCarPerformanceScore(
+        MakeSpec(8, /*engine*/1, /*trans*/3, /*carb*/2, /*tires*/2, /*manifold*/3));
+    CHECK(stock < carb);
+    CHECK(carb <= loaded);
+    CHECK(loaded > stock);
 }
 
-TEST_CASE("classification 2 adds larger class bonus") {
-    auto spec = MakeSpec(2); // class_bonus[2] = 30
-    CHECK(ComputeCarPerformanceScore(spec) == 100);
+TEST_CASE("score stays within the original's 0..130 range") {
+    // Every field at its widest, including values the config word can hold but
+    // CarSetup clamps (engine 7, manifold 3).
+    for (int engine = 0; engine < 8; ++engine) {
+        for (int trans = 0; trans < 4; ++trans) {
+            for (int manifold = 0; manifold < 4; ++manifold) {
+                const auto spec = MakeSpec(8, engine, trans, 2, 2, manifold);
+                const int score = ComputeCarPerformanceScore(spec);
+                CHECK(score >= 0);
+                CHECK(score <= 130);
+            }
+        }
+    }
 }
 
-TEST_CASE("score clamped at 130") {
-    // engine=8(+10) trans=12(+15) carb=2(+10) tires=2(+10) cond=3 class=3(+45)
-    // 70 + 10 + 15 + 10 + 10 + 3 + 45 = 163 → clamped to 130
-    auto spec = MakeSpec(3, 8, 12, 2, 2, 3);
-    CHECK(ComputeCarPerformanceScore(spec) == 130);
+TEST_CASE("config word packs and unpacks through the accessors") {
+    const auto spec = MakeSpec(5, /*engine*/5, /*trans*/2, /*carb*/1,
+                               /*tires*/2, /*manifold*/3, /*brand*/2,
+                               /*price*/1234);
+    CHECK(spec.car_class == 5);
+    CHECK(spec.Price() == 1234);
+    CHECK(spec.ForSale());
+    CHECK(spec.EngineClass() == 5);
+    CHECK(spec.TransClass() == 2);
+    CHECK(spec.CarbClass() == 1);
+    CHECK(spec.TireClass() == 2);
+    CHECK(spec.ManifoldClass() == 3);
+    CHECK(spec.Brand() == 2);
 }
 
-TEST_CASE("condition bytes add directly to score") {
-    auto spec = MakeSpec(0, 0, 0, 0, 0, 3);
-    CHECK(ComputeCarPerformanceScore(spec) == 73);
-}
-
-TEST_CASE("out-of-range indices do not access tables") {
-    SrCarSpecEntry spec{};
-    spec.engine       = 9;  // out of range for ENGINE_SCORE[9]
-    spec.transmission = 13; // out of range for TRANS_SCORE[13]
-    spec.carburetor   = 3;  // out of range for CARB_SCORE[3]
-    spec.tires        = 3;  // out of range for TIRE_SCORE[3]
-    spec.street_cred = 4; // out of range for CLASS_BONUS[4]
-    // None of the additions should apply
-    CHECK(ComputeCarPerformanceScore(spec) == 70);
+TEST_CASE("a price of zero means never for sale - only The King") {
+    auto table = MakeCarSpecTable();
+    REQUIRE(table.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
+    for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX; ++i) {
+        CHECK(table[i].ForSale());
+    }
+    CHECK_FALSE(table[SR_DATA_KING_CARSPEC_INDEX].ForSale());
 }
 
 } // TEST_SUITE
@@ -261,7 +299,7 @@ TEST_CASE("pink-slip win: entry replaced with lower-class car when available") {
     int class2_spec = -1;
     auto specs = MakeCarSpecTable();
     for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
-        if (specs[i].street_cred == 2) { class2_spec = i; break; }
+        if (specs[i].car_class == 6) { class2_spec = i; break; }
     }
     REQUIRE(class2_spec >= 0);
     rp.pool[0].car_spec_index = class2_spec;
@@ -277,7 +315,7 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     rp.Init(MakeDriverTable(), specs);
     int class2_spec = -1;
     for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
-        if (specs[i].street_cred == 2) { class2_spec = i; break; }
+        if (specs[i].car_class == 6) { class2_spec = i; break; }
     }
     REQUIRE(class2_spec >= 0);
     rp.pool[0].car_spec_index = class2_spec;
@@ -285,7 +323,7 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     rp.OnRaceWon(0, true);
     if (rp.pool[0].status == 0) {
         int new_spec = rp.pool[0].car_spec_index;
-        CHECK(specs[new_spec].street_cred < 2);
+        CHECK(specs[new_spec].car_class < 6);
     }
 }
 
@@ -381,11 +419,11 @@ TEST_CASE("parses SR_DATA_CARSPEC_ENTRY_COUNT entries") {
     const size_t driver_block  = SR_DATA_DRIVER_ENTRY_COUNT  * sizeof(SrDriverData);
     const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
     std::vector<uint8_t> buf(driver_block + carspec_block, 0);
-    // Set entry 0 classification to 2.
-    buf[driver_block + 0] = 2;
+    // Set entry 0's class byte (offset +2 in the record) to 2.
+    buf[driver_block + 2] = 2;
     auto result = parser.ParseCarSpecTable(buf);
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
-    CHECK(result[0].street_cred == 2);
+    CHECK(result[0].car_class == 2);
 }
 
 TEST_CASE("all 26 entries are parsed") {
@@ -394,12 +432,12 @@ TEST_CASE("all 26 entries are parsed") {
     const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
     std::vector<uint8_t> buf(driver_block + carspec_block, 0);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
-        buf[driver_block + i * sizeof(SrCarSpecEntry)] = static_cast<uint8_t>(i % 4);
+        buf[driver_block + i * sizeof(SrCarSpecEntry) + 2] = static_cast<uint8_t>(i % 4);
     }
     auto result = parser.ParseCarSpecTable(buf);
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
-        CHECK(result[i].street_cred == static_cast<uint8_t>(i % 4));
+        CHECK(result[i].car_class == static_cast<uint8_t>(i % 4));
     }
 }
 

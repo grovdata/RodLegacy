@@ -244,24 +244,19 @@ void State::SetNextOpponent(Opponent* opp) {
 }
 
 int State::GetPlayerScore() const {
-    SrCarSpecEntry playerSpec{};
+    // Scored the same way an opponent's car spec is (see racer_pool.cpp), just
+    // built from the player's actual installed parts instead of a packed config
+    // word. This no longer goes through SrCarSpecEntry: that struct is a raw
+    // 14-byte SR_data record, and faking one to carry player parts meant
+    // writing player values into fields that mean something else entirely.
+    srrace::CarSetup setup{};
     if (currentCar) {
-        playerSpec.engine       = static_cast<uint8_t>(currentCar->GetEngine().engineType);
-        playerSpec.transmission = static_cast<uint8_t>(currentCar->GetGearbox().partType.transmissionType);
-        playerSpec.carburetor   = static_cast<uint8_t>(currentCar->GetCarburator().partType.carburetorType);
-        playerSpec.tires        = static_cast<uint8_t>(currentCar->GetWheelType());
-        playerSpec.condition    = 0;
-
-        // Reverse-lookup asset index -> carspec index to get street cred.
-        int assetId = currentCar->GetModel().index;
-        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
-            if (kCarIndex[i] == assetId && i < static_cast<int>(srCarSpecData.size())) {
-                playerSpec.street_cred = srCarSpecData[i].street_cred;
-                break;
-            }
-        }
+        setup.engineClass   = static_cast<int>(currentCar->GetEngine().engineType);
+        setup.transClass    = static_cast<int>(currentCar->GetGearbox().partType.transmissionType);
+        setup.carbClass     = static_cast<int>(currentCar->GetCarburator().partType.carburetorType);
+        setup.tireClass     = static_cast<int>(currentCar->GetWheelType());
     }
-    return ComputeCarPerformanceScore(playerSpec);
+    return std::clamp(srrace::ComputeBasePerformance(setup), 0, 130);
 }
 
 int State::GetChallengerScore() const {

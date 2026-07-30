@@ -1,31 +1,45 @@
 #include "racer_pool.h"
+#include "race/race_sim.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
 // ============================================================================
 // ComputeCarPerformanceScore
-// Approximates Amiga FUN_00243b9c (outer) / FUN_002435f0 (inner).
-// The Amiga uses two compiled-in A4-relative tables with percentage-based
-// arithmetic (muls #0x19 / divs #0x64). This is a disk-data approximation.
-// See re_scoring.md for full RE findings.
+// This is the Amiga's FUN_00243b9c: unpack the car spec's config word into part
+// classes, score them, and cap the result at 0x82 (130).
+//
+// The scoring itself is FUN_002435f0, which is already ported as
+// srrace::ComputeBasePerformance - so this just feeds it. The old version here
+// was a hand-rolled approximation reading misaligned struct fields (it summed
+// the price's high byte, the class byte and the config word's low byte), which
+// is why it is gone rather than adjusted.
 // ============================================================================
 
-static const int ENGINE_SCORE[9]  = { 0,  5, 10,  0,  5, 10,  0,  5, 10 };
-static const int TRANS_SCORE[13]  = { 0,  0,  0,  5,  5,  5, 10, 10, 10, 10, 15, 15, 15 };
-static const int CARB_SCORE[3]    = { 0,  5, 10 };
-static const int TIRE_SCORE[3]    = { 0,  5, 10 };
-static const int CLASS_BONUS[4]   = { 0, 15, 30, 45 };
+srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
+    srrace::CarSetup setup{};
+    setup.carbClass     = spec.CarbClass();
+    setup.transClass    = spec.TransClass();
+    setup.engineClass   = spec.EngineClass();
+    setup.manifoldClass = spec.ManifoldClass();
+    setup.tireClass     = spec.TireClass();
+    // The spec carries no weight, tune or wear data - a listed car is untuned
+    // and unworn, so those keep CarSetup's defaults.
+    //
+    // CAVEAT: the config word's BIT LAYOUT is verified, but mapping its fields
+    // onto CarSetup's classes is not. The Amiga expands each field into a part
+    // index (`brand + class*3 + base`, FUN_00243b9c) before scoring, so
+    // SR_data's engine field is an engine *variant* 0..7 while CarSetup's
+    // engineClass is a 0..3 row of the engine/manifold matrix; manifold is 0..3
+    // here against 0..4 there. ComputeBasePerformance clamps both, so this is
+    // safe but may compress the top of the range. Still strictly better than
+    // what this replaced, which read misaligned bytes outright.
+    return setup;
+}
 
 int ComputeCarPerformanceScore(const SrCarSpecEntry& spec) {
-    int score = 70;
-    if (spec.engine         < 9)  score += ENGINE_SCORE[spec.engine];
-    if (spec.transmission   < 13) score += TRANS_SCORE[spec.transmission];
-    if (spec.carburetor     < 3)  score += CARB_SCORE[spec.carburetor];
-    if (spec.tires          < 3)  score += TIRE_SCORE[spec.tires];
-    score += spec.condition;
-    if (spec.street_cred < 4)  score += CLASS_BONUS[spec.street_cred];
-    return std::clamp(score, 0, 130);
+    // 0x82 is the original's cap, applied by FUN_00243b9c after the inner call.
+    return std::clamp(srrace::ComputeBasePerformance(CarSetupFromSpec(spec)), 0, 130);
 }
 
 // ============================================================================
@@ -45,10 +59,14 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
         tier_drivers[t].push_back(i);
     }
 
-    // Group car spec indices (0..24) by their classification byte.
+    // Group car spec indices (0..24) into three tiers by their class byte, which
+    // runs 0..8 - so three classes per tier. This used to read a field that was
+    // really the price's high byte (0..14, then clamped to 2), which put 23 of
+    // the 25 specs in tier 2 and left tier 0 empty; most pool slots then fell
+    // back to spec 0. The real class byte splits ~8/8/8.
     std::vector<int> tier_specs[3];
     for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs.size()); ++i) {
-        int c = std::min<int>(car_specs[i].street_cred, 2);
+        int c = std::min<int>(car_specs[i].car_class / 3, 2);
         tier_specs[c].push_back(i);
     }
 
@@ -121,7 +139,7 @@ int RacerPool::FindReplacementCarSpec(int beaten_classification) const {
         if (e.status != -1) used.push_back(e.car_spec_index);
     }
     for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs_.size()); ++i) {
-        if (static_cast<int>(car_specs_[i].street_cred) < beaten_classification) {
+        if (static_cast<int>(car_specs_[i].car_class) < beaten_classification) {
             if (std::find(used.begin(), used.end(), i) == used.end()) {
                 return i;
             }
@@ -139,7 +157,7 @@ void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
     }
 
     int beaten_class = (pool[winner_pool_index].car_spec_index < static_cast<int>(car_specs_.size()))
-                       ? car_specs_[pool[winner_pool_index].car_spec_index].street_cred
+                       ? car_specs_[pool[winner_pool_index].car_spec_index].car_class
                        : 0;
 
     int replacement = FindReplacementCarSpec(beaten_class);

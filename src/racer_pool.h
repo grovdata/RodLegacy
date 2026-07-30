@@ -14,7 +14,8 @@ struct RacerEntry {
     int8_t status;          // 0=active, 1=currently challenging, -1=eliminated
 };
 
-// Approximates Amiga ComputeCarPerformanceScore (FUN_00243b9c / FUN_002435f0).
+// Amiga FUN_00443b9c/FUN_002435f0: unpacks the spec config word and scores it
+// via srrace::ComputeBasePerformance, capped at 130.
 // Current formula: base 70 + engine + trans + carb + tire + condition + class_bonus, clamped [0,130].
 // The Amiga uses a two-level compiled-in table with percentage-based arithmetic (x25/100),
 // which is architecturally different from this disk-data-based approximation.
