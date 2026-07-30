@@ -9,6 +9,9 @@ struct Driver {
     int preferredCar;
     int spriteIndex;
     int stringOffsetName;
+    // Row this driver came from in SR_data's driver block, or -1 when the
+    // table was unavailable and the fallback list was used.
+    int srDriverIndex = -1;
     std::string customDriverPath;
 };
 

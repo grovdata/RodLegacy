@@ -1801,6 +1801,36 @@ std::vector<SrDriverData> DataParser::ParseDriverData(const std::vector<uint8_t>
     return result;
 }
 
+std::vector<std::string> DataParser::ParseDriverNames(const std::vector<uint8_t>& sr_data) {
+    std::vector<std::string> names;
+    const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    if (sr_data.size() < driver_block + carspec_block) return names;
+
+    // The first car spec's ad text is the start of the blob, which recovers the
+    // load base the absolute pointers are relative to.
+    SrCarSpecEntry firstSpec;
+    memcpy(&firstSpec, sr_data.data() + driver_block, sizeof(SrCarSpecEntry));
+    const uint32_t base = firstSpec.AdTextPtr() - SR_DATA_TEXT_BLOB_OFFSET;
+
+    names.reserve(SR_DATA_DRIVER_ENTRY_COUNT);
+    for (int i = 0; i < SR_DATA_DRIVER_ENTRY_COUNT; ++i) {
+        SrDriverData entry;
+        memcpy(&entry, sr_data.data() + i * sizeof(SrDriverData), sizeof(SrDriverData));
+        const uint32_t ptr = entry.NamePtr();
+        std::string name;
+        if (ptr >= base) {
+            size_t off = ptr - base;
+            while (off < sr_data.size() && sr_data[off] != 0 && name.size() < 32) {
+                name.push_back(static_cast<char>(sr_data[off]));
+                ++off;
+            }
+        }
+        names.push_back(name);
+    }
+    return names;
+}
+
 std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTable(const std::vector<uint8_t>& sr_data) {
     std::vector<SrCarSpecEntry> result;
     const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);

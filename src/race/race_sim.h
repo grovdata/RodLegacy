@@ -119,12 +119,27 @@ struct CarState {
 };
 
 // NPC AI extras.
+// What the opponent's engine logic decided on the last tick. Purely for the
+// debug UI; nothing in the sim reads it back.
+enum class NpcBranch : uint8_t {
+    Accelerating,   // nothing capping it
+    HoldingLevel,   // eased off to player speed + 16 while alongside
+    CruisingAhead,  // eased off to its cruise, well clear of the player
+    CopClosingCap,  // cop holding station at player speed + 32
+    CorneringHold,  // in a curve, rpm untouched
+};
+
 struct NpcState {
     int16_t lateralTarget = 2400;
     int16_t targetSpeedNormal = 0;  // perf*70/100
     int16_t targetSpeedRisky = 0;   // perf*80/100
     int16_t stallTicks = 0;
     bool gaveUp = false;
+
+    NpcBranch branch = NpcBranch::Accelerating;
+    bool throttle = false;
+    bool shifted = false;
+    int16_t branchTarget = 0;   // the speed it eased to, when it eased
 };
 
 class RaceSim {
@@ -249,6 +264,9 @@ private:
     void SpawnCop();
     void UpdateCopPursuit();
     void ApplyCopRaceEnd();
+    // FUN_0024441c: re-gears the opponent and snaps it to a speed, rather than
+    // decelerating toward it.
+    void NpcSettleAtSpeed(int targetSpeed);
     void NpcEngine();
     void NpcAiUpdate();
     void EngineTick(CarState& car, const CarTables& tables, bool throttle,
@@ -277,6 +295,7 @@ private:
     bool copSirenOn = false;
     int16_t copCaughtSpeed = 0;   // speed at capture; sets the fine tier
     bool invulnerable = false;
+    bool kingRace = false;
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;

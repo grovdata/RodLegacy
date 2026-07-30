@@ -185,8 +185,19 @@ static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     session.rows.push_back({"date", state.GetGameDateString()});
     session.rows.push_back({"hours", std::to_string(state.GetGameHours())});
     session.rows.push_back({"bankroll", "$" + std::to_string(state.GetBankroll())});
-    session.rows.push_back({"score", std::to_string(state.GetPlayerScore())});
-    session.rows.push_back({"challenger score", std::to_string(state.GetChallengerScore())});
+    // Both scores are car performance on the same 70..130 scale; the pool picks
+    // challengers whose score is nearest the player's.
+    session.rows.push_back({"car score", std::to_string(state.GetPlayerScore())});
+    session.rows.push_back({"challenger car score", std::to_string(state.GetChallengerScore())});
+
+    const Reputation& rep = state.GetReputation();
+    session.rows.push_back({"races", ""});
+    session.rows.push_back({"won", std::to_string(rep.races_won()) + " of " +
+                                   std::to_string(rep.races_completed)});
+    session.rows.push_back({"drag", std::to_string(rep.drag_wins) + " won, rep " +
+                                    std::to_string(rep.drag_rep)});
+    session.rows.push_back({"road", std::to_string(rep.road_wins) + " won, rep " +
+                                    std::to_string(rep.road_rep)});
 
     session.rows.push_back({"input", ""});
     for (const DebugRow& row : mouse.GetGamepadDebugRows()) {
@@ -293,7 +304,11 @@ int main(int argc, char* argv[]) {
     LOG_INFO("Creating window: %dx%d (%s)", windowWidth, windowHeight,
             useOriginalSize ? "original size" : "4x upscaled");
 
-    win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, 0);
+    // Resizable only with --debug: the debug UI wants room to drag panels
+    // around, while the plain game keeps its fixed presentation.
+    const Uint32 windowFlags = debugMode ? SDL_WINDOW_RESIZABLE : 0;
+    win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                           windowWidth, windowHeight, windowFlags);
     if (!win) {
         LOG_INFO("error creating window: %s\n", SDL_GetError());
         SDL_Quit();

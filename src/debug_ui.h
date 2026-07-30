@@ -35,6 +35,13 @@ struct DebugToggle {
     bool* value = nullptr;  // not owned
 };
 
+// A lamp: a small labelled box drawn lit while active, for showing live input
+// state. Declared as data so producers stay free of ImGui, same as DebugToggle.
+struct DebugIndicator {
+    std::string label;
+    bool active = false;
+};
+
 // A docked panel: toggles, then a key/value table, then any free-form lines.
 // `rows` and `toggles` come last so existing brace initialisations that pass
 // title/lines/dock still compile; assign them afterwards.
@@ -44,6 +51,12 @@ struct DebugPanel {
     DebugDock dock = DebugDock::Right;
     std::vector<DebugRow> rows;
     std::vector<DebugToggle> toggles;
+    // Optional image drawn above everything else, e.g. a driver portrait. Not
+    // owned; must outlive the frame. Scaled to imageScale x its native size.
+    SDL_Texture* image = nullptr;
+    int imageScale = 2;
+    // Drawn as a row of lamps under the table.
+    std::vector<DebugIndicator> indicators;
 };
 
 // True while a debug UI text field has keyboard focus. Code that polls

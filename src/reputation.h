@@ -6,13 +6,22 @@ struct Reputation {
     int drag_rep = 0;
     int road_rep = 0;
     int races_completed = 0;
+    // Wins are counted separately: drag_rep/road_rep rise by 1 on a win but fall
+    // by 3/2 on a loss, so they are reputation and cannot be read as a tally.
+    int drag_wins = 0;
+    int road_wins = 0;
     bool last_race_won = false;
 
+    int races_won() const { return drag_wins + road_wins; }
+
     void RecordWin(RaceType type) {
-        if (type == RaceType::Drag)
+        if (type == RaceType::Drag) {
             drag_rep += 1;
-        else
+            drag_wins += 1;
+        } else {
             road_rep += 1;
+            road_wins += 1;
+        }
         races_completed += 1;
         last_race_won = true;
     }

@@ -1437,6 +1437,10 @@ enum SrTransmissionType {
 static constexpr int SR_DATA_DRIVER_ENTRY_COUNT  = 22;
 static constexpr int SR_DATA_CARSPEC_ENTRY_COUNT = 26; // 25 regular + King at index 25
 static constexpr int SR_DATA_KING_DRIVER_INDEX   = 21; // entry 21 = The King
+// Start of the text blob the driver/car-spec records point into. The records
+// store absolute addresses, so the load base is recovered by anchoring the first
+// car spec's pointer to this offset.
+static constexpr int SR_DATA_TEXT_BLOB_OFFSET    = 0x854;
 static constexpr int SR_DATA_KING_CARSPEC_INDEX  = 25; // spec 25 = The King's car
 
 // Both blocks are big-endian on disk, so multi-byte fields are kept as raw
@@ -1541,6 +1545,9 @@ class DataParser {
         // sr_data must be the raw SR_data file bytes (driver block first, then car spec block).
         std::vector<SrDriverData>   ParseDriverData(const std::vector<uint8_t>& sr_data);
         std::vector<SrCarSpecEntry> ParseCarSpecTable(const std::vector<uint8_t>& sr_data);
+        // Driver names, resolved through the name pointers in the driver block.
+        // Same order and length as ParseDriverData(); empty on a short file.
+        std::vector<std::string> ParseDriverNames(const std::vector<uint8_t>& sr_data);
 };
 
 

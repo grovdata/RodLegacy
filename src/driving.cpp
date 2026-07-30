@@ -736,6 +736,43 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
             racingPanel.lines = {"F9 enter flyby"};
         }
         panels.push_back(std::move(racingPanel));
+
+        // Who we are actually racing: identity and driver stats from the roster
+        // and SR_data, plus what their AI is doing right now.
+        DebugPanel opponent{"Opponent", {}};
+        const Opponent* opp = state.GetCurrentOpponent();
+        if (opp != nullptr) {
+            opponent.rows.push_back({"driver", ""});
+            opponent.rows.push_back({"name", opp->driver.name});
+
+            Bitmap* portrait = state.GetAssets().GetBitmapAsset(
+                {LibAssetRegular, SrLibFileAmigaLibP,
+                 static_cast<AmigaLibAsset>(opp->driver.spriteIndex)});
+            if (portrait != nullptr) {
+                opponent.image = portrait->GetTexture();
+            }
+
+            const SrDriverData* driverData = state.GetCurrentDriverData();
+            if (driverData != nullptr) {
+                // Both stats fall as skill rises - lower is better in each.
+                opponent.rows.push_back(
+                    {"tier", std::to_string(driverData->tier) + " (0 easy .. 2 hard)"});
+                opponent.rows.push_back(
+                    {"reaction", std::to_string(driverData->reaction) + " (0x0a best)"});
+                opponent.rows.push_back(
+                    {"aggression", std::to_string(driverData->aggression) + " (0x04 best)"});
+            } else {
+                opponent.rows.push_back({"stats", "no SR_data row"});
+            }
+        } else {
+            opponent.rows.push_back({"driver", "none"});
+        }
+
+        for (const DebugRow& row : racing->GetOpponentDebugRows()) {
+            opponent.rows.push_back(row);
+        }
+        opponent.indicators = racing->GetOpponentIndicators();
+        panels.push_back(std::move(opponent));
     }
     return panels;
 }

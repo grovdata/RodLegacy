@@ -1768,20 +1768,20 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     std::snprintf(buf, sizeof(buf), "0x%04x", static_cast<unsigned>(track.right[seg]));
     out.push_back({"right object", buf});
 
-    if (!flybyMode) {
-        out.push_back({"player car", ""});
-        out.push_back({"speed", std::to_string(static_cast<int>(player.speed)) + " mph"});
-        out.push_back({"rpm", std::to_string(static_cast<int>(player.rpm))});
-        out.push_back({"gear", std::to_string(static_cast<int>(player.gear))});
-        out.push_back({"scroll step", std::to_string(static_cast<int>(player.scrollStep))});
-        out.push_back({"lap distance", std::to_string(player.distanceAcc)});
-    }
+    out.push_back({"player car", ""});
+    out.push_back({"speed", std::to_string(static_cast<int>(player.speed)) + " mph"});
+    out.push_back({"rpm", std::to_string(static_cast<int>(player.rpm))});
+    out.push_back({"gear", std::to_string(static_cast<int>(player.gear))});
+    out.push_back({"scroll step", std::to_string(static_cast<int>(player.scrollStep))});
+    out.push_back({"lap distance", std::to_string(player.distanceAcc)});
 
     if (lastVisibleRow >= 0 && lastVisibleRow < static_cast<int>(rows.size())) {
         const RowProjection& row = rows[static_cast<size_t>(lastVisibleRow)];
         std::snprintf(buf, sizeof(buf), "seg %d  y %d  L %d  R %d  d %d",
                       row.seg, row.y, row.leftX, row.rightX, row.distance);
         out.push_back({"far row", buf});
+    } else {
+        out.push_back({"far row", "-"});
     }
 
     // Opponent. The gap is the same fine measure the contact and LOD code use:
@@ -1806,27 +1806,95 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     // all this race - see RodLegacyResearch/docs/driving/cop.md.
     const int copState = sim.CopState();
     out.push_back({"cop", ""});
-    if (sim.RaceType() == 0) {
-        out.push_back({"can appear", "no (drag race)"});
-    } else if (copState == 0) {
-        out.push_back({"can appear", "no (roll failed)"});
-    } else {
-        out.push_back({"can appear", "yes"});
-        out.push_back({"trigger seg", std::to_string(sim.CopTriggerSegment())});
+    // Always the same three rows, whatever the answer: a row that comes and goes
+    // shifts everything below it every time the state changes.
+    const bool copPossible = sim.RaceType() != 0 && copState != 0;
+    out.push_back({"can appear", sim.RaceType() == 0 ? "no (drag race)"
+                                 : copState == 0     ? "no (roll failed)"
+                                                     : "yes"});
+    out.push_back({"trigger seg",
+                   copPossible ? std::to_string(sim.CopTriggerSegment()) : std::string("-")});
+    if (copPossible) {
         const int toTrigger = sim.CopTriggerSegment() - static_cast<int>(player.segPos);
         out.push_back({"to trigger", toTrigger > 0 ? std::to_string(toTrigger) + " seg"
-                                                   : "passed"});
+                                                   : std::string("passed")});
+    } else {
+        out.push_back({"to trigger", "-"});
     }
     const char* copStateName = copState == 0   ? "not armed"
                                : copState == 1 ? "armed, waiting"
                                : copState == 2 ? "pursuing"
                                                : "pursuing, siren on";
     out.push_back({"state", copStateName});
-    if (sim.PlayerBusted()) {
-        out.push_back({"busted at", std::to_string(sim.CopCaughtSpeed()) + " mph"});
-        out.push_back({"fine", "$" + std::to_string(sim.SpeedingFine())});
-    }
+    out.push_back({"busted at", sim.PlayerBusted()
+                                    ? std::to_string(sim.CopCaughtSpeed()) + " mph"
+                                    : std::string("-")});
+    out.push_back({"fine", sim.PlayerBusted() ? "$" + std::to_string(sim.SpeedingFine())
+                                              : std::string("-")});
     return out;
+}
+
+std::vector<DebugRow> Racing::GetOpponentDebugRows() const {
+    std::vector<DebugRow> out;
+    const srrace::CarState& player = sim.Player();
+    const srrace::CarState& npc = sim.Npc();
+    const srrace::NpcState& ai = sim.NpcAi();
+
+    const char* branch = "accelerating";
+    switch (ai.branch) {
+        case srrace::NpcBranch::HoldingLevel:  branch = "holding level (player +16)"; break;
+        case srrace::NpcBranch::CruisingAhead: branch = "clear ahead, cruising"; break;
+        case srrace::NpcBranch::CopClosingCap: branch = "cop cap (player +32)"; break;
+        case srrace::NpcBranch::CorneringHold: branch = "in a curve, holding"; break;
+        case srrace::NpcBranch::Accelerating:  break;
+    }
+
+    out.push_back({"driving", ""});
+    out.push_back({"decision", branch});
+    out.push_back({"eased to", ai.branchTarget > 0
+                                   ? std::to_string(ai.branchTarget) + " mph"
+                                   : std::string("-")});
+    out.push_back({"gave up", ai.gaveUp ? "yes" : "no"});
+    out.push_back({"stalled", ai.stallTicks > 0
+                                  ? std::to_string(ai.stallTicks) + " ticks"
+                                  : std::string("-")});
+
+    out.push_back({"steering", ""});
+    out.push_back({"lane target", std::to_string(ai.lateralTarget)});
+    out.push_back({"lateral", std::to_string(static_cast<int>(npc.lateral))});
+
+    out.push_back({"car", ""});
+    out.push_back({"speed", std::to_string(static_cast<int>(npc.speed)) + " mph"});
+    out.push_back({"rpm", std::to_string(static_cast<int>(npc.rpm))});
+    out.push_back({"gear", std::to_string(static_cast<int>(npc.gear))});
+    out.push_back({"cruise / risky", std::to_string(ai.targetSpeedNormal) + " / " +
+                                     std::to_string(ai.targetSpeedRisky)});
+    out.push_back({"performance", std::to_string(sim.NpcTables().perfScore)});
+
+    const int segGap = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
+    out.push_back({"gap", std::to_string(segGap) + " seg"});
+    return out;
+}
+
+std::vector<DebugIndicator> Racing::GetOpponentIndicators() const {
+    const srrace::CarState& npc = sim.Npc();
+    const srrace::NpcState& ai = sim.NpcAi();
+
+    // Same deadband the steering itself uses, so the lamp matches what the car
+    // is actually doing rather than flickering on tiny corrections.
+    const int latDelta = ai.lateralTarget - npc.lateral;
+    const bool left = latDelta < -8;
+    const bool right = latDelta > 8;
+
+    return {
+        {"<<", left},
+        {"--", !left && !right},
+        {">>", right},
+        {"GAS", ai.throttle},
+        {"SHIFT", ai.shifted},
+        {"EASED", ai.branch != srrace::NpcBranch::Accelerating &&
+                  ai.branch != srrace::NpcBranch::CorneringHold},
+    };
 }
 
 bool Racing::SaveRoadViewPng(std::string* savedPath) {

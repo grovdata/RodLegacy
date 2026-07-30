@@ -233,20 +233,44 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     return car;
 }
 
+void Roster::SetDriverTable(const std::vector<SrDriverData>& drivers,
+                           const std::vector<std::string>& names) {
+    srDrivers = drivers;
+    srDriverNames = names;
+    nextSrDriver = 0;
+}
+
 Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> spriteIndexDist(DRIVER_01, DRIVER_01 + DRIVER_COUNT - 1);
     Driver driver;
-    driver.name = stockDriverNames.back();
-    if (driver.name == "Erica") {
-        driver.spriteIndex = DRIVER_22;
+    // Name and portrait are a pair held in SR_data - the portrait is a stored
+    // per-driver assignment, not a sequential run, so it cannot be derived from
+    // the name's position and must not be picked at random.
+    const bool haveSrDrivers =
+        nextSrDriver < static_cast<int>(srDrivers.size()) &&
+        nextSrDriver < static_cast<int>(srDriverNames.size()) &&
+        nextSrDriver < SR_DATA_KING_DRIVER_INDEX;
+    if (haveSrDrivers) {
+        driver.srDriverIndex = nextSrDriver;
+        driver.name = srDriverNames[nextSrDriver];
+        driver.spriteIndex = srDrivers[nextSrDriver].PortraitAsset();
+        ++nextSrDriver;
+        if (!stockDriverNames.empty()) {
+            stockDriverNames.pop_back();
+        }
     } else {
-        do {
-            driver.spriteIndex = spriteIndexDist(gen);
-        } while (driver.spriteIndex == DRIVER_22);
+        driver.name = stockDriverNames.back();
+        if (driver.name == "Erica") {
+            driver.spriteIndex = DRIVER_22;
+        } else {
+            do {
+                driver.spriteIndex = spriteIndexDist(gen);
+            } while (driver.spriteIndex == DRIVER_22);
+        }
+        stockDriverNames.pop_back();
     }
-    stockDriverNames.pop_back();
     driver.preferredCar = preferredCarIndex;
 
     if (!customDriverPaths.empty()) {
@@ -271,14 +295,15 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
 
 Opponent* Roster::GetNextOpponent() {
     if (forcedNextOpponent) {
-        Opponent* opp = forcedNextOpponent;
+        activeOpponent = forcedNextOpponent;
         forcedNextOpponent = nullptr;
-        return opp;
+        return activeOpponent;
     }
     if (currentOpponent == opponents.end()) {
         currentOpponent = opponents.begin();  // Wrap around to start
     }
-    return &*(currentOpponent++);
+    activeOpponent = &*(currentOpponent++);
+    return activeOpponent;
 }
 
 void Roster::AddKnownOpponent(Opponent* opp) {
@@ -319,10 +344,10 @@ void Roster::ShuffleOpponents() {
 }
 
 Opponent* Roster::GetCurrentOpponent() {
-    if (currentOpponent != opponents.end()) {
-        return &(*currentOpponent);
-    }
-    return nullptr;
+    // The opponent handed out by GetNextOpponent(), not wherever the iterator
+    // now points: it is post-incremented past them, and a forced pick never
+    // moves it at all. Null until one has been handed out.
+    return activeOpponent;
 }
 
 Opponent* Roster::GetOpponentByIndex(int index) {

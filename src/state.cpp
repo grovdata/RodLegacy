@@ -41,6 +41,10 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
                      srDriverData.size(), srCarSpecData.size());
         }
 
+        // Give the roster the real driver table before it builds opponents, so
+        // names and portraits come from the data rather than a random sprite.
+        roster.SetDriverTable(srDriverData, dataParser.ParseDriverNames(assets.GetSrData()));
+
         // Initialize roster
         roster.Initialize(carData);
 
@@ -256,6 +260,27 @@ int State::GetPlayerScore() const {
         setup.tireClass     = static_cast<int>(currentCar->GetWheelType());
     }
     return std::clamp(srrace::ComputeBasePerformance(setup), 0, 130);
+}
+
+const SrDriverData* State::GetCurrentDriverData() {
+    // The opponent carries the SR_data row it was built from, which is valid
+    // whoever selected them. The pool index only exists when the pool picked
+    // this challenger, so it is the fallback rather than the primary lookup.
+    const Opponent* opp = GetCurrentOpponent();
+    if (opp != nullptr && opp->driver.srDriverIndex >= 0 &&
+        opp->driver.srDriverIndex < static_cast<int>(srDriverData.size())) {
+        return &srDriverData[opp->driver.srDriverIndex];
+    }
+
+    if (lastChallengerPoolIndex < 0 || lastChallengerPoolIndex >= RACER_POOL_SIZE ||
+        lastChallengerPoolIndex >= static_cast<int>(racerPool.pool.size())) {
+        return nullptr;
+    }
+    const int driverIndex = racerPool.pool[lastChallengerPoolIndex].driver_index;
+    if (driverIndex < 0 || driverIndex >= static_cast<int>(srDriverData.size())) {
+        return nullptr;
+    }
+    return &srDriverData[driverIndex];
 }
 
 int State::GetChallengerScore() const {

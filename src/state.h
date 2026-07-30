@@ -127,6 +127,10 @@ public:
     bool OnRaceFinished(RaceType raceType, bool won, bool pink_slip = false);
 
     Reputation& GetReputation() { return reputation; }
+    // SR_data driver row (tier / reaction / aggression) for the challenger the
+    // pool last selected, or nullptr when there is no pool-backed challenger.
+    const SrDriverData* GetCurrentDriverData();
+    int GetLastChallengerPoolIndex() const { return lastChallengerPoolIndex; }
     RacerPool&  GetRacerPool()  { return racerPool; }
 
     // Performance scores for bet-acceptance logic.

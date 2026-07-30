@@ -167,8 +167,9 @@ int SpeedToScrollStep(int speedMph) {
 
 void RaceSim::Init(const TrackData* newTrack, int newRaceType,
                    const CarSetup& newPlayerSetup, const CarSetup& newNpcSetup,
-                   uint32_t rngSeed, bool kingRace) {
+                   uint32_t rngSeed, bool isKingRace) {
     track = newTrack;
+    kingRace = isKingRace;
     raceType = (newRaceType == 0) ? 0 : 1;
     finishSeg = (raceType == 0) ? DRAG_FINISH_SEG : ROAD_FINISH_SEG;
     playerSetup = newPlayerSetup;
@@ -1026,52 +1027,109 @@ void RaceSim::NpcAiUpdate() {
     }
 }
 
+// FUN_0024441c. The original does not decelerate an opponent toward a target:
+// it walks up from first gear to whichever gear puts the resulting rpm inside
+// its power band, then assigns the speed outright.
+void RaceSim::NpcSettleAtSpeed(int targetSpeed) {
+    targetSpeed = ClampValue(targetSpeed, 0, 130);
+    int gear = 1;
+    while (gear < npcTables.numGears &&
+           (targetSpeed * npcTables.ratio[gear]) / 100 > npcTables.rows[gear][2].rpmThreshold) {
+        ++gear;
+    }
+    npc.gear = static_cast<int16_t>(gear);
+    npc.speed = static_cast<int16_t>(targetSpeed);
+    npc.rpm = static_cast<int16_t>(
+        ClampValue((targetSpeed * npcTables.ratio[gear]) / 100, 1500, 5700));
+}
+
+// UpdateNPCEngine 0x2444c2. Three outcomes rather than one speed cap: ease off
+// to a target, hold station under the cop's closing cap, or accelerate. Which
+// one applies depends on where the opponent is relative to the player, and the
+// whole thing only runs on straights - through a curve the original leaves the
+// rpm alone, so the car simply holds its speed.
 void RaceSim::NpcEngine() {
-    const int segDiff = npc.segPos - player.segPos;
+    const int segDiff = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
     if (segDiff >= 4 && rng.Next(64) == 0) {
         npc.rpm = static_cast<int16_t>(std::max(1500, npc.rpm - 300));
         npcAi.stallTicks = 2;
     }
 
-    int targetSpeed = (player.segPos > npc.segPos) ? npcAi.targetSpeedRisky : npcAi.targetSpeedNormal;
-    if (std::abs(segDiff) <= 5) {
-        targetSpeed += 16;
-    }
-    targetSpeed = ClampValue(targetSpeed, 0, 130);
+    const int seg = ClampTrackIndex(npc.segPos);
+    const int segNext = ClampTrackIndex(npc.segPos + 1);
+    const bool onStraight = track->curve[seg] == track->curve[segNext];
 
-    // A chasing cop is not held to its own cruising target. In the original the
-    // ease-off only applies when the opponent is level with the player or 13+
-    // segments ahead of them; a cop closing from behind hits neither case, so
-    // the only thing limiting it is the +32 closing cap below
-    // (UpdateNPCEngine 0x2444c2). Without this it can never catch a player who
-    // is quicker than its own cruising speed.
-    if (copState >= 2) {
-        targetSpeed = std::max(targetSpeed, static_cast<int>(player.speed) + 32);
-        targetSpeed = ClampValue(targetSpeed, 0, 130);
-    }
-
-    bool throttle = !npcAi.gaveUp && (npc.speed < targetSpeed);
-    if (npcAi.stallTicks > 0) {
-        throttle = false;
-        npcAi.stallTicks -= 1;
-    }
-
-    // The closing cap itself: once the player is doing 51+, the cop stops
-    // accelerating past player.speed + 32 so it closes at a bounded rate rather
-    // than teleporting up behind them. Below 51 it accelerates freely.
-    if (copState >= 2 && player.speed >= 51 && npc.speed > player.speed + 32) {
-        throttle = false;
-    }
-
-    const bool shift = throttle &&
-        ((npc.gear == 0) ||
-         (npc.gear < npcTables.numGears && npc.rpm >= npcTables.autoShiftRpm));
     const int16_t speedBefore = npc.speed;
-    EngineTick(npc, npcTables, throttle, false, shift);
+    bool settled = false;
+    npcAi.branch = onStraight ? NpcBranch::Accelerating : NpcBranch::CorneringHold;
+    npcAi.throttle = false;
+    npcAi.shifted = false;
+    npcAi.branchTarget = 0;
 
-    // The opponent's roll-out is its own rule, not the player's: past the line
-    // it sheds a flat 5 mph a tick, or 10 while it is still close to the player
-    // (UpdateNPCEngine 0x2444c2 tail), applied to the speed it had coming in.
+    if (onStraight) {
+        // The King never eases off for being far ahead in a road race: it stays
+        // in the level branch whatever the gap, so nothing throttles it back.
+        if (segDiff < 13 || (raceType == 1 && kingRace)) {
+            // Level with the player: run 16 mph up on them, but never below the
+            // car's own cruising pace. This is the rubber band that keeps a
+            // close race close.
+            if (segDiff > -5 && segDiff < 5) {
+                int target = static_cast<int>(player.speed) + 16;
+                if (target < npcAi.targetSpeedNormal) {
+                    target = npcAi.targetSpeedNormal;
+                }
+                if (target < npc.speed) {
+                    NpcSettleAtSpeed(target);
+                    settled = true;
+                    npcAi.branch = NpcBranch::HoldingLevel;
+                    npcAi.branchTarget = static_cast<int16_t>(target);
+                }
+            }
+        } else {
+            // Well clear ahead: drop back to a cruise. The King is the exception
+            // and keeps the higher target (see docs/driving/king.md).
+            const int target = (player.speed < 97 && !kingRace) ? npcAi.targetSpeedNormal
+                                                                : npcAi.targetSpeedRisky;
+            if (target < npc.speed) {
+                NpcSettleAtSpeed(target);
+                settled = true;
+                npcAi.branch = NpcBranch::CruisingAhead;
+                npcAi.branchTarget = static_cast<int16_t>(target);
+            }
+        }
+
+        if (!settled) {
+            // The cop's closing cap gates the acceleration itself: over the cap
+            // it settles back to it instead of accelerating further.
+            if (copState >= 2 && player.speed >= 51 && npc.speed > player.speed + 32) {
+                NpcSettleAtSpeed(static_cast<int>(player.speed) + 32);
+                settled = true;
+                npcAi.branch = NpcBranch::CopClosingCap;
+                npcAi.branchTarget = static_cast<int16_t>(player.speed + 32);
+            } else {
+                bool throttle = !npcAi.gaveUp;
+                if (npcAi.stallTicks > 0) {
+                    throttle = false;
+                    npcAi.stallTicks -= 1;
+                }
+                const bool shift =
+                    throttle && ((npc.gear == 0) ||
+                                 (npc.gear < npcTables.numGears &&
+                                  npc.rpm >= npcTables.autoShiftRpm));
+                npcAi.throttle = throttle;
+                npcAi.shifted = shift;
+                EngineTick(npc, npcTables, throttle, false, shift);
+            }
+        }
+    }
+
+    // NOT PORTED: through a curve the original also caps the opponent once, at
+    // perfScore minus its driver skill byte (halved when it is behind). Our
+    // CarSetup::driverSkill is on a different scale to that byte, so the cap
+    // would be a guess; the opponent currently holds its speed through curves.
+
+    // Past the line the opponent sheds a flat 5 mph a tick, or 10 while it is
+    // still close to the player, applied to the speed it had coming in.
     if (npc.segPos >= finishSeg) {
         const int drop = (player.segPos + 5 < npc.segPos) ? 5 : 10;
         npc.speed = (drop < speedBefore) ? static_cast<int16_t>(speedBefore - drop) : 0;

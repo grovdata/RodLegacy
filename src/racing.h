@@ -225,6 +225,9 @@ public:
     // narrow in-game overlay, one value per row for the debug UI's table.
     std::vector<std::string> GetFlybyDebugLines(int lastVisibleRow) const;
     std::vector<DebugRow> GetRacingDebugRows(int lastVisibleRow) const;
+    // Opponent telemetry: what its AI decided this tick, and where it is.
+    std::vector<DebugRow> GetOpponentDebugRows() const;
+    std::vector<DebugIndicator> GetOpponentIndicators() const;
     bool* DebugInvulnerableFlag() { return &debugInvulnerable; }
     int GetLastVisibleRow() const { return lastVisibleRow; }
     bool SaveRoadViewPng(std::string* savedPath = nullptr);

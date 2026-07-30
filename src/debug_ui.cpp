@@ -26,6 +26,15 @@ bool DebugUiWantsKeyboard() {
 namespace {
 // Panel body: the key/value pairs as a two column table, then any loose lines.
 void DrawPanelBody(const DebugPanel& panel) {
+    if (panel.image != nullptr) {
+        int w = 0;
+        int h = 0;
+        if (SDL_QueryTexture(panel.image, nullptr, nullptr, &w, &h) == 0 && w > 0 && h > 0) {
+            const float scale = static_cast<float>(std::max(1, panel.imageScale));
+            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(panel.image)),
+                         ImVec2(static_cast<float>(w) * scale, static_cast<float>(h) * scale));
+        }
+    }
     for (const DebugToggle& toggle : panel.toggles) {
         if (toggle.value != nullptr) {
             ImGui::Checkbox(toggle.label.c_str(), toggle.value);
@@ -52,6 +61,30 @@ void DrawPanelBody(const DebugPanel& panel) {
             ImGui::TextUnformatted(row.value.c_str());
         }
         ImGui::EndTable();
+    }
+    if (!panel.indicators.empty()) {
+        if (!panel.rows.empty()) {
+            ImGui::Separator();
+        }
+        for (size_t i = 0; i < panel.indicators.size(); ++i) {
+            if (i != 0) {
+                ImGui::SameLine();
+            }
+            const DebugIndicator& lamp = panel.indicators[i];
+            const ImVec4 lit(0.16f, 0.70f, 0.28f, 1.0f);
+            const ImVec4 dark(0.14f, 0.14f, 0.16f, 1.0f);
+            const ImVec4 fill = lamp.active ? lit : dark;
+            // Hover and active colours match the base: these are read-outs, not
+            // buttons, and should not respond to the mouse.
+            ImGui::PushStyleColor(ImGuiCol_Button, fill);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, fill);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, fill);
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  lamp.active ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)
+                                              : ImVec4(0.45f, 0.45f, 0.48f, 1.0f));
+            ImGui::Button(lamp.label.c_str());
+            ImGui::PopStyleColor(4);
+        }
     }
     for (const std::string& line : panel.lines) {
         ImGui::TextUnformatted(line.c_str());
@@ -221,7 +254,7 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
         };
 
         stackColumn(leftId, {"Session"});
-        stackColumn(rightId, {"Scene", "Racing"});
+        stackColumn(rightId, {"Scene", "Racing", "Opponent"});
         ImGui::DockBuilderFinish(dockspaceId);
     }
     ImGui::End();

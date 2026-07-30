@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 #include <algorithm>
+#include <fstream>
+#include <iterator>
 #include "racer_pool.h"
 #include "parsers/libp.h"
 
@@ -437,6 +439,61 @@ TEST_CASE("all 26 entries are parsed") {
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
         CHECK(result[i].car_class == static_cast<uint8_t>(i % 4));
+    }
+}
+
+} // TEST_SUITE
+
+// ============================================================================
+// SR_data driver names and portraits, against the shipped file
+// ============================================================================
+
+TEST_SUITE("SrDataDrivers") {
+
+static std::vector<uint8_t> LoadRealSrData() {
+    const char* paths[] = {
+        "../RodLegacyBins/amiga/SR_disk2/SR_data",
+        "../../RodLegacyBins/amiga/SR_disk2/SR_data",
+    };
+    for (const char* p : paths) {
+        std::ifstream f(p, std::ios::binary);
+        if (f) {
+            return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)),
+                                        std::istreambuf_iterator<char>());
+        }
+    }
+    return {};
+}
+
+TEST_CASE("driver names and portraits come out of SR_data") {
+    const std::vector<uint8_t> data = LoadRealSrData();
+    if (data.empty()) {
+        MESSAGE("shipped SR_data not found next to the build; skipping");
+        return;
+    }
+
+    DataParser parser;
+    const auto drivers = parser.ParseDriverData(data);
+    const auto names = parser.ParseDriverNames(data);
+    REQUIRE(drivers.size() == SR_DATA_DRIVER_ENTRY_COUNT);
+    REQUIRE(names.size() == SR_DATA_DRIVER_ENTRY_COUNT);
+
+    CHECK(names[0] == "Mike");
+    CHECK(names[1] == "Ralph");
+    // The two the old hardcoded list omitted, which shifted every later name.
+    CHECK(names[12] == "Jim");
+    CHECK(names[16] == "Tom");
+    CHECK(names[SR_DATA_KING_DRIVER_INDEX] == "The King");
+
+    // Portraits are a stored per-driver assignment, not a sequential run.
+    CHECK(drivers[0].PortraitAsset() == 344);
+    CHECK(drivers[1].PortraitAsset() == DRIVER_01);
+    CHECK(drivers[SR_DATA_KING_DRIVER_INDEX].PortraitAsset() == DRIVER_THE_KING);
+
+    // Every named driver's portrait is inside the driver sprite range.
+    for (int i = 0; i < SR_DATA_KING_DRIVER_INDEX; ++i) {
+        CHECK(drivers[i].PortraitAsset() >= DRIVER_01);
+        CHECK(drivers[i].PortraitAsset() <= DRIVER_22);
     }
 }
 

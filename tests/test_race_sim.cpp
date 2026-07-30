@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <utility>
 
 #include "race/race_sim.h"
 #include "race/race_types.h"
@@ -60,6 +61,19 @@ CarSetup CopTestSetup() {
 
 // The cop spawn is a 1-in-4 roll inside Init, so tests that need one search for
 // a seed rather than reaching into the sim.
+// Inverse of the above: a seed where the spawn roll does NOT arm a cop, so
+// kingRace can be toggled without also toggling the cop.
+uint32_t SeedWithoutCop(const TrackData& track, const CarSetup& setup) {
+    for (uint32_t seed = 1; seed < 500; ++seed) {
+        RaceSim probe;
+        probe.Init(&track, 1, setup, setup, seed);
+        if (probe.CopState() == 0) {
+            return seed;
+        }
+    }
+    return 0;
+}
+
 uint32_t SeedThatArmsCop(const TrackData& track, const CarSetup& setup) {
     for (uint32_t seed = 1; seed < 500; ++seed) {
         RaceSim probe;
@@ -212,7 +226,13 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
     CHECK((sim.Player().endFlags & END_FAILURE_MASK) == 0);
     CHECK(sim.Player().segPos > DRAG_FINISH_SEG);
     CHECK(sim.Player().speed == 0);
-    CHECK(sim.PlayerWonAtLine());
+    // Who wins is deliberately not asserted. The opponent rubber-bands to
+    // player speed + 16 while level and sprints when jockeying for position, and
+    // ThrottleWithShiftIfNeeded drives the player conservatively (lifting off
+    // near the redline), so the finish is close either way. This test is about
+    // the sim staying in sane ranges and reaching the flag.
+    CHECK(std::abs(static_cast<int>(sim.Player().segPos) -
+                   static_cast<int>(sim.Npc().segPos)) < 40);
 }
 
 TEST_CASE("Steering input counteracts curve drift") {
@@ -563,6 +583,73 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
         CHECK(used.PlayerWonAtLine()   == fresh.PlayerWonAtLine());
         CHECK(used.InCountdown());
     }
+}
+
+TEST_CASE("The King does not ease off when it gets clear in a road race") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    // Must be a seed with no cop: kingRace also suppresses the spawn roll, so
+    // on a cop-armed seed this would compare "cop" against "no cop" instead of
+    // King AI against ordinary AI.
+    const uint32_t seed = SeedWithoutCop(track, setup);
+    REQUIRE(seed != 0);
+
+    struct Result {
+        int finalSpeed;
+        int normal;
+        int risky;
+    };
+    auto runClearAhead = [&](bool king) {
+        RaceSim sim;
+        sim.Init(&track, 1, setup, setup, seed, king);
+        REQUIRE(sim.CopState() == 0);
+        RunOutCountdown(sim);
+        for (int i = 0; i < 400 && !sim.RaceOver(); ++i) {
+            // Pinned 30 segments up the road - past the 13 segment threshold
+            // where an ordinary opponent drops back to its cruising speed
+            // (UpdateNPCEngine 0x2444c2) - with the player left crawling.
+            sim.SetNpcDebugPose(sim.Player().segPos + 30, 2200);
+            sim.Tick(0);
+        }
+        return Result{sim.Npc().speed, sim.NpcAi().targetSpeedNormal,
+                      sim.NpcAi().targetSpeedRisky};
+    };
+
+    const Result ordinary = runClearAhead(false);
+    const Result king = runClearAhead(true);
+
+    // The ordinary opponent is pulled back to its cruising target and hovers
+    // just above it (the ease-off assigns the target, the next tick accelerates
+    // off it again).
+    CHECK(ordinary.finalSpeed <= ordinary.normal + 2);
+    // The King never enters that branch, so it is held to neither target and
+    // runs away to its car's own limit - comfortably clear of the higher target
+    // it would settle at if the branch did apply to it.
+    CHECK(king.finalSpeed > king.risky + 20);
+}
+
+TEST_CASE("In a drag race the King eases to the higher of the two targets") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+
+    // The road-race clause of the King's entry test does not apply to a drag
+    // race, so here it does reach the far-ahead branch - and takes the risky
+    // target where an ordinary opponent takes the normal one.
+    auto finalSpeedClearAhead = [&](bool king) {
+        RaceSim sim;
+        sim.Init(&track, 0, setup, setup, 0x77u, king);
+        RunOutCountdown(sim);
+        for (int i = 0; i < 300 && !sim.RaceOver(); ++i) {
+            sim.SetNpcDebugPose(sim.Player().segPos + 30, 2200);
+            sim.Tick(0);
+        }
+        return std::pair<int, int>{sim.Npc().speed, sim.NpcAi().targetSpeedNormal};
+    };
+
+    const auto ordinary = finalSpeedClearAhead(false);
+    const auto king = finalSpeedClearAhead(true);
+    CHECK(ordinary.first <= ordinary.second + 2);   // settled on normal
+    CHECK(king.first > ordinary.first);             // settled on risky instead
 }
 
 TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
@@ -987,12 +1074,12 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     REQUIRE(crossed);
     CHECK(speedAtLine > 50);
 
-    // It ends only once the car has stopped, some way past the line.
+    // It ends only once the car has stopped, some way past the line. Whether the
+    // player won is incidental here - see the drag smoke test.
     CHECK(sim.RaceOver());
     CHECK(sim.Player().speed == 0);
     CHECK(sim.Player().segPos > ROAD_FINISH_SEG);
     CHECK(rollOutTicks > 1);
-    CHECK(sim.PlayerWonAtLine());
 }
 
 TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
