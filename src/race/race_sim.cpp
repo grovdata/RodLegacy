@@ -362,6 +362,46 @@ void RaceSim::Tick(uint16_t inputBits) {
     }
 }
 
+// The opponent slot becomes the police car (SpawnCopCar 0x244ca2). The original
+// swaps the car record for a fixed cop one, re-gears the car so it carries on at
+// the speed it already had, and recomputes the AI's target speeds from that
+// car's performance - a police interceptor is not limited to whatever the
+// challenger happened to be driving.
+void RaceSim::SpawnCop() {
+    // Car spec 25 in SR_data, which the original scores the cop against: GM,
+    // racing carburettor, racing transmission, racing slicks. See
+    // RodLegacyResearch/docs/formats/sr_data.md.
+    CarSetup copSetup{};
+    copSetup.carbClass = 2;
+    copSetup.transClass = 3;
+    copSetup.engineClass = 3;
+    copSetup.manifoldClass = 2;
+    copSetup.tireClass = 2;
+    copSetup.driverSkill = 130;
+    npcSetup = copSetup;
+
+    const int16_t speedBefore = npc.speed;
+    BuildCarTables(npcSetup, npcTables);
+
+    // 60% and 80% of the cop's performance, against the 70/80 an ordinary
+    // opponent uses (the multipliers are 0x1770/0x1f40 over 0x2710 in the
+    // original). Its performance is high enough that both still beat a typical
+    // challenger.
+    npcAi.targetSpeedNormal = static_cast<int16_t>((npcTables.perfScore * 60) / 100);
+    npcAi.targetSpeedRisky = static_cast<int16_t>((npcTables.perfScore * 80) / 100);
+
+    // A cop does not concede. Without this it inherits the challenger's
+    // give-up state, which by this point in the race it has usually entered -
+    // the conditions for conceding and for the cop appearing nearly coincide.
+    npcAi.gaveUp = false;
+    npcAi.stallTicks = 0;
+    npc.endFlags &= static_cast<uint16_t>(~END_GAVE_UP);
+
+    // Keep the speed it was carrying; the gear is re-derived from the new tables.
+    npc.speed = speedBefore;
+    copSpawnEvent = true;
+}
+
 // Cop pursuit state machine (RaceLogicUpdate 0x244d50). The cop does not spawn
 // as a third car: from state 2 it IS the opponent, because the original swaps
 // the opponent's car record and its 13 sprite pointers for the police ones
@@ -381,7 +421,7 @@ void RaceSim::UpdateCopPursuit() {
                 copState = 0;
             } else {
                 copState = 2;
-                copSpawnEvent = true;
+                SpawnCop();
             }
         }
         return;
@@ -975,8 +1015,12 @@ void RaceSim::NpcAiUpdate() {
     npcAi.lateralTarget = static_cast<int16_t>(target);
     npc.lateral = static_cast<int16_t>(npc.lateral + ((npcAi.lateralTarget - npc.lateral) / 8));
 
+    // A police pursuit never concedes. The conditions for conceding and for the
+    // cop appearing nearly coincide - both want the player well clear and late
+    // in the race - so without this the cop gives up moments after taking over.
     const int raceThreeQuarter = RACE_START_SEG + ((finishSeg - RACE_START_SEG) * 3) / 4;
-    if (!npcAi.gaveUp && player.segPos > raceThreeQuarter && player.segPos > npc.segPos + 2) {
+    if (copState < 2 && !npcAi.gaveUp &&
+        player.segPos > raceThreeQuarter && player.segPos > npc.segPos + 2) {
         npcAi.gaveUp = true;
         npc.endFlags |= END_GAVE_UP;
     }
@@ -995,16 +1039,26 @@ void RaceSim::NpcEngine() {
     }
     targetSpeed = ClampValue(targetSpeed, 0, 130);
 
+    // A chasing cop is not held to its own cruising target. In the original the
+    // ease-off only applies when the opponent is level with the player or 13+
+    // segments ahead of them; a cop closing from behind hits neither case, so
+    // the only thing limiting it is the +32 closing cap below
+    // (UpdateNPCEngine 0x2444c2). Without this it can never catch a player who
+    // is quicker than its own cruising speed.
+    if (copState >= 2) {
+        targetSpeed = std::max(targetSpeed, static_cast<int>(player.speed) + 32);
+        targetSpeed = ClampValue(targetSpeed, 0, 130);
+    }
+
     bool throttle = !npcAi.gaveUp && (npc.speed < targetSpeed);
     if (npcAi.stallTicks > 0) {
         throttle = false;
         npcAi.stallTicks -= 1;
     }
 
-    // Cop pursuit cap (UpdateNPCEngine 0x2444c2): once the cop is chasing and
-    // the player is doing 51+, it holds station at player.speed + 32 rather
-    // than flooring it, so it closes at a bounded rate. Below 51 this does not
-    // apply and it accelerates freely, which is what reels in a slow car.
+    // The closing cap itself: once the player is doing 51+, the cop stops
+    // accelerating past player.speed + 32 so it closes at a bounded rate rather
+    // than teleporting up behind them. Below 51 it accelerates freely.
     if (copState >= 2 && player.speed >= 51 && npc.speed > player.speed + 32) {
         throttle = false;
     }

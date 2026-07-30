@@ -246,6 +246,7 @@ private:
     void AddPlayerEndFlags(uint16_t flags);
     void CheckEdgeCollision();
     void CheckNpcContact();
+    void SpawnCop();
     void UpdateCopPursuit();
     void ApplyCopRaceEnd();
     void NpcEngine();

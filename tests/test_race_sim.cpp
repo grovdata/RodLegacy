@@ -565,6 +565,42 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
     }
 }
 
+TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, seed);
+    sim.SetCameraState(sim.CopTriggerSegment() + 1, 0, 0, 2560, 0);
+    // Opponent left a long way back, which is the normal state of affairs by the
+    // time the cop trigger is reached: it takes over wherever the opponent is.
+    sim.SetNpcDebugPose(sim.CopTriggerSegment() - 115, 2200);
+    sim.Tick(0);
+    REQUIRE(sim.CopState() == 2);
+
+    const int gapAtSpawn =
+        static_cast<int>(sim.Player().segPos) - static_cast<int>(sim.Npc().segPos);
+    REQUIRE(gapAtSpawn > 100);
+
+    // The cop must not inherit the challenger's performance or its concede
+    // state, or it simply trails along and can never catch anyone.
+    CHECK_FALSE(sim.NpcAi().gaveUp);
+    CHECK(sim.NpcTables().perfScore > 70);
+
+    for (int i = 0; i < 900 && !sim.RaceOver() && !sim.PlayerBusted(); ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+    }
+
+    const int gapEnd =
+        static_cast<int>(sim.Player().segPos) - static_cast<int>(sim.Npc().segPos);
+    CHECK(gapEnd < gapAtSpawn);          // it closed
+    CHECK_FALSE(sim.NpcAi().gaveUp);     // and never conceded on the way
+    // Fleeing flat out is not enough to shake it: it runs to player + 32.
+    CHECK(sim.Npc().speed > sim.Player().speed);
+}
+
 TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
     TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
@@ -923,8 +959,11 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     npc.engineClass = 0;
     npc.weightClass = 7;
 
+    // kingRace suppresses the cop spawn roll. This test is about the roll-out
+    // past the line, and a working cop would end the race before the player
+    // ever gets there.
     RaceSim sim;
-    sim.Init(&track, 1, player, npc, 0x12345678u);
+    sim.Init(&track, 1, player, npc, 0x12345678u, /*kingRace=*/true);
     RunOutCountdown(sim);
 
     bool crossed = false;
