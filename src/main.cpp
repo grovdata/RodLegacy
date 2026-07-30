@@ -175,13 +175,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     std::vector<DebugPanel> panels;
 
-    DebugPanel frame{"Frame", {}};
+    DebugPanel frame{"Frame", {}, DebugDock::Left};
     frame.lines.push_back("delta: " + std::to_string(frameDelta) + " ms");
     frame.lines.push_back("fps:   " +
                           std::to_string(frameDelta > 0 ? 1000 / frameDelta : 0));
     panels.push_back(std::move(frame));
 
-    DebugPanel game{"Game", {}};
+    DebugPanel game{"Player", {}, DebugDock::Left};
     game.lines.push_back("date:     " + state.GetGameDateString());
     game.lines.push_back("hours:    " + std::to_string(state.GetGameHours()));
     game.lines.push_back("bankroll: $" + std::to_string(state.GetBankroll()));
@@ -189,7 +189,7 @@ static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     game.lines.push_back("challenger score: " + std::to_string(state.GetChallengerScore()));
     panels.push_back(std::move(game));
 
-    panels.push_back(DebugPanel{"Input", mouse.GetGamepadDebugLines()});
+    panels.push_back(DebugPanel{"Input", mouse.GetGamepadDebugLines(), DebugDock::Left});
 
     // Whatever the active scene wants to expose.
     Scene* scene = state.GetCurrentScene();

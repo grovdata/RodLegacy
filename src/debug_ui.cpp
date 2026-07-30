@@ -153,17 +153,24 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels,
 
     if (!dockLayoutDone) {
         dockLayoutDone = true;
-        // Game on the left, panels stacked in a column on the right.
+        // Three columns: global info left, the game in the middle, scene info
+        // right. Each split takes from the shrinking centre, so the game keeps
+        // whatever is left over.
         ImGui::DockBuilderRemoveNode(dockspaceId);
         ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
         ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->WorkSize);
-        ImGuiID rightId = 0;
-        const ImGuiID gameId =
-            ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.68f, nullptr, &rightId);
-        ImGui::DockBuilderDockWindow("Game", gameId);
+
+        ImGuiID centreId = dockspaceId;
+        const ImGuiID leftId =
+            ImGui::DockBuilderSplitNode(centreId, ImGuiDir_Left, 0.22f, nullptr, &centreId);
+        const ImGuiID rightId =
+            ImGui::DockBuilderSplitNode(centreId, ImGuiDir_Right, 0.28f, nullptr, &centreId);
+
+        ImGui::DockBuilderDockWindow("Game", centreId);
         ImGui::DockBuilderDockWindow("Controls", rightId);
         for (const DebugPanel& panel : panels) {
-            ImGui::DockBuilderDockWindow(panel.title.c_str(), rightId);
+            ImGui::DockBuilderDockWindow(panel.title.c_str(),
+                                         panel.dock == DebugDock::Left ? leftId : rightId);
         }
         ImGui::DockBuilderFinish(dockspaceId);
     }

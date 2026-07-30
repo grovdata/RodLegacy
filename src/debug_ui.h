@@ -15,10 +15,17 @@
 #include <string>
 #include <vector>
 
+// Which side of the game view a panel docks to.
+enum class DebugDock {
+    Left,   // player and global information
+    Right,  // information about the active scene
+};
+
 // A named block of text lines for one docked panel.
 struct DebugPanel {
     std::string title;
     std::vector<std::string> lines;
+    DebugDock dock = DebugDock::Right;
 };
 
 // True while a debug UI text field has keyboard focus. Code that polls

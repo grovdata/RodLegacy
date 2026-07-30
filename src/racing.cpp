@@ -1675,23 +1675,38 @@ bool Racing::OnFlybyKeyDown(SDL_Keycode key) {
 
 std::vector<std::string> Racing::GetFlybyDebugLines(int lastVisibleRow) const {
     std::vector<std::string> lines;
-    if (!flybyMode) {
-        return lines;
-    }
 
-    const int seg = ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1);
+    // Reads the flyby camera when it is engaged and the player's car otherwise,
+    // so the track readout is useful during an ordinary race too.
+    const srrace::CarState& player = sim.Player();
+    const int seg = flybyMode
+                        ? ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1)
+                        : ClampInt(static_cast<int>(player.segPos), 0, srrace::TRACK_SEGMENTS - 1);
+    const int acc = flybyMode ? static_cast<int>(flybyScrollAcc)
+                              : static_cast<int>(player.scrollAcc);
+    const int heading = flybyMode ? static_cast<int>(flybyHeading)
+                                  : static_cast<int>(player.heading);
+    const int lateral = flybyMode ? static_cast<int>(flybyLateral)
+                                  : static_cast<int>(player.lateral);
+
     char buf[160];
-    std::snprintf(buf, sizeof(buf), "FLYBY seg %d +%d/8  var %d  %s",
-                  seg, static_cast<int>(flybyScrollAcc), trackVariant,
+    std::snprintf(buf, sizeof(buf), "%s seg %d +%d/8  var %d  %s",
+                  flybyMode ? "FLYBY" : "race", seg, acc, trackVariant,
                   currentTrackType == SR_TRACK_DRAG_RACE ? "drag" : "road");
     lines.push_back(buf);
 
     std::snprintf(buf, sizeof(buf), "curve %d elev %d  heading %d  lat %d",
                   static_cast<int>(track.curve[seg]),
                   static_cast<int>(track.elev[seg]),
-                  static_cast<int>(flybyHeading),
-                  static_cast<int>(flybyLateral));
+                  heading, lateral);
     lines.push_back(buf);
+
+    if (!flybyMode) {
+        std::snprintf(buf, sizeof(buf), "speed %d  rpm %d  gear %d  step %d",
+                      static_cast<int>(player.speed), static_cast<int>(player.rpm),
+                      static_cast<int>(player.gear), static_cast<int>(player.scrollStep));
+        lines.push_back(buf);
+    }
 
     std::snprintf(buf, sizeof(buf), "flags 0x%04x %s  Lobj 0x%04x Robj 0x%04x",
                   static_cast<unsigned>(track.flags[seg]),
@@ -1707,10 +1722,14 @@ std::vector<std::string> Racing::GetFlybyDebugLines(int lastVisibleRow) const {
         lines.push_back(buf);
     }
 
-    lines.push_back("[ ] step  shift+[ ] seg  ctrl+[ ] +/-10seg");
-    lines.push_back("=/- heading  ,/. lateral  Home/End start/finish");
-    lines.push_back("PgUp/Dn +/-50seg  N toggle NPC  F9 exit flyby");
-    lines.push_back("P save road PNG (no cockpit)");
+    if (flybyMode) {
+        lines.push_back("[ ] step  shift+[ ] seg  ctrl+[ ] +/-10seg");
+        lines.push_back("=/- heading  ,/. lateral  Home/End start/finish");
+        lines.push_back("PgUp/Dn +/-50seg  N toggle NPC  F9 exit flyby");
+        lines.push_back("P save road PNG (no cockpit)");
+    } else {
+        lines.push_back("F9 enter flyby");
+    }
     return lines;
 }
 
