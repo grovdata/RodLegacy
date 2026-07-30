@@ -315,8 +315,21 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_JACK_LENGTH, SRL0_CAR_JACK_RATE);
     }
 
+    // Tire screech sound - RaceLogicUpdate (0x244d50), see RACING_TODO.md
+    if (size >= SRL0_TIRE_SCREECH_OFFSET + SRL0_TIRE_SCREECH_LENGTH) {
+        AudioSample tireScreechSample;
+        LoadRawAudio(data + SRL0_TIRE_SCREECH_OFFSET, SRL0_TIRE_SCREECH_LENGTH,
+                     tireScreechSample, SRL0_TIRE_SCREECH_RATE);
+        tireScreechSample.isLooped = false;  // One-shot sound, retriggered by the caller
+        tireScreechSample.loopStart = 0;
+        tireScreechSample.loopLength = 0;
+        samples[AudioSampleType::TIRE_SCREECH] = tireScreechSample;
+        LOG_INFO("  - Tire screech sound: %u bytes (one-shot) at %u Hz",
+                SRL0_TIRE_SCREECH_LENGTH, SRL0_TIRE_SCREECH_RATE);
+    }
+
     // TODO: Extract other samples from srl0.wave
-    // The exact offsets for ignition, tire screech, honk, crash, and cop siren
+    // The exact offsets for ignition, honk, crash, and cop siren
     // need to be determined from the Amiga disassembly or by analyzing the file
 
     // For now, we'll just note that the rest exists

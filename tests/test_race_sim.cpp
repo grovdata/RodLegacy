@@ -263,6 +263,53 @@ TEST_CASE("Steering input counteracts curve drift") {
     CHECK(std::abs(driftWithSteer) <= std::abs(driftNoSteer));
 }
 
+TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
+    TrackData track = MakeFlatTrack();
+
+    CarSetup setup{};
+    setup.transClass = 2;
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.manifoldClass = 1;
+    setup.tireClass = 1;
+    setup.weightClass = 4;
+    setup.driverSkill = 130;
+
+    CarSetup npcSetup = setup;
+    npcSetup.transClass = 0;
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, npcSetup, 0x5566u);
+    RunOutCountdown(sim);
+    sim.SetNpcDebugPose(900, 2200);  // keep the opponent out of the way
+
+    // Standing still: PlayerSkidding() (RaceLogicUpdate 0x244d50) requires
+    // speed > 20 mph, so even pinning the wheel over should stay quiet.
+    for (int i = 0; i < 10; ++i) {
+        sim.Tick(INPUT_STEER_LEFT);
+        CHECK_FALSE(sim.PlayerSkidding());
+    }
+
+    // Get rolling past 20 mph, then hold the wheel hard over. slideVel ramps
+    // by 2/tick toward its +-24 clamp, so it crosses the |slideVel| >= 12
+    // threshold within a handful of ticks.
+    for (int i = 0; i < 200 && sim.Player().speed <= 25; ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+    }
+    REQUIRE(sim.Player().speed > 20);
+
+    bool skidded = false;
+    for (int i = 0; i < 20; ++i) {
+        sim.Tick(ThrottleWithShiftIfNeeded(sim) | INPUT_STEER_RIGHT);
+        if (sim.PlayerSkidding()) {
+            skidded = true;
+            break;
+        }
+    }
+    CHECK(skidded);
+    CHECK(std::abs(sim.Player().slideVel) >= 12);
+}
+
 TEST_CASE("Rolling before the green is a false start") {
     TrackData track = MakeFlatTrack();
     CarSetup setup{};

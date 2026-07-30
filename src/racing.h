@@ -56,6 +56,13 @@ private:
     int firstPlayerFinishTick = -1;
     int firstNpcFinishTick = -1;
     int simTickCounter = 0;
+    // Ticks left before the tire screech one-shot can retrigger. The original
+    // (RaceLogicUpdate 0x244d50) refires it every tick the skid condition
+    // holds, cutting the Paula channel short each time; our audio path only
+    // queues whole samples, so instead we retrigger once the sample (~445 ms,
+    // SRL0_TIRE_SCREECH_LENGTH/RATE) has had time to play out, giving a
+    // continuous screech for as long as the slide lasts.
+    int tireScreechCooldownTicks = 0;
 
     srrace::TrackData track {};
     srrace::RaceRng rng;

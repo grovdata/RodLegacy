@@ -1794,6 +1794,21 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 audioManager->PlaySound(AudioSampleType::CAR_BASH);
             }
 
+            // Tire screech: sliding hard (|slideVel| >= 12 of its +-24 clamp)
+            // at more than 20 mph (RaceLogicUpdate 0x244d50). See PlayerSkidding().
+            if (tireScreechCooldownTicks > 0) {
+                --tireScreechCooldownTicks;
+            }
+            if (sim.PlayerSkidding() && audioManager) {
+                if (tireScreechCooldownTicks == 0) {
+                    audioManager->PlaySound(AudioSampleType::TIRE_SCREECH);
+                    // ~445 ms sample (SRL0_TIRE_SCREECH_LENGTH/RATE) at 15 Hz.
+                    tireScreechCooldownTicks = 7;
+                }
+            } else {
+                tireScreechCooldownTicks = 0;
+            }
+
             fixedAccumulator -= kFixedStepSeconds;
         }
 

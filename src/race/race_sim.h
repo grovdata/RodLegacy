@@ -8,6 +8,7 @@
 // frame; we tick at a fixed 50 Hz).
 
 #include <cstdint>
+#include <cstdlib>
 
 #include "race/race_types.h"
 
@@ -179,6 +180,16 @@ public:
     // Road edges at the player's current segment (updated per tick).
     int16_t RoadEdgeLeft() const { return edgeLeft; }
     int16_t RoadEdgeRight() const { return edgeRight; }
+
+    // Tire screech gate (RaceLogicUpdate 0x244d50): the original triggers the
+    // squeal sample only when the slide momentum is at least half its clamp
+    // (|slideVel| >= 12 of +-24) AND the car is doing more than 20 mph. Below
+    // that it is silent - there is a dead zone down to |slideVel| < 10 where
+    // the call is a no-op (param 0 short-circuits before AudioDevice_PlaySample
+    // in the original), so nothing plays and nothing needs to be stopped.
+    bool PlayerSkidding() const {
+        return std::abs(player.slideVel) >= 12 && player.speed > 20;
+    }
 
 private:
     void PlayerPhysics(uint16_t inputBits);
