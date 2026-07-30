@@ -473,6 +473,13 @@ void Racing::InitializeRaceSimulation() {
     crashOverlayEndMs = 0;
     startLightHeight = 32;  // full; retracts once the car launches
     npcRearFrame = 0;
+    npcRearFrameLastTick = -1;
+    // Per-race presentation and audio timers. The scene object outlives a race
+    // (see ResetForNewRace), so these are cleared here rather than by construction.
+    tireScreechCooldownTicks = 0;
+    copSirenCooldownTicks = 0;
+    cloudOffsetAccum = 0.0f;
+    lastVisibleRow = -1;
 }
 
 void Racing::SetTrackType(SrTrackType trackType) {
@@ -490,7 +497,26 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
 }
 
 void Racing::ResetForNewRace() {
+    // Driving (and this Racing) are constructed once at game start and their
+    // Init() never runs again - switching scenes only repoints State's
+    // currentScene pointer - so per-race state has to be cleared here.
+
+    // The engine loop may still be running if the last race was left part-way
+    // through; starting a second loop over it would stack them.
+    if (engineSoundStarted && audioManager) {
+        audioManager->StopLoop(0);
+    }
     engineSoundStarted = false;
+
+    // The debug flyby camera is per-race; a race always starts in the cockpit.
+    flybyMode = false;
+    flybyNpcVisible = false;
+    flybySeg = srrace::RACE_START_SEG;
+    flybyScrollAcc = 0;
+    flybyHeading = 0;
+    flybyLateral = 2560;
+    opponentActiveBeforeFlyby = false;
+
     InitializeRaceSimulation();
 }
 
@@ -1225,12 +1251,30 @@ void Racing::DrawNpcCar(int lastVisible) {
             return;  // behind -> handled by the rear-view mirror
         }
         k = ClampInt(delta, 0, std::min(lastVisible, 14));
-        // Pick the LOD frame from the FINE gap (longDist, ~8 units/segment) with a
-        // hysteresis deadband so it doesn't toggle when the gap sits on a boundary.
-        const int lo = npcRearFrame * 16 - 3;
-        const int hi = (npcRearFrame + 1) * 16 + 3;
-        if (longDist >= hi || longDist < lo) {
-            npcRearFrame = ClampInt(longDist / 16, 0, 6);
+        // LOD frame, damped the way RenderNPCCar 0x237ea8 does it: compute a
+        // target view state `((longGap + 8) >> 4) + 2` - the +8 makes it
+        // round-to-nearest - then move the stored state by at most one step per
+        // game frame toward it (the `prev < target ? prev+1 : prev-1` fallback
+        // closing its transition table). The rate limit is what keeps the LOD
+        // smooth: at 100 mph the scroll step is ~14 units a tick against a 16
+        // unit frame spacing, so the gap can cross most of a boundary in one
+        // tick, and only bounding the change per tick contains that.
+        //
+        // Stepped per SIM TICK, not per rendered frame: on the Amiga render and
+        // physics were one loop, so its frame is our tick. Per rendered frame
+        // would advance it about 4x too fast at 60 Hz.
+        //
+        // The original gates this damping on detail level >= 4 (A4-0x4160 > 3,
+        // the same detail field that widens the contact test's lateral window)
+        // and snaps below it. We have no detail setting, so always damp.
+        const int targetFrame = ClampInt((longDist + 8) / 16, 0, 6);
+        if (simTickCounter != npcRearFrameLastTick) {
+            npcRearFrameLastTick = simTickCounter;
+            if (npcRearFrame < targetFrame) {
+                ++npcRearFrame;
+            } else if (npcRearFrame > targetFrame) {
+                --npcRearFrame;
+            }
         }
         const int frameIndex = npcRearFrame;
         switch (opponentCarType) {

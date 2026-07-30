@@ -245,10 +245,9 @@ void State::SetNextOpponent(Opponent* opp) {
 
 int State::GetPlayerScore() const {
     // Scored the same way an opponent's car spec is (see racer_pool.cpp), just
-    // built from the player's actual installed parts instead of a packed config
-    // word. This no longer goes through SrCarSpecEntry: that struct is a raw
-    // 14-byte SR_data record, and faking one to carry player parts meant
-    // writing player values into fields that mean something else entirely.
+    // built from the player's installed parts rather than from a packed config
+    // word. SrCarSpecEntry is not involved: it is a raw 14-byte SR_data record
+    // and has no room for player state.
     srrace::CarSetup setup{};
     if (currentCar) {
         setup.engineClass   = static_cast<int>(currentCar->GetEngine().engineType);

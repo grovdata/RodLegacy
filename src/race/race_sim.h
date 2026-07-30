@@ -25,11 +25,9 @@ constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
 constexpr uint16_t END_FINISHED = 0x01;
 constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
-// NPC-only, and NOT an original flag: this is our own "the opponent conceded in
-// the last quarter" marker (NpcAiUpdate). It sits on the bit the original spends
-// on its crash-damage marker, which we do not implement. It used to squat on
-// 0x40, which is really the cop bit below - most likely a mis-derivation from
-// the same bad note that had 0x41 down as "NPC won".
+// NPC-only, and not an original flag: our own "the opponent conceded in the last
+// quarter" marker (NpcAiUpdate). It sits on the bit the original spends on its
+// crash-damage marker, which we do not implement.
 constexpr uint16_t END_GAVE_UP = 0x08;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;

@@ -386,6 +386,20 @@ void Driving::OnFadeComplete() {
         racing->SetTrackType(trackType);
     }
 
+    // Scene-side per-race state. OnFadeComplete is the only per-entry hook:
+    // Init() runs once at game start, so the race-end pause and its bubble have
+    // to be cleared here.
+    raceEnded = false;
+    raceEndPendingKing = false;
+    raceEndBubble.reset();
+    raceEndDismissAllowedMs = 0;
+
+    // Dice pendulum starts from rest.
+    currentDiceIndex = 0;
+    diceTilt = 0;
+    diceDir = 1;
+    diceStepTimer = 0.0f;
+
     racing->ResetForNewRace();
     racing->InitializeOpponent();
 

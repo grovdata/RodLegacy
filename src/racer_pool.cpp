@@ -6,14 +6,9 @@
 
 // ============================================================================
 // ComputeCarPerformanceScore
-// This is the Amiga's FUN_00243b9c: unpack the car spec's config word into part
-// classes, score them, and cap the result at 0x82 (130).
-//
-// The scoring itself is FUN_002435f0, which is already ported as
-// srrace::ComputeBasePerformance - so this just feeds it. The old version here
-// was a hand-rolled approximation reading misaligned struct fields (it summed
-// the price's high byte, the class byte and the config word's low byte), which
-// is why it is gone rather than adjusted.
+// The Amiga's FUN_00243b9c: unpack the car spec's config word into part classes,
+// score them, and cap the result at 0x82 (130). The scoring itself is
+// FUN_002435f0, ported as srrace::ComputeBasePerformance.
 // ============================================================================
 
 srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
@@ -32,8 +27,7 @@ srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
     // SR_data's engine field is an engine *variant* 0..7 while CarSetup's
     // engineClass is a 0..3 row of the engine/manifold matrix; manifold is 0..3
     // here against 0..4 there. ComputeBasePerformance clamps both, so this is
-    // safe but may compress the top of the range. Still strictly better than
-    // what this replaced, which read misaligned bytes outright.
+    // safe but may compress the top of the range.
     return setup;
 }
 
@@ -60,10 +54,8 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
     }
 
     // Group car spec indices (0..24) into three tiers by their class byte, which
-    // runs 0..8 - so three classes per tier. This used to read a field that was
-    // really the price's high byte (0..14, then clamped to 2), which put 23 of
-    // the 25 specs in tier 2 and left tier 0 empty; most pool slots then fell
-    // back to spec 0. The real class byte splits ~8/8/8.
+    // runs 0..8 - so three classes per tier. Over the shipped SR_data that
+    // splits 9/8/8, enough to fill the pool's 7 slots per tier.
     std::vector<int> tier_specs[3];
     for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs.size()); ++i) {
         int c = std::min<int>(car_specs[i].car_class / 3, 2);

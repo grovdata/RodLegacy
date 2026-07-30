@@ -75,9 +75,13 @@ private:
     std::array<RowProjection, 15> rows {};
 
     float cloudOffsetAccum = 0.0f;
-    // Currently shown NPC rear LOD frame; changed with hysteresis so it does not
-    // flip back and forth when the longitudinal gap hovers on a frame boundary.
+    // Currently shown NPC rear LOD frame. Moves by at most one step per sim tick
+    // toward the distance-derived target (RenderNPCCar 0x237ea8).
     int npcRearFrame = 0;
+    // Last sim tick on which npcRearFrame was allowed to step, so the LOD
+    // advances at the sim rate (the original's frame rate) rather than the
+    // render rate. -1 = not yet stepped.
+    int npcRearFrameLastTick = -1;
     // Sprite-space row where the mountain silhouette meets the foothill green
     // band it is drawn on. Cached on first use; this row is what sits on the
     // horizon, not the bitmap's lowest opaque row. -1 = uncomputed.

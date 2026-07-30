@@ -495,6 +495,76 @@ TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
     }
 }
 
+TEST_CASE("Init fully resets a sim that has already been raced") {
+    // The scene objects that own a RaceSim are built once at game start and are
+    // reused for every race, so re-Init has to be a complete reset - anything it
+    // misses leaks into the next race.
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim fresh;
+    fresh.Init(&track, 1, setup, setup, seed);
+
+    // Two separate dirty states, because they are mutually exclusive: being
+    // caught is what switches the siren back off, so a captured sim has a
+    // non-zero caught speed but a quiet siren, and vice versa. Testing only one
+    // of them lets the other's reset go missing unnoticed.
+    SUBCASE("left mid-pursuit with the siren going") {
+        RaceSim used;
+        StartCopPursuit(used, track, setup, seed);
+        used.SetNpcDebugPose(used.Player().segPos - 10, 2200);
+        used.Tick(0);
+        REQUIRE(used.CopState() == 3);
+        REQUIRE(used.CopSirenOn());          // genuinely dirty
+
+        used.Init(&track, 1, setup, setup, seed);
+        CHECK_FALSE(used.CopSirenOn());
+        CHECK_FALSE(used.CopChasing());
+        CHECK(used.CopState()          == fresh.CopState());
+        CHECK(used.CopTriggerSegment() == fresh.CopTriggerSegment());
+        CHECK(used.InCountdown());
+        CHECK_FALSE(used.ConsumeCopSpawn());
+    }
+
+    SUBCASE("left busted at speed") {
+        RaceSim used;
+        StartCopPursuit(used, track, setup, seed);
+        for (int i = 0; i < 400 && used.Player().speed < 60; ++i) {
+            used.SetNpcDebugPose(used.Player().segPos - 40, 2200);
+            used.Tick(ThrottleWithShiftIfNeeded(used));
+            if (used.RaceOver()) {
+                break;
+            }
+        }
+        REQUIRE(used.Player().speed >= 51);
+        used.SetNpcDebugPose(used.Player().segPos - 10, 2200);
+        used.Tick(ThrottleWithShiftIfNeeded(used));
+        used.SetNpcDebugPose(used.Player().segPos + 4, 2200);
+        used.Tick(ThrottleWithShiftIfNeeded(used));
+        REQUIRE(used.PlayerBusted());
+        REQUIRE(used.CopCaughtSpeed() >= 51);   // genuinely dirty
+        REQUIRE(used.SpeedingFine() > 0);
+
+        used.Init(&track, 1, setup, setup, seed);
+        CHECK(used.CopCaughtSpeed() == 0);
+        CHECK(used.SpeedingFine() == 0);
+        CHECK_FALSE(used.PlayerBusted());
+        CHECK_FALSE(used.RaceOver());
+        CHECK(used.Player().endFlags == 0);
+        CHECK(used.Npc().endFlags == 0);
+        CHECK(used.Player().segPos     == fresh.Player().segPos);
+        CHECK(used.Player().speed      == fresh.Player().speed);
+        CHECK(used.Player().lateral    == fresh.Player().lateral);
+        CHECK(used.Npc().segPos        == fresh.Npc().segPos);
+        CHECK(used.Npc().lateral       == fresh.Npc().lateral);
+        CHECK(used.CountdownTicks()    == fresh.CountdownTicks());
+        CHECK(used.PlayerWonAtLine()   == fresh.PlayerWonAtLine());
+        CHECK(used.InCountdown());
+    }
+}
+
 TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
     TrackData track = MakeFlatTrack();
 

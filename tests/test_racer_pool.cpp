@@ -64,15 +64,14 @@ static std::vector<SrCarSpecEntry> MakeCarSpecTable() {
 
 TEST_SUITE("ComputeCarPerformanceScore") {
 
-// These no longer assert magic numbers. The old suite pinned the exact output
-// of a hand-rolled formula that was reading misaligned struct fields; scoring
-// now goes through srrace::ComputeBasePerformance (the real FUN_002435f0 port),
-// so what is worth asserting is the behaviour, not a constant.
+// Scoring goes through srrace::ComputeBasePerformance (the FUN_002435f0 port),
+// so these assert behaviour - ordering, bounds, round-tripping - rather than
+// pinning constants that would just restate the formula.
 
 TEST_CASE("an all-stock spec scores the floor") {
-    // Not 70: a spec carries no weight or tune data, so it keeps CarSetup's
-    // defaults (weightClass 4, tuneOffset 0), which score above the bare 70
-    // floor of an all-worst setup. Assert the property rather than the number.
+    // A spec carries no weight or tune data, so it keeps CarSetup's defaults
+    // (weightClass 4, tuneOffset 0) and scores above the bare 70 floor of an
+    // all-worst setup. Assert the property rather than the number.
     const SrCarSpecEntry stock{};
     const int floorScore = ComputeCarPerformanceScore(stock);
     CHECK(floorScore >= 70);
