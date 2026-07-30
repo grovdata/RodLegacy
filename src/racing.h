@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "audio/audio_manager.h"
+#include "debug_ui.h"
 #include "bitmap.h"
 #include "parsers/carcolor.h"
 #include "parsers/libp.h"
@@ -124,6 +125,9 @@ private:
     RaceOutcome raceOutcome = RaceOutcome::Ongoing;
 
     bool debugFeaturesEnabled = false;
+    // Debug toggle: the checkbox in the Racing panel writes here and Draw()
+    // pushes it into the sim each frame.
+    bool debugInvulnerable = false;
     bool flybyMode = false;
     bool flybyNpcVisible = false;
     int32_t flybySeg = srrace::RACE_START_SEG;
@@ -217,7 +221,11 @@ public:
     bool IsFlybyMode() const { return flybyMode; }
     bool ToggleFlybyMode();
     bool OnFlybyKeyDown(SDL_Keycode key);
+    // Two shapes of the same state, for two renderers: packed lines for the
+    // narrow in-game overlay, one value per row for the debug UI's table.
     std::vector<std::string> GetFlybyDebugLines(int lastVisibleRow) const;
+    std::vector<DebugRow> GetRacingDebugRows(int lastVisibleRow) const;
+    bool* DebugInvulnerableFlag() { return &debugInvulnerable; }
     int GetLastVisibleRow() const { return lastVisibleRow; }
     bool SaveRoadViewPng(std::string* savedPath = nullptr);
 };

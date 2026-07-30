@@ -565,6 +565,70 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
     }
 }
 
+TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+
+    SUBCASE("a wall hit that would normally end the race is dropped whole") {
+        RaceSim normal;
+        normal.Init(&track, 1, setup, setup, 0x2468u);
+        normal.SetCameraState(300, 0, 0, 100, 0);   // far off the left edge
+        normal.SetNpcDebugPose(900, 2200);
+        normal.Tick(0);
+        // A wall hit ends the race through the failure mask, not END_FINISHED.
+        REQUIRE(normal.PlayerWrecked());
+        REQUIRE(normal.PlayerFailed());
+
+        RaceSim tough;
+        tough.Init(&track, 1, setup, setup, 0x2468u);
+        tough.SetInvulnerable(true);
+        tough.SetCameraState(300, 0, 0, 100, 0);
+        tough.SetNpcDebugPose(900, 2200);
+        tough.Tick(0);
+        CHECK_FALSE(tough.PlayerWrecked());
+        CHECK_FALSE(tough.PlayerFailed());
+        // Nothing at all is latched: an event carrying a suppressed bit is
+        // dropped whole, so a rear-end cannot leave END_FINISHED behind either.
+        CHECK(tough.Player().endFlags == 0);
+    }
+
+    SUBCASE("sitting on the limiter no longer grenades the engine") {
+        RaceSim tough;
+        tough.Init(&track, 1, setup, setup, 0xbeefu);
+        tough.SetInvulnerable(true);
+        RunOutCountdown(tough);
+        for (int i = 0; i < 600 && !tough.RaceOver(); ++i) {
+            tough.SetNpcDebugPose(900, 2200);
+            tough.Tick(INPUT_THROTTLE);   // never shifting: pinned at the redline
+        }
+        CHECK((tough.Player().endFlags & END_ENGINE_BLOWN) == 0);
+    }
+
+    SUBCASE("the cop and a false start still end the race") {
+        const uint32_t seed = SeedThatArmsCop(track, setup);
+        REQUIRE(seed != 0);
+
+        RaceSim busted;
+        StartCopPursuit(busted, track, setup, seed);
+        busted.SetInvulnerable(true);
+        busted.SetNpcDebugPose(busted.Player().segPos - 10, 2200);
+        busted.Tick(0);
+        busted.SetNpcDebugPose(busted.Player().segPos + 4, 2200);
+        busted.Tick(0);
+        CHECK(busted.PlayerBusted());
+        CHECK(busted.RaceOver());
+
+        RaceSim jumped;
+        jumped.Init(&track, 1, setup, setup, 0xabcu);
+        jumped.SetInvulnerable(true);
+        REQUIRE(jumped.InCountdown());
+        for (int i = 0; i < 20 && jumped.InCountdown(); ++i) {
+            jumped.Tick(INPUT_THROTTLE | INPUT_SHIFT);
+        }
+        CHECK((jumped.Player().endFlags & END_STALLED) != 0);
+    }
+}
+
 TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
     TrackData track = MakeFlatTrack();
 

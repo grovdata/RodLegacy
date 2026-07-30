@@ -332,10 +332,12 @@ void CarScene::OnSceneExit() {
 
 void Scene::UpdateDebugInfo() {
     debugLines.clear();
-    AddDebugLine("scene: " + std::string(typeid(*this).name()));
-    AddDebugLine("zones: " + std::to_string(zones.size()));
-    AddDebugLine("buttons: " + std::to_string(buttons.size()));
-    AddDebugLine("fade alpha: " + std::to_string(static_cast<int>(fadeAlpha)));
+    debugRows.clear();
+    AddDebugValue("scene", typeid(*this).name());
+    AddDebugValue("zones", std::to_string(zones.size()));
+    AddDebugValue("buttons", std::to_string(buttons.size()));
+    AddDebugValue("bubbles", std::to_string(bubbles.size()));
+    AddDebugValue("fade alpha", std::to_string(static_cast<int>(fadeAlpha)));
 }
 
 void Scene::DrawLegacyDebugOverlay() {
@@ -345,6 +347,9 @@ void Scene::DrawLegacyDebugOverlay() {
     }
     UpdateDebugInfo();
     debugOverlay->Clear();
+    for (const DebugRow& row : debugRows) {
+        debugOverlay->AddLine(row.key + ": " + row.value);
+    }
     for (const std::string& line : debugLines) {
         debugOverlay->AddLine(line);
     }
@@ -354,7 +359,9 @@ void Scene::DrawLegacyDebugOverlay() {
 
 std::vector<DebugPanel> Scene::GetDebugPanels() {
     UpdateDebugInfo();
-    return { DebugPanel{"Scene", debugLines} };
+    DebugPanel panel{"Scene", debugLines};
+    panel.rows = debugRows;
+    return { panel };
 }
 
 void Scene::AddGamepadDebugInfo(const Mouse& mouse) {

@@ -1733,6 +1733,102 @@ std::vector<std::string> Racing::GetFlybyDebugLines(int lastVisibleRow) const {
     return lines;
 }
 
+std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
+    std::vector<DebugRow> out;
+
+    const srrace::CarState& player = sim.Player();
+    const int seg = flybyMode
+                        ? ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1)
+                        : ClampInt(static_cast<int>(player.segPos), 0, srrace::TRACK_SEGMENTS - 1);
+    const int acc = flybyMode ? static_cast<int>(flybyScrollAcc)
+                              : static_cast<int>(player.scrollAcc);
+    const int heading = flybyMode ? static_cast<int>(flybyHeading)
+                                  : static_cast<int>(player.heading);
+    const int lateral = flybyMode ? static_cast<int>(flybyLateral)
+                                  : static_cast<int>(player.lateral);
+
+    char buf[160];
+    out.push_back({"track", ""});
+    out.push_back({"mode", flybyMode ? "flyby camera" : "racing"});
+    out.push_back({"track", currentTrackType == SR_TRACK_DRAG_RACE ? "drag" : "road"});
+    out.push_back({"variant", std::to_string(trackVariant)});
+
+    std::snprintf(buf, sizeof(buf), "%d  +%d/8", seg, acc);
+    out.push_back({"segment", buf});
+    out.push_back({"curve", std::to_string(static_cast<int>(track.curve[seg]))});
+    out.push_back({"elevation", std::to_string(static_cast<int>(track.elev[seg]))});
+    out.push_back({"heading", std::to_string(heading)});
+    out.push_back({"lateral", std::to_string(lateral)});
+
+    std::snprintf(buf, sizeof(buf), "0x%04x %s", static_cast<unsigned>(track.flags[seg]),
+                  FormatSegmentFlags(track.flags[seg]).c_str());
+    out.push_back({"flags", buf});
+    std::snprintf(buf, sizeof(buf), "0x%04x", static_cast<unsigned>(track.left[seg]));
+    out.push_back({"left object", buf});
+    std::snprintf(buf, sizeof(buf), "0x%04x", static_cast<unsigned>(track.right[seg]));
+    out.push_back({"right object", buf});
+
+    if (!flybyMode) {
+        out.push_back({"player car", ""});
+        out.push_back({"speed", std::to_string(static_cast<int>(player.speed)) + " mph"});
+        out.push_back({"rpm", std::to_string(static_cast<int>(player.rpm))});
+        out.push_back({"gear", std::to_string(static_cast<int>(player.gear))});
+        out.push_back({"scroll step", std::to_string(static_cast<int>(player.scrollStep))});
+        out.push_back({"lap distance", std::to_string(player.distanceAcc)});
+    }
+
+    if (lastVisibleRow >= 0 && lastVisibleRow < static_cast<int>(rows.size())) {
+        const RowProjection& row = rows[static_cast<size_t>(lastVisibleRow)];
+        std::snprintf(buf, sizeof(buf), "seg %d  y %d  L %d  R %d  d %d",
+                      row.seg, row.y, row.leftX, row.rightX, row.distance);
+        out.push_back({"far row", buf});
+    }
+
+    // Opponent. The gap is the same fine measure the contact and LOD code use:
+    // segments scaled by 8 plus the scroll remainder. Positive means ahead.
+    const srrace::CarState& npc = sim.Npc();
+    const int segGap = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
+    const int fineGap = segGap * 8 + (npc.scrollAcc - player.scrollAcc);
+    out.push_back({"opponent", ""});
+    out.push_back({"active", opponentActive ? "yes" : "no"});
+    out.push_back({"car type", opponentCarType == 2   ? "cop"
+                               : opponentCarType == 1 ? "chrysler"
+                                                      : "chevy"});
+    std::snprintf(buf, sizeof(buf), "%d seg  (%d units)", segGap, fineGap);
+    out.push_back({"gap", buf});
+    out.push_back({"segment", std::to_string(static_cast<int>(npc.segPos))});
+    out.push_back({"speed", std::to_string(static_cast<int>(npc.speed)) + " mph"});
+    out.push_back({"lateral", std::to_string(static_cast<int>(npc.lateral))});
+    out.push_back({"lateral gap", std::to_string(npc.lateral - player.lateral)});
+    out.push_back({"rear LOD frame", std::to_string(npcRearFrame)});
+
+    // Cop. State 0 means the spawn roll did not arm one, so none can appear at
+    // all this race - see RodLegacyResearch/docs/driving/cop.md.
+    const int copState = sim.CopState();
+    out.push_back({"cop", ""});
+    if (sim.RaceType() == 0) {
+        out.push_back({"can appear", "no (drag race)"});
+    } else if (copState == 0) {
+        out.push_back({"can appear", "no (roll failed)"});
+    } else {
+        out.push_back({"can appear", "yes"});
+        out.push_back({"trigger seg", std::to_string(sim.CopTriggerSegment())});
+        const int toTrigger = sim.CopTriggerSegment() - static_cast<int>(player.segPos);
+        out.push_back({"to trigger", toTrigger > 0 ? std::to_string(toTrigger) + " seg"
+                                                   : "passed"});
+    }
+    const char* copStateName = copState == 0   ? "not armed"
+                               : copState == 1 ? "armed, waiting"
+                               : copState == 2 ? "pursuing"
+                                               : "pursuing, siren on";
+    out.push_back({"state", copStateName});
+    if (sim.PlayerBusted()) {
+        out.push_back({"busted at", std::to_string(sim.CopCaughtSpeed()) + " mph"});
+        out.push_back({"fine", "$" + std::to_string(sim.SpeedingFine())});
+    }
+    return out;
+}
+
 bool Racing::SaveRoadViewPng(std::string* savedPath) {
     if (!pixels) {
         return false;
@@ -1844,6 +1940,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
         engineSoundStarted = true;
     }
+
+    sim.SetInvulnerable(debugInvulnerable);
 
     if (flybyMode) {
         UpdateFlybyMovement(fElapsedTime);

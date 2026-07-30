@@ -175,21 +175,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     std::vector<DebugPanel> panels;
 
-    DebugPanel frame{"Frame", {}, DebugDock::Left};
-    frame.lines.push_back("delta: " + std::to_string(frameDelta) + " ms");
-    frame.lines.push_back("fps:   " +
-                          std::to_string(frameDelta > 0 ? 1000 / frameDelta : 0));
-    panels.push_back(std::move(frame));
+    // One left-hand panel: frame timing, player/world state and input.
+    DebugPanel session{"Session", {}, DebugDock::Left};
+    session.rows.push_back({"frame", ""});
+    session.rows.push_back({"delta", std::to_string(frameDelta) + " ms"});
+    session.rows.push_back({"fps", std::to_string(frameDelta > 0 ? 1000 / frameDelta : 0)});
 
-    DebugPanel game{"Player", {}, DebugDock::Left};
-    game.lines.push_back("date:     " + state.GetGameDateString());
-    game.lines.push_back("hours:    " + std::to_string(state.GetGameHours()));
-    game.lines.push_back("bankroll: $" + std::to_string(state.GetBankroll()));
-    game.lines.push_back("player score:     " + std::to_string(state.GetPlayerScore()));
-    game.lines.push_back("challenger score: " + std::to_string(state.GetChallengerScore()));
-    panels.push_back(std::move(game));
+    session.rows.push_back({"player", ""});
+    session.rows.push_back({"date", state.GetGameDateString()});
+    session.rows.push_back({"hours", std::to_string(state.GetGameHours())});
+    session.rows.push_back({"bankroll", "$" + std::to_string(state.GetBankroll())});
+    session.rows.push_back({"score", std::to_string(state.GetPlayerScore())});
+    session.rows.push_back({"challenger score", std::to_string(state.GetChallengerScore())});
 
-    panels.push_back(DebugPanel{"Input", mouse.GetGamepadDebugLines(), DebugDock::Left});
+    session.rows.push_back({"input", ""});
+    for (const DebugRow& row : mouse.GetGamepadDebugRows()) {
+        session.rows.push_back(row);
+    }
+    panels.push_back(std::move(session));
 
     // Whatever the active scene wants to expose.
     Scene* scene = state.GetCurrentScene();
@@ -563,17 +566,7 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderTarget(renderer, nullptr);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
-            {
-                Scene* dbgScene = state.GetCurrentScene();
-                debugUi.Draw(BuildDebugPanels(delta),
-#ifdef RODLEGACY_DEBUG_UI
-                             dbgScene ? [dbgScene]() { dbgScene->DrawDebugControls(); }
-                                      : std::function<void()>{}
-#else
-                             std::function<void()>{}
-#endif
-                );
-            }
+            debugUi.Draw(BuildDebugPanels(delta));
         }
 
         SDL_RenderPresent(renderer);

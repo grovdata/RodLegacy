@@ -6,6 +6,7 @@
 #include "global.h"
 #include "bitmap.h"
 #include "ui/zone.h"
+#include "debug_ui.h"
 #include <vector>
 
 extern SDL_Renderer *renderer;
@@ -130,6 +131,9 @@ public:
     
     // Debug methods
     const GamepadDebugInfo& GetGamepadDebugInfo() const { return gamepadDebug; }
+    // Key/value form is the source of truth; the line form is derived from it
+    // for the plain-text overlay.
+    std::vector<DebugRow> GetGamepadDebugRows() const;
     std::vector<std::string> GetGamepadDebugLines() const;
 };
 

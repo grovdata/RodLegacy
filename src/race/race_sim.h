@@ -182,6 +182,11 @@ public:
     }
     bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
 
+    // Debug aid: suppresses the crash and blown-engine outcomes so a race can be
+    // driven without ending. Does not affect the cop, the finish or a false start.
+    void SetInvulnerable(bool on) { invulnerable = on; }
+    bool Invulnerable() const { return invulnerable; }
+
     // Flyby / debug camera: sets player pose without running physics.
     void SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
                         int16_t lateral, int16_t elevAtCar);
@@ -236,6 +241,9 @@ private:
     void CheckFinish();
     void UpdateSteering(uint16_t inputBits);
     void ApplyLateralDrift(CarState& car, int16_t handling);
+    // All player end flags go through here so the invulnerable toggle has one
+    // place to filter them.
+    void AddPlayerEndFlags(uint16_t flags);
     void CheckEdgeCollision();
     void CheckNpcContact();
     void UpdateCopPursuit();
@@ -267,6 +275,7 @@ private:
     bool copSpawnEvent = false;
     bool copSirenOn = false;
     int16_t copCaughtSpeed = 0;   // speed at capture; sets the fine tier
+    bool invulnerable = false;
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;

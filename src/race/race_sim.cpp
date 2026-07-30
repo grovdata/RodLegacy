@@ -509,7 +509,11 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         }
         const int blowLimit = std::max(1, 15 - (wearNow / 1000));
         if (car.redlineTicks >= blowLimit) {
-            car.endFlags |= END_ENGINE_BLOWN;
+            if (&car == &player) {
+                AddPlayerEndFlags(END_ENGINE_BLOWN);
+            } else {
+                car.endFlags |= END_ENGINE_BLOWN;
+            }
         }
     } else {
         car.redlineTicks = 0;
@@ -527,7 +531,11 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     // checks this every tick, independent of the redline-hold blow above).
     const int baseEngineWear = (&car == &player) ? playerSetup.engineWear : npcSetup.engineWear;
     if (baseEngineWear + static_cast<int>(car.engineWearDelta) > 0x26ab) {
-        car.endFlags |= END_ENGINE_BLOWN;
+        if (&car == &player) {
+            AddPlayerEndFlags(END_ENGINE_BLOWN);
+        } else {
+            car.endFlags |= END_ENGINE_BLOWN;
+        }
     }
 
     bool doShift = false;
@@ -768,6 +776,18 @@ void RaceSim::CheckFinish() {
     }
 }
 
+// An event carrying a suppressed bit is dropped whole, END_FINISHED included -
+// otherwise a suppressed crash would still end the race, just without the cause.
+void RaceSim::AddPlayerEndFlags(uint16_t flags) {
+    if (invulnerable) {
+        constexpr uint16_t kSuppressed = END_WALL_HIT | END_HIT_NPC | END_ENGINE_BLOWN;
+        if ((flags & kSuppressed) != 0) {
+            return;
+        }
+    }
+    player.endFlags |= flags;
+}
+
 void RaceSim::CheckEdgeCollision() {
     const int seg = ClampTrackIndex(player.segPos);
     const uint16_t leftObj = track->left[seg];
@@ -785,20 +805,20 @@ void RaceSim::CheckEdgeCollision() {
     }
 
     if (carLeft < (edgeLeft - 260) || carRight > (edgeRight + 260)) {
-        player.endFlags |= END_WALL_HIT;
+        AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
 
     if (offLeft && (leftObj & (0x0010 | 0x1000)) != 0) {
-        player.endFlags |= END_WALL_HIT;
+        AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
     if (offRight && (rightObj & (0x0010 | 0x1000)) != 0) {
-        player.endFlags |= END_WALL_HIT;
+        AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
     if ((flags & 0xf000) != 0) {
-        player.endFlags |= END_WALL_HIT;
+        AddPlayerEndFlags(END_WALL_HIT);
     }
 }
 
@@ -854,7 +874,7 @@ void RaceSim::CheckNpcContact() {
     // Rear-ended it: laterally overlapping (state 2) and closing.
     if (!copChasing && latAbs < 180 &&
         SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed)) {
-        player.endFlags |= (END_FINISHED | END_HIT_NPC);
+        AddPlayerEndFlags(END_FINISHED | END_HIT_NPC);
         npcContactTicks = 0;
         return;
     }

@@ -23,6 +23,42 @@ bool DebugUiWantsKeyboard() {
     return gDebugUi != nullptr && gDebugUi->WantsKeyboard();
 }
 
+namespace {
+// Panel body: the key/value pairs as a two column table, then any loose lines.
+void DrawPanelBody(const DebugPanel& panel) {
+    for (const DebugToggle& toggle : panel.toggles) {
+        if (toggle.value != nullptr) {
+            ImGui::Checkbox(toggle.label.c_str(), toggle.value);
+        }
+    }
+    if (!panel.toggles.empty() && !panel.rows.empty()) {
+        ImGui::Separator();
+    }
+    if (!panel.rows.empty() &&
+        ImGui::BeginTable("##kv", 2,
+                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                          ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthStretch, 0.45f);
+        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+        for (const DebugRow& row : panel.rows) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            if (row.value.empty()) {
+                ImGui::TextDisabled("%s", row.key.c_str());
+                continue;
+            }
+            ImGui::TextUnformatted(row.key.c_str());
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(row.value.c_str());
+        }
+        ImGui::EndTable();
+    }
+    for (const std::string& line : panel.lines) {
+        ImGui::TextUnformatted(line.c_str());
+    }
+}
+}  // namespace
+
 DebugUi::~DebugUi() {
     Shutdown();
 }
@@ -55,9 +91,8 @@ bool DebugUi::Init(SDL_Window* win, SDL_Renderer* ren, int gameWidth, int gameHe
     }
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    // No imgui.ini: the layout is rebuilt from code on first run, and persisting
-    // it would silently override later changes to the default layout.
-    io.IniFilename = nullptr;
+    // Panel positions and dock layout persist between runs.
+    io.IniFilename = "debug_ui.ini";
     ImGui::StyleColorsDark();
 
     if (!ImGui_ImplSDL2_InitForSDLRenderer(window, renderer) ||
@@ -122,8 +157,7 @@ bool DebugUi::WantsMouse() const {
     return active && ImGui::GetIO().WantCaptureMouse && !gameHovered;
 }
 
-void DebugUi::Draw(const std::vector<DebugPanel>& panels,
-                   const std::function<void()>& drawControls) {
+void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
     if (!active) {
         return;
     }
@@ -151,8 +185,10 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels,
     const ImGuiID dockspaceId = ImGui::GetID("RodLegacyDockspace");
     ImGui::DockSpace(dockspaceId);
 
-    if (!dockLayoutDone) {
-        dockLayoutDone = true;
+    // Build the default layout only when there is nothing to restore, so a saved
+    // debug_ui.ini always wins. Windows are docked by name, which works even for
+    // panels that do not exist yet (Racing only appears in the driving scene).
+    if (ImGui::DockBuilderGetNode(dockspaceId) == nullptr) {
         // Three columns: global info left, the game in the middle, scene info
         // right. Each split takes from the shrinking centre, so the game keeps
         // whatever is left over.
@@ -167,11 +203,25 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels,
             ImGui::DockBuilderSplitNode(centreId, ImGuiDir_Right, 0.28f, nullptr, &centreId);
 
         ImGui::DockBuilderDockWindow("Game", centreId);
-        ImGui::DockBuilderDockWindow("Controls", rightId);
-        for (const DebugPanel& panel : panels) {
-            ImGui::DockBuilderDockWindow(panel.title.c_str(),
-                                         panel.dock == DebugDock::Left ? leftId : rightId);
-        }
+
+        // Stack each column's panels into their own nodes rather than docking
+        // them all to one, which would collapse them into tabs.
+        auto stackColumn = [](ImGuiID column, const std::vector<const char*>& titles) {
+            ImGuiID remaining = column;
+            for (size_t i = 0; i < titles.size(); ++i) {
+                if (i + 1 == titles.size()) {
+                    ImGui::DockBuilderDockWindow(titles[i], remaining);
+                    break;
+                }
+                const float ratio = 1.0f / static_cast<float>(titles.size() - i);
+                const ImGuiID slot =
+                    ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Up, ratio, nullptr, &remaining);
+                ImGui::DockBuilderDockWindow(titles[i], slot);
+            }
+        };
+
+        stackColumn(leftId, {"Session"});
+        stackColumn(rightId, {"Scene", "Racing"});
         ImGui::DockBuilderFinish(dockspaceId);
     }
     ImGui::End();
@@ -208,21 +258,10 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels,
 
     for (const DebugPanel& panel : panels) {
         if (ImGui::Begin(panel.title.c_str())) {
-            for (const std::string& line : panel.lines) {
-                ImGui::TextUnformatted(line.c_str());
-            }
+            DrawPanelBody(panel);
         }
         ImGui::End();
     }
-
-    if (ImGui::Begin("Controls")) {
-        if (drawControls) {
-            drawControls();
-        } else {
-            ImGui::TextUnformatted("This scene exposes no debug controls.");
-        }
-    }
-    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);

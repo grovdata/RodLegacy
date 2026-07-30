@@ -222,33 +222,39 @@ void Mouse::UpdateGamepad(Scene* scene) {
     SDL_JoystickClose(joystick);
 }
 
-std::vector<std::string> Mouse::GetGamepadDebugLines() const {
-    std::vector<std::string> lines;
-    
-    lines.push_back("=== GAMEPAD DEBUG ===");
-    lines.push_back("Connected: " + std::string(gamepadDebug.connected ? "Yes" : "No"));
-    lines.push_back("Active: " + std::string(gamepadActive ? "Yes" : "No"));
-    
+std::vector<DebugRow> Mouse::GetGamepadDebugRows() const {
+    std::vector<DebugRow> rows;
+    rows.push_back({"connected", gamepadDebug.connected ? "yes" : "no"});
+    rows.push_back({"active", gamepadActive ? "yes" : "no"});
+    rows.push_back({"mouse", std::to_string(rect.x) + ", " + std::to_string(rect.y)});
+
     if (gamepadDebug.connected) {
-        lines.push_back("Left Stick: X=" + std::to_string(gamepadDebug.leftX) + " Y=" + std::to_string(gamepadDebug.leftY));
-        lines.push_back("Hat State: " + std::to_string(gamepadDebug.hatState));
-        lines.push_back("Mouse Pos: " + std::to_string(rect.x) + "," + std::to_string(rect.y));
-        
-        std::string buttons = "Buttons: ";
+        rows.push_back({"left stick", "X=" + std::to_string(gamepadDebug.leftX) +
+                                      " Y=" + std::to_string(gamepadDebug.leftY)});
+        rows.push_back({"hat", std::to_string(gamepadDebug.hatState)});
+
+        std::string buttons;
         if (gamepadDebug.buttonA) buttons += "A ";
         if (gamepadDebug.buttonB) buttons += "B ";
         if (gamepadDebug.buttonX) buttons += "X ";
         if (gamepadDebug.buttonY) buttons += "Y ";
         if (gamepadDebug.buttonLB) buttons += "LB ";
         if (gamepadDebug.buttonRB) buttons += "RB ";
-        if (buttons == "Buttons: ") buttons += "None";
-        lines.push_back(buttons);
-        
+        rows.push_back({"buttons", buttons.empty() ? "none" : buttons});
+
         if (!gamepadDebug.lastAction.empty()) {
-            lines.push_back("Last Action: " + gamepadDebug.lastAction);
+            rows.push_back({"last action", gamepadDebug.lastAction});
         }
     }
-    
+    return rows;
+}
+
+std::vector<std::string> Mouse::GetGamepadDebugLines() const {
+    std::vector<std::string> lines;
+    lines.push_back("=== GAMEPAD DEBUG ===");
+    for (const DebugRow& row : GetGamepadDebugRows()) {
+        lines.push_back(row.key + ": " + row.value);
+    }
     return lines;
 }
 

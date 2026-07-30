@@ -11,7 +11,6 @@
 
 #include <SDL2/SDL.h>
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -21,11 +20,30 @@ enum class DebugDock {
     Right,  // information about the active scene
 };
 
-// A named block of text lines for one docked panel.
+// One "key: value" entry, rendered as a table row. A row with an empty value is
+// a section label instead, for grouping inside a single panel.
+struct DebugRow {
+    std::string key;
+    std::string value;
+};
+
+// A checkbox bound straight to a bool the panel's owner keeps alive. Declaring
+// toggles as data rather than as callbacks keeps ImGui out of the producers, so
+// they compile unchanged in builds without the debug UI.
+struct DebugToggle {
+    std::string label;
+    bool* value = nullptr;  // not owned
+};
+
+// A docked panel: toggles, then a key/value table, then any free-form lines.
+// `rows` and `toggles` come last so existing brace initialisations that pass
+// title/lines/dock still compile; assign them afterwards.
 struct DebugPanel {
     std::string title;
     std::vector<std::string> lines;
     DebugDock dock = DebugDock::Right;
+    std::vector<DebugRow> rows;
+    std::vector<DebugToggle> toggles;
 };
 
 // True while a debug UI text field has keyboard focus. Code that polls
@@ -58,8 +76,7 @@ public:
     // Lays out the dockspace, draws the game image and the supplied panels, and
     // submits the draw data. Call once per frame, after the game has been drawn
     // into GameTexture() and the render target has been reset to the backbuffer.
-    void Draw(const std::vector<DebugPanel>& panels,
-              const std::function<void()>& drawControls = {});
+    void Draw(const std::vector<DebugPanel>& panels);
 
     // Where the game image landed on screen this frame, for mapping window
     // mouse coordinates back into game space. Empty until Draw() has run.
@@ -81,7 +98,7 @@ private:
     int gameH = 0;
     SDL_Rect gameViewport {0, 0, 0, 0};
     bool gameHovered = false;
-    bool dockLayoutDone = false;
+
 };
 
 #else  // !RODLEGACY_DEBUG_UI
@@ -95,7 +112,7 @@ public:
     bool Active() const { return false; }
     bool ProcessEvent(const SDL_Event&) { return false; }
     SDL_Texture* GameTexture() const { return nullptr; }
-    void Draw(const std::vector<DebugPanel>&, const std::function<void()>& = {}) {}
+    void Draw(const std::vector<DebugPanel>&) {}
     SDL_Rect GameViewportRect() const { return SDL_Rect{0, 0, 0, 0}; }
     bool GameViewportHovered() const { return false; }
     bool WantsKeyboard() const { return false; }

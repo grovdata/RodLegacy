@@ -706,6 +706,7 @@ void Driving::UpdateDebugInfo() {
     // the in-game overlay, so it replaces the generic lines.
     if (racing && racing->IsFlybyMode()) {
         debugLines.clear();
+        debugRows.clear();
         for (const std::string& line :
              racing->GetFlybyDebugLines(racing->GetLastVisibleRow())) {
             AddDebugLine(line);
@@ -718,8 +719,23 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
     if (racing) {
         // The debug UI has room for both, so the camera readout is its own
         // panel rather than displacing the scene lines.
-        panels.push_back(DebugPanel{
-            "Racing", racing->GetFlybyDebugLines(racing->GetLastVisibleRow())});
+        // Table of values, plus the flyby key bindings as loose lines when the
+        // camera is engaged.
+        DebugPanel racingPanel{"Racing", {}};
+        racingPanel.toggles.push_back(
+            {"Invulnerable (no crash, no over-rev)", racing->DebugInvulnerableFlag()});
+        racingPanel.rows = racing->GetRacingDebugRows(racing->GetLastVisibleRow());
+        if (racing->IsFlybyMode()) {
+            racingPanel.lines = {
+                "[ ] step   shift+[ ] seg   ctrl+[ ] +/-10seg",
+                "=/- heading   ,/. lateral   Home/End start/finish",
+                "PgUp/Dn +/-50seg   N toggle NPC   F9 exit flyby",
+                "P save road PNG (no cockpit)",
+            };
+        } else {
+            racingPanel.lines = {"F9 enter flyby"};
+        }
+        panels.push_back(std::move(racingPanel));
     }
     return panels;
 }

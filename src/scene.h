@@ -57,9 +57,11 @@ class Scene: public IDrawableContainer {
     DebugOverlay* debugOverlay;
     bool debugMode;
     bool debugEnabled;
-    // Text collected by UpdateDebugInfo() for this frame. Rebuilt each time it
-    // is asked for, so overrides just call AddDebugLine().
+    // Debug text collected by UpdateDebugInfo() for this frame, rebuilt each
+    // time it is asked for. Prefer AddDebugValue() for anything that reads as
+    // "key: value"; AddDebugLine() is for free-form text.
     std::vector<std::string> debugLines;
+    std::vector<DebugRow> debugRows;
     
     Uint8 fadeAlpha = 255;
     Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
@@ -113,17 +115,14 @@ class Scene: public IDrawableContainer {
     // base first to keep the common lines.
     virtual void UpdateDebugInfo();
     void AddDebugLine(const std::string& text) { debugLines.push_back(text); }
+    void AddDebugValue(const std::string& key, const std::string& value) {
+        debugRows.push_back(DebugRow{key, value});
+    }
 
     // Inspector text for the debug UI: runs UpdateDebugInfo() and returns the
     // result as one panel titled after the scene. Override to supply several
     // panels instead.
     virtual std::vector<DebugPanel> GetDebugPanels();
-
-#ifdef RODLEGACY_DEBUG_UI
-    // Interactive debug widgets, drawn inside the UI's Controls panel. Declared
-    // only in debug UI builds because implementations call ImGui directly.
-    virtual void DrawDebugControls() {}
-#endif
 
     // Debug methods
     void AddGamepadDebugInfo(const Mouse& mouse);
