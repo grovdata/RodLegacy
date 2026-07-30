@@ -466,6 +466,18 @@ void Driving::DrawScene() {
                     RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
                                         ? RaceType::Drag : RaceType::Road;
                     const std::string reason = racing->GetRaceEndReason();
+                    // Speeding ticket. Read before ResetRaceOutcome so the
+                    // sim's cop state is still current.
+                    if (racing->PlayerBusted()) {
+                        const int fine = racing->SpeedingFine();
+                        if (state.GetBankroll() >= fine) {
+                            state.SetBankroll(state.GetBankroll() - fine);
+                        }
+                        // TODO: can't-pay is jail and the run ends. The bubble
+                        // already says so ("sentenced for debts"), but RodLegacy
+                        // has no game-over path to hand yet, so for now you just
+                        // keep the money you could not pay with.
+                    }
                     raceEndPendingKing = state.OnRaceFinished(raceType, won);
                     racing->ResetRaceOutcome();
                     state.AdvanceGameHours(2);

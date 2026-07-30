@@ -446,7 +446,20 @@ void Racing::InitializeRaceSimulation() {
         npcSetup.driverSkill = 100;
     }
 
-    sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup, static_cast<uint32_t>(SDL_GetTicks()));
+    // A previous race may have ended with the cop's sprites swapped into the
+    // opponent slot; put the real opponent back before this one starts.
+    if (opponentCarTypeBeforeCop >= 0) {
+        opponentCarType = opponentCarTypeBeforeCop;
+        opponentCarTypeBeforeCop = -1;
+        LoadOpponentCarSprites();
+    }
+
+    // TODO: the last argument suppresses the cop for the King's race
+    // (InitRaceState gates its spawn roll on that), but there is no "the
+    // current opponent is the King" accessor on State to pass yet, so a King
+    // road race can currently draw a cop.
+    sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup,
+             static_cast<uint32_t>(SDL_GetTicks()));
     simInitialized = true;
     fixedAccumulator = 0.0f;
     prevSpaceDown = false;
@@ -551,6 +564,18 @@ int16_t Racing::GetSteerDisplay() const {
 // lines sit there in stake order, which is what picks between them here.
 std::string Racing::GetRaceEndReason() const {
     const uint16_t flags = sim.Player().endFlags;
+    // Pulled over for speeding. Checked before the other failures because the
+    // ticket is added on top of whatever else ended the race (a crash while
+    // being chased gets you both), and the cop is the more specific news.
+    // If you cannot cover it you go to jail and the run is over - the original
+    // shows the debts line and sets its game-over bit (ProcessRaceOutcome).
+    if (flags & srrace::END_COP_CAUGHT) {
+        const int fine = sim.SpeedingFine();
+        if (state.GetBankroll() < fine) {
+            return "You've been sentenced for debts, Ace`!";
+        }
+        return "You have been fined $" + std::to_string(fine) + " for speeding.";
+    }
     if (flags & srrace::END_HIT_NPC)       return "You lose. Take a walk, sucker.";
     if (flags & srrace::END_WALL_HIT)      return "You lose. Take a walk, sucker.";
     if (flags & srrace::END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
@@ -580,8 +605,6 @@ std::string Racing::GetRaceEndReason() const {
     }
     // Endings TODO:
     //  "Lucky you weren't killed, 'cause the car`is totaled. You get $N for scrap."
-    //  "You've been sentenced for debts, Ace`!"  (caught by the cop)
-    // Cop lose:  "You have been fined $%2d for speeding"
     // and the totaled-car follow-up, which is a dialog rather than a bubble:
     //  "Oh, well, it could have been worse.\n $N for parts and you are back on
     //  the streets." with a "Junk it" (and possibly "Fix it") button.
@@ -1792,6 +1815,33 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             // sound three times as the player is shoved clear).
             if (sim.ConsumeNpcBump() && audioManager) {
                 audioManager->PlaySound(AudioSampleType::CAR_BASH);
+            }
+
+            // The cop has taken over the opponent slot, so swap the opponent's
+            // sprites for the police ones. The original does the same thing by
+            // copying 13 sprite pointers over the opponent's (SpawnCop
+            // 0x244ca2); here the renderer just switches on opponentCarType.
+            if (sim.ConsumeCopSpawn()) {
+                if (opponentCarTypeBeforeCop < 0) {
+                    opponentCarTypeBeforeCop = opponentCarType;
+                }
+                opponentCarType = 2;
+                LoadOpponentCarSprites();
+            }
+
+            // Cop siren, retriggered on a cooldown for the same reason as the
+            // tire screech below: our one-shots queue rather than restarting a
+            // hardware channel.
+            if (copSirenCooldownTicks > 0) {
+                --copSirenCooldownTicks;
+            }
+            if (sim.CopSirenOn() && audioManager) {
+                if (copSirenCooldownTicks == 0) {
+                    audioManager->PlaySound(AudioSampleType::COP_SIREN);
+                    copSirenCooldownTicks = 13;
+                }
+            } else {
+                copSirenCooldownTicks = 0;
             }
 
             // Tire screech: sliding hard (|slideVel| >= 12 of its +-24 clamp)

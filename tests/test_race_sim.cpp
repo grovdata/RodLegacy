@@ -45,6 +45,43 @@ void RunOutCountdown(RaceSim& sim) {
     }
 }
 
+// A reasonable mid-range car, shared by the cop tests below.
+CarSetup CopTestSetup() {
+    CarSetup setup{};
+    setup.transClass = 2;
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.manifoldClass = 1;
+    setup.tireClass = 1;
+    setup.weightClass = 4;
+    setup.driverSkill = 130;
+    return setup;
+}
+
+// The cop spawn is a 1-in-4 roll inside Init, so tests that need one search for
+// a seed rather than reaching into the sim.
+uint32_t SeedThatArmsCop(const TrackData& track, const CarSetup& setup) {
+    for (uint32_t seed = 1; seed < 500; ++seed) {
+        RaceSim probe;
+        probe.Init(&track, 1, setup, setup, seed);
+        if (probe.CopState() == 1) {
+            return seed;
+        }
+    }
+    return 0;
+}
+
+// Arms the cop, drops the player just past the trigger segment with the
+// opponent well behind, and ticks once so the cop takes over the opponent slot.
+void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup,
+                     uint32_t seed) {
+    sim.Init(&track, 1, setup, setup, seed);
+    REQUIRE(sim.CopState() == 1);
+    sim.SetCameraState(sim.CopTriggerSegment() + 1, 0, 0, 2560, 0);
+    sim.SetNpcDebugPose(sim.CopTriggerSegment() - 100, 2200);
+    sim.Tick(0);
+}
+
 }  // namespace
 
 TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
@@ -261,6 +298,201 @@ TEST_CASE("Steering input counteracts curve drift") {
     const int driftWithSteer = withSteerAdaptive.Player().lateral - lateralStartWithSteer;
 
     CHECK(std::abs(driftWithSteer) <= std::abs(driftNoSteer));
+}
+
+TEST_CASE("Cop spawns only on plain road races") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+
+    int roadSpawns = 0;
+    for (uint32_t seed = 1; seed < 80; ++seed) {
+        RaceSim drag;
+        drag.Init(&track, 0, setup, setup, seed);
+        CHECK(drag.CopState() == 0);          // never on the drag strip
+
+        RaceSim king;
+        king.Init(&track, 1, setup, setup, seed, /*kingRace=*/true);
+        CHECK(king.CopState() == 0);          // never in the King's race
+
+        RaceSim road;
+        road.Init(&track, 1, setup, setup, seed);
+        if (road.CopState() == 1) {
+            ++roadSpawns;
+            // 510 + rand(255): always in the middle-to-late stretch of a road
+            // course, which runs 200..1020.
+            CHECK(road.CopTriggerSegment() >= 510);
+            CHECK(road.CopTriggerSegment() < 765);
+        }
+    }
+    // It is a 1-in-4 roll, so over 79 road races it must fire sometimes and
+    // must not fire always.
+    CHECK(roadSpawns > 0);
+    CHECK(roadSpawns < 79);
+}
+
+TEST_CASE("Cop is cancelled unless the player is 5+ segments ahead") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    // Level with the opponent at the trigger: no cop at all. You only get
+    // pulled over for leading.
+    RaceSim level;
+    level.Init(&track, 1, setup, setup, seed);
+    REQUIRE(level.CopState() == 1);
+    level.SetCameraState(level.CopTriggerSegment() + 1, 0, 0, 2560, 0);
+    level.SetNpcDebugPose(level.CopTriggerSegment() + 1, 2200);
+    level.Tick(0);
+    CHECK(level.CopState() == 0);
+    CHECK_FALSE(level.CopChasing());
+
+    // Well clear of the opponent: the cop takes over the opponent slot.
+    RaceSim leading;
+    StartCopPursuit(leading, track, setup, seed);
+    CHECK(leading.CopState() == 2);
+    CHECK(leading.CopChasing());
+    CHECK(leading.ConsumeCopSpawn());        // one-shot for the sprite swap
+    CHECK_FALSE(leading.ConsumeCopSpawn());  // and only once
+    CHECK_FALSE(leading.CopSirenOn());       // not close enough yet
+}
+
+TEST_CASE("Cop siren starts when it closes, and catching you ends the race") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, setup, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Closed to within 15 segments behind -> siren.
+    sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
+    sim.Tick(0);
+    CHECK(sim.CopState() == 3);
+    CHECK(sim.CopSirenOn());
+    CHECK_FALSE(sim.PlayerBusted());   // alongside is not caught
+
+    // More than 2 segments ahead of us -> pulled over.
+    sim.SetNpcDebugPose(sim.Player().segPos + 4, 2200);
+    sim.Tick(0);
+    CHECK(sim.PlayerBusted());
+    CHECK(sim.PlayerFailed());
+    CHECK_FALSE(sim.PlayerWrecked());  // a ticket does not bend metal
+    CHECK_FALSE(sim.CopSirenOn());     // siren stops on capture
+    CHECK(sim.RaceOver());
+    // Caught crawling, so the cheapest tier.
+    CHECK(sim.CopCaughtSpeed() < 51);
+    CHECK(sim.SpeedingFine() == 20);
+}
+
+TEST_CASE("Speeding fine is tiered on the speed at capture") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, setup, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Build speed with the cop held far enough back that it cannot catch us,
+    // then force the capture and check the fine matches the tier we are in.
+    for (int i = 0; i < 400 && sim.Player().speed < 60; ++i) {
+        sim.SetNpcDebugPose(sim.Player().segPos - 40, 2200);
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if (sim.RaceOver()) {
+            break;
+        }
+    }
+    REQUIRE(sim.Player().speed >= 51);
+    REQUIRE_FALSE(sim.PlayerBusted());
+
+    // Let it close first - the capture only arms once the siren is going.
+    sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
+    sim.Tick(ThrottleWithShiftIfNeeded(sim));
+    REQUIRE(sim.CopState() == 3);
+
+    sim.SetNpcDebugPose(sim.Player().segPos + 4, 2200);
+    sim.Tick(ThrottleWithShiftIfNeeded(sim));
+    REQUIRE(sim.PlayerBusted());
+
+    // Fine tracks the speed actually recorded at capture, not the speed we
+    // happened to read a tick earlier.
+    const int16_t caught = sim.CopCaughtSpeed();
+    CHECK(caught >= 51);
+    CHECK(sim.SpeedingFine() == (caught < 81 ? 50 : 75));
+}
+
+TEST_CASE("Winning the race shakes the cop - no ticket") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, setup, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Run to the flag with the cop pinned close behind, so the siren is going
+    // the whole way but it never gets ahead of us.
+    bool sirenSounded = false;
+    for (int i = 0; i < 4000 && !sim.RaceOver(); ++i) {
+        sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sirenSounded = sirenSounded || sim.CopSirenOn();
+    }
+
+    REQUIRE(sim.RaceOver());
+    CHECK(sirenSounded);              // it really was chasing us
+    CHECK(sim.PlayerWonAtLine());
+    // The whole point: the original re-tests its failure word before ORing in
+    // the caught bit, and a win is recorded in a different word, so crossing
+    // the line first gets you off scot free.
+    CHECK_FALSE(sim.PlayerBusted());
+    CHECK(sim.SpeedingFine() == 0);
+    CHECK_FALSE(sim.CopSirenOn());
+}
+
+TEST_CASE("Crashing while chased gets you a ticket on top") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, setup, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Put the car way off the road so the edge check wrecks it.
+    sim.SetCameraState(sim.Player().segPos, 0, 0, 100, 0);
+    sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
+    sim.Tick(0);
+
+    REQUIRE(sim.PlayerWrecked());
+    CHECK(sim.PlayerBusted());       // ticket added on top of the wreck
+    CHECK(sim.SpeedingFine() > 0);
+    CHECK_FALSE(sim.CopSirenOn());
+}
+
+TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
+    TrackData track = MakeFlatTrack();
+    const CarSetup setup = CopTestSetup();
+    const uint32_t seed = SeedThatArmsCop(track, setup);
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, setup, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Sit level and laterally overlapping while closing - without the cop gate
+    // this is exactly the geometry that sets END_HIT_NPC.
+    for (int i = 0; i < 30 && !sim.RaceOver(); ++i) {
+        sim.SetNpcDebugPose(sim.Player().segPos, sim.Player().lateral + 20);
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        CHECK((sim.Player().endFlags & END_HIT_NPC) == 0);
+    }
 }
 
 TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {

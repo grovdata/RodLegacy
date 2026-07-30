@@ -167,7 +167,7 @@ int SpeedToScrollStep(int speedMph) {
 
 void RaceSim::Init(const TrackData* newTrack, int newRaceType,
                    const CarSetup& newPlayerSetup, const CarSetup& newNpcSetup,
-                   uint32_t rngSeed) {
+                   uint32_t rngSeed, bool kingRace) {
     track = newTrack;
     raceType = (newRaceType == 0) ? 0 : 1;
     finishSeg = (raceType == 0) ? DRAG_FINISH_SEG : ROAD_FINISH_SEG;
@@ -227,6 +227,27 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     // launch time). ~2-3s at 50 Hz; leaving the line early is a false start.
     phase = RacePhase::Countdown;
     countdownTicks = 100 + rng.Next(50);
+
+    // Cop spawn roll (InitRaceState 0x244250). Road races only, never the
+    // King's, 1 in 4, and the trigger sits at 510 + rand(255) - which on a road
+    // course running 200..1020 always lands in the middle-to-late stretch.
+    //
+    // Drawn from a seed derived off the main one rather than from `rng` itself.
+    // The original spends draws from its shared stream here, but ours is not
+    // bit-identical to the original's anyway, so there is no fidelity to gain -
+    // and taking two draws at init would shift every later draw in the race,
+    // silently re-rolling NPC behaviour and the wear/failure checks that the
+    // existing races are tuned and regression-tested against.
+    copState = 0;
+    copTriggerSeg = 0;
+    copSpawnEvent = false;
+    copSirenOn = false;
+    copCaughtSpeed = 0;
+    RaceRng copRng(rngSeed ^ 0x5a17c09u);
+    if (raceType == 1 && !kingRace && copRng.Next(4) == 0) {
+        copState = 1;
+        copTriggerSeg = 510 + copRng.Next(255);
+    }
 
     if (track != nullptr) {
         int seg = ClampTrackIndex(player.segPos);
@@ -311,6 +332,10 @@ void RaceSim::Tick(uint16_t inputBits) {
 
     NpcAiUpdate();
     NpcEngine();
+    // The cop machine runs straight after the NPC engine and BEFORE the finish
+    // is detected, exactly as in RaceLogicUpdate 0x244d50. The order matters:
+    // ApplyCopRaceEnd below has to see the finish result of this same tick.
+    UpdateCopPursuit();
 
     UpdateScroll(player);
     UpdateScroll(npc);
@@ -330,10 +355,75 @@ void RaceSim::Tick(uint16_t inputBits) {
         CheckNpcContact();
     }
     CheckFinish();
+    ApplyCopRaceEnd();
 
     if ((player.endFlags & END_FAILURE_MASK) != 0) {
         phase = RacePhase::Ended;
     }
+}
+
+// Cop pursuit state machine (RaceLogicUpdate 0x244d50). The cop does not spawn
+// as a third car: from state 2 it IS the opponent, because the original swaps
+// the opponent's car record and its 13 sprite pointers for the police ones
+// (SpawnCop 0x244ca2). Here that swap is just a flag the renderer reads.
+void RaceSim::UpdateCopPursuit() {
+    if (copState == 0) {
+        return;
+    }
+    const int pSeg = static_cast<int>(player.segPos);
+    const int nSeg = static_cast<int>(npc.segPos);
+
+    if (copState == 1) {
+        if (pSeg >= copTriggerSeg) {
+            if (pSeg < nSeg + 5) {
+                // Not far enough clear of the opponent: no cop at all this race.
+                // You only get pulled over for leading.
+                copState = 0;
+            } else {
+                copState = 2;
+                copSpawnEvent = true;
+            }
+        }
+        return;
+    }
+
+    if (copState == 2) {
+        if (pSeg <= nSeg + 15) {   // closed to within 15 segments
+            copState = 3;
+            copSirenOn = true;
+        }
+        return;
+    }
+
+    // State 3: caught the moment it is more than 2 segments ahead of us.
+    if (pSeg < nSeg - 2) {
+        copCaughtSpeed = player.speed;
+        player.endFlags |= (END_FINISHED | END_COP_CAUGHT);
+        copSirenOn = false;
+    }
+}
+
+// The tail of RaceLogicUpdate, run after the finish has been resolved. This is
+// where winning saves you: the original re-tests its failure word before ORing
+// in the caught bit, and UpdateRaceScroll 0x244818 records a WIN in a different
+// word (0x4c8e) than a LOSS (0x4bc6). So a win leaves the failure word at zero,
+// skips the OR and only silences the siren. See docs/driving/cop.md.
+void RaceSim::ApplyCopRaceEnd() {
+    if (copState < 2) {
+        return;
+    }
+    const bool playerEnded = player.endFlags != 0;
+    const bool playerWon = (npc.endFlags & END_FINISHED) != 0;
+    if (!playerEnded && !playerWon) {
+        return;   // race still running
+    }
+    if (playerEnded && (player.endFlags & END_COP_CAUGHT) == 0) {
+        // Lost, crashed or blew up while being chased: ticket on top of it.
+        copCaughtSpeed = player.speed;
+        player.endFlags |= END_COP_CAUGHT;
+    }
+    // A win reaches here with playerEnded false, so no ticket - just quiet.
+    copSirenOn = false;
 }
 
 void RaceSim::PlayerPhysics(uint16_t inputBits) {
@@ -756,8 +846,13 @@ void RaceSim::CheckNpcContact() {
         return;
     }
 
+    // While the cop is chasing you cannot total yourself on it: the original
+    // gates the rear-end branch on `copState <= 1` and falls through to the
+    // side-contact path instead (RaceLogicUpdate 0x244d50).
+    const bool copChasing = copState >= 2;
+
     // Rear-ended it: laterally overlapping (state 2) and closing.
-    if (latAbs < 180 &&
+    if (!copChasing && latAbs < 180 &&
         SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed)) {
         player.endFlags |= (END_FINISHED | END_HIT_NPC);
         npcContactTicks = 0;
@@ -775,8 +870,9 @@ void RaceSim::CheckNpcContact() {
 
     // Steering into the opponent rather than away from it. latGap > 0 puts the
     // NPC to our right, so steering right (steerVel > 0) is leaning on it.
+    // The cop never shoves you off the road either (same gate, `copState < 2`).
     const bool leaningOnIt = (latGap > 0) ? (player.steerVel > 0) : (player.steerVel < 0);
-    if (!leaningOnIt || npcContactTicks <= 3) {
+    if (!leaningOnIt || npcContactTicks <= 3 || copChasing) {
         return;
     }
 
@@ -883,6 +979,14 @@ void RaceSim::NpcEngine() {
     if (npcAi.stallTicks > 0) {
         throttle = false;
         npcAi.stallTicks -= 1;
+    }
+
+    // Cop pursuit cap (UpdateNPCEngine 0x2444c2): once the cop is chasing and
+    // the player is doing 51+, it holds station at player.speed + 32 rather
+    // than flooring it, so it closes at a bounded rate. Below 51 this does not
+    // apply and it accelerates freely, which is what reels in a slow car.
+    if (copState >= 2 && player.speed >= 51 && npc.speed > player.speed + 32) {
+        throttle = false;
     }
 
     const bool shift = throttle &&

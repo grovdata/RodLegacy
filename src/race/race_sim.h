@@ -25,14 +25,24 @@ constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
 constexpr uint16_t END_FINISHED = 0x01;
 constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
+// NPC-only, and NOT an original flag: this is our own "the opponent conceded in
+// the last quarter" marker (NpcAiUpdate). It sits on the bit the original spends
+// on its crash-damage marker, which we do not implement. It used to squat on
+// 0x40, which is really the cop bit below - most likely a mis-derivation from
+// the same bad note that had 0x41 down as "NPC won".
+constexpr uint16_t END_GAVE_UP = 0x08;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
-constexpr uint16_t END_GAVE_UP = 0x40;
+// Pulled over for speeding. The original's own bit: the `| 0x41` in
+// RaceLogicUpdate is the only place 0x40 is ever set in the whole binary, so it
+// means this and nothing else. See RodLegacyResearch/docs/driving/cop.md.
+constexpr uint16_t END_COP_CAUGHT = 0x40;
 constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false start
 
 // Player failure states that freeze the car and end the race as a loss.
 constexpr uint16_t END_FAILURE_MASK =
-    END_HIT_NPC | END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED;
+    END_HIT_NPC | END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED |
+    END_COP_CAUGHT;
 
 // The two impacts that bend metal and put the wrecked interior on screen.
 constexpr uint16_t END_WRECK_MASK = END_WALL_HIT | END_HIT_NPC;
@@ -123,9 +133,11 @@ class RaceSim {
 public:
     // track must outlive the sim. raceType: 0 = drag (finish 380),
     // 1 = road (finish 1020).
+    // kingRace suppresses the cop entirely (InitRaceState 0x244250 gates the
+    // spawn roll on A4+0x19da == 0).
     void Init(const TrackData* track, int raceType,
               const CarSetup& playerSetup, const CarSetup& npcSetup,
-              uint32_t rngSeed);
+              uint32_t rngSeed, bool kingRace = false);
 
     // Advances one frame. inputBits = INPUT_* mask.
     void Tick(uint16_t inputBits);
@@ -191,6 +203,34 @@ public:
         return std::abs(player.slideVel) >= 12 && player.speed > 20;
     }
 
+    // --- Cop pursuit (see RodLegacyResearch/docs/driving/cop.md) ---
+    // 0 = no cop this race, 1 = armed and waiting for the trigger segment,
+    // 2 = the cop has taken over the opponent slot and is chasing,
+    // 3 = close enough that the siren is going.
+    int CopState() const { return copState; }
+    int32_t CopTriggerSegment() const { return copTriggerSeg; }
+    // The opponent car IS the cop from state 2 on, so the renderer should be
+    // drawing the police sprites.
+    bool CopChasing() const { return copState >= 2; }
+    bool CopSirenOn() const { return copSirenOn; }
+    // True for one tick when the cop takes over, for the sprite swap.
+    bool ConsumeCopSpawn() {
+        const bool spawned = copSpawnEvent;
+        copSpawnEvent = false;
+        return spawned;
+    }
+    bool PlayerBusted() const { return (player.endFlags & END_COP_CAUGHT) != 0; }
+    // Ticket price, tiered on the speed at the moment of capture
+    // (ProcessRaceOutcome 0x23eaa2). The original adds the crash-repair bill on
+    // top when its damage bit is set; we have no equivalent of that bit.
+    int SpeedingFine() const {
+        if (!PlayerBusted()) return 0;
+        if (copCaughtSpeed < 51) return 20;
+        if (copCaughtSpeed < 81) return 50;
+        return 75;
+    }
+    int16_t CopCaughtSpeed() const { return copCaughtSpeed; }
+
 private:
     void PlayerPhysics(uint16_t inputBits);
     void UpdateScroll(CarState& car);
@@ -200,6 +240,8 @@ private:
     void ApplyLateralDrift(CarState& car, int16_t handling);
     void CheckEdgeCollision();
     void CheckNpcContact();
+    void UpdateCopPursuit();
+    void ApplyCopRaceEnd();
     void NpcEngine();
     void NpcAiUpdate();
     void EngineTick(CarState& car, const CarTables& tables, bool throttle,
@@ -221,6 +263,12 @@ private:
     // is A4+0x4cc4, the win/loss verdict taken at that instant.
     bool finishSnapshot = false;
     bool playerAheadAtFinish = false;
+    // Cop pursuit (original A4+0x4cb6 state / A4+0x4cb8 trigger segment).
+    int16_t copState = 0;
+    int32_t copTriggerSeg = 0;
+    bool copSpawnEvent = false;
+    bool copSirenOn = false;
+    int16_t copCaughtSpeed = 0;   // speed at capture; sets the fine tier
     int16_t edgeLeft = 1500, edgeRight = 3300;
     int16_t edgeLeftAhead = 1500, edgeRightAhead = 3300;
     RaceRng rng;

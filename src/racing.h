@@ -63,6 +63,10 @@ private:
     // SRL0_TIRE_SCREECH_LENGTH/RATE) has had time to play out, giving a
     // continuous screech for as long as the slide lasts.
     int tireScreechCooldownTicks = 0;
+    // Same retrigger scheme for the cop siren, sized to that sample (~886 ms =
+    // SRL0_COP_SIREN_LENGTH/RATE, ~13 ticks at the 15 Hz sim rate). The original
+    // restarts the Paula channel while the cop is closing; we requeue instead.
+    int copSirenCooldownTicks = 0;
 
     srrace::TrackData track {};
     srrace::RaceRng rng;
@@ -109,6 +113,9 @@ private:
 
     bool opponentActive = false;
     int opponentCarType = 0;
+    // Opponent's real car type, stashed while the cop has the slot. -1 = no
+    // swap in effect.
+    int opponentCarTypeBeforeCop = -1;
     StandardCarColor opponentColor = CarColorRed;
     RaceOutcome raceOutcome = RaceOutcome::Ongoing;
 
@@ -187,6 +194,10 @@ public:
     // Short human-readable reason the race ended (e.g. "CRASHED", "YOU WIN!").
     // Call while the outcome is still set (before ResetRaceOutcome).
     std::string GetRaceEndReason() const;
+    // Pulled over for speeding, and what the ticket costs. See
+    // RodLegacyResearch/docs/driving/cop.md.
+    bool PlayerBusted() const { return sim.PlayerBusted(); }
+    int SpeedingFine() const { return sim.SpeedingFine(); }
     bool IsTransmissionDamaged() const;
     bool IsAutomatic() const;
 

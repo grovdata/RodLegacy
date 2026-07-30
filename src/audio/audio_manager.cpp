@@ -328,8 +328,23 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_TIRE_SCREECH_LENGTH, SRL0_TIRE_SCREECH_RATE);
     }
 
+    // Cop siren - the in-race speeding pursuit. The original plays this on two
+    // Paula channels at volume 0x36 (AudioStartCopSiren 0x228994), retriggered
+    // while the cop is closing. See RodLegacyResearch/docs/driving/cop.md
+    if (size >= SRL0_COP_SIREN_OFFSET + SRL0_COP_SIREN_LENGTH) {
+        AudioSample copSirenSample;
+        LoadRawAudio(data + SRL0_COP_SIREN_OFFSET, SRL0_COP_SIREN_LENGTH,
+                     copSirenSample, SRL0_COP_SIREN_RATE);
+        copSirenSample.isLooped = false;  // one-shot, retriggered by the caller
+        copSirenSample.loopStart = 0;
+        copSirenSample.loopLength = 0;
+        samples[AudioSampleType::COP_SIREN] = copSirenSample;
+        LOG_INFO("  - Cop siren sound: %u bytes (one-shot) at %u Hz",
+                SRL0_COP_SIREN_LENGTH, SRL0_COP_SIREN_RATE);
+    }
+
     // TODO: Extract other samples from srl0.wave
-    // The exact offsets for ignition, honk, crash, and cop siren
+    // The exact offsets for ignition, honk and crash
     // need to be determined from the Amiga disassembly or by analyzing the file
 
     // For now, we'll just note that the rest exists
