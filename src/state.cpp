@@ -372,11 +372,20 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
         }
         if (pinkSlip) {
-            // TODO: losing a pink slip should take the player's car. Not done
-            // here because losing your only car needs the follow-up the original
-            // has (scrap value, then buying a replacement); without it the game
-            // would be left with no car and nothing to do.
-            LOG_INFO("State::OnRaceFinished - pink slip loss, car forfeit not implemented");
+            // The stake was the cars, so the one that was raced is gone. It is
+            // dropped rather than deleted: nothing else in the game deletes a
+            // Car, and the roster may still be holding this pointer.
+            Car* lostCar = currentCar;
+            if (lostCar != nullptr) {
+                ownedCars.erase(std::remove(ownedCars.begin(), ownedCars.end(), lostCar),
+                                ownedCars.end());
+                // Fall back to whatever else is in the garage. With nothing
+                // left the player is carless and has to buy one from the
+                // paper, which is what the original does with its single car.
+                currentCar = ownedCars.empty() ? nullptr : ownedCars.front();
+                LOG_INFO("State::OnRaceFinished - pink slip loss: forfeited %s, %zu car(s) left",
+                         lostCar->GetModel().name.c_str(), ownedCars.size());
+            }
         } else {
             bankroll = std::max(0, bankroll - pendingBetAmount);
         }

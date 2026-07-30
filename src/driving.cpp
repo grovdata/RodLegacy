@@ -621,7 +621,15 @@ bool Driving::PushEvent(SDL_Event *event) {
         raceEndBubble.reset();
         const bool endGame = raceEndPendingKing;
         raceEndPendingKing = false;
-        state.MoveToScene(endGame ? SCENE_KING_OF_COUNTY : SCENE_GARAGE);
+        if (endGame) {
+            state.MoveToScene(SCENE_KING_OF_COUNTY);
+        } else if (state.GetCurrentCar() == nullptr) {
+            // Lost the pink slip with nothing else in the garage: the paper is
+            // the only way back into the game, so go straight there.
+            state.MoveToScene(SCENE_NEWSPAPER);
+        } else {
+            state.MoveToScene(SCENE_GARAGE);
+        }
         return true;
     }
 

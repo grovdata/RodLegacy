@@ -8,6 +8,7 @@
 #include "SFont.h"
 #include "scene_layout.h"
 #include "embedded_resources.h"
+#include "ui/bubble.h"
 
 const std::string autoParts = "------------ PARTS ------------";
 const std::string usedCars = "---------- USED CARS ----------";
@@ -31,14 +32,23 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
     };
-    GetZone("back_to_garage").onClick = [this] {
+    // Nothing to drive home in until a car has been bought, which is where a
+    // lost pink slip leaves the player.
+    auto backToGarage = [this] {
         if (sceneTransition != SCENE_SOLID) return;
+        if (state.GetCurrentCar() == nullptr) {
+            bubbles[0]->SetVisible(true);
+            return;
+        }
         state.MoveToScene(SCENE_GARAGE);
     };
-    GetZone("back_to_garage2").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID) return;
-        state.MoveToScene(SCENE_GARAGE);
-    };
+    GetZone("back_to_garage").onClick = backToGarage;
+    GetZone("back_to_garage2").onClick = backToGarage;
+
+    auto noCarBubble = std::make_unique<Bubble>("  You'll be needin' a car, bub!",
+                                                BUBBLE_LEFT, 90, 30, true);
+    noCarBubble->SetVisible(false);
+    bubbles.push_back(std::move(noCarBubble));
     GetZone("previous").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         if (currentPage > 0) currentPage--; else currentPage = totalPages;

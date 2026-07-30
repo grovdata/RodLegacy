@@ -74,7 +74,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
         SetActiveDialog((Dialog*)gameMenuDialog.get());
     };
-    GetZone("car_list").onClick = [this] {
+    GetZone("select_car").onClick = [this] {
         if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE) return;
         sortedOwnedCars.clear();
         for (auto& car : state.GetOwnedCars()) sortedOwnedCars.push_back(car);
