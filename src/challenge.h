@@ -44,6 +44,18 @@ private:
     bool wantsRace     = false;
     bool wantsCarExit  = false;
 
+    // Ported from RaceSetupLoop (Amiga 0x0023d8c8): the opponent gets to
+    // reject a proposed bet twice before the encounter ends, not once. Counts
+    // opponent rejections only - the player choosing "Forget it" ends things
+    // immediately regardless of this counter. See
+    // RodLegacyResearch/docs/diner_challenge.md.
+    static constexpr int kMaxBetAttempts = 2;
+    int betAttempts = 0;
+    // True while insultTimer is running because the OPPONENT rejected a bet
+    // (as opposed to the player picking "Forget it"), so Draw() knows whether
+    // to loop back to the race-type menu once the insult clears.
+    bool insultFromOpponent = false;
+
     static const std::vector<std::string> kInsults;
     static const std::vector<std::string> kAcceptances;
     static const std::vector<std::string> kRejections;
@@ -54,4 +66,5 @@ private:
     void ShowSpeech(const std::string& text);
     void Accept();
     void Reject();
+    void OpponentRejectsBet();
 };

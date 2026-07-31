@@ -77,11 +77,13 @@ Challenge::Challenge() = default;
 void Challenge::Reset() {
     dialog.reset();
     bubble.reset();
-    step          = Step::None;
-    acceptTimer   = -1.0f;
-    insultTimer   = -1.0f;
-    wantsRace     = false;
-    wantsCarExit  = false;
+    step             = Step::None;
+    acceptTimer      = -1.0f;
+    insultTimer      = -1.0f;
+    wantsRace        = false;
+    wantsCarExit     = false;
+    betAttempts      = 0;
+    insultFromOpponent = false;
 }
 
 bool Challenge::IsActive() const {
@@ -128,9 +130,16 @@ void Challenge::Draw(float deltaTime) {
     if (insultTimer >= 0.0f) {
         insultTimer += deltaTime;
         if (insultTimer >= 2.0f) {
-            insultTimer  = -1.0f;
+            insultTimer = -1.0f;
             bubble.reset();
-            wantsCarExit = true;
+            // The opponent gets a second look at a bet before the player is
+            // sent packing (RaceSetupLoop's 2-attempt loop); the player's own
+            // "Forget it" always ends things on the spot.
+            if (insultFromOpponent && betAttempts < kMaxBetAttempts) {
+                ShowRaceTypeDialog();
+            } else {
+                wantsCarExit = true;
+            }
         }
     }
 }
@@ -161,7 +170,19 @@ void Challenge::ShowDragBetDialog() {
         font,
         [this](int idx) {
             if (idx == 3) { Reject(); return; }
+
+            static const BetType betTypes[] = {
+                BetType::NoMoney, BetType::SmallMoney, BetType::LargeMoney
+            };
             static const int bets[] = {0, 25, 50};
+
+            BetType bet = betTypes[idx];
+            int roll    = rand() % 100;
+            bool accepted = OpponentAcceptsBet(
+                state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
+
+            if (!accepted) { OpponentRejectsBet(); return; }
+
             state.SetPendingRace(RaceType::Drag, bets[idx], false);
             Accept();
         }
@@ -186,7 +207,7 @@ void Challenge::ShowRoadBetDialog() {
             bool accepted = OpponentAcceptsBet(
                 state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
 
-            if (!accepted) { Reject(); return; }
+            if (!accepted) { OpponentRejectsBet(); return; }
 
             state.SetPendingRace(RaceType::Road, bets[idx], idx == 2);
             Accept();
@@ -211,7 +232,21 @@ void Challenge::Accept() {
 void Challenge::Reject() {
     step = Step::None;
     dialog.reset();
+    insultFromOpponent = false;
     ShowSpeech(kInsults[rand() % kInsults.size()]);
     insultTimer = 0.0f;
-    LOG_INFO("Challenge::Reject - opponent insulted player");
+    LOG_INFO("Challenge::Reject - player backed out");
+}
+
+// Opponent turned down a proposed bet. Ported from RaceSetupLoop (Amiga
+// 0x0023d8c8): up to kMaxBetAttempts tries before the encounter ends, not
+// just one - see RodLegacyResearch/docs/diner_challenge.md.
+void Challenge::OpponentRejectsBet() {
+    step = Step::None;
+    dialog.reset();
+    ++betAttempts;
+    insultFromOpponent = true;
+    ShowSpeech(kInsults[rand() % kInsults.size()]);
+    insultTimer = 0.0f;
+    LOG_INFO("Challenge::OpponentRejectsBet - attempt %d/%d", betAttempts, kMaxBetAttempts);
 }

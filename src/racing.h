@@ -120,6 +120,22 @@ private:
     std::unique_ptr<Bitmap> opponentCopRearSide;
     std::unique_ptr<Bitmap> opponentCopRear[7];
     std::unique_ptr<Bitmap> opponentCopBehind[4];
+    std::unique_ptr<Bitmap> opponentOldsmobileFrontSide;
+    std::unique_ptr<Bitmap> opponentOldsmobileRearSide;
+    std::unique_ptr<Bitmap> opponentOldsmobileRear[7];
+    std::unique_ptr<Bitmap> opponentOldsmobileBehind[4];
+    std::unique_ptr<Bitmap> opponentChevy2FrontSide;
+    std::unique_ptr<Bitmap> opponentChevy2RearSide;
+    std::unique_ptr<Bitmap> opponentChevy2Rear[7];
+    std::unique_ptr<Bitmap> opponentChevy2Behind[4];
+    std::unique_ptr<Bitmap> opponentCorvette63FrontSide;
+    std::unique_ptr<Bitmap> opponentCorvette63RearSide;
+    std::unique_ptr<Bitmap> opponentCorvette63Rear[7];
+    std::unique_ptr<Bitmap> opponentCorvette63Behind[4];
+    std::unique_ptr<Bitmap> opponentFordFrontSide;
+    std::unique_ptr<Bitmap> opponentFordRearSide;
+    std::unique_ptr<Bitmap> opponentFordRear[7];
+    std::unique_ptr<Bitmap> opponentFordBehind[4];
 
     bool opponentActive = false;
     int opponentCarType = 0;

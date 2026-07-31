@@ -339,6 +339,46 @@ void Racing::LoadOpponentCarSprites() {
                 opponentCopBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_COP_BEHIND_1 + i);
             }
             break;
+        case 3:
+            opponentOldsmobileFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE);
+            opponentOldsmobileRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_OLDMOBILE_REAR_SIDE);
+            for (int i = 0; i < 7; ++i) {
+                opponentOldsmobileRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_OLDMOBILE_REAR_1 + i);
+            }
+            for (int i = 0; i < 4; ++i) {
+                opponentOldsmobileBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_1 + i);
+            }
+            break;
+        case 4:
+            opponentChevy2FrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY2_FRONT_SIDE);
+            opponentChevy2RearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY2_REAR_SIDE);
+            for (int i = 0; i < 7; ++i) {
+                opponentChevy2Rear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY2_REAR_1 + i);
+            }
+            for (int i = 0; i < 4; ++i) {
+                opponentChevy2Behind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CHEVY2_BEHIND_1 + i);
+            }
+            break;
+        case 5:
+            opponentCorvette63FrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CORVETTE_FRONT_SIDE);
+            opponentCorvette63RearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_CORVETTE_REAR_SIDE);
+            for (int i = 0; i < 7; ++i) {
+                opponentCorvette63Rear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CORVETTE_REAR_1 + i);
+            }
+            for (int i = 0; i < 4; ++i) {
+                opponentCorvette63Behind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_CORVETTE_BEHIND_1 + i);
+            }
+            break;
+        case 6:
+            opponentFordFrontSide = LoadOpponentSprite(RACING_OPPONENT_CAR_FORD_FRONT_SIDE);
+            opponentFordRearSide = LoadOpponentSprite(RACING_OPPONENT_CAR_FORD_REAR_SIDE);
+            for (int i = 0; i < 7; ++i) {
+                opponentFordRear[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_FORD_REAR_1 + i);
+            }
+            for (int i = 0; i < 4; ++i) {
+                opponentFordBehind[i] = LoadOpponentSprite(RACING_OPPONENT_CAR_FORD_BEHIND_1 + i);
+            }
+            break;
         default:
             opponentCarType = 0;
             LoadOpponentCarSprites();
@@ -541,6 +581,65 @@ void Racing::SetOpponentColor(StandardCarColor color) {
     LoadOpponentCarSprites();
 }
 
+// Maps a car's lib.p body asset (Car::GetModel().index, one of the garage-view
+// CHEVROLET_2DR_COUPE_1940_BODY..THE_KING_CHEVROLET_CORVETTE_1963_BODY ids in
+// libp.h) to the race-view NPC sprite category (see LoadOpponentCarSprites:
+// 0 chevy, 1 chrysler, 3 oldsmobile, 4 chevy2/corvette-56-61, 5 corvette-63,
+// 6 ford; 2 is the cop, never selected by body).
+//
+// Coverage is from the "Used by:" notes already recorded next to each NPC
+// sprite block in libp.h (prior research, not verified again in this pass).
+// That only accounts for 16 of the 26 SR_data cars. The remaining 8 -
+// Chevrolet 2dr Coupe 1940, Chevrolet Roadster 1940, Chevrolet Master Deluxe
+// 2dr 1938, Dodge Polara 1962, Chevrolet Styleline 2dr 1949, Pontiac Silver
+// Streak 1950, Ford Thunderbird 1957, Valiant V200 1961 - have no documented
+// category, so they fall through to the caller's vendor-based guess below.
+//
+// The real selector is a runtime table (26 entries x 10 bytes, category in
+// byte 0) at A4-0x2960 in the Amiga binary (static 0x0024C478, confirmed via
+// Ghidra: xref from a bounds pointer pair at 0x0024AA90, 0x104 = 26*10 bytes
+// apart). It is zeroed BSS in the static image - populated at runtime, so
+// static analysis can't read the real values; a live capture (vAmiga save
+// state) would be needed to fill in the other 8. Not done here per the
+// "don't assume game logic" rule.
+static int NpcCarTypeForBodyAsset(int bodyAsset) {
+    switch (bodyAsset) {
+        // Used by: Ford Fairlane Victoria, Plymouth Savoy 2-dr, Chevrolet
+        // Impala, Valiant V-100 (chevy set, RACING_OPPONENT_CAR_CHEVY_*)
+        case FORD_FAIRLANE_VICTORIA_1955_BODY:
+        case PLYMOUTH_SAVOY_2DR_1962_BODY:
+        case CHEVROLET_IMPALA_1958_BODY:
+        case VALIANT_V100_2DR_1963_BODY:
+            return 0;
+        // Used by: Mercury Monterey, Mercury Custom 2-dr, Chevrolet Bel Air
+        // Sport Coupe, Dodge Custom Royal Lancer (chrysler set)
+        case MERCURY_MONTEREY_1954_BODY:
+        case MERCURY_CUSTOM_2DR_1956_BODY:
+        case CHEVROLET_BELAIR_SPORTS_COUPE_BODY:
+        case DODGE_CUSTOM_ROYAL_LANCER_1955_BODY:
+            return 1;
+        // Used by: Oldsmobile 88 Custom 1949/1952, Ford Deluxe 1940
+        case OLDSMOBILE_88_2DR_CUSTOM_1949_BODY:
+        case OLDSMOBILE_88_CUSTOM_1952_BODY:
+        case FORD_DELUXE_2DR_1940_BODY:
+            return 3;
+        // Used by: Chevrolet Corvette 1956/1961
+        case CHEVROLET_CORVETTE_1956_BODY:
+        case CHEVROLET_CORVETTE_1961_BODY:
+            return 4;
+        // Used by: Chevrolet Corvette 1963 (and the King's own Corvette 63)
+        case CHEVROLET_CORVETTE_1963_BODY:
+        case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
+            return 5;
+        // Used by: Ford Deuce Coupe 1932, Ford Sedan 1932
+        case FORD_DEUCE_COUPE_1932_BODY:
+        case FORD_SEDAN_1932_BODY:
+            return 6;
+        default:
+            return -1;
+    }
+}
+
 void Racing::InitializeOpponent() {
     Opponent* opponent = state.GetCurrentOpponent();
     if (!opponent || !opponent->car) {
@@ -550,8 +649,17 @@ void Racing::InitializeOpponent() {
 
     opponentActive = true;
     opponentColor = opponent->car->GetColor();
-    CarVendor_t vendor = opponent->car->GetModel().vendor;
-    switch (vendor) {
+    const CarModel& model = opponent->car->GetModel();
+    const int mappedType = NpcCarTypeForBodyAsset(model.index);
+    if (mappedType >= 0) {
+        opponentCarType = mappedType;
+        LoadOpponentCarSprites();
+        return;
+    }
+
+    // No documented body-to-category mapping for this car (see
+    // NpcCarTypeForBodyAsset) - fall back to the coarser vendor guess.
+    switch (model.vendor) {
         case CarVendorGM:
             opponentCarType = 0;
             break;
@@ -1242,6 +1350,10 @@ void Racing::DrawNpcCar(int lastVisible) {
         switch (opponentCarType) {
             case 1: sprite = opponentChryslerFrontSide.get(); break;
             case 2: sprite = opponentCopFrontSide.get(); break;
+            case 3: sprite = opponentOldsmobileFrontSide.get(); break;
+            case 4: sprite = opponentChevy2FrontSide.get(); break;
+            case 5: sprite = opponentCorvette63FrontSide.get(); break;
+            case 6: sprite = opponentFordFrontSide.get(); break;
             default: sprite = opponentChevyFrontSide.get(); break;
         }
         k = 0;  // nearest depth, beside the player
@@ -1283,6 +1395,10 @@ void Racing::DrawNpcCar(int lastVisible) {
         switch (opponentCarType) {
             case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
             case 2: sprite = opponentCopRear[frameIndex].get(); break;
+            case 3: sprite = opponentOldsmobileRear[frameIndex].get(); break;
+            case 4: sprite = opponentChevy2Rear[frameIndex].get(); break;
+            case 5: sprite = opponentCorvette63Rear[frameIndex].get(); break;
+            case 6: sprite = opponentFordRear[frameIndex].get(); break;
             default: sprite = opponentChevyRear[frameIndex].get(); break;
         }
     }
@@ -1429,6 +1545,10 @@ void Racing::DrawRearviewMirror() {
             switch (opponentCarType) {
                 case 1: behind = opponentChryslerBehind[idx].get(); break;
                 case 2: behind = opponentCopBehind[idx].get(); break;
+                case 3: behind = opponentOldsmobileBehind[idx].get(); break;
+                case 4: behind = opponentChevy2Behind[idx].get(); break;
+                case 5: behind = opponentCorvette63Behind[idx].get(); break;
+                case 6: behind = opponentFordBehind[idx].get(); break;
                 default: behind = opponentChevyBehind[idx].get(); break;
             }
             if (behind && behind->GetSurface()) {
@@ -1793,9 +1913,14 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     const int fineGap = segGap * 8 + (npc.scrollAcc - player.scrollAcc);
     out.push_back({"opponent", ""});
     out.push_back({"active", opponentActive ? "yes" : "no"});
-    out.push_back({"car type", opponentCarType == 2   ? "cop"
-                               : opponentCarType == 1 ? "chrysler"
-                                                      : "chevy"});
+    static const char* const kCarTypeNames[] = {
+        "chevy", "chrysler", "cop", "oldsmobile", "chevy2 (corvette 56/61)", "corvette 63", "ford"
+    };
+    const char* carTypeName = (opponentCarType >= 0 &&
+                                opponentCarType < static_cast<int>(std::size(kCarTypeNames)))
+                                   ? kCarTypeNames[opponentCarType]
+                                   : "chevy";
+    out.push_back({"car type", carTypeName});
     std::snprintf(buf, sizeof(buf), "%d seg  (%d units)", segGap, fineGap);
     out.push_back({"gap", buf});
     out.push_back({"segment", std::to_string(static_cast<int>(npc.segPos))});

@@ -245,7 +245,12 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY_BEHIND_2 = 93,
     RACING_OPPONENT_CAR_CHEVY_BEHIND_3 = 94,
     RACING_OPPONENT_CAR_CHEVY_BEHIND_4 = 95,
-    RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE = 96, // ?? Need to verify
+    // Confirmed via the Amiga NPC-sprite-set table (roadside/opponent art table
+    // at 0x2395f4, read directly from the binary): this category's 13-asset row
+    // is {96, 126..137} in front/rear_side/rear1-7/behind1-4 order, i.e. 96 IS
+    // the front-side view for this set (previously marked "need to verify");
+    // see the corrected numbering at 126 below.
+    RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE = 96,
     RACING_RED_LIGHTS = 97,
     // Used by: Mercury Monterey, Mercury Custom 2-dr, Chevrolet Bel Air Sport Coupe, Dodge Custom Royal Lancer, two-tone cars?
     RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE = 98, 
@@ -277,18 +282,22 @@ enum AmigaLibAsset {
     RACING_RACING_SPEEDING_TICKET = 124,
     RACING_RACING_SPEEDING_TICKET_COP_HAND = 125,
     // Used by: Oldsmobile 88 Custom 1949/1952, Ford Deluxe 1940
-    RACING_OPPONENT_CAR_OLDMOBILE_FRONT_SIDE = 126,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_SIDE = 127,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_1 = 128,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_2 = 129,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_3 = 130,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_4 = 131,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_5 = 132,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_6 = 133,
-    RACING_OPPONENT_CAR_OLDMOBILE_REAR_7 = 134,
-    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_1 = 135,
-    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_2 = 136,
-    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_3 = 137,
+    // NOTE: this block used to start with FRONT_SIDE=126, one slot off from the
+    // real table. The verified row is {96(front_side), 126(rear_side),
+    // 127..133(rear_1..7), 134..137(behind_1..4)} - 96 above is the real
+    // front-side view, and there are 4 behind frames here, not 3.
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_SIDE = 126,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_1 = 127,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_2 = 128,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_3 = 129,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_4 = 130,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_5 = 131,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_6 = 132,
+    RACING_OPPONENT_CAR_OLDMOBILE_REAR_7 = 133,
+    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_1 = 134,
+    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_2 = 135,
+    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_3 = 136,
+    RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_4 = 137,
     // Used by: Chevrolet Corvette 1956/1961
     RACING_OPPONENT_CAR_CHEVY2_FRONT_SIDE = 138,
     RACING_OPPONENT_CAR_CHEVY2_REAR_SIDE = 139,
@@ -299,6 +308,13 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY2_REAR_5 = 144,
     RACING_OPPONENT_CAR_CHEVY2_REAR_6 = 145,
     RACING_OPPONENT_CAR_CHEVY2_REAR_7 = 146,
+    // Confirmed via the same 0x2395f4 table: this category's row is a
+    // contiguous 138..150 (13 assets), so it DOES have behind frames - they
+    // were just missing from this enum before.
+    RACING_OPPONENT_CAR_CHEVY2_BEHIND_1 = 147,
+    RACING_OPPONENT_CAR_CHEVY2_BEHIND_2 = 148,
+    RACING_OPPONENT_CAR_CHEVY2_BEHIND_3 = 149,
+    RACING_OPPONENT_CAR_CHEVY2_BEHIND_4 = 150,
     // Used by:Chevrolet Corvette 1963
     RACING_OPPONENT_CAR_CORVETTE_FRONT_SIDE = 151,
     RACING_OPPONENT_CAR_CORVETTE_REAR_SIDE = 152,

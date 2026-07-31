@@ -405,24 +405,13 @@ void Diner::UpdateCarAnimation(double deltaTime) {
     // Debug logging before calling parent
     static bool lastAnimatingCar = false;
     static bool lastExitingCar = false;
-    static double debugTimer = 0;
-    debugTimer += deltaTime;
-
-    if (debugTimer >= 1.0) {  // Log every second
-        LOG_INFO("Diner::UpdateCarAnimation - animatingCar=%d, exitingCar=%d, carBitmap=%p, currentAnimationType=%d",
-                animatingCar, exitingCar, (void*)carBitmap, (int)currentAnimationType);
-        debugTimer = 0;
-    }
-
+    
     // Call parent implementation first
     CarScene::UpdateCarAnimation(deltaTime);
 
     // Debug and fix the wait timer for OPPONENT_CONTINUOUS
     if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && !exitingCar && carBitmap) {
         debugWaitTimer += deltaTime;
-        if (debugWaitTimer >= 0.5) {  // Log every 0.5 seconds
-            LOG_INFO("Diner::UpdateCarAnimation - Waiting for exit: waitTimer=%.1f, WAIT_BEFORE_EXIT=3.0", debugWaitTimer);
-        }
 
         // Hold the timer while a challenge dialog is in progress
         if (!CanStartCarExit()) {
@@ -430,7 +419,7 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         }
         // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
         else if (debugWaitTimer >= 3.0) {
-            LOG_INFO("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
+            LOG_DEBUG("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
             exitingCar = true;
             debugWaitTimer = 0;  // Reset for next cycle
         }
@@ -439,39 +428,37 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         static double exitLogTimer = 0;
         exitLogTimer += deltaTime;
         if (exitLogTimer >= 1.0) {
-            LOG_INFO("Diner::UpdateCarAnimation - In exit state: exitingCar=%d, animatingCar=%d", exitingCar, animatingCar);
+            LOG_DEBUG("Diner::UpdateCarAnimation - In exit state: exitingCar=%d, animatingCar=%d", exitingCar, animatingCar);
             exitLogTimer = 0;
         }
     }
 
     // Check for state changes
     if (exitingCar != lastExitingCar) {
-        LOG_INFO("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
+        LOG_DEBUG("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
         lastExitingCar = exitingCar;
     }
     if (animatingCar != lastAnimatingCar) {
-        LOG_INFO("Diner::UpdateCarAnimation - animatingCar changed: %d -> %d", lastAnimatingCar, animatingCar);
+        LOG_DEBUG("Diner::UpdateCarAnimation - animatingCar changed: %d -> %d", lastAnimatingCar, animatingCar);
         lastAnimatingCar = animatingCar;
     }
 
     // Check if exit animation just started
     if (exitingCar && !engineSoundStarted) {
-        LOG_INFO("Diner::UpdateCarAnimation - Opponent car starting to drive away, starting engine sound");
-
+     
         // Start engine sound when opponent car starts driving away
         if (audioManager) {
             // Set engine period for driving away (similar to reverse out)
             audioManager->UpdateEnginePeriod(605);  // Period 605 = ~5916 Hz
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
             engineSoundStarted = true;
-            LOG_INFO("Diner::UpdateCarAnimation - Engine sound started for opponent exit");
         }
     }
 
     // Reset flag when exit animation completes
     if (!exitingCar && engineSoundStarted) {
         engineSoundStarted = false;
-        LOG_INFO("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
+        LOG_DEBUG("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
     }
 
 }
