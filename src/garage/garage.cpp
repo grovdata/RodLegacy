@@ -21,36 +21,36 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     zones = SceneLayout::Load(embedded_garage_toml);
 
     GetZone("drink").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         bubbles[0]->SetVisible(true);
     };
     GetZone("newspaper").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         state.MoveToScene(SCENE_NEWSPAPER);
     };
     GetZone("tires").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         if (state.GetSpareTires().empty()) bubbles[2]->SetVisible(true);
         else ShowTireDialog();
     };
     GetZone("paint_job").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowPaintDialog();
     };
     GetZone("gas_can").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         state.MoveToScene(SCENE_GAS_STATION);
     };
     GetZone("car_info").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowCarInfoDialog();
     };
     GetZone("calendar").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowCalendarDialog();
     };
     GetZone("music").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         AudioManager* am = state.GetAssets().GetAudioManager();
         if (am) {
             bool nowMuted = !am->IsMusicMuted();
@@ -62,20 +62,20 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     };
     GetZone("stickers").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         stickerScrollRow = 0;
         ShowStickerDialog();
     };
     GetZone("sell_parts").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         bubbles[1]->SetVisible(true);
     };
     GetZone("menu").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         SetActiveDialog((Dialog*)gameMenuDialog.get());
     };
     GetZone("select_car").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         sortedOwnedCars.clear();
         for (auto& car : state.GetOwnedCars()) sortedOwnedCars.push_back(car);
         std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](Car* a, Car* b) {
@@ -91,27 +91,27 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         SetActiveDialog((Dialog*)carSelectDialog.get());
     };
     GetZone("goto_diner").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         state.MoveToScene(SCENE_DINER);
     };
     GetZone("rear_bumper").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowBumperDialog(false);
     };
     GetZone("front_bumper").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowBumperDialog(true);
     };
     GetZone("roof").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowRoofDialog();
     };
     GetZone("transmission").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         ShowTransmissionDialog();
     };
     GetZone("engine").onClick = [this] {
-        if (sceneTransition != SCENE_SOLID || tireChangePhase != TireChangePhase::IDLE || animatingCar) return;
+        if (!CanInteract()) return;
         engineBay->ResetToOverview();
         SetActiveDialog((Dialog*)engineBay->GetDialog());
     };

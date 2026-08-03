@@ -138,7 +138,6 @@ private:
     void InitAudio(bool muteAudio = false);
     void InitDosAssets();
     fs::path ResolvePath(fs::path relativePath);
-    void UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette);
     void CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey);
 
 

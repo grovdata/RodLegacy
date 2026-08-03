@@ -464,22 +464,6 @@ Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asse
     return paletteVariantCache[cacheKey].get();
 }
 
-void AssetManager::UpdateAssetWithPalette(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette) {
-    // This method is kept for backward compatibility but now delegates to cache-aware version
-    size_t paletteHash = hashPalette(carPalette);
-    AssetPaletteKey cacheKey{index, paletteHash};
-    
-    // Check cache first
-    auto it = paletteVariantCache.find(cacheKey);
-    if (it != paletteVariantCache.end()) {
-        // Already cached, but we still need to add to imageAssets for backward compatibility
-        // Actually, let's not add it - this method should only be used internally
-        return;
-    }
-    
-    CreateAndCachePaletteVariant(libfile, index, carPalette, cacheKey);
-}
-
 void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey) {
     BitmapEntry_t b = imageEntries.second[index];
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);

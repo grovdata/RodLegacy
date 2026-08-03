@@ -89,7 +89,12 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
             SDL_Rect origPos = bodyOriginal.GetPosition();
             bodyChopped.SetPosition(origPos.x + model.offsets.offsetXChoppedRoof, origPos.y);
             // Only visible if roof is already chopped
-            bodyChopped.SetVisible(car->IsRoofChopped());
+            isRoofChopped = car->IsRoofChopped();
+            bodyChopped.SetVisible(isRoofChopped);
+            if (isRoofChopped) {
+                // Mask out the stock roof on the freshly loaded body to match
+                bodyOriginal.ApplyBumperOverlay(&bodyChopped, model.offsets.offsetXChoppedRoof, 0);
+            }
             LOG_DEBUG("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d",
                     bodyChopped.GetPosition().w, bodyChopped.GetPosition().h,
                     origPos.x + model.offsets.offsetXChoppedRoof, origPos.y,

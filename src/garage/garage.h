@@ -100,6 +100,9 @@ class Garage : public CarScene {
     void ApplyPreviewColor();
     void UpdatePaintCanPreview();
     void UpdateCarZones();
+    // Whether a zone click should be handled right now, i.e. no scene fade,
+    // no tire-change animation, and no car-switch animation in progress.
+    bool CanInteract() const { return sceneTransition == SCENE_SOLID && tireChangePhase == TireChangePhase::IDLE && !animatingCar; }
 
    public:
     Garage();

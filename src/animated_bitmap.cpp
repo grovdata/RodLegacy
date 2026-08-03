@@ -1,17 +1,16 @@
 #include "animated_bitmap.h"
 
-AnimatedBitmap::AnimatedBitmap() : sourceBitmap(nullptr) {
+AnimatedBitmap::AnimatedBitmap() {
 }
 
 AnimatedBitmap::AnimatedBitmap(Bitmap* sourceBitmap, const SDL_Rect& rect)
-    : Bitmap(*sourceBitmap), sourceBitmap(sourceBitmap) {
+    : Bitmap(*sourceBitmap) {
     SetPosition(rect.x, rect.y);
     SetDimensions(rect.w, rect.h);
     SetVisible(true);
 }
 
 AnimatedBitmap::~AnimatedBitmap() {
-    // Note: We don't delete sourceBitmap as it's owned by the asset manager
 }
 
 void AnimatedBitmap::Draw() {

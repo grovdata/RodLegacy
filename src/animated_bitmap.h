@@ -59,7 +59,6 @@ public:
     int GetCurrentFrame() const { return animation.currentFrame; }
 
 private:
-    Bitmap* sourceBitmap;  // Original bitmap we're animating
     Animation animation;
 
     int gridRows = 0;

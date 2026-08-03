@@ -361,6 +361,7 @@ std::vector<DebugPanel> Scene::GetDebugPanels() {
     UpdateDebugInfo();
     DebugPanel panel{"Scene", debugLines};
     panel.rows = debugRows;
+    panel.toggles.push_back({"Show zone overlays", &debugShowZoneOverlays});
     return { panel };
 }
 
@@ -371,7 +372,7 @@ void Scene::AddGamepadDebugInfo(const Mouse& mouse) {
 }
 
 void Scene::DrawDebugZones() {
-    if (!debugMode) return;
+    if (!debugMode || !debugShowZoneOverlays) return;
     
     // Create a yellow semi-transparent surface for zone highlighting
     sdl2::SurfacePtr zoneSurface(SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32));

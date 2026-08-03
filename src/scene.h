@@ -57,6 +57,8 @@ class Scene: public IDrawableContainer {
     DebugOverlay* debugOverlay;
     bool debugMode;
     bool debugEnabled;
+    // Bound to the "Show zone overlays" checkbox in the Scene debug panel.
+    bool debugShowZoneOverlays = true;
     // Debug text collected by UpdateDebugInfo() for this frame, rebuilt each
     // time it is asked for. Prefer AddDebugValue() for anything that reads as
     // "key: value"; AddDebugLine() is for free-form text.
