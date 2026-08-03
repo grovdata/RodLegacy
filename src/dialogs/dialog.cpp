@@ -3,7 +3,6 @@
 #include "../ui/button.h"
 #include "../bitmap.h"
 #include "../animated_bitmap.h"
-#include "../spritesheet.h"
 #include "ui/zone.h"
 #include <vector>
 
@@ -122,8 +121,8 @@ void Dialog::Draw() {
     }
     
     // Draw bitmaps; if sourceRect is set, blit only that sub-region of the
-    // texture (works uniformly for Bitmap and Spritesheet, since Spritesheet
-    // is-a Bitmap whose texture already holds the full sheet)
+    // texture (works uniformly for any Bitmap subclass, e.g. AnimatedBitmap,
+    // whose texture already holds the full sheet)
     for (const auto& bitmap : sortedBitmaps) {
         if (bitmap.sourceRect.w > 0 && bitmap.sourceRect.h > 0) {
             if (bitmap.bitmap->IsVisible()) {

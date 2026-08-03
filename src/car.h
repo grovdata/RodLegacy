@@ -8,7 +8,7 @@
 #include "car_system.h"
 #include <string>
 
-class Spritesheet;
+class AnimatedBitmap;
 //extern SDL_Renderer *renderer;
 
 enum CarWheelType { STOCK, BRAND, RACING };

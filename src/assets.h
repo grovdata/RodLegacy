@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 #include "bitmap.h"
-#include "spritesheet.h"
+#include "animated_bitmap.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
@@ -76,7 +76,7 @@ public:
 
     std::pair<int, std::vector<BitmapEntry_t>> GetImageEntries() { return imageEntries; }
 
-    Spritesheet* GetCarDecals();
+    AnimatedBitmap* GetCarDecals();
 
     Bitmap* GetDosDecal(int index);
     bool HasDosDecals() const;
@@ -109,7 +109,7 @@ private:
     std::map<AssetPaletteKey, std::unique_ptr<Bitmap>> paletteVariantCache;  // Cached palette variants
     std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>> mousePointers;
 
-    Spritesheet* carDecals;
+    AnimatedBitmap* carDecals;
 
     byte_vector lib2Data_vec;
     std::pair<int, std::vector<DOSBitmapEntry_t>> dosImageEntries;

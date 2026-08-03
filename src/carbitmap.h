@@ -2,7 +2,7 @@
 #include "global.h"
 #include "car.h"
 #include "bitmap.h"
-#include "spritesheet.h"
+#include "animated_bitmap.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
@@ -23,13 +23,13 @@ private:
     Bitmap* body;  // Points to either bodyOriginal or bodyChopped
     CarShadow shadow;
     Bitmap driver;
-    Spritesheet wheels;
+    AnimatedBitmap wheels;
     Bitmap gasCap;
     Bitmap pumpingHandle;
     Bitmap hoodScoop;
     Bitmap rearWheelhouse;
     Bitmap frontWheelhouse;
-    Spritesheet decal;
+    AnimatedBitmap decal;
     Bitmap customDecal;
     Bitmap rearWheelhouseBackground;
     Bitmap frontWheelhouseBackground;
@@ -90,7 +90,7 @@ public:
     SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
-    void ResetWheelFrame() { wheels.SelectSprite(0, 0); }
+    void ResetWheelFrame() { wheels.SelectFrame(0, 0); }
     void SetWheelhousesVisible(bool visible);
     void DrawWheelAt(int x, int y, bool spin = true, bool reverse = false);
     void SetShadowYOffset(int yAdjust);

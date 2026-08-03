@@ -1,5 +1,8 @@
 #include "animated_bitmap.h"
 
+AnimatedBitmap::AnimatedBitmap() : sourceBitmap(nullptr) {
+}
+
 AnimatedBitmap::AnimatedBitmap(Bitmap* sourceBitmap, const SDL_Rect& rect)
     : Bitmap(*sourceBitmap), sourceBitmap(sourceBitmap) {
     SetPosition(rect.x, rect.y);
@@ -126,4 +129,64 @@ void AnimatedBitmap::SetAnimationFromInfo(const SpriteAnimationInfo* animInfo) {
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
     }
+}
+
+void AnimatedBitmap::SetGrid(int rows, int columns) {
+    gridRows = rows;
+    gridColumns = columns;
+    currentGridRow = 0;
+    currentGridCol = 0;
+}
+
+void AnimatedBitmap::SelectFrame(int row, int col) {
+    if (gridRows <= 0 || gridColumns <= 0 || !surface) return;
+
+    currentGridRow = row;
+    currentGridCol = col;
+
+    int cellW = surface->w / gridColumns;
+    int cellH = surface->h / gridRows;
+    SDL_Rect frame = {col * cellW, row * cellH, cellW, cellH};
+
+    animation.frameRects = {frame};
+    animation.frameCount = 1;
+    animation.currentFrame = 0;
+
+    // Default to drawing the cell unscaled; callers wanting a different
+    // on-screen size can override with SetDimensions after selecting.
+    SetDimensions(cellW, cellH);
+}
+
+void AnimatedBitmap::SelectFrame(int index) {
+    if (gridColumns <= 0) return;
+    SelectFrame(index / gridColumns, index % gridColumns);
+}
+
+void AnimatedBitmap::CycleNextFrame() {
+    if (gridRows <= 0 || gridColumns <= 0) return;
+
+    if (currentGridCol == gridColumns - 1) {
+        currentGridCol = 0;
+        currentGridRow = (currentGridRow == gridRows - 1) ? 0 : currentGridRow + 1;
+    } else {
+        currentGridCol++;
+    }
+    SelectFrame(currentGridRow, currentGridCol);
+}
+
+void AnimatedBitmap::CyclePrevFrame() {
+    if (gridRows <= 0 || gridColumns <= 0) return;
+
+    if (currentGridCol == 0) {
+        currentGridCol = gridColumns - 1;
+        currentGridRow = (currentGridRow == 0) ? gridRows - 1 : currentGridRow - 1;
+    } else {
+        currentGridCol--;
+    }
+    SelectFrame(currentGridRow, currentGridCol);
+}
+
+SDL_Rect AnimatedBitmap::GetCurrentFrameRect() const {
+    if (animation.frameRects.empty()) return {0, 0, 0, 0};
+    return animation.frameRects[animation.currentFrame];
 }

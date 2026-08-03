@@ -3,7 +3,7 @@
 #include <sstream>
 #include "state.h"
 #include "car.h"
-#include "spritesheet.h"
+#include "animated_bitmap.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
 #include "scene_layout.h"
@@ -749,7 +749,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
         if (wheelBitmap) {
             const int wheelSize = 31;
             // Source rect for sprite cell (0, 1): col=1 means x offset = 1*cellW
-            Spritesheet* sheet = dynamic_cast<Spritesheet*>(wheelBitmap);
+            AnimatedBitmap* sheet = dynamic_cast<AnimatedBitmap*>(wheelBitmap);
             SDL_Rect srcRect = {0, 0, 0, 0};
             if (sheet) {
                 int cellW = wheelBitmap->GetSurface()->w / sheet->GetColumns();

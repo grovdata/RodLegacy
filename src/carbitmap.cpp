@@ -175,8 +175,8 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     AmigaLibAsset wheelAssetNo = car->GetTires().assetId;
     auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     if (wheelAsset) {
-        wheels = *((Spritesheet*)wheelAsset);  // Copy the spritesheet
-        wheels.SelectSprite(0, 1);
+        wheels = *((AnimatedBitmap*)wheelAsset);  // Copy the wheel sheet
+        wheels.SelectFrame(0, 1);
         wheels.SetVisible(true);
         wheels.SetDimensions(wheelSize, wheelSize);
     }
@@ -207,37 +207,37 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
         decal.SetVisible(false);
     } else if (car->GetDecal() != SrLibCarDecalNone) {
 
-        auto* decalAsset = (Spritesheet*)state.GetAssets().GetCarDecals();
+        auto* decalAsset = state.GetAssets().GetCarDecals();
         if (decalAsset) {
-            decal = *((Spritesheet*)decalAsset);
+            decal = *decalAsset;
             decal.SetVisible(true);
         }
 
         switch (car->GetDecal())
         {
         case SrLibCarDecalAmigaHotLips:
-            decal.SelectSprite(0, 0);
+            decal.SelectFrame(0, 0);
             break;
         case SrLibCarDecalAmigaRanger:
-            decal.SelectSprite(0, 1);
+            decal.SelectFrame(0, 1);
             break;
         case SrLibCarDecalAmigaNotBulletProof:
-            decal.SelectSprite(0, 2);
+            decal.SelectFrame(0, 2);
             break;
         case SrLibCarDecalAmigaHotRod:
-            decal.SelectSprite(0, 3);
+            decal.SelectFrame(0, 3);
             break;
         case SrLibCarDecalAmigaDestinyCanWait:
-            decal.SelectSprite(1, 0);
+            decal.SelectFrame(1, 0);
             break;
         case SrLibCarDecalAmigaLoveBandit:
-            decal.SelectSprite(1, 1);
+            decal.SelectFrame(1, 1);
             break;
         case SrLibCarDecalAmigaBigChief:
-            decal.SelectSprite(1, 2);
+            decal.SelectFrame(1, 2);
             break;
         case SrLibCarDecalAmigaImNotACop:
-            decal.SelectSprite(1, 3);
+            decal.SelectFrame(1, 3);
             break;
 
         case SrLibCarDecalNone:
@@ -340,7 +340,7 @@ void CarBitmap::Draw() {
 
             if (revealedWidth > 0) {
                 if (useStockDecal) {
-                    SDL_Rect clip = decal.GetClipRect();
+                    SDL_Rect clip = decal.GetCurrentFrameRect();
                     SDL_Rect srcRect = {clip.x, clip.y, revealedWidth, clip.h};
                     decal.DrawWithRects(srcRect, dstRect);
                 } else {
@@ -515,7 +515,7 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
 
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
         //LOG_INFO("Updating wheels");
-        wheels.CycleNextSprite();
+        wheels.CycleNextFrame();
         lastWheelUpdateTime = currentTime;
     }
 }
@@ -672,9 +672,9 @@ void CarBitmap::DrawWheelAt(int x, int y, bool spin, bool reverse) {
             }
             lastDrawWheelTime = now;
         }
-        wheels.SelectSprite(rollingFrame / wheels.GetColumns(), rollingFrame % wheels.GetColumns());
+        wheels.SelectFrame(rollingFrame);
     } else {
-        wheels.SelectSprite(0, 0);
+        wheels.SelectFrame(0, 0);
     }
     wheels.SetPosition(x, y);
     wheels.Draw();
@@ -695,8 +695,8 @@ void CarBitmap::LoadNewTireSprite(CarWheelType type) {
     }
     auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
     if (wheelAsset) {
-        wheels = *((Spritesheet*)wheelAsset);
-        wheels.SelectSprite(0, 1);
+        wheels = *((AnimatedBitmap*)wheelAsset);
+        wheels.SelectFrame(0, 1);
         wheels.SetVisible(true);
         wheels.SetDimensions(wheelSize, wheelSize);
     }

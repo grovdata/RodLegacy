@@ -2,7 +2,7 @@
 
 #include "scene.h"
 #include "bitmap.h"
-#include "spritesheet.h"
+#include "animated_bitmap.h"
 #include "racing.h"
 #include "types.h"
 #include "parsers/libp.h"

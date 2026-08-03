@@ -4,7 +4,7 @@
 #include <exepack/unpack.hpp>
 
 #include "bitmap.h"
-#include "spritesheet.h"
+#include "animated_bitmap.h"
 #include "parsers/adf.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
@@ -364,13 +364,13 @@ void AssetManager::ReadAssets() {
         }
 
         if (carDecals == nullptr) {
-            Spritesheet *decals = (Spritesheet*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
+            auto *decals = (AnimatedBitmap*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
             if (!decals) {
                 throw AssetLoadError("Failed to load car decals");
             }
             SDL_Rect cropDecal = {4, 9, 222, 51};
             decals->Crop(cropDecal);
-            carDecals = std::move(decals);
+            carDecals = decals;
         }
 
         InitMousePointers();
@@ -411,9 +411,12 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
 
     if (a.type == LibAssetSpritesheet) {
         std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
-        std::unique_ptr<Spritesheet> spriteSheet = std::make_unique<Spritesheet>(info.first, info.second);
+        std::unique_ptr<AnimatedBitmap> spriteSheet = std::make_unique<AnimatedBitmap>();
         spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
         spriteSheet->SetDimensions(b.width, b.height);
+        if (info.first > 0 && info.second > 0) {
+            spriteSheet->SetGrid(info.first, info.second);
+        }
         imageAssets.push_back(std::make_pair(a, std::move(spriteSheet)));
     } else {
         std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
@@ -441,7 +444,7 @@ Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     return nullptr;
 }
 
-Spritesheet* AssetManager::GetCarDecals() {
+AnimatedBitmap* AssetManager::GetCarDecals() {
     return this->carDecals;
 }
 

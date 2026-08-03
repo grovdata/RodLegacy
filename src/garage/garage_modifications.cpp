@@ -576,7 +576,7 @@ void Garage::ShowStickerDialog() {
         LoadCustomStickers();
     }
 
-    Spritesheet* decalsSheet = state.GetAssets().GetCarDecals();
+    AnimatedBitmap* decalsSheet = state.GetAssets().GetCarDecals();
     if (!decalsSheet) {
         LOG_INFO("ShowStickerDialog: DECALS bitmap not loaded");
         return;

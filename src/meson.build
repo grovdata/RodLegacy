@@ -135,7 +135,6 @@ cpp_sources = files(
     'types.cpp',
     'bitmap.cpp',
     'animated_bitmap.cpp',
-    'spritesheet.cpp',
     'scene.cpp',
     'car.cpp',
     'car_builder.cpp',

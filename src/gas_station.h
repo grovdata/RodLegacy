@@ -6,7 +6,6 @@
 #include "utils.h"
 #include "animated_bitmap.h"
 #include "bitmap.h"
-#include "spritesheet.h"
 
 enum GasStationState {
     GAS_STATION_IDLE,
