@@ -696,60 +696,21 @@ int16_t Racing::GetSteerDisplay() const {
     return sim.Player().slideVel;
 }
 
-// Race-end bubble text. The strings are the originals, taken verbatim from the
-// message table in the Amiga executable (Street_Rod 0x28cd2 onward); the win
-// lines sit there in stake order, which is what picks between them here.
+// Race-end bubble text. Gathers the current outcome into a context struct and
+// delegates to the pure (SDL-free, unit-tested) srrace::BuildRaceEndReason -
+// see race/race_end_message.h and RodLegacyResearch/docs/driving/race_end_messages.md.
 std::string Racing::GetRaceEndReason() const {
-    const uint16_t flags = sim.Player().endFlags;
-    // Pulled over for speeding. Checked before the other failures because the
-    // ticket is added on top of whatever else ended the race (a crash while
-    // being chased gets you both), and the cop is the more specific news.
-    // If you cannot cover it you go to jail and the run is over - the original
-    // shows the debts line and sets its game-over bit (ProcessRaceOutcome).
-    if (flags & srrace::END_COP_CAUGHT) {
-        const int fine = sim.SpeedingFine();
-        if (state.GetBankroll() < fine) {
-            return "You've been sentenced for debts, Ace`!";
-        }
-        return "You have been fined $" + std::to_string(fine) + " for speeding.";
-    }
-    if (flags & srrace::END_HIT_NPC)       return "You lose. Take a walk, sucker.";
-    if (flags & srrace::END_WALL_HIT)      return "You lose. Take a walk, sucker.";
-    if (flags & srrace::END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
-    if (flags & srrace::END_TRANS_DROPPED) return "You just dropped your`transmission,klutz`!";
-    if (flags & srrace::END_STALLED)       return "Ya jumped the light, speedy`!";
-
-    if (raceOutcome == RaceOutcome::PlayerWon) {
-        if (raceIsPinkSlip) return "You just won a helluva car.";
-        switch (raceBetAmount) {
-            case 10:  return "Big deal. Ten lousy bucks.";
-            case 25:  return "Big deal. Twenty-five bucks.";
-            case 50:  return "Fifty smackers. Not bad.";
-            case 100: return "A hundred smackers, hot shot.";
-            default:  break;
-        }
-        return "You won! Too bad you didn't bet, though.";
-    }
-
-    if (raceOutcome == RaceOutcome::PlayerLost) {
-        // The original splits this over two lines ("...You only lost" / "the
-        // race."); the bubble is single-line, so join with the ` the font
-        // renders as a space, the same way the failure lines above do.
-        if (sim.Player().tireWearDelta > 0) {
-            return "Lucky you're so slow. You only lost`the race. But you need new tires.";
-        }
-        return "Lucky you're so slow. You only lost`the race.";
-    }
-    // Endings TODO:
-    //  "Lucky you weren't killed, 'cause the car`is totaled. You get $N for scrap."
-    // and the totaled-car follow-up, which is a dialog rather than a bubble:
-    //  "Oh, well, it could have been worse.\n $N for parts and you are back on
-    //  the streets." with a "Junk it" (and possibly "Fix it") button.
-    // On win show dialog: "Your winning time %d.%d sec., avg. speed %2d mph.\nCongratulations!"
-    // Drag race lose:  "In %d.%d sec you covered only %2d%% of the distance. Your avg. speed %2d mph."
- 
-
-    return "RACE OVER";
+    srrace::RaceEndContext ctx;
+    ctx.endFlags = sim.Player().endFlags;
+    ctx.playerWon = (raceOutcome == RaceOutcome::PlayerWon);
+    ctx.playerLost = (raceOutcome == RaceOutcome::PlayerLost);
+    ctx.isPinkSlip = raceIsPinkSlip;
+    ctx.betAmount = raceBetAmount;
+    ctx.isDragRace = (currentTrackType == SR_TRACK_DRAG_RACE);
+    ctx.tireWearIncreased = sim.Player().tireWearDelta > 0;
+    ctx.speedingFine = sim.SpeedingFine();
+    ctx.bankroll = state.GetBankroll();
+    return srrace::BuildRaceEndReason(ctx);
 }
 
 bool Racing::IsTransmissionDamaged() const {

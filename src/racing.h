@@ -13,6 +13,7 @@
 #include "bitmap.h"
 #include "parsers/carcolor.h"
 #include "parsers/libp.h"
+#include "race/race_end_message.h"
 #include "race/race_sim.h"
 #include "race/race_types.h"
 #include "ui/hud.h"
