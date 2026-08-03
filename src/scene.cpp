@@ -605,7 +605,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             } else {
                 // SINGLE_CAR_REVERSE: 3-phase acceleration (2->4->8 px/step at 35Hz),
                 // backing out to the left along the same path the car drove in on.
-                double totalDist = GAME_WIDTH;
+                double totalDist = idlePos.x + GAME_WIDTH;
                 double progress = (totalDist > 0)
                     ? std::clamp((idlePos.x - carxFloat) / totalDist, 0.0, 1.0)
                     : 0.0;
