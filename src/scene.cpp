@@ -603,10 +603,11 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                     carBitmap->Move({carx, cary});
                 }
             } else {
-                // SINGLE_CAR_REVERSE: 3-phase acceleration (2->4->8 px/step at 35Hz)
+                // SINGLE_CAR_REVERSE: 3-phase acceleration (2->4->8 px/step at 35Hz),
+                // backing out to the left along the same path the car drove in on.
                 double totalDist = GAME_WIDTH;
                 double progress = (totalDist > 0)
-                    ? std::clamp((carxFloat - idlePos.x) / totalDist, 0.0, 1.0)
+                    ? std::clamp((idlePos.x - carxFloat) / totalDist, 0.0, 1.0)
                     : 0.0;
                 double reverseSpeed;
                 if (progress < 0.20) {
@@ -616,12 +617,12 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 } else {
                     reverseSpeed = 280.0;
                 }
-                carxFloat += reverseSpeed * deltaTime;
+                carxFloat -= reverseSpeed * deltaTime;
                 carx = static_cast<int>(carxFloat);
-                done = (carx >= GAME_WIDTH);
+                done = (carx <= -GAME_WIDTH);
 
                 if (carBitmap) {
-                    carBitmap->UpdateWheelAnimation(reverseSpeed * deltaTime);
+                    carBitmap->UpdateWheelAnimation(-reverseSpeed * deltaTime);
                     carBitmap->Move({carx, cary});
                 }
             }

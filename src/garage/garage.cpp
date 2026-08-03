@@ -405,7 +405,7 @@ void Garage::UpdateSign() {
     LOG_INFO("Garage::UpdateSign");
     char text[50];
     CarModel m = state.GetCurrentCar()->GetModel();
-    snprintf(text, 50, "%s.", m.name.c_str());
+    snprintf(text, 50, "%s", m.name.c_str());
 
     // Clear the surface
     Uint32 transparent = SDL_MapRGBA(signSurface->format, 0, 0, 0, 0);

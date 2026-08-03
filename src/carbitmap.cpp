@@ -514,8 +514,11 @@ void CarBitmap::UpdateWheelAnimation(float speed) {
     const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
 
     if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
-        //LOG_INFO("Updating wheels");
-        wheels.CycleNextFrame();
+        if (speed < 0) {
+            wheels.CyclePrevFrame();
+        } else {
+            wheels.CycleNextFrame();
+        }
         lastWheelUpdateTime = currentTime;
     }
 }
