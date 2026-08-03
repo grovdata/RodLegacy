@@ -11,7 +11,7 @@
 class Button: public IDrawable {
 private:
     ButtonConfig config;
-    Rectangle* background;
+    std::unique_ptr<Rectangle> background;
     std::unique_ptr<Bitmap> textBitmap;
     bool pressed;
     bool visible;

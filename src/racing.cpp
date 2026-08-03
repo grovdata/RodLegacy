@@ -689,7 +689,7 @@ int16_t Racing::GetRPM() const {
 }
 
 int16_t Racing::GetVelocity() const {
-    return sim.Player().rpm;
+    return sim.Player().speed;
 }
 
 int16_t Racing::GetSteerDisplay() const {

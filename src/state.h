@@ -51,7 +51,7 @@ private:
     std::vector<Car *> carRoster;
     std::vector<Car *> ownedCars;
     std::vector<Car *> classifiedCars; // Cars for sale in the newspaper
-    Car *currentCar;
+    Car *currentCar = nullptr;
     std::vector<CarWheelType> spareTires;
 
     Roster roster;

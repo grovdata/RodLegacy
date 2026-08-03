@@ -15,8 +15,8 @@ class Scene; // Forward declaration
 
 class Mouse {
 private:
-    SDL_Texture* cursorTexture;
-    SDL_Rect rect;
+    SDL_Texture* cursorTexture = nullptr;
+    SDL_Rect rect = {0, 0, 0, 0};
     SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
     std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
     
@@ -24,8 +24,8 @@ private:
     bool visible = true;
 
     // Gamepad support
+    SDL_Joystick* joystickHandle = nullptr;
     bool gamepadActive = false;
-    bool dPadPressed = false;
     Uint32 lastDPadTime = 0;
     const Uint32 DPAD_REPEAT_DELAY = 200; // ms between D-pad repeats
     
@@ -71,6 +71,9 @@ public:
 
     ~Mouse() {
         unloadAllPointers();
+        if (joystickHandle) {
+            SDL_JoystickClose(joystickHandle);
+        }
     }
 
     void loadPointers(const std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>>& mousePointers) {

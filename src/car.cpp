@@ -39,7 +39,7 @@ CarWheelType Car::GetWheelType() const {
 }
 
 void Car::SetTires(CarWheelType type) {
-    CarVendor_t vendor = (CarVendor_t)CAR_VENDOR_LOOKUP[model.index][1];
+    CarVendor_t vendor = SrLibQueryGetCarVendor(model.index);
     AmigaLibAsset aid;
     switch (type) {
         case STOCK:

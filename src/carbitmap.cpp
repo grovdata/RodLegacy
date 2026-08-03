@@ -565,8 +565,6 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     if (CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
         auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
         if (choppedAsset) {
-            // Store current chopped body dimensions if it exists
-            SDL_Rect oldChoppedPos = bodyChopped.GetPosition();
             bodyChopped = *choppedAsset;
 
             // Position chopped body relative to bodyOriginal's position
@@ -638,25 +636,6 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     // Update positions to ensure wheels and other parts are aligned correctly
     UpdatePositions();
     UpdateTextures();  // Also update decal, driver, hoodScoop, etc. positions
-}
-
-void CarBitmap::OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset) {
-    SDL_Surface* baseSurface = baseBitmap->GetSurface();
-    SDL_Surface* partSurface = partBitmap->GetSurface();
-
-    SDL_Rect partPos = {
-        xOffset,
-        yOffset,
-        partSurface->w,
-        partSurface->h
-    };
-
-    // Clear the area where part will go
-    SDL_FillRect(baseSurface, &partPos, SDL_MapRGBA(baseSurface->format, 0, 0, 0, 0));
-
-    // Overlay the part
-    SDL_BlitSurface(partSurface, NULL, baseSurface, &partPos);
-    baseBitmap->UpdateFromSurface();
 }
 
 void CarBitmap::SetShadowVisible(bool visible) {
@@ -736,31 +715,36 @@ void CarBitmap::StripRearBumper() {
     }
 }
 
+void CarBitmap::ReloadBodyFromAssets() {
+    CarModel model = car->GetModel();
+    AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
+    auto& libFile = state.GetAssets().GetLibPData();
+    std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
+
+    if (isRoofChopped) {
+        // Chopped body index is body index + 1
+        auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
+        if (choppedAsset) {
+            bodyChopped = *choppedAsset;
+            bodyChopped.UpdateFromSurface(); // Update texture after reloading
+            body = &bodyChopped;
+        }
+    } else {
+        auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
+        if (bodyAsset) {
+            bodyOriginal = *bodyAsset;
+            bodyOriginal.UpdateFromSurface(); // Update texture after reloading
+            body = &bodyOriginal;
+        }
+    }
+}
+
 void CarBitmap::RestoreFrontBumper() {
     isFrontBumperStripped = false;
     if (car) {
         // Restore by reloading the body from assets
         CarModel model = car->GetModel();
-        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        auto& libFile = state.GetAssets().GetLibPData();
-        std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
-
-        if (isRoofChopped) {
-            // Chopped body index is body index + 1
-            auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
-            if (choppedAsset) {
-                bodyChopped = *choppedAsset;
-                bodyChopped.UpdateFromSurface(); // Update texture after reloading
-                body = &bodyChopped;
-            }
-        } else {
-            auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
-            if (bodyAsset) {
-                bodyOriginal = *bodyAsset;
-                bodyOriginal.UpdateFromSurface(); // Update texture after reloading
-                body = &bodyOriginal;
-            }
-        }
+        ReloadBodyFromAssets();
 
         // Only set car's bumper state to false if both bumpers are now restored
         if (!isRearBumperStripped) {
@@ -783,26 +767,7 @@ void CarBitmap::RestoreRearBumper() {
     if (car) {
         // Restore by reloading the body from assets
         CarModel model = car->GetModel();
-        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
-        auto& libFile = state.GetAssets().GetLibPData();
-        std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
-
-        if (isRoofChopped) {
-            // Chopped body index is body index + 1
-            auto* choppedAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)(bodyAssetNo + 1)}, carPalette);
-            if (choppedAsset) {
-                bodyChopped = *choppedAsset;
-                bodyChopped.UpdateFromSurface(); // Update texture after reloading
-                body = &bodyChopped;
-            }
-        } else {
-            auto* bodyAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, bodyAssetNo}, carPalette);
-            if (bodyAsset) {
-                bodyOriginal = *bodyAsset;
-                bodyOriginal.UpdateFromSurface(); // Update texture after reloading
-                body = &bodyOriginal;
-            }
-        }
+        ReloadBodyFromAssets();
 
         // Only set car's bumper state to false if both bumpers are now restored
         if (!isFrontBumperStripped) {

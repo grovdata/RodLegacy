@@ -7,6 +7,11 @@ adflib_opts.add_cmake_defines({
     'BUILD_SHARED_LIBS': 'ON',
     'CMAKE_C_FLAGS': '-w'  # Suppress all warnings from ADFlib
 })
+# CMAKE_C_FLAGS above doesn't reliably reach the Meson-side targets that the
+# cmake module reconstructs from ADFlib's CMakeLists.txt, so also override
+# Meson's own warning_level for them directly and append -w to be sure.
+adflib_opts.set_override_option('warning_level', '0')
+adflib_opts.append_compile_args('c', ['-w'])
 
 adflib_proj = cmake.subproject('ADFlib',
     required: true,
@@ -43,6 +48,7 @@ if host_machine.system() == 'linux'
     sdl2_image_proj = subproject('sdl2_image',
         default_options: [
             'default_library=static',
+            'warning_level=0',
             'avif=disabled',
             'jxl=disabled',
             'tif=disabled',
@@ -68,6 +74,7 @@ elif host_machine.system() == 'darwin'
     sdl2_image_proj = subproject('sdl2_image',
         default_options: [
             'default_library=static',
+            'warning_level=0',
             'avif=disabled',
             'jxl=disabled',
             'tif=disabled',
@@ -93,6 +100,7 @@ elif host_machine.system() == 'windows'
     sdl2_image_proj = subproject('sdl2_image',
         default_options: [
             'default_library=static',
+            'warning_level=0',
             'avif=disabled',
             'jxl=disabled',
             'tif=disabled',
@@ -119,11 +127,7 @@ endif
 
 # C sources
 c_sources = files(
-    'SFont.c',
-    'miniz.c',
-    'miniz_tdef.c',
-    'miniz_tinfl.c',
-    'miniz_zip.c'
+    'SFont.c'
 )
 
 # C++ sources
@@ -242,6 +246,26 @@ inc_dirs = include_directories(
 # Add compiler flags specific to GCC
 cpp_args = ['-ggdb2', '-O0', '-std=c++17', '-D_HAS_STD_BYTE=0', '-D_GLIBCXX_USE_CXX11_ABI=0']
 c_args = ['-ggdb2', '-O0']
+
+# miniz (vendored) built as its own library with warnings suppressed, same
+# treatment as the other vendored deps (ADFlib, SDL2_image) - not our code to
+# fix warnings in.
+miniz_lib = static_library(
+    'miniz',
+    files(
+        'miniz.c',
+        'miniz_tdef.c',
+        'miniz_tinfl.c',
+        'miniz_zip.c'
+    ),
+    include_directories: inc_dirs,
+    c_args: c_args,
+    override_options: ['warning_level=0'],
+)
+miniz_dep = declare_dependency(
+    link_with: miniz_lib,
+    include_directories: inc_dirs,
+)
 
 # Add SDL_MAIN_HANDLED only for Windows builds
 if host_machine.system() == 'windows'

@@ -262,7 +262,7 @@ void Scene::FadeOut() {
     sceneTransition = SCENE_FADE_OUT;
 }
 
-void Scene::UpdateFade(Uint64 deltaTime) {
+void Scene::UpdateFade(Uint64) {
     if (sceneTransition == SCENE_FADE_IN || sceneTransition == SCENE_FADE_OUT) {
         Uint64 elapsed = SDL_GetTicks64() - fadeStartTime;
         

@@ -290,7 +290,7 @@ void Driving::LoadTrackData() {
             Car* currentCar = state.GetCurrentCar();
             if (currentCar) {
                 // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
-                bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
                 racing->SetTransmissionType(isAutomatic);
                 LOG_INFO("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
             }
@@ -671,7 +671,7 @@ bool Driving::PushEvent(SDL_Event *event) {
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_ROAD_RACE);
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
-                        bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                        bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
                     return true;
@@ -683,7 +683,7 @@ bool Driving::PushEvent(SDL_Event *event) {
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_DRAG_RACE);
                     Car* currentCar = state.GetCurrentCar();
                     if (currentCar) {
-                        bool isAutomatic = (currentCar->GetGearbox().assetId <= SR_TRANS_AUTO_CHRYSLER);
+                        bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
                         racing->SetTransmissionType(isAutomatic);
                     }
                     return true;

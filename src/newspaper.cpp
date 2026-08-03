@@ -49,16 +49,20 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
                                                 BUBBLE_LEFT, 90, 30, true);
     noCarBubble->SetVisible(false);
     bubbles.push_back(std::move(noCarBubble));
+    // Page 0 is the front page, pages 1-3 are the fixed "parts" pages, and pages
+    // 4..(3+totalPages) are the used-car ad pages (totalPages counts only those).
     GetZone("previous").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (currentPage > 0) currentPage--; else currentPage = totalPages;
+        int lastPage = 3 + totalPages;
+        if (currentPage > 0) currentPage--; else currentPage = lastPage;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
     };
     GetZone("next").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (currentPage < totalPages) currentPage++; else currentPage = 0;
+        int lastPage = 3 + totalPages;
+        if (currentPage < lastPage) currentPage++; else currentPage = 0;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();

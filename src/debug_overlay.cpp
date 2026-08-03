@@ -26,8 +26,6 @@ void DebugOverlay::UpdateContent() {
     // Calculate required dimensions
     int totalHeight = 0;
     int maxWidth = 0;
-    static int minWidth = 200;  // Minimum width to prevent excessive resizing
-    static int lastWidth = minWidth;  // Remember previous width
 
     for (const auto& line : lines) {
         int w = SFontUtils::GetTextWidth(font, line);

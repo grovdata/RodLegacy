@@ -182,7 +182,7 @@ protected:
 public:
     CarScene(std::string backgroundName);
     CarScene(Asset backgroundAsset);
-    virtual void Init(bool debugMode);
+    void Init(bool debugMode) override;
     virtual void DrawMaskAfterCar();
     virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
     virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);

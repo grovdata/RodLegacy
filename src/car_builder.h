@@ -19,7 +19,6 @@ private:
     static CarEngine_t GetDefaultEngineForVendor(CarVendor_t vendor);
 
     // Helper to get random engine type for vendor
-    static CarEngine_t GetRandomEngineForVendor(CarVendor_t vendor);
 
     // New helper methods for compatibility-based selection
     static CarEngine_t SelectCompatibleEngine(const CarModel& model);

@@ -32,8 +32,9 @@ HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex) {
 }
 
 HUD::~HUD() {
+    delete backgroundBitmap;
     delete textBitmap;
-}   
+}
 
 void HUD::SetVisible(bool visible) {
     this->visible = visible;

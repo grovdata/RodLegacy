@@ -30,5 +30,5 @@ struct ButtonConfig {
     struct {
         Bitmap* bitmap = nullptr;
         SDL_Rect sourceRect = {0, 0, 0, 0};
-    } bitmapConfig;
+    } bitmapConfig = {};
 }; 

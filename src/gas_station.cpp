@@ -56,7 +56,7 @@ void GasStation::Init(bool initialDebugMode) {
         SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
         SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
-        LOG_INFO("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}", 
+        LOG_INFO("Created road mask: src={%d,%d,%d,%d} dst={%d,%d,%d,%d}",
                 roadMaskSrcRect.x, roadMaskSrcRect.y, roadMaskSrcRect.w, roadMaskSrcRect.h,
                 roadMaskDestRect.x, roadMaskDestRect.y, roadMaskDestRect.w, roadMaskDestRect.h);
     } else {
@@ -109,7 +109,6 @@ void GasStation::DrawScene() {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-            animatingCar = true;
         }
         return;
     }

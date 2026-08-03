@@ -15,6 +15,7 @@ Bitmap::Bitmap() {
 }
 
 Bitmap::Bitmap(int width, int height, int depth) {
+    isVisible = true;
     rect = {0, 0, width, height};
     sourceRect = {0, 0, width, height};  // Initialize to full bitmap size
     surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, height, depth, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));

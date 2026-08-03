@@ -1,8 +1,21 @@
+// ADFlib's own headers trigger -Wimplicit-int-conversion when compiled into
+// our translation unit (its CMAKE_C_FLAGS='-w' only covers ADFlib's own
+// build, not headers we pull in here) - not our code to fix warnings in.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#endif
 #include "adflib.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #include "adf.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 struct AdfDevice* adf_mount_device(const char* filename, int readonly) {
     return adfDevOpen(filename, readonly ? ADF_ACCESS_MODE_READONLY : ADF_ACCESS_MODE_READWRITE);
@@ -108,16 +121,30 @@ struct AdfFileData* extract_adf_file_from_buffer(const unsigned char *adf_data, 
 #ifdef _WIN32
     char tempDir[512] = "";
     GetTempPathA(sizeof(tempDir), tempDir);
-    snprintf(tempPath, sizeof(tempPath), "%s\\rodlegacy_adf_tmp_%p.adf", tempDir, (void*)adf_data);
-#else
-    snprintf(tempPath, sizeof(tempPath), "/tmp/rodlegacy_adf_tmp_%p.adf", (void*)adf_data);
-#endif
-
-    FILE *f = fopen(tempPath, "wb");
-    if (!f) {
-        fprintf(stderr, "extract_adf_file_from_buffer: cannot create temp file %s\n", tempPath);
+    if (!GetTempFileNameA(tempDir, "srl", 0, tempPath)) {
+        fprintf(stderr, "extract_adf_file_from_buffer: cannot create temp file\n");
         return NULL;
     }
+    FILE *f = fopen(tempPath, "wb");
+    if (!f) {
+        fprintf(stderr, "extract_adf_file_from_buffer: cannot open temp file %s\n", tempPath);
+        return NULL;
+    }
+#else
+    snprintf(tempPath, sizeof(tempPath), "/tmp/rodlegacy_adf_tmp_XXXXXX");
+    int fd = mkstemp(tempPath);
+    if (fd == -1) {
+        fprintf(stderr, "extract_adf_file_from_buffer: cannot create temp file\n");
+        return NULL;
+    }
+    FILE *f = fdopen(fd, "wb");
+    if (!f) {
+        fprintf(stderr, "extract_adf_file_from_buffer: cannot open temp file %s\n", tempPath);
+        close(fd);
+        remove(tempPath);
+        return NULL;
+    }
+#endif
     fwrite(adf_data, 1, adf_size, f);
     fclose(f);
 

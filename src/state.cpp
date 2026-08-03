@@ -112,8 +112,6 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         driving->Init(debugMode);
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
-        // Clean up any resources that were allocated before the exception
-        delete currentCar;
         throw; // Re-throw to main
     }
 }

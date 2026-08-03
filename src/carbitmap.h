@@ -57,7 +57,9 @@ private:
     float stickerWipeProgress = 0.0f;
     Bitmap stickerRoll;
 
-    void OverlayPart(Bitmap* baseBitmap, Bitmap* partBitmap, int xOffset, int yOffset);
+    // Reloads body/bodyChopped from assets with the current palette, honoring
+    // isRoofChopped. Shared by RestoreFrontBumper/RestoreRearBumper.
+    void ReloadBodyFromAssets();
 
 public:
    

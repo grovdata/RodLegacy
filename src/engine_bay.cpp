@@ -136,7 +136,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     }
 
     // Common callback setup
-    auto buttonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
+    auto buttonCallbackWrapper = [buttonCallback](const int buttonIndex) {
         LOG_INFO("=== OVERVIEW BUTTON CALLBACK ===");
         LOG_INFO("Overview button index: %d", buttonIndex);
         if (buttonIndex == 0) { // Tune button - handled by caller
@@ -380,6 +380,10 @@ void EngineBay::SetKnobPosition(int level) {
     tuneLevel = level;
     engineSpeed = level * 0.0625f;
 
+    if (state->GetCurrentCar()) {
+        state->GetCurrentCar()->SetTuneLevel(level);
+    }
+
     // Update animation speeds for all engine animations
     // Higher tune level = faster animations, so use inverse of engineSpeed for frame duration
     const char* animationNames[] = {
@@ -515,7 +519,7 @@ void EngineBay::InitPartsDialog() {
         scrollDownRect,
         scrollBottomRect
     };
-    listConfig.onItemSelected = [this](int selectedIndex) {
+    listConfig.onItemSelected = [](int selectedIndex) {
         LOG_INFO("Parts dialog: Selected part index=%d", selectedIndex);
     };
     

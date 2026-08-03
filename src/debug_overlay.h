@@ -28,6 +28,8 @@ private:
     int padding;
     SDL_Color bgColor;
     bool needsUpdate;
+    int minWidth = 200;   // Minimum width to prevent excessive resizing
+    int lastWidth = 200;  // Remember previous width
 
     void UpdateContent();
 
@@ -39,7 +41,7 @@ public:
     void AddLine(const std::string& text);
     void Draw() override;
     
-    void SetPadding(int pad) { padding = pad; }
-    void SetBackgroundColor(SDL_Color color) { bgColor = color; }
-    void SetBackgroundOpacity(Uint8 opacity) { bgColor.a = opacity; }
+    void SetPadding(int pad) { padding = pad; needsUpdate = true; }
+    void SetBackgroundColor(SDL_Color color) { bgColor = color; needsUpdate = true; }
+    void SetBackgroundOpacity(Uint8 opacity) { bgColor.a = opacity; needsUpdate = true; }
 };

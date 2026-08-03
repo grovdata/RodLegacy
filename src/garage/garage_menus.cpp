@@ -214,7 +214,7 @@ void Garage::InitOptionsDialog() {
     fullscreenCheckboxConfig.borderColor = {0, 0, 0, 255};
     fullscreenCheckboxConfig.checkColor = {0, 0, 0, 255};
     fullscreenCheckboxConfig.index = 4;
-    fullscreenCheckboxConfig.onChange = [this](bool checked) {
+    fullscreenCheckboxConfig.onChange = [](bool checked) {
         LOG_INFO("Options: Fullscreen %s", checked ? "enabled" : "disabled");
         // TODO: Toggle fullscreen
     };

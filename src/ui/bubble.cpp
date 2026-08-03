@@ -61,9 +61,9 @@ void Bubble::UpdateText(std::string& text) {
     SFont_Font* font = state.GetAssets().GetMainFont();
 
     // Size the surface to the whole string so nothing is clipped. Previously a
-    // fixed 256x64 surface (and a 50-char buffer) cropped longer text. The +2
-    // avoids SFont clipping the last glyph (same workaround as Label).
-    int textW = SFont_TextWidth(font, text.c_str()) + 2;
+    // fixed 256x64 surface (and a 50-char buffer) cropped longer text.
+    // kSFontClipPad avoids SFont clipping the last glyph (same workaround as Label).
+    int textW = SFont_TextWidth(font, text.c_str()) + kSFontClipPad;
     int textH = SFont_TextHeight(font);
     fontSurface.reset(SDL_CreateRGBSurface(0, textW, textH, 32,
                                            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));

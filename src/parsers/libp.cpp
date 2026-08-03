@@ -151,10 +151,10 @@ std::pair<int, std::vector<BitmapEntry_t>> BitmapParser::ReadEntries(const std::
 }
 
 std::vector<uint8_t> BitmapParser::GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount) {
-    int headerSize = 2 + (sizeof(BitmapEntry_t) * totalEntriesCount);
-    int fileOffset = headerSize + bitmapEntry.offset;
+    size_t headerSize = 2 + (sizeof(BitmapEntry_t) * (size_t)totalEntriesCount);
+    size_t fileOffset = headerSize + (size_t)bitmapEntry.offset;
 
-    if (fileOffset + bitmapEntry.sizePacked > (int)data.size()) {
+    if (fileOffset > data.size() || (size_t)bitmapEntry.sizePacked > data.size() - fileOffset) {
         throw std::runtime_error("Can't read data because offset is larger than data size.");
     }
 
@@ -252,6 +252,7 @@ std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, u
     }
 
     while (pos < width * height * depth) {
+        if (p >= (int)data.size()) break;
         uint8_t b = data[p];
 
         bool found = false;
@@ -277,6 +278,7 @@ std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, u
         }
 
         if (b == 0 || b == 0xFF) {
+            if (p + 1 >= (int)data.size()) break;
             uint8_t c = data[p + 1] & 0xFF;
             for (int i = 0; i < c + 1; i++) {
                 flat_bp.push_back(b);
@@ -557,10 +559,10 @@ std::pair<int, std::vector<DOSBitmapEntry_t>> BitmapParser::ReadEntriesDOS(const
 }
 
 std::vector<uint8_t> BitmapParser::GetPackedDataDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int totalEntriesCount) {
-    int headerSize = 2 + (sizeof(DOSBitmapEntry_t) * totalEntriesCount);
-    int fileOffset = headerSize + entry.offset;
+    size_t headerSize = 2 + (sizeof(DOSBitmapEntry_t) * (size_t)totalEntriesCount);
+    size_t fileOffset = headerSize + (size_t)entry.offset;
 
-    if (fileOffset + entry.sizeEncoded > (int)data.size()) {
+    if (fileOffset > data.size() || (size_t)entry.sizeEncoded > data.size() - fileOffset) {
         throw std::runtime_error("Can't read DOS data because offset is larger than data size.");
     }
 
@@ -970,12 +972,14 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
     outClassified.carName = name;
 
     // Read and process ad text - treat everything as one continuous string
-    char* adText = (char*)malloc(2048);  // Larger buffer for full ad text
+    static constexpr size_t kAdTextCapacity = 2048;
+    char* adText = (char*)malloc(kAdTextCapacity);  // Larger buffer for full ad text
     if (!adText) {
         free(name);
         return false;
     }
     adText[0] = '\0';
+    size_t adTextLen = 0;
 
     while (true) {
         // Check bounds
@@ -1015,9 +1019,15 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
         const char* dollarPos = strchr(line, '$');
 
         // Append to adText: lines separated by '\n', feature lines prefixed with '\t'
-        if (adText[0]) strcat(adText, "\n");
-        if (isFeature) strcat(adText, "\t");
-        strcat(adText, line);  // price lines keep their '$' in the string
+        // Bounds-checked against the fixed-size buffer; a malformed/oversized SR_data
+        // ad simply stops growing the text instead of overflowing the heap allocation.
+        size_t appendLen = (adText[0] ? 1 : 0) + (isFeature ? 1 : 0) + strlen(line);
+        if (adTextLen + appendLen < kAdTextCapacity) {
+            if (adText[0]) { strcat(adText, "\n"); adTextLen += 1; }
+            if (isFeature) { strcat(adText, "\t"); adTextLen += 1; }
+            strcat(adText, line);  // price lines keep their '$' in the string
+            adTextLen += strlen(line);
+        }
 
         free(line);
 
@@ -1145,7 +1155,8 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
     const int CLICKBOX_GASSTATION_START = 0x68c;
     const int CLASSIFIEDS_START = 0x854;
 
-    if (!data || !outCount || dataSize < OFFSETS_START) return NULL;
+    if (!data || !outCount) return NULL;
+    if (!ValidateSrDataBounds(dataSize, nullptr)) return NULL;
 
     *outCount = CAR_PLAYER_MODEL_COUNT;
     CarMetadata_t* result = (CarMetadata_t*)calloc(CAR_PLAYER_MODEL_COUNT, sizeof(CarMetadata_t));
@@ -1557,7 +1568,7 @@ int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
 }
 
 CarVendor_t SrLibQueryGetCarVendor(int carIndex) {
-     for (size_t i = 0; i < CAR_INDEX_COUNT; i++) {
+     for (size_t i = 0; i < CAR_VENDOR_LOOKUP_COUNT; i++) {
         if (CAR_VENDOR_LOOKUP[i][0] == carIndex) {
             return (CarVendor_t)CAR_VENDOR_LOOKUP[i][1];
         }

@@ -156,14 +156,11 @@ void Diner::DrawScene() {
         isSetup = true;
     }
 
-    Uint64 elapsed = SDL_GetTicks64() - initStartTime;
-
     // Handle initial delay
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
-            animatingCar = true;
         }
         // Still draw everything else while waiting
 
@@ -683,7 +680,6 @@ void Diner::OnFadeComplete() {
         if (!animatingCar && !exitingCar && !carBitmap) {
             state.PickNextOpponent();
             StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
-            animatingCar = true;
         }
     }
 }

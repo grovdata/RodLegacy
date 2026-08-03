@@ -1,9 +1,18 @@
 #include "zip_utils.h"
 #include "log.h"
 
+// miniz.h declares zlib-compat shims as static that this file doesn't call;
+// not our code to fix warnings in.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+#endif
 extern "C" {
     #include "miniz.h"
 }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 std::vector<uint8_t> ZipExtractToMemory(const fs::path& zipPath, const std::string& entryName) {
     mz_zip_archive zip = {};

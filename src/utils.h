@@ -3,6 +3,10 @@
 #include <random>
 #include <memory>
 
+// SFont clips the last glyph when a surface is sized to the exact text width;
+// padding the surface by this many pixels avoids it.
+constexpr int kSFontClipPad = 2;
+
 template <typename T>
 T getRandomElement(const std::set<T>& inputSet) {
     if (inputSet.empty()) {

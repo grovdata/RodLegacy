@@ -67,6 +67,7 @@ private:
     void LoadClassifiedsData();
     void CreateClassifiedAds();
     void CreateUsedCarAds();
+    using Scene::Update; // un-hide Scene::Update(Uint64); this Update() is unrelated (page content refresh)
     void Update();
     void UpdatePageContent();
     void AddDivider(int y);

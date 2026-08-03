@@ -1,4 +1,5 @@
 #include "label.h"
+#include "../utils.h"
 #include <sstream>
 
 Label::Label() : Bitmap() {
@@ -37,7 +38,7 @@ void Label::SetText(std::string text, bool centered, int desiredWidth) {
     }
     
     // Use the larger of maxWidth or desiredWidth; add padding to avoid SFont clipping last char
-    int surfaceWidth = (desiredWidth > 0) ? desiredWidth : maxWidth + 2;
+    int surfaceWidth = (desiredWidth > 0) ? desiredWidth : maxWidth + kSFontClipPad;
     
     // Create surface with the same format as the main scene surface
     // This ensures color mapping works correctly

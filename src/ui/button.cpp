@@ -6,15 +6,13 @@
 #include "zone.h"
 #include "../SFont.h"
 
-Button::Button(const ButtonConfig& config) 
-    : config(config), pressed(false), visible(true), background(nullptr)
+Button::Button(const ButtonConfig& config)
+    : config(config), pressed(false), visible(true)
 {
     CreateButtonSurface();
 }
 
-Button::~Button() {
-    delete background;
-}
+Button::~Button() = default;
 
 void Button::CropBitmapFromSource() {
     if (!config.bitmapConfig.bitmap || 
@@ -59,7 +57,7 @@ void Button::CreateButtonSurface() {
     rectConfig.borderColor = config.defaultChoice ? SDL_Color{255, 255, 255, 255} : config.borderColor;
     rectConfig.inset = 1;
     
-    background = new Rectangle(rectConfig);
+    background = std::make_unique<Rectangle>(rectConfig);
     background->SetVisible(true);
 
     // Create text bitmap or use provided bitmap

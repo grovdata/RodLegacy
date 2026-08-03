@@ -17,13 +17,6 @@ const std::vector<std::string> Challenge::kInsults = {
     "  Chicken!"
 };
 
-const std::vector<std::string> Challenge::kRejections = {
-    "Blow it out your ear!",
-    "Forget it, geek!",
-    "Beat it, twerp!",
-    "No way, ya nerd!",
-};
-
 const std::vector<std::string> Challenge::kAcceptances = {
     "You're on!",
     "Alright!",

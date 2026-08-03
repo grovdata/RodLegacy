@@ -17,7 +17,7 @@ public:
 
     bool IsInsideZone(int x, int y) const {
         if (!enabled) return false;
-        return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+        return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
     }
 
     const std::string& GetId() const { return id; }

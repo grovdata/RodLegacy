@@ -1040,6 +1040,8 @@ const int CAR_VENDOR_LOOKUP[][2] = {
     {THE_KING_CHEVROLET_CORVETTE_1963,     CarVendorGM}
 };
 
+#define CAR_VENDOR_LOOKUP_COUNT (sizeof(CAR_VENDOR_LOOKUP) / sizeof(CAR_VENDOR_LOOKUP[0]))
+
 
 // Car X position lookup table by scene
 const int CAR_IDLE_X[][2] = {

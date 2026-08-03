@@ -51,7 +51,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
 
     LOG_INFO("bitmap w %d h%d", bitmap.width, bitmap.height);
 
-    if (index <= int(CAR_INDEX_COUNT)) {
+    if (index < int(CAR_INDEX_COUNT)) {
         m.index = kCarIndex[index];
         LOG_INFO("Car body ID: %d", static_cast<int>(m.index));
     }

@@ -5,6 +5,13 @@
 #include <random>
 #include <algorithm>
 
+namespace {
+std::mt19937& RandomEngine() {
+    static std::mt19937 gen(std::random_device{}());
+    return gen;
+}
+}
+
 Car* CarBuilder::BuildCar(CarModel model) {
     Car* car = new Car(model);
 
@@ -40,10 +47,8 @@ Car* CarBuilder::BuildRandomCar(CarModel model) {
     car->SetCarburator(carburetor);
 
     // Random tires
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
-    car->SetTires((CarWheelType)tireDist(gen));
+    car->SetTires((CarWheelType)tireDist(RandomEngine()));
 
     return car;
 }
@@ -65,40 +70,13 @@ CarEngine_t CarBuilder::GetDefaultEngineForVendor(CarVendor_t vendor) {
     }
 }
 
-CarEngine_t CarBuilder::GetRandomEngineForVendor(CarVendor_t vendor) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    std::vector<CarEngine_t> vendorEngines;
-
-    switch (vendor) {
-        case CarVendorGM:
-            vendorEngines = {CarEngineGM_V6, CarEngineGM_V8_282, CarEngineGM_V8_327};
-            break;
-        case CarVendorFord:
-            vendorEngines = {CarEngineFord_V6, CarEngineFord_V8_292, CarEngineFord_V8_351};
-            break;
-        case CarVendorChrysler:
-            vendorEngines = {CarEngineChrysler_V6, CarEngineChrysler_V8_285, CarEngineChrysler_V8_340};
-            break;
-        default:
-            vendorEngines = {CarEngineGM_V8_327}; // Default fallback
-            break;
-    }
-
-    std::uniform_int_distribution<> dist(0, vendorEngines.size() - 1);
-    return vendorEngines[dist(gen)];
-}
-
 CarEngine_t CarBuilder::SelectCompatibleEngine(const CarModel& model) {
     if (model.compatibleEngines.empty()) {
         return GetDefaultEngineForVendor(model.vendor);
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, model.compatibleEngines.size() - 1);
-    return model.compatibleEngines[dist(gen)];
+    return model.compatibleEngines[dist(RandomEngine())];
 }
 
 TransmissionType CarBuilder::SelectCompatibleTransmission(CarEngine_t engine) {
@@ -107,10 +85,8 @@ TransmissionType CarBuilder::SelectCompatibleTransmission(CarEngine_t engine) {
         return TRANS_4SPD_UNIVERSAL; // Default fallback
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, compatible.size() - 1);
-    return compatible[dist(gen)];
+    return compatible[dist(RandomEngine())];
 }
 
 ManifoldType CarBuilder::SelectCompatibleManifold(CarEngine_t engine) {
@@ -119,10 +95,8 @@ ManifoldType CarBuilder::SelectCompatibleManifold(CarEngine_t engine) {
         return MANIFOLD_STOCK; // Default fallback
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, compatible.size() - 1);
-    return compatible[dist(gen)];
+    return compatible[dist(RandomEngine())];
 }
 
 CarburetorType CarBuilder::SelectCompatibleCarburetor(CarEngine_t engine) {
@@ -131,10 +105,8 @@ CarburetorType CarBuilder::SelectCompatibleCarburetor(CarEngine_t engine) {
         return CARB_2BARREL; // Default fallback
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, compatible.size() - 1);
-    return compatible[dist(gen)];
+    return compatible[dist(RandomEngine())];
 }
 
 Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendor) {

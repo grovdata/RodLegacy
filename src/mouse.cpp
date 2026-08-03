@@ -4,7 +4,7 @@
 #include <cmath>
 #include <algorithm>
 
-void Mouse::Update(SDL_Event *event, Scene* scene) {
+void Mouse::Update(SDL_Event *event, Scene*) {
     if (event->type == SDL_MOUSEMOTION) {
         rect.x = event->motion.x;
         rect.y = event->motion.y;
@@ -52,15 +52,26 @@ void Mouse::Update(SDL_Event *event, Scene* scene) {
 void Mouse::UpdateGamepad(Scene* scene) {
 
     Uint32 currentTime = SDL_GetTicks();
-    
-    // Check D-pad input (hat or axes)
-    SDL_Joystick* joystick = SDL_JoystickOpen(0);
+
+    // Open the joystick once and keep it open across frames; only reopen if
+    // it was disconnected (avoids opening/closing the device every frame).
+    if (joystickHandle && !SDL_JoystickGetAttached(joystickHandle)) {
+        SDL_JoystickClose(joystickHandle);
+        joystickHandle = nullptr;
+    }
+    if (!joystickHandle) {
+        joystickHandle = SDL_JoystickOpen(0);
+        if (joystickHandle) {
+            LOG_INFO("Joystick opened successfully: %s", SDL_JoystickName(joystickHandle));
+        }
+    }
+
+    SDL_Joystick* joystick = joystickHandle;
     if (!joystick) {
         gamepadDebug.connected = false;
         return;
     }
-    
-    LOG_INFO("Joystick opened successfully: %s", SDL_JoystickName(joystick));
+
     gamepadDebug.connected = true;
     
     DPadDirection currentDirection = DPadDirection::NONE;
@@ -217,8 +228,6 @@ void Mouse::UpdateGamepad(Scene* scene) {
         keyEvent.key.keysym.sym = SDLK_RETURN;
         scene->PushEvent(&keyEvent);
     }
-    
-    SDL_JoystickClose(joystick);
 }
 
 std::vector<DebugRow> Mouse::GetGamepadDebugRows() const {
@@ -339,6 +348,8 @@ void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) 
             case DPadDirection::LEFT:
             case DPadDirection::RIGHT:
                 alignmentScore = abs(dy); // Prefer zones with less vertical offset
+                break;
+            case DPadDirection::NONE:
                 break;
         }
         

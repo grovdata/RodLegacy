@@ -911,7 +911,7 @@ static const char* WheelTypeName(CarWheelType type) {
 }
 
 void Garage::ShowTransmissionDialog() {
-    SDL_Rect bounds = {32, 9, 200, 175};
+    // Not yet implemented.
 }
 
 void Garage::ShowTireDialog() {

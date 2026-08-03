@@ -49,14 +49,14 @@ struct DebugPanel {
     std::string title;
     std::vector<std::string> lines;
     DebugDock dock = DebugDock::Right;
-    std::vector<DebugRow> rows;
-    std::vector<DebugToggle> toggles;
+    std::vector<DebugRow> rows = {};
+    std::vector<DebugToggle> toggles = {};
     // Optional image drawn above everything else, e.g. a driver portrait. Not
     // owned; must outlive the frame. Scaled to imageScale x its native size.
     SDL_Texture* image = nullptr;
     int imageScale = 2;
     // Drawn as a row of lamps under the table.
-    std::vector<DebugIndicator> indicators;
+    std::vector<DebugIndicator> indicators = {};
 };
 
 // True while a debug UI text field has keyboard focus. Code that polls

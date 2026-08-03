@@ -115,9 +115,9 @@ private:
     std::pair<int, std::vector<DOSBitmapEntry_t>> dosImageEntries;
     std::vector<std::unique_ptr<Bitmap>> dosDecalBitmaps;
 
-    SFont_Font* mainFont;
-    SFont_Font* debugFont;
-    SFont_Font* newspaperFont;
+    SFont_Font* mainFont = nullptr;
+    SFont_Font* debugFont = nullptr;
+    SFont_Font* newspaperFont = nullptr;
 
     byte_vector disk1Adf_vec;  // full disk1 ADF image bytes (from file or zip)
     byte_vector libStartData_vec;
