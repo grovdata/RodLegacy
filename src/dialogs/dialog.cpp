@@ -121,16 +121,14 @@ void Dialog::Draw() {
         }
     }
     
-    // Draw bitmaps (Spritesheet with sourceRect: use that cell and restore clipRect after)
+    // Draw bitmaps; if sourceRect is set, blit only that sub-region of the
+    // texture (works uniformly for Bitmap and Spritesheet, since Spritesheet
+    // is-a Bitmap whose texture already holds the full sheet)
     for (const auto& bitmap : sortedBitmaps) {
-        Spritesheet* sheet = dynamic_cast<Spritesheet*>(bitmap.bitmap);
-        if (sheet && bitmap.sourceRect.w > 0 && bitmap.sourceRect.h > 0) {
-            SDL_Rect savedClip = sheet->GetClipRect();
-            sheet->SetClipRect(bitmap.sourceRect);
-            bitmap.bitmap->SetPosition(bitmap.rect.x, bitmap.rect.y);
-            bitmap.bitmap->SetDimensions(bitmap.rect.w, bitmap.rect.h);
-            bitmap.bitmap->Draw();
-            sheet->SetClipRect(savedClip);
+        if (bitmap.sourceRect.w > 0 && bitmap.sourceRect.h > 0) {
+            if (bitmap.bitmap->IsVisible()) {
+                bitmap.bitmap->DrawWithRects(bitmap.sourceRect, bitmap.rect);
+            }
         } else {
             bitmap.bitmap->SetPosition(bitmap.rect.x, bitmap.rect.y);
             bitmap.bitmap->SetDimensions(bitmap.rect.w, bitmap.rect.h);

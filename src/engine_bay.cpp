@@ -222,7 +222,8 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     };
     overviewConfig.bitmaps["bolt1"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT}),
-        {162, 180, 8, 12}, 3
+        {162, 180, 8, 4}, 3,
+        {0, 0, 8, 4}  // crop to just the bolt head (rows 0-3 of the 8x12 asset)
     };
 
     engineDialog = new Dialog(overviewConfig);

@@ -28,7 +28,7 @@ struct DialogBitmap {
     Bitmap* bitmap;
     SDL_Rect rect;
     int zOrder = 0;
-    /** Optional: for Spritesheet, source region to draw (cell); if w/h > 0 the dialog uses this instead of the sheet's clipRect. */
+    /** Optional: source sub-region of the bitmap's texture to draw; if w/h > 0, only this region is blitted to rect, leaving the underlying Bitmap untouched. */
     SDL_Rect sourceRect = {0, 0, 0, 0};
 };
 
