@@ -293,14 +293,9 @@ bool Newspaper::PushEvent(SDL_Event *event) {
 
 
 void Newspaper::Update() {
-    // Catches any change to the game date (loading a save, or normal
-    // time-advancing actions) -- date.SetText was previously only ever
-    // called once, in Init(), so it went stale after the first render.
-    std::string currentDateText = state.GetGameDateString();
-    if (currentDateText != lastDateText) {
-        lastDateText = currentDateText;
-        date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
-    }
+    // Note: this overload is unrelated to the real per-frame Update(Uint64)
+    // below -- it's only called from a handful of explicit spots (page
+    // turns, ad clicks, Init) to refresh page visibility/content.
 
     background->SetVisible(currentPage == 0);
     headline.SetVisible(currentPage == 0);
@@ -322,6 +317,20 @@ void Newspaper::Update() {
 
     // Update page content
     UpdatePageContent();
+}
+
+void Newspaper::Update(Uint64 deltaTime) {
+    Scene::Update(deltaTime);  // fade handling, otherwise lost by overriding this
+
+    // Catches any change to the game date (loading a save, or normal
+    // time-advancing actions). Cheap: a string compare every frame: the
+    // actual re-render (date.SetText, which rebuilds a surface) only runs
+    // when the text actually changed.
+    std::string currentDateText = state.GetGameDateString();
+    if (currentDateText != lastDateText) {
+        lastDateText = currentDateText;
+        date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
+    }
 }
 
 void Newspaper::HandleAdClick(int adIndex) {

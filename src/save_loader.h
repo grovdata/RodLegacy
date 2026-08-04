@@ -70,4 +70,9 @@ class SaveGameLoader {
 public:
     // Throws SaveLoadError on malformed or too-small input.
     static LoadedSave Load(const std::filesystem::path& path);
+
+    // Pure in-memory parse, for save bytes that didn't come from a plain
+    // file on disk (e.g. extracted from an ADF image). Load() is a thin
+    // wrapper: read the file, then call this.
+    static LoadedSave Parse(const std::vector<uint8_t>& data);
 };

@@ -70,6 +70,7 @@ private:
     void CreateUsedCarAds();
     using Scene::Update; // un-hide Scene::Update(Uint64); this Update() is unrelated (page content refresh)
     void Update();
+    void Update(Uint64 deltaTime) override; // the real per-frame entry point (fade + date refresh)
     void UpdatePageContent();
     void AddDivider(int y);
     void HandleAdClick(int adIndex);

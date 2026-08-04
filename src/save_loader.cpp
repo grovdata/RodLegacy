@@ -65,6 +65,10 @@ LoadedSave SaveGameLoader::Load(const std::filesystem::path& path) {
     if (!file.is_open()) throw SaveLoadError("could not open save file: " + path.string());
 
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return Parse(data);
+}
+
+LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
     if (data.size() < 46 + 190) throw SaveLoadError("file too small to be a valid save");
 
     LoadedSave save;

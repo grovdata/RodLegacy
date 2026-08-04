@@ -11,6 +11,7 @@
 #include "engine_part.h"
 #include "parsers/libp.h"
 #include "parsers/adf.h"
+#include "save_loader.h"
 #include <SDL_image.h>
 #include <algorithm>
 #include <fstream>
@@ -163,6 +164,19 @@ void Garage::InitGameMenuDialog() {
     gameMenuDialog = std::make_unique<Dialog>(menuDialogConfig);
 }
 
+namespace {
+// Combines a filename with the profile name stored inside the save itself
+// (trimmed of the space-padding save_game.md documents), e.g.
+// "StreetRodC.sav (STEVE)". Falls back to the bare filename if the save
+// can't be parsed or its name field is blank.
+std::string BuildLoadGameLabel(const std::string& filename, const std::string& rawSaveName) {
+    std::string trimmed = rawSaveName;
+    while (!trimmed.empty() && trimmed.back() == ' ') trimmed.pop_back();
+    if (trimmed.empty()) return filename;
+    return filename + " (" + trimmed + ")";
+}
+} // namespace
+
 void Garage::ScanDisk2Samples() {
     // Sample saves the original Amiga disk2 ships in its root directory --
     // gives a new player something to try loading immediately. Called once
@@ -182,9 +196,21 @@ void Garage::ScanDisk2Samples() {
     }
     for (size_t i = 0; i < names->count; ++i) {
         LoadGameEntry e;
-        e.label = std::string("[sample] ") + names->names[i];
         e.fromDisk2 = true;
         e.adfFileName = names->names[i];
+
+        std::string saveName;
+        AdfFileData* data = extract_adf_file_from_buffer(disk2.data(), disk2.size(), names->names[i]);
+        if (data) {
+            try {
+                std::vector<uint8_t> bytes(data->data, data->data + data->size);
+                saveName = SaveGameLoader::Parse(bytes).name;
+            } catch (const SaveLoadError& ex) {
+                LOG_INFO("Garage::ScanDisk2Samples: couldn't read name from %s: %s", names->names[i], ex.what());
+            }
+            free_adf_file_data(data);
+        }
+        e.label = std::string("[sample] ") + BuildLoadGameLabel(names->names[i], saveName);
         cachedDisk2Samples.push_back(e);
     }
     free_adf_file_name_list(names);
@@ -198,9 +224,17 @@ void Garage::ShowLoadGameDialog() {
         for (const auto& entry : std::filesystem::directory_iterator(state.GetAssets().GetBasePath())) {
             if (entry.is_regular_file() && entry.path().extension() == ".sav") {
                 LoadGameEntry e;
-                e.label = entry.path().filename().string();
                 e.fromDisk2 = false;
                 e.gameDirPath = entry.path();
+
+                std::string saveName;
+                try {
+                    saveName = SaveGameLoader::Load(entry.path()).name;
+                } catch (const SaveLoadError& ex) {
+                    LOG_INFO("Garage::ShowLoadGameDialog: couldn't read name from %s: %s",
+                             entry.path().string().c_str(), ex.what());
+                }
+                e.label = BuildLoadGameLabel(entry.path().filename().string(), saveName);
                 loadGameFiles.push_back(e);
             }
         }
@@ -335,8 +369,15 @@ bool Garage::LoadSelectedGame(const LoadGameEntry& entry) {
         sortedOwnedCars.clear();
         pendingCar = nullptr;
         InitCarBitmaps();
-        carBitmap = state.GetCurrentCar() ? GetOrCreateCarBitmap(state.GetCurrentCar()) : nullptr;
         if (state.GetCurrentCar()) UpdateSign();
+
+        // Reset to the same state a genuine scene exit+re-entry leaves
+        // behind (carBitmap=nullptr, initialDelay=true, animation timers
+        // zeroed -- see CarScene::OnSceneExit), then fade in, so the loaded
+        // car drives in the same way it does on any other garage entry
+        // instead of just popping into place.
+        OnSceneExit();
+        FadeIn();
     }
     return ok;
 }
