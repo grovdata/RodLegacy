@@ -13,6 +13,8 @@
 #include "parsers/libp.h"
 #include "parsers/adf.h"
 #include "zip_utils.h"
+#include "car_builder.h"
+#include "save_loader.h"
 #include <fstream>
 #include <cstring>
 
@@ -92,7 +94,11 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         LOG_INFO("Generated %zu classified cars", classifiedCars.size());
 
         // Seed spare tires for testing
-        spareTires = { STOCK, BRAND, RACING };
+        spareTires = {
+            Part(0, 0, CarVendorUnknown, CAR_TIRES_STOCK, STOCK),
+            Part(0, 0, CarVendorUnknown, CAR_TIRES_BRAND, BRAND),
+            Part(0, 0, CarVendorUnknown, CAR_TIRES_RACING, RACING),
+        };
 
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
@@ -190,6 +196,139 @@ void State::AddOwnedCar(Car* car) {
     ownedCars.push_back(car);
 }
 
+namespace {
+
+// Builds one Car* from a parsed car record. Shared by the active car and
+// every roster car in State::LoadSaveGame.
+//
+// rec.specIndex is the confirmed save-format index (0-25, sr_data.md's
+// 26-entry car table). CarData::GetModelFromIndex does NOT take that index
+// directly -- CarModel.index is set from kCarIndex[i] (libp.h), a separate
+// lib.p bitmap-asset ID, not the plain spec position. kCarIndex[] is
+// positionally ordered to match sr_data.md exactly (confirmed: index 0 =
+// CHEVROLET_2DR_COUPE_1940 ... 24 = CHEVROLET_BELAIR_SPORTS_COUPE), but
+// only holds the 25 player-ownable cars -- The King (spec index 25) isn't
+// in it, since his car is never actually owned by the player in practice.
+Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData) {
+    if (rec.specIndex < 0 || rec.specIndex >= CAR_INDEX_COUNT) {
+        LOG_INFO("LoadSaveGame: car spec index %d has no known lib.p asset (King's car or out of range), using a placeholder model", rec.specIndex);
+    }
+    int assetId = (rec.specIndex >= 0 && rec.specIndex < CAR_INDEX_COUNT) ? kCarIndex[rec.specIndex] : kCarIndex[0];
+    CarModel model = carData.GetModelFromIndex(assetId);
+    Car* car = CarBuilder::BuildCar(model);
+
+    car->SetColor(static_cast<StandardCarColor>(rec.colorIndex));
+    car->SetRoofChopped((rec.bodyByte & 0x04) != 0);
+    car->SetBumpersStripped((rec.bodyByte & 0x01) != 0 && (rec.bodyByte & 0x02) != 0);
+    car->SetDecal(static_cast<SrLibCarDecal>(rec.bodyByte >> 4));
+    // Confirmed save byte is signed -8..+4, 0=perfectly tuned. RodLegacy's
+    // own tuneLevel is used elsewhere as abs(tuneLevel-9) clamped 0..8
+    // (racing.cpp), i.e. 9 is its own "perfectly tuned" center -- this
+    // mapping stays compatible with that formula on both sides of the range.
+    car->SetTuneLevel(9 + rec.tuningKnob);
+
+    // Sub-list slot -> category, confirmed in save_game.md. Only a handful
+    // of variant indices are confirmed to a specific named part (see that
+    // doc); everything else keeps a vendor-appropriate default type but
+    // still carries the real wear/cost across, per this session's plan.
+    for (int slot = 0; slot < 7; ++slot) {
+        if (rec.sublists[slot].empty()) continue;
+        const LoadedPartRecord& p = rec.sublists[slot][0];
+        switch (slot) {
+            case 0: { // Transmission
+                Part part = CarBuilder::CreateTransmissionPart(TRANS_4SPD_UNIVERSAL, model.vendor);
+                part.wear = p.wearRaw / 100;
+                part.cost = p.value;
+                car->SetGearbox(part);
+                break;
+            }
+            case 1: { // Engine
+                Part enginePart(p.wearRaw / 100, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
+                car->SetEngine(enginePart); // EnginePart::FromPart picks a vendor-appropriate type
+                break;
+            }
+            case 2: { // Manifold
+                Part part = CarBuilder::CreateManifoldPart(MANIFOLD_STOCK, model.vendor);
+                part.wear = p.wearRaw / 100;
+                part.cost = p.value;
+                car->SetManifold(part);
+                break;
+            }
+            case 3: { // Carb
+                Part part = CarBuilder::CreateCarburetorPart(CARB_2BARREL, model.vendor);
+                part.wear = p.wearRaw / 100;
+                part.cost = p.value;
+                car->SetCarburator(part);
+                break;
+            }
+            case 4:
+            case 5:
+                LOG_INFO("LoadSaveGame: car sub-list slot %d has data but no known category, skipping", slot);
+                break;
+            case 6: // Tires
+                // Car::SetTires only takes a bare CarWheelType (no wear/cost
+                // input), unlike gearbox/manifold/carburetor -- and the raw
+                // variant byte has no confirmed CarWheelType mapping either,
+                // so this loads a fixed default rather than guessing.
+                car->SetTires(STOCK);
+                break;
+            default:
+                break;
+        }
+    }
+    return car;
+}
+
+} // namespace
+
+bool State::LoadSaveGame(const fs::path& path) {
+    LoadedSave loaded;
+    try {
+        loaded = SaveGameLoader::Load(path);
+    } catch (const std::exception& e) {
+        LOG_INFO("LoadSaveGame failed: %s", e.what());
+        return false;
+    }
+
+    SetBankroll(loaded.bankroll);
+    SetElapsedTicks(loaded.elapsedTicks);
+
+    // Replace the owned-car roster. These are always freshly built here (no
+    // pre-existing load path reuses them), so it's safe to free the old set.
+    for (Car* c : ownedCars) delete c;
+    ownedCars.clear();
+    currentCar = nullptr;
+
+    if (loaded.hasActiveCar) {
+        Car* active = BuildCarFromRecord(loaded.activeCar, carData);
+        ownedCars.push_back(active);
+        currentCar = active;
+    }
+    for (const auto& rec : loaded.roster) {
+        ownedCars.push_back(BuildCarFromRecord(rec, carData));
+    }
+    if (currentCar == nullptr && !ownedCars.empty()) currentCar = ownedCars.at(0);
+
+    // Known opponents (trailer chunk 6): slot 21 is The King, who has no
+    // mutable storage in RacerPool (RACER_KING_SLOT is a sentinel, not a
+    // pool[] entry) -- only slots 0-20 are loaded.
+    for (int i = 0; i < RACER_POOL_SIZE; ++i) {
+        racerPool.SetCarSpecForSlot(i, loaded.opponentCarSpec[i]);
+        if (i < static_cast<int>(racerPool.pool.size())) racerPool.pool[i].status = 0;
+    }
+
+    // Race record. The save doesn't distinguish drag vs. road wins, so the
+    // full win count is attributed to drag_wins; races_won() (the only
+    // thing read elsewhere) is unaffected by which bucket it's in.
+    reputation = Reputation();
+    reputation.races_completed = loaded.racesEntered;
+    reputation.drag_wins = loaded.racesWon;
+
+    LOG_INFO("LoadSaveGame: loaded '%s', bankroll=%d, %d owned car(s), %zu spare part(s) not sorted by category (see save_loader.h)",
+              loaded.name.c_str(), loaded.bankroll, (int)ownedCars.size(), loaded.spareParts.size());
+    return true;
+}
+
 void State::SetElapsedTime(Uint64 elapsedTime) {
     this->elapsedTime = elapsedTime;
 }
@@ -198,31 +337,16 @@ Uint64 State::GetElapsedTime() {
     return this->elapsedTime;
 }
 
-std::string State::GetGameDateString() const {
-    // Game starts June 15, 1963 at midnight; gameHours=12 = noon that day.
-    int dayOffset = gameHours / 24;
-
-    static const struct { const char* name; int days; } months[] = {
-        { "June",      30 },
-        { "July",      31 },
-        { "August",    31 },
-        { "September", 30 },
-    };
-    // Day 0 = June 15
-    int day = 15 + dayOffset;
-    int m = 0;
-    while (m < 3 && day > months[m].days) {
-        day -= months[m].days;
-        m++;
-    }
-    return std::string(months[m].name) + " " + std::to_string(day) + ", 1963";
+std::string State::GetGameClockString() const {
+    return GameClock::FormatClock(elapsedTicks);
 }
 
 int State::CalculateScore() const {
-    // DOS formula: score = elapsed_ticks/546 + 12, where 546 ticks = 1 hour
-    // and the game starts at noon June 15 (hour 12).
-    // We track gameHours starting at 12, so score == gameHours directly.
-    return gameHours;
+    // Amiga: elapsedTicks advances 1 tick every 6 VBlanks (150 ticks/hour,
+    // confirmed this session; DOS's own tick rate is different, 546/hour,
+    // and not assumed to carry over). Epoch is midnight June 16 (hour 0),
+    // so hours elapsed is a direct, un-offset proxy for time survived.
+    return GameClock::TicksToHours(elapsedTicks);
 }
 
 Opponent* State::GetNextOpponent() {

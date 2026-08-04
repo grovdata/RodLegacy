@@ -232,6 +232,15 @@ void AssetManager::InitGameFiles() {
             disk1Adf_vec.resize(static_cast<size_t>(sz));
             f.read(reinterpret_cast<char*>(disk1Adf_vec.data()), sz);
         }
+        // Read full disk2 ADF into memory too -- it ships sample .sav files
+        // in its root directory, listed later for the Load Game menu.
+        std::ifstream f2(disk2Direct, std::ios::binary | std::ios::ate);
+        if (f2) {
+            auto sz = f2.tellg();
+            f2.seekg(0);
+            disk2Adf_vec.resize(static_cast<size_t>(sz));
+            f2.read(reinterpret_cast<char*>(disk2Adf_vec.data()), sz);
+        }
         path1 = &disk1Direct;
         path2 = &disk2Direct;
     } else {
@@ -242,6 +251,7 @@ void AssetManager::InitGameFiles() {
             throw AssetLoadError("Failed to extract ADF files from sr1amiga.zip");
         }
         disk1Adf_vec = disk1Buf;  // keep a copy for audio
+        disk2Adf_vec = disk2Buf;  // keep a copy for sample-save listing
     }
 
     srExeData_vec    = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "Street_Rod");

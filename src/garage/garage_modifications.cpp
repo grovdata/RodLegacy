@@ -919,8 +919,8 @@ void Garage::ShowTireDialog() {
     if (spareTires.empty()) return;
 
     std::vector<std::string> labels;
-    for (CarWheelType t : spareTires) {
-        labels.push_back(WheelTypeName(t));
+    for (const Part& p : spareTires) {
+        labels.push_back(WheelTypeName(p.partType.tireType));
     }
 
     SDL_Rect bounds = {36, 26, 260, 136};
@@ -982,13 +982,13 @@ void Garage::ShowTireDialog() {
                 if (selectedIndex < 0) break;
                 const auto& spareTires = state.GetSpareTires();
                 if (selectedIndex >= (int)spareTires.size()) break;
-                CarWheelType newType = spareTires[selectedIndex];
-                CarWheelType oldType = state.GetCurrentCar()->GetWheelType();
-                state.AddSpareTire(oldType);
-                state.RemoveSpareTire(newType);
+                Part newTire = spareTires[selectedIndex];
+                Part oldTire = state.GetCurrentCar()->GetTires();
+                state.AddSpareTire(oldTire);
+                state.RemoveSpareTire(newTire.partType.tireType);
                 tireDialog->Hide();
                 SetActiveDialog(nullptr);
-                StartTireChangeAnimation(newType);
+                StartTireChangeAnimation(newTire.partType.tireType);
                 break;
             }
             case 1: // Forget it

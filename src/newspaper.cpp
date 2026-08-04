@@ -128,7 +128,8 @@ void Newspaper::InitPageOne() {
 
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
     date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
-    date.SetText("  " + state.GetGameDateString() + "  ", true, GAME_WIDTH);
+    lastDateText = state.GetGameDateString();
+    date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
 
     headingLeft.Init(state.GetAssets().GetNewspaperFont(), 10, 138, dateColor);
     headingLeft.SetText("  President insists: ", true, GAME_WIDTH);
@@ -292,6 +293,15 @@ bool Newspaper::PushEvent(SDL_Event *event) {
 
 
 void Newspaper::Update() {
+    // Catches any change to the game date (loading a save, or normal
+    // time-advancing actions) -- date.SetText was previously only ever
+    // called once, in Init(), so it went stale after the first render.
+    std::string currentDateText = state.GetGameDateString();
+    if (currentDateText != lastDateText) {
+        lastDateText = currentDateText;
+        date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
+    }
+
     background->SetVisible(currentPage == 0);
     headline.SetVisible(currentPage == 0);
     headingLeft.SetVisible(currentPage == 0);

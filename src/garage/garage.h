@@ -54,6 +54,24 @@ class Garage : public CarScene {
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
+    std::unique_ptr<ListDialog> loadGameDialog;
+
+    // A save the "Load Game" dialog can offer: either a real file in the
+    // game directory, or a sample save embedded in disk2's ADF image (the
+    // original Amiga disk ships a handful in its root directory).
+    struct LoadGameEntry {
+        std::string label;
+        bool fromDisk2 = false;
+        std::filesystem::path gameDirPath;  // valid when !fromDisk2
+        std::string adfFileName;            // valid when fromDisk2
+    };
+    std::vector<LoadGameEntry> loadGameFiles;
+    // Scanned once from Init() (see ScanDisk2Samples's own comment for why
+    // not lazily on first dialog open).
+    std::vector<LoadGameEntry> cachedDisk2Samples;
+    void ScanDisk2Samples();
+    void ShowLoadGameDialog();
+    bool LoadSelectedGame(const LoadGameEntry& entry);
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> optionsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;

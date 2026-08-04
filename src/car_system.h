@@ -32,6 +32,8 @@ enum CarburetorType {
     CARB_4BARREL_RACING
 };
 
+enum CarWheelType { STOCK, BRAND, RACING };
+
 enum CarModificationType {
     MOD_ROOF_CHOP,
     MOD_BUMPER_STRIP,

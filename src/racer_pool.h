@@ -52,6 +52,16 @@ public:
     bool IsEliminated(int pool_index) const;
     int  GetEntryScore(int pool_index) const;
 
+    // For loading a save's known-opponents record (trailer chunk 6): sets
+    // which car spec that pool slot's driver currently drives. Status
+    // (active/challenging/eliminated) has no confirmed source in the save
+    // format, so it's left untouched here -- callers loading a fresh save
+    // should reset status themselves if they want every entry active.
+    void SetCarSpecForSlot(int pool_index, int car_spec_index) {
+        if (pool_index < 0 || pool_index >= static_cast<int>(pool.size())) return;
+        pool[pool_index].car_spec_index = car_spec_index;
+    }
+
     std::vector<RacerEntry> pool; // size = RACER_POOL_SIZE after Init
 
 private:

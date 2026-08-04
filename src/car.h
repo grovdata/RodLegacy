@@ -11,7 +11,7 @@
 class AnimatedBitmap;
 //extern SDL_Renderer *renderer;
 
-enum CarWheelType { STOCK, BRAND, RACING };
+// CarWheelType now lives in car_system.h (part.h needs it and can't include car.h).
 enum CarScoopType { SCOOP1, SCOOP2, SCOOP3, SCOOP4, SCOOP_NONE };
 
 class Car {

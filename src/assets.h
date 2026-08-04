@@ -94,6 +94,7 @@ public:
 
     AudioManager* GetAudioManager() { return audioManager; }
     const fs::path& GetBasePath() const { return gameBasePath; }
+    const byte_vector& GetDisk2Adf() const { return disk2Adf_vec; }
 
     void LoadSettings();
     void SaveSettings();
@@ -120,6 +121,7 @@ private:
     SFont_Font* newspaperFont = nullptr;
 
     byte_vector disk1Adf_vec;  // full disk1 ADF image bytes (from file or zip)
+    byte_vector disk2Adf_vec;  // full disk2 ADF image bytes (from file or zip)
     byte_vector libStartData_vec;
     byte_vector libPData_vec;
     byte_vector srData_vec;

@@ -7,6 +7,7 @@
 #include "car.h"
 #include "reputation.h"
 #include "racer_pool.h"
+#include "game_clock.h"
 
 #include <algorithm>
 #include <set>
@@ -52,7 +53,16 @@ private:
     std::vector<Car *> ownedCars;
     std::vector<Car *> classifiedCars; // Cars for sale in the newspaper
     Car *currentCar = nullptr;
-    std::vector<CarWheelType> spareTires;
+
+    // Spare-parts inventory (segment 4 of the save format -- not attached to
+    // a car), one collection per category, mirroring Car's own per-category
+    // slots so both installed and spare parts use the same Part/EnginePart
+    // representation.
+    std::vector<Part> spareTires;
+    std::vector<Part> spareTransmissions;
+    std::vector<Part> spareManifolds;
+    std::vector<Part> spareCarburetors;
+    std::vector<EnginePart> spareEngines;
 
     Roster roster;
 
@@ -60,7 +70,12 @@ private:
     Scene *currentScene;
 
     Uint64 elapsedTime;
-    int gameHours = 12;  // game clock: hours since June 15 1963 midnight; starts at noon (12)
+
+    // Raw elapsed-tick counter, matching the Amiga save format's trailer
+    // chunk 7 exactly (RodLegacyResearch/docs/formats/save_game.md): 3600
+    // ticks/day, 0 = June 16, 1963 (midnight). Confirmed live and from the
+    // game's own VBlank-driven increment code this session.
+    uint32_t elapsedTicks = 0;
 
     // AssetManager first so it is destroyed last; scenes hold non-owning refs to its assets
     AssetManager assets;
@@ -140,9 +155,19 @@ public:
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();
 
-    int  GetGameHours() const { return gameHours; }
-    void AdvanceGameHours(int hours) { gameHours += hours; }
-    std::string GetGameDateString() const;
+    // Hour-granularity convenience wrappers over elapsedTicks (kept for
+    // existing call sites); prefer GetElapsedTicks()/SetElapsedTicks() for
+    // anything that needs to round-trip exactly through a save file. Actual
+    // date/clock math lives in game_clock.h, independent of State, so it
+    // can be unit tested without constructing a State.
+    int  GetGameHours() const { return GameClock::TicksToHours(elapsedTicks); }
+    void AdvanceGameHours(int hours) { elapsedTicks += GameClock::HoursToTicks(hours); }
+
+    uint32_t GetElapsedTicks() const { return elapsedTicks; }
+    void SetElapsedTicks(uint32_t ticks) { elapsedTicks = ticks; }
+
+    std::string GetGameDateString() const { return GameClock::FormatDate(elapsedTicks); }
+    std::string GetGameClockString() const;
     int  CalculateScore() const;
 
     Car* GetCurrentCar();
@@ -150,14 +175,34 @@ public:
     std::vector<Car *> GetOwnedCars();
     void AddOwnedCar(Car* car);
 
-    const std::vector<CarWheelType>& GetSpareTires() const { return spareTires; }
-    void AddSpareTire(CarWheelType type) { spareTires.push_back(type); }
+    // Loads a real Amiga .sav file, replacing bankroll, owned cars, known-
+    // opponent car specs, race record, and elapsed time. Returns false
+    // (state left unchanged) on a malformed file. See save_loader.h for
+    // the parser and its documented gaps; RodLegacyResearch/docs/formats/
+    // save_game.md is the authoritative format reference.
+    bool LoadSaveGame(const fs::path& path);
+
+    const std::vector<Part>& GetSpareTires() const { return spareTires; }
+    void AddSpareTire(Part tire) { spareTires.push_back(tire); }
     bool RemoveSpareTire(CarWheelType type) {
-        auto it = std::find(spareTires.begin(), spareTires.end(), type);
+        auto it = std::find_if(spareTires.begin(), spareTires.end(),
+                                [type](const Part& p) { return p.partType.tireType == type; });
         if (it == spareTires.end()) return false;
         spareTires.erase(it);
         return true;
     }
+
+    const std::vector<Part>& GetSpareTransmissions() const { return spareTransmissions; }
+    void AddSpareTransmission(Part p) { spareTransmissions.push_back(p); }
+
+    const std::vector<Part>& GetSpareManifolds() const { return spareManifolds; }
+    void AddSpareManifold(Part p) { spareManifolds.push_back(p); }
+
+    const std::vector<Part>& GetSpareCarburetors() const { return spareCarburetors; }
+    void AddSpareCarburetor(Part p) { spareCarburetors.push_back(p); }
+
+    const std::vector<EnginePart>& GetSpareEngines() const { return spareEngines; }
+    void AddSpareEngine(EnginePart p) { spareEngines.push_back(p); }
 
     Roster& GetRoster() { return roster; }
     std::vector<Car *>& GetClassifiedCars() { return classifiedCars; }

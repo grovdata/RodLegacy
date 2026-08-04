@@ -22,6 +22,7 @@ private:
 
     // Page 0
     Label date;
+    std::string lastDateText;  // detects a changed game date (e.g. after loading a save) to refresh `date`
     Label headingLeft;
     Label headingRight;
 

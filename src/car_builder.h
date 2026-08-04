@@ -14,6 +14,12 @@ public:
     // Build a car with random parts (for roster generation)
     static Car* BuildRandomCar(CarModel model);
 
+    // Public so save-loading code can build a Part with the same asset-ID
+    // mapping used everywhere else, without duplicating these tables.
+    static Part CreateTransmissionPart(TransmissionType type, CarVendor_t vendor);
+    static Part CreateManifoldPart(ManifoldType type, CarVendor_t vendor);
+    static Part CreateCarburetorPart(CarburetorType type, CarVendor_t vendor);
+
 private:
     // Helper to get appropriate engine type for vendor
     static CarEngine_t GetDefaultEngineForVendor(CarVendor_t vendor);
@@ -25,9 +31,4 @@ private:
     static TransmissionType SelectCompatibleTransmission(CarEngine_t engine);
     static ManifoldType SelectCompatibleManifold(CarEngine_t engine);
     static CarburetorType SelectCompatibleCarburetor(CarEngine_t engine);
-
-    // Helper methods to create parts
-    static Part CreateTransmissionPart(TransmissionType type, CarVendor_t vendor);
-    static Part CreateManifoldPart(ManifoldType type, CarVendor_t vendor);
-    static Part CreateCarburetorPart(CarburetorType type, CarVendor_t vendor);
 };

@@ -368,6 +368,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     );
 
     InitCarBitmaps();
+    ScanDisk2Samples();
 
     // Set initial car bitmap
     if (state.GetCurrentCar()) {
