@@ -401,6 +401,18 @@ TEST_CASE("high index (>176) returns PAL1") {
     CHECK(hi == pal);
 }
 
+TEST_CASE("newspaper assets (5-10) return PAL1, not driving-low") {
+    // Regression test: newspaper indices sit inside the <45 driving-backdrop
+    // bucket and were previously dragged onto PAL_DRIVING_LOW's olive tones
+    // by that bucket, corrupting the newspaper scene's colors.
+    BitmapParser p;
+    auto pal1 = BitmapParser::GetStockPalette(StockPaletteAmigaDiner);
+    for (int i = NEWSPAPER_MENU; i <= NEWSPAPER_NO_SOLDIERS_IN_VIETNAM; i++) {
+        auto result = p.GetPalette(SrLibFileAmigaLibP, i);
+        CHECK(result == pal1);
+    }
+}
+
 } // TEST_SUITE
 
 // ---------------------------------------------------------------------------

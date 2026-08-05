@@ -814,6 +814,14 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 return PAL_DRIVING_HOOD;
             }
 
+            // Newspaper is a menu screen (same category as diner/phonebook), not
+            // part of the driving scene, even though its asset indices (5..10)
+            // fall inside the driving-backdrop <45 range below. Without this it
+            // picks up PAL_DRIVING_LOW's olive/skin tones instead of PAL1.
+            if (a >= NEWSPAPER_MENU && a <= NEWSPAPER_NO_SOLDIERS_IN_VIETNAM) {
+                return PAL1;
+            }
+
             if (index < 45) {
                 return PAL_DRIVING_LOW;
             } else if (index >= 45 && index <= 80) {
