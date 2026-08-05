@@ -359,8 +359,8 @@ enum AmigaLibAsset {
     CHEVROLET_ROADSTER_1940_CHOPPED_FRONTBUMPER = 186,
     CHEVROLET_MASTER_DELUXE_2DR_1938_BODY = 187,
     CHEVROLET_MASTER_DELUXE_2DR_1938_CHOPPED_ROOF = 188,
-    CHEVROLET_MASTER_DELUXE_2DR_1938_CHOPPED_REARBUMPER = 188,
-    CHEVROLET_MASTER_DELUXE_2DR_1938_CHOPPED_FRONTBUMPER = 189,
+    CHEVROLET_MASTER_DELUXE_2DR_1938_CHOPPED_REARBUMPER = 189,
+    CHEVROLET_MASTER_DELUXE_2DR_1938_CHOPPED_FRONTBUMPER = 190,
     CHEVROLET_CORVETTE_1956_BODY = 191,
     CHEVROLET_CORVETTE_1956_CHOPPED_REARBUMPER = 192,
     CHEVROLET_CORVETTE_1956_CHOPPED_FRONTBUMPER = 193,
@@ -1690,11 +1690,21 @@ struct SrCarSpecEntry {
     // Packed config word. Bits 0..14 are all accounted for; bit 15 is always 0.
     // Brand is stored as a bitmask (bit12=GM, bit13=Ford, bit14=Chrysler), and
     // >>13 conveniently collapses that to 0/1/2 - which is what the Amiga does.
+    //
+    // The field layout is the same one the Amiga's parts table uses (carb & 7,
+    // manifold (& 0x38) >> 3, engine (& 0xc0) >> 6, transmission (& 0x300) >> 8,
+    // tires (& 0xc00) >> 10), which is what makes the classes drop straight into
+    // the top-speed scoring. Two things pin manifold and engine to those bits:
+    // manifold reaches 4 across the 26 specs, which only fits the 5-column
+    // engine/manifold matrix, while engine never leaves 0..3, exactly its 4
+    // rows; and spec 5 (1963 Corvette) reads 119 mph tuned in the real game,
+    // which only this layout produces.
+    // See RodLegacyResearch/docs/driving/top_speed.md.
     int Brand()         const { return (ConfigWord() >> 13) & 0x7; }  // 0=GM 1=Ford 2=Chrysler
     int TireClass()     const { return (ConfigWord() >> 10) & 0x3; }  // 0..2
     int TransClass()    const { return (ConfigWord() >> 8)  & 0x3; }  // 0..3
-    int ManifoldClass() const { return (ConfigWord() >> 6)  & 0x3; }  // 0..3
-    int EngineClass()   const { return (ConfigWord() >> 3)  & 0x7; }  // 0..7
+    int EngineClass()   const { return (ConfigWord() >> 6)  & 0x3; }  // 0..3
+    int ManifoldClass() const { return (ConfigWord() >> 3)  & 0x7; }  // 0..4 in practice
     int CarbClass()     const { return  ConfigWord()        & 0x7; }  // 0..2
 
     int BodyAsset() const { return ((body[0] << 8) | body[1]) - 1; }
@@ -1752,6 +1762,12 @@ class DataParser {
 
 class CarQuery {
     public:
+        // Which body mods this car can take, from the assets it ships. Also
+        // what the top-speed score reads: a body that cannot do a mod is
+        // handed the points as though it had, so no car is penalised for
+        // something it can never do. That freebie is worth 9 points on a
+        // Corvette, which cannot be chopped - see
+        // RodLegacyResearch/docs/driving/top_speed.md.
         static bool SrLibQueryCanChopRoof(AmigaLibAsset carAsset);
         static bool SrLibQueryCanStripBumpers(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);

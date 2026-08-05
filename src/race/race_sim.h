@@ -92,12 +92,12 @@ struct CarTables {
     int16_t topSpeed = 91;     // mph, ComputeTopSpeed - the gear ratios key off it
 };
 
-// Purist mode: score the engine tune the way the 68k actually does rather than
-// the way it was meant to. The original's tune term is (1 - |tune|) * 20/8
-// where every other term in the 100-point scale says it should be
-// (8 - |tune|) * 20/8, which costs a perfect car 18 points and puts its top
-// speed at 122 mph instead of the 130 the cap is set to. Off by default; the
-// --purist flag turns it on. See RodLegacyResearch/docs/driving/top_speed.md.
+// Purist mode: score the engine tune the way the 68k does, (1 - |tune|) * 20/8,
+// which is confirmed against the running game - a stock, correctly tuned 1940
+// Chevrolet 2-dr coupe reads 92 mph on both. Off by default, where the term is
+// (8 - |tune|) * 20/8 instead: 18 points more, 97 mph for that Chevy, and a
+// perfect car reaching the 130 the cap allows rather than topping out at 122.
+// The --purist flag turns it on. See RodLegacyResearch/docs/driving/top_speed.md.
 void SetPuristScoring(bool enabled);
 bool PuristScoring();
 

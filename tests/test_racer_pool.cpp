@@ -29,9 +29,11 @@ static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
     s.car_class = car_class;
     s.price[0]  = static_cast<uint8_t>((price >> 8) & 0xff);
     s.price[1]  = static_cast<uint8_t>(price & 0xff);
+    // Engine is the 2-bit field at bit 6, manifold the 3-bit field at bit 3 -
+    // the same layout the Amiga's parts table uses. See SrCarSpecEntry.
     const int cfg = ((brand & 0x7) << 13) | ((tires & 0x3) << 10) |
-                    ((trans & 0x3) << 8)  | ((manifold & 0x3) << 6) |
-                    ((engine & 0x7) << 3) |  (carb & 0x7);
+                    ((trans & 0x3) << 8)  | ((engine & 0x3) << 6) |
+                    ((manifold & 0x7) << 3) |  (carb & 0x7);
     s.config[0] = static_cast<uint8_t>((cfg >> 8) & 0xff);
     s.config[1] = static_cast<uint8_t>(cfg & 0xff);
     return s;
@@ -55,8 +57,10 @@ static std::vector<SrCarSpecEntry> MakeCarSpecTable() {
     for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(6));  // tier 2
     for (int i = 0; i < 4; ++i) v.push_back(MakeSpec(8));  // tier 2 spares
     // The King, index 25: fully specced, and never for sale (price 0).
-    v.push_back(MakeSpec(8, /*engine*/4, /*trans*/3, /*carb*/2, /*tires*/2,
-                         /*manifold*/2, /*brand*/0, /*price*/0));
+    // Matches the real King (spec 25, config 0x1ba2): racing carb, racing
+    // 4-speed, racing slicks, engine class 2 with the class-4 racing manifold.
+    v.push_back(MakeSpec(8, /*engine*/2, /*trans*/3, /*carb*/2, /*tires*/2,
+                         /*manifold*/4, /*brand*/0, /*price*/0));
     return v;
 }
 
@@ -111,17 +115,18 @@ TEST_CASE("score stays within the original's 0..130 range") {
 }
 
 TEST_CASE("config word packs and unpacks through the accessors") {
-    const auto spec = MakeSpec(5, /*engine*/5, /*trans*/2, /*carb*/1,
-                               /*tires*/2, /*manifold*/3, /*brand*/2,
+    // Engine is 2 bits (0..3), manifold 3 bits (0..4 in the shipped data).
+    const auto spec = MakeSpec(5, /*engine*/3, /*trans*/2, /*carb*/1,
+                               /*tires*/2, /*manifold*/4, /*brand*/2,
                                /*price*/1234);
     CHECK(spec.car_class == 5);
     CHECK(spec.Price() == 1234);
     CHECK(spec.ForSale());
-    CHECK(spec.EngineClass() == 5);
+    CHECK(spec.EngineClass() == 3);
     CHECK(spec.TransClass() == 2);
     CHECK(spec.CarbClass() == 1);
     CHECK(spec.TireClass() == 2);
-    CHECK(spec.ManifoldClass() == 3);
+    CHECK(spec.ManifoldClass() == 4);
     CHECK(spec.Brand() == 2);
 }
 

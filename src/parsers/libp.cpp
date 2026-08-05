@@ -1530,14 +1530,11 @@ bool CarQuery::SrLibQueryCanChopRoof(AmigaLibAsset carAsset) {
 }
 
 bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
+    // The only three bodies that ship no CHOPPED_REARBUMPER/FRONTBUMPER pair.
     switch (carAsset) {
         case FORD_DEUCE_COUPE_1932_BODY:
         case FORD_SEDAN_1932_BODY:
         case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
-        // FIXME: These SHOULD be able to strip bumpers, the bitmaps are garbled
-        case CHEVROLET_CORVETTE_1956_BODY:
-        case CHEVROLET_CORVETTE_1961_BODY:
-        case CHEVROLET_CORVETTE_1963_BODY:
             return false;
         default:
             return true;
@@ -1565,19 +1562,21 @@ int SrLibQueryGetCarIdleX(SrLibGameScene scene) {
 }
 
 
+// A car's assets run BODY, [CHOPPED_ROOF], CHOPPED_REARBUMPER,
+// CHOPPED_FRONTBUMPER. The chopped-roof slot only exists for bodies that can
+// actually be chopped, so on the three Corvettes - which cannot - both bumper
+// overlays sit one index earlier than on every other car.
+static int BumperOverlayBase(AmigaLibAsset carAsset) {
+    return static_cast<int>(carAsset) +
+           (CarQuery::SrLibQueryCanChopRoof(carAsset) ? 2 : 1);
+}
+
 int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
-    switch (carAsset) {
-        case CHEVROLET_CORVETTE_1956_BODY:
-        case CHEVROLET_CORVETTE_1961_BODY:
-        case CHEVROLET_CORVETTE_1963_BODY:
-            return 0;  // Corvettes don't have rear bumpers to strip
-        default:
-            return carAsset + 2;  // Rear bumper overlay is body index + 2
-    }
+    return BumperOverlayBase(carAsset);
 }
 
 int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
-    return carAsset + 3;
+    return BumperOverlayBase(carAsset) + 1;
 }
 
 CarVendor_t SrLibQueryGetCarVendor(int carIndex) {

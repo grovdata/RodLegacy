@@ -53,6 +53,48 @@ Car* CarBuilder::BuildRandomCar(CarModel model) {
     return car;
 }
 
+void CarBuilder::ApplySpec(Car* car, const SrCarSpecEntry& spec, CarVendor_t vendor) {
+    if (!car) {
+        return;
+    }
+
+    static const CarburetorType kCarbByClass[3] = {
+        CARB_2BARREL, CARB_4BARREL, CARB_4BARREL_RACING
+    };
+    // Transmission class 0..3 = auto / 3-speed / 4-speed / racing, picked in
+    // the car's own brand.
+    static const TransmissionType kTransByClass[3][4] = {
+        {TRANS_AUTO_GM,       TRANS_3SPD_GM,       TRANS_4SPD_GM,       TRANS_RACING_GM},
+        {TRANS_AUTO_FORD,     TRANS_3SPD_FORD,     TRANS_4SPD_FORD,     TRANS_RACING_FORD},
+        {TRANS_AUTO_CHRYSLER, TRANS_3SPD_CHRYSLER, TRANS_4SPD_CHRYSLER, TRANS_RACING_CHRYSLER},
+    };
+    static const CarWheelType kTiresByClass[3] = {STOCK, BRAND, RACING};
+
+    int vendorRow = 0;
+    switch (vendor) {
+        case CarVendorFord: vendorRow = 1; break;
+        case CarVendorChrysler: vendorRow = 2; break;
+        default: vendorRow = 0; break;
+    }
+
+    const int carbClass = std::clamp(spec.CarbClass(), 0, 2);
+    const int transClass = std::clamp(spec.TransClass(), 0, 3);
+    const int tireClass = std::clamp(spec.TireClass(), 0, 2);
+
+    car->SetCarburator(CreateCarburetorPart(kCarbByClass[carbClass], vendor));
+    car->SetGearbox(CreateTransmissionPart(kTransByClass[vendorRow][transClass], vendor));
+    car->SetTires(kTiresByClass[tireClass]);
+    car->SetWeightClass(spec.car_class);
+
+    // Engine and manifold go in as raw scoring classes rather than as parts:
+    // the spec's manifold field runs 0..4 and RodLegacy's ManifoldType only has
+    // three values, so a class-1 manifold (which half the shipped cars carry)
+    // has nowhere to live. The Car keeps the class until the player fits a
+    // different part. Must come last - SetManifold above would clear it.
+    car->SetSpecPartClasses(std::clamp(spec.EngineClass(), 0, 3),
+                            std::clamp(spec.ManifoldClass(), 0, 4));
+}
+
 CarEngine_t CarBuilder::GetDefaultEngineForVendor(CarVendor_t vendor) {
     switch (vendor) {
         case CarVendorGM:

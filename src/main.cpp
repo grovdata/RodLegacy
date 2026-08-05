@@ -280,8 +280,8 @@ int main(int argc, char* argv[]) {
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
             printf("  -config          Show setup screen even if game files are already configured\n");
-            printf("  --purist         Keep the original's engine-tune scoring bug, which caps\n");
-            printf("                   the best possible car at 122 mph instead of 130\n");
+            printf("  --purist         Score the engine tune exactly as the original does, so\n");
+            printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
             printf("  --help, -h       Show this help message\n");
             return 0;
         }
@@ -299,8 +299,8 @@ int main(int argc, char* argv[]) {
     }
 
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
-    LOG_INFO("Tune scoring: %s", purist ? "purist (original bug, 122 mph max)"
-                                        : "fixed (130 mph max)");
+    LOG_INFO("Tune scoring: %s", purist ? "purist (matches the original, 122 mph max)"
+                                        : "default (130 mph max)");
     LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system

@@ -89,6 +89,12 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
                 car->SetBumpersStripped(false);
                 car->SetDecal(SrLibCarDecalNone);
                 car->SetScoop(SCOOP_NONE);
+                // ...and the drivetrain the car is actually advertised with.
+                // kCarIndex is positionally ordered against the SR_data spec
+                // table, so i indexes both.
+                if (i < static_cast<int>(srCarSpecData.size())) {
+                    CarBuilder::ApplySpec(car, srCarSpecData[i], model.vendor);
+                }
                 classifiedCars.push_back(car);
             }
         }
@@ -223,13 +229,20 @@ namespace {
 // CHEVROLET_2DR_COUPE_1940 ... 24 = CHEVROLET_BELAIR_SPORTS_COUPE), but
 // only holds the 25 player-ownable cars -- The King (spec index 25) isn't
 // in it, since his car is never actually owned by the player in practice.
-Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData) {
+Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
+                        const std::vector<SrCarSpecEntry>& specs) {
     if (rec.specIndex < 0 || rec.specIndex >= CAR_INDEX_COUNT) {
         LOG_INFO("LoadSaveGame: car spec index %d has no known lib.p asset (King's car or out of range), using a placeholder model", rec.specIndex);
     }
     int assetId = (rec.specIndex >= 0 && rec.specIndex < CAR_INDEX_COUNT) ? kCarIndex[rec.specIndex] : kCarIndex[0];
     CarModel model = carData.GetModelFromIndex(assetId);
     Car* car = CarBuilder::BuildCar(model);
+
+    // The saved car keeps its own parts (loaded below), but the class byte is
+    // a property of the model, not of the save, so it comes from the spec.
+    if (rec.specIndex >= 0 && rec.specIndex < static_cast<int>(specs.size())) {
+        car->SetWeightClass(specs[rec.specIndex].car_class);
+    }
 
     car->SetColor(static_cast<StandardCarColor>(rec.colorIndex));
     car->SetRoofChopped((rec.bodyByte & 0x04) != 0);
@@ -314,12 +327,12 @@ bool State::LoadSaveGame(const fs::path& path) {
     currentCar = nullptr;
 
     if (loaded.hasActiveCar) {
-        Car* active = BuildCarFromRecord(loaded.activeCar, carData);
+        Car* active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);
         ownedCars.push_back(active);
         currentCar = active;
     }
     for (const auto& rec : loaded.roster) {
-        ownedCars.push_back(BuildCarFromRecord(rec, carData));
+        ownedCars.push_back(BuildCarFromRecord(rec, carData, srCarSpecData));
     }
     if (currentCar == nullptr && !ownedCars.empty()) currentCar = ownedCars.at(0);
 

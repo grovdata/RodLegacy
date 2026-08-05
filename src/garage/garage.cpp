@@ -137,7 +137,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto customizationBubble = std::make_unique<Bubble>("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
     customizationBubble->SetVisible(false);
     bubbles.push_back(std::move(customizationBubble));
-    auto roofConstraintBubble = std::make_unique<Bubble>("  This car can\'t be chopped!", BUBBLE_RIGHT, 103, 30, true);
+    // Original string, 0x247226. The backtick renders as a space.
+    auto roofConstraintBubble = std::make_unique<Bubble>("  Ya can\'t chop this roof, dummy`!", BUBBLE_RIGHT, 103, 30, true);
     roofConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(roofConstraintBubble));
     auto bumperConstraintBubble = std::make_unique<Bubble>("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);

@@ -25,13 +25,10 @@ srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
     // unworn, so those keep CarSetup's defaults. Body mods likewise: a spec
     // car is stock, which is what the original's synthetic record gives it.
     //
-    // CAVEAT: the config word's BIT LAYOUT is verified, but mapping its fields
-    // onto CarSetup's classes is not. The Amiga expands each field into a part
-    // index (`brand + class*3 + base`, FUN_00243b9c) before scoring, so
-    // SR_data's engine field is an engine *variant* 0..7 while CarSetup's
-    // engineClass is a 0..3 row of the engine/manifold matrix; manifold is 0..3
-    // here against 0..4 there. ComputeBasePerformance clamps both, so this is
-    // safe but may compress the top of the range.
+    // The config word's fields drop straight into CarSetup because the spec
+    // uses the same bit layout as the Amiga's parts table, confirmed against
+    // two readings off the running game (spec 0 = 92 mph, spec 5 = 119 mph).
+    // See RodLegacyResearch/docs/driving/top_speed.md.
     return setup;
 }
 

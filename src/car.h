@@ -39,6 +39,19 @@ class Car {
         Part carburator;
         Part manifold;
 
+        // SR_data car-spec class byte 0..8, the weight term in the top-speed
+        // score. 4 until someone who knows the spec sets it.
+        int weightClass = 4;
+
+        // Engine/manifold scoring classes straight off the car's SR_data spec.
+        // RodLegacy's own EnginePart/ManifoldType enums are coarser than the
+        // original's fields (there is no ManifoldType for spec class 1, which
+        // half the shipped cars use), so a car that came from a spec keeps its
+        // real classes here. -1 = derive them from the installed parts, which
+        // is what happens as soon as the player fits a different one.
+        int specEngineClass = -1;
+        int specManifoldClass = -1;
+
         // Top speed in mph, recomputed whenever a part changes.
         int topSpeed;
 
@@ -73,6 +86,17 @@ class Car {
         // Top speed in mph, the number the original prints as "Max speed".
         int GetTopSpeed() const { return topSpeed; }
 
+        int GetWeightClass() const { return weightClass; }
+        void SetWeightClass(int cls) { weightClass = cls; RecalculatePerformance(); }
+
+        int GetSpecEngineClass() const { return specEngineClass; }
+        int GetSpecManifoldClass() const { return specManifoldClass; }
+        void SetSpecPartClasses(int engineCls, int manifoldCls) {
+            specEngineClass = engineCls;
+            specManifoldClass = manifoldCls;
+            RecalculatePerformance();
+        }
+
         // Modification methods with validation
         bool CanChopRoof() const { return model.constraints.canChopRoof; }
         bool CanStripBumpers() const { return model.constraints.canStripBumpers; }
@@ -83,10 +107,11 @@ class Car {
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; RecalculatePerformance(); }
         void SetTires(CarWheelType type);
-        void SetEngine(EnginePart engine) { this->engine = engine; RecalculatePerformance(); }
-        void SetEngine(Part engine) { this->engine = EnginePart::FromPart(engine); RecalculatePerformance(); }
+        // Fitting a part supersedes whatever the car's spec said about it.
+        void SetEngine(EnginePart engine) { this->engine = engine; specEngineClass = -1; RecalculatePerformance(); }
+        void SetEngine(Part engine) { SetEngine(EnginePart::FromPart(engine)); }
         void SetCarburator(Part carburator) { this->carburator = carburator; RecalculatePerformance(); }
-        void SetManifold(Part manifold) { this->manifold = manifold; RecalculatePerformance(); }
+        void SetManifold(Part manifold) { this->manifold = manifold; specManifoldClass = -1; RecalculatePerformance(); }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         const std::string& GetCustomDecalPath() const { return customDecalPath; }
         void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }

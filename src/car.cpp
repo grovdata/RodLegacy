@@ -112,22 +112,33 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
         setup.transClass = 0;
     }
 
-    switch (car.GetEngine().engineType) {
-        case CarEngineGM_V6:
-        case CarEngineFord_V6:
-        case CarEngineChrysler_V6:
-            setup.engineClass = 1;
-            break;
-        default:
-            setup.engineClass = 2;
-            break;
+    // A car that still carries its spec's engine and manifold scores on the
+    // spec's own classes; once the player fits a different part the class comes
+    // from that part instead.
+    if (car.GetSpecEngineClass() >= 0) {
+        setup.engineClass = car.GetSpecEngineClass();
+    } else {
+        switch (car.GetEngine().engineType) {
+            case CarEngineGM_V6:
+            case CarEngineFord_V6:
+            case CarEngineChrysler_V6:
+                setup.engineClass = 1;
+                break;
+            default:
+                setup.engineClass = 2;
+                break;
+        }
     }
 
-    switch (car.GetManifold().partType.manifoldType) {
-        case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
-        case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
-        case MANIFOLD_RACING: setup.manifoldClass = 4; break;
-        default: setup.manifoldClass = 0; break;
+    if (car.GetSpecManifoldClass() >= 0) {
+        setup.manifoldClass = car.GetSpecManifoldClass();
+    } else {
+        switch (car.GetManifold().partType.manifoldType) {
+            case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
+            case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
+            case MANIFOLD_RACING: setup.manifoldClass = 4; break;
+            default: setup.manifoldClass = 0; break;
+        }
     }
 
     switch (car.GetWheelType()) {
@@ -137,6 +148,7 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
         default: setup.tireClass = 0; break;
     }
 
+    setup.weightClass = std::clamp(car.GetWeightClass(), 0, 8);
     // Tune level runs 0..12 with 9 perfect, against the original's -8..+4 knob.
     setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - 9), 0, 8);
     setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 10000);
@@ -147,10 +159,18 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // A body that cannot take a mod at all scores as if the mod were done: the
     // original checks the model's sprite table and hands out the points when
     // the sprite is missing, so no car is penalised for what it cannot do.
-    const CarModel& model = car.GetModelRef();
-    setup.roofChopped = car.IsRoofChopped() || !model.constraints.canChopRoof;
-    setup.frontBumperRemoved = car.IsFrontBumperStripped() || !model.constraints.canStripBumpers;
-    setup.rearBumperRemoved = car.IsBackBumperStripped() || !model.constraints.canStripBumpers;
+    // That freebie is worth 9 mph-points on a Corvette, which has no
+    // chopped-roof sprite - it is the difference between the 1963's real
+    // 119 mph and the 110 it would otherwise score.
+    //
+    // These read the sprite tables directly rather than CarModel::constraints,
+    // which nothing ever populates (it is stuck at "everything allowed").
+    const AmigaLibAsset body = static_cast<AmigaLibAsset>(car.GetModelRef().index);
+    const bool canChop = CarQuery::SrLibQueryCanChopRoof(body);
+    const bool canDebumper = CarQuery::SrLibQueryCanStripBumpers(body);
+    setup.roofChopped = car.IsRoofChopped() || !canChop;
+    setup.frontBumperRemoved = car.IsFrontBumperStripped() || !canDebumper;
+    setup.rearBumperRemoved = car.IsBackBumperStripped() || !canDebumper;
     return setup;
 }
 

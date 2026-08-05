@@ -20,6 +20,12 @@ public:
     static Part CreateManifoldPart(ManifoldType type, CarVendor_t vendor);
     static Part CreateCarburetorPart(CarburetorType type, CarVendor_t vendor);
 
+    // Overwrite a car's drivetrain with the parts its SR_data spec says it
+    // carries, and hand it the spec's class byte for the top-speed weight
+    // term. A car for sale in the newspaper ships with fixed parts in the
+    // original, not random ones.
+    static void ApplySpec(Car* car, const SrCarSpecEntry& spec, CarVendor_t vendor);
+
 private:
     // Helper to get appropriate engine type for vendor
     static CarEngine_t GetDefaultEngineForVendor(CarVendor_t vendor);

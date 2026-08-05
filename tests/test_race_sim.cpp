@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <utility>
 
+#include "parsers/libp.h"
 #include "race/race_sim.h"
 #include "race/race_types.h"
 
@@ -203,6 +204,103 @@ TEST_CASE("ComputeTopSpeed is base * 13/10 capped at 130") {
 
     const int base = ComputeBasePerformance(setup);
     CHECK(ComputeTopSpeed(setup) == (base * 13) / 10);
+}
+
+// Reference reading taken from the real game: a stock, correctly tuned 1940
+// Chevrolet 2-dr coupe shows 92 mph. That car is SR_data car spec 0 - class
+// byte 0, config 0x1000, i.e. GM automatic, 2-brl carb, stock manifold, stock
+// tires - and the engine/manifold pairing scores 0 whichever way round the
+// spec word's two fields are read. See top_speed.md.
+TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph in purist mode") {
+    CarSetup chevy{};
+    chevy.carbClass = 0;      // 2-brl
+    chevy.transClass = 0;     // GM automatic
+    chevy.engineClass = 1;    // V6
+    chevy.manifoldClass = 0;  // stock
+    chevy.tireClass = 0;
+    chevy.weightClass = 0;    // spec class byte
+    chevy.tuneOffset = 0;     // "with right tuning"
+
+    PuristScope purist(true);
+    CHECK(ComputeTopSpeed(chevy) == 92);
+}
+
+// Second reference reading from the real game: the newspaper's 1963 Corvette
+// shows 119 mph once tuned. SR_data car spec 5, config 0x1ba2, class byte 8 -
+// racing 4-brl carb, racing 4-speed GM, racing slicks, engine class 2 with the
+// class-4 racing manifold, which is the pairing that scores 100.
+//
+// roofChopped is set on a *stock* car here on purpose: no Corvette can be
+// chopped, and the original hands out the 9 points for a mod the body cannot
+// do. Without it the car scores 110 and the 119 does not come out.
+CarSetup TunedCorvette() {
+    CarSetup vette{};
+    vette.carbClass = 2;      // 4-brl racing
+    vette.transClass = 3;     // racing 4-speed
+    vette.engineClass = 2;    // GM V-8 327
+    vette.manifoldClass = 4;  // GM racing manifold
+    vette.tireClass = 2;      // racing slicks
+    vette.weightClass = 8;    // spec class byte
+    vette.tuneOffset = 0;
+    vette.roofChopped = true;  // cannot be chopped -> scored as though it were
+    return vette;
+}
+
+TEST_CASE("Tuned 1963 Corvette reads 119 mph in purist mode") {
+    PuristScope purist(true);
+    CHECK(ComputeTopSpeed(TunedCorvette()) == 119);
+
+    // Three notches off perfect tune is the 117 the same car reads before it
+    // is tuned: the term goes (1-3)*20/8 = -5 instead of +2.
+    CarSetup untuned = TunedCorvette();
+    untuned.tuneOffset = 3;
+    CHECK(ComputeTopSpeed(untuned) == 117);
+
+    // The King drives this exact car (spec 25 is spec 5 again). A player who
+    // buys one and pulls both bumpers gets to 122 - beating him in his own car
+    // is possible but tight, which is what the strategy guides describe.
+    CarSetup built = TunedCorvette();
+    built.frontBumperRemoved = true;
+    built.rearBumperRemoved = true;
+    CHECK(ComputeTopSpeed(built) == 122);
+}
+
+// The same car with the tune term "fixed". Not what the game shows - kept as a
+// pin so the two modes cannot silently converge.
+TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 97 mph with the fixed tune term") {
+    CarSetup chevy{};
+    chevy.carbClass = 0;
+    chevy.transClass = 0;
+    chevy.engineClass = 1;
+    chevy.manifoldClass = 0;
+    chevy.tireClass = 0;
+    chevy.weightClass = 0;
+    chevy.tuneOffset = 0;
+
+    PuristScope purist(false);
+    CHECK(ComputeTopSpeed(chevy) == 97);
+}
+
+// The body-mod freebie the Corvette reading exposed: a Corvette gets the roof
+// points because it cannot be chopped, but no bumper points, because it can
+// lose its bumpers like any other car. Treating the bumpers as impossible too
+// would put the 1963 at 125 mph instead of 119.
+TEST_CASE("Corvettes cannot be chopped but can lose their bumpers") {
+    for (AmigaLibAsset body : {CHEVROLET_CORVETTE_1956_BODY,
+                               CHEVROLET_CORVETTE_1961_BODY,
+                               CHEVROLET_CORVETTE_1963_BODY}) {
+        CHECK_FALSE(CarQuery::SrLibQueryCanChopRoof(body));
+        CHECK(CarQuery::SrLibQueryCanStripBumpers(body));
+    }
+    CHECK(CarQuery::SrLibQueryCanChopRoof(CHEVROLET_2DR_COUPE_1940_BODY));
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_2DR_COUPE_1940_BODY));
+
+    // Actually pulling both bumpers is worth 6 points, so 122 not 119.
+    CarSetup stripped = TunedCorvette();
+    stripped.frontBumperRemoved = true;
+    stripped.rearBumperRemoved = true;
+    PuristScope purist(true);
+    CHECK(ComputeTopSpeed(stripped) == 122);
 }
 
 TEST_CASE("A perfect car reaches exactly the 130 mph cap") {
