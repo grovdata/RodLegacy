@@ -96,6 +96,34 @@ void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup
     sim.Tick(0);
 }
 
+// Flips purist scoring on for one test case and puts it back afterwards, so a
+// failure cannot leak the setting into the rest of the suite.
+struct PuristScope {
+    bool previous;
+    explicit PuristScope(bool enabled) : previous(PuristScoring()) {
+        SetPuristScoring(enabled);
+    }
+    ~PuristScope() { SetPuristScoring(previous); }
+};
+
+// Every scoring term at its best: carb 25 + trans 15 + engine/manifold 15 +
+// weight 10 + roof 9 + front bumper 5 + rear bumper 1 = 80, plus the tune term.
+CarSetup PerfectCar() {
+    CarSetup setup{};
+    setup.carbClass = 2;
+    setup.transClass = 3;
+    setup.engineClass = 2;
+    setup.manifoldClass = 4;
+    setup.weightClass = 8;
+    setup.tireClass = 2;
+    setup.tuneOffset = 0;
+    setup.carbWear = 0;
+    setup.roofChopped = true;
+    setup.frontBumperRemoved = true;
+    setup.rearBumperRemoved = true;
+    return setup;
+}
+
 }  // namespace
 
 TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
@@ -107,23 +135,39 @@ TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
     setup.weightClass = 0;
     setup.tuneOffset = 8;
     setup.carbWear = 0;
-    setup.bumpersStripped = false;
 
-    // pts = 0 + 0 + 0 + 0 + (40*10/88=4) = 4
-    // base = 70 + 4 * 24 / 100 = 70 (integer division)
+    // pts = 0 + 0 + 0 + ((8-8)*20/8 = 0) + (40*10/88 = 4) = 4
+    // base = 70 + (4 * 24 / 100) = 70 (integer division)
     CHECK(ComputeBasePerformance(setup) == 70);
+
+    // Purist: the tune term becomes (1-8)*20/8 = -17, so pts = -13 and
+    // base = 70 + (-13 * 24 / 100) = 67.
+    PuristScope purist(true);
+    CHECK(ComputeBasePerformance(setup) == 67);
 }
 
-TEST_CASE("ComputeBasePerformance maxed-ish setup matches formula") {
+TEST_CASE("ComputeBasePerformance perfect car lands on the 100-point ceiling") {
+    // 80 points of parts and body plus the intended 20 for a perfect tune.
+    CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (100 * 30) / 100);  // 100
+
+    // Purist: the tune term gives 2 instead of 20, so pts = 82.
+    PuristScope purist(true);
+    CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (82 * 30) / 100);  // 94
+}
+
+// Same term-by-term arithmetic the 68k does, with the fixed tune term. The
+// purist tune term is covered by the two cases above.
+TEST_CASE("ComputeBasePerformance matches the formula term by term") {
     CarSetup setup{};
     setup.carbClass = 2;
     setup.transClass = 3;
     setup.engineClass = 1;
     setup.manifoldClass = 3;
     setup.weightClass = 7;
-    setup.tuneOffset = 0;
+    setup.tuneOffset = 3;
     setup.carbWear = 500;
-    setup.bumpersStripped = true;
+    setup.roofChopped = true;
+    setup.rearBumperRemoved = true;
 
     static const int kCarbPts[3] = {0, 50, 100};
     static const int kTransPts[4] = {0, 33, 66, 100};
@@ -133,7 +177,7 @@ TEST_CASE("ComputeBasePerformance maxed-ish setup matches formula") {
         0, 0, 0, 50, 100,
         0, 50, 100, 0, 33
     };
-    static const int kWeightPts[8] = {40, 44, 48, 60, 64, 68, 80, 84};
+    static const int kWeightPts[9] = {40, 44, 48, 60, 64, 68, 80, 84, 88};
 
     int pts = 0;
     pts += (kCarbPts[setup.carbClass] * 25) / 100;
@@ -141,10 +185,77 @@ TEST_CASE("ComputeBasePerformance maxed-ish setup matches formula") {
     pts += (kEngByManifold[setup.engineClass * 5 + setup.manifoldClass] * 15) / 100;
     pts += ((8 - setup.tuneOffset) * 20) / 8;
     pts += (kWeightPts[setup.weightClass] * 10) / 88;
-    pts += 9;
+    pts += 9;  // roof chopped
+    pts += 1;  // rear bumper off
     const int expected = 70 + (((pts * (10000 - setup.carbWear)) / 10000) * 30) / 100;
 
     CHECK(ComputeBasePerformance(setup) == expected);
+}
+
+TEST_CASE("ComputeTopSpeed is base * 13/10 capped at 130") {
+    CarSetup setup{};
+    setup.carbClass = 0;
+    setup.transClass = 1;
+    setup.engineClass = 0;
+    setup.manifoldClass = 0;
+    setup.weightClass = 0;
+    setup.tuneOffset = 0;
+
+    const int base = ComputeBasePerformance(setup);
+    CHECK(ComputeTopSpeed(setup) == (base * 13) / 10);
+}
+
+TEST_CASE("A perfect car reaches exactly the 130 mph cap") {
+    CHECK(ComputeTopSpeed(PerfectCar()) == 130);
+
+    // Purist: the tune bug leaves the cap unreachable and the best car at 122.
+    PuristScope purist(true);
+    CHECK(ComputeTopSpeed(PerfectCar()) == 122);
+}
+
+TEST_CASE("No legal set of parts exceeds the cap in either mode") {
+    for (int mode = 0; mode < 2; ++mode) {
+        PuristScope purist(mode == 1);
+        int highest = 0;
+        for (int carb = 0; carb <= 2; ++carb) {
+            for (int trans = 0; trans <= 3; ++trans) {
+                for (int eng = 0; eng <= 3; ++eng) {
+                    for (int mani = 0; mani <= 4; ++mani) {
+                        for (int weight = 0; weight <= 8; ++weight) {
+                            CarSetup s{};
+                            s.carbClass = carb;
+                            s.transClass = trans;
+                            s.engineClass = eng;
+                            s.manifoldClass = mani;
+                            s.weightClass = weight;
+                            s.roofChopped = true;
+                            s.frontBumperRemoved = true;
+                            s.rearBumperRemoved = true;
+                            highest = std::max(highest, ComputeTopSpeed(s));
+                        }
+                    }
+                }
+            }
+        }
+        CHECK(highest == (mode == 1 ? 122 : 130));
+    }
+}
+
+TEST_CASE("BuildCarTables gears the car to exactly its top speed") {
+    CarSetup setup{};
+    setup.transClass = 2;
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.manifoldClass = 3;
+    setup.weightClass = 4;
+
+    CarTables tables{};
+    BuildCarTables(setup, tables);
+
+    const int topSpeed = ComputeTopSpeed(setup);
+    CHECK(tables.topSpeed == topSpeed);
+    // rpm = ratio * mph / 100, so redline in top gear is the top speed.
+    CHECK((5700 * 100) / tables.ratio[tables.numGears] == topSpeed);
 }
 
 TEST_CASE("BuildCarTables sets 4spd ratios and thresholds") {

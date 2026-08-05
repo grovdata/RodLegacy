@@ -14,12 +14,11 @@ struct RacerEntry {
     int8_t status;          // 0=active, 1=currently challenging, -1=eliminated
 };
 
-// Amiga FUN_00443b9c/FUN_002435f0: unpacks the spec config word and scores it
-// via srrace::ComputeBasePerformance, capped at 130.
-// Current formula: base 70 + engine + trans + carb + tire + condition + class_bonus, clamped [0,130].
-// The Amiga uses a two-level compiled-in table with percentage-based arithmetic (x25/100),
-// which is architecturally different from this disk-data-based approximation.
-// See re_scoring.md for full RE findings including the actual table values.
+// The listed car's top speed in mph (Amiga ComputeCarTopSpeed 0x243b9c):
+// unpack the spec config word, score it via srrace::ComputeBasePerformance,
+// then base * 13/10 capped at 130. The pool ranks challengers by this, which
+// is the same number the original shows as "Max speed".
+// See RodLegacyResearch/docs/driving/top_speed.md.
 int ComputeCarPerformanceScore(const SrCarSpecEntry& spec);
 
 class RacerPool {

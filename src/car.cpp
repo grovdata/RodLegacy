@@ -2,12 +2,14 @@
 #include "car.h"
 #include "parsers/libp.h"
 
+#include <algorithm>
+#include <cstdlib>
+
 Car::Car() {
     isFrontBumperStripped = false;
     isBackBumperStripped = false;
     isRoofChopped = false;
-    effectiveSpeed = 0;
-    effectiveAcceleration = 0;
+    RecalculatePerformance();
 }
 
 Car::Car(CarModel model) {
@@ -15,8 +17,7 @@ Car::Car(CarModel model) {
     isFrontBumperStripped = false;
     isBackBumperStripped = false;
     isRoofChopped = false;
-    effectiveSpeed = model.baseSpeed;
-    effectiveAcceleration = model.baseAcceleration;
+    RecalculatePerformance();
     // Engine will be initialized by CarBuilder
 }
 
@@ -56,106 +57,104 @@ void Car::SetTires(CarWheelType type) {
     LOG_INFO("Setting tires for %d to %d", model.index, aid);
 
     this->tires = Part(0, 0, vendor, aid, TRANS_4SPD_UNIVERSAL);
+    RecalculatePerformance();
 }
 
 void Car::SetScoop(CarScoopType type) {
     this->scoop = type;
 }
 
-void Car::RecalculatePerformance() {
-    // Base car performance
-    effectiveSpeed = model.baseSpeed;
-    effectiveAcceleration = model.baseAcceleration;
+// ============================================================================
+// Top speed
+// The original derives it from one number: ComputeBasePerformance scores the
+// installed parts, and the top speed is that score * 13/10 capped at 130 mph.
+// See RodLegacyResearch/docs/driving/top_speed.md.
+// ============================================================================
 
-    // Engine contribution (based on horsepower and wear)
-    int engineSpeedBonus = (engine.horsepower * (100 - engine.wear)) / 100;
-    effectiveSpeed += engineSpeedBonus;
+srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
+    srrace::CarSetup setup;
 
-    // Transmission contribution (based on type and wear)
-    int transSpeedBonus = GetTransmissionSpeedBonus(gearbox.partType.transmissionType, gearbox.wear);
-    effectiveSpeed += transSpeedBonus;
-
-    // Manifold contribution (based on type and wear)
-    int manifoldSpeedBonus = GetManifoldSpeedBonus(manifold.partType.manifoldType, manifold.wear);
-    effectiveSpeed += manifoldSpeedBonus;
-
-    // Carburetor contribution (based on type and wear)
-    int carbSpeedBonus = GetCarburetorSpeedBonus(carburator.partType.carburetorType, carburator.wear);
-    effectiveSpeed += carbSpeedBonus;
-
-    // Modification bonuses
-    if (isRoofChopped) {
-        effectiveSpeed += 5; // Simple bonus
-    }
-    if (isFrontBumperStripped && isBackBumperStripped) {
-        effectiveSpeed += 3;
+    switch (car.GetCarburator().partType.carburetorType) {
+        case CARB_2BARREL: setup.carbClass = 0; break;
+        case CARB_4BARREL: setup.carbClass = 1; break;
+        case CARB_4BARREL_RACING: setup.carbClass = 2; break;
+        default: setup.carbClass = 0; break;
     }
 
-    // Scoop bonus is automatic with V8 engines
-    if (engine.HasScoop()) {
-        effectiveSpeed += 2; // Small bonus for V8 scoop
-    }
-}
-
-// Helper methods for part speed bonuses
-int Car::GetTransmissionSpeedBonus(TransmissionType type, int wear) const {
-    int baseBonus = 0;
-    switch (type) {
-        case TRANS_RACING_GM:
-        case TRANS_RACING_FORD:
-        case TRANS_RACING_CHRYSLER:
-            baseBonus = 15;
-            break;
-        case TRANS_4SPD_GM:
-        case TRANS_4SPD_FORD:
-        case TRANS_4SPD_CHRYSLER:
-            baseBonus = 10;
+    switch (car.GetGearbox().partType.transmissionType) {
+        case TRANS_AUTO_GM:
+        case TRANS_AUTO_FORD:
+        case TRANS_AUTO_CHRYSLER:
+            setup.transClass = 0;
             break;
         case TRANS_3SPD_GM:
         case TRANS_3SPD_FORD:
         case TRANS_3SPD_CHRYSLER:
-            baseBonus = 5;
+            setup.transClass = 1;
             break;
-        case TRANS_AUTO_GM:
-        case TRANS_AUTO_FORD:
-        case TRANS_AUTO_CHRYSLER:
-            baseBonus = 0;
-            break;
+        case TRANS_4SPD_GM:
+        case TRANS_4SPD_FORD:
+        case TRANS_4SPD_CHRYSLER:
         case TRANS_4SPD_UNIVERSAL:
-            baseBonus = 8;
+            setup.transClass = 2;
+            break;
+        case TRANS_RACING_GM:
+        case TRANS_RACING_FORD:
+        case TRANS_RACING_CHRYSLER:
+            setup.transClass = 3;
+            break;
+        default:
+            setup.transClass = 2;
             break;
     }
-    return (baseBonus * (100 - wear)) / 100;
+
+    if (automaticOverride) {
+        setup.transClass = 0;
+    }
+
+    switch (car.GetEngine().engineType) {
+        case CarEngineGM_V6:
+        case CarEngineFord_V6:
+        case CarEngineChrysler_V6:
+            setup.engineClass = 1;
+            break;
+        default:
+            setup.engineClass = 2;
+            break;
+    }
+
+    switch (car.GetManifold().partType.manifoldType) {
+        case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
+        case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
+        case MANIFOLD_RACING: setup.manifoldClass = 4; break;
+        default: setup.manifoldClass = 0; break;
+    }
+
+    switch (car.GetWheelType()) {
+        case STOCK: setup.tireClass = 0; break;
+        case BRAND: setup.tireClass = 1; break;
+        case RACING: setup.tireClass = 2; break;
+        default: setup.tireClass = 0; break;
+    }
+
+    // Tune level runs 0..12 with 9 perfect, against the original's -8..+4 knob.
+    setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - 9), 0, 8);
+    setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 10000);
+    setup.engineWear = std::clamp(car.GetEngine().wear, 0, 10000);
+    setup.transWear = std::clamp(car.GetGearbox().wear, 0, 10000);
+    setup.tireWear = std::clamp(car.GetTires().wear, 0, 10000);
+
+    // A body that cannot take a mod at all scores as if the mod were done: the
+    // original checks the model's sprite table and hands out the points when
+    // the sprite is missing, so no car is penalised for what it cannot do.
+    const CarModel& model = car.GetModelRef();
+    setup.roofChopped = car.IsRoofChopped() || !model.constraints.canChopRoof;
+    setup.frontBumperRemoved = car.IsFrontBumperStripped() || !model.constraints.canStripBumpers;
+    setup.rearBumperRemoved = car.IsBackBumperStripped() || !model.constraints.canStripBumpers;
+    return setup;
 }
 
-int Car::GetManifoldSpeedBonus(ManifoldType type, int wear) const {
-    int baseBonus = 0;
-    switch (type) {
-        case MANIFOLD_RACING:
-            baseBonus = 12;
-            break;
-        case MANIFOLD_PERFORMANCE:
-            baseBonus = 8;
-            break;
-        case MANIFOLD_STOCK:
-            baseBonus = 0;
-            break;
-    }
-    return (baseBonus * (100 - wear)) / 100;
+void Car::RecalculatePerformance() {
+    topSpeed = srrace::ComputeTopSpeed(CarSetupFromCar(*this, false));
 }
 
-int Car::GetCarburetorSpeedBonus(CarburetorType type, int wear) const {
-    int baseBonus = 0;
-    switch (type) {
-        case CARB_4BARREL_RACING:
-            baseBonus = 10;
-            break;
-        case CARB_4BARREL:
-            baseBonus = 6;
-            break;
-        case CARB_2BARREL:
-            baseBonus = 0;
-            break;
-    }
-    return (baseBonus * (100 - wear)) / 100;
-}

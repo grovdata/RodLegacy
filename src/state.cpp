@@ -384,18 +384,14 @@ void State::SetNextOpponent(Opponent* opp) {
 }
 
 int State::GetPlayerScore() const {
-    // Scored the same way an opponent's car spec is (see racer_pool.cpp), just
-    // built from the player's installed parts rather than from a packed config
-    // word. SrCarSpecEntry is not involved: it is a raw 14-byte SR_data record
-    // and has no room for player state.
-    srrace::CarSetup setup{};
-    if (currentCar) {
-        setup.engineClass   = static_cast<int>(currentCar->GetEngine().engineType);
-        setup.transClass    = static_cast<int>(currentCar->GetGearbox().partType.transmissionType);
-        setup.carbClass     = static_cast<int>(currentCar->GetCarburator().partType.carburetorType);
-        setup.tireClass     = static_cast<int>(currentCar->GetWheelType());
+    // Scored the same way an opponent's car spec is (see racer_pool.cpp): the
+    // car's top speed in mph. SrCarSpecEntry is not involved - it is a raw
+    // 14-byte SR_data record and has no room for player state - so this goes
+    // through the Car's own parts instead.
+    if (!currentCar) {
+        return srrace::ComputeTopSpeed(srrace::CarSetup{});
     }
-    return std::clamp(srrace::ComputeBasePerformance(setup), 0, 130);
+    return currentCar->GetTopSpeed();
 }
 
 const SrDriverData* State::GetCurrentDriverData() {

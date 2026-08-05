@@ -56,13 +56,18 @@ struct CarSetup {
     int engineClass = 2;    // 0..3 row in eng_x_mani matrix; V6=1, V8=2
     int manifoldClass = 0;  // 0..4 column in eng_x_mani; stock=0, perf=3, racing=4
     int tireClass = 0;      // 0=stock, 1=brand, 2=racing slicks
-    int weightClass = 4;    // 0..7, indexes weight_pts
+    int weightClass = 4;    // SR_data car-spec class byte 0..8, indexes weight_pts
     int tuneOffset = 0;     // |tune distance from perfect|, 0..8
     int carbWear = 0;       // wear values 0..10000
     int engineWear = 0;
     int transWear = 0;
     int tireWear = 0;
-    bool bumpersStripped = false;
+    // Body mods, scored separately (car record byte 0x2E bits 2/0/1). A mod the
+    // body cannot take at all scores as if it were done - see
+    // ComputeBasePerformance.
+    bool roofChopped = false;         // +9
+    bool frontBumperRemoved = false;  // +5
+    bool rearBumperRemoved = false;   // +1
     bool supercharger = false;
     int driverSkill = 130;  // 0..130 (0x82); player uses 130
 };
@@ -83,11 +88,28 @@ struct CarTables {
     int16_t autoShiftRpm = 4500;  // carb band end (redline tab)
     int16_t steeringStrength = 9;
     int16_t handling = 2;      // drift factor from tire class + wear
-    int16_t perfScore = 70;    // base performance 70..200 (capped 130 for AI)
+    int16_t perfScore = 70;    // base performance 70..100
+    int16_t topSpeed = 91;     // mph, ComputeTopSpeed - the gear ratios key off it
 };
 
-// Base performance score (FUN_002435f0). Returns ~70..200.
+// Purist mode: score the engine tune the way the 68k actually does rather than
+// the way it was meant to. The original's tune term is (1 - |tune|) * 20/8
+// where every other term in the 100-point scale says it should be
+// (8 - |tune|) * 20/8, which costs a perfect car 18 points and puts its top
+// speed at 122 mph instead of the 130 the cap is set to. Off by default; the
+// --purist flag turns it on. See RodLegacyResearch/docs/driving/top_speed.md.
+void SetPuristScoring(bool enabled);
+bool PuristScoring();
+
+// Base performance score (FUN_002435f0). 70 + a 0..100 point score scaled by
+// the transmission, so 70..100 (67..94 in purist mode).
 int ComputeBasePerformance(const CarSetup& setup);
+
+// The car's top speed in mph (ComputeCarTopSpeed 0x243b9c): base * 13/10,
+// capped at 130. This is the number the original prints on the car info screen
+// as "Max speed %3d mph", the value the racer pool matches opponents on, and
+// the speed the top gear ratio is built to reach at redline.
+int ComputeTopSpeed(const CarSetup& setup);
 
 // Fills tables from the setup (BuildCarPhysicsTables).
 void BuildCarTables(const CarSetup& setup, CarTables& tables);

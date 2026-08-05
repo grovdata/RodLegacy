@@ -6,9 +6,11 @@
 
 // ============================================================================
 // ComputeCarPerformanceScore
-// The Amiga's FUN_00243b9c: unpack the car spec's config word into part classes,
-// score them, and cap the result at 0x82 (130). The scoring itself is
-// FUN_002435f0, ported as srrace::ComputeBasePerformance.
+// The Amiga's ComputeCarTopSpeed (FUN_00243b9c): unpack the car spec's config
+// word into part classes, score them with FUN_002435f0
+// (srrace::ComputeBasePerformance), and turn that into a top speed of
+// base * 13/10 capped at 0x82 (130) mph. It is the same number the original
+// prints as "Max speed %3d mph", so a pool match is a match on top speed.
 // ============================================================================
 
 srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
@@ -18,8 +20,10 @@ srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
     setup.engineClass   = spec.EngineClass();
     setup.manifoldClass = spec.ManifoldClass();
     setup.tireClass     = spec.TireClass();
-    // The spec carries no weight, tune or wear data - a listed car is untuned
-    // and unworn, so those keep CarSetup's defaults.
+    setup.weightClass   = spec.car_class;  // 0..8, indexes weight_pts directly
+    // The spec carries no tune or wear data - a listed car is untuned and
+    // unworn, so those keep CarSetup's defaults. Body mods likewise: a spec
+    // car is stock, which is what the original's synthetic record gives it.
     //
     // CAVEAT: the config word's BIT LAYOUT is verified, but mapping its fields
     // onto CarSetup's classes is not. The Amiga expands each field into a part
@@ -32,8 +36,7 @@ srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
 }
 
 int ComputeCarPerformanceScore(const SrCarSpecEntry& spec) {
-    // 0x82 is the original's cap, applied by FUN_00243b9c after the inner call.
-    return std::clamp(srrace::ComputeBasePerformance(CarSetupFromSpec(spec)), 0, 130);
+    return srrace::ComputeTopSpeed(CarSetupFromSpec(spec));
 }
 
 // ============================================================================
