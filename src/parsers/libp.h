@@ -570,6 +570,151 @@ enum DosLib2Asset {
 };
 
 
+// SRSE LIB2 - car pack from the "Street Rod SE" DOS data disk
+// (RodLegacyBins/dos/SRSE/LIB2). Same DOS .lib format as DosLib2Asset above,
+// but a different disk/file: SRSE only swaps the 25 cars, so non-car indices
+// often line up with DosLib2Asset (index 110 is DOS_LIB2_SPEEDING_TICKET on
+// both). Unlike AmigaLibAsset, a given car's chop/bumper-stripped variants
+// are NOT grouped next to its body in file order - see per-entry comments.
+//
+// Catalogued by hand via RodLegacyResearch/src/tools/srse_cataloger.py; see
+// RodLegacyBins/dos/SRSE/LIB2_catalog.txt for the source catalog (includes
+// sprite dimensions) and cataloging progress. WORK IN PROGRESS: not all 268
+// sprites are identified yet - names ending in "NOT_SURE"/"MAYBE" are
+// tentative, and indices missing from this enum haven't been looked at.
+// Two sprites independently described the same way by the cataloger ended up
+// with identical generated names (both "1934 Ford Woodie rear bumper
+// stripped", indices 123 and 167, very different sizes: 8x16 vs 32x17) - kept
+// as separate entries disambiguated by index rather than guessed apart.
+enum SrseLib2Asset {
+    SRSE_LIB2_DRIVING_WHEEL_RIGHT = 0, // driving wheel right
+    SRSE_LIB2_DRIVING_WHEEL_NEUTRAL = 1, // driving wheel neutral
+    SRSE_LIB2_DRIVING_WHEEL_LEFT = 2, // driving wheel left
+    SRSE_LIB2_CAR_SIDE_FRONT = 3, // car side front
+    SRSE_LIB2_CAR_BEHIND_CORVETTE_MAYBE = 4, // car behind corvette maybe
+    SRSE_LIB2_RACING_CLOUDS = 5, // racing clouds
+    SRSE_LIB2_INTERIOR_PILLAR = 6, // interior pillar
+    SRSE_LIB2_INTERIOR_HOOD = 7, // interior hood
+    SRSE_LIB2_RACING_HORIZON = 8, // racing horizon
+    SRSE_LIB2_INTERIOR_MIRROR = 9, // interior mirror
+    SRSE_LIB2_CAR_2_SIDE_FRONT = 10, // car 2 side front
+    SRSE_LIB2_CAR_2_BEHIND = 11, // car 2 behind
+    SRSE_LIB2_CAR_2_BEHIND_TURNING = 12, // car 2 behind turning
+    SRSE_LIB2_RACING_GREEN_RED_LIGHTS = 13, // racing green red lights
+    SRSE_LIB2_RACING_INTERIOR_COCKPIT = 14, // racing interior cockpit
+    SRSE_LIB2_LOAD_SCREEN_HIGHWAY_PATROL = 15, // load screen highway patrol
+    SRSE_LIB2_NAME_SCREEN_DMV = 16, // name screen dmv
+    SRSE_LIB2_BUTTON_TEMPLATE = 17, // button template
+    SRSE_LIB2_BUTTON_LOAD = 18, // button load
+    SRSE_LIB2_BUTTON_SAVE = 19, // button save
+    SRSE_LIB2_BUTTON_FORGET_IT = 20, // button forget it
+    SRSE_LIB2_NEWSPAPER_SCREEN_TOP = 21, // newspaper screen top
+    SRSE_LIB2_NEWSPAPER_DODGERS_WIN = 22, // newspaper dodgers win
+    SRSE_LIB2_NEWSPAPER_YOUTH_KILLED = 23, // newspaper youth killed
+    SRSE_LIB2_NEWSPAPER_LAUGH_AT_JAPAN = 24, // newspaper laugh at japan
+    SRSE_LIB2_NEWSPAPER_OSCAR_NOMINATIONS = 25, // newspaper oscar nominations
+    SRSE_LIB2_NEWSPAPER_NO_US_SOLDIERS_IN_VIETNAM = 26, // newspaper no us soldiers in vietnam
+    SRSE_LIB2_NEWSPAPER_SIDEBAR = 27, // newspaper sidebar
+    SRSE_LIB2_CAR_WHEEL_1 = 28, // car wheel 1
+    SRSE_LIB2_CAR_WHEEL_2 = 29, // car wheel 2
+    SRSE_LIB2_CAR_WHEEL_3 = 30, // car wheel 3
+    SRSE_LIB2_CAR_WHEEL_4 = 31, // car wheel 4
+    SRSE_LIB2_GARAGE_SCREEN = 32, // garage screen
+    SRSE_LIB2_CAR_UNKNOWN_BUMPER_STRIPPED = 33, // car unknown bumper stripped
+    SRSE_LIB2_CARJACK_1 = 34, // carjack 1
+    SRSE_LIB2_CARJACK_2 = 35, // carjack 2
+    SRSE_LIB2_CARJACK_3 = 36, // carjack 3
+    SRSE_LIB2_CAR_UNKNOWN_REARBUMPER_STRIPPED = 37, // car unknown rearbumper stripped
+    SRSE_LIB2_CAR39_CHOPPED_ROOF = 38, // car39 chopped roof
+    SRSE_LIB2_1939_PONTIAC_2_DR_COUPE = 39, // 1939 Pontiac 2-dr coupe
+    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN = 40, // 1946 Chevrolet Fleetline Sedan
+    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_REARBUMPER_STRIPPED = 41, // 1946 Chevrolet Fleetline Sedan rearbumper stripped
+    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_FRONT_BUMPER_STRIPPED = 42, // 1946 Chevrolet Fleetline Sedan front bumper stripped
+    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_CHOPPED_ROOF = 43, // 1946 Chevrolet Fleetline Sedan chopped roof
+    SRSE_LIB2_CAR40_FRONTBUMPER_STRIPPED = 44, // car40 frontbumper stripped
+    SRSE_LIB2_CAR40_REARBUMPER_STRIPPED = 45, // car40 rearbumper stripped
+    SRSE_LIB2_CAR46_CHOPPED_ROOF = 46, // car46 chopped roof
+    SRSE_LIB2_1953_BUICK_SKYLARK_CONVERTIBLE = 47, // 1953 Buick Skylark Convertible
+    SRSE_LIB2_1955_CHEVROLET_NOMAD_WAGON = 48, // 1955 Chevrolet Nomad Wagon
+    SRSE_LIB2_CAR48_FRONTBUMPER_STRIPPED = 49, // car48 frontbumper stripped
+    SRSE_LIB2_CAR48_REARBUMPER_STRIPPED = 50, // car48 rearbumper stripped
+    SRSE_LIB2_CAR48_FRONTBUMPER_THING_NOT_SURE = 51, // car48 frontbumper thing not sure
+    SRSE_LIB2_CAR48_FRONTBUMPER_THING_NOT_SURE2 = 52, // car48 frontbumper thing not sure2
+    SRSE_LIB2_CAR_53 = 53, // car 53
+    SRSE_LIB2_CAR_54 = 54, // car 54
+    SRSE_LIB2_CAR54_REARBUMPER_STRIPPED = 55, // car54 rearbumper stripped
+    SRSE_LIB2_CAR54_FRONTBUMPER_STRIPPED = 56, // car54 frontbumper stripped
+    SRSE_LIB2_RACING_THE_KING_REAR = 57, // racing the king rear
+    SRSE_LIB2_CAR_53_REARBUMPERSTRIPPED_MAYBE = 58, // car 53 rearbumperstripped maybe
+    SRSE_LIB2_CAR60_CHOPPEDROOF = 59, // car60 choppedroof
+    SRSE_LIB2_1958_BUICK_SPECIAL = 60, // 1958 Buick Special
+    SRSE_LIB2_CAR_61_LOOKS_VERY_SPACEY = 61, // car 61 looks very spacey
+    SRSE_LIB2_CAR60_CHOPPED_ROOF = 62, // car60 chopped roof
+    SRSE_LIB2_CAR61_CHOPPED_ROOF = 63, // car61 chopped roof
+    SRSE_LIB2_CAR48_CHOPPED_ROOF = 64, // car48 chopped roof
+    SRSE_LIB2_BRAND_WHEEL_1 = 65, // brand wheel 1
+    SRSE_LIB2_BRAND_WHEEL_2 = 66, // brand wheel 2
+    SRSE_LIB2_BRAND_WHEEL_3 = 67, // brand wheel 3
+    SRSE_LIB2_BRAND_WHEEL_4 = 68, // brand wheel 4
+    SRSE_LIB2_ENGINE_WINDOW_FRAME = 69, // engine window frame
+    SRSE_LIB2_TRANSMISSION_WINDOW = 70, // transmission window
+    SRSE_LIB2_ENGINE_TUNING_WINDOW = 71, // engine tuning window
+    SRSE_LIB2_BUBBLE_LEFT = 72, // bubble left
+    SRSE_LIB2_BUBBLE_RIGHT_1_LINE = 73, // bubble right 1 line
+    SRSE_LIB2_BUBBLE_RIGHT_2_LINES = 74, // bubble right 2 lines
+    SRSE_LIB2_TUNING_BELT = 75, // tuning belt
+    SRSE_LIB2_ENGINE_BLOCK_V6 = 76, // engine block v6
+    SRSE_LIB2_ENGINE_BLOCK_V8_SMALL = 77, // engine block v8 small
+    SRSE_LIB2_ENGINE_BLOCK_V8_BIG = 78, // engine block v8 big
+    SRSE_LIB2_MANIFOLD_3X2 = 79, // manifold 3x2
+    SRSE_LIB2_MANIFOLD_1X2 = 80, // manifold 1x2
+    SRSE_LIB2_MANIFOLD_1X2_2 = 81, // manifold 1x2 2
+    SRSE_LIB2_MANIFOLD_1X4 = 82, // manifold 1x4
+    SRSE_LIB2_MANIFOLD_2X4 = 83, // manifold 2x4
+    SRSE_LIB2_CARB1 = 84, // carb1
+    SRSE_LIB2_CARB2 = 85, // carb2
+    SRSE_LIB2_CARB3 = 86, // carb3
+    SRSE_LIB2_SCREW_FULL = 87, // screw full
+    SRSE_LIB2_SCREW_HALF = 88, // screw half
+    SRSE_LIB2_SCREW_HEAD = 89, // screw head
+    SRSE_LIB2_GAS_STATION_SCREEN = 90, // gas station screen
+    SRSE_LIB2_COP_BEHIND = 91, // cop behind
+    SRSE_LIB2_60S_CAR_BEHIND = 92, // 60s car behind
+    SRSE_LIB2_DINER_SCREEN = 93, // diner screen
+    SRSE_LIB2_ENGINE_WIRE_PLUGGED = 94, // engine wire plugged
+    SRSE_LIB2_ENGINE_WIRE_UNPLUGGED = 95, // engine wire unplugged
+    SRSE_LIB2_GAS_STATION_PUMP_MASK = 96, // gas station pump mask
+    SRSE_LIB2_GAS_STATION_PUMP_BG = 97, // gas station pump bg
+    SRSE_LIB2_GAS_STATION_PUMP_MASK_SMALL = 98, // gas station pump mask small
+    SRSE_LIB2_GEARBOX_AUTO_1 = 99, // gearbox auto 1
+    SRSE_LIB2_GEARBOX_MANUAL_1 = 100, // gearbox manual 1
+    SRSE_LIB2_GEARBOX_AUTO_2 = 101, // gearbox auto 2
+    SRSE_LIB2_GEARBOX_MANUAL_2 = 102, // gearbox manual 2
+    SRSE_LIB2_GEARBOX_SCREW_VARIANTS = 103, // gearbox screw variants
+    SRSE_LIB2_MANIFOLD_2X4_BIG = 104, // manifold 2x4 big
+    SRSE_LIB2_MANIFOLD_1X2_BIG = 105, // manifold 1x2 big
+    SRSE_LIB2_RACING_WHEEL_1 = 106, // racing wheel 1
+    SRSE_LIB2_RACING_WHEEL_2 = 107, // racing wheel 2
+    SRSE_LIB2_RACING_WHEEL_3 = 108, // racing wheel 3
+    SRSE_LIB2_RACING_WHEEL_4 = 109, // racing wheel 4
+    SRSE_LIB2_SPEEDING_TICKET = 110, // speeding ticket
+    SRSE_LIB2_1963_BUICK_RIVIERA = 119, // 1963 Buick Riviera
+    SRSE_LIB2_1963_BUICK_RIVIERA_REAR_BUMPER_STRIP = 120, // 1963 Buick Riviera rear bumper strip
+    SRSE_LIB2_1963_BUICK_RIVIERA_FRONT_BUMPER_STRIP = 121, // 1963 Buick Riviera front bumper strip
+    SRSE_LIB2_1963_BUICK_RIVIERA_CHOPPED_ROOF = 122, // 1963 Buick Riviera chopped roof
+    SRSE_LIB2_1934_FORD_WOODIE_REAR_BUMPER_STRIPPED_123 = 123, // 1934 Ford Woodie rear bumper stripped
+    SRSE_LIB2_EMPTY = 124, // empty
+    SRSE_LIB2_1934_FORD_WOODIE_CHOPPED_ROOF = 125, // 1934 Ford Woodie chopped roof
+    SRSE_LIB2_1934_FORD_WOODIE = 126, // 1934 Ford Woodie
+    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_REAR_BUMPER_STRIPPED = 161, // 1963 Ford T-bird Roadster rear bumper stripped
+    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_FRONT_BUMPER_STRIPPED = 162, // 1963 Ford T-bird Roadster front bumper stripped
+    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_CHOPPED_ROOF = 163, // 1963 Ford T-bird Roadster chopped roof
+    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER = 164, // 1963 Ford T-bird Roadster
+    SRSE_LIB2_1948_CHRYSLER_TOWN_COUNTRY_CONV = 165, // 1948 Chrysler Town & Country Conv.
+    SRSE_LIB2_1934_FORD_WOODIE_FRONT_BUMPER_STRIPPED = 166, // 1934 Ford Woodie front bumper stripped
+    SRSE_LIB2_1934_FORD_WOODIE_REAR_BUMPER_STRIPPED_167 = 167 // 1934 Ford Woodie rear bumper stripped
+};
+
 // Track data structures based on Street Rod binary analysis
 enum SrTrackType {
     SR_TRACK_ROAD_RACE = 0,  // Complex curved course at 0xE000
