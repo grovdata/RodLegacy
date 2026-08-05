@@ -8,6 +8,7 @@
 #include "driving.h"
 #include "newspaper.h"
 #include "king_of_county.h"
+#include "name_entry.h"
 #include "racing.h"
 #include "debug_overlay.h"
 #include "parsers/libp.h"
@@ -110,12 +111,14 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         gasStation = std::make_unique<GasStation>();
         driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
+        nameEntry = std::make_unique<NameEntry>();
 
         garage->Init(debugMode);
         diner->Init(debugMode);
         gasStation->Init(debugMode);
         newspaper->Init(debugMode);
         driving->Init(debugMode);
+        nameEntry->Init(debugMode);
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         throw; // Re-throw to main
@@ -174,6 +177,9 @@ void State::MoveToScene(SrLibGameScene scene) {
             kingOfCounty = std::make_unique<KingOfCounty>(true);
             kingOfCounty->Init(debugMode);
             this->currentScene = kingOfCounty.get();
+            break;
+        case SCENE_NAME_ENTRY:
+            this->currentScene = nameEntry.get();
             break;
     }
 

@@ -11,6 +11,7 @@
 
 #include <SDL2/SDL.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,12 @@ struct DebugIndicator {
     bool active = false;
 };
 
+// A clickable button, e.g. for jumping straight to a scene during debugging.
+struct DebugButton {
+    std::string label;
+    std::function<void()> onClick;
+};
+
 // A docked panel: toggles, then a key/value table, then any free-form lines.
 // `rows` and `toggles` come last so existing brace initialisations that pass
 // title/lines/dock still compile; assign them afterwards.
@@ -51,6 +58,7 @@ struct DebugPanel {
     DebugDock dock = DebugDock::Right;
     std::vector<DebugRow> rows = {};
     std::vector<DebugToggle> toggles = {};
+    std::vector<DebugButton> buttons = {};
     // Optional image drawn above everything else, e.g. a driver portrait. Not
     // owned; must outlive the frame. Scaled to imageScale x its native size.
     SDL_Texture* image = nullptr;

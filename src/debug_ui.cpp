@@ -40,7 +40,12 @@ void DrawPanelBody(const DebugPanel& panel) {
             ImGui::Checkbox(toggle.label.c_str(), toggle.value);
         }
     }
-    if (!panel.toggles.empty() && !panel.rows.empty()) {
+    for (const DebugButton& button : panel.buttons) {
+        if (ImGui::Button(button.label.c_str()) && button.onClick) {
+            button.onClick();
+        }
+    }
+    if ((!panel.toggles.empty() || !panel.buttons.empty()) && !panel.rows.empty()) {
         ImGui::Separator();
     }
     if (!panel.rows.empty() &&
@@ -253,7 +258,7 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
             }
         };
 
-        stackColumn(leftId, {"Session"});
+        stackColumn(leftId, {"Scenes", "Session"});
         stackColumn(rightId, {"Scene", "Racing", "Opponent"});
         ImGui::DockBuilderFinish(dockspaceId);
     }

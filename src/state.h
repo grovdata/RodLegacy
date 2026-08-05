@@ -28,6 +28,7 @@ class KingOfCounty;
 class Newspaper;
 class GasStation;
 class Racing;
+class NameEntry;
 
 class State {
 private:
@@ -35,6 +36,7 @@ private:
     // int dragRacesCompleted;
     // int roadRacesCompleted;
     bool debugMode;
+    std::string playerName = "Player";
 
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
@@ -87,6 +89,7 @@ private:
     std::unique_ptr<Racing> racing;
     std::unique_ptr<Newspaper> newspaper;
     std::unique_ptr<KingOfCounty> kingOfCounty;
+    std::unique_ptr<NameEntry> nameEntry;
 
     // Remove this later
     const std::string GetTomlFile();
@@ -98,7 +101,8 @@ public:
     struct HallEntry { std::string name; int score; };
     std::vector<HallEntry> LoadHallDat() const;
     void SaveHallDat(const std::vector<HallEntry>& entries) const;
-    std::string GetPlayerName() const { return "Player"; }
+    std::string GetPlayerName() const { return playerName; }
+    void SetPlayerName(const std::string& name) { playerName = name.empty() ? "Player" : name; }
 
     AssetManager& GetAssets() { return assets; }
 

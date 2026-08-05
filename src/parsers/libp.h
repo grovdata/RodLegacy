@@ -90,6 +90,10 @@ enum SrLibGameScene {
     SCENE_DRIVING = 4,
     SCENE_NEWSPAPER = 5,
     SCENE_KING_OF_COUNTY = 6,
+    // RodLegacy addition, not part of the original game's scene table: the
+    // new-game name entry screen. Never passed to SrLibQueryGetCarRoofYOffset
+    // / SrLibQueryGetCarIdleX, which index original per-scene car tables.
+    SCENE_NAME_ENTRY = 7,
 };
 
 enum SrLibCarDecal {
