@@ -46,6 +46,7 @@ void NameEntry::RefreshNameLabel() {
 void NameEntry::HandleOk() {
     state.SetPlayerName(typedName);
     state.SetBankroll(750);
+    state.StartNewGame();
     state.MoveToScene(SCENE_NEWSPAPER);
 }
 

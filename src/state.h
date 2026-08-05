@@ -118,6 +118,13 @@ public:
 
     void MoveToScene(SrLibGameScene scene);
 
+    // Clears the owned-car roster (frees every Car* State owns) and resyncs
+    // Garage's Car*-keyed caches, leaving the player carless -- same as a
+    // fresh Amiga boot, before the first classified-ad purchase. Called from
+    // NameEntry::HandleOk, so it applies whether the flow started at launch
+    // or via Garage's "New Game" button.
+    void StartNewGame();
+
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();
 

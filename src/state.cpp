@@ -186,6 +186,14 @@ void State::MoveToScene(SrLibGameScene scene) {
     this->currentScene->FadeIn();
 }
 
+void State::StartNewGame() {
+    for (Car* c : ownedCars) delete c;
+    ownedCars.clear();
+    currentCar = nullptr;
+
+    if (garage) garage->ResetForNewCarSet();
+}
+
 Car* State::GetCurrentCar() {
     return this->currentCar;
 }

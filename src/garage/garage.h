@@ -129,6 +129,14 @@ class Garage : public CarScene {
     void InitCarBitmaps();
     CarBitmap* GetOrCreateCarBitmap(Car* car);
 
+    // Rebuilds every cache keyed on Car* (bitmaps, swatches, the sign) after
+    // State's owned-car set has been replaced out from under Garage, e.g. by
+    // LoadSaveGame or a new game. If Garage is the scene on screen right now,
+    // also resets it to the same state a fresh scene entry leaves behind so
+    // the (possibly absent) current car drives in normally instead of
+    // popping into place.
+    void ResetForNewCarSet();
+
     SDL_Point GetCarIdlePosition() override;
 
     bool PushEvent(SDL_Event* event) override;

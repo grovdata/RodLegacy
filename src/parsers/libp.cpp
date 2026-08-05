@@ -1025,6 +1025,11 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
         SrLibDataCleanupCarString(line);  // strips leading '+' if isFeature
 
         const char* dollarPos = strchr(line, '$');
+        // Read the price now, while it still points into `line`: that buffer
+        // is freed below, and atoi-ing through a dangling pointer after the
+        // free reads garbage/zeroed memory (every ad silently priced at $0).
+        bool hasPrice = dollarPos != nullptr;
+        int parsedPrice = hasPrice ? atoi(dollarPos + 1) : 0;
 
         // Append to adText: lines separated by '\n', feature lines prefixed with '\t'
         // Bounds-checked against the fixed-size buffer; a malformed/oversized SR_data
@@ -1039,8 +1044,8 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
 
         free(line);
 
-        if (dollarPos) {
-            outClassified.price = atoi(dollarPos + 1);
+        if (hasPrice) {
+            outClassified.price = parsedPrice;
             break;
         }
     }

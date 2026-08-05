@@ -30,19 +30,23 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("tires").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         if (state.GetSpareTires().empty()) bubbles[2]->SetVisible(true);
         else ShowTireDialog();
     };
     GetZone("paint_job").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         ShowPaintDialog();
     };
     GetZone("gas_can").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         state.MoveToScene(SCENE_GAS_STATION);
     };
     GetZone("car_info").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         ShowCarInfoDialog();
     };
     GetZone("calendar").onClick = [this] {
@@ -63,6 +67,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("stickers").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         stickerScrollRow = 0;
         ShowStickerDialog();
     };
@@ -92,6 +97,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("goto_diner").onClick = [this] {
         if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         state.MoveToScene(SCENE_DINER);
     };
     GetZone("rear_bumper").onClick = [this] {
@@ -137,6 +143,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto bumperConstraintBubble = std::make_unique<Bubble>("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
     bumperConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(bumperConstraintBubble));
+    auto noCarBubble = std::make_unique<Bubble>("  You\'ve got no car, dummy!", BUBBLE_LEFT, 103, 30, true);
+    noCarBubble->SetVisible(false);
+    bubbles.push_back(std::move(noCarBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -462,10 +471,13 @@ void Garage::DrawScene() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
-            needsNewAnimation = true;  // Ensure parent's initialization logic runs
+            // Nothing to drive in before the player's bought their first car.
+            if (state.GetCurrentCar() != nullptr) {
+                needsNewAnimation = true;  // Ensure parent's initialization logic runs
 
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-            animatingCar = true;
+                StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+                animatingCar = true;
+            }
         }
         return;
     }
@@ -682,6 +694,27 @@ CarBitmap* Garage::GetOrCreateCarBitmap(Car* car) {
     return carBitmaps[car].get();
 }
 
+void Garage::ResetForNewCarSet() {
+    carBitmaps.clear();
+    FreeCarListSwatches();
+    sortedOwnedCars.clear();
+    pendingCar = nullptr;
+    InitCarBitmaps();
+    if (state.GetCurrentCar()) UpdateSign();
+
+    // Always drop CarScene's own live car-bitmap/animation state: carBitmap
+    // is a raw pointer into the carBitmaps map cleared above, so leaving it
+    // set would dangle regardless of whether Garage is the active scene.
+    OnSceneExit();
+
+    // If Garage is the scene on screen right now, also fade it back in so
+    // the (possibly absent) current car drives in normally instead of
+    // popping into place.
+    if (state.GetCurrentScene() == this) {
+        FadeIn();
+    }
+}
+
 void Garage::FreeCarListSwatches() {
     for (auto* s : carListSwatches) {
         SDL_FreeSurface(s);
@@ -696,6 +729,7 @@ Garage::~Garage() {
 
 void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
+    if (state.GetCurrentCar() == nullptr) return;
 
     LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
 

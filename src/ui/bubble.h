@@ -31,4 +31,5 @@ class Bubble: public IDrawable {
         ~Bubble();
         virtual void Draw() override;
         virtual void SetVisible(bool visible) override;
+        void SetText(std::string text) { UpdateText(text); }
 };

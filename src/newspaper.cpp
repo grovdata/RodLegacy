@@ -32,23 +32,12 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
     };
-    // Nothing to drive home in until a car has been bought, which is where a
-    // lost pink slip leaves the player.
     auto backToGarage = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (state.GetCurrentCar() == nullptr) {
-            bubbles[0]->SetVisible(true);
-            return;
-        }
         state.MoveToScene(SCENE_GARAGE);
     };
     GetZone("back_to_garage").onClick = backToGarage;
     GetZone("back_to_garage2").onClick = backToGarage;
-
-    auto noCarBubble = std::make_unique<Bubble>("  You'll be needin' a car, bub!",
-                                                BUBBLE_LEFT, 90, 30, true);
-    noCarBubble->SetVisible(false);
-    bubbles.push_back(std::move(noCarBubble));
     // Page 0 is the front page, pages 1-3 are the fixed "parts" pages, and pages
     // 4..(3+totalPages) are the used-car ad pages (totalPages counts only those).
     GetZone("previous").onClick = [this] {
@@ -67,6 +56,10 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
     };
+
+    auto cantAffordBubble = std::make_unique<Bubble>("  No go, hot shot.", BUBBLE_LEFT, 90, 95, true);
+    cantAffordBubble->SetVisible(false);
+    bubbles.push_back(std::move(cantAffordBubble));
 }
 
 Newspaper::~Newspaper() {
@@ -262,6 +255,11 @@ void Newspaper::DrawScene() {
     // Draw active dialog
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
+    }
+
+    // Draw bubbles last so they appear on top of dialogs
+    for (auto& b : bubbles) {
+        b->Draw();
     }
 }
 
@@ -692,6 +690,9 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                 if (state.GetBankroll() < price) {
                     LOG_INFO("Not enough money to buy car %d (need $%d, have $%d)",
                             carIndex, price, state.GetBankroll());
+                    int short_ = price - state.GetBankroll();
+                    bubbles[0]->SetText("  No go, hot shot. You're $" + std::to_string(short_) + " short.");
+                    bubbles[0]->SetVisible(true);
                 } else if (!state.GetClassifiedCars()[carIndex]) {
                     LOG_INFO("Car %d already sold", carIndex);
                 } else {

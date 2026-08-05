@@ -141,7 +141,8 @@ void Garage::InitGameMenuDialog() {
                 break;
             case 2:
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: New Game");
-                // state.NewGame();
+                gameMenuDialog->Hide();
+                state.MoveToScene(SCENE_NAME_ENTRY);
                 break;
             case 3: {
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Quit Game");
@@ -362,22 +363,8 @@ bool Garage::LoadSelectedGame(const LoadGameEntry& entry) {
     if (ok) {
         // LoadSaveGame just replaced (and freed) every Car* State owned.
         // Every cached bitmap/animation object keyed on those old pointers
-        // is now dangling -- rebuild them the same way Init() originally
-        // did, instead of leaving Garage holding stale Car* references.
-        carBitmaps.clear();
-        FreeCarListSwatches();
-        sortedOwnedCars.clear();
-        pendingCar = nullptr;
-        InitCarBitmaps();
-        if (state.GetCurrentCar()) UpdateSign();
-
-        // Reset to the same state a genuine scene exit+re-entry leaves
-        // behind (carBitmap=nullptr, initialDelay=true, animation timers
-        // zeroed -- see CarScene::OnSceneExit), then fade in, so the loaded
-        // car drives in the same way it does on any other garage entry
-        // instead of just popping into place.
-        OnSceneExit();
-        FadeIn();
+        // is now dangling -- rebuild them the same way Init() originally did.
+        ResetForNewCarSet();
     }
     return ok;
 }
