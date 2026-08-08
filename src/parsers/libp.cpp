@@ -1854,6 +1854,175 @@ std::vector<std::string> DataParser::ParseDriverNames(const std::vector<uint8_t>
     return names;
 }
 
+// ---------------------------------------------------------------------------
+// DOS HOT_DATA. Layout: RodLegacyResearch/docs/formats/hot_data_dos.md.
+// ---------------------------------------------------------------------------
+
+static uint16_t ReadU16LE(const uint8_t* p) {
+    return static_cast<uint16_t>(p[0] | (p[1] << 8));
+}
+
+// A sprite reference is the LIB2 index plus HOT_DATA_SPRITE_BASE, and 0 where
+// the car has no such variant.
+static int DosSpriteRef(const uint8_t* p) {
+    uint16_t raw = ReadU16LE(p);
+    return raw ? static_cast<int>(raw) - HOT_DATA_SPRITE_BASE : -1;
+}
+
+static bool DosHotDataHasTables(size_t dataSize) {
+    return dataSize >= HOT_DATA_TEXT_START;
+}
+
+std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTableDOS(const std::vector<uint8_t>& hot_data) {
+    std::vector<SrCarSpecEntry> result;
+    if (!DosHotDataHasTables(hot_data.size())) return result;
+
+    result.reserve(HOT_DATA_CAR_COUNT);
+    for (int i = 0; i < HOT_DATA_CAR_COUNT; ++i) {
+        const uint8_t* rec = hot_data.data() + HOT_DATA_CARSPEC_START + i * 10;
+        const uint16_t price = ReadU16LE(rec);
+        const uint8_t partsA = rec[4];
+        const uint8_t partsB = rec[5];
+
+        // Repack the DOS parts bytes into the Amiga's config word so every
+        // SrCarSpecEntry accessor keeps working regardless of the source file.
+        const int brandMask = partsA & 0x0F;         // 1=GM, 2=Ford, 4=Chrysler
+        const int tires     = (partsA >> 4) & 0x03;
+        const int trans     = (partsA >> 6) & 0x03;
+        const int carb      = partsB & 0x07;
+        const int manifold  = (partsB >> 3) & 0x07;
+        const int engine    = (partsB >> 6) & 0x03;
+        const int config    = (brandMask << 12) | (tires << 10) | (trans << 8) |
+                              (engine << 6) | (manifold << 3) | carb;
+
+        // Absolute file offset, so AdTextPtr() means the same thing it does on
+        // the Amiga (where it is an absolute pointer into the loaded file).
+        const uint32_t adPtr = static_cast<uint32_t>(HOT_DATA_TEXT_START) + ReadU16LE(rec + 6);
+
+        SrCarSpecEntry entry = {};
+        entry.price[0] = static_cast<uint8_t>(price >> 8);
+        entry.price[1] = static_cast<uint8_t>(price & 0xFF);
+        entry.car_class = rec[2];
+        entry.config[0] = static_cast<uint8_t>(config >> 8);
+        entry.config[1] = static_cast<uint8_t>(config & 0xFF);
+        entry.ad_text_ptr[0] = static_cast<uint8_t>(adPtr >> 24);
+        entry.ad_text_ptr[1] = static_cast<uint8_t>(adPtr >> 16);
+        entry.ad_text_ptr[2] = static_cast<uint8_t>(adPtr >> 8);
+        entry.ad_text_ptr[3] = static_cast<uint8_t>(adPtr & 0xFF);
+        // ad_lines has no DOS counterpart; the ad simply ends on its price line.
+        // body holds a LIB2 sprite index here, not a lib.p asset - one-based to
+        // match BodyAsset()'s convention.
+        const int body = ReadU16LE(rec + 8) - HOT_DATA_SPRITE_BASE + 1;
+        entry.body[0] = static_cast<uint8_t>((body >> 8) & 0xFF);
+        entry.body[1] = static_cast<uint8_t>(body & 0xFF);
+        result.push_back(entry);
+    }
+    return result;
+}
+
+std::vector<DosCarSprites> DataParser::ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data) {
+    std::vector<DosCarSprites> result;
+    if (!DosHotDataHasTables(hot_data.size())) return result;
+
+    result.reserve(HOT_DATA_CAR_COUNT);
+    for (int i = 0; i < HOT_DATA_CAR_COUNT; ++i) {
+        const uint8_t* spec = hot_data.data() + HOT_DATA_CARSPEC_START + i * 10;
+        const uint8_t* rec = hot_data.data() + HOT_DATA_CARSPRITES_START + i * 10;
+        DosCarSprites sprites;
+        sprites.body = DosSpriteRef(spec + 8);
+        // rec[0..1] is a 1..4 value whose meaning is not identified yet.
+        sprites.choppedRoof = DosSpriteRef(rec + 2);
+        sprites.airScoop = DosSpriteRef(rec + 4);
+        sprites.rearBumperStripped = DosSpriteRef(rec + 6);
+        sprites.frontBumperStripped = DosSpriteRef(rec + 8);
+        result.push_back(sprites);
+    }
+    return result;
+}
+
+CarMetadata_t* DataParser::SrLibDataReadDataFromBufferDOS(const uint8_t* data, size_t dataSize, int* outCount) {
+    if (!data || !outCount) return NULL;
+    *outCount = 0;
+    if (!DosHotDataHasTables(dataSize)) return NULL;
+
+    CarMetadata_t* result = (CarMetadata_t*)calloc(CAR_PLAYER_MODEL_COUNT, sizeof(CarMetadata_t));
+    if (!result) return NULL;
+
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        const uint8_t* ptr = data + HOT_DATA_OFFSETS_START + i * 12;
+        BitmapOffset_t offsets = {};
+        offsets.offsetXRearTire = *ptr++;
+        offsets.offsetXFrontTire = *ptr++;
+        offsets.offsetXDriver = *ptr++;
+        offsets.offsetYDriver = *ptr++;
+        offsets.offsetXChoppedRoof = *ptr++;
+        offsets.offsetXAirScoop = *ptr++;
+        offsets.offsetYAirScoop = *ptr++;
+        offsets.offsetYRearBumper = *ptr++;
+        offsets.offsetXFrontBumper = *ptr++;
+        offsets.offsetYFrontBumper = *ptr++;
+        offsets.offsetXDecal = *ptr++;
+        offsets.offsetYDecal = *ptr++;
+
+        // The gas cap position is in the gas station table rather than here,
+        // same as on the Amiga. offsetYTires has no DOS counterpart at all;
+        // the Amiga's hand-measured table is 30 for 21 of its 26 cars, so that
+        // is the starting value - it wants checking per car against the art.
+        const uint8_t* gas = data + HOT_DATA_GASSTATION_START + i * 6;
+        offsets.offsetXGasCap = gas[0];
+        offsets.offsetYGasCap = gas[1];
+        offsets.offsetYTires = 30;
+
+        result[i].offsets = offsets;
+    }
+
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        const uint8_t* ptr = data + HOT_DATA_CLICKBOX_START + i * 20;
+        CarClickBoxes_t boxes = {};
+        ClickBox_t* order[] = {
+            &boxes.clickBoxRearBumper,
+            &boxes.clickBoxChoppedRoof,
+            &boxes.clickBoxTransmission,
+            &boxes.clickBoxEngine,
+            &boxes.clickBoxFrontBumper,
+        };
+        for (ClickBox_t* box : order) {
+            box->x = *ptr++;
+            box->y = *ptr++;
+            box->width = *ptr++;
+            box->height = *ptr++;
+        }
+
+        // Three points with sizes fixed in code, same as the Amiga path.
+        const uint8_t* gas = data + HOT_DATA_GASSTATION_START + i * 6;
+        boxes.clickBoxGasCap = {gas[0], gas[1], 12, 12};
+        boxes.clickBoxRearWindow = {gas[2], gas[3], 24, 24};
+        boxes.clickBoxFrontWindow = {gas[4], gas[5], 24, 24};
+
+        result[i].clickBoxes = boxes;
+    }
+
+    // Each car names its own ad offset. Reading the blob straight through
+    // would work for these two files but drifts on the padding that sits
+    // between the table end and the first string.
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        const size_t adStart = HOT_DATA_TEXT_START +
+                               ReadU16LE(data + HOT_DATA_CARSPEC_START + i * 10 + 6);
+        const uint8_t* ptr = data + adStart;
+        if (adStart >= dataSize ||
+            !ParseClassifiedEntry(data, dataSize, ptr, result[i].classified)) {
+            for (int j = 0; j < i; j++) {
+                SrLibDataFreeClassified(&result[j].classified);
+            }
+            free(result);
+            return NULL;
+        }
+    }
+
+    *outCount = CAR_PLAYER_MODEL_COUNT;
+    return result;
+}
+
 std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTable(const std::vector<uint8_t>& sr_data) {
     std::vector<SrCarSpecEntry> result;
     const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);

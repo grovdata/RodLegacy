@@ -575,21 +575,25 @@ enum DosLib2Asset {
 
 
 // SRSE LIB2 - car pack from the "Street Rod SE" DOS data disk
-// (RodLegacyBins/dos/SRSE/LIB2). Same DOS .lib format as DosLib2Asset above,
-// but a different disk/file: SRSE only swaps the 25 cars, so non-car indices
-// often line up with DosLib2Asset (index 110 is DOS_LIB2_SPEEDING_TICKET on
-// both). Unlike AmigaLibAsset, a given car's chop/bumper-stripped variants
-// are NOT grouped next to its body in file order - see per-entry comments.
+// (RodLegacyBins/dos/SRSE/LIB2). Same DOS .lib format and same 268-entry
+// index layout as stock DOS LIB2, so every index has the same role in both
+// files (110 is the speeding ticket in both, etc). SRSE only redraws the 25
+// cars plus the 8 stickers: 162 of the 268 sprites are byte-identical to
+// stock DOS LIB2, and the 106 that differ are exactly the car art, the
+// stickers and three racing-view car sprites.
 //
-// Catalogued by hand via RodLegacyResearch/src/tools/srse_cataloger.py; see
-// RodLegacyBins/dos/SRSE/LIB2_catalog.txt for the source catalog (includes
-// sprite dimensions) and cataloging progress. WORK IN PROGRESS: not all 268
-// sprites are identified yet - names ending in "NOT_SURE"/"MAYBE" are
-// tentative, and indices missing from this enum haven't been looked at.
-// Two sprites independently described the same way by the cataloger ended up
-// with identical generated names (both "1934 Ford Woodie rear bumper
-// stripped", indices 123 and 167, very different sizes: 8x16 vs 32x17) - kept
-// as separate entries disambiguated by index rather than guessed apart.
+// Unlike AmigaLibAsset, a car's chopped-roof and bumper-stripped sprites are
+// NOT grouped next to its body in file order, and some are shared between
+// cars. The names below come from the two per-car tables in SRSE/HOT_DATA,
+// which give each slot its body, chopped roof, hood scoop and bumper-stripped
+// sprite numbers outright - so this enum is a readable mirror of that data,
+// not the source of truth. Anything reading these at runtime should parse
+// HOT_DATA rather than hardcode the enum.
+//
+// Asset map: RodLegacyResearch/docs/formats/srse_lib2.md.
+// HOT_DATA layout: RodLegacyResearch/docs/formats/hot_data_dos.md.
+// Cataloging UI: RodLegacyResearch/src/tools/srse_cataloger.py, which writes
+// RodLegacyBins/dos/SRSE/LIB2_catalog.txt.
 enum SrseLib2Asset {
     SRSE_LIB2_DRIVING_WHEEL_RIGHT = 0, // driving wheel right
     SRSE_LIB2_DRIVING_WHEEL_NEUTRAL = 1, // driving wheel neutral
@@ -624,38 +628,38 @@ enum SrseLib2Asset {
     SRSE_LIB2_CAR_WHEEL_3 = 30, // car wheel 3
     SRSE_LIB2_CAR_WHEEL_4 = 31, // car wheel 4
     SRSE_LIB2_GARAGE_SCREEN = 32, // garage screen
-    SRSE_LIB2_CAR_UNKNOWN_BUMPER_STRIPPED = 33, // car unknown bumper stripped
+    SRSE_LIB2_PONTIAC_2DR_COUPE_1939_FRONT_BUMPER_STRIPPED = 33, // 24x16 - car slot 0
     SRSE_LIB2_CARJACK_1 = 34, // carjack 1
     SRSE_LIB2_CARJACK_2 = 35, // carjack 2
     SRSE_LIB2_CARJACK_3 = 36, // carjack 3
-    SRSE_LIB2_CAR_UNKNOWN_REARBUMPER_STRIPPED = 37, // car unknown rearbumper stripped
-    SRSE_LIB2_CAR39_CHOPPED_ROOF = 38, // car39 chopped roof
-    SRSE_LIB2_1939_PONTIAC_2_DR_COUPE = 39, // 1939 Pontiac 2-dr coupe
-    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN = 40, // 1946 Chevrolet Fleetline Sedan
-    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_REARBUMPER_STRIPPED = 41, // 1946 Chevrolet Fleetline Sedan rearbumper stripped
-    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_FRONT_BUMPER_STRIPPED = 42, // 1946 Chevrolet Fleetline Sedan front bumper stripped
-    SRSE_LIB2_1946_CHEVROLET_FLEETLINE_SEDAN_CHOPPED_ROOF = 43, // 1946 Chevrolet Fleetline Sedan chopped roof
-    SRSE_LIB2_CAR40_FRONTBUMPER_STRIPPED = 44, // car40 frontbumper stripped
-    SRSE_LIB2_CAR40_REARBUMPER_STRIPPED = 45, // car40 rearbumper stripped
-    SRSE_LIB2_CAR46_CHOPPED_ROOF = 46, // car46 chopped roof
-    SRSE_LIB2_1953_BUICK_SKYLARK_CONVERTIBLE = 47, // 1953 Buick Skylark Convertible
-    SRSE_LIB2_1955_CHEVROLET_NOMAD_WAGON = 48, // 1955 Chevrolet Nomad Wagon
-    SRSE_LIB2_CAR48_FRONTBUMPER_STRIPPED = 49, // car48 frontbumper stripped
-    SRSE_LIB2_CAR48_REARBUMPER_STRIPPED = 50, // car48 rearbumper stripped
-    SRSE_LIB2_CAR48_FRONTBUMPER_THING_NOT_SURE = 51, // car48 frontbumper thing not sure
-    SRSE_LIB2_CAR48_FRONTBUMPER_THING_NOT_SURE2 = 52, // car48 frontbumper thing not sure2
-    SRSE_LIB2_CAR_53 = 53, // car 53
-    SRSE_LIB2_CAR_54 = 54, // car 54
-    SRSE_LIB2_CAR54_REARBUMPER_STRIPPED = 55, // car54 rearbumper stripped
-    SRSE_LIB2_CAR54_FRONTBUMPER_STRIPPED = 56, // car54 frontbumper stripped
+    SRSE_LIB2_PONTIAC_2DR_COUPE_1939_REAR_BUMPER_STRIPPED = 37, // 32x18 - car slot 0
+    SRSE_LIB2_PONTIAC_2DR_COUPE_1939_CHOPPED_ROOF = 38, // 112x18 - car slot 0
+    SRSE_LIB2_PONTIAC_2DR_COUPE_1939_BODY = 39, // 240x64 - car slot 0, 1939 Pontiac 2-dr coupe
+    SRSE_LIB2_CHEVROLET_FLEETLINE_SEDAN_1946_BODY = 40, // 240x66 - car slot 1, 1946 Chevrolet Fleetline Sedan
+    SRSE_LIB2_CHEVROLET_FLEETLINE_SEDAN_1946_REAR_BUMPER_STRIPPED = 41, // 96x17 - car slot 1
+    SRSE_LIB2_CHEVROLET_FLEETLINE_SEDAN_1946_FRONT_BUMPER_STRIPPED = 42, // 112x17 - car slot 1
+    SRSE_LIB2_CHEVROLET_FLEETLINE_SEDAN_1946_CHOPPED_ROOF = 43, // 144x20 - car slot 1
+    SRSE_LIB2_BUICK_SKYLARK_CONVERTIBLE_1953_FRONT_BUMPER_STRIPPED = 44, // 24x17 - car slot 2
+    SRSE_LIB2_BUICK_SKYLARK_CONVERTIBLE_1953_REAR_BUMPER_STRIPPED = 45, // 32x18 - car slot 2
+    SRSE_LIB2_BUICK_SKYLARK_CONVERTIBLE_1953_CHOPPED_ROOF = 46, // 120x17 - car slot 2
+    SRSE_LIB2_BUICK_SKYLARK_CONVERTIBLE_1953_BODY = 47, // 256x60 - car slot 2, 1953 Buick Skylark Convertible
+    SRSE_LIB2_CHEVROLET_NOMAD_WAGON_1955_BODY = 48, // 256x60 - car slot 3, 1955 Chevrolet Nomad Wagon
+    SRSE_LIB2_CHEVROLET_NOMAD_WAGON_1955_FRONT_BUMPER_STRIPPED = 49, // 32x15 - car slot 3; shared with slot 8
+    SRSE_LIB2_CHEVROLET_NOMAD_WAGON_1955_REAR_BUMPER_STRIPPED = 50, // 32x16 - car slot 3; shared with slot 8
+    SRSE_LIB2_OLDSMOBILE_98_1955_FRONT_BUMPER_STRIPPED = 51, // 32x17 - car slot 4
+    SRSE_LIB2_OLDSMOBILE_STARFIRE_1962_REAR_BUMPER_STRIPPED = 52, // 16x15 - car slot 10
+    SRSE_LIB2_OLDSMOBILE_98_1955_BODY = 53, // 256x58 - car slot 4, 1955 Oldsmobile 98
+    SRSE_LIB2_CHEVROLET_BELAIR_1957_BODY = 54, // 248x59 - car slot 5, 1957 Chevrolet Bel-Air
+    SRSE_LIB2_CHEVROLET_BELAIR_1957_REAR_BUMPER_STRIPPED = 55, // 24x15 - car slot 5
+    SRSE_LIB2_CHEVROLET_BELAIR_1957_FRONT_BUMPER_STRIPPED = 56, // 32x22 - car slot 5
     SRSE_LIB2_RACING_THE_KING_REAR = 57, // racing the king rear
-    SRSE_LIB2_CAR_53_REARBUMPERSTRIPPED_MAYBE = 58, // car 53 rearbumperstripped maybe
-    SRSE_LIB2_CAR60_CHOPPEDROOF = 59, // car60 choppedroof
-    SRSE_LIB2_1958_BUICK_SPECIAL = 60, // 1958 Buick Special
-    SRSE_LIB2_CAR_61_LOOKS_VERY_SPACEY = 61, // car 61 looks very spacey
-    SRSE_LIB2_CAR60_CHOPPED_ROOF = 62, // car60 chopped roof
-    SRSE_LIB2_CAR61_CHOPPED_ROOF = 63, // car61 chopped roof
-    SRSE_LIB2_CAR48_CHOPPED_ROOF = 64, // car48 chopped roof
+    SRSE_LIB2_BUICK_SPECIAL_1958_REAR_BUMPER_STRIPPED = 58, // 56x12 - car slot 6
+    SRSE_LIB2_BUICK_SPECIAL_1958_CHOPPED_ROOF = 59, // 120x16 - car slot 6
+    SRSE_LIB2_BUICK_SPECIAL_1958_BODY = 60, // 264x55 - car slot 6, 1958 Buick Special
+    SRSE_LIB2_CADILLAC_ELDORADO_CONVERTIBLE_1959_BODY = 61, // 272x55 - car slot 7, 1959 Cadillac Eldorado Convertible
+    SRSE_LIB2_CADILLAC_ELDORADO_CONVERTIBLE_1959_CHOPPED_ROOF = 62, // 120x15 - car slot 7
+    SRSE_LIB2_OLDSMOBILE_98_1955_CHOPPED_ROOF = 63, // 112x17 - car slot 4
+    SRSE_LIB2_CHEVROLET_NOMAD_WAGON_1955_CHOPPED_ROOF = 64, // 152x19 - car slot 3
     SRSE_LIB2_BRAND_WHEEL_1 = 65, // brand wheel 1
     SRSE_LIB2_BRAND_WHEEL_2 = 66, // brand wheel 2
     SRSE_LIB2_BRAND_WHEEL_3 = 67, // brand wheel 3
@@ -702,21 +706,88 @@ enum SrseLib2Asset {
     SRSE_LIB2_RACING_WHEEL_3 = 108, // racing wheel 3
     SRSE_LIB2_RACING_WHEEL_4 = 109, // racing wheel 4
     SRSE_LIB2_SPEEDING_TICKET = 110, // speeding ticket
-    SRSE_LIB2_1963_BUICK_RIVIERA = 119, // 1963 Buick Riviera
-    SRSE_LIB2_1963_BUICK_RIVIERA_REAR_BUMPER_STRIP = 120, // 1963 Buick Riviera rear bumper strip
-    SRSE_LIB2_1963_BUICK_RIVIERA_FRONT_BUMPER_STRIP = 121, // 1963 Buick Riviera front bumper strip
-    SRSE_LIB2_1963_BUICK_RIVIERA_CHOPPED_ROOF = 122, // 1963 Buick Riviera chopped roof
-    SRSE_LIB2_1934_FORD_WOODIE_REAR_BUMPER_STRIPPED_123 = 123, // 1934 Ford Woodie rear bumper stripped
-    SRSE_LIB2_EMPTY = 124, // empty
-    SRSE_LIB2_1934_FORD_WOODIE_CHOPPED_ROOF = 125, // 1934 Ford Woodie chopped roof
-    SRSE_LIB2_1934_FORD_WOODIE = 126, // 1934 Ford Woodie
-    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_REAR_BUMPER_STRIPPED = 161, // 1963 Ford T-bird Roadster rear bumper stripped
-    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_FRONT_BUMPER_STRIPPED = 162, // 1963 Ford T-bird Roadster front bumper stripped
-    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER_CHOPPED_ROOF = 163, // 1963 Ford T-bird Roadster chopped roof
-    SRSE_LIB2_1963_FORD_T_BIRD_ROADSTER = 164, // 1963 Ford T-bird Roadster
-    SRSE_LIB2_1948_CHRYSLER_TOWN_COUNTRY_CONV = 165, // 1948 Chrysler Town & Country Conv.
-    SRSE_LIB2_1934_FORD_WOODIE_FRONT_BUMPER_STRIPPED = 166, // 1934 Ford Woodie front bumper stripped
-    SRSE_LIB2_1934_FORD_WOODIE_REAR_BUMPER_STRIPPED_167 = 167 // 1934 Ford Woodie rear bumper stripped
+    SRSE_LIB2_CHEVROLET_DELRAY_1955_CHOPPED_ROOF = 111, // 128x18 - car slot 8
+    SRSE_LIB2_CHEVROLET_DELRAY_1955_BODY = 112, // 264x61 - car slot 8, 1955 Chevrolet Delray
+    SRSE_LIB2_CHEVROLET_IMPALA_1961_BODY = 113, // 264x52 - car slot 9, 1961 Chevrolet Impala
+    SRSE_LIB2_CADILLAC_ELDORADO_CONVERTIBLE_1959_REAR_BUMPER_STRIPPED = 114, // 16x20 - car slot 7
+    SRSE_LIB2_CHEVROLET_IMPALA_1961_FRONT_BUMPER_STRIPPED = 115, // 24x12 - car slot 9
+    SRSE_LIB2_CHEVROLET_IMPALA_1961_CHOPPED_ROOF = 116, // 104x15 - car slot 9
+    SRSE_LIB2_OLDSMOBILE_STARFIRE_1962_CHOPPED_ROOF = 117, // 120x16 - car slot 10
+    SRSE_LIB2_OLDSMOBILE_STARFIRE_1962_BODY = 118, // 272x56 - car slot 10, 1962 Oldsmobile Starfire
+    SRSE_LIB2_BUICK_RIVIERA_1963_BODY = 119, // 256x56 - car slot 11, 1963 Buick Riviera
+    SRSE_LIB2_BUICK_RIVIERA_1963_REAR_BUMPER_STRIPPED = 120, // 32x13 - car slot 11
+    SRSE_LIB2_BUICK_RIVIERA_1963_FRONT_BUMPER_STRIPPED = 121, // 24x14 - car slot 11
+    SRSE_LIB2_BUICK_RIVIERA_1963_CHOPPED_ROOF = 122, // 120x17 - car slot 11
+    SRSE_LIB2_FORD_WOODIE_1934_REAR_BUMPER_STRIPPED = 123, // 8x16 - car slot 12
+    SRSE_LIB2_FORD_WOODIE_1934_FRONT_BUMPER_STRIPPED = 124, // 24x18 - car slot 12; shared with slot 13
+    SRSE_LIB2_FORD_WOODIE_1934_CHOPPED_ROOF = 125, // 136x20 - car slot 12
+    SRSE_LIB2_FORD_WOODIE_1934_BODY = 126, // 216x67 - car slot 12, 1934 Ford Woodie
+    SRSE_LIB2_FORD_COUPE_1936_BODY = 127, // 232x67 - car slot 13, 1936 Ford Coupe
+    SRSE_LIB2_FORD_COUPE_1936_REAR_BUMPER_STRIPPED = 128, // 8x20 - car slot 13
+    SRSE_LIB2_OLDSMOBILE_STARFIRE_1962_FRONT_BUMPER_STRIPPED = 129, // 32x15 - car slot 10
+    SRSE_LIB2_FORD_COUPE_1936_CHOPPED_ROOF = 130, // 104x20 - car slot 13
+    SRSE_LIB2_FORD_CRESTLINER_1950_BODY = 131, // 248x62 - car slot 14, 1950 Ford Crestliner
+    SRSE_LIB2_FORD_CRESTLINER_1950_REAR_BUMPER_STRIPPED = 132, // 32x16 - car slot 14
+    SRSE_LIB2_FORD_CRESTLINER_1950_FRONT_BUMPER_STRIPPED = 133, // 32x24 - car slot 14
+    SRSE_LIB2_FORD_CRESTLINER_1950_CHOPPED_ROOF = 134, // 120x19 - car slot 14
+    SRSE_LIB2_MERCURY_MONTEREY_1951_BODY = 135, // 264x63 - car slot 15, 1951 Mercury Monterey
+    SRSE_LIB2_MERCURY_MONTEREY_1951_REAR_BUMPER_STRIPPED = 136, // 32x13 - car slot 15
+    SRSE_LIB2_MERCURY_MONTEREY_1951_FRONT_BUMPER_STRIPPED = 143, // 32x21 - car slot 15
+    SRSE_LIB2_MERCURY_MONTEREY_1951_CHOPPED_ROOF = 144, // 120x19 - car slot 15
+    SRSE_LIB2_LINCOLN_CAPRI_1957_BODY = 145, // 264x58 - car slot 16, 1957 Lincoln Capri
+    SRSE_LIB2_LINCOLN_CAPRI_1957_REAR_BUMPER_STRIPPED = 146, // 32x12 - car slot 16
+    SRSE_LIB2_LINCOLN_CAPRI_1957_FRONT_BUMPER_STRIPPED = 147, // 32x12 - car slot 16
+    SRSE_LIB2_LINCOLN_CAPRI_1957_CHOPPED_ROOF = 148, // 112x17 - car slot 16
+    SRSE_LIB2_FORD_THUNDERBIRD_1960_BODY = 149, // 256x54 - car slot 17, 1960 Ford Thunderbird
+    SRSE_LIB2_FORD_THUNDERBIRD_1960_REAR_BUMPER_STRIPPED = 150, // 32x19 - car slot 17
+    SRSE_LIB2_FORD_THUNDERBIRD_1960_FRONT_BUMPER_STRIPPED = 151, // 24x12 - car slot 17
+    SRSE_LIB2_FORD_THUNDERBIRD_1960_CHOPPED_ROOF = 152, // 104x17 - car slot 17
+    SRSE_LIB2_OLDSMOBILE_98_1955_REAR_BUMPER_STRIPPED = 153, // 24x10 - car slot 4; shared with slots 9,18,19
+    SRSE_LIB2_FORD_GALAXIE_500XL_1963_FRONT_BUMPER_STRIPPED = 154, // 24x12 - car slot 18
+    SRSE_LIB2_FORD_GALAXIE_500XL_1963_CHOPPED_ROOF = 155, // 120x17 - car slot 18
+    SRSE_LIB2_FORD_GALAXIE_500XL_1963_BODY = 156, // 256x55 - car slot 18, 1963 Ford Galaxie 500XL
+    SRSE_LIB2_FORD_FALCON_SPRINT_1963_BODY = 157, // 248x56 - car slot 19, 1963 Ford Falcon Sprint
+    SRSE_LIB2_CADILLAC_ELDORADO_CONVERTIBLE_1959_FRONT_BUMPER_STRIPPED = 158, // 32x16 - car slot 7
+    SRSE_LIB2_FORD_FALCON_SPRINT_1963_FRONT_BUMPER_STRIPPED = 159, // 24x16 - car slot 19
+    SRSE_LIB2_FORD_FALCON_SPRINT_1963_CHOPPED_ROOF = 160, // 112x16 - car slot 19
+    SRSE_LIB2_FORD_TBIRD_ROADSTER_1963_REAR_BUMPER_STRIPPED = 161, // 16x24 - car slot 20
+    SRSE_LIB2_FORD_TBIRD_ROADSTER_1963_FRONT_BUMPER_STRIPPED = 162, // 32x18 - car slot 20
+    SRSE_LIB2_FORD_TBIRD_ROADSTER_1963_CHOPPED_ROOF = 163, // 112x17 - car slot 20
+    SRSE_LIB2_FORD_TBIRD_ROADSTER_1963_BODY = 164, // 256x54 - car slot 20, 1963 Ford T-bird Roadster
+    SRSE_LIB2_CHRYSLER_TOWN_COUNTRY_CONV_1948_BODY = 165, // 240x63 - car slot 21, 1948 Chrysler Town & Country Conv.
+    SRSE_LIB2_CHRYSLER_TOWN_COUNTRY_CONV_1948_FRONT_BUMPER_STRIPPED = 166, // 32x20 - car slot 21
+    SRSE_LIB2_CHRYSLER_TOWN_COUNTRY_CONV_1948_REAR_BUMPER_STRIPPED = 167, // 32x17 - car slot 21
+    SRSE_LIB2_CHRYSLER_NEW_YORKER_1956_REAR_BUMPER_STRIPPED = 168, // 16x19 - car slot 22
+    SRSE_LIB2_CHRYSLER_NEW_YORKER_1956_FRONT_BUMPER_STRIPPED = 169, // 24x12 - car slot 22
+    SRSE_LIB2_CHRYSLER_NEW_YORKER_1956_CHOPPED_ROOF = 170, // 120x17 - car slot 22
+    SRSE_LIB2_CHRYSLER_NEW_YORKER_1956_BODY = 171, // 256x56 - car slot 22, 1956 Chrysler New Yorker
+    SRSE_LIB2_PLYMOUTH_FURY_1957_BODY = 172, // 264x55 - car slot 23, 1957 Plymouth Fury
+    SRSE_LIB2_PLYMOUTH_FURY_1957_REAR_BUMPER_STRIPPED = 173, // 24x15 - car slot 23
+    SRSE_LIB2_PLYMOUTH_FURY_1957_FRONT_BUMPER_STRIPPED = 174, // 24x15 - car slot 23
+    SRSE_LIB2_PLYMOUTH_FURY_1957_CHOPPED_ROOF = 175, // 120x16 - car slot 23
+    SRSE_LIB2_PLYMOUTH_CONVERTIBLE_1960_REAR_BUMPER_STRIPPED = 176, // 24x13 - car slot 24
+    SRSE_LIB2_PLYMOUTH_CONVERTIBLE_1960_FRONT_BUMPER_STRIPPED = 177, // 32x15 - car slot 24
+    SRSE_LIB2_PLYMOUTH_CONVERTIBLE_1960_CHOPPED_ROOF = 178, // 104x16 - car slot 24
+    SRSE_LIB2_PLYMOUTH_CONVERTIBLE_1960_BODY = 179, // 256x53 - car slot 24, 1960 Plymouth Convertible
+    SRSE_LIB2_BUICK_SPECIAL_1958_FRONT_BUMPER_STRIPPED = 180, // 32x20 - car slot 6
+    SRSE_LIB2_AIR_SCOOP_182 = 182, // 24x11 - shared hood scoop, car slots 0,11,12,14,15,20,21
+    SRSE_LIB2_CHEVROLET_BELAIR_1957_CHOPPED_ROOF = 183, // 120x17 - car slot 5
+    SRSE_LIB2_AIR_SCOOP_184 = 184, // 24x11 - shared hood scoop, car slots 1,2,4,5,8,9,10,13,17,18,19,22
+    SRSE_LIB2_AIR_SCOOP_185 = 185, // 24x10 - shared hood scoop, car slots 3,6,7,16,23,24
+    SRSE_LIB2_SE_DECAL_1 = 186, // 48x22
+    SRSE_LIB2_SE_DECAL_2 = 187, // 48x23
+    SRSE_LIB2_SE_DECAL_3 = 188, // 56x23
+    SRSE_LIB2_SE_DECAL_4 = 189, // 40x22
+    SRSE_LIB2_SE_DECAL_5 = 190, // 48x22
+    SRSE_LIB2_SE_DECAL_6 = 191, // 56x18
+    SRSE_LIB2_SE_DECAL_7 = 192, // 56x22
+    SRSE_LIB2_SE_DECAL_8 = 193, // 56x14
+    SRSE_LIB2_SE_DECAL_SHEET = 200, // 264x69
+    SRSE_LIB2_THE_KING_CORVETTE_1963_BODY = 201, // 248x59 - car slot 25, The King's 1963 Corvette
+    SRSE_LIB2_CHRYSLER_TOWN_COUNTRY_CONV_1948_CHOPPED_ROOF = 235, // 112x19 - car slot 21
+    SRSE_LIB2_RACING_CAR_FRONT_1 = 249, // 104x62
+    SRSE_LIB2_RACING_CAR_FRONT_2 = 250, // 88x64
+    SRSE_LIB2_RACING_CAR_FRONT_SMALL = 251 // 32x24
 };
 
 // Track data structures based on Street Rod binary analysis
@@ -1718,6 +1789,32 @@ struct SrCarSpecEntry {
 static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
 #pragma pack(pop)
 
+// DOS HOT_DATA table starts. Same tables as the Amiga SR_data, differently
+// packed, plus DosCarSprites which the Amiga does not need.
+// See RodLegacyResearch/docs/formats/hot_data_dos.md.
+static constexpr size_t HOT_DATA_CARSPEC_START    = 396;
+static constexpr size_t HOT_DATA_CARSPRITES_START = 656;
+static constexpr size_t HOT_DATA_OFFSETS_START    = 916;
+static constexpr size_t HOT_DATA_CLICKBOX_START   = 1228;
+static constexpr size_t HOT_DATA_GASSTATION_START = 1748;
+static constexpr size_t HOT_DATA_TEXT_START       = 1904;
+// 25 buyable cars plus The King's, matching the Amiga spec table.
+static constexpr int    HOT_DATA_CAR_COUNT        = 26;
+// Sprite numbers in HOT_DATA are stored with this added on.
+static constexpr int    HOT_DATA_SPRITE_BASE      = 1000;
+
+// Per-car LIB2 sprite numbers, DOS only. The Amiga can assume a car's chopped
+// roof and bumper-stripped patches sit at body+1..body+3; in the DOS libs they
+// are scattered and sometimes shared between cars, so HOT_DATA names them.
+// -1 means the car has no such variant.
+struct DosCarSprites {
+    int body;
+    int choppedRoof;
+    int airScoop;
+    int rearBumperStripped;
+    int frontBumperStripped;
+};
+
 // Transmission data structure
 struct SrTransmissionData {
     char name[32];           // Transmission name (e.g., "Trnsmsn 4-spd. GM.")
@@ -1753,6 +1850,17 @@ class DataParser {
         // Driver names, resolved through the name pointers in the driver block.
         // Same order and length as ParseDriverData(); empty on a short file.
         std::vector<std::string> ParseDriverNames(const std::vector<uint8_t>& sr_data);
+
+        // DOS HOT_DATA (stock SR1 or the SRSE data disk).
+        // ParseCarSpecTableDOS converts the 10-byte DOS records into the same
+        // SrCarSpecEntry the Amiga path produces, so scoring and roster code
+        // works on either source unchanged. All HOT_DATA_CAR_COUNT entries are
+        // returned; empty on a short file.
+        std::vector<SrCarSpecEntry> ParseCarSpecTableDOS(const std::vector<uint8_t>& hot_data);
+        std::vector<DosCarSprites>  ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data);
+        // DOS counterpart of SrLibDataReadDataFromBuffer: offsets, classified
+        // ads and click boxes for the CAR_PLAYER_MODEL_COUNT buyable cars.
+        CarMetadata_t* SrLibDataReadDataFromBufferDOS(const uint8_t* data, size_t dataSize, int* outCount);
 };
 
 
