@@ -287,22 +287,51 @@ TEST_CASE("shifted SRSE car keys cannot collide with lib.p car assets") {
 
     // CarModel::index is the pool's key. Raw SRSE body numbers run 39..179 and
     // would collide with lib.p's car assets (179..272) - slot 24's body really
-    // is 179, the same number as CHEVROLET_2DR_COUPE_1940 - so CarData shifts
-    // them by HOT_DATA_SPRITE_BASE. Check nothing lands back in lib.p's range.
+    // is 179, the same number as CHEVROLET_2DR_COUPE_1940 - so CarData::ReadCarSet
+    // shifts each set by carSet * HOT_DATA_SPRITE_BASE. Check nothing lands
+    // back in lib.p's range, and that sets cannot collide with each other.
+    const int srseSet = 1;
     bool sawRawCollision = false;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
         for (int stock = 0; stock < CAR_INDEX_COUNT; ++stock) {
             if (sprites[i].body == kCarIndex[stock]) sawRawCollision = true;
         }
-        const int key = HOT_DATA_SPRITE_BASE + sprites[i].body;
+        const int key = srseSet * HOT_DATA_SPRITE_BASE + sprites[i].body;
         CHECK(key > THE_KING_CHEVROLET_CORVETTE_1963_BODY);
         for (int stock = 0; stock < CAR_INDEX_COUNT; ++stock) {
             CHECK(key != kCarIndex[stock]);
         }
+        // A later set's keys start a whole base above this one's, and no
+        // sprite number is anywhere near that big.
+        CHECK(key < (srseSet + 1) * HOT_DATA_SPRITE_BASE);
     }
     // If this ever stops being true the shift is no longer load-bearing, but
     // it is true today and is the reason the shift exists.
     CHECK(sawRawCollision);
+}
+
+TEST_CASE("only the King's car is excluded from the racer pool by price") {
+    // RacerPool picks challenger cars by SrCarSpecEntry::ForSale() rather than
+    // an index cap, so a merged multi-set table drops each set's King's car and
+    // keeps everything else. Over a single stock table that has to come out as
+    // exactly the 25 buyable cars, or the change altered stock behaviour.
+    for (const char* path : {"RodLegacyBins/dos/SR1/HOT_DATA", "RodLegacyBins/dos/SRSE/HOT_DATA"}) {
+        const std::vector<uint8_t> data = LoadHotData(path);
+        if (data.empty()) {
+            MESSAGE("shipped HOT_DATA not found next to the build; skipping");
+            return;
+        }
+        DataParser parser;
+        const auto specs = parser.ParseCarSpecTableDOS(data);
+        REQUIRE(specs.size() == HOT_DATA_CAR_COUNT);
+
+        int forSale = 0;
+        for (const auto& spec : specs) {
+            if (spec.ForSale()) forSale++;
+        }
+        CHECK(forSale == CAR_PLAYER_MODEL_COUNT);
+        CHECK(!specs[HOT_DATA_CAR_COUNT - 1].ForSale());
+    }
 }
 
 } // TEST_SUITE

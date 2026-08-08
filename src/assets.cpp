@@ -28,7 +28,9 @@ extern "C" {
 }
 
 AssetManager::AssetManager() : carDecals(nullptr), audioManager(nullptr) {
-
+    // Sized up front so LoadSettings, which runs before the packs are read,
+    // has somewhere to record which optional sets are switched on.
+    carSets.resize(GetCarSetDefs().size());
 }
 
 AssetManager::~AssetManager() {
@@ -385,7 +387,7 @@ void AssetManager::ReadAssets() {
 
         InitMousePointers();
         InitDosAssets();
-        InitSrseAssets();
+        InitCarSets();
 
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to read assets: %s", e.what());
@@ -609,45 +611,90 @@ void AssetManager::InitDosAssets() {
     LOG_INFO("Loaded %zu DOS decals from LIB2", dosDecalBitmaps.size());
 }
 
-void AssetManager::InitSrseAssets() {
-    const fs::path srseZip = gameBasePath / "srsepc.zip";
+void AssetManager::InitCarSets() {
+    const std::vector<CarSetDef>& defs = GetCarSetDefs();
+    for (size_t i = 0; i < defs.size(); i++) {
+        const CarSetDef& def = defs[i];
+        if (def.art == CarSetArt::AmigaLibP) {
+            // Comes out of lib.p/SR_data, already loaded.
+            carSets[i].enabled = true;
+            continue;
+        }
 
-    srseLib2Data_vec = LoadDosDataFile(gameBasePath / "SRSE" / "LIB2", srseZip,
-                                       "SRSE/LIB2", "SRSE cars");
-    if (srseLib2Data_vec.empty()) {
-        return;
+        const fs::path zip = gameBasePath / def.zipName;
+        CarSetAssets& set = carSets[i];
+
+        set.libData = LoadDosDataFile(gameBasePath / def.looseDir / fs::path(def.libEntry).filename(),
+                                      zip, def.libEntry, def.name.c_str());
+        if (set.libData.empty()) {
+            continue;
+        }
+
+        // Stats, sprite numbers and pixel offsets all live in the data file,
+        // so the art on its own is not usable.
+        set.carData = LoadDosDataFile(gameBasePath / def.looseDir / fs::path(def.dataEntry).filename(),
+                                      zip, def.dataEntry, def.name.c_str());
+        if (set.carData.empty()) {
+            set.libData.clear();
+            continue;
+        }
+
+        set.imageEntries = bp.ReadEntriesDOS(set.libData);
+        LOG_INFO("Car set '%s': %d sprites, %zu bytes of car data",
+                 def.id.c_str(), set.imageEntries.first, set.carData.size());
     }
-
-    // The car stats, sprite numbers and pixel offsets all live in HOT_DATA, so
-    // the art on its own is not usable.
-    srseHotData_vec = LoadDosDataFile(gameBasePath / "SRSE" / "HOT_DATA", srseZip,
-                                      "SRSE/HOT_DATA", "SRSE cars");
-    if (srseHotData_vec.empty()) {
-        srseLib2Data_vec.clear();
-        return;
-    }
-
-    srseImageEntries = bp.ReadEntriesDOS(srseLib2Data_vec);
-    LOG_INFO("SRSE LIB2: parsed %d entries, HOT_DATA %zu bytes",
-             srseImageEntries.first, srseHotData_vec.size());
 }
 
-Bitmap* AssetManager::GetSrseSprite(int index) {
-    auto cached = srseSpriteCache.find(index);
-    if (cached != srseSpriteCache.end()) {
+bool AssetManager::HasCarSetData(int carSet) const {
+    if (carSet < 0 || carSet >= (int)carSets.size()) return false;
+    if (GetCarSetDefs()[carSet].art == CarSetArt::AmigaLibP) return true;
+    return !carSets[carSet].libData.empty() && !carSets[carSet].carData.empty();
+}
+
+const byte_vector& AssetManager::GetCarSetData(int carSet) const {
+    static const byte_vector empty;
+    if (carSet < 0 || carSet >= (int)carSets.size()) return empty;
+    return carSets[carSet].carData;
+}
+
+const std::pair<int, std::vector<DOSBitmapEntry_t>>& AssetManager::GetCarSetImageEntries(int carSet) const {
+    static const std::pair<int, std::vector<DOSBitmapEntry_t>> empty;
+    if (carSet < 0 || carSet >= (int)carSets.size()) return empty;
+    return carSets[carSet].imageEntries;
+}
+
+bool AssetManager::IsCarSetEnabled(int carSet) const {
+    if (carSet < 0 || carSet >= (int)carSets.size()) return false;
+    if (GetCarSetDefs()[carSet].mandatory) return true;
+    return carSets[carSet].enabled && HasCarSetData(carSet);
+}
+
+void AssetManager::SetCarSetEnabled(int carSet, bool enabled) {
+    if (carSet < 0 || carSet >= (int)carSets.size()) return;
+    if (GetCarSetDefs()[carSet].mandatory) return;
+    carSets[carSet].enabled = enabled;
+}
+
+Bitmap* AssetManager::GetCarSetSprite(int carSet, int spriteIndex) {
+    if (carSet < 0 || carSet >= (int)carSets.size()) return nullptr;
+    CarSetAssets& set = carSets[carSet];
+
+    auto cached = set.spriteCache.find(spriteIndex);
+    if (cached != set.spriteCache.end()) {
         return cached->second.get();
     }
 
-    auto bitmap = DecodeDosSprite(srseLib2Data_vec, srseImageEntries, index);
+    auto bitmap = DecodeDosSprite(set.libData, set.imageEntries, spriteIndex);
     if (!bitmap) {
-        LOG_INFO("SRSE LIB2: sprite %d out of range (%d entries)", index, srseImageEntries.first);
+        LOG_INFO("Car set '%s': sprite %d out of range (%d entries)",
+                 GetCarSetDefs()[carSet].id.c_str(), spriteIndex, set.imageEntries.first);
         return nullptr;
     }
-    const DOSBitmapEntry_t& entry = srseImageEntries.second[index];
+    const DOSBitmapEntry_t& entry = set.imageEntries.second[spriteIndex];
     bitmap->SetDimensions(entry.width, entry.height);
 
     Bitmap* raw = bitmap.get();
-    srseSpriteCache[index] = std::move(bitmap);
+    set.spriteCache[spriteIndex] = std::move(bitmap);
     return raw;
 }
 
@@ -819,8 +866,14 @@ void AssetManager::LoadSettings() {
         return;
     }
     try {
-        auto srse = kv.find("include_srse_cars");
-        if (srse != kv.end()) includeSrseCars = std::stoi(srse->second) != 0;
+        // Optional car sets, stored by id ("car_set_srse=1") so adding or
+        // reordering sets in the registry cannot flip what is enabled.
+        const std::vector<CarSetDef>& defs = GetCarSetDefs();
+        for (size_t i = 0; i < defs.size() && i < carSets.size(); i++) {
+            if (defs[i].mandatory) continue;
+            auto it = kv.find("car_set_" + defs[i].id);
+            if (it != kv.end()) carSets[i].enabled = std::stoi(it->second) != 0;
+        }
 
         if (audioManager) {
             auto it = kv.find("sfx_volume");
@@ -840,7 +893,11 @@ void AssetManager::LoadSettings() {
 
 void AssetManager::SaveSettings() {
     auto kv = ReadConfigFile();
-    kv["include_srse_cars"] = includeSrseCars ? "1" : "0";
+    const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
+    for (size_t i = 0; i < carSetDefs.size() && i < carSets.size(); i++) {
+        if (carSetDefs[i].mandatory) continue;
+        kv["car_set_" + carSetDefs[i].id] = carSets[i].enabled ? "1" : "0";
+    }
     if (audioManager) {
         kv["sfx_volume"]    = std::to_string(audioManager->GetSfxVolume());
         kv["music_volume"]  = std::to_string(audioManager->GetMusicVolume());

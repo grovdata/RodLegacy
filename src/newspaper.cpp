@@ -135,35 +135,21 @@ void Newspaper::InitPageOne() {
 void Newspaper::LoadClassifiedsData() {
     // Classified cars are already generated in State::Init
     // Just load the metadata and asset IDs to match
-    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-        int carAssetId = kCarIndex[i];
+    // Walks the merged car-spec table in the same order and with the same skip
+    // condition State::Init used, so this list stays index-aligned with
+    // state.classifiedCars - the buy handler indexes that by list position.
+    const std::vector<int>& specModelIndex = state.GetCarSpecModelIndex();
+    for (int spec = 0; spec < static_cast<int>(specModelIndex.size()); spec++) {
+        int carAssetId = specModelIndex[spec];
+        if (carAssetId < 0) continue;  // The King's slot, not for sale
         CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
 
         if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
             std::string adText = metadata.classified.adText ? metadata.classified.adText : "No description";
-            LOG_INFO("Classified %d: %s - %s - $%d", i, metadata.classified.carName,
+            LOG_INFO("Classified %d: %s - %s - $%d", spec, metadata.classified.carName,
                     adText.c_str(), metadata.classified.price);
             carMetadata.push_back(metadata);
             carAssetIds.push_back(carAssetId);
-        }
-    }
-
-    // Street Rod SE cars follow the stock ones, in the same order and with the
-    // same skip condition State::Init used, so this list stays index-aligned
-    // with state.classifiedCars.
-    if (state.SrseCarsEnabled()) {
-        const std::vector<DosCarSprites>& srseSprites = state.GetSrseCarSprites();
-        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < static_cast<int>(srseSprites.size()); i++) {
-            int carAssetId = HOT_DATA_SPRITE_BASE + srseSprites[i].body;
-            CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
-
-            if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
-                std::string adText = metadata.classified.adText ? metadata.classified.adText : "No description";
-                LOG_INFO("Classified SE %d: %s - %s - $%d", i, metadata.classified.carName,
-                        adText.c_str(), metadata.classified.price);
-                carMetadata.push_back(metadata);
-                carAssetIds.push_back(carAssetId);
-            }
         }
     }
 
@@ -769,7 +755,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     // Load body with car's color palette. carAssetIds holds the pool key,
     // which for a Street Rod SE car is not a lib.p asset - go through the
     // model so the right lib is used.
-    Bitmap* carBodyBitmap = LoadCarModelSprite(model, CarBodySprite(model), palette);
+    Bitmap* carBodyBitmap = LoadCarModelSprite(model, model.sprites.body, palette);
 
     // Load wheel spritesheet
     Bitmap* wheelBitmap = state.GetAssets().GetBitmapAsset(

@@ -81,19 +81,20 @@ public:
     Bitmap* GetDosDecal(int index);
     bool HasDosDecals() const;
 
-    // Street Rod SE data disk (srsepc.zip, or a loose SRSE/ directory).
-    // Sprites are decoded on demand and cached; the returned Bitmap is owned
-    // by the AssetManager. Index is an SrseLib2Asset.
-    bool HasSrseData() const { return !srseLib2Data_vec.empty() && !srseHotData_vec.empty(); }
-    Bitmap* GetSrseSprite(int index);
-    const byte_vector& GetSrseHotData() const { return srseHotData_vec; }
-    const std::pair<int, std::vector<DOSBitmapEntry_t>>& GetSrseImageEntries() const { return srseImageEntries; }
+    // Optional car sets loaded from data packs (see car_set.h). The Amiga set
+    // is not here - it comes out of the already-loaded lib.p/SR_data.
+    // Sprites are decoded on demand and cached, and the Bitmap stays owned by
+    // the AssetManager.
+    bool HasCarSetData(int carSet) const;
+    Bitmap* GetCarSetSprite(int carSet, int spriteIndex);
+    const byte_vector& GetCarSetData(int carSet) const;
+    const std::pair<int, std::vector<DOSBitmapEntry_t>>& GetCarSetImageEntries(int carSet) const;
 
-    // Whether the SE cars join the car pool. Interim control while the
-    // per-playthrough opt-in (chosen at new game, recorded in the save) is
-    // still to be built; State reads it once at startup.
-    bool IncludeSrseCars() const { return includeSrseCars; }
-    void SetIncludeSrseCars(bool include) { includeSrseCars = include; }
+    // Which optional sets the player has switched on. The mandatory set is
+    // always active and is not listed. Persisted in the config file by id, so
+    // reordering the registry does not change what is enabled.
+    bool IsCarSetEnabled(int carSet) const;
+    void SetCarSetEnabled(int carSet, bool enabled);
 
     void Init(const fs::path& validatedPath, bool muteAudio = false);
     SFont_Font* GetMainFont();
@@ -130,11 +131,16 @@ private:
     std::pair<int, std::vector<DOSBitmapEntry_t>> dosImageEntries;
     std::vector<std::unique_ptr<Bitmap>> dosDecalBitmaps;
 
-    byte_vector srseLib2Data_vec;
-    byte_vector srseHotData_vec;
-    std::pair<int, std::vector<DOSBitmapEntry_t>> srseImageEntries;
-    std::map<int, std::unique_ptr<Bitmap>> srseSpriteCache;
-    bool includeSrseCars = false;
+    // One entry per CarSetDef, parallel to GetCarSetDefs(). The mandatory
+    // Amiga set's entry stays empty.
+    struct CarSetAssets {
+        byte_vector libData;
+        byte_vector carData;
+        std::pair<int, std::vector<DOSBitmapEntry_t>> imageEntries;
+        std::map<int, std::unique_ptr<Bitmap>> spriteCache;
+        bool enabled = false;
+    };
+    std::vector<CarSetAssets> carSets;
 
     SFont_Font* mainFont = nullptr;
     SFont_Font* debugFont = nullptr;
@@ -159,7 +165,7 @@ private:
     void InitStockPalettes();
     void InitAudio(bool muteAudio = false);
     void InitDosAssets();
-    void InitSrseAssets();
+    void InitCarSets();
     // Decodes one sprite out of an already-parsed DOS lib. Returns nullptr if
     // the index is outside the lib.
     std::unique_ptr<Bitmap> DecodeDosSprite(byte_vector& libData,

@@ -7,13 +7,15 @@
 
 const int wheelSize = 31;
 
-// Which sprite each piece lives at is CarBodySprite/CarChoppedRoofSprite/...
-// in types.h, shared with the roster and garage.
+// Where each piece lives is resolved into CarModel::sprites when the model is
+// built; only the loading differs per set. Amiga lib.p art is recoloured
+// through the car palette, while a DOS set ships fixed 16-colour art that
+// already carries its paint.
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette) {
     if (spriteIndex < 0) return nullptr;
-    if (CarModelIsSrse(model)) {
-        return state.GetAssets().GetSrseSprite(spriteIndex);
+    if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
+        return state.GetAssets().GetCarSetSprite(model.carSet, spriteIndex);
     }
     byte_vector& libFile = state.GetAssets().GetLibPData();
     return state.GetAssets().GetBitmapAssetWithPalette(
@@ -86,14 +88,14 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
 
     // Load original body
     std::vector<uint16_t> carPalette = GetStandardCarColor(color);
-    auto* originalAsset = LoadCarModelSprite(model, CarBodySprite(model), carPalette);
+    auto* originalAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
     if (originalAsset) {
         bodyOriginal = *originalAsset;  // Copy the bitmap
         bodyOriginal.SetVisible(true);  // Cached asset may have been hidden by a dialog
     }
 
     // Load chopped body if available
-    const int choppedRoofIndex = CarChoppedRoofSprite(model);
+    const int choppedRoofIndex = model.sprites.choppedRoof;
     if (choppedRoofIndex >= 0) {
         auto* choppedAsset = LoadCarModelSprite(model, choppedRoofIndex, carPalette);
         if (choppedAsset) {
@@ -118,8 +120,8 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     }
 
     // Load "chopped bumper" overlays (these will be composited into body texture when stripped)
-    const int rearBumperIndex = CarRearBumperSprite(model);
-    const int frontBumperIndex = CarFrontBumperSprite(model);
+    const int rearBumperIndex = model.sprites.rearBumperStripped;
+    const int frontBumperIndex = model.sprites.frontBumperStripped;
     if (rearBumperIndex >= 0 || frontBumperIndex >= 0) {
         LOG_DEBUG("Loading bumper overlays for car %d: rear=%d, front=%d", model.index, rearBumperIndex, frontBumperIndex);
 
@@ -430,7 +432,7 @@ void CarBitmap::RestoreRoof() {
     CarModel model = car->GetModel();
     std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
 
-    auto* originalAsset = LoadCarModelSprite(model, CarBodySprite(model), carPalette);
+    auto* originalAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
     if (originalAsset) {
         SDL_Rect currentPos = bodyOriginal.GetPosition();
         bool currentVis = bodyOriginal.IsVisible();
@@ -563,7 +565,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     BitmapOffset_t savedOffsets = offsets;
 
     // Reload body bitmap with new palette
-    auto* bodyAsset = LoadCarModelSprite(model, CarBodySprite(model), carPalette);
+    auto* bodyAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
     if (bodyAsset) {
         bodyOriginal = *bodyAsset;
         bodyOriginal.SetPosition(currentPos.x, currentPos.y);
@@ -571,7 +573,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     }
 
     // Reload chopped body if available
-    const int choppedRoofIndex = CarChoppedRoofSprite(model);
+    const int choppedRoofIndex = model.sprites.choppedRoof;
     if (choppedRoofIndex >= 0) {
         auto* choppedAsset = LoadCarModelSprite(model, choppedRoofIndex, carPalette);
         if (choppedAsset) {
@@ -590,7 +592,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     }
 
     // Reload bumper overlays with new color
-    const int rearBumperIndex = CarRearBumperSprite(model);
+    const int rearBumperIndex = model.sprites.rearBumperStripped;
     if (rearBumperIndex >= 0) {
         auto* rearBumperAsset = LoadCarModelSprite(model, rearBumperIndex, carPalette);
         if (rearBumperAsset) {
@@ -598,7 +600,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         }
     }
 
-    const int frontBumperIndex = CarFrontBumperSprite(model);
+    const int frontBumperIndex = model.sprites.frontBumperStripped;
     if (frontBumperIndex >= 0) {
         auto* frontBumperAsset = LoadCarModelSprite(model, frontBumperIndex, carPalette);
         if (frontBumperAsset) {
@@ -727,14 +729,14 @@ void CarBitmap::ReloadBodyFromAssets() {
     std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
 
     if (isRoofChopped) {
-        auto* choppedAsset = LoadCarModelSprite(model, CarChoppedRoofSprite(model), carPalette);
+        auto* choppedAsset = LoadCarModelSprite(model, model.sprites.choppedRoof, carPalette);
         if (choppedAsset) {
             bodyChopped = *choppedAsset;
             bodyChopped.UpdateFromSurface(); // Update texture after reloading
             body = &bodyChopped;
         }
     } else {
-        auto* bodyAsset = LoadCarModelSprite(model, CarBodySprite(model), carPalette);
+        auto* bodyAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
         if (bodyAsset) {
             bodyOriginal = *bodyAsset;
             bodyOriginal.UpdateFromSurface(); // Update texture after reloading

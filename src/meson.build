@@ -144,6 +144,7 @@ cpp_sources = files(
     'car_builder.cpp',
     'car_system.cpp',
     'cardata.cpp',
+    'car_set.cpp',
     'carbitmap.cpp',
     'diner.cpp',
     'driving.cpp',

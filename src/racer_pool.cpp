@@ -53,11 +53,17 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
         tier_drivers[t].push_back(i);
     }
 
-    // Group car spec indices (0..24) into three tiers by their class byte, which
-    // runs 0..8 - so three classes per tier. Over the shipped SR_data that
-    // splits 9/8/8, enough to fill the pool's 7 slots per tier.
+    // Group car specs into three tiers by their class byte, which runs 0..8 -
+    // so three classes per tier. Over the shipped SR_data that splits 9/8/8,
+    // enough to fill the pool's 7 slots per tier.
+    //
+    // The filter is "for sale" rather than an index cap: the table can hold
+    // more than one car set (see State::mergedCarSpecs), and each set carries
+    // its own King's car at price 0. Over the stock table alone this picks out
+    // exactly 0..24, the same set the old cap did.
     std::vector<int> tier_specs[3];
-    for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(car_specs.size()); ++i) {
+        if (!car_specs[i].ForSale()) continue;
         int c = std::min<int>(car_specs[i].car_class / 3, 2);
         tier_specs[c].push_back(i);
     }
@@ -130,7 +136,8 @@ int RacerPool::FindReplacementCarSpec(int beaten_classification) const {
     for (const auto& e : pool) {
         if (e.status != -1) used.push_back(e.car_spec_index);
     }
-    for (int i = 0; i < SR_DATA_KING_CARSPEC_INDEX && i < static_cast<int>(car_specs_.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(car_specs_.size()); ++i) {
+        if (!car_specs_[i].ForSale()) continue;
         if (static_cast<int>(car_specs_[i].car_class) < beaten_classification) {
             if (std::find(used.begin(), used.end(), i) == used.end()) {
                 return i;

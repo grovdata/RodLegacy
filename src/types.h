@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "parsers/libp.h"
+#include "car_set.h"
 #include <SDL.h>
 
 class IDrawable {
@@ -94,16 +95,16 @@ struct CarModel {
     
     // From lib.p
     int width, height;
+    // Pool key. For the Amiga set this is the lib.p car body asset; other sets
+    // shift theirs clear of that range so the key stays unique (see
+    // CarData::ReadCarSet). Use sprites.body to draw, not this.
     int index;
 
-    // Which lib the car's art comes from. The stock 25 are Amiga lib.p, where
-    // a car's chopped roof and bumper patches are always at index+1..index+3
-    // and the sprite is recoloured through the car palette. Street Rod SE
-    // cars come out of the data disk's LIB2, which scatters (and sometimes
-    // shares) the variants, so they are named per car in dosSprites instead.
-    SrLibFile spriteSource = SrLibFileAmigaLibP;
-    // Only meaningful when spriteSource is SrLibFileSrseLib2. -1 = no variant.
-    DosCarSprites dosSprites = {-1, -1, -1, -1, -1};
+    // Which car set the model came from, and where its art sits in that set's
+    // lib. Both are resolved when the model is built, so nothing downstream
+    // needs to know a set's sprite-numbering conventions.
+    int        carSet = kAmigaCarSet;
+    CarSprites sprites;
 
 
     // Modification constraints (will be set by CarModelConfigLoader)
@@ -126,19 +127,14 @@ struct CarModel {
 
 bool operator<(const CarModel &a, const CarModel &b);
 
-// Which LIB sprite holds each part of a car, in whichever lib the model draws
-// from, and -1 when the car has no such variant. Amiga lib.p cars keep their
-// chopped roof and bumper patches at index+1..index+3 and answer through the
-// CarQuery tables; Street Rod SE cars name theirs per car in dosSprites.
-// Anything asking "can this car chop its roof / strip its bumpers" should go
-// through these rather than casting CarModel::index to an AmigaLibAsset - an
-// SE index is deliberately outside lib.p's range and will not look up.
-bool CarModelIsSrse(const CarModel &model);
-int CarBodySprite(const CarModel &model);
-int CarChoppedRoofSprite(const CarModel &model);
-int CarRearBumperSprite(const CarModel &model);
-int CarFrontBumperSprite(const CarModel &model);
-inline bool CarModelCanChopRoof(const CarModel &model) { return CarChoppedRoofSprite(model) >= 0; }
+// Whether a car can take each modification. Answered from the resolved sprite
+// numbers rather than a lookup keyed on CarModel::index, which is only a lib.p
+// asset for the Amiga set.
+inline bool CarModelCanChopRoof(const CarModel &model) { return model.sprites.choppedRoof >= 0; }
 inline bool CarModelCanStripBumpers(const CarModel &model) {
-    return CarRearBumperSprite(model) >= 0 || CarFrontBumperSprite(model) >= 0;
+    return model.sprites.rearBumperStripped >= 0 || model.sprites.frontBumperStripped >= 0;
 }
+
+// Fills in sprites for a car in the Amiga stock set, where the chopped roof
+// and bumper patches sit at fixed offsets from the body asset.
+CarSprites AmigaCarSprites(int bodyAsset);

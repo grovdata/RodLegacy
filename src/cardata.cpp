@@ -55,6 +55,8 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
         m.index = kCarIndex[index];
         LOG_INFO("Car body ID: %d", static_cast<int>(m.index));
     }
+    m.carSet = kAmigaCarSet;
+    m.sprites = AmigaCarSprites(m.index);
     m.baseSpeed = 100;
     m.filename = "";
     m.height = bitmap.height;
@@ -128,19 +130,20 @@ CarMetadata_t CarData::GetCarMetadata(int carIndex) {
     return empty;
 }
 
-int CarData::ReadCarsSrse(const std::vector<uint8_t>& hotData,
-                          const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps) {
+int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
+                        const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps) {
+    const std::string& setId = GetCarSetDefs()[carSet].id;
     const std::vector<SrCarSpecEntry> specs = dp.ParseCarSpecTableDOS(hotData);
     const std::vector<DosCarSprites> sprites = dp.ParseCarSpritesDOS(hotData);
     if (specs.empty() || sprites.empty()) {
-        LOG_WARN("SRSE HOT_DATA too short to parse, no SE cars added");
+        LOG_WARN("Car set '%s': data file too short to parse, no cars added", setId.c_str());
         return 0;
     }
 
     int metadataCount = 0;
     CarMetadata_t* metadata = dp.SrLibDataReadDataFromBufferDOS(hotData.data(), hotData.size(), &metadataCount);
     if (!metadata) {
-        LOG_WARN("SRSE HOT_DATA classifieds unreadable, no SE cars added");
+        LOG_WARN("Car set '%s': classifieds unreadable, no cars added", setId.c_str());
         return 0;
     }
 
@@ -148,19 +151,24 @@ int CarData::ReadCarsSrse(const std::vector<uint8_t>& hotData,
     for (int i = 0; i < metadataCount; i++) {
         const int bodySprite = sprites[i].body;
         if (bodySprite < 0 || bodySprite >= bitmaps.first) {
-            LOG_WARN("SRSE car %d names body sprite %d, outside the %d-entry LIB2 - skipping",
-                     i, bodySprite, bitmaps.first);
+            LOG_WARN("Car set '%s': car %d names body sprite %d, outside the %d-entry lib - skipping",
+                     setId.c_str(), i, bodySprite, bitmaps.first);
             continue;
         }
         const DOSBitmapEntry_t& bitmap = bitmaps.second[bodySprite];
 
         CarModel model;
-        // SRSE body sprite numbers (39..179) overlap lib.p's car assets
-        // (179..272), so shift them clear to keep CarModel::index a unique key
-        // across both sources. This is the same +1000 HOT_DATA itself uses.
-        model.index = HOT_DATA_SPRITE_BASE + bodySprite;
-        model.spriteSource = SrLibFileSrseLib2;
-        model.dosSprites = sprites[i];
+        // A DOS set's body sprite numbers (39..179 for SRSE) overlap lib.p's
+        // car assets (179..272), so shift each set clear of the last to keep
+        // CarModel::index a unique pool key. The base is the same +1000
+        // HOT_DATA itself uses, stepped once per set.
+        model.index = carSet * HOT_DATA_SPRITE_BASE + bodySprite;
+        model.carSet = carSet;
+        model.sprites.body = sprites[i].body;
+        model.sprites.choppedRoof = sprites[i].choppedRoof;
+        model.sprites.airScoop = sprites[i].airScoop;
+        model.sprites.rearBumperStripped = sprites[i].rearBumperStripped;
+        model.sprites.frontBumperStripped = sprites[i].frontBumperStripped;
         model.name = metadata[i].classified.carName ? metadata[i].classified.carName : "";
         model.year = metadata[i].classified.year;
         model.offsets = metadata[i].offsets;
@@ -234,6 +242,10 @@ void CarData::ReadCarsFromTomlFile(std::string filename) {
             newModel.offsets.offsetXDriver = car["driverX"].as_integer();
             newModel.offsets.offsetYDriver = car["driverY"].as_integer();
             newModel.index = car["index"].as_integer();
+            // A TOML car names a lib.p body asset, so it follows the Amiga
+            // set's conventions for where its variants live.
+            newModel.carSet = kAmigaCarSet;
+            newModel.sprites = AmigaCarSprites(newModel.index);
             // PrintModel(newModel);
             allCarModels.insert(newModel);
         }

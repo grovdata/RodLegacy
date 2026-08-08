@@ -50,26 +50,21 @@ const char* SrLibCarDecalNames[16] = {
     "Hell", "Hawaii", "Banana Club", "Explosive"
 };
 
-// Indexed by SrLibFile. SRSE ships its car pack under the same "LIB2" name as
-// stock DOS; the two are told apart by which archive they came out of.
+// Indexed by SrLibFile.
 const char *SrLibFileNames[] = {
     "lib.start",
     "lib.p",
     "LIB1",
     "LIB1C",
-    "LIB2",
     "LIB2"
 };
 
-// The algorithm behind these values is not identified and nothing reads the
-// table yet, so SRSE's entry is left at 0 rather than filled with a guess.
 const uint32_t SrLibFileChecksums[] = {
     0x388A781C,
     0x3EBE203A,
     0x3460C66A,
     0x2DE22048,
-    0xF3EAD7B0,
-    0x00000000
+    0xF3EAD7B0
 };
 
 const char *SrLibArchiveNames[] = {

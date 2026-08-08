@@ -71,12 +71,22 @@ void Roster::Initialize(CarData& carData) {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distrCar(0, CAR_INDEX_COUNT - 1);
+
+    // Opponents drive anything buyable from any enabled car set, not just the
+    // stock 25. The merged table's -1 entries are The King's slot in each set.
+    std::vector<int> poolCarIndices;
+    for (int assetId : state.GetCarSpecModelIndex()) {
+        if (assetId >= 0) poolCarIndices.push_back(assetId);
+    }
+    if (poolCarIndices.empty()) {
+        for (int i = 0; i < CAR_INDEX_COUNT; i++) poolCarIndices.push_back(kCarIndex[i]);
+    }
+    std::uniform_int_distribution<> distrCar(0, (int)poolCarIndices.size() - 1);
 
     opponents.clear();
 
     while (!stockDriverNames.empty()) {
-        int preferredCarIndex = kCarIndex[distrCar(gen)];
+        int preferredCarIndex = poolCarIndices[distrCar(gen)];
 
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
@@ -89,7 +99,7 @@ void Roster::Initialize(CarData& carData) {
 
     // Add one opponent per custom driver
     for (const auto& path : customDriverPaths) {
-        int preferredCarIndex = kCarIndex[distrCar(gen)];
+        int preferredCarIndex = poolCarIndices[distrCar(gen)];
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
         Car* car = GenerateRandomCar(model);
 
@@ -156,9 +166,9 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     
     car->SetBumpersStripped(areBumpersStripped);
     // Update the asset with the selected color. Only lib.p art is recoloured;
-    // Street Rod SE cars are 16-colour DOS sprites that carry their own paint,
-    // and their index is not a lib.p asset to look up.
-    if (!CarModelIsSrse(model)) {
+    // a DOS set's cars are 16-colour sprites that carry their own paint, and
+    // their index is not a lib.p asset to look up.
+    if (GetCarSetDefs()[model.carSet].art == CarSetArt::AmigaLibP) {
         state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor);
     }
 

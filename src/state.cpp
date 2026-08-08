@@ -34,21 +34,44 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         // Parse SR_data driver/car-spec tables and initialise pool.
         DataParser dataParser;
 
-        // Street Rod SE cars, if the data disk is present and switched on.
-        // They come with their own stats, sprite numbers and pixel offsets;
-        // see RodLegacyResearch/docs/formats/hot_data_dos.md.
-        srseCarsEnabled = assets.HasSrseData() && assets.IncludeSrseCars();
-        if (srseCarsEnabled) {
-            const int added = carData.ReadCarsSrse(assets.GetSrseHotData(), assets.GetSrseImageEntries());
-            srseCarSpecData = dataParser.ParseCarSpecTableDOS(assets.GetSrseHotData());
-            srseCarSprites  = dataParser.ParseCarSpritesDOS(assets.GetSrseHotData());
-            srseCarsEnabled = added > 0;
-        }
         srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
         srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
+
+        // The Amiga set always goes in first, so its specs keep indices 0..25
+        // - the range original .SAV files store - whatever else is switched on.
+        mergedCarSpecs = srCarSpecData;
+        mergedCarSpecModelIndex.assign(srCarSpecData.size(), -1);
+        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < (int)srCarSpecData.size(); i++) {
+            mergedCarSpecModelIndex[i] = kCarIndex[i];
+        }
+
+        // Then each optional set the player switched on. Everything a set
+        // needs - stats, sprite numbers, pixel offsets - comes out of its own
+        // data file; see RodLegacyResearch/docs/formats/hot_data_dos.md.
+        const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
+        for (int set = 0; set < (int)carSetDefs.size(); set++) {
+            if (carSetDefs[set].mandatory || !assets.IsCarSetEnabled(set)) continue;
+
+            const byte_vector& setData = assets.GetCarSetData(set);
+            const int added = carData.ReadCarSet(set, setData, assets.GetCarSetImageEntries(set));
+            if (added <= 0) continue;
+
+            const std::vector<SrCarSpecEntry> specs = dataParser.ParseCarSpecTableDOS(setData);
+            const std::vector<DosCarSprites> sprites = dataParser.ParseCarSpritesDOS(setData);
+            for (int i = 0; i < (int)specs.size(); i++) {
+                mergedCarSpecs.push_back(specs[i]);
+                // The King's slot in each set has no buyable car behind it.
+                const bool buyable = i < CAR_PLAYER_MODEL_COUNT && i < (int)sprites.size();
+                mergedCarSpecModelIndex.push_back(
+                    buyable ? set * HOT_DATA_SPRITE_BASE + sprites[i].body : -1);
+            }
+            LOG_INFO("Car set '%s': %d cars, %zu specs", carSetDefs[set].id.c_str(), added, specs.size());
+        }
+        LOG_INFO("Merged car spec table: %zu entries across all enabled sets", mergedCarSpecs.size());
+
         if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
             srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
-            racerPool.Init(srDriverData, srCarSpecData);
+            racerPool.Init(srDriverData, mergedCarSpecs);
             LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
         } else {
             LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
@@ -88,48 +111,27 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
-        // Generate classified cars for the newspaper
-        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
-            int carAssetId = kCarIndex[i];
+        // Generate classified cars for the newspaper: every buyable car from
+        // every enabled set, in merged-table order. Newspaper::LoadClassifieds
+        // walks the same table with the same skip condition, because the buy
+        // handler indexes classifiedCars by the newspaper's list position.
+        for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
+            const int carAssetId = mergedCarSpecModelIndex[spec];
+            if (carAssetId < 0) continue;  // The King's slot, not for sale
             CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
-            if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
-                CarModel model = carData.GetModelFromIndex(carAssetId);
-                Car* car = roster.GenerateRandomCar(model);
-                // Stock appearance for classifieds
-                car->SetRoofChopped(false);
-                car->SetBumpersStripped(false);
-                car->SetDecal(SrLibCarDecalNone);
-                car->SetScoop(SCOOP_NONE);
-                // ...and the drivetrain the car is actually advertised with.
-                // kCarIndex is positionally ordered against the SR_data spec
-                // table, so i indexes both.
-                if (i < static_cast<int>(srCarSpecData.size())) {
-                    CarBuilder::ApplySpec(car, srCarSpecData[i], model.vendor);
-                }
-                classifiedCars.push_back(car);
+            if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
+                continue;
             }
-        }
-
-        // Same again for the SE cars, which sit in the pool alongside the
-        // stock 25 rather than replacing them.
-        if (srseCarsEnabled) {
-            for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < static_cast<int>(srseCarSprites.size()); i++) {
-                const int carAssetId = HOT_DATA_SPRITE_BASE + srseCarSprites[i].body;
-                CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
-                if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
-                    continue;
-                }
-                CarModel model = carData.GetModelFromIndex(carAssetId);
-                Car* car = roster.GenerateRandomCar(model);
-                car->SetRoofChopped(false);
-                car->SetBumpersStripped(false);
-                car->SetDecal(SrLibCarDecalNone);
-                car->SetScoop(SCOOP_NONE);
-                if (i < static_cast<int>(srseCarSpecData.size())) {
-                    CarBuilder::ApplySpec(car, srseCarSpecData[i], model.vendor);
-                }
-                classifiedCars.push_back(car);
-            }
+            CarModel model = carData.GetModelFromIndex(carAssetId);
+            Car* car = roster.GenerateRandomCar(model);
+            // Stock appearance for classifieds...
+            car->SetRoofChopped(false);
+            car->SetBumpersStripped(false);
+            car->SetDecal(SrLibCarDecalNone);
+            car->SetScoop(SCOOP_NONE);
+            // ...and the drivetrain the car is actually advertised with.
+            CarBuilder::ApplySpec(car, mergedCarSpecs[spec], model.vendor);
+            classifiedCars.push_back(car);
         }
         LOG_INFO("Generated %zu classified cars", classifiedCars.size());
 

@@ -27,14 +27,15 @@ class CarData {
         
         void ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
 
-        /// @brief Adds the 25 Street Rod SE data-disk cars to the pool.
-        /// Everything comes out of the disk's own HOT_DATA - stats, sprite
-        /// numbers and pixel offsets - so nothing here is hand-tuned.
-        /// @param hotData raw SRSE HOT_DATA bytes
-        /// @param bitmaps entries parsed from SRSE LIB2, for sprite sizes
+        /// @brief Adds an optional DOS-format car set's cars to the pool.
+        /// Stats, sprite numbers and pixel offsets all come out of the set's
+        /// own HOT_DATA, so nothing here is hand-tuned per car.
+        /// @param carSet index into GetCarSetDefs()
+        /// @param hotData raw HOT_DATA bytes for that set
+        /// @param bitmaps entries parsed from the set's LIB2, for sprite sizes
         /// @return number of models added
-        int ReadCarsSrse(const std::vector<uint8_t>& hotData,
-                         const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps);
+        int ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
+                       const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps);
 
         /// @brief Finds a model in car data array
         /// @param modelId

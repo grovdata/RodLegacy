@@ -46,11 +46,15 @@ private:
     std::vector<SrDriverData>   srDriverData;
     std::vector<SrCarSpecEntry> srCarSpecData;
 
-    // Street Rod SE data disk. Empty and false unless the disk is present and
-    // the cars are switched on. Same 26-entry shape as srCarSpecData.
-    bool                        srseCarsEnabled = false;
-    std::vector<SrCarSpecEntry> srseCarSpecData;
-    std::vector<DosCarSprites>  srseCarSprites;
+    // Every car in play, from every enabled set, in one table. The Amiga set
+    // is always first so its entries stay at 0..25 - the indices original
+    // .SAV files store - and optional sets append after it. This is what the
+    // racer pool and roster draw from.
+    std::vector<SrCarSpecEntry> mergedCarSpecs;
+    // Pool key (CarModel::index) for each mergedCarSpecs entry, so a spec can
+    // be turned back into a model. -1 for specs with no buyable car, i.e. The
+    // King's slot in each set.
+    std::vector<int>            mergedCarSpecModelIndex;
     int lastChallengerPoolIndex = -1;
 
     RaceType pendingRaceType   = RaceType::Road;
@@ -112,11 +116,10 @@ public:
 
     AssetManager& GetAssets() { return assets; }
 
-    // Street Rod SE cars, when the data disk is present and switched on. The
-    // sprite table is in the same order as the SE classifieds, so callers
-    // walking the SE cars can index both with the same i.
-    bool SrseCarsEnabled() const { return srseCarsEnabled; }
-    const std::vector<DosCarSprites>& GetSrseCarSprites() const { return srseCarSprites; }
+    // Every enabled car set's specs in one table, Amiga set first. Parallel
+    // to GetCarSpecModelIndex(), which maps each entry back to a pool key.
+    const std::vector<SrCarSpecEntry>& GetMergedCarSpecs() const { return mergedCarSpecs; }
+    const std::vector<int>& GetCarSpecModelIndex() const { return mergedCarSpecModelIndex; }
 
     void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false);
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
