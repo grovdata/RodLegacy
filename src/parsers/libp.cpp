@@ -646,6 +646,26 @@ std::vector<uint8_t> BitmapParser::ReadImageDOS(const std::vector<uint8_t>& data
     return UnpackDataDOS(entry, packedData);
 }
 
+Palette BitmapParser::GetDOSCarPalette(int spriteType, const std::vector<uint16_t>& carPalette) {
+    Palette palette = GetDOSPalette(spriteType);
+    if (carPalette.size() < DOS_CAR_RAMP_LIGHT + 1) {
+        return palette;
+    }
+
+    // Entries 6 and 7 are the car's paint on every DOS car sprite - the same
+    // two registers the Amiga uses (see PAL_DRIVING in libp.h). Measured over
+    // the SRSE bodies: 6 (light blue) and 7 (dark blue) are the only colours
+    // that follow the body, while 1-4 stay black/grey/white for the outline,
+    // chrome and glass, and 10/14 are per-car trim.
+    //
+    // A car colour is a 9-step ramp, dark to light. Steps 2 and 6 land within
+    // a nibble of the DOS blues when the colour is Navy, which is what pins
+    // them: recolouring a stock-blue car navy leaves it looking unchanged.
+    palette[DOS_CAR_SHADE_DARK] = GetRGBFromRGB4(carPalette[DOS_CAR_RAMP_DARK]);
+    palette[DOS_CAR_SHADE_LIGHT] = GetRGBFromRGB4(carPalette[DOS_CAR_RAMP_LIGHT]);
+    return palette;
+}
+
 Palette BitmapParser::GetDOSPalette(int spriteType) {
     Palette palette;
     for (int i = 0; i < 16; i++) {

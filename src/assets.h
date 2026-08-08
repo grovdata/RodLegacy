@@ -87,6 +87,10 @@ public:
     // the AssetManager.
     bool HasCarSetData(int carSet) const;
     Bitmap* GetCarSetSprite(int carSet, int spriteIndex);
+    // Same, with the car's paint substituted for the stock DOS body colours.
+    // Variants are cached per palette, like the Amiga ones.
+    Bitmap* GetCarSetSpriteWithPalette(int carSet, int spriteIndex,
+                                       const std::vector<uint16_t>& carPalette);
     const byte_vector& GetCarSetData(int carSet) const;
     const std::pair<int, std::vector<DOSBitmapEntry_t>>& GetCarSetImageEntries(int carSet) const;
 
@@ -138,6 +142,7 @@ private:
         byte_vector carData;
         std::pair<int, std::vector<DOSBitmapEntry_t>> imageEntries;
         std::map<int, std::unique_ptr<Bitmap>> spriteCache;
+        std::map<AssetPaletteKey, std::unique_ptr<Bitmap>> paletteVariantCache;
         bool enabled = false;
     };
     std::vector<CarSetAssets> carSets;
@@ -167,9 +172,11 @@ private:
     void InitDosAssets();
     void InitCarSets();
     // Decodes one sprite out of an already-parsed DOS lib. Returns nullptr if
-    // the index is outside the lib.
+    // the index is outside the lib. Pass a car colour ramp to repaint the
+    // body, or nullptr for the sprite's stock colours.
     std::unique_ptr<Bitmap> DecodeDosSprite(byte_vector& libData,
-        const std::pair<int, std::vector<DOSBitmapEntry_t>>& entries, int index);
+        const std::pair<int, std::vector<DOSBitmapEntry_t>>& entries, int index,
+        const std::vector<uint16_t>* carPalette = nullptr);
     // Reads a file that ships either loose under gameBasePath or inside a zip.
     byte_vector LoadDosDataFile(const fs::path& loosePath, const fs::path& zipPath,
         const std::string& zipEntry, const char* what);

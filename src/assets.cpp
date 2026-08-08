@@ -553,26 +553,39 @@ byte_vector AssetManager::LoadDosDataFile(const fs::path& loosePath, const fs::p
 }
 
 std::unique_ptr<Bitmap> AssetManager::DecodeDosSprite(byte_vector& libData,
-        const std::pair<int, std::vector<DOSBitmapEntry_t>>& entries, int index) {
+        const std::pair<int, std::vector<DOSBitmapEntry_t>>& entries, int index,
+        const std::vector<uint16_t>* carPalette) {
     if (index < 0 || index >= entries.first) {
         return nullptr;
     }
 
     DOSBitmapEntry_t entry = entries.second[index];
     std::vector<uint8_t> planarData = bp.ReadImageDOS(libData, entry, index, entries.first);
-    Palette palette = bp.GetDOSPalette(entry.type);
+    Palette palette = carPalette ? bp.GetDOSCarPalette(entry.type, *carPalette)
+                                 : bp.GetDOSPalette(entry.type);
     std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
 
     auto bitmap = std::make_unique<Bitmap>();
     // Load as opaque so black pixels are preserved (not made transparent)
     bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height, false, true);
 
-    // For transparent sprites (type 1), use SDL color key to make
-    // the red background (palette index 0) transparent
+    // Type 1 sprites key palette index 0 out as the background. Punch the
+    // alpha directly rather than using SDL_SetColorKey: LoadBitmapFromChunky
+    // hands back a surface that already has a full alpha channel, and a colour
+    // key is ignored when converting one of those to a texture, so the key
+    // colour would render as an opaque rectangle around the sprite.
     if (entry.type == 1) {
         SDL_Surface* surf = bitmap->GetSurface();
         if (surf) {
-            SDL_SetColorKey(surf, SDL_TRUE, SDL_MapRGB(surf->format, 0xFF, 0x00, 0x00));
+            const SrLibColor& key = palette[0];
+            SDL_LockSurface(surf);
+            uint32_t* pixels = static_cast<uint32_t*>(surf->pixels);
+            const uint32_t keyPixel = SDL_MapRGBA(surf->format, key.r, key.g, key.b, 255);
+            const uint32_t clear = SDL_MapRGBA(surf->format, key.r, key.g, key.b, 0);
+            for (int i = 0; i < entry.width * entry.height; i++) {
+                if (pixels[i] == keyPixel) pixels[i] = clear;
+            }
+            SDL_UnlockSurface(surf);
             bitmap->UpdateFromSurface();
         }
     }
@@ -695,6 +708,33 @@ Bitmap* AssetManager::GetCarSetSprite(int carSet, int spriteIndex) {
 
     Bitmap* raw = bitmap.get();
     set.spriteCache[spriteIndex] = std::move(bitmap);
+    return raw;
+}
+
+Bitmap* AssetManager::GetCarSetSpriteWithPalette(int carSet, int spriteIndex,
+                                                 const std::vector<uint16_t>& carPalette) {
+    if (carSet < 0 || carSet >= (int)carSets.size()) return nullptr;
+    if (carPalette.empty()) return GetCarSetSprite(carSet, spriteIndex);
+
+    CarSetAssets& set = carSets[carSet];
+    AssetPaletteKey cacheKey{spriteIndex, hashPalette(carPalette)};
+
+    auto cached = set.paletteVariantCache.find(cacheKey);
+    if (cached != set.paletteVariantCache.end()) {
+        return cached->second.get();
+    }
+
+    auto bitmap = DecodeDosSprite(set.libData, set.imageEntries, spriteIndex, &carPalette);
+    if (!bitmap) {
+        LOG_INFO("Car set '%s': sprite %d out of range (%d entries)",
+                 GetCarSetDefs()[carSet].id.c_str(), spriteIndex, set.imageEntries.first);
+        return nullptr;
+    }
+    const DOSBitmapEntry_t& entry = set.imageEntries.second[spriteIndex];
+    bitmap->SetDimensions(entry.width, entry.height);
+
+    Bitmap* raw = bitmap.get();
+    set.paletteVariantCache[cacheKey] = std::move(bitmap);
     return raw;
 }
 

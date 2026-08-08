@@ -53,6 +53,13 @@ struct SrLibColor {
 using Palette = std::vector<SrLibColor>;
 const SrLibColor AmigaMaskColor = {128, 16, 0, 255};
 
+// The two DOS palette entries a car's paint occupies, and which steps of a
+// 9-step StandardCarColor ramp replace them. See GetDOSCarPalette.
+static constexpr int DOS_CAR_SHADE_DARK  = 7;
+static constexpr int DOS_CAR_SHADE_LIGHT = 6;
+static constexpr int DOS_CAR_RAMP_DARK   = 2;
+static constexpr int DOS_CAR_RAMP_LIGHT  = 6;
+
 static const SrLibColor DOS_PALETTE[16] = {
     {0x00, 0x00, 0x00, 0xFF},  // 0: Black
     {0x00, 0x00, 0x00, 0xFF},  // 1: Black
@@ -1637,6 +1644,10 @@ class BitmapParser {
     std::vector<uint8_t>                            UnpackDataDOS(const DOSBitmapEntry_t& sprite, const std::vector<uint8_t>& data);
     std::vector<uint8_t>                            ReadImageDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int index, int totalEntriesCount);
     Palette                                         GetDOSPalette(int spriteType = 0);
+    // GetDOSPalette with the car's paint substituted in, for car sprites out
+    // of a DOS car set. carPalette is a 9-step StandardCarColor ramp; a
+    // shorter one is ignored and the stock DOS colours come back.
+    Palette                                         GetDOSCarPalette(int spriteType, const std::vector<uint16_t>& carPalette);
     std::vector<SrLibColor>                         PlanarToChunky(const std::vector<uint8_t>& data, DOSBitmapEntry_t entry, const Palette& palette);
 };
 

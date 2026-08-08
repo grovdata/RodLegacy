@@ -8,14 +8,14 @@
 const int wheelSize = 31;
 
 // Where each piece lives is resolved into CarModel::sprites when the model is
-// built; only the loading differs per set. Amiga lib.p art is recoloured
-// through the car palette, while a DOS set ships fixed 16-colour art that
-// already carries its paint.
+// built; only which lib to read from differs per set. Both sources take the
+// car's paint, they just apply it differently - see GetDOSCarPalette for the
+// DOS side.
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette) {
     if (spriteIndex < 0) return nullptr;
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
-        return state.GetAssets().GetCarSetSprite(model.carSet, spriteIndex);
+        return state.GetAssets().GetCarSetSpriteWithPalette(model.carSet, spriteIndex, carPalette);
     }
     byte_vector& libFile = state.GetAssets().GetLibPData();
     return state.GetAssets().GetBitmapAssetWithPalette(
