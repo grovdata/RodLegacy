@@ -33,6 +33,7 @@ test_sources = [
     '../src/race/race_sim.cpp',
     '../src/race/race_end_message.cpp',
     '../src/parsers/libp.cpp',
+    '../src/car_set.cpp',   # libp.cpp reads the measured wheel Y from here
     '../src/car_system.cpp',
     '../src/racer_pool.cpp',
     '../src/bet_acceptance.cpp',

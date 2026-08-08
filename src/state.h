@@ -29,6 +29,7 @@ class Newspaper;
 class GasStation;
 class Racing;
 class NameEntry;
+class CarDebug;
 
 class State {
 private:
@@ -100,6 +101,9 @@ private:
     std::unique_ptr<Newspaper> newspaper;
     std::unique_ptr<KingOfCounty> kingOfCounty;
     std::unique_ptr<NameEntry> nameEntry;
+#ifdef RODLEGACY_DEBUG_UI
+    std::unique_ptr<CarDebug> carDebug;
+#endif
 
     // Remove this later
     const std::string GetTomlFile();

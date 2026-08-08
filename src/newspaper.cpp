@@ -757,9 +757,11 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     // model so the right lib is used.
     Bitmap* carBodyBitmap = LoadCarModelSprite(model, model.sprites.body, palette);
 
-    // Load wheel spritesheet
-    Bitmap* wheelBitmap = state.GetAssets().GetBitmapAsset(
-        {LibAssetSpritesheet, SrLibFileAmigaLibP, car->GetTires().assetId});
+    // Load the wheel still, from whichever lib this car's set uses.
+    SDL_Rect wheelSrcRect = {0, 0, 0, 0};
+    SDL_Point wheelDrawSize = {0, 0};
+    Bitmap* wheelBitmap = GetCarWheelFrame(model, car->GetWheelType(), 1,
+                                           &wheelSrcRect, &wheelDrawSize);
 
     // Full-width strip from y=63 to y=146 (height=83)
     SDL_Rect dialogRect = {0, 63, 320, 83};
@@ -778,23 +780,15 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
         int carY = 63 + 2;
         bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, kBodyZ};
 
-        // Add wheels relative to car body position
-        // Wheels are a spritesheet — select cell (row=0, col=1) for a static frame
+        // Add wheels relative to car body position. Frame 1 is the same still
+        // the garage shows; where that frame lives, and how big it is, depends
+        // on the car's set.
         if (wheelBitmap) {
-            const int wheelSize = 31;
-            // Source rect for sprite cell (0, 1): col=1 means x offset = 1*cellW
-            AnimatedBitmap* sheet = dynamic_cast<AnimatedBitmap*>(wheelBitmap);
-            SDL_Rect srcRect = {0, 0, 0, 0};
-            if (sheet) {
-                int cellW = wheelBitmap->GetSurface()->w / sheet->GetColumns();
-                int cellH = wheelBitmap->GetSurface()->h / sheet->GetRows();
-                srcRect = {1 * cellW, 0, cellW, cellH};
-            }
             int rearWheelX = carX + offsets.offsetXRearTire;
             int frontWheelX = carX + offsets.offsetXFrontTire;
             int wheelY = carY + offsets.offsetYTires;
-            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelSize, wheelSize}, kWheelZ, srcRect};
-            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelSize, wheelSize}, kWheelZ, srcRect};
+            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelDrawSize.x, wheelDrawSize.y}, kWheelZ, wheelSrcRect};
+            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelDrawSize.x, wheelDrawSize.y}, kWheelZ, wheelSrcRect};
         }
     }
 

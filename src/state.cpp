@@ -9,6 +9,9 @@
 #include "newspaper.h"
 #include "king_of_county.h"
 #include "name_entry.h"
+#ifdef RODLEGACY_DEBUG_UI
+#include "car_debug.h"
+#endif
 #include "racing.h"
 #include "debug_overlay.h"
 #include "parsers/libp.h"
@@ -153,6 +156,9 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
         nameEntry = std::make_unique<NameEntry>();
+#ifdef RODLEGACY_DEBUG_UI
+        carDebug = std::make_unique<CarDebug>();
+#endif
 
         garage->Init(debugMode);
         diner->Init(debugMode);
@@ -160,6 +166,9 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         newspaper->Init(debugMode);
         driving->Init(debugMode);
         nameEntry->Init(debugMode);
+#ifdef RODLEGACY_DEBUG_UI
+        carDebug->Init(debugMode);
+#endif
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         throw; // Re-throw to main
@@ -193,6 +202,8 @@ void State::SetCurrentScene(Scene *scene) {
 }
 
 void State::MoveToScene(SrLibGameScene scene) {
+    const SrLibGameScene previousScene = currentGameScene;
+    (void)previousScene;  // only read by the non-debug SCENE_CAR_DEBUG path
     if (currentScene) {
         currentScene->OnSceneExit();
     }
@@ -221,6 +232,16 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
         case SCENE_NAME_ENTRY:
             this->currentScene = nameEntry.get();
+            break;
+        case SCENE_CAR_DEBUG:
+#ifdef RODLEGACY_DEBUG_UI
+            this->currentScene = carDebug.get();
+#else
+            // Not built; stay where we are rather than null the scene.
+            LOG_INFO("SCENE_CAR_DEBUG is only available in debug_ui builds");
+            currentGameScene = previousScene;
+            return;
+#endif
             break;
     }
 

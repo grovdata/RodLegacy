@@ -50,5 +50,10 @@ class CarData {
         void ReadCarsBuiltin(std::vector<unsigned char>, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
         void ReadCarsFromTomlFile(std::string filename);
         CarModel GetRandomModel();
+
+        /// @brief Every model in the pool, from every enabled car set.
+        /// Ordered by name (the set's comparator), so it is stable to page
+        /// through. Used by the car debug scene.
+        const std::set<CarModel>& GetAllModels() const { return allCarModels; }
 };
 

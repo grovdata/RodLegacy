@@ -40,6 +40,16 @@ const std::vector<CarSetDef>& GetCarSetDefs();
 // Index of the mandatory Amiga stock set. Always 0.
 static constexpr int kAmigaCarSet = 0;
 
+// Y of a car's wheels relative to the top of its body sprite, by car set and
+// the set's own body sprite number.
+//
+// No car data file carries this - not the Amiga SR_data sprite-offset record,
+// which has an X for each tire but no Y, and not its DOS counterpart. See
+// RodLegacyResearch/docs/car_wheel_offsets.md. The values are measured by hand
+// with the CarDebug scene; kDefaultCarWheelY is what an unmeasured car gets.
+static constexpr int kDefaultCarWheelY = 30;
+int CarSetWheelY(int carSet, int bodySprite);
+
 // Where each car's sprites live in its set's lib, resolved when the model is
 // built so nothing downstream has to know the set's conventions. -1 means the
 // car has no such variant.

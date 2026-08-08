@@ -14,6 +14,46 @@
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette);
 
+// One wheel rotation cell, for callers that want a still image rather than an
+// animated CarWheel (the newspaper preview). outSourceRect receives the
+// sub-rect to blit - a cell of the lib.p spritesheet, or a zero rect for a DOS
+// car set, where the whole sprite is the frame. outSize receives the size to
+// draw at, which differs between sets.
+Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
+                         SDL_Rect* outSourceRect, SDL_Point* outSize);
+
+// A car's wheel: the rotation cells, however its set happens to store them.
+// lib.p packs all four into one 1x4 spritesheet; a DOS car set gives each cell
+// its own sprite id. Both are just N frames you pick between and draw, and
+// this hides that difference and nothing else - the frames keep their own
+// natural size, which differs between the two (32x31 vs 40x28).
+class CarWheel {
+public:
+    void SetSpritesheet(const AnimatedBitmap& sheet, int drawW, int drawH);
+    void SetFrames(std::vector<Bitmap> cells);
+
+    bool IsLoaded() const { return frameCount > 0; }
+    int  FrameCount() const { return frameCount; }
+    int  Width() const { return frameW; }
+    int  Height() const { return frameH; }
+
+    void SelectFrame(int index);
+    void CycleNextFrame();
+    void CyclePrevFrame();
+    int  CurrentFrame() const { return current; }
+
+    void DrawAt(int x, int y);
+
+private:
+    AnimatedBitmap sheet;       // lib.p backing
+    std::vector<Bitmap> cells;  // DOS car set backing
+    bool sheetBacked = false;
+    int frameCount = 0;
+    int current = 0;
+    int frameW = 0;
+    int frameH = 0;
+};
+
 class CarShadow: public Bitmap {
     private:
         int width;
@@ -31,7 +71,7 @@ private:
     Bitmap* body;  // Points to either bodyOriginal or bodyChopped
     CarShadow shadow;
     Bitmap driver;
-    AnimatedBitmap wheels;
+    CarWheel wheels;
     Bitmap gasCap;
     Bitmap pumpingHandle;
     Bitmap hoodScoop;
@@ -100,7 +140,7 @@ public:
     SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
-    void ResetWheelFrame() { wheels.SelectFrame(0, 0); }
+    void ResetWheelFrame() { wheels.SelectFrame(0); }
     void SetWheelhousesVisible(bool visible);
     void DrawWheelAt(int x, int y, bool spin = true, bool reverse = false);
     void SetShadowYOffset(int yAdjust);

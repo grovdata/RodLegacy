@@ -11,6 +11,7 @@
 #include <map>
 
 #include "carcolor.h"
+#include "../car_set.h"
 
 static void WriteUint16BE(std::vector<uint8_t>& out, uint16_t value) {
     out.push_back((value >> 8) & 0xFF);
@@ -1074,7 +1075,7 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
     return true;
 }
 
-static constexpr size_t SR_DATA_OFFSETS_START = 0x34C;
+// SR_DATA_OFFSETS_START lives in libp.h, shared with the car debug scene.
 static constexpr size_t SR_DATA_CLICKBOX_START = 0x484;
 static constexpr size_t SR_DATA_CLICKBOX_GASSTATION_START = 0x68c;
 static constexpr size_t SR_DATA_CLASSIFIEDS_START = 0x854;
@@ -1216,7 +1217,7 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
 
         // Add supplemental offsets
         StockCarModels model = (StockCarModels)i;
-        newEntry.offsetYTires = CAR_WHEELS_Y_OFFSETS[model][1];
+        newEntry.offsetYTires = CarSetWheelY(kAmigaCarSet, kCarIndex[i]);
         newEntry.offsetXGasCap = CAR_GAS_CAP_XY_OFFSETS[model][1];
         newEntry.offsetYGasCap = CAR_GAS_CAP_XY_OFFSETS[model][2];
 

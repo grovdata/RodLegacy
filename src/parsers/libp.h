@@ -103,6 +103,10 @@ enum SrLibGameScene {
     // new-game name entry screen. Never passed to SrLibQueryGetCarRoofYOffset
     // / SrLibQueryGetCarIdleX, which index original per-scene car tables.
     SCENE_NAME_ENTRY = 7,
+    // Also a RodLegacy addition, and only reachable in debug_ui builds: the
+    // car/wheel-offset inspector. Same caveat as SCENE_NAME_ENTRY - never
+    // passed to the per-scene car tables.
+    SCENE_CAR_DEBUG = 8,
 };
 
 enum SrLibCarDecal {
@@ -793,6 +797,7 @@ enum SrseLib2Asset {
     SRSE_LIB2_SE_DECAL_8 = 193, // 56x14
     SRSE_LIB2_SE_DECAL_SHEET = 200, // 264x69
     SRSE_LIB2_THE_KING_CORVETTE_1963_BODY = 201, // 248x59 - car slot 25, The King's 1963 Corvette
+    SRSE_LIB2_WHEELHOUSE = 223,
     SRSE_LIB2_CHRYSLER_TOWN_COUNTRY_CONV_1948_CHOPPED_ROOF = 235, // 112x19 - car slot 21
     SRSE_LIB2_RACING_CAR_FRONT_1 = 249, // 104x62
     SRSE_LIB2_RACING_CAR_FRONT_2 = 250, // 88x64
@@ -1316,36 +1321,8 @@ const int CAR_Y_OFFSETS[][6] = {
 
 #define CAR_Y_OFFSETS_COUNT (sizeof(CAR_Y_OFFSETS) / sizeof(CAR_Y_OFFSETS[0]))
 
-const int CAR_WHEELS_Y_OFFSETS[][2] = {
-    {CHEVROLET_2DR_COUPE_1940, 36},
-    {CHEVROLET_ROADSTER_1940, 30},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938, 40},
-    {CHEVROLET_CORVETTE_1956, 24},
-    {CHEVROLET_CORVETTE_1961, 30},
-    {CHEVROLET_CORVETTE_1963, 30},
-    {DODGE_CUSTOM_ROYAL_LANCER_1955, 30},
-    {FORD_DEUCE_COUPE_1932, 30},
-    {DODGE_POLARA_1962, 30},
-    {PLYMOUTH_SAVOY_2DR_1962, 30},
-    {FORD_SEDAN_1932, 30},
-    {FORD_DELUXE_2DR_1940, 39},
-    {FORD_FAIRLANE_VICTORIA_1955, 30},
-    {FORD_FAIRLANE_500_1956, 30},
-    {MERCURY_MONTEREY_1954, 30},
-    {MERCURY_CUSTOM_2DR_1956, 30},
-    {CHEVROLET_STYLELINE_2DR_1949, 36},
-    {CHEVROLET_IMPALA_1958, 30},
-    {OLDSMOBILE_88_2DR_CUSTOM_1949, 30},
-    {OLDSMOBILE_88_CUSTOM_1952, 30},
-    {PONTIAC_SILVER_STREAK_1950, 30},
-    {FORD_THUNDERBIRD_1957, 30},
-    {VALIANT_V200_1961, 30},
-    {VALIANT_V100_2DR_1963, 30},
-    {CHEVROLET_BELAIR_SPORTS_COUPE, 30},
-    {THE_KING_CHEVROLET_CORVETTE_1963, 30}
-};
-
-#define CAR_WHEELS_Y_OFFSETS_COUNT (sizeof(CAR_WHEELS_Y_OFFSETS) / sizeof(CAR_WHEELS_Y_OFFSETS[0]))
+// Wheel Y per car now lives in car_set.cpp (CarSetWheelY), because it is
+// per car set rather than per lib.p asset and no data file supplies it.
 
 const int CAR_GAS_CAP_XY_OFFSETS[][3] = {
     {CHEVROLET_2DR_COUPE_1940, 74, 35},
@@ -1801,6 +1778,13 @@ struct SrCarSpecEntry {
 };
 static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
 #pragma pack(pop)
+
+// Amiga SR_data: the per-car sprite offset table. 12 bytes per car in the same
+// field order as its DOS counterpart, for all SR_DATA_CARSPEC_ENTRY_COUNT cars
+// - one more than the game sells, the last being The King's.
+// See RodLegacyResearch/docs/formats/sr_data.md.
+static constexpr size_t SR_DATA_OFFSETS_START = 0x34C;
+static constexpr size_t SR_DATA_CAR_SPRITES_START = 584;
 
 // DOS HOT_DATA table starts. Same tables as the Amiga SR_data, differently
 // packed, plus DosCarSprites which the Amiga does not need.

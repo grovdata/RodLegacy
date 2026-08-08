@@ -286,6 +286,8 @@ if debug_ui_enabled
     imgui_proj = subproject('imgui')
     imgui_dep = imgui_proj.get_variable('imgui_dep')
     cpp_sources += files('debug_ui.cpp')
+    # Car/wheel-offset inspector scene, debug builds only.
+    cpp_sources += files('car_debug.cpp')
     cpp_args += ['-DRODLEGACY_DEBUG_UI']
     game_extra_deps = [imgui_dep]
 else

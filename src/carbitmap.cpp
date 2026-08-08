@@ -11,6 +11,64 @@ const int wheelSize = 31;
 // built; only which lib to read from differs per set. Both sources take the
 // car's paint, they just apply it differently - see GetDOSCarPalette for the
 // DOS side.
+namespace {
+
+// The four wheel rotation cells for a tire type in a DOS car set's lib. lib.p
+// has one spritesheet asset per type instead; see CarWheel.
+int DosWheelFirstSprite(CarWheelType type) {
+    switch (type) {
+        case BRAND:  return SRSE_LIB2_BRAND_WHEEL_1;
+        case RACING: return SRSE_LIB2_RACING_WHEEL_1;
+        case STOCK:
+        default:     return SRSE_LIB2_CAR_WHEEL_1;
+    }
+}
+constexpr int kDosWheelFrames = 4;
+
+// Loads a car's wheel from whichever lib its set uses.
+void LoadWheelForModel(const CarModel& model, CarWheelType type, CarWheel& wheel) {
+    if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
+        const int first = DosWheelFirstSprite(type);
+        std::vector<Bitmap> cells;
+        cells.reserve(kDosWheelFrames);
+        for (int i = 0; i < kDosWheelFrames; i++) {
+            Bitmap* cell = state.GetAssets().GetCarSetSprite(model.carSet, first + i);
+            if (!cell) {
+                LOG_INFO("Car set wheel sprite %d missing, wheel not loaded", first + i);
+                return;
+            }
+            cells.push_back(*cell);
+        }
+        wheel.SetFrames(std::move(cells));
+        return;
+    }
+
+    AmigaLibAsset assetNo = CAR_TIRES_STOCK;
+    switch (type) {
+        case BRAND:  assetNo = CAR_TIRES_BRAND;  break;
+        case RACING: assetNo = CAR_TIRES_RACING; break;
+        case STOCK:
+        default:     assetNo = CAR_TIRES_STOCK;  break;
+    }
+    auto* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo});
+    if (sheet) {
+        wheel.SetSpritesheet(*static_cast<AnimatedBitmap*>(sheet), wheelSize, wheelSize);
+    }
+}
+
+// The wheel arch. lib.p has one shared asset; a DOS car set keeps its own.
+Bitmap* LoadWheelhouse(const CarModel& model, const std::vector<uint16_t>& carPalette) {
+    if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
+        return state.GetAssets().GetCarSetSpriteWithPalette(
+            model.carSet, SRSE_LIB2_WHEELHOUSE, carPalette);
+    }
+    byte_vector& libFile = state.GetAssets().GetLibPData();
+    return state.GetAssets().GetBitmapAssetWithPalette(
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+}
+
+} // namespace
+
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette) {
     if (spriteIndex < 0) return nullptr;
@@ -20,6 +78,90 @@ Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
     byte_vector& libFile = state.GetAssets().GetLibPData();
     return state.GetAssets().GetBitmapAssetWithPalette(
         libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)spriteIndex}, carPalette);
+}
+
+Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
+                         SDL_Rect* outSourceRect, SDL_Point* outSize) {
+    if (outSourceRect) *outSourceRect = {0, 0, 0, 0};
+    if (outSize) *outSize = {wheelSize, wheelSize};
+
+    if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
+        const int index = DosWheelFirstSprite(type) + (frame % kDosWheelFrames);
+        Bitmap* cell = state.GetAssets().GetCarSetSprite(model.carSet, index);
+        if (cell && outSize) {
+            SDL_Rect r = cell->GetPosition();
+            *outSize = {r.w, r.h};
+        }
+        return cell;
+    }
+
+    AmigaLibAsset assetNo = CAR_TIRES_STOCK;
+    switch (type) {
+        case BRAND:  assetNo = CAR_TIRES_BRAND;  break;
+        case RACING: assetNo = CAR_TIRES_RACING; break;
+        case STOCK:
+        default:     assetNo = CAR_TIRES_STOCK;  break;
+    }
+    Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo});
+    if (!sheet) return nullptr;
+
+    auto* anim = dynamic_cast<AnimatedBitmap*>(sheet);
+    if (anim && outSourceRect && anim->GetColumns() > 0 && anim->GetRows() > 0) {
+        const int cellW = sheet->GetSurface()->w / anim->GetColumns();
+        const int cellH = sheet->GetSurface()->h / anim->GetRows();
+        const int cols = anim->GetColumns();
+        *outSourceRect = {(frame % cols) * cellW, 0, cellW, cellH};
+    }
+    return sheet;
+}
+
+void CarWheel::SetSpritesheet(const AnimatedBitmap& source, int drawW, int drawH) {
+    sheet = source;
+    sheetBacked = true;
+    cells.clear();
+    frameCount = sheet.GetRows() * sheet.GetColumns();
+    if (frameCount <= 0) frameCount = 1;
+    frameW = drawW;
+    frameH = drawH;
+    sheet.SetVisible(true);
+    sheet.SetDimensions(frameW, frameH);
+    SelectFrame(0);
+}
+
+void CarWheel::SetFrames(std::vector<Bitmap> newCells) {
+    cells = std::move(newCells);
+    sheetBacked = false;
+    frameCount = static_cast<int>(cells.size());
+    frameW = frameH = 0;
+    for (Bitmap& cell : cells) {
+        cell.SetVisible(true);
+        SDL_Rect r = cell.GetPosition();
+        frameW = std::max(frameW, r.w);
+        frameH = std::max(frameH, r.h);
+    }
+    SelectFrame(0);
+}
+
+void CarWheel::SelectFrame(int index) {
+    if (frameCount <= 0) return;
+    current = ((index % frameCount) + frameCount) % frameCount;
+    if (sheetBacked) {
+        sheet.SelectFrame(current);
+    }
+}
+
+void CarWheel::CycleNextFrame() { SelectFrame(current + 1); }
+void CarWheel::CyclePrevFrame() { SelectFrame(current - 1); }
+
+void CarWheel::DrawAt(int x, int y) {
+    if (frameCount <= 0) return;
+    if (sheetBacked) {
+        sheet.SetPosition(x, y);
+        sheet.Draw();
+        return;
+    }
+    cells[current].SetPosition(x, y);
+    cells[current].Draw();
 }
 
 CarShadow::CarShadow(int width) {
@@ -182,7 +324,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     }
 
     // Load wheelhouse - the arch where wheels sit; wheels overlay on top when equipped
-    auto* wheelhouseAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+    auto* wheelhouseAsset = LoadWheelhouse(model, carPalette);
     if (wheelhouseAsset) {
         rearWheelhouse = *wheelhouseAsset;
         rearWheelhouse.SetVisible(true);
@@ -191,14 +333,7 @@ void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor colo
     }
 
     // Load wheels
-    AmigaLibAsset wheelAssetNo = car->GetTires().assetId;
-    auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
-    if (wheelAsset) {
-        wheels = *((AnimatedBitmap*)wheelAsset);  // Copy the wheel sheet
-        wheels.SelectFrame(0, 1);
-        wheels.SetVisible(true);
-        wheels.SetDimensions(wheelSize, wheelSize);
-    }
+    LoadWheelForModel(model, car->GetWheelType(), wheels);
 
     auto* gasCapAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
     if (gasCapAsset) {
@@ -279,13 +414,15 @@ void CarBitmap::UpdatePositions() {
     // Always use bodyOriginal for position calculations (it's the full car)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    // Update wheel positions
-    rearWheelPos = {bodyRect.x + offsets.offsetXRearTire,
-                    bodyRect.y + offsets.offsetYTires,
-                    wheelSize, wheelSize};
-    frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire,
-                     bodyRect.y + offsets.offsetYTires,
-                     wheelSize, wheelSize};
+    // Update wheel positions. wheelsYOffset is a live nudge on top of the
+    // model's offsetYTires, used to measure a car's real wheel line - see
+    // CarDebug. It was stored but never applied here, which is why the diner's
+    // left/right keys appeared to do nothing.
+    const int tiresY = bodyRect.y + offsets.offsetYTires + wheelsYOffset;
+    const int wheelW = wheels.IsLoaded() ? wheels.Width() : wheelSize;
+    const int wheelH = wheels.IsLoaded() ? wheels.Height() : wheelSize;
+    rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, tiresY, wheelW, wheelH};
+    frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire, tiresY, wheelW, wheelH};
 
     // Update other part positions
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
@@ -306,10 +443,8 @@ void CarBitmap::Draw() {
     }
 
     if (wheelsVisible) {
-        wheels.SetPosition(frontWheelPos.x, frontWheelPos.y);
-        wheels.Draw();
-        wheels.SetPosition(rearWheelPos.x, rearWheelPos.y);
-        wheels.Draw();
+        wheels.DrawAt(frontWheelPos.x, frontWheelPos.y);
+        wheels.DrawAt(rearWheelPos.x, rearWheelPos.y);
     }
 
     // Always draw the original body
@@ -553,7 +688,6 @@ BitmapOffset_t CarBitmap::GetOffset() {
 void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;
     CarModel model = car->GetModel();
-    byte_vector& libFile = state.GetAssets().GetLibPData();
 
     std::vector<uint16_t> carPalette = GetStandardCarColor(newColor);
 
@@ -626,7 +760,7 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
     }
 
     // Reload wheelhouse with new palette
-    auto* wheelhouseAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+    auto* wheelhouseAsset = LoadWheelhouse(model, carPalette);
     if (wheelhouseAsset) {
         bool rearVis = rearWheelhouse.IsVisible();
         bool frontVis = frontWheelhouse.IsVisible();
@@ -657,7 +791,8 @@ void CarBitmap::SetWheelhousesVisible(bool visible) {
 }
 
 void CarBitmap::DrawWheelAt(int x, int y, bool spin, bool reverse) {
-    int totalFrames = wheels.GetRows() * wheels.GetColumns();
+    int totalFrames = wheels.FrameCount();
+    if (totalFrames <= 0) return;
     if (spin) {
         Uint64 now = SDL_GetTicks64();
         if (now - lastDrawWheelTime >= 55) {
@@ -670,10 +805,9 @@ void CarBitmap::DrawWheelAt(int x, int y, bool spin, bool reverse) {
         }
         wheels.SelectFrame(rollingFrame);
     } else {
-        wheels.SelectFrame(0, 0);
+        wheels.SelectFrame(0);
     }
-    wheels.SetPosition(x, y);
-    wheels.Draw();
+    wheels.DrawAt(x, y);
 }
 
 void CarBitmap::SetShadowYOffset(int yAdjust) {
@@ -682,20 +816,9 @@ void CarBitmap::SetShadowYOffset(int yAdjust) {
 }
 
 void CarBitmap::LoadNewTireSprite(CarWheelType type) {
-    AmigaLibAsset wheelAssetNo;
-    switch (type) {
-        case STOCK:   wheelAssetNo = CAR_TIRES_STOCK;  break;
-        case BRAND:   wheelAssetNo = CAR_TIRES_BRAND;  break;
-        case RACING:  wheelAssetNo = CAR_TIRES_RACING; break;
-        default:      wheelAssetNo = CAR_TIRES_STOCK;  break;
-    }
-    auto* wheelAsset = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, wheelAssetNo});
-    if (wheelAsset) {
-        wheels = *((AnimatedBitmap*)wheelAsset);
-        wheels.SelectFrame(0, 1);
-        wheels.SetVisible(true);
-        wheels.SetDimensions(wheelSize, wheelSize);
-    }
+    if (!car) return;
+    LoadWheelForModel(car->GetModel(), type, wheels);
+    UpdatePositions();
 }
 
 void CarBitmap::StripFrontBumper() {
