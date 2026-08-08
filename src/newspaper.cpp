@@ -764,13 +764,19 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     // Full-width strip from y=63 to y=146 (height=83)
     SDL_Rect dialogRect = {0, 63, 320, 83};
 
+    // Wheels go behind the body, so the body's wheel arches cut over them -
+    // the same order CarBitmap::Draw uses in the garage and diner. Lower
+    // zOrder draws first.
+    const int kWheelZ = 0;
+    const int kBodyZ = 1;
+
     std::map<std::string, DialogBitmap> bitmaps;
     if (carBodyBitmap) {
         int carW = carBodyBitmap->GetSurface()->w;
         int carH = carBodyBitmap->GetSurface()->h;
         int carX = (320 - carW) / 2;
         int carY = 63 + 2;
-        bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, 0};
+        bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, kBodyZ};
 
         // Add wheels relative to car body position
         // Wheels are a spritesheet — select cell (row=0, col=1) for a static frame
@@ -787,8 +793,8 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
             int rearWheelX = carX + offsets.offsetXRearTire;
             int frontWheelX = carX + offsets.offsetXFrontTire;
             int wheelY = carY + offsets.offsetYTires;
-            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelSize, wheelSize}, 1, srcRect};
-            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelSize, wheelSize}, 1, srcRect};
+            bitmaps["rear_wheel"] = {wheelBitmap, {rearWheelX, wheelY, wheelSize, wheelSize}, kWheelZ, srcRect};
+            bitmaps["front_wheel"] = {wheelBitmap, {frontWheelX, wheelY, wheelSize, wheelSize}, kWheelZ, srcRect};
         }
     }
 
