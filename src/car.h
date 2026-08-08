@@ -6,6 +6,7 @@
 #include "part.h"
 #include "engine_part.h"
 #include "car_system.h"
+#include "race/race_sim.h"
 #include <string>
 
 class AnimatedBitmap;
@@ -38,9 +39,21 @@ class Car {
         Part carburator;
         Part manifold;
 
-        // Simple performance tracking
-        int effectiveSpeed;
-        int effectiveAcceleration;
+        // SR_data car-spec class byte 0..8, the weight term in the top-speed
+        // score. 4 until someone who knows the spec sets it.
+        int weightClass = 4;
+
+        // Engine/manifold scoring classes straight off the car's SR_data spec.
+        // RodLegacy's own EnginePart/ManifoldType enums are coarser than the
+        // original's fields (there is no ManifoldType for spec class 1, which
+        // half the shipped cars use), so a car that came from a spec keeps its
+        // real classes here. -1 = derive them from the installed parts, which
+        // is what happens as soon as the player fits a different one.
+        int specEngineClass = -1;
+        int specManifoldClass = -1;
+
+        // Top speed in mph, recomputed whenever a part changes.
+        int topSpeed;
 
     public:
 
@@ -49,9 +62,11 @@ class Car {
         ~Car();
 
         bool IsRoofChopped() const { return isRoofChopped; }
-        void SetRoofChopped(bool chopped) { isRoofChopped = chopped; }
+        void SetRoofChopped(bool chopped) { isRoofChopped = chopped; RecalculatePerformance(); }
         bool IsBumpersStripped() const { return isFrontBumperStripped && isBackBumperStripped; }
-        void SetBumpersStripped(bool stripped) { isFrontBumperStripped = stripped; isBackBumperStripped = stripped; }
+        bool IsFrontBumperStripped() const { return isFrontBumperStripped; }
+        bool IsBackBumperStripped() const { return isBackBumperStripped; }
+        void SetBumpersStripped(bool stripped) { isFrontBumperStripped = stripped; isBackBumperStripped = stripped; RecalculatePerformance(); }
 
         Part GetGearbox() const { return gearbox; }
         Part GetTires() const { return tires; }
@@ -63,13 +78,24 @@ class Car {
         Part GetManifold() const { return manifold; }
         int GetTuneLevel() const { return tuneLevel; }
         CarModel GetModel();
+        const CarModel& GetModelRef() const { return model; }
         SrLibCarDecal GetDecal();
         CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
 
-        // Simple performance methods
-        int GetEffectiveSpeed() const { return effectiveSpeed; }
-        int GetEffectiveAcceleration() const { return effectiveAcceleration; }
+        // Top speed in mph, the number the original prints as "Max speed".
+        int GetTopSpeed() const { return topSpeed; }
+
+        int GetWeightClass() const { return weightClass; }
+        void SetWeightClass(int cls) { weightClass = cls; RecalculatePerformance(); }
+
+        int GetSpecEngineClass() const { return specEngineClass; }
+        int GetSpecManifoldClass() const { return specManifoldClass; }
+        void SetSpecPartClasses(int engineCls, int manifoldCls) {
+            specEngineClass = engineCls;
+            specManifoldClass = manifoldCls;
+            RecalculatePerformance();
+        }
 
         // Modification methods with validation
         bool CanChopRoof() const { return model.constraints.canChopRoof; }
@@ -81,23 +107,24 @@ class Car {
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; RecalculatePerformance(); }
         void SetTires(CarWheelType type);
-        void SetEngine(EnginePart engine) { this->engine = engine; RecalculatePerformance(); }
-        void SetEngine(Part engine) { this->engine = EnginePart::FromPart(engine); RecalculatePerformance(); }
+        // Fitting a part supersedes whatever the car's spec said about it.
+        void SetEngine(EnginePart engine) { this->engine = engine; specEngineClass = -1; RecalculatePerformance(); }
+        void SetEngine(Part engine) { SetEngine(EnginePart::FromPart(engine)); }
         void SetCarburator(Part carburator) { this->carburator = carburator; RecalculatePerformance(); }
-        void SetManifold(Part manifold) { this->manifold = manifold; RecalculatePerformance(); }
+        void SetManifold(Part manifold) { this->manifold = manifold; specManifoldClass = -1; RecalculatePerformance(); }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         const std::string& GetCustomDecalPath() const { return customDecalPath; }
         void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
-        void SetTuneLevel(const int level) { this->tuneLevel = level; }
+        void SetTuneLevel(const int level) { this->tuneLevel = level; RecalculatePerformance(); }
 
     private:
-        // Formula-based performance calculation
+        // Re-derives topSpeed from the installed parts (ComputeTopSpeed).
         void RecalculatePerformance();
-
-        // Helper methods for part speed bonuses
-        int GetTransmissionSpeedBonus(TransmissionType type, int wear) const;
-        int GetManifoldSpeedBonus(ManifoldType type, int wear) const;
-        int GetCarburetorSpeedBonus(CarburetorType type, int wear) const;
 };
+
+// Car -> race-sim part classes (the packed class fields the original reads out
+// of its parts table). weightClass is left at its default: the SR_data car-spec
+// class byte is not reachable from a Car, only from an SrCarSpecEntry.
+srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride);

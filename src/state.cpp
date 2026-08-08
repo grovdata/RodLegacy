@@ -8,6 +8,7 @@
 #include "driving.h"
 #include "newspaper.h"
 #include "king_of_county.h"
+#include "name_entry.h"
 #include "racing.h"
 #include "debug_overlay.h"
 #include "parsers/libp.h"
@@ -88,6 +89,12 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
                 car->SetBumpersStripped(false);
                 car->SetDecal(SrLibCarDecalNone);
                 car->SetScoop(SCOOP_NONE);
+                // ...and the drivetrain the car is actually advertised with.
+                // kCarIndex is positionally ordered against the SR_data spec
+                // table, so i indexes both.
+                if (i < static_cast<int>(srCarSpecData.size())) {
+                    CarBuilder::ApplySpec(car, srCarSpecData[i], model.vendor);
+                }
                 classifiedCars.push_back(car);
             }
         }
@@ -110,12 +117,14 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         gasStation = std::make_unique<GasStation>();
         driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
+        nameEntry = std::make_unique<NameEntry>();
 
         garage->Init(debugMode);
         diner->Init(debugMode);
         gasStation->Init(debugMode);
         newspaper->Init(debugMode);
         driving->Init(debugMode);
+        nameEntry->Init(debugMode);
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         throw; // Re-throw to main
@@ -175,9 +184,20 @@ void State::MoveToScene(SrLibGameScene scene) {
             kingOfCounty->Init(debugMode);
             this->currentScene = kingOfCounty.get();
             break;
+        case SCENE_NAME_ENTRY:
+            this->currentScene = nameEntry.get();
+            break;
     }
 
     this->currentScene->FadeIn();
+}
+
+void State::StartNewGame() {
+    for (Car* c : ownedCars) delete c;
+    ownedCars.clear();
+    currentCar = nullptr;
+
+    if (garage) garage->ResetForNewCarSet();
 }
 
 Car* State::GetCurrentCar() {
@@ -209,13 +229,20 @@ namespace {
 // CHEVROLET_2DR_COUPE_1940 ... 24 = CHEVROLET_BELAIR_SPORTS_COUPE), but
 // only holds the 25 player-ownable cars -- The King (spec index 25) isn't
 // in it, since his car is never actually owned by the player in practice.
-Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData) {
+Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
+                        const std::vector<SrCarSpecEntry>& specs) {
     if (rec.specIndex < 0 || rec.specIndex >= CAR_INDEX_COUNT) {
         LOG_INFO("LoadSaveGame: car spec index %d has no known lib.p asset (King's car or out of range), using a placeholder model", rec.specIndex);
     }
     int assetId = (rec.specIndex >= 0 && rec.specIndex < CAR_INDEX_COUNT) ? kCarIndex[rec.specIndex] : kCarIndex[0];
     CarModel model = carData.GetModelFromIndex(assetId);
     Car* car = CarBuilder::BuildCar(model);
+
+    // The saved car keeps its own parts (loaded below), but the class byte is
+    // a property of the model, not of the save, so it comes from the spec.
+    if (rec.specIndex >= 0 && rec.specIndex < static_cast<int>(specs.size())) {
+        car->SetWeightClass(specs[rec.specIndex].car_class);
+    }
 
     car->SetColor(static_cast<StandardCarColor>(rec.colorIndex));
     car->SetRoofChopped((rec.bodyByte & 0x04) != 0);
@@ -300,12 +327,12 @@ bool State::LoadSaveGame(const fs::path& path) {
     currentCar = nullptr;
 
     if (loaded.hasActiveCar) {
-        Car* active = BuildCarFromRecord(loaded.activeCar, carData);
+        Car* active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);
         ownedCars.push_back(active);
         currentCar = active;
     }
     for (const auto& rec : loaded.roster) {
-        ownedCars.push_back(BuildCarFromRecord(rec, carData));
+        ownedCars.push_back(BuildCarFromRecord(rec, carData, srCarSpecData));
     }
     if (currentCar == nullptr && !ownedCars.empty()) currentCar = ownedCars.at(0);
 
@@ -370,18 +397,14 @@ void State::SetNextOpponent(Opponent* opp) {
 }
 
 int State::GetPlayerScore() const {
-    // Scored the same way an opponent's car spec is (see racer_pool.cpp), just
-    // built from the player's installed parts rather than from a packed config
-    // word. SrCarSpecEntry is not involved: it is a raw 14-byte SR_data record
-    // and has no room for player state.
-    srrace::CarSetup setup{};
-    if (currentCar) {
-        setup.engineClass   = static_cast<int>(currentCar->GetEngine().engineType);
-        setup.transClass    = static_cast<int>(currentCar->GetGearbox().partType.transmissionType);
-        setup.carbClass     = static_cast<int>(currentCar->GetCarburator().partType.carburetorType);
-        setup.tireClass     = static_cast<int>(currentCar->GetWheelType());
+    // Scored the same way an opponent's car spec is (see racer_pool.cpp): the
+    // car's top speed in mph. SrCarSpecEntry is not involved - it is a raw
+    // 14-byte SR_data record and has no room for player state - so this goes
+    // through the Car's own parts instead.
+    if (!currentCar) {
+        return srrace::ComputeTopSpeed(srrace::CarSetup{});
     }
-    return std::clamp(srrace::ComputeBasePerformance(setup), 0, 130);
+    return currentCar->GetTopSpeed();
 }
 
 const SrDriverData* State::GetCurrentDriverData() {

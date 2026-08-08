@@ -24,19 +24,24 @@ TEST_CASE("other cars can have roof chopped") {
 
 TEST_SUITE("CarQuery::SrLibQueryCanStripBumpers") {
 
+// Only the three bodies that ship no CHOPPED_REARBUMPER/FRONTBUMPER pair.
 TEST_CASE("cars that cannot strip bumpers") {
     CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_DEUCE_COUPE_1932_BODY)         == false);
     CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_SEDAN_1932_BODY)               == false);
     CHECK(CarQuery::SrLibQueryCanStripBumpers(THE_KING_CHEVROLET_CORVETTE_1963_BODY) == false);
-    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1956_BODY)       == false);
-    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1961_BODY)       == false);
-    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1963_BODY)       == false);
 }
 
 TEST_CASE("standard cars can strip bumpers") {
     CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_IMPALA_1958_BODY)        == true);
     CHECK(CarQuery::SrLibQueryCanStripBumpers(DODGE_CUSTOM_ROYAL_LANCER_1955_BODY) == true);
     CHECK(CarQuery::SrLibQueryCanStripBumpers(FORD_FAIRLANE_500_1956_BODY)       == true);
+}
+
+// The player Corvettes can, confirmed in game - they just cannot be chopped.
+TEST_CASE("Corvettes can strip bumpers") {
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1956_BODY) == true);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1961_BODY) == true);
+    CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1963_BODY) == true);
 }
 
 } // TEST_SUITE
@@ -50,19 +55,32 @@ TEST_CASE("rear bumper index is body + 2 for standard cars") {
           FORD_DELUXE_2DR_1940_BODY + 2);
 }
 
-TEST_CASE("Corvettes return 0 for rear bumper (no bumper)") {
-    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1956_BODY) == 0);
-    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1961_BODY) == 0);
-    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1963_BODY) == 0);
-}
-
-TEST_CASE("front bumper index is always body + 3") {
+// A car's assets run BODY, [CHOPPED_ROOF], CHOPPED_REARBUMPER,
+// CHOPPED_FRONTBUMPER, and the chopped-roof slot only exists for bodies that
+// can be chopped. The Corvettes cannot, so their bumper overlays sit one index
+// earlier than everyone else's.
+TEST_CASE("bumper overlays are body + 2/3, or body + 1/2 with no chopped roof") {
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_2DR_COUPE_1940_BODY) ==
+          CHEVROLET_2DR_COUPE_1940_CHOPPED_REARBUMPER);
     CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(CHEVROLET_2DR_COUPE_1940_BODY) ==
-          CHEVROLET_2DR_COUPE_1940_BODY + 3);
+          CHEVROLET_2DR_COUPE_1940_CHOPPED_FRONTBUMPER);
     CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(FORD_DELUXE_2DR_1940_BODY) ==
           FORD_DELUXE_2DR_1940_BODY + 3);
     CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(DODGE_POLARA_1962_BODY) ==
           DODGE_POLARA_1962_BODY + 3);
+
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1956_BODY) ==
+          CHEVROLET_CORVETTE_1956_CHOPPED_REARBUMPER);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(CHEVROLET_CORVETTE_1956_BODY) ==
+          CHEVROLET_CORVETTE_1956_CHOPPED_FRONTBUMPER);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1961_BODY) ==
+          CHEVROLET_CORVETTE_1961_CHOPPED_REARBUMPER);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(CHEVROLET_CORVETTE_1961_BODY) ==
+          CHEVROLET_CORVETTE_1961_CHOPPED_FRONTBUMPER);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_CORVETTE_1963_BODY) ==
+          CHEVROLET_CORVETTE_1963_CHOPPED_REARBUMPER);
+    CHECK(CarQuery::SrLibQueryGetChoppedBumberFrontIndex(CHEVROLET_CORVETTE_1963_BODY) ==
+          CHEVROLET_CORVETTE_1963_CHOPPED_FRONTBUMPER);
 }
 
 } // TEST_SUITE

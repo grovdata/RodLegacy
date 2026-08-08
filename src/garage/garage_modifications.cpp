@@ -424,9 +424,9 @@ void Garage::ShowCarInfoDialog() {
         addLeft("Fuel     4 gallons");
         // Blank line
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
-        int mph = model.baseSpeed > 0 ? model.baseSpeed : 97;
+        // Same number the original prints here (ComputeCarTopSpeed 0x243b9c).
         char speedBuf[64];
-        snprintf(speedBuf, sizeof(speedBuf), "Max speed   %d mph", mph);
+        snprintf(speedBuf, sizeof(speedBuf), "Max speed %3d mph", car->GetTopSpeed());
         addLeft(speedBuf);
     }
 

@@ -388,85 +388,17 @@ void Racing::LoadOpponentCarSprites() {
 
 srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) const {
     srrace::CarSetup setup;
-    setup.weightClass = 4;
-    setup.driverSkill = isPlayer ? 130 : 100;
-
-    if (!car) {
+    if (car) {
+        setup = CarSetupFromCar(*car, automaticOverride);
+        // Off the automatic override, a car with no gearbox class races on the
+        // manual tables rather than the (slower) automatic ones.
+        if (!automaticOverride && setup.transClass == 0) {
+            setup.transClass = 2;
+        }
+    } else {
         setup.transClass = automaticOverride ? 0 : 2;
-        return setup;
     }
-
-    switch (car->GetCarburator().partType.carburetorType) {
-        case CARB_2BARREL: setup.carbClass = 0; break;
-        case CARB_4BARREL: setup.carbClass = 1; break;
-        case CARB_4BARREL_RACING: setup.carbClass = 2; break;
-        default: setup.carbClass = 0; break;
-    }
-
-    switch (car->GetGearbox().partType.transmissionType) {
-        case TRANS_AUTO_GM:
-        case TRANS_AUTO_FORD:
-        case TRANS_AUTO_CHRYSLER:
-            setup.transClass = 0;
-            break;
-        case TRANS_3SPD_GM:
-        case TRANS_3SPD_FORD:
-        case TRANS_3SPD_CHRYSLER:
-            setup.transClass = 1;
-            break;
-        case TRANS_4SPD_GM:
-        case TRANS_4SPD_FORD:
-        case TRANS_4SPD_CHRYSLER:
-        case TRANS_4SPD_UNIVERSAL:
-            setup.transClass = 2;
-            break;
-        case TRANS_RACING_GM:
-        case TRANS_RACING_FORD:
-        case TRANS_RACING_CHRYSLER:
-            setup.transClass = 3;
-            break;
-        default:
-            setup.transClass = 2;
-            break;
-    }
-
-    if (automaticOverride) {
-        setup.transClass = 0;
-    } else if (setup.transClass == 0) {
-        setup.transClass = 2;
-    }
-
-    switch (car->GetEngine().engineType) {
-        case CarEngineGM_V6:
-        case CarEngineFord_V6:
-        case CarEngineChrysler_V6:
-            setup.engineClass = 1;
-            break;
-        default:
-            setup.engineClass = 2;
-            break;
-    }
-
-    switch (car->GetManifold().partType.manifoldType) {
-        case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
-        case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
-        case MANIFOLD_RACING: setup.manifoldClass = 4; break;
-        default: setup.manifoldClass = 0; break;
-    }
-
-    switch (car->GetWheelType()) {
-        case STOCK: setup.tireClass = 0; break;
-        case BRAND: setup.tireClass = 1; break;
-        case RACING: setup.tireClass = 2; break;
-        default: setup.tireClass = 0; break;
-    }
-
-    setup.tuneOffset = ClampInt(std::abs(car->GetTuneLevel() - 9), 0, 8);
-    setup.carbWear = ClampInt(car->GetCarburator().wear, 0, 10000);
-    setup.engineWear = ClampInt(car->GetEngine().wear, 0, 10000);
-    setup.transWear = ClampInt(car->GetGearbox().wear, 0, 10000);
-    setup.tireWear = ClampInt(car->GetTires().wear, 0, 10000);
-    setup.bumpersStripped = car->IsBumpersStripped();
+    setup.driverSkill = isPlayer ? 130 : 100;
     return setup;
 }
 
@@ -1958,6 +1890,7 @@ std::vector<DebugRow> Racing::GetOpponentDebugRows() const {
     out.push_back({"cruise / risky", std::to_string(ai.targetSpeedNormal) + " / " +
                                      std::to_string(ai.targetSpeedRisky)});
     out.push_back({"performance", std::to_string(sim.NpcTables().perfScore)});
+    out.push_back({"top speed", std::to_string(sim.NpcTables().topSpeed) + " mph"});
 
     const int segGap = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
     out.push_back({"gap", std::to_string(segGap) + " seg"});

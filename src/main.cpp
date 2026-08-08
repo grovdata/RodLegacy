@@ -15,6 +15,7 @@
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
 #include "config_screen.h"
+#include "race/race_sim.h"
 #include "utils.h"
 #include <filesystem>
 #include <fstream>
@@ -175,6 +176,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 static std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     std::vector<DebugPanel> panels;
 
+    // Jump straight to a scene. Replaces the old G/D/R/E hotkeys, which
+    // collided with typing a name on the NameEntry screen.
+    DebugPanel scenes{"Scenes", {}, DebugDock::Left};
+    scenes.buttons.push_back({"Garage",         [] { state.MoveToScene(SCENE_GARAGE); }});
+    scenes.buttons.push_back({"Diner",          [] { state.MoveToScene(SCENE_DINER); }});
+    scenes.buttons.push_back({"Driving",        [] { state.MoveToScene(SCENE_DRIVING); }});
+    scenes.buttons.push_back({"King of County", [] { state.MoveToScene(SCENE_KING_OF_COUNTY); }});
+    scenes.buttons.push_back({"Name Entry",     [] { state.MoveToScene(SCENE_NAME_ENTRY); }});
+    panels.push_back(std::move(scenes));
+
     // One left-hand panel: frame timing, player/world state and input.
     DebugPanel session{"Session", {}, DebugDock::Left};
     session.rows.push_back({"frame", ""});
@@ -250,6 +261,7 @@ int main(int argc, char* argv[]) {
     bool debugMode = false;
     bool muteAudio = false;
     bool forceConfig = false;
+    bool purist = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
@@ -259,6 +271,8 @@ int main(int argc, char* argv[]) {
             muteAudio = true;
         } else if (strcmp(argv[i], "-config") == 0) {
             forceConfig = true;
+        } else if (strcmp(argv[i], "--purist") == 0) {
+            purist = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
@@ -266,10 +280,13 @@ int main(int argc, char* argv[]) {
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
             printf("  -config          Show setup screen even if game files are already configured\n");
+            printf("  --purist         Score the engine tune exactly as the original does, so\n");
+            printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
             printf("  --help, -h       Show this help message\n");
             return 0;
         }
     }
+    srrace::SetPuristScoring(purist);
 
     // Check if running on Steam Deck
     bool isSteamDeck = IsSteamDeck();
@@ -282,6 +299,8 @@ int main(int argc, char* argv[]) {
     }
 
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
+    LOG_INFO("Tune scoring: %s", purist ? "purist (matches the original, 122 mph max)"
+                                        : "default (130 mph max)");
     LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system
@@ -403,7 +422,7 @@ int main(int argc, char* argv[]) {
         state.Init(debugMode, gamePath, muteAudio);
         mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
-        state.MoveToScene(SCENE_GARAGE);
+        state.MoveToScene(SCENE_NAME_ENTRY);
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         SDL_DestroyRenderer(renderer);
@@ -485,33 +504,14 @@ int main(int argc, char* argv[]) {
                                 }
                                 break;
                             case SDLK_g:
-                                if (event.type == SDL_KEYUP) {
-                                    if ((event.key.keysym.mod & KMOD_CTRL) != 0) {
-                                        mouse.SetGamepadActive(!mouse.IsGamepadActive());
-                                        LOG_INFO("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
-                                    } else {
-                                        state.MoveToScene(SCENE_GARAGE);
-                                    }
-                                }
-                                break;
-                            case SDLK_d:
-                                if (event.type == SDL_KEYUP) {
-                                    state.MoveToScene(SCENE_DINER);
+                                if (event.type == SDL_KEYUP && (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                                    mouse.SetGamepadActive(!mouse.IsGamepadActive());
+                                    LOG_INFO("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
                                 }
                                 break;
                             case SDLK_f:
                                 if (event.type == SDL_KEYUP && (event.key.keysym.mod & KMOD_CTRL) != 0) {
                                     ToggleFullScreen(win, isFullScreen);
-                                }
-                                break;
-                            case SDLK_r:
-                                if (event.type == SDL_KEYUP) {
-                                    state.MoveToScene(SCENE_DRIVING);
-                                }
-                                break;
-                            case SDLK_e:
-                                if (event.type == SDL_KEYUP) {
-                                    state.MoveToScene(SCENE_KING_OF_COUNTY);
                                 }
                                 break;
                             case SDLK_ESCAPE:

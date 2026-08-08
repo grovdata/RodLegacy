@@ -814,6 +814,14 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 return PAL_DRIVING_HOOD;
             }
 
+            // Newspaper is a menu screen (same category as diner/phonebook), not
+            // part of the driving scene, even though its asset indices (5..10)
+            // fall inside the driving-backdrop <45 range below. Without this it
+            // picks up PAL_DRIVING_LOW's olive/skin tones instead of PAL1.
+            if (a >= NEWSPAPER_MENU && a <= NEWSPAPER_NO_SOLDIERS_IN_VIETNAM) {
+                return PAL1;
+            }
+
             if (index < 45) {
                 return PAL_DRIVING_LOW;
             } else if (index >= 45 && index <= 80) {
@@ -1017,6 +1025,11 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
         SrLibDataCleanupCarString(line);  // strips leading '+' if isFeature
 
         const char* dollarPos = strchr(line, '$');
+        // Read the price now, while it still points into `line`: that buffer
+        // is freed below, and atoi-ing through a dangling pointer after the
+        // free reads garbage/zeroed memory (every ad silently priced at $0).
+        bool hasPrice = dollarPos != nullptr;
+        int parsedPrice = hasPrice ? atoi(dollarPos + 1) : 0;
 
         // Append to adText: lines separated by '\n', feature lines prefixed with '\t'
         // Bounds-checked against the fixed-size buffer; a malformed/oversized SR_data
@@ -1031,8 +1044,8 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
 
         free(line);
 
-        if (dollarPos) {
-            outClassified.price = atoi(dollarPos + 1);
+        if (hasPrice) {
+            outClassified.price = parsedPrice;
             break;
         }
     }
@@ -1517,14 +1530,11 @@ bool CarQuery::SrLibQueryCanChopRoof(AmigaLibAsset carAsset) {
 }
 
 bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
+    // The only three bodies that ship no CHOPPED_REARBUMPER/FRONTBUMPER pair.
     switch (carAsset) {
         case FORD_DEUCE_COUPE_1932_BODY:
         case FORD_SEDAN_1932_BODY:
         case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
-        // FIXME: These SHOULD be able to strip bumpers, the bitmaps are garbled
-        case CHEVROLET_CORVETTE_1956_BODY:
-        case CHEVROLET_CORVETTE_1961_BODY:
-        case CHEVROLET_CORVETTE_1963_BODY:
             return false;
         default:
             return true;
@@ -1552,19 +1562,21 @@ int SrLibQueryGetCarIdleX(SrLibGameScene scene) {
 }
 
 
+// A car's assets run BODY, [CHOPPED_ROOF], CHOPPED_REARBUMPER,
+// CHOPPED_FRONTBUMPER. The chopped-roof slot only exists for bodies that can
+// actually be chopped, so on the three Corvettes - which cannot - both bumper
+// overlays sit one index earlier than on every other car.
+static int BumperOverlayBase(AmigaLibAsset carAsset) {
+    return static_cast<int>(carAsset) +
+           (CarQuery::SrLibQueryCanChopRoof(carAsset) ? 2 : 1);
+}
+
 int CarQuery::SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset) {
-    switch (carAsset) {
-        case CHEVROLET_CORVETTE_1956_BODY:
-        case CHEVROLET_CORVETTE_1961_BODY:
-        case CHEVROLET_CORVETTE_1963_BODY:
-            return 0;  // Corvettes don't have rear bumpers to strip
-        default:
-            return carAsset + 2;  // Rear bumper overlay is body index + 2
-    }
+    return BumperOverlayBase(carAsset);
 }
 
 int CarQuery::SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset) {
-    return carAsset + 3;
+    return BumperOverlayBase(carAsset) + 1;
 }
 
 CarVendor_t SrLibQueryGetCarVendor(int carIndex) {

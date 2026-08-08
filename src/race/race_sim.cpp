@@ -26,7 +26,17 @@ int ClampTrackIndex(int seg) {
     return ClampValue(seg, 0, TRACK_SEGMENTS - 1);
 }
 
+bool gPuristScoring = false;
+
 }  // namespace
+
+void SetPuristScoring(bool enabled) {
+    gPuristScoring = enabled;
+}
+
+bool PuristScoring() {
+    return gPuristScoring;
+}
 
 int ComputeBasePerformance(const CarSetup& setup) {
     static const int kCarbPts[3] = {0, 50, 100};
@@ -37,30 +47,46 @@ int ComputeBasePerformance(const CarSetup& setup) {
         0, 0, 0, 50, 100,
         0, 50, 100, 0, 33
     };
-    static const int kWeightPts[8] = {40, 44, 48, 60, 64, 68, 80, 84};
+    static const int kWeightPts[9] = {40, 44, 48, 60, 64, 68, 80, 84, 88};
 
     const int carbClass = ClampValue(setup.carbClass, 0, 2);
     const int transClass = ClampValue(setup.transClass, 0, 3);
     const int engineClass = ClampValue(setup.engineClass, 0, 3);
     const int manifoldClass = ClampValue(setup.manifoldClass, 0, 4);
-    const int weightClass = ClampValue(setup.weightClass, 0, 7);
+    const int weightClass = ClampValue(setup.weightClass, 0, 8);
     const int tuneOffset = ClampValue(setup.tuneOffset, 0, 8);
     const int carbWear = ClampValue(setup.carbWear, 0, 10000);
 
+    // The terms are weighted to add up to 100 for a perfect car: carb 25,
+    // transmission 15, engine/manifold 15, tune 20, weight 10, body mods 15.
     int pts = 0;
     pts += (kCarbPts[carbClass] * 25) / 100;
     pts += (kTransPts[transClass] * 15) / 100;
     pts += (kEngByManifold[engineClass * 5 + manifoldClass] * 15) / 100;
-    pts += ((8 - tuneOffset) * 20) / 8;
+    // The tune term is the one place we do not follow the 68k by default. The
+    // original writes (1 - |tune|), which tops out at +2 instead of the +20
+    // the rest of the scale is built around and leaves the 130 mph cap
+    // unreachable; --purist restores it. See top_speed.md.
+    pts += (((gPuristScoring ? 1 : 8) - tuneOffset) * 20) / 8;
     pts += (kWeightPts[weightClass] * 10) / 88;
-    if (setup.bumpersStripped) {
+    if (setup.roofChopped) {
         pts += 9;
+    }
+    if (setup.frontBumperRemoved) {
+        pts += 5;
+    }
+    if (setup.rearBumperRemoved) {
+        pts += 1;
     }
 
     const bool automatic = (transClass == 0);
     const int transFactor = automatic ? 24 : 30;
     const int wearScaledPts = (pts * (10000 - carbWear)) / 10000;
     return 70 + (wearScaledPts * transFactor) / 100;
+}
+
+int ComputeTopSpeed(const CarSetup& setup) {
+    return std::min((ComputeBasePerformance(setup) * 13) / 10, 130);
 }
 
 void BuildCarTables(const CarSetup& setup, CarTables& tables) {
@@ -90,12 +116,13 @@ void BuildCarTables(const CarSetup& setup, CarTables& tables) {
     const int tireClass = ClampValue(setup.tireClass, 0, 2);
 
     const int base = ComputeBasePerformance(setup);
-    const int topSpeed = std::min((base * 13) / 10, 130);
+    const int topSpeed = ComputeTopSpeed(setup);
 
     tables.automatic = (transClass == 0);
     tables.numGears = kNumGears[transClass];
     tables.autoShiftRpm = static_cast<int16_t>(kBandEnd[carbClass]);
     tables.perfScore = static_cast<int16_t>(base);
+    tables.topSpeed = static_cast<int16_t>(topSpeed);
 
     for (int g = 0; g < 5; ++g) {
         const int fracSpeed = (kTopFracByTrans[transClass][g] * topSpeed) / 100;
