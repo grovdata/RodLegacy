@@ -107,6 +107,7 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
         
         // Create the car model using the stock index
         CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
+        metadataByIndex[newModel.index] = carMetadata[i];
         allCarModels.insert(newModel);
     }
 
@@ -117,22 +118,75 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
 }
 
 CarMetadata_t CarData::GetCarMetadata(int carIndex) {
-    // Convert asset ID (like 179) to array index (0-24)
-    int arrayIndex = -1;
-    for (int i = 0; i < CAR_INDEX_COUNT; i++) {
-        if (kCarIndex[i] == carIndex) {
-            arrayIndex = i;
-            break;
+    auto found = metadataByIndex.find(carIndex);
+    if (found != metadataByIndex.end()) {
+        return found->second;
+    }
+    LOG_INFO("Warning: GetCarMetadata carIndex %d not known (%zu entries), returning empty metadata",
+             carIndex, metadataByIndex.size());
+    CarMetadata_t empty = {};
+    return empty;
+}
+
+int CarData::ReadCarsSrse(const std::vector<uint8_t>& hotData,
+                          const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps) {
+    const std::vector<SrCarSpecEntry> specs = dp.ParseCarSpecTableDOS(hotData);
+    const std::vector<DosCarSprites> sprites = dp.ParseCarSpritesDOS(hotData);
+    if (specs.empty() || sprites.empty()) {
+        LOG_WARN("SRSE HOT_DATA too short to parse, no SE cars added");
+        return 0;
+    }
+
+    int metadataCount = 0;
+    CarMetadata_t* metadata = dp.SrLibDataReadDataFromBufferDOS(hotData.data(), hotData.size(), &metadataCount);
+    if (!metadata) {
+        LOG_WARN("SRSE HOT_DATA classifieds unreadable, no SE cars added");
+        return 0;
+    }
+
+    int added = 0;
+    for (int i = 0; i < metadataCount; i++) {
+        const int bodySprite = sprites[i].body;
+        if (bodySprite < 0 || bodySprite >= bitmaps.first) {
+            LOG_WARN("SRSE car %d names body sprite %d, outside the %d-entry LIB2 - skipping",
+                     i, bodySprite, bitmaps.first);
+            continue;
         }
+        const DOSBitmapEntry_t& bitmap = bitmaps.second[bodySprite];
+
+        CarModel model;
+        // SRSE body sprite numbers (39..179) overlap lib.p's car assets
+        // (179..272), so shift them clear to keep CarModel::index a unique key
+        // across both sources. This is the same +1000 HOT_DATA itself uses.
+        model.index = HOT_DATA_SPRITE_BASE + bodySprite;
+        model.spriteSource = SrLibFileSrseLib2;
+        model.dosSprites = sprites[i];
+        model.name = metadata[i].classified.carName ? metadata[i].classified.carName : "";
+        model.year = metadata[i].classified.year;
+        model.offsets = metadata[i].offsets;
+        model.width = bitmap.width;
+        model.height = bitmap.height;
+        // FIXME Speed is unknown, same placeholder the stock cars use
+        model.baseSpeed = 100;
+        switch (specs[i].Brand()) {
+            case 0:  model.vendor = CarVendorGM; break;
+            case 1:  model.vendor = CarVendorFord; break;
+            case 2:  model.vendor = CarVendorChrysler; break;
+            default: model.vendor = CarVendorUnknown; break;
+        }
+
+        metadataByIndex[model.index] = metadata[i];
+        allCarModels.insert(model);
+        added++;
     }
-    
-    if (arrayIndex < 0 || arrayIndex >= (int)carMetadata.size()) {
-        LOG_INFO("Warning: GetCarMetadata carIndex %d (arrayIndex %d) out of bounds (size: %zu), returning empty metadata", 
-                carIndex, arrayIndex, carMetadata.size());
-        CarMetadata_t empty = {};
-        return empty;
-    }
-    return carMetadata[arrayIndex];
+
+    // Only the array itself. The classified strings are malloc'd separately
+    // and the shallow copies in metadataByIndex still point at them, exactly
+    // as ReadCarsBuiltin leaves the stock cars' strings alive for the run.
+    free(metadata);
+
+    LOG_INFO("Added %d Street Rod SE cars", added);
+    return added;
 }
 
 void CarData::ReadCarsFromTomlFile(std::string filename) {

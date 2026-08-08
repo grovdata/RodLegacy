@@ -33,6 +33,17 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         // Parse SR_data driver/car-spec tables and initialise pool.
         DataParser dataParser;
+
+        // Street Rod SE cars, if the data disk is present and switched on.
+        // They come with their own stats, sprite numbers and pixel offsets;
+        // see RodLegacyResearch/docs/formats/hot_data_dos.md.
+        srseCarsEnabled = assets.HasSrseData() && assets.IncludeSrseCars();
+        if (srseCarsEnabled) {
+            const int added = carData.ReadCarsSrse(assets.GetSrseHotData(), assets.GetSrseImageEntries());
+            srseCarSpecData = dataParser.ParseCarSpecTableDOS(assets.GetSrseHotData());
+            srseCarSprites  = dataParser.ParseCarSpritesDOS(assets.GetSrseHotData());
+            srseCarsEnabled = added > 0;
+        }
         srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
         srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
         if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
@@ -94,6 +105,28 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
                 // table, so i indexes both.
                 if (i < static_cast<int>(srCarSpecData.size())) {
                     CarBuilder::ApplySpec(car, srCarSpecData[i], model.vendor);
+                }
+                classifiedCars.push_back(car);
+            }
+        }
+
+        // Same again for the SE cars, which sit in the pool alongside the
+        // stock 25 rather than replacing them.
+        if (srseCarsEnabled) {
+            for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < static_cast<int>(srseCarSprites.size()); i++) {
+                const int carAssetId = HOT_DATA_SPRITE_BASE + srseCarSprites[i].body;
+                CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
+                if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
+                    continue;
+                }
+                CarModel model = carData.GetModelFromIndex(carAssetId);
+                Car* car = roster.GenerateRandomCar(model);
+                car->SetRoofChopped(false);
+                car->SetBumpersStripped(false);
+                car->SetDecal(SrLibCarDecalNone);
+                car->SetScoop(SCOOP_NONE);
+                if (i < static_cast<int>(srseCarSpecData.size())) {
+                    CarBuilder::ApplySpec(car, srseCarSpecData[i], model.vendor);
                 }
                 classifiedCars.push_back(car);
             }

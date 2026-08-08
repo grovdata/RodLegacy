@@ -6,6 +6,14 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
+// Loads one of a car's sprites (body, chopped roof, bumper patch) from
+// whichever lib the model draws from. Pair it with CarBodySprite and friends
+// in types.h; a negative index gives nullptr. Amiga lib.p art is recoloured
+// through carPalette, while Street Rod SE cars are fixed 16-colour DOS
+// sprites that already carry their paint, so carPalette is ignored for those.
+Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
+                           const std::vector<uint16_t>& carPalette);
+
 class CarShadow: public Bitmap {
     private:
         int width;

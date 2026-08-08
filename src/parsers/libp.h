@@ -31,6 +31,9 @@ enum SrLibFile {
     SrLibFileDosLib1 = 2,
     SrLibFileDosLib1c = 3,
     SrLibFileDosLib2 = 4,
+    // LIB2 off the Street Rod SE data disk. Same format and index layout as
+    // SrLibFileDosLib2, different car art. See SrseLib2Asset below.
+    SrLibFileSrseLib2 = 5,
 };
 
 

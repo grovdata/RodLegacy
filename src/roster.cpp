@@ -139,14 +139,14 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     std::uniform_int_distribution<> roofDist(0, 1);
     bool isRoofChopped = roofDist(gen) == 1;
     car->SetRoofChopped(isRoofChopped);
-    bool canChopRoof = CarQuery::SrLibQueryCanChopRoof((AmigaLibAsset)model.index);
+    bool canChopRoof = CarModelCanChopRoof(model);
     if (!canChopRoof) {
         car->SetRoofChopped(false);
     }
 
     bool areBumpersStripped = false;
    
-    bool canStripBumpers = CarQuery::SrLibQueryCanStripBumpers((AmigaLibAsset)model.index);
+    bool canStripBumpers = CarModelCanStripBumpers(model);
     if (!canStripBumpers) {
         car->SetBumpersStripped(false);
     } else {
@@ -155,8 +155,12 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     }
     
     car->SetBumpersStripped(areBumpersStripped);
-    // Update the asset with the selected color
-    state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor); 
+    // Update the asset with the selected color. Only lib.p art is recoloured;
+    // Street Rod SE cars are 16-colour DOS sprites that carry their own paint,
+    // and their index is not a lib.p asset to look up.
+    if (!CarModelIsSrse(model)) {
+        state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor);
+    }
 
     std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
@@ -206,8 +210,11 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     int wearManifold = wearDist(gen);
     int wearCarb = wearDist(gen);
 
-    // Vendor for this model
-    CarVendor_t vendor = (CarVendor_t)CAR_VENDOR_LOOKUP[model.index][1];
+    // Vendor for this model. CAR_VENDOR_LOOKUP is a 26-row {asset, vendor}
+    // table to be searched, not indexed - model.index is a lib.p asset id in
+    // the 179..272 range (and higher still for Street Rod SE cars), so
+    // subscripting it read past the end. CarModel::vendor is already resolved.
+    CarVendor_t vendor = model.vendor;
 
     // Transmission is already set by CarBuilder with vendor-appropriate logic
 

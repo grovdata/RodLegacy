@@ -40,7 +40,12 @@ CarWheelType Car::GetWheelType() const {
 }
 
 void Car::SetTires(CarWheelType type) {
-    CarVendor_t vendor = SrLibQueryGetCarVendor(model.index);
+    // model.vendor is already resolved for both sources; the lookup only knows
+    // lib.p assets and would answer Unknown for a Street Rod SE car.
+    CarVendor_t vendor = model.vendor;
+    if (vendor == CarVendorUnknown) {
+        vendor = SrLibQueryGetCarVendor(model.index);
+    }
     AmigaLibAsset aid;
     switch (type) {
         case STOCK:
@@ -165,9 +170,8 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     //
     // These read the sprite tables directly rather than CarModel::constraints,
     // which nothing ever populates (it is stuck at "everything allowed").
-    const AmigaLibAsset body = static_cast<AmigaLibAsset>(car.GetModelRef().index);
-    const bool canChop = CarQuery::SrLibQueryCanChopRoof(body);
-    const bool canDebumper = CarQuery::SrLibQueryCanStripBumpers(body);
+    const bool canChop = CarModelCanChopRoof(car.GetModelRef());
+    const bool canDebumper = CarModelCanStripBumpers(car.GetModelRef());
     setup.roofChopped = car.IsRoofChopped() || !canChop;
     setup.frontBumperRemoved = car.IsFrontBumperStripped() || !canDebumper;
     setup.rearBumperRemoved = car.IsBackBumperStripped() || !canDebumper;

@@ -385,6 +385,7 @@ void AssetManager::ReadAssets() {
 
         InitMousePointers();
         InitDosAssets();
+        InitSrseAssets();
 
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to read assets: %s", e.what());
@@ -403,6 +404,14 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
 /// @param index
 /// @param carPalette
 void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
+    // Guard the subscript: index is a lib.p asset id, and anything sourced
+    // from a car pool key can be outside it (Street Rod SE cars carry a
+    // shifted index). Log rather than trap - the caller wanted lib.p art and
+    // there is none, so there is nothing to draw.
+    if (index < 0 || index >= (int)imageEntries.second.size()) {
+        LOG_ERROR("UpdateAsset: index %d outside lib.p (%zu entries)", index, imageEntries.second.size());
+        return;
+    }
     BitmapEntry_t b = imageEntries.second[index];
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
@@ -475,6 +484,11 @@ Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asse
 }
 
 void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey) {
+    if (index < 0 || index >= (int)imageEntries.second.size()) {
+        LOG_ERROR("CreateAndCachePaletteVariant: index %d outside lib.p (%zu entries)",
+                  index, imageEntries.second.size());
+        return;
+    }
     BitmapEntry_t b = imageEntries.second[index];
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
@@ -502,32 +516,72 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     paletteVariantCache[cacheKey] = std::move(bitmap);
 }
 
-void AssetManager::InitDosAssets() {
-    fs::path lib2Path     = gameBasePath / "LIB2";
-    fs::path sr1pcZipPath = gameBasePath / "sr1pc.zip";
+byte_vector AssetManager::LoadDosDataFile(const fs::path& loosePath, const fs::path& zipPath,
+        const std::string& zipEntry, const char* what) {
+    byte_vector data;
 
-    if (fs::exists(lib2Path)) {
-        std::ifstream file(lib2Path, std::ios::binary | std::ios::ate);
+    if (fs::exists(loosePath)) {
+        std::ifstream file(loosePath, std::ios::binary | std::ios::ate);
         if (!file) {
-            LOG_INFO("Failed to open LIB2 file");
-            return;
+            LOG_INFO("Failed to open %s at %s", what, loosePath.string().c_str());
+            return {};
         }
         std::streamsize size = file.tellg();
         file.seekg(0, std::ios::beg);
-        lib2Data_vec.resize(size);
-        if (!file.read(reinterpret_cast<char*>(lib2Data_vec.data()), size)) {
-            LOG_INFO("Failed to read LIB2 file");
-            lib2Data_vec.clear();
-            return;
+        data.resize(size);
+        if (!file.read(reinterpret_cast<char*>(data.data()), size)) {
+            LOG_INFO("Failed to read %s at %s", what, loosePath.string().c_str());
+            return {};
         }
-    } else if (fs::exists(sr1pcZipPath)) {
-        lib2Data_vec = ZipExtractToMemory(sr1pcZipPath, "SR1/LIB2");
-        if (lib2Data_vec.empty()) {
-            LOG_INFO("sr1pc.zip found but SR1/LIB2 not inside, DOS decals unavailable");
-            return;
+        return data;
+    }
+
+    if (fs::exists(zipPath)) {
+        data = ZipExtractToMemory(zipPath, zipEntry);
+        if (data.empty()) {
+            LOG_INFO("%s found but %s not inside, %s unavailable",
+                     zipPath.filename().string().c_str(), zipEntry.c_str(), what);
         }
-    } else {
-        LOG_INFO("No LIB2 or sr1pc.zip found, DOS decals unavailable");
+        return data;
+    }
+
+    LOG_INFO("No %s or %s found, %s unavailable",
+             loosePath.filename().string().c_str(), zipPath.filename().string().c_str(), what);
+    return {};
+}
+
+std::unique_ptr<Bitmap> AssetManager::DecodeDosSprite(byte_vector& libData,
+        const std::pair<int, std::vector<DOSBitmapEntry_t>>& entries, int index) {
+    if (index < 0 || index >= entries.first) {
+        return nullptr;
+    }
+
+    DOSBitmapEntry_t entry = entries.second[index];
+    std::vector<uint8_t> planarData = bp.ReadImageDOS(libData, entry, index, entries.first);
+    Palette palette = bp.GetDOSPalette(entry.type);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
+
+    auto bitmap = std::make_unique<Bitmap>();
+    // Load as opaque so black pixels are preserved (not made transparent)
+    bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height, false, true);
+
+    // For transparent sprites (type 1), use SDL color key to make
+    // the red background (palette index 0) transparent
+    if (entry.type == 1) {
+        SDL_Surface* surf = bitmap->GetSurface();
+        if (surf) {
+            SDL_SetColorKey(surf, SDL_TRUE, SDL_MapRGB(surf->format, 0xFF, 0x00, 0x00));
+            bitmap->UpdateFromSurface();
+        }
+    }
+
+    return bitmap;
+}
+
+void AssetManager::InitDosAssets() {
+    lib2Data_vec = LoadDosDataFile(gameBasePath / "LIB2", gameBasePath / "sr1pc.zip",
+                                   "SR1/LIB2", "DOS decals");
+    if (lib2Data_vec.empty()) {
         return;
     }
 
@@ -541,36 +595,60 @@ void AssetManager::InitDosAssets() {
 
     for (int i = 0; i < 8; i++) {
         int idx = dosDecalIndices[i];
-        if (idx >= dosImageEntries.first) {
+        auto bitmap = DecodeDosSprite(lib2Data_vec, dosImageEntries, idx);
+        if (!bitmap) {
             LOG_INFO("LIB2: decal index %d out of range (%d entries), skipping", idx, dosImageEntries.first);
             dosDecalBitmaps.push_back(nullptr);
             continue;
         }
-
-        DOSBitmapEntry_t entry = dosImageEntries.second[idx];
-        std::vector<uint8_t> planarData = bp.ReadImageDOS(lib2Data_vec, entry, idx, dosImageEntries.first);
-        Palette palette = bp.GetDOSPalette(entry.type);
-        std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
-
-        auto bitmap = std::make_unique<Bitmap>();
-        // Load as opaque so black pixels are preserved (not made transparent)
-        bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height, false, true);
-
-        // For transparent sprites (type 1), use SDL color key to make
-        // the red background (palette index 0) transparent
-        if (entry.type == 1) {
-            SDL_Surface* surf = bitmap->GetSurface();
-            if (surf) {
-                SDL_SetColorKey(surf, SDL_TRUE, SDL_MapRGB(surf->format, 0xFF, 0x00, 0x00));
-                bitmap->UpdateFromSurface();
-            }
-        }
-
+        const DOSBitmapEntry_t& entry = dosImageEntries.second[idx];
         dosDecalBitmaps.push_back(std::move(bitmap));
         LOG_INFO("LIB2: loaded DOS decal %d (%dx%d)", i, entry.width, entry.height);
     }
 
     LOG_INFO("Loaded %zu DOS decals from LIB2", dosDecalBitmaps.size());
+}
+
+void AssetManager::InitSrseAssets() {
+    const fs::path srseZip = gameBasePath / "srsepc.zip";
+
+    srseLib2Data_vec = LoadDosDataFile(gameBasePath / "SRSE" / "LIB2", srseZip,
+                                       "SRSE/LIB2", "SRSE cars");
+    if (srseLib2Data_vec.empty()) {
+        return;
+    }
+
+    // The car stats, sprite numbers and pixel offsets all live in HOT_DATA, so
+    // the art on its own is not usable.
+    srseHotData_vec = LoadDosDataFile(gameBasePath / "SRSE" / "HOT_DATA", srseZip,
+                                      "SRSE/HOT_DATA", "SRSE cars");
+    if (srseHotData_vec.empty()) {
+        srseLib2Data_vec.clear();
+        return;
+    }
+
+    srseImageEntries = bp.ReadEntriesDOS(srseLib2Data_vec);
+    LOG_INFO("SRSE LIB2: parsed %d entries, HOT_DATA %zu bytes",
+             srseImageEntries.first, srseHotData_vec.size());
+}
+
+Bitmap* AssetManager::GetSrseSprite(int index) {
+    auto cached = srseSpriteCache.find(index);
+    if (cached != srseSpriteCache.end()) {
+        return cached->second.get();
+    }
+
+    auto bitmap = DecodeDosSprite(srseLib2Data_vec, srseImageEntries, index);
+    if (!bitmap) {
+        LOG_INFO("SRSE LIB2: sprite %d out of range (%d entries)", index, srseImageEntries.first);
+        return nullptr;
+    }
+    const DOSBitmapEntry_t& entry = srseImageEntries.second[index];
+    bitmap->SetDimensions(entry.width, entry.height);
+
+    Bitmap* raw = bitmap.get();
+    srseSpriteCache[index] = std::move(bitmap);
+    return raw;
 }
 
 Bitmap* AssetManager::GetDosDecal(int index) {
@@ -741,6 +819,9 @@ void AssetManager::LoadSettings() {
         return;
     }
     try {
+        auto srse = kv.find("include_srse_cars");
+        if (srse != kv.end()) includeSrseCars = std::stoi(srse->second) != 0;
+
         if (audioManager) {
             auto it = kv.find("sfx_volume");
             if (it != kv.end()) audioManager->SetSfxVolume(std::stoi(it->second));
@@ -759,6 +840,7 @@ void AssetManager::LoadSettings() {
 
 void AssetManager::SaveSettings() {
     auto kv = ReadConfigFile();
+    kv["include_srse_cars"] = includeSrseCars ? "1" : "0";
     if (audioManager) {
         kv["sfx_volume"]    = std::to_string(audioManager->GetSfxVolume());
         kv["music_volume"]  = std::to_string(audioManager->GetMusicVolume());

@@ -22,11 +22,10 @@ void Garage::ShowBumperDialog(bool isFront) {
     // Check if car can strip bumpers
     if (state.GetCurrentCar()) {
         CarModel model = state.GetCurrentCar()->GetModel();
-        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
 
         // If trying to strip bumpers, check if car supports it
         bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
-        if (!isStripped && !CarQuery::SrLibQueryCanStripBumpers(bodyAssetNo)) {
+        if (!isStripped && !CarModelCanStripBumpers(model)) {
             // Show constraint bubble instead of dialog
             if (bubbles.size() > 6) {
                 bubbles[6]->SetVisible(true);  // bumperConstraintBubble
@@ -86,11 +85,10 @@ void Garage::ShowRoofDialog() {
     // Check if car can chop roof
     if (state.GetCurrentCar()) {
         CarModel model = state.GetCurrentCar()->GetModel();
-        AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
 
         // If trying to chop roof, check if car supports it
         bool isChopped = carBitmap->IsRoofChopped();
-        if (!isChopped && !CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
+        if (!isChopped && !CarModelCanChopRoof(model)) {
             // Show constraint bubble instead of dialog
             if (bubbles.size() > 5) {
                 bubbles[5]->SetVisible(true);  // roofConstraintBubble

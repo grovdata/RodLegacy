@@ -16,6 +16,7 @@ test_sources = [
     'test_main.cpp',
     'test_vectorreader.cpp',
     'test_bitmapparser.cpp',
+    'test_hotdata_dos.cpp',
     'test_queries.cpp',
     'test_track.cpp',
     'test_strings.cpp',

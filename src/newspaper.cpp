@@ -4,6 +4,7 @@
 #include "state.h"
 #include "car.h"
 #include "animated_bitmap.h"
+#include "carbitmap.h"
 #include "parsers/carcolor.h"
 #include "SFont.h"
 #include "scene_layout.h"
@@ -144,6 +145,25 @@ void Newspaper::LoadClassifiedsData() {
                     adText.c_str(), metadata.classified.price);
             carMetadata.push_back(metadata);
             carAssetIds.push_back(carAssetId);
+        }
+    }
+
+    // Street Rod SE cars follow the stock ones, in the same order and with the
+    // same skip condition State::Init used, so this list stays index-aligned
+    // with state.classifiedCars.
+    if (state.SrseCarsEnabled()) {
+        const std::vector<DosCarSprites>& srseSprites = state.GetSrseCarSprites();
+        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < static_cast<int>(srseSprites.size()); i++) {
+            int carAssetId = HOT_DATA_SPRITE_BASE + srseSprites[i].body;
+            CarMetadata_t metadata = state.carData.GetCarMetadata(carAssetId);
+
+            if (metadata.classified.carName && strlen(metadata.classified.carName) > 0) {
+                std::string adText = metadata.classified.adText ? metadata.classified.adText : "No description";
+                LOG_INFO("Classified SE %d: %s - %s - $%d", i, metadata.classified.carName,
+                        adText.c_str(), metadata.classified.price);
+                carMetadata.push_back(metadata);
+                carAssetIds.push_back(carAssetId);
+            }
         }
     }
 
@@ -742,16 +762,14 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
         return; // Already sold
     }
 
-    int assetId = carAssetIds[carIndex];
     CarModel model = car->GetModel();
     BitmapOffset_t offsets = model.offsets;
     std::vector<uint16_t> palette = GetStandardCarColor(car->GetColor());
 
-    // Load body with car's color palette
-    Bitmap* carBodyBitmap = state.GetAssets().GetBitmapAssetWithPalette(
-        state.GetAssets().GetLibPData(),
-        {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)assetId},
-        palette);
+    // Load body with car's color palette. carAssetIds holds the pool key,
+    // which for a Street Rod SE car is not a lib.p asset - go through the
+    // model so the right lib is used.
+    Bitmap* carBodyBitmap = LoadCarModelSprite(model, CarBodySprite(model), palette);
 
     // Load wheel spritesheet
     Bitmap* wheelBitmap = state.GetAssets().GetBitmapAsset(

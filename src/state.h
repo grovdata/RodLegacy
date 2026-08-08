@@ -45,6 +45,12 @@ private:
     RacerPool  racerPool;
     std::vector<SrDriverData>   srDriverData;
     std::vector<SrCarSpecEntry> srCarSpecData;
+
+    // Street Rod SE data disk. Empty and false unless the disk is present and
+    // the cars are switched on. Same 26-entry shape as srCarSpecData.
+    bool                        srseCarsEnabled = false;
+    std::vector<SrCarSpecEntry> srseCarSpecData;
+    std::vector<DosCarSprites>  srseCarSprites;
     int lastChallengerPoolIndex = -1;
 
     RaceType pendingRaceType   = RaceType::Road;
@@ -105,6 +111,12 @@ public:
     void SetPlayerName(const std::string& name) { playerName = name.empty() ? "Player" : name; }
 
     AssetManager& GetAssets() { return assets; }
+
+    // Street Rod SE cars, when the data disk is present and switched on. The
+    // sprite table is in the same order as the SE classifieds, so callers
+    // walking the SE cars can index both with the same i.
+    bool SrseCarsEnabled() const { return srseCarsEnabled; }
+    const std::vector<DosCarSprites>& GetSrseCarSprites() const { return srseCarSprites; }
 
     void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false);
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
