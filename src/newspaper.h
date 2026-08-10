@@ -5,8 +5,27 @@
 #include "ui/label.h"
 #include "parsers/libp.h"
 #include "dialogs/dialog.h"
+#include "car_system.h"
 #include <vector>
 #include <memory>
+
+// Which spare-parts category a newspaper classified entry belongs to. Used
+// to route a purchase to the matching State::AddSpare* accessor.
+enum class PartCategory { Engine, Transmission, Carburetor, Manifold, Tire };
+
+// One of the 40 fixed AUTO PARTS classified slots (see LoadClassifiedsData /
+// kPartCatalog in newspaper.cpp). Name and price always come from the parsed
+// ClassifiedEntry_t, not from here -- only category/vendor/specific type are
+// hardcoded, since PartMetadata_t carries ad text only, not part identity.
+struct PartCatalogEntry {
+    PartCategory category;
+    CarVendor_t vendor;
+    CarEngine_t engineType;
+    TransmissionType transType;
+    CarburetorType carbType;
+    ManifoldType manifoldType;
+    CarWheelType tireType;
+};
 
 class Newspaper : public Scene {
 private:
@@ -34,31 +53,38 @@ private:
 
     // Current page data
     int currentPage = 0;
-    int totalPages = 0;
+    int totalPages = 0;      // used-car pages
+    int totalPartsPages = 0; // AUTO PARTS pages
     int adsPerPage = 6; // Number of ads that fit on one page (multi-line ads)
 
     // Car metadata for classifieds
     std::vector<CarMetadata_t> carMetadata;
     std::vector<int> carAssetIds; // Parallel to carMetadata: the AmigaLibAsset index
 
+    // AUTO PARTS classifieds: ad text/price parsed from the Street_Rod exe,
+    // parallel to the fixed kPartCatalog category table (newspaper.cpp).
+    std::vector<PartMetadata_t> partMetadata;
+
     // Surface dimensions
     int allAdsSurfaceHeight = 0;
+    int partsSectionHeight = 0; // measured height of the AUTO PARTS block, set by CreateAllAdsSurface
 
     // Smooth scrolling
     int smoothScrollOffset = 0;
 
     // Ad position mapping
     struct AdPosition {
-        int adIndex;        // Index in carMetadata
+        int adIndex;        // Index into carMetadata (isUsedCar) or partMetadata/kPartCatalog (!isUsedCar)
         int startY;         // Start Y position in the large surface
         int endY;           // End Y position in the large surface
-        bool isUsedCar;     // true for used car ads, false for classified ads
+        bool isUsedCar;     // true for used car ads, false for AUTO PARTS ads
     };
     std::vector<AdPosition> adPositions;
 
     // Dialog system
     std::unique_ptr<Dialog> carPurchaseDialog;
     std::unique_ptr<Dialog> carViewDialog;
+    std::unique_ptr<Dialog> partPurchaseDialog;
     int selectedCarIndex = -1;
     int lastClickX = 0;
     int lastClickY = 0;
@@ -80,6 +106,7 @@ private:
     int FindAdAtPosition(int mouseY);
     void ShowCarPurchaseDialog(int carIndex);
     void ShowCarViewDialog(int carIndex);
+    void ShowPartPurchaseDialog(int partIndex);
 public:
     Newspaper();
     ~Newspaper();

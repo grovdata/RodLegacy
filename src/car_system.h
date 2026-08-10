@@ -20,9 +20,13 @@ enum TransmissionType {
     TRANS_4SPD_UNIVERSAL
 };
 
+// Matches SR_data's manifold spec field (0..4) and the newspaper classifieds'
+// 5 manifold subtypes per brand, in increasing performance/price order.
 enum ManifoldType {
-    MANIFOLD_STOCK,
-    MANIFOLD_PERFORMANCE,
+    MANIFOLD_2BARREL,
+    MANIFOLD_4BARREL,
+    MANIFOLD_DUAL_QUAD,
+    MANIFOLD_TRIPLE_2BARREL,
     MANIFOLD_RACING
 };
 

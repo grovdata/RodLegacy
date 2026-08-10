@@ -3,6 +3,9 @@
 #include <sstream>
 #include "state.h"
 #include "car.h"
+#include "car_builder.h"
+#include "part.h"
+#include "engine_part.h"
 #include "animated_bitmap.h"
 #include "carbitmap.h"
 #include "parsers/carcolor.h"
@@ -13,6 +16,83 @@
 
 const std::string autoParts = "------------ PARTS ------------";
 const std::string usedCars = "---------- USED CARS ----------";
+
+namespace {
+
+PartCatalogEntry Engine(CarVendor_t v, CarEngine_t t) {
+    PartCatalogEntry e{}; e.category = PartCategory::Engine; e.vendor = v; e.engineType = t; return e;
+}
+PartCatalogEntry Trans(CarVendor_t v, TransmissionType t) {
+    PartCatalogEntry e{}; e.category = PartCategory::Transmission; e.vendor = v; e.transType = t; return e;
+}
+PartCatalogEntry Carb(CarburetorType t) {
+    PartCatalogEntry e{}; e.category = PartCategory::Carburetor; e.vendor = CarVendorUnknown; e.carbType = t; return e;
+}
+PartCatalogEntry Manifold(CarVendor_t v, ManifoldType t) {
+    PartCatalogEntry e{}; e.category = PartCategory::Manifold; e.vendor = v; e.manifoldType = t; return e;
+}
+PartCatalogEntry Tire(CarWheelType t) {
+    PartCatalogEntry e{}; e.category = PartCategory::Tire; e.vendor = CarVendorUnknown; e.tireType = t; return e;
+}
+
+// Category/vendor/type for each of the 40 AUTO PARTS classified slots, in the
+// exact order they appear in the Street_Rod executable at offset 0xA4CE.
+// Name and price are NOT hardcoded here -- they come from the parsed
+// ClassifiedEntry_t in Newspaper::partMetadata, index-aligned with this table.
+const PartCatalogEntry kPartCatalog[40] = {
+    // Engines (6): "GM/Ford/Chrysler V-8 engine ..."
+    Engine(CarVendorGM,       CarEngineGM_V8_282),
+    Engine(CarVendorFord,     CarEngineFord_V8_292),
+    Engine(CarVendorChrysler, CarEngineChrysler_V8_285),
+    Engine(CarVendorGM,       CarEngineGM_V8_327),
+    Engine(CarVendorFord,     CarEngineFord_V8_351),
+    Engine(CarVendorChrysler, CarEngineChrysler_V8_340),
+
+    // Transmissions (13)
+    Trans(CarVendorGM,       TRANS_AUTO_GM),
+    Trans(CarVendorFord,     TRANS_AUTO_FORD),
+    Trans(CarVendorChrysler, TRANS_AUTO_CHRYSLER),
+    Trans(CarVendorGM,       TRANS_3SPD_GM),
+    Trans(CarVendorFord,     TRANS_3SPD_FORD),
+    Trans(CarVendorChrysler, TRANS_3SPD_CHRYSLER),
+    Trans(CarVendorGM,       TRANS_4SPD_GM),
+    Trans(CarVendorFord,     TRANS_4SPD_FORD),
+    Trans(CarVendorChrysler, TRANS_4SPD_CHRYSLER),
+    Trans(CarVendorUnknown,  TRANS_4SPD_UNIVERSAL), // "Fits all"
+    Trans(CarVendorGM,       TRANS_RACING_GM),
+    Trans(CarVendorFord,     TRANS_RACING_FORD),
+    Trans(CarVendorChrysler, TRANS_RACING_CHRYSLER),
+
+    // Carburetors (3): "Fits all" -- not brand-locked in the ad text or in
+    // CarburetorType/PartsCompatibilityManager.
+    Carb(CARB_2BARREL),
+    Carb(CARB_4BARREL),
+    Carb(CARB_4BARREL_RACING),
+
+    // Manifolds (15): 5 subtypes x 3 brands, in the ad's own order.
+    Manifold(CarVendorGM,       MANIFOLD_2BARREL),
+    Manifold(CarVendorFord,     MANIFOLD_2BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_2BARREL),
+    Manifold(CarVendorGM,       MANIFOLD_4BARREL),
+    Manifold(CarVendorFord,     MANIFOLD_4BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_4BARREL),
+    Manifold(CarVendorGM,       MANIFOLD_DUAL_QUAD),      // "for 2-4brl carbs"
+    Manifold(CarVendorFord,     MANIFOLD_DUAL_QUAD),
+    Manifold(CarVendorChrysler, MANIFOLD_DUAL_QUAD),
+    Manifold(CarVendorGM,       MANIFOLD_TRIPLE_2BARREL), // "for 3-2brl carbs"
+    Manifold(CarVendorFord,     MANIFOLD_TRIPLE_2BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_TRIPLE_2BARREL),
+    Manifold(CarVendorGM,       MANIFOLD_RACING),
+    Manifold(CarVendorFord,     MANIFOLD_RACING),
+    Manifold(CarVendorChrysler, MANIFOLD_RACING),
+
+    // Tires (3): "Tires." / "Tires. Brand name." / "Racing slicks."
+    Tire(STOCK),
+    Tire(BRAND),
+    Tire(RACING),
+};
+
+} // namespace
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
     currentPage = 0;
@@ -28,7 +108,7 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     };
     GetZone("used_cars").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        currentPage = 4;
+        currentPage = 1 + totalPartsPages;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
@@ -39,11 +119,12 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     };
     GetZone("back_to_garage").onClick = backToGarage;
     GetZone("back_to_garage2").onClick = backToGarage;
-    // Page 0 is the front page, pages 1-3 are the fixed "parts" pages, and pages
-    // 4..(3+totalPages) are the used-car ad pages (totalPages counts only those).
+    // Page 0 is the front page, pages 1..totalPartsPages are the AUTO PARTS
+    // pages, and pages (1+totalPartsPages)..(totalPartsPages+totalPages) are
+    // the used-car ad pages.
     GetZone("previous").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        int lastPage = 3 + totalPages;
+        int lastPage = totalPartsPages + totalPages;
         if (currentPage > 0) currentPage--; else currentPage = lastPage;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
@@ -51,7 +132,7 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     };
     GetZone("next").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        int lastPage = 3 + totalPages;
+        int lastPage = totalPartsPages + totalPages;
         if (currentPage < lastPage) currentPage++; else currentPage = 0;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
@@ -156,6 +237,23 @@ void Newspaper::LoadClassifiedsData() {
     totalPages = (carMetadata.size() + adsPerPage - 1) / adsPerPage;
 
     LOG_INFO("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
+
+    // AUTO PARTS classifieds. Not part of SR_data -- compiled into the
+    // Street_Rod executable itself (same buffer already used for the main
+    // font and mouse pointer sprite), at a fixed offset (see libp.cpp).
+    byte_vector& srExeData = state.GetAssets().GetSrExeData();
+    int partCount = 0;
+    DataParser dp;
+    PartMetadata_t* parts = dp.SrLibDataReadPartsFromBuffer(srExeData.data(), srExeData.size(), &partCount);
+    if (parts && partCount == 40) {
+        partMetadata.assign(parts, parts + partCount);
+    } else {
+        LOG_INFO("WARNING: expected 40 AUTO PARTS classifieds, got %d", partCount);
+    }
+
+    totalPartsPages = (partMetadata.size() + adsPerPage - 1) / adsPerPage;
+
+    LOG_INFO("Loaded %zu parts classifieds, %d pages", partMetadata.size(), totalPartsPages);
 }
 
 void Newspaper::InitPageAds() {
@@ -275,7 +373,7 @@ bool Newspaper::PushEvent(SDL_Event *event) {
         return true;
     }
 
-    if (event->type == SDL_MOUSEWHEEL && currentPage >= 4) {
+    if (event->type == SDL_MOUSEWHEEL && currentPage >= 1) {
         int mouseX = event->wheel.mouseX;
         int mouseY = event->wheel.mouseY;
         if (mouseX >= 64 && mouseX < 256 && mouseY >= 0 && mouseY < 190) {
@@ -338,33 +436,42 @@ void Newspaper::Update(Uint64 deltaTime) {
 }
 
 void Newspaper::HandleAdClick(int adIndex) {
-    // For now, only handle used car ads (currentPage >= 4)
-    if (currentPage < 4) {
-        return; // Parts section - no ads yet
+    // adIndex is the position in the adPositions vector
+    if (adIndex < 0 || adIndex >= (int)adPositions.size()) {
+        return;
     }
 
-    // adIndex is the position in the adPositions vector
-    if (adIndex >= 0 && adIndex < (int)adPositions.size()) {
-        const AdPosition& adPos = adPositions[adIndex];
-        if (adPos.isUsedCar && adPos.adIndex >= 0 && adPos.adIndex < (int)carMetadata.size()) {
-            // Don't open dialog for already-sold cars
-            if (!state.GetClassifiedCars()[adPos.adIndex]) {
-                return;
-            }
-            selectedCarIndex = adPos.adIndex;
-            ShowCarPurchaseDialog(adPos.adIndex);
+    const AdPosition& adPos = adPositions[adIndex];
+    if (adPos.isUsedCar) {
+        if (adPos.adIndex < 0 || adPos.adIndex >= (int)carMetadata.size()) {
+            return;
         }
+        // Don't open dialog for already-sold cars
+        if (!state.GetClassifiedCars()[adPos.adIndex]) {
+            return;
+        }
+        selectedCarIndex = adPos.adIndex;
+        ShowCarPurchaseDialog(adPos.adIndex);
+    } else {
+        if (adPos.adIndex < 0 || adPos.adIndex >= (int)partMetadata.size()) {
+            return;
+        }
+        ShowPartPurchaseDialog(adPos.adIndex);
     }
 }
 
 void Newspaper::CreateAllAdsSurface() {
-    LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries", carMetadata.size());
+    LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries, %zu part entries",
+             carMetadata.size(), partMetadata.size());
 
     // Calculate total height needed for all ads
     int totalHeight = 0;
 
-    // Add space for PARTS header only (no ads yet)
-    totalHeight += 60; // Header (20px) + spacing (40px)
+    // Add space for AUTO PARTS ads (continuous list, same rough per-entry
+    // estimate used for cars below -- ad text is 1-2 lines per entry, same
+    // shape as the shorter car ads).
+    totalHeight += 20; // PARTS header
+    totalHeight += partMetadata.size() * 25;
 
     // Add space for used car ads (continuous list, not pages)
     totalHeight += 20; // USED CARS header
@@ -398,10 +505,8 @@ void Newspaper::CreateAllAdsSurface() {
 
     int currentY = 0;
 
-    // Draw PARTS header only (no ads yet)
+    // Draw PARTS header
     {
-        // Create header label
-
         Label headerLabel;
         uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
         headerLabel.Init(mainFont, 0, currentY, headerColor);
@@ -417,10 +522,69 @@ void Newspaper::CreateAllAdsSurface() {
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
         LOG_INFO("Rendered PARTS header at Y=%d", currentY);
         currentY += 20;
-
-        // Add some space after the header
-        currentY += 40;
     }
+
+    // Draw all AUTO PARTS ads (continuous list, same layout as used car ads
+    // below -- name at LEFT_COL, '+'-prefixed feature line at RIGHT_COL on
+    // the same row, price on its own line).
+    {
+        const int LEFT_COL = 1;
+        const int RIGHT_COL_MIN = 96;
+        const int RIGHT_COL_GAP = 4;
+        const int lineHeight = SFont_TextHeight(mainFont);
+
+        SDL_SetSurfaceColorMod(mainFont->Surface, 0, 0, 0);
+
+        currentY += 1;
+        SDL_Rect topDividerRect = {0, currentY, 192, 1};
+        SDL_FillRect(surface, &topDividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
+        currentY += 2;
+
+        for (int i = 0; i < (int)partMetadata.size(); i++) {
+            const ClassifiedEntry_t& entry = partMetadata[i].classified;
+            const char* partName = entry.carName ? entry.carName : "";
+            int adStartY = currentY;
+
+            SFont_Write(surface, mainFont, LEFT_COL, currentY, partName);
+
+            int nameWidth = SFont_TextWidth(mainFont, partName);
+            int featureX = std::max(RIGHT_COL_MIN, LEFT_COL + nameWidth + RIGHT_COL_GAP);
+
+            if (entry.adText && entry.adText[0]) {
+                std::istringstream ss(entry.adText);
+                std::string line;
+                while (std::getline(ss, line)) {
+                    if (!line.empty() && line[0] == '\t') {
+                        SFont_Write(surface, mainFont, featureX, currentY, line.c_str() + 1);
+                    } else {
+                        currentY += lineHeight;
+                        SFont_Write(surface, mainFont, LEFT_COL, currentY, line.c_str());
+                    }
+                }
+            }
+
+            int adHeight = (currentY - adStartY) + lineHeight;
+            AdPosition adPos;
+            adPos.adIndex = i;
+            adPos.startY = adStartY;
+            adPos.endY = adStartY + adHeight;
+            adPos.isUsedCar = false;
+            adPositions.push_back(adPos);
+
+            currentY += lineHeight;
+
+            if (i < (int)partMetadata.size() - 1) {
+                currentY += 4;
+                SDL_Rect dividerRect = {0, currentY, 192, 1};
+                SDL_FillRect(surface, &dividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
+                currentY += 2;
+            }
+        }
+
+        SDL_SetSurfaceColorMod(mainFont->Surface, 255, 255, 255);
+    }
+
+    partsSectionHeight = currentY;
 
     // Draw USED CARS header
     {
@@ -565,14 +729,23 @@ void Newspaper::UpdateViewport() {
     // Calculate viewport position based on current page
     int viewportY = 0;
 
-    if (currentPage >= 1 && currentPage <= 3) {
-        // PARTS header pages (all show the same header)
-        viewportY = 0; // Always start at the beginning (PARTS header)
-    } else if (currentPage >= 4) {
-        // Used car ads - scroll through the continuous surface
-        // Skip PARTS section: header (20px) + spacing (40px)
-        int partsSectionHeight = 60; // header + spacing
-        int pageScrollOffset = (currentPage - 4) * 190; // 190px per "page" of scrolling
+    if (currentPage >= 1 && currentPage <= totalPartsPages) {
+        // AUTO PARTS pages - scroll through the parts portion of the surface.
+        int pageScrollOffset = (currentPage - 1) * 190; // 190px per "page" of scrolling
+        viewportY = pageScrollOffset + smoothScrollOffset;
+
+        int maxViewportY = std::max(0, partsSectionHeight - 190);
+        if (viewportY > maxViewportY) {
+            viewportY = maxViewportY;
+            smoothScrollOffset = viewportY - pageScrollOffset;
+        }
+        if (viewportY < 0) {
+            viewportY = 0;
+            smoothScrollOffset = 0;
+        }
+    } else if (currentPage > totalPartsPages) {
+        // Used car ads - scroll through the rest of the continuous surface.
+        int pageScrollOffset = (currentPage - totalPartsPages - 1) * 190;
 
         // Calculate base viewport position
         viewportY = partsSectionHeight + pageScrollOffset;
@@ -641,10 +814,13 @@ int Newspaper::FindAdAtPosition(int mouseY) {
     // Convert mouse Y position to position in the large surface
     int surfaceY = mouseY + adsViewport.y;
 
-    // Find which ad contains this Y position
-    for (const auto& adPos : adPositions) {
-        if (surfaceY >= adPos.startY && surfaceY < adPos.endY) {
-            return adPos.adIndex;
+    // Find which ad contains this Y position. Returns the position within
+    // adPositions itself (what HandleAdClick expects), NOT adPos.adIndex --
+    // that field is only the index within carMetadata/partMetadata, which
+    // collide (both start at 0) now that parts and cars share one vector.
+    for (int i = 0; i < (int)adPositions.size(); i++) {
+        if (surfaceY >= adPositions[i].startY && surfaceY < adPositions[i].endY) {
+            return i;
         }
     }
 
@@ -729,6 +905,115 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
     carPurchaseDialog = std::make_unique<Dialog>(dialogConfig);
     carPurchaseDialog->Show();
     SetActiveDialog(carPurchaseDialog.get());
+}
+
+void Newspaper::ShowPartPurchaseDialog(int partIndex) {
+    if (partIndex < 0 || partIndex >= (int)partMetadata.size()) {
+        return;
+    }
+
+    const ClassifiedEntry_t& classified = partMetadata[partIndex].classified;
+    const char* partName = classified.carName ? classified.carName : "Unknown Part";
+    int price = classified.price;
+
+    SDL_Rect dialogRect = {34, 97, 252, 46};
+    SDL_Rect yeahRect = {88, 123, 66, 16};
+    SDL_Rect forgetItRect = {166, 123, 66, 16};
+
+    std::vector<ButtonConfig> buttons = {
+        {yeahRect, "Yeah", nullptr, true, 0},
+        {forgetItRect, "Forget it", nullptr, false, 1}
+    };
+
+    std::string priceText = "You want to buy it for $" + std::to_string(price) + " ?";
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{38, 101, 248, 10}, std::string(partName), {0x00, 0x00, 0x00, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{38, 111, 248, 10}, priceText, {0x00, 0x00, 0x00, 0xFF}, true}
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = dialogRect;
+    dialogConfig.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    dialogConfig.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    dialogConfig.texts = texts;
+    dialogConfig.buttons = buttons;
+    dialogConfig.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onButtonPressed = [this, partIndex, price](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Yeah - buy the part
+                if (state.GetBankroll() < price) {
+                    LOG_INFO("Not enough money to buy part %d (need $%d, have $%d)",
+                            partIndex, price, state.GetBankroll());
+                    int short_ = price - state.GetBankroll();
+                    bubbles[0]->SetText("  No go, hot shot. You're $" + std::to_string(short_) + " short.");
+                    bubbles[0]->SetVisible(true);
+                } else {
+                    // Buying an auto part from the newspaper costs no game
+                    // time (same as browsing/buying a car), and unlike cars
+                    // the classifieds are a standing catalog, not one-off
+                    // listings -- stay on the newspaper so the player can
+                    // buy more than one part per visit.
+                    state.SetBankroll(state.GetBankroll() - price);
+
+                    const PartCatalogEntry& entry = kPartCatalog[partIndex];
+                    switch (entry.category) {
+                        case PartCategory::Engine: {
+                            EnginePart part(entry.engineType, 0, price, entry.vendor,
+                                            (AmigaLibAsset)entry.engineType);
+                            state.AddSpareEngine(part);
+                            break;
+                        }
+                        case PartCategory::Transmission: {
+                            Part part = CarBuilder::CreateTransmissionPart(entry.transType, entry.vendor);
+                            part.cost = price;
+                            state.AddSpareTransmission(part);
+                            break;
+                        }
+                        case PartCategory::Carburetor: {
+                            Part part = CarBuilder::CreateCarburetorPart(entry.carbType, entry.vendor);
+                            part.cost = price;
+                            state.AddSpareCarburetor(part);
+                            break;
+                        }
+                        case PartCategory::Manifold: {
+                            Part part = CarBuilder::CreateManifoldPart(entry.manifoldType, entry.vendor);
+                            part.cost = price;
+                            state.AddSpareManifold(part);
+                            break;
+                        }
+                        case PartCategory::Tire: {
+                            AmigaLibAsset asset = CAR_TIRES_STOCK;
+                            switch (entry.tireType) {
+                                case STOCK:  asset = CAR_TIRES_STOCK;  break;
+                                case BRAND:  asset = CAR_TIRES_BRAND;  break;
+                                case RACING: asset = CAR_TIRES_RACING; break;
+                            }
+                            Part part(0, price, entry.vendor, asset, entry.tireType);
+                            state.AddSpareTire(part);
+                            break;
+                        }
+                    }
+
+                    const char* boughtName = partMetadata[partIndex].classified.carName;
+                    LOG_INFO("Bought part %d (%s) for $%d, bankroll now $%d",
+                            partIndex, boughtName ? boughtName : "?", price, state.GetBankroll());
+                }
+                partPurchaseDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+            }
+            case 1: // Forget it
+                partPurchaseDialog->Hide();
+                SetActiveDialog(nullptr);
+                break;
+        }
+    };
+
+    partPurchaseDialog = std::make_unique<Dialog>(dialogConfig);
+    partPurchaseDialog->Show();
+    SetActiveDialog(partPurchaseDialog.get());
 }
 
 void Newspaper::ShowCarViewDialog(int carIndex) {

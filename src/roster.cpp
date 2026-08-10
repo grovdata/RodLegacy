@@ -231,7 +231,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     // Random manifold among vendor-sensible choices (map 1..6 to vendor)
     // For now, assume all manifolds fit vendor engines; keep asset range
     std::uniform_int_distribution<> maniDist(ENGINE_MANIFOLD1, ENGINE_MANIFOLD6);
-    Part manifoldPart(wearManifold, 0, vendor, static_cast<AmigaLibAsset>(maniDist(gen)), MANIFOLD_STOCK);
+    Part manifoldPart(wearManifold, 0, vendor, static_cast<AmigaLibAsset>(maniDist(gen)), MANIFOLD_2BARREL);
     car->SetManifold(manifoldPart);
 
     // Random carb (2-barrel / 4-barrel / racing 4-barrel) - all vendor variants are universal in assets

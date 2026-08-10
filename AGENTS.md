@@ -51,3 +51,4 @@ Build system: Meson + Ninja. Dependencies are vendored as Meson subprojects in `
 - Avoid using C++ templates whenever possible
 - No emojis in logging messages
 - C++17 standard with smart pointers for ownership
+- Never launch the app to visually verify, let user do so

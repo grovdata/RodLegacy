@@ -139,8 +139,10 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
         setup.manifoldClass = car.GetSpecManifoldClass();
     } else {
         switch (car.GetManifold().partType.manifoldType) {
-            case MANIFOLD_STOCK: setup.manifoldClass = 0; break;
-            case MANIFOLD_PERFORMANCE: setup.manifoldClass = 3; break;
+            case MANIFOLD_2BARREL: setup.manifoldClass = 0; break;
+            case MANIFOLD_4BARREL: setup.manifoldClass = 1; break;
+            case MANIFOLD_DUAL_QUAD: setup.manifoldClass = 2; break;
+            case MANIFOLD_TRIPLE_2BARREL: setup.manifoldClass = 3; break;
             case MANIFOLD_RACING: setup.manifoldClass = 4; break;
             default: setup.manifoldClass = 0; break;
         }

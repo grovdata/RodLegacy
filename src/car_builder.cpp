@@ -134,7 +134,7 @@ TransmissionType CarBuilder::SelectCompatibleTransmission(CarEngine_t engine) {
 ManifoldType CarBuilder::SelectCompatibleManifold(CarEngine_t engine) {
     auto compatible = PartsCompatibilityManager::GetCompatibleManifolds(engine);
     if (compatible.empty()) {
-        return MANIFOLD_STOCK; // Default fallback
+        return MANIFOLD_2BARREL; // Default fallback
     }
 
     std::uniform_int_distribution<> dist(0, compatible.size() - 1);
@@ -174,8 +174,10 @@ Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendo
 Part CarBuilder::CreateManifoldPart(ManifoldType type, CarVendor_t vendor) {
     AmigaLibAsset assetId;
     switch (type) {
-        case MANIFOLD_STOCK: assetId = ENGINE_MANIFOLD1; break;
-        case MANIFOLD_PERFORMANCE: assetId = ENGINE_MANIFOLD3; break;
+        case MANIFOLD_2BARREL: assetId = ENGINE_MANIFOLD1; break;
+        case MANIFOLD_4BARREL: assetId = ENGINE_MANIFOLD2; break;
+        case MANIFOLD_DUAL_QUAD: assetId = ENGINE_MANIFOLD3; break;
+        case MANIFOLD_TRIPLE_2BARREL: assetId = ENGINE_MANIFOLD4; break;
         case MANIFOLD_RACING: assetId = ENGINE_MANIFOLD6; break;
     }
     return Part(0, 0, vendor, assetId, type);

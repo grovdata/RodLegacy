@@ -50,6 +50,12 @@ class Garage : public CarScene {
     void StartTireChangeAnimation(CarWheelType newType);
     void UpdateTireChangeAnimation(double deltaTime);
 
+    // Read-only readout of state's spare engines/transmissions/manifolds/
+    // carburetors (bought from the newspaper, not yet installed). Selling is
+    // tracked separately (TODO.md's "Selling parts").
+    std::unique_ptr<ListDialog> sparePartsDialog;
+    void ShowSparePartsDialog();
+
     Car *pendingCar = nullptr;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;

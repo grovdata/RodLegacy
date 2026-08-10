@@ -1395,10 +1395,16 @@ std::vector<uint8_t> DataParser::SrLibDataWriteCarMetadataToBuffer(const std::ve
 /// @param outCount Pointer to store number of entries
 /// @return Array of PartMetadata_t entries (must be freed by caller)
 PartMetadata_t* DataParser::SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount) {
+    // Not part of SR_data -- compiled directly into the Amiga Street_Rod
+    // executable, the same way the performance scoring tables are (see
+    // RodLegacyResearch/docs/formats/sr_data.md, "compiled into binary").
+    // Caller must pass AssetManager::GetSrExeData(), not SR_data.
     const int CLASSIFIEDS_PARTS_START = 0xA4CE;
 
-    // TODO: Maybe map this to game versions
-    const int CLASSIFIEDS_PARTS_COUNT = 20;
+    // Verified against the real Street_Rod binary: exactly 40 entries
+    // (6 engines, 13 transmissions, 3 carburetors, 15 manifolds, 3 tires),
+    // ending cleanly at 68k code. 20 stops mid-catalog.
+    const int CLASSIFIEDS_PARTS_COUNT = 40;
 
     if (!data || !outCount || dataSize < CLASSIFIEDS_PARTS_START) return NULL;
 

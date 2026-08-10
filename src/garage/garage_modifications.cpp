@@ -909,8 +909,140 @@ static const char* WheelTypeName(CarWheelType type) {
     }
 }
 
+static const char* TransmissionTypeName(TransmissionType type) {
+    switch (type) {
+        case TRANS_AUTO_GM:        return "Auto transmission (GM)";
+        case TRANS_AUTO_FORD:      return "Auto transmission (Ford)";
+        case TRANS_AUTO_CHRYSLER:  return "Auto transmission (Chrysler)";
+        case TRANS_3SPD_GM:        return "3-speed (GM)";
+        case TRANS_3SPD_FORD:      return "3-speed (Ford)";
+        case TRANS_3SPD_CHRYSLER:  return "3-speed (Chrysler)";
+        case TRANS_4SPD_GM:        return "4-speed (GM)";
+        case TRANS_4SPD_FORD:      return "4-speed (Ford)";
+        case TRANS_4SPD_CHRYSLER:  return "4-speed (Chrysler)";
+        case TRANS_4SPD_UNIVERSAL: return "4-speed (universal)";
+        case TRANS_RACING_GM:       return "Racing 4-speed (GM)";
+        case TRANS_RACING_FORD:     return "Racing 4-speed (Ford)";
+        case TRANS_RACING_CHRYSLER: return "Racing 4-speed (Chrysler)";
+        default: return "Unknown transmission";
+    }
+}
+
+static const char* ManifoldTypeName(ManifoldType type) {
+    switch (type) {
+        case MANIFOLD_2BARREL:       return "2-barrel manifold";
+        case MANIFOLD_4BARREL:       return "4-barrel manifold";
+        case MANIFOLD_DUAL_QUAD:     return "Dual-quad manifold";
+        case MANIFOLD_TRIPLE_2BARREL: return "Triple 2-barrel manifold";
+        case MANIFOLD_RACING:        return "Racing manifold";
+        default: return "Unknown manifold";
+    }
+}
+
+static const char* CarburetorTypeName(CarburetorType type) {
+    switch (type) {
+        case CARB_2BARREL:        return "2-barrel carburetor";
+        case CARB_4BARREL:        return "4-barrel carburetor";
+        case CARB_4BARREL_RACING: return "Racing 4-barrel carburetor";
+        default: return "Unknown carburetor";
+    }
+}
+
 void Garage::ShowTransmissionDialog() {
     // Not yet implemented.
+}
+
+void Garage::ShowSparePartsDialog() {
+    std::vector<std::string> labels;
+    for (const EnginePart& p : state.GetSpareEngines()) {
+        labels.push_back(p.GetEngineName() + " - $" + std::to_string(p.cost));
+    }
+    for (const Part& p : state.GetSpareTransmissions()) {
+        labels.push_back(std::string(TransmissionTypeName(p.partType.transmissionType)) +
+                          " - $" + std::to_string(p.cost));
+    }
+    for (const Part& p : state.GetSpareManifolds()) {
+        labels.push_back(std::string(ManifoldTypeName(p.partType.manifoldType)) +
+                          " - $" + std::to_string(p.cost));
+    }
+    for (const Part& p : state.GetSpareCarburetors()) {
+        labels.push_back(std::string(CarburetorTypeName(p.partType.carburetorType)) +
+                          " - $" + std::to_string(p.cost));
+    }
+
+    if (labels.empty()) return;
+
+    SDL_Rect bounds = {36, 26, 260, 136};
+
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
+
+    SDL_Rect listBoxRect = {40, 40, 242, 80};
+    SDL_Rect topRect = {37, 27, 246, 95};
+    SDL_Rect bottomRect = {37, 123, 246, 40};
+    SDL_Rect selectedItemRect = {39, 127, 242, 12};
+    SDL_Rect closeRect = {bounds.x + (bounds.w - buttonWidth) / 2, buttonY, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone closeZone("spare_parts_close",       "Close",       closeRect);
+    Zone scrollTopZone("spare_parts_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("spare_parts_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("spare_parts_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("spare_parts_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {closeRect, "Close", nullptr, true, 0},
+    };
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Spare parts", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {40, 39, 240, 1} };
+
+    std::vector<Zone> dialogZones = {
+        closeZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText().c_str());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        if (buttonIndex == 0) { // Close
+            sparePartsDialog->Hide();
+            SetActiveDialog(nullptr);
+        }
+    };
+    dialogConfig.texts = texts;
+
+    sparePartsDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels,
+            {},
+            [](int) {},
+            listBoxRect,
+            selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF},
+            {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)sparePartsDialog.get());
 }
 
 void Garage::ShowTireDialog() {

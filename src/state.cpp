@@ -270,6 +270,13 @@ std::vector<Car *> State::GetOwnedCars() {
 
 void State::AddOwnedCar(Car* car) {
     ownedCars.push_back(car);
+
+    // Garage is constructed once at startup and otherwise never refreshes
+    // its owned-car bitmap cache (InitCarBitmaps only reruns via
+    // ResetForNewCarSet, which nothing calls after a purchase) -- without
+    // this, a car bought from the newspaper never appears in the garage.
+    // Same pattern StartNewGame already uses to rebuild the cache.
+    if (garage) garage->ResetForNewCarSet();
 }
 
 namespace {
@@ -331,7 +338,7 @@ Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 break;
             }
             case 2: { // Manifold
-                Part part = CarBuilder::CreateManifoldPart(MANIFOLD_STOCK, model.vendor);
+                Part part = CarBuilder::CreateManifoldPart(MANIFOLD_2BARREL, model.vendor);
                 part.wear = p.wearRaw / 100;
                 part.cost = p.value;
                 car->SetManifold(part);

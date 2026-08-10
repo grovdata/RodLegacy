@@ -46,9 +46,10 @@ std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarE
         case CarEngineGM_V6:
         case CarEngineFord_V6:
         case CarEngineChrysler_V6:
-            return {MANIFOLD_STOCK, MANIFOLD_PERFORMANCE};
+            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL};
         default: // V8s
-            return {MANIFOLD_STOCK, MANIFOLD_RACING};
+            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD,
+                     MANIFOLD_TRIPLE_2BARREL, MANIFOLD_RACING};
     }
 }
 
@@ -64,13 +65,18 @@ std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(
 }
 
 std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(ManifoldType manifold) {
+    // Per the newspaper classifieds' own ad text ("manifold, for 2-4brl
+    // carbs" / "manifold, for 3-2brl carbs"), fitment is explicit, not
+    // guessed:
     switch (manifold) {
-        case MANIFOLD_STOCK:
-        case MANIFOLD_PERFORMANCE:
-            // 2-brl and 3-2brl manifolds take 2-brl carbs
+        case MANIFOLD_2BARREL:
+        case MANIFOLD_TRIPLE_2BARREL: // three 2-barrels
             return {CARB_2BARREL};
+        case MANIFOLD_4BARREL:
+            return {CARB_4BARREL};
+        case MANIFOLD_DUAL_QUAD: // "for 2-4brl carbs"
+            return {CARB_2BARREL, CARB_4BARREL};
         case MANIFOLD_RACING:
-            // 4-brl and racing manifolds share the same fitting
             return {CARB_4BARREL, CARB_4BARREL_RACING};
         default:
             return {};

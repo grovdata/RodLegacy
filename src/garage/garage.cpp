@@ -74,7 +74,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("sell_parts").onClick = [this] {
         if (!CanInteract()) return;
-        bubbles[1]->SetVisible(true);
+        bool anySpareParts = !state.GetSpareEngines().empty() ||
+                              !state.GetSpareTransmissions().empty() ||
+                              !state.GetSpareManifolds().empty() ||
+                              !state.GetSpareCarburetors().empty();
+        if (!anySpareParts) bubbles[1]->SetVisible(true);
+        else ShowSparePartsDialog();
     };
     GetZone("menu").onClick = [this] {
         if (!CanInteract()) return;
