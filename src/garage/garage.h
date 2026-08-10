@@ -76,6 +76,12 @@ class Garage : public CarScene {
     SDL_Point transNaturalSize{};  // unscaled transmission bitmap size, for re-deriving the clip each frame
     std::unique_ptr<Dialog> transmissionInstallDialog;
     std::unique_ptr<Bitmap> transScrewBitmap[2];  // independent copies of ENGINE_TRANSMISSION_BOLT, cropped per state
+    // Cached once at construction - transScrewBitmap[i]->GetPosition() is
+    // NOT safe to re-query later: whenever a screw's clip goes to {0,0,0,0}
+    // (fully outside the porthole), Dialog::Draw()'s no-crop fallback path
+    // calls SetPosition/SetDimensions on the underlying Bitmap, permanently
+    // stomping its own rect to that same 0x0 - see ApplyScrewGeometry.
+    SDL_Point transScrewNaturalSize[2]{};
 
     // Once a screw finishes backing out it drops out of the window; once a
     // new transmission is in place, fresh screws drop in from the top. Runs
@@ -92,6 +98,10 @@ class Garage : public CarScene {
     void UpdateTransmissionInstallAnimation(double deltaTime);
     void OnTransScrewClicked(int screwIndex);
     void UpdateTransScrewVisual(int screwIndex);
+    // Sets a screw's crop (from its click-state), X (pushed out by the same
+    // distance as the crop growth), and porthole clip, at the given Y - the
+    // one place all three combine, used both at rest and every fall frame.
+    void ApplyScrewGeometry(int screwIndex, int y);
     void StartScrewFall(int screwIndex, bool fallingOut);
     void UpdateScrewFallAnimations(double deltaTime);
     void StartTransmissionSlideIn(const Part& newGearbox);

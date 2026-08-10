@@ -4,6 +4,7 @@
 #include "assets.h"
 #include "parsers/libp.h"
 #include <algorithm>
+#include <map>
 
 // Popup bounds: ENGINE_TRANSMISSION_WINDOW is a 200x175 window graphic (see
 // docs/garage/transmission_install.md), same bounds garage_modifications.cpp's
@@ -77,12 +78,32 @@ static SDL_Point ScrewPos(int index) {
 // single image, not a sprite sheet: the screw "backing out" is 3 top-left-
 // anchored crops of increasing size on the same bitmap, not distinct frames.
 // 0 = seated (head only), 1 = half out, 2 = fully out (whole bitmap).
+static constexpr int kScrewSeatedCropW = 4;
+
 static SDL_Rect ScrewCropForState(const SDL_Rect& natural, int state) {
     switch (state) {
-        case 0: return {0, 0, 4, 7};
+        case 0: return {0, 0, kScrewSeatedCropW, 7};
         case 1: return {0, 0, 8, 7};
         default: return {0, 0, natural.w, natural.h};
     }
+}
+
+// Cached on first use per asset, never re-queried after: the slide-in
+// intentionally starts below the porthole (fully clipped, {0,0,0,0}), and
+// whenever a DialogBitmap's clip collapses like that, Dialog::Draw()'s
+// no-crop fallback path calls SetPosition/SetDimensions on the underlying
+// (shared, cached-by-AssetManager) Bitmap, stomping its own rect to that
+// same 0x0 - see the identical screw bug this was split out from. The first
+// read for any given asset happens here, before that asset is ever drawn,
+// so it's safe to trust once and freeze.
+static SDL_Point TransBitmapNaturalSize(AssetManager& assets, AmigaLibAsset asset) {
+    static std::map<AmigaLibAsset, SDL_Point> cache;
+    auto it = cache.find(asset);
+    if (it != cache.end()) return it->second;
+    SDL_Rect r = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset})->GetPosition();
+    SDL_Point size = {r.w, r.h};
+    cache.emplace(asset, size);
+    return size;
 }
 
 // The transmission bitmap's full-size, unclipped rect at its per-asset
@@ -90,35 +111,49 @@ static SDL_Rect ScrewCropForState(const SDL_Rect& natural, int state) {
 // other positions (the slide-in) use this for the natural size and the
 // "arrived" endpoint, then derive their own logical rects per frame -
 // clipping (ClipDialogBitmapToRect) is applied separately, never baked in here.
-static SDL_Rect TransMountRect(Bitmap* bmp, AmigaLibAsset asset) {
-    SDL_Rect natural = bmp->GetPosition();  // natural w/h from asset load; x/y unused
+static SDL_Rect TransMountRect(AssetManager& assets, AmigaLibAsset asset) {
+    SDL_Point natural = TransBitmapNaturalSize(assets, asset);
     SDL_Point pos = TransBitmapDestPos(asset);
-    return {pos.x, pos.y, natural.w, natural.h};
+    return {pos.x, pos.y, natural.x, natural.y};
 }
 
 DialogBitmap Garage::BuildTransmissionBitmapEntry(TransmissionType type) {
     AmigaLibAsset asset = TransmissionBitmapAsset(type);
     Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
-    SDL_Rect mountRect = TransMountRect(bmp, asset);
+    SDL_Rect mountRect = TransMountRect(state.GetAssets(), asset);
     DialogBitmap entry{bmp, mountRect, 1};
     ClipDialogBitmapToRect(entry, kTransViewportMask, mountRect);
     return entry;
 }
 
-// Sets the screw's crop/size for its current click-state, at its resting
-// (non-falling) Y position. Callers mid-fall (StartScrewFall/
-// UpdateScrewFallAnimations) overwrite db->rect.y afterward - this only
-// owns sourceRect and rect.x/w/h.
-void Garage::UpdateTransScrewVisual(int screwIndex) {
+// The one place crop, push-out X, and porthole clip combine. `y` is
+// whatever the caller wants right now - the resting position, or a frame of
+// the fall animation.
+//
+// X pushes out by the same distance the crop has grown past the seated
+// (state 0) width, so the screw doesn't just reveal more from a fixed
+// corner - it visibly advances as it backs out. Clipped to the window's
+// porthole (ClipDialogBitmapToRect, dialogs/dialog.h) same as the
+// transmission bitmap; that clip is also what makes the screw disappear
+// mid-fall once it passes the porthole edge rather than only when the fall
+// animation itself finishes.
+void Garage::ApplyScrewGeometry(int screwIndex, int y) {
     if (!transScrewBitmap[screwIndex] || !transmissionInstallDialog) return;
     DialogBitmap* db = transmissionInstallDialog->GetBitmap("screw_" + std::to_string(screwIndex));
     if (!db) return;
 
-    SDL_Rect natural = transScrewBitmap[screwIndex]->GetPosition();
+    SDL_Rect natural = {0, 0, transScrewNaturalSize[screwIndex].x, transScrewNaturalSize[screwIndex].y};
     SDL_Rect crop = ScrewCropForState(natural, transScrewState[screwIndex]);
     SDL_Point pos = ScrewPos(screwIndex);
-    db->sourceRect = crop;
-    db->rect = {pos.x, pos.y, crop.w, crop.h};
+    int x = pos.x - (crop.w - kScrewSeatedCropW);
+    SDL_Rect logical = {x, y, crop.w, crop.h};
+    ClipDialogBitmapToRect(*db, kTransViewportMask, logical);
+}
+
+// Sets the screw's crop/size for its current click-state, at its resting
+// (non-falling) Y position.
+void Garage::UpdateTransScrewVisual(int screwIndex) {
+    ApplyScrewGeometry(screwIndex, ScrewPos(screwIndex).y);
 }
 
 void Garage::OnTransScrewClicked(int screwIndex) {
@@ -155,22 +190,23 @@ void Garage::OnTransScrewClicked(int screwIndex) {
 // window). Otherwise: starts above the window's top edge and drops down to
 // its resting Y (screw dropping in from the top for the new transmission).
 void Garage::StartScrewFall(int screwIndex, bool fallingOut) {
-    if (!transmissionInstallDialog) return;
-    DialogBitmap* db = transmissionInstallDialog->GetBitmap("screw_" + std::to_string(screwIndex));
-    if (!db) return;
+    if (!transmissionInstallDialog || !transScrewBitmap[screwIndex]) return;
 
     SDL_Point pos = ScrewPos(screwIndex);
+    SDL_Rect natural = {0, 0, transScrewNaturalSize[screwIndex].x, transScrewNaturalSize[screwIndex].y};
+    int cropH = ScrewCropForState(natural, transScrewState[screwIndex]).h;
+
     transScrewFalling[screwIndex] = true;
     transScrewFallingOut[screwIndex] = fallingOut;
     transScrewFallTimer[screwIndex] = 0.0f;
     if (fallingOut) {
         transScrewFallFromY[screwIndex] = pos.y;
-        transScrewFallToY[screwIndex] = kTransWindowBounds.y + kTransWindowBounds.h + db->rect.h;
+        transScrewFallToY[screwIndex] = kTransWindowBounds.y + kTransWindowBounds.h + cropH;
     } else {
-        transScrewFallFromY[screwIndex] = kTransWindowBounds.y - db->rect.h;
+        transScrewFallFromY[screwIndex] = kTransWindowBounds.y - cropH;
         transScrewFallToY[screwIndex] = pos.y;
-        db->rect.y = transScrewFallFromY[screwIndex];
         transScrewBitmap[screwIndex]->SetVisible(true);
+        ApplyScrewGeometry(screwIndex, transScrewFallFromY[screwIndex]);
     }
 }
 
@@ -180,16 +216,12 @@ void Garage::UpdateScrewFallAnimations(double deltaTime) {
 
     for (int i = 0; i < 2; i++) {
         if (!transScrewFalling[i]) continue;
-        DialogBitmap* db = transmissionInstallDialog->GetBitmap("screw_" + std::to_string(i));
-        if (!db) {
-            transScrewFalling[i] = false;
-            continue;
-        }
 
         transScrewFallTimer[i] += (float)deltaTime;
         float t = transScrewFallTimer[i] / FALL_DUR;
         if (t > 1.0f) t = 1.0f;
-        db->rect.y = (int)(transScrewFallFromY[i] + (transScrewFallToY[i] - transScrewFallFromY[i]) * t);
+        int y = (int)(transScrewFallFromY[i] + (transScrewFallToY[i] - transScrewFallFromY[i]) * t);
+        ApplyScrewGeometry(i, y);
 
         if (t >= 1.0f) {
             transScrewFalling[i] = false;
@@ -214,7 +246,7 @@ void Garage::StartTransmissionSlideIn(const Part& newGearbox) {
 
     AmigaLibAsset asset = TransmissionBitmapAsset(newGearbox.partType.transmissionType);
     Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
-    SDL_Rect mountRect = TransMountRect(bmp, asset);  // unclipped - the animation's logical endpoint
+    SDL_Rect mountRect = TransMountRect(state.GetAssets(), asset);  // unclipped - the animation's logical endpoint
     transNaturalSize = {mountRect.w, mountRect.h};
     transSlideEnd = {mountRect.x, mountRect.y};
     transSlideMid = {mountRect.x - 16, mountRect.y};
@@ -353,6 +385,7 @@ void Garage::ShowTransmissionInstallDialog() {
         transScrewBitmap[i] = std::make_unique<Bitmap>(*boltSrc);
         transScrewBitmap[i]->SetVisible(true);
         SDL_Rect natural = transScrewBitmap[i]->GetPosition();
+        transScrewNaturalSize[i] = {natural.w, natural.h};
         SDL_Rect crop = ScrewCropForState(natural, 0);
         SDL_Point p = ScrewPos(i);
         cfg.bitmaps["screw_" + std::to_string(i)] = {
