@@ -1,6 +1,9 @@
 #include "bubble.h"
 #include "../state.h"
 #include "../parsers/libp.h"
+#include <algorithm>
+#include <sstream>
+#include <vector>
 
 Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
     std::string filename = "";
@@ -59,17 +62,36 @@ void Bubble::Draw() {
 
 void Bubble::UpdateText(std::string& text) {
     SFont_Font* font = state.GetAssets().GetMainFont();
+    int lineHeight = SFont_TextHeight(font);
 
-    // Size the surface to the whole string so nothing is clipped. Previously a
+    // Split on \n (same convention as Label::splitIntoLines) so callers can
+    // request a multi-line bubble (e.g. paired with BUBBLE_RIGHT_TWO_LINES).
+    std::vector<std::string> lines;
+    std::istringstream stream(text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        lines.push_back(line);
+    }
+    if (lines.empty()) lines.push_back("");
+
+    // Size the surface to the widest line so nothing is clipped. Previously a
     // fixed 256x64 surface (and a 50-char buffer) cropped longer text.
     // kSFontClipPad avoids SFont clipping the last glyph (same workaround as Label).
-    int textW = SFont_TextWidth(font, text.c_str()) + kSFontClipPad;
-    int textH = SFont_TextHeight(font);
+    int textW = 0;
+    for (const auto& l : lines) {
+        textW = std::max(textW, SFont_TextWidth(font, l.c_str()));
+    }
+    textW += kSFontClipPad;
+    int textH = lineHeight * (int)lines.size();
     fontSurface.reset(SDL_CreateRGBSurface(0, textW, textH, 32,
                                            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 
     SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
-    SFont_Write(fontSurface.get(), font, 0, 0, text.c_str());
+    int y = 0;
+    for (const auto& l : lines) {
+        SFont_Write(fontSurface.get(), font, 0, y, l.c_str());
+        y += lineHeight;
+    }
 
     fontTexture.reset(SDL_CreateTextureFromSurface(renderer, fontSurface.get()));
     SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);

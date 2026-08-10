@@ -93,6 +93,7 @@ class Garage : public CarScene {
     float transScrewFallTimer[2] = {0.0f, 0.0f};
     int transScrewFallFromY[2] = {0, 0};
     int transScrewFallToY[2] = {0, 0};
+    float transScrewFallDelay[2] = {0.0f, 0.0f};  // counts down while waiting for its turn, so the two drop in one after the other
 
     void ShowTransmissionInstallDialog();
     void UpdateTransmissionInstallAnimation(double deltaTime);
@@ -102,7 +103,7 @@ class Garage : public CarScene {
     // distance as the crop growth), and porthole clip, at the given Y - the
     // one place all three combine, used both at rest and every fall frame.
     void ApplyScrewGeometry(int screwIndex, int y);
-    void StartScrewFall(int screwIndex, bool fallingOut);
+    void StartScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);
     void UpdateScrewFallAnimations(double deltaTime);
     void StartTransmissionSlideIn(const Part& newGearbox);
     void CommitTransmissionSwap();

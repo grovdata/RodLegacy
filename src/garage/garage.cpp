@@ -155,6 +155,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto noCarBubble = std::make_unique<Bubble>("  You\'ve got no car, dummy!", BUBBLE_LEFT, 103, 30, true);
     noCarBubble->SetVisible(false);
     bubbles.push_back(std::move(noCarBubble));
+    // The backtick renders as a space (see roofConstraintBubble above).
+    auto transNotEmptyBubble = std::make_unique<Bubble>("Where will you put it, speedy`?\nMake some room first !", BUBBLE_RIGHT_TWO_LINES, 80, 30, true);
+    transNotEmptyBubble->SetVisible(false);
+    bubbles.push_back(std::move(transNotEmptyBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 

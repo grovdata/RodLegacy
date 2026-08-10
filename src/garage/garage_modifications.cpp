@@ -1027,6 +1027,11 @@ void Garage::ShowTransmissionDialog() {
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
             case 0: { // Change
+                if (transInstallPhase != TransInstallPhase::EMPTY) {
+                    // Old transmission still mounted - unscrew it first.
+                    bubbles[8]->SetVisible(true);
+                    break;
+                }
                 int selectedIndex = transmissionDialog->GetSelectedIndex();
                 if (selectedIndex < 0) break;
                 const auto& spareTransmissions = state.GetSpareTransmissions();

@@ -79,6 +79,7 @@ static SDL_Point ScrewPos(int index) {
 // anchored crops of increasing size on the same bitmap, not distinct frames.
 // 0 = seated (head only), 1 = half out, 2 = fully out (whole bitmap).
 static constexpr int kScrewSeatedCropW = 4;
+static constexpr float kScrewFallDuration = 0.35f;
 
 static SDL_Rect ScrewCropForState(const SDL_Rect& natural, int state) {
     switch (state) {
@@ -189,8 +190,22 @@ void Garage::OnTransScrewClicked(int screwIndex) {
 // down past the window's bottom edge, then hides (screw fell out of the
 // window). Otherwise: starts above the window's top edge and drops down to
 // its resting Y (screw dropping in from the top for the new transmission).
-void Garage::StartScrewFall(int screwIndex, bool fallingOut) {
+//
+// `delay` > 0 defers the actual start (used to stagger the two new screws
+// dropping in one after the other instead of together): the screw stays
+// hidden and UpdateScrewFallAnimations counts the delay down, then calls
+// back into this same function with delay=0 once it elapses.
+void Garage::StartScrewFall(int screwIndex, bool fallingOut, float delay) {
     if (!transmissionInstallDialog || !transScrewBitmap[screwIndex]) return;
+
+    if (delay > 0.0f) {
+        transScrewFalling[screwIndex] = false;
+        transScrewFallingOut[screwIndex] = fallingOut;
+        transScrewFallDelay[screwIndex] = delay;
+        if (!fallingOut) transScrewBitmap[screwIndex]->SetVisible(false);
+        return;
+    }
+    transScrewFallDelay[screwIndex] = 0.0f;
 
     SDL_Point pos = ScrewPos(screwIndex);
     SDL_Rect natural = {0, 0, transScrewNaturalSize[screwIndex].x, transScrewNaturalSize[screwIndex].y};
@@ -212,13 +227,20 @@ void Garage::StartScrewFall(int screwIndex, bool fallingOut) {
 
 void Garage::UpdateScrewFallAnimations(double deltaTime) {
     if (!transmissionInstallDialog) return;
-    constexpr float FALL_DUR = 0.35f;
 
     for (int i = 0; i < 2; i++) {
-        if (!transScrewFalling[i]) continue;
+        if (!transScrewFalling[i]) {
+            if (transScrewFallDelay[i] > 0.0f) {
+                transScrewFallDelay[i] -= (float)deltaTime;
+                if (transScrewFallDelay[i] <= 0.0f) {
+                    StartScrewFall(i, transScrewFallingOut[i], 0.0f);
+                }
+            }
+            continue;
+        }
 
         transScrewFallTimer[i] += (float)deltaTime;
-        float t = transScrewFallTimer[i] / FALL_DUR;
+        float t = transScrewFallTimer[i] / kScrewFallDuration;
         if (t > 1.0f) t = 1.0f;
         int y = (int)(transScrewFallFromY[i] + (transScrewFallToY[i] - transScrewFallFromY[i]) * t);
         ApplyScrewGeometry(i, y);
@@ -308,10 +330,10 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
         transInstallPhase = TransInstallPhase::SCREWING_IN;
         transScrewState[0] = 2;
         transScrewState[1] = 2;
-        UpdateTransScrewVisual(0);
-        UpdateTransScrewVisual(1);
-        StartScrewFall(0, /*fallingOut=*/false);
+        // Both StartScrewFall branches (immediate and delayed) fully own
+        // their screw's visibility/position - no separate UpdateTransScrewVisual needed.
         StartScrewFall(1, /*fallingOut=*/false);
+        StartScrewFall(0, /*fallingOut=*/false, /*delay=*/kScrewFallDuration);
     }
 }
 
@@ -328,6 +350,8 @@ void Garage::ResetTransmissionInstallToMounted() {
     transScrewState[1] = 0;
     transScrewFalling[0] = false;
     transScrewFalling[1] = false;
+    transScrewFallDelay[0] = 0.0f;
+    transScrewFallDelay[1] = 0.0f;
     transInstallPhase = TransInstallPhase::MOUNTED;
     if (transScrewBitmap[0]) transScrewBitmap[0]->SetVisible(true);
     if (transScrewBitmap[1]) transScrewBitmap[1]->SetVisible(true);
@@ -401,9 +425,7 @@ void Garage::ShowTransmissionInstallDialog() {
     cfg.onButtonPressed = [this](int index) {
         switch (index) {
             case 0:  // Select
-                if (transInstallPhase == TransInstallPhase::EMPTY) {
-                    ShowTransmissionDialog();
-                }
+                ShowTransmissionDialog();
                 break;
             case 1:  // Done
                 if (transInstallPhase == TransInstallPhase::MOUNTED) {
@@ -425,6 +447,8 @@ void Garage::ShowTransmissionInstallDialog() {
     transScrewState[1] = 0;
     transScrewFalling[0] = false;
     transScrewFalling[1] = false;
+    transScrewFallDelay[0] = 0.0f;
+    transScrewFallDelay[1] = 0.0f;
 
     SetActiveDialog(transmissionInstallDialog.get());
 }
