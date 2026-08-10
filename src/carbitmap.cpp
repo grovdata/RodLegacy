@@ -6,6 +6,7 @@
 #include "parsers/carcolor.h"
 
 const int wheelSize = 31;
+extern const int kDriverBaseY = 7;
 
 // Where each piece lives is resolved into CarModel::sprites when the model is
 // built; only which lib to read from differs per set. Both sources take the
@@ -621,6 +622,16 @@ void CarBitmap::MoveBody(SDL_Point p) {
     }
 }
 
+void CarBitmap::MoveDriverOffset(int dx, int dy) {
+    driverOffset.x += dx;
+    driverOffset.y += dy;
+    UpdateTextures();
+}
+
+SDL_Point CarBitmap::GetDriverOffsetFromBody() const {
+    return {offsets.offsetXDriver + driverOffset.x, kDriverBaseY + driverOffset.y};
+}
+
 void CarBitmap::MoveWheelsYOffset(int offset) {
     wheelsYOffset = offset;
     UpdatePositions();  // Recalculate positions with new wheel offset
@@ -631,7 +642,12 @@ void CarBitmap::UpdateTextures() {
     // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+    // The driver's X comes from the model, but its Y is this constant for
+    // every car. SpriteInfo does carry a per-car y_driver (17..22 across the
+    // Amiga cars) which nothing reads - the CarDebug scene is for working out
+    // whether that field is what belongs here.
+    driver.SetPosition(bodyRect.x + offsets.offsetXDriver + driverOffset.x,
+                       bodyRect.y + kDriverBaseY + driverOffset.y);
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);

@@ -3,6 +3,7 @@
 #include "log.h"
 #include "state.h"
 #include "car_set.h"
+#include "driver.h"
 #include "SFont.h"
 
 namespace {
@@ -21,6 +22,11 @@ void CarDebug::Init(bool debugMode) {
     Scene::Init(debugMode);
 
     LoadModels();
+
+    // Any portrait will do; the point is having something to line up against
+    // the windscreen. P cycles through the rest.
+    debugDriver.name = "Debug";
+    debugDriver.spriteIndex = DRIVER_01 + portraitIndex;
 
     ButtonConfig prev{};
     prev.bounds = kPrevRect;
@@ -41,9 +47,10 @@ void CarDebug::Init(bool debugMode) {
     dumpButton = std::make_unique<Button>(dump);
 
     SFont_Font* font = state.GetAssets().GetMainFont();
-    titleLabel.Init(font, 8, 128, kWhite);
-    spriteLabel.Init(font, 8, 140, kWhite);
-    wheelLabel.Init(font, 8, 152, kWhite);
+    titleLabel.Init(font, 8, 120, kWhite);
+    spriteLabel.Init(font, 8, 132, kWhite);
+    wheelLabel.Init(font, 8, 144, kWhite);
+    driverLabel.Init(font, 8, 156, kWhite);
 
     ShowModel(0);
 }
@@ -65,9 +72,15 @@ void CarDebug::RefreshLabels() {
              model.sprites.body, model.width, model.height);
     spriteLabel.SetText(line);
 
-    snprintf(line, sizeof(line), "wheels Y %d (stock %d %+d)   up/down 0 reset  D dump",
+    snprintf(line, sizeof(line), "wheels Y %d (stock %d %+d)   up/down  0 reset  D dump",
              StockWheelY() + CurrentAdjust(), StockWheelY(), CurrentAdjust());
     wheelLabel.SetText(line);
+
+    const SDL_Point at = carBitmap ? carBitmap->GetDriverOffsetFromBody() : SDL_Point{0, 0};
+    snprintf(line, sizeof(line), "driver %d,%d (data %d,%d)  portrait %d   IJKL  P next",
+             at.x, at.y, model.offsets.offsetXDriver, model.offsets.offsetYDriver,
+             portraitIndex);
+    driverLabel.SetText(line);
 }
 
 namespace {
@@ -155,6 +168,12 @@ int CarDebug::CurrentAdjust() const {
     return it == wheelYAdjust.end() ? 0 : it->second;
 }
 
+SDL_Point CarDebug::CurrentDriverAdjust() const {
+    if (models.empty()) return {0, 0};
+    auto it = driverAdjust.find(models[currentIndex].index);
+    return it == driverAdjust.end() ? SDL_Point{0, 0} : it->second;
+}
+
 int CarDebug::StockWheelY() const {
     if (models.empty()) return 0;
     return models[currentIndex].offsets.offsetYTires;
@@ -168,9 +187,11 @@ void CarDebug::ShowModel(int index) {
     // wheel line is measured against the car as drawn in the dealer ad.
     car = std::make_unique<Car>(models[currentIndex]);
     car->SetTires(STOCK);
-    carBitmap = std::make_unique<CarBitmap>(car.get(), nullptr, CarColorRed);
+    carBitmap = std::make_unique<CarBitmap>(car.get(), &debugDriver, CarColorRed);
     carBitmap->Move({kCarX, kCarY});
     carBitmap->MoveWheelsYOffset(CurrentAdjust());
+    const SDL_Point driverNudge = CurrentDriverAdjust();
+    carBitmap->MoveDriverOffset(driverNudge.x, driverNudge.y);
     RefreshLabels();
 }
 
@@ -200,13 +221,41 @@ void CarDebug::AdjustWheelY(int delta) {
              model.index, StockWheelY(), StockWheelY() + adjust, adjust);
 }
 
-void CarDebug::ResetWheelY() {
+void CarDebug::AdjustDriver(int dx, int dy) {
     if (models.empty() || !carBitmap) return;
-    wheelYAdjust.erase(models[currentIndex].index);
-    carBitmap->MoveWheelsYOffset(0);
+    const CarModel& model = models[currentIndex];
+    SDL_Point nudge = CurrentDriverAdjust();
+    nudge.x += dx;
+    nudge.y += dy;
+    driverAdjust[model.index] = nudge;
+    carBitmap->MoveDriverOffset(dx, dy);
     RefreshLabels();
-    LOG_INFO("CarDebug: %s reset to offsetYTires=%d",
-             models[currentIndex].name.c_str(), StockWheelY());
+
+    // Report where the driver sits relative to the body's top-left, the same
+    // frame SpriteInfo's x_driver / y_driver use, so the numbers are directly
+    // comparable with the data.
+    const SDL_Point at = carBitmap->GetDriverOffsetFromBody();
+    LOG_INFO("CarDebug: %s (set '%s', index %d) driver x=%d y=%d (data x_driver=%d y_driver=%d)",
+             model.name.c_str(), GetCarSetDefs()[model.carSet].id.c_str(), model.index,
+             at.x, at.y, model.offsets.offsetXDriver, model.offsets.offsetYDriver);
+}
+
+void CarDebug::CyclePortrait() {
+    portraitIndex = (portraitIndex + 1) % DRIVER_COUNT;
+    debugDriver.spriteIndex = DRIVER_01 + portraitIndex;
+    ShowModel(currentIndex);
+    LOG_INFO("CarDebug: driver portrait %d (asset %d)", portraitIndex, debugDriver.spriteIndex);
+}
+
+void CarDebug::ResetModel() {
+    if (models.empty() || !carBitmap) return;
+    const CarModel& model = models[currentIndex];
+    wheelYAdjust.erase(model.index);
+    driverAdjust.erase(model.index);
+    ShowModel(currentIndex);
+    LOG_INFO("CarDebug: %s reset to offsetYTires=%d, driver x=%d y=%d",
+             model.name.c_str(), StockWheelY(),
+             carBitmap->GetDriverOffsetFromBody().x, carBitmap->GetDriverOffsetFromBody().y);
 }
 
 void CarDebug::DumpAdjustments() const {
@@ -225,6 +274,19 @@ void CarDebug::DumpAdjustments() const {
     LOG_INFO("CarDebug: %d corrected, %zu confirmed unchanged, %zu of %zu models not visited",
              changed, wheelYAdjust.size() - changed,
              models.size() - wheelYAdjust.size(), models.size());
+
+    if (!driverAdjust.empty()) {
+        LOG_INFO("CarDebug: driver placement, relative to the body top-left");
+        for (const CarModel& model : models) {
+            auto it = driverAdjust.find(model.index);
+            if (it == driverAdjust.end() || (it->second.x == 0 && it->second.y == 0)) continue;
+            LOG_INFO("  %-38s set=%-6s index=%4d  x %d -> %d   y %d -> %d  (data %d,%d)",
+                     model.name.c_str(), GetCarSetDefs()[model.carSet].id.c_str(), model.index,
+                     model.offsets.offsetXDriver, model.offsets.offsetXDriver + it->second.x,
+                     kDriverBaseY, kDriverBaseY + it->second.y,
+                     model.offsets.offsetXDriver, model.offsets.offsetYDriver);
+        }
+    }
 
     for (const CarModel& model : models) {
         auto it = wheelYAdjust.find(model.index);
@@ -260,6 +322,7 @@ void CarDebug::DrawScene() {
     titleLabel.Draw();
     spriteLabel.Draw();
     wheelLabel.Draw();
+    driverLabel.Draw();
 
     prevButton->Draw();
     nextButton->Draw();
@@ -274,7 +337,12 @@ bool CarDebug::PushEvent(SDL_Event* event) {
             // Up raises the wheels, which means a smaller Y.
             case SDLK_UP:    AdjustWheelY(-1); return true;
             case SDLK_DOWN:  AdjustWheelY(1);  return true;
-            case SDLK_0:     ResetWheelY(); return true;
+            case SDLK_i:     AdjustDriver(0, -1); return true;
+            case SDLK_k:     AdjustDriver(0, 1);  return true;
+            case SDLK_j:     AdjustDriver(-1, 0); return true;
+            case SDLK_l:     AdjustDriver(1, 0);  return true;
+            case SDLK_p:     CyclePortrait(); return true;
+            case SDLK_0:     ResetModel(); return true;
             case SDLK_d:     DumpAdjustments(); return true;
             default: break;
         }

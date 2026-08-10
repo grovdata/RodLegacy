@@ -11,6 +11,11 @@
 // in types.h; a negative index gives nullptr. Amiga lib.p art is recoloured
 // through carPalette, while Street Rod SE cars are fixed 16-colour DOS
 // sprites that already carry their paint, so carPalette is ignored for those.
+// Driver portrait Y relative to the top-left of the car body. One value for
+// every car, even though SpriteInfo carries a per-car y_driver that nothing
+// reads - see CarBitmap::UpdateTextures.
+extern const int kDriverBaseY;
+
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette);
 
@@ -90,6 +95,7 @@ private:
     Uint64 t;
     BitmapOffset_t offsets;
     int wheelsYOffset;
+    SDL_Point driverOffset = {0, 0};
     bool isRoofChopped;
     bool isFrontBumperStripped;
     bool isRearBumperStripped;
@@ -132,6 +138,14 @@ public:
     void MoveBody(SDL_Point p);
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
+
+    // Live nudge on the driver portrait, on top of the model's own offsets.
+    // See CarDebug; the driver's Y has no per-car source today.
+    void MoveDriverOffset(int dx, int dy);
+    SDL_Point GetDriverOffset() const { return driverOffset; }
+    // Where the driver ends up relative to the top-left of the car body, which
+    // is the frame SpriteInfo's x_driver / y_driver are expressed in.
+    SDL_Point GetDriverOffsetFromBody() const;
     StandardCarColor GetCurrentColor() const { return currentColor; }
     Car* GetCar() const { return car; }
     BitmapOffset_t GetOffset();

@@ -19,9 +19,16 @@
 // because their data file has no equivalent field. This scene is how those
 // numbers get corrected.
 //
+// It also places a driver portrait, whose Y is a single constant for every car
+// (CarBitmap's kDriverBaseY) even though SpriteInfo carries a per-car y_driver
+// that nothing reads.
+//
 //   < >  or Left/Right   previous / next model
 //   Up / Down            raise / lower the wheels by one pixel
-//   0                    reset this model to its stock offset
+//   I / K                raise / lower the driver
+//   J / L                move the driver left / right
+//   P                    next driver portrait
+//   0                    reset this model to its stock offsets
 //   D                    dump every adjusted model to the log
 //
 // Adjustments are kept per model while the scene is open, so several cars can
@@ -39,10 +46,16 @@ private:
 
     // Model index -> nudge applied on top of the model's stock offsetYTires.
     std::map<int, int> wheelYAdjust;
+    // Model index -> nudge applied on top of the driver's computed position.
+    std::map<int, SDL_Point> driverAdjust;
+
+    Driver debugDriver;
+    int portraitIndex = 0;
 
     Label titleLabel;
     Label spriteLabel;
     Label wheelLabel;
+    Label driverLabel;
 
     void LoadModels();
     // The King's car is spec slot 25 in every set and is never for sale, so
@@ -53,10 +66,13 @@ private:
     void ShowModel(int index);
     void Cycle(int delta);
     void AdjustWheelY(int delta);
-    void ResetWheelY();
+    void AdjustDriver(int dx, int dy);
+    void CyclePortrait();
+    void ResetModel();
     void DumpAdjustments() const;
     int CurrentAdjust() const;
     int StockWheelY() const;
+    SDL_Point CurrentDriverAdjust() const;
 
 public:
     CarDebug();
