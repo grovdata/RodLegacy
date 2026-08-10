@@ -957,7 +957,111 @@ static std::string WearNote(int wear) {
 }
 
 void Garage::ShowTransmissionDialog() {
-    // Not yet implemented.
+    const auto& spareTransmissions = state.GetSpareTransmissions();
+    if (spareTransmissions.empty()) return;
+
+    std::vector<std::string> labels;
+    for (const Part& p : spareTransmissions) {
+        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
+    }
+
+    // Green list-dialog style now (see below), not tied to
+    // ENGINE_TRANSMISSION_WINDOW's dimensions - eyeballed against the
+    // running game.
+    SDL_Rect bounds = {20, 17, 245, 136};
+
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+
+    SDL_Rect listBoxRect = {64, 26, 168, 90};
+    SDL_Rect topRect = {61, 13, 198, 110};
+    SDL_Rect bottomRect = {61, 116, 198, 51};
+    SDL_Rect selectedItemRect = {63, 120, 194, 12};
+    // Absolute screen coords, eyeballed against the running game.
+    SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone switchItZone("trans_switch_it",     "Change", switchItRect);
+    Zone forgetItZone("trans_forget_it",     "Forget it", forgetItRect);
+    Zone scrollTopZone("trans_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("trans_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("trans_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("trans_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {switchItRect, "Change",    nullptr, true,  0},
+        {forgetItRect, "Forget it", nullptr, false, 1},
+    };
+
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{63, 16, 194, 10}, "Spare transmissions", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {64, 25, 194, 1} };
+
+    std::vector<Zone> dialogZones = {
+        switchItZone, forgetItZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    // Standard green list-dialog style (matches EngineBay::InitPartsDialog
+    // and Garage's own carSelectDialog) rather than an ENGINE_TRANSMISSION_WINDOW
+    // bitmap - this is a plain spare-parts picker, not the install window.
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText().c_str());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Change
+                int selectedIndex = transmissionDialog->GetSelectedIndex();
+                if (selectedIndex < 0) break;
+                const auto& spareTransmissions = state.GetSpareTransmissions();
+                if (selectedIndex >= (int)spareTransmissions.size()) break;
+                Part newTransmission = spareTransmissions[selectedIndex];
+                transmissionDialog->Hide();
+                // Actual swap (SetGearbox + spare-list bookkeeping) happens once
+                // the slide-in/screw-down animation completes - see
+                // Garage::CommitTransmissionSwap in garage_transmission_install.cpp.
+                StartTransmissionSlideIn(newTransmission);
+                SetActiveDialog(transmissionInstallDialog.get());
+                break;
+            }
+            case 1: // Forget it
+                transmissionDialog->Hide();
+                SetActiveDialog(transmissionInstallDialog.get());
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    transmissionDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels,
+            {},
+            [](int) {},
+            listBoxRect,
+            selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF},
+            {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)transmissionDialog.get());
 }
 
 void Garage::ShowSparePartsDialog() {

@@ -224,6 +224,13 @@ public:
 
     const std::vector<Part>& GetSpareTransmissions() const { return spareTransmissions; }
     void AddSpareTransmission(Part p) { spareTransmissions.push_back(p); }
+    bool RemoveSpareTransmission(TransmissionType type) {
+        auto it = std::find_if(spareTransmissions.begin(), spareTransmissions.end(),
+                                [type](const Part& p) { return p.partType.transmissionType == type; });
+        if (it == spareTransmissions.end()) return false;
+        spareTransmissions.erase(it);
+        return true;
+    }
 
     const std::vector<Part>& GetSpareManifolds() const { return spareManifolds; }
     void AddSpareManifold(Part p) { spareManifolds.push_back(p); }

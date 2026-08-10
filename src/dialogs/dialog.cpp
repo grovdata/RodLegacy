@@ -182,6 +182,17 @@ DialogBitmap* Dialog::GetBitmap(const std::string& id) {
     return nullptr;
 }
 
+void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect logicalRect) {
+    SDL_Rect visible;
+    if (!SDL_IntersectRect(&logicalRect, &mask, &visible)) {
+        db.rect = {0, 0, 0, 0};
+        db.sourceRect = {0, 0, 0, 0};
+        return;
+    }
+    db.sourceRect = {visible.x - logicalRect.x, visible.y - logicalRect.y, visible.w, visible.h};
+    db.rect = visible;
+}
+
 void Dialog::HandleEvent(SDL_Event* event) {
     if (!IsVisible()) return;
 

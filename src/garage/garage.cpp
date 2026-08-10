@@ -120,7 +120,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("transmission").onClick = [this] {
         if (!CanInteract()) return;
-        ShowTransmissionDialog();
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
+        if (state.GetSpareTransmissions().empty()) bubbles[1]->SetVisible(true);
+        else ShowTransmissionInstallDialog();
     };
     GetZone("engine").onClick = [this] {
         if (!CanInteract()) return;
@@ -465,6 +467,7 @@ void Garage::DrawScene() {
 
     UpdateCarAnimation(deltaTime);
     UpdateTireChangeAnimation(deltaTime);
+    UpdateTransmissionInstallAnimation(deltaTime);
 
     Scene::DrawScene();
 
@@ -578,6 +581,15 @@ void Garage::DrawScene() {
         stickerNeedsRefresh = false;
         stickerDialog->Hide();
         ShowStickerDialog();
+    }
+
+    // The spare-transmissions picker is its own Dialog opened on top of the
+    // transmission install window (not a replacement for it): draw the
+    // install window here whenever it's open but not the active dialog, so
+    // it stays visible underneath the picker.
+    if (transmissionInstallDialog && transmissionInstallDialog->IsVisible() &&
+        activeDialog != transmissionInstallDialog.get()) {
+        transmissionInstallDialog->Draw();
     }
 
     if (activeDialog && activeDialog->IsVisible()) {

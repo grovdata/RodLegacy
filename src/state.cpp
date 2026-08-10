@@ -138,13 +138,6 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         }
         LOG_INFO("Generated %zu classified cars", classifiedCars.size());
 
-        // Seed spare tires for testing
-        spareTires = {
-            Part(0, 0, CarVendorUnknown, CAR_TIRES_STOCK, STOCK),
-            Part(0, 0, CarVendorUnknown, CAR_TIRES_BRAND, BRAND),
-            Part(0, 0, CarVendorUnknown, CAR_TIRES_RACING, RACING),
-        };
-
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
         LOG_INFO("Current car tires: %d", this->currentCar->GetTires().assetId);

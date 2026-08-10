@@ -17,7 +17,7 @@
     - [x] Tuning engine
     - [ ] Swapping parts
     - [ ] Dismantling and assembling the engine
-    - [ ] Transmission swapping
+    - [x] Transmission swapping
     - [ ] Animating screws and parts
     - [ ] Tune animation without glitches
     - [x] Menu dialog
@@ -35,7 +35,7 @@
         - [ ] Custom color?
     - [ ] Newspaper
         - [x] Buying cars with dialogs
-        - [ ] Buying parts
+        - [x] Buying parts
         - [ ] Updating headlines from the current date
         - [ ] Close newspaper by clicking in the bottom-right area
         - [ ] Improvement: pull more historic headlines to use randomly?

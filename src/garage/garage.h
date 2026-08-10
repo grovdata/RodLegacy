@@ -10,6 +10,7 @@
 #include "engine_bay.h"
 #include "animated_bitmap.h"
 #include "parsers/carcolor.h"
+#include "part.h"
 #include <functional>
 #include <filesystem>
 
@@ -31,6 +32,7 @@ class Garage : public CarScene {
     float tireChangeTimer = 0.0f;
     CarWheelType pendingTireType = STOCK;
     std::unique_ptr<ListDialog> tireDialog;
+    std::unique_ptr<ListDialog> transmissionDialog;
     std::unique_ptr<AnimatedBitmap> jackAnim;
     SDL_Rect initialFrontWheelPos{};
     SDL_Rect initialRearWheelPos{};
@@ -49,6 +51,53 @@ class Garage : public CarScene {
     void ShowTireDialog();
     void StartTireChangeAnimation(CarWheelType newType);
     void UpdateTireChangeAnimation(double deltaTime);
+
+    // Transmission install animation (garage/garage_transmission_install.cpp).
+    // Mirrors the tire-change state machine above: MOUNTED is the steady
+    // state (screws visually "in"); UNSCREWING/SCREWING_IN are click-driven
+    // (2 clicks per screw, see docs/garage/transmission_install.md); SLIDING_IN
+    // is the only timer-driven phase. The car's actual gearbox is never
+    // mutated until SCREWING_IN completes, so backing out mid-animation via
+    // Done just resets the visuals - no rollback logic needed.
+    enum class TransInstallPhase {
+        MOUNTED,
+        UNSCREWING,
+        EMPTY,
+        SLIDING_IN,
+        SCREWING_IN,
+    };
+    TransInstallPhase transInstallPhase = TransInstallPhase::MOUNTED;
+    float transInstallTimer = 0.0f;
+    int transScrewState[2] = {0, 0};  // 0 = seated .. 2 = fully backed out
+    Part pendingGearbox;
+    SDL_Point transSlideStart{};
+    SDL_Point transSlideMid{};
+    SDL_Point transSlideEnd{};
+    SDL_Point transNaturalSize{};  // unscaled transmission bitmap size, for re-deriving the clip each frame
+    std::unique_ptr<Dialog> transmissionInstallDialog;
+    std::unique_ptr<Bitmap> transScrewBitmap[2];  // independent copies of ENGINE_TRANSMISSION_BOLT, cropped per state
+
+    // Once a screw finishes backing out it drops out of the window; once a
+    // new transmission is in place, fresh screws drop in from the top. Runs
+    // independently of transInstallPhase/transScrewState (which stay
+    // click-driven and immediate) - this is a purely cosmetic Y translation
+    // layered on top.
+    bool transScrewFalling[2] = {false, false};
+    bool transScrewFallingOut[2] = {false, false};  // true = dropping out (hide on arrival); false = dropping in from the top
+    float transScrewFallTimer[2] = {0.0f, 0.0f};
+    int transScrewFallFromY[2] = {0, 0};
+    int transScrewFallToY[2] = {0, 0};
+
+    void ShowTransmissionInstallDialog();
+    void UpdateTransmissionInstallAnimation(double deltaTime);
+    void OnTransScrewClicked(int screwIndex);
+    void UpdateTransScrewVisual(int screwIndex);
+    void StartScrewFall(int screwIndex, bool fallingOut);
+    void UpdateScrewFallAnimations(double deltaTime);
+    void StartTransmissionSlideIn(const Part& newGearbox);
+    void CommitTransmissionSwap();
+    void ResetTransmissionInstallToMounted();
+    DialogBitmap BuildTransmissionBitmapEntry(TransmissionType type);
 
     // Read-only readout of state's spare engines/transmissions/manifolds/
     // carburetors (bought from the newspaper, not yet installed). Selling is

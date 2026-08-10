@@ -32,6 +32,20 @@ struct DialogBitmap {
     SDL_Rect sourceRect = {0, 0, 0, 0};
 };
 
+/**
+ * Clips `logicalRect` (a bitmap's full, unscaled on-screen rect) to `mask`,
+ * writing both the destination rect and a matching texture-space sourceRect
+ * crop into db - e.g. keeping a part bitmap that slides/animates confined to
+ * a window's porthole instead of spilling over its border art.
+ *
+ * Only correct for entries drawn at 1:1 scale (dest size == the bitmap's
+ * natural size, i.e. no separate up/downscale baked into `rect`). Not valid
+ * for AnimatedBitmap entries that pick a frame via their own grid selection
+ * (SelectFrame) rather than a plain full-texture blit - DialogBitmap's
+ * sourceRect-crop draw path bypasses that frame selection entirely.
+ */
+void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect logicalRect);
+
 struct DialogConfig {
     SFont_Font *font;
     SDL_Rect bounds;
