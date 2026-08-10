@@ -47,6 +47,19 @@ The images must be named `SR1AMIGA_DISK1.adf` and `SR1AMIGA_DISK2.adf`.
 `LIB2` file from the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on) will get you some new stickers
 to add to your cars.
 
+# Notes
+
+Per-subsystem notes on how this port differs from the original, what is
+approximated, and what is still missing:
+
+- [docs/audio.md](docs/audio.md) - engine sound mismatch, music calibration and gaps
+- [docs/cars.md](docs/cars.md) - wheel offsets, driver portrait, the car-set registry
+- [docs/graphics.md](docs/graphics.md) - palette selection and its failure mode
+- [docs/gameplay.md](docs/gameplay.md) - challenge retry
+
+Research on the original game and its file formats lives in the sibling
+`RodLegacyResearch` repository.
+
 # Credits
 
 StreetRod Legacy use these fine libraries:
