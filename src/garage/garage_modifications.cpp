@@ -974,10 +974,14 @@ void Garage::ShowTransmissionDialog() {
     const int buttonWidth = 66;
     const int buttonHeight = 16;
 
-    SDL_Rect listBoxRect = {64, 26, 168, 90};
-    SDL_Rect topRect = {61, 13, 198, 110};
-    SDL_Rect bottomRect = {61, 116, 198, 51};
-    SDL_Rect selectedItemRect = {63, 120, 194, 12};
+    // Proportional to bounds (same convention as EngineBay::InitPartsDialog),
+    // not absolute - these were previously stale leftovers sized for the old
+    // {60,12,200,175} bitmap-window bounds and didn't track when bounds
+    // moved to the green-list-dialog size below.
+    SDL_Rect topRect = {bounds.x + 1, bounds.y + 1, bounds.w - 14, 95};
+    SDL_Rect bottomRect = {bounds.x + 1, topRect.y + topRect.h, bounds.w - 14, 40};
+    SDL_Rect selectedItemRect = {bounds.x + 3, bottomRect.y + 4, bounds.w - 18, 12};
+    SDL_Rect listBoxRect = {bounds.x + 4, bounds.y + 14, bounds.w - 18, 80};
     // Absolute screen coords, eyeballed against the running game.
     SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
     SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
@@ -1000,9 +1004,9 @@ void Garage::ShowTransmissionDialog() {
     };
 
     std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{63, 16, 194, 10}, "Spare transmissions", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+        DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare transmissions", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
-    std::vector<SDL_Rect> lines = { {64, 25, 194, 1} };
+    std::vector<SDL_Rect> lines = { {bounds.x + 4, listBoxRect.y - 1, bounds.w - 6, 1} };
 
     std::vector<Zone> dialogZones = {
         switchItZone, forgetItZone,
