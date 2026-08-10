@@ -114,4 +114,10 @@ public:
     void Init(bool debugMode) override;
     void DrawScene() override;
     bool PushEvent(SDL_Event *event) override;
+
+    // Newspaper is a persistent scene object (constructed once at startup),
+    // so currentPage would otherwise still be wherever the player last left
+    // it. Called from State::MoveToScene every time the player walks back
+    // in, so it always opens on the front page.
+    void ResetToFrontPage();
 };

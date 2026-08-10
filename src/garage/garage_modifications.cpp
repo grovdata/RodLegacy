@@ -948,6 +948,14 @@ static const char* CarburetorTypeName(CarburetorType type) {
     }
 }
 
+// Same convention ShowCarInfoDialog uses for a car's installed parts.
+static std::string WearNote(int wear) {
+    if (wear <= 0) return "(new)";
+    char buf[32];
+    snprintf(buf, sizeof(buf), "(%d%% worn)", wear);
+    return std::string(buf);
+}
+
 void Garage::ShowTransmissionDialog() {
     // Not yet implemented.
 }
@@ -955,19 +963,20 @@ void Garage::ShowTransmissionDialog() {
 void Garage::ShowSparePartsDialog() {
     std::vector<std::string> labels;
     for (const EnginePart& p : state.GetSpareEngines()) {
-        labels.push_back(p.GetEngineName() + " - $" + std::to_string(p.cost));
+        std::string name = p.name.empty() ? p.GetEngineName() : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareTransmissions()) {
-        labels.push_back(std::string(TransmissionTypeName(p.partType.transmissionType)) +
-                          " - $" + std::to_string(p.cost));
+        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareManifolds()) {
-        labels.push_back(std::string(ManifoldTypeName(p.partType.manifoldType)) +
-                          " - $" + std::to_string(p.cost));
+        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareCarburetors()) {
-        labels.push_back(std::string(CarburetorTypeName(p.partType.carburetorType)) +
-                          " - $" + std::to_string(p.cost));
+        std::string name = p.name.empty() ? CarburetorTypeName(p.partType.carburetorType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
     }
 
     if (labels.empty()) return;

@@ -223,6 +223,7 @@ void State::MoveToScene(SrLibGameScene scene) {
             this->currentScene = driving.get();
             break;
         case SCENE_NEWSPAPER:
+            if (newspaper) newspaper->ResetToFrontPage();
             this->currentScene = newspaper.get();
             break;
         case SCENE_KING_OF_COUNTY:

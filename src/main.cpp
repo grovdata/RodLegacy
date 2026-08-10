@@ -600,6 +600,10 @@ int main(int argc, char* argv[]) {
 
     // tinyfiledialogs doesn't require cleanup
 
+    // Persist in-session settings changed via raw bool* bindings (e.g. the
+    // debug "Show zone overlays" toggle) that have no per-change save hook.
+    state.GetAssets().SaveSettings();
+
     debugUi.Shutdown();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);

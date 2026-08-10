@@ -119,13 +119,17 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     };
     GetZone("back_to_garage").onClick = backToGarage;
     GetZone("back_to_garage2").onClick = backToGarage;
+    GetZone("back_to_garage3").onClick = backToGarage;
     // Page 0 is the front page, pages 1..totalPartsPages are the AUTO PARTS
     // pages, and pages (1+totalPartsPages)..(totalPartsPages+totalPages) are
-    // the used-car ad pages.
+    // the used-car ad pages. previous/next are only enabled while browsing
+    // (currentPage > 0, see Update()), so they loop within 1..lastPage --
+    // parts flows straight into cars and back again without detouring
+    // through the front page, which is reached only via its own zones.
     GetZone("previous").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         int lastPage = totalPartsPages + totalPages;
-        if (currentPage > 0) currentPage--; else currentPage = lastPage;
+        if (currentPage > 1) currentPage--; else currentPage = lastPage;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
@@ -133,7 +137,7 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     GetZone("next").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         int lastPage = totalPartsPages + totalPages;
-        if (currentPage < lastPage) currentPage++; else currentPage = 0;
+        if (currentPage < lastPage) currentPage++; else currentPage = 1;
         smoothScrollOffset = 0;
         LOG_INFO("Page: %d of %d", currentPage, totalPages);
         Update();
@@ -145,6 +149,12 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
 }
 
 Newspaper::~Newspaper() {
+}
+
+void Newspaper::ResetToFrontPage() {
+    currentPage = 0;
+    smoothScrollOffset = 0;
+    Update();
 }
 
 void Newspaper::Init(bool debugMode) {
@@ -413,6 +423,7 @@ void Newspaper::Update() {
     SetZoneEnabled("auto_parts", currentPage == 0);
     SetZoneEnabled("used_cars", currentPage == 0);
     SetZoneEnabled("back_to_garage", currentPage == 0);
+    SetZoneEnabled("back_to_garage3", currentPage != 0);
     SetZoneEnabled("previous", currentPage > 0);
     SetZoneEnabled("next", currentPage > 0);
     SetZoneEnabled("ads_area", currentPage > 0);
@@ -464,18 +475,22 @@ void Newspaper::CreateAllAdsSurface() {
     LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries, %zu part entries",
              carMetadata.size(), partMetadata.size());
 
-    // Calculate total height needed for all ads
+    // Calculate total height needed for all ads. This is only an upper-bound
+    // guess to size the canvas before drawing -- actual page counts and
+    // scroll limits are derived below from the real rendered height, not
+    // from this estimate (a tighter guess here previously undersized the
+    // canvas relative to real content, silently truncating the last several
+    // "pages" of scrolling into duplicates of one clamped view).
     int totalHeight = 0;
 
-    // Add space for AUTO PARTS ads (continuous list, same rough per-entry
-    // estimate used for cars below -- ad text is 1-2 lines per entry, same
-    // shape as the shorter car ads).
+    // Add space for AUTO PARTS ads (continuous list). Worst case ~3 rendered
+    // rows per entry (name + 2 wrapped lines) plus a divider.
     totalHeight += 20; // PARTS header
-    totalHeight += partMetadata.size() * 25;
+    totalHeight += partMetadata.size() * 40;
 
     // Add space for used car ads (continuous list, not pages)
     totalHeight += 20; // USED CARS header
-    totalHeight += carMetadata.size() * 25; // Rough estimate for all car ads
+    totalHeight += carMetadata.size() * 40;
 
     // Add some padding
     totalHeight += 100;
@@ -681,6 +696,18 @@ void Newspaper::CreateAllAdsSurface() {
 
         SDL_SetSurfaceColorMod(mainFont->Surface, 255, 255, 255);
     }
+
+    // Page counts and scroll limits must match the real rendered height, not
+    // the upfront size guess above -- otherwise "next" can report more pages
+    // than the content actually has room to scroll through, and everything
+    // past the real end just re-clamps to the same view (looks like dead
+    // pages). 190px viewport height per page, rounded up.
+    const int usedCarsSectionHeight = currentY - partsSectionHeight;
+    totalPartsPages = std::max(1, (partsSectionHeight + 189) / 190);
+    totalPages = std::max(1, (usedCarsSectionHeight + 189) / 190);
+    allAdsSurfaceHeight = currentY;
+    LOG_INFO("Real content: parts %dpx (%d pages), cars %dpx (%d pages), total %dpx",
+             partsSectionHeight, totalPartsPages, usedCarsSectionHeight, totalPages, allAdsSurfaceHeight);
 
     // Update the surface
     allAdsSurface.UpdateFromSurface();
@@ -957,29 +984,36 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                     // buy more than one part per visit.
                     state.SetBankroll(state.GetBankroll() - price);
 
+                    const char* rawName = partMetadata[partIndex].classified.carName;
+                    std::string adName = rawName ? rawName : "Unknown Part";
+
                     const PartCatalogEntry& entry = kPartCatalog[partIndex];
                     switch (entry.category) {
                         case PartCategory::Engine: {
                             EnginePart part(entry.engineType, 0, price, entry.vendor,
                                             (AmigaLibAsset)entry.engineType);
+                            part.name = adName;
                             state.AddSpareEngine(part);
                             break;
                         }
                         case PartCategory::Transmission: {
                             Part part = CarBuilder::CreateTransmissionPart(entry.transType, entry.vendor);
                             part.cost = price;
+                            part.name = adName;
                             state.AddSpareTransmission(part);
                             break;
                         }
                         case PartCategory::Carburetor: {
                             Part part = CarBuilder::CreateCarburetorPart(entry.carbType, entry.vendor);
                             part.cost = price;
+                            part.name = adName;
                             state.AddSpareCarburetor(part);
                             break;
                         }
                         case PartCategory::Manifold: {
                             Part part = CarBuilder::CreateManifoldPart(entry.manifoldType, entry.vendor);
                             part.cost = price;
+                            part.name = adName;
                             state.AddSpareManifold(part);
                             break;
                         }
@@ -991,14 +1025,14 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                                 case RACING: asset = CAR_TIRES_RACING; break;
                             }
                             Part part(0, price, entry.vendor, asset, entry.tireType);
+                            part.name = adName;
                             state.AddSpareTire(part);
                             break;
                         }
                     }
 
-                    const char* boughtName = partMetadata[partIndex].classified.carName;
                     LOG_INFO("Bought part %d (%s) for $%d, bankroll now $%d",
-                            partIndex, boughtName ? boughtName : "?", price, state.GetBankroll());
+                            partIndex, adName.c_str(), price, state.GetBankroll());
                 }
                 partPurchaseDialog->Hide();
                 SetActiveDialog(nullptr);

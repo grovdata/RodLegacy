@@ -1,12 +1,18 @@
 #pragma once
 #include "parsers/libp.h"
 #include "car_system.h"
+#include <string>
 
 struct Part {
     int wear;
     int cost;
     CarVendor_t vendor;
     AmigaLibAsset assetId; // Only for graphics
+
+    // Original newspaper classified-ad name (e.g. "Trnsmsn 4-spd. Ford."),
+    // set when bought from the newspaper. Empty for parts that never came
+    // from a classified ad (e.g. the starting car's stock parts).
+    std::string name;
     
     // Logical part type (for compatibility checking)
     union {

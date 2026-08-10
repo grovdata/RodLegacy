@@ -13,7 +13,11 @@ struct EnginePart {
     int horsepower;
     int torque;
     int displacement; // cubic inches
-    
+
+    // Original newspaper classified-ad name, set when bought from the
+    // newspaper. Empty for engines that never came from a classified ad.
+    std::string name;
+
     EnginePart() : engineType(CarEngineGM_V8_327), wear(0), cost(0), vendor(CarVendorGM), assetId(ENGINE_V8), horsepower(300), torque(360), displacement(327) {}
     EnginePart(CarEngine_t type, int w, int c, CarVendor_t v, AmigaLibAsset asset) 
         : engineType(type), wear(w), cost(c), vendor(v), assetId(asset) {

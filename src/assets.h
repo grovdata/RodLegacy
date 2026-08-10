@@ -118,7 +118,14 @@ public:
     void LoadSettings();
     void SaveSettings();
 
+    // Whether debug builds draw the yellow zone-hitbox overlay. Global across
+    // every scene (not per-scene), persisted, defaults off. Returns a
+    // reference so the ImGui debug panel can bind its checkbox straight to
+    // it, same as other DebugToggle usages.
+    bool& GetDebugShowZoneOverlaysRef() { return debugShowZoneOverlays; }
+
 private:
+    bool debugShowZoneOverlays = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

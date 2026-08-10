@@ -851,6 +851,9 @@ void AssetManager::LoadSettings() {
         return;
     }
     try {
+        auto zoneOverlaysIt = kv.find("debug_show_zone_overlays");
+        if (zoneOverlaysIt != kv.end()) debugShowZoneOverlays = std::stoi(zoneOverlaysIt->second) != 0;
+
         // Optional car sets, stored by id ("car_set_srse=1") so adding or
         // reordering sets in the registry cannot flip what is enabled.
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
@@ -889,6 +892,7 @@ void AssetManager::SaveSettings() {
         kv["music_muted"]   = audioManager->IsMusicMuted() ? "1" : "0";
         kv["music_source"]  = MusicSourceName(audioManager->GetMusicSource());
     }
+    kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";
     WriteConfigFile(kv);
 }
 
