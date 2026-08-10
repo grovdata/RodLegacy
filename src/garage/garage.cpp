@@ -8,6 +8,7 @@
 #include "engine_bay.h"
 #include "embedded_loader.h"
 #include "embedded_resources.h"
+#include "ui/main_font.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
 #include "parsers/libp.h"
@@ -194,10 +195,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     Zone switchItZone("switch_it",    "Switch it", switchItRect);
     Zone sellItZone  ("sell_it",      "Sell it",   sellItRect);
     Zone forgetItZone("car_forget_it","Forget it", forgetItRect);
-    Zone scrollTopZone   ("scroll_top",    "\\", scrollTopRect);
-    Zone scrollDownZone  ("scroll_down",   ">",  scrollDownRect);
-    Zone scrollUpZone    ("scroll_up",     "<",  scrollUpRect);
-    Zone scrollBottomZone("scroll_bottom", "/",  scrollBottomRect);
+    Zone scrollTopZone   ("scroll_top",    std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone  ("scroll_down",   std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone    ("scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {

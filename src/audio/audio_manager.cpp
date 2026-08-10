@@ -191,18 +191,22 @@ void AudioManager::SetMusicSource(MusicSource src) {
     if (amigaMusic_) amigaMusic_->Stop();
 
     musicSource_ = src;
-    if (musicMuted_) return;
 
+    // Muting is a gain control, not a reason to skip starting the source.
+    // Returning early here used to leave the player never started: LoadSettings
+    // applies music_muted before music_source, so a config with music_muted=1
+    // meant Play() was never reached, and unmuting later only re-applied volume
+    // to something that had never begun. Music stayed dead for the whole run.
     switch (src) {
         case MusicSource::DOS:
             if (pcSpeaker_) {
-                pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
+                pcSpeaker_->SetAmplitude(musicMuted_ ? 0 : (int16_t)(musicVolume_ * 800));
                 pcSpeaker_->Play();
             }
             break;
         case MusicSource::AMIGA:
             if (amigaMusic_) {
-                amigaMusic_->SetVolume(musicVolume_ / 10.0f);
+                amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
                 amigaMusic_->Play();
             }
             break;

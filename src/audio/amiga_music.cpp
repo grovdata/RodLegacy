@@ -3,11 +3,27 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <random>
 
 namespace {
 constexpr double kPaulaClock = 3579545.0;
 constexpr double kCiaClockHz = 709379.0;
 constexpr int kPeriodTable[12] = {270, 254, 240, 226, 214, 202, 190, 180, 169, 160, 151, 144};
+
+// The Amiga hardcodes the arrangement modulus to 3 at audio init and never
+// recomputes it from the loaded file. msr.note parses into four well-formed
+// steps, but step 3 is unreachable there: it is the only step whose channel 0
+// stream contains no 0x95, so nothing could ever advance out of it again.
+constexpr int kArrangementSteps = 3;
+
+// Master volume while music plays. The game sets 0xF at audio init but drops
+// to 9 on every music start, and the envelope curve is scaled by it.
+constexpr int kMusicMasterVolume = 9;
+
+std::mt19937& RandomEngine() {
+    static std::mt19937 gen(std::random_device {}());
+    return gen;
+}
 }  // namespace
 
 AmigaMusic::AmigaMusic() = default;
@@ -421,18 +437,26 @@ void AmigaMusic::AdvanceArrangement() {
 bool AmigaMusic::ResetState() {
     if (patterns_.empty()) return false;
 
-    arrangement_len_ = static_cast<int>(patterns_.size());
-    arrangement_index_ = 0;
+    // Not patterns_.size(): the original's modulus is fixed. Clamped so a note
+    // file with fewer steps than that cannot index out of bounds.
+    arrangement_len_ = std::min(kArrangementSteps, static_cast<int>(patterns_.size()));
+
+    // The original opens on a random step rather than always the first.
+    std::uniform_int_distribution<int> pick(0, arrangement_len_ - 1);
+    arrangement_index_ = pick(RandomEngine());
+
     global_transpose_ = 0x54;
     speed_ticks_ = 2;
     cia_timer_period_ = 35000;
+    master_volume_ = kMusicMasterVolume;
     speed_counter_ = 0;
     sample_tick_accum_ = 0.0;
     conditional_flag_ = false;
 
+    const auto& start = patterns_[static_cast<size_t>(arrangement_index_)];
     for (int ch = 0; ch < 4; ch++) {
         channel_[ch] = ChannelState {};
-        channel_[ch].stream_index = patterns_[0][ch];
+        channel_[ch].stream_index = start[ch];
         channel_[ch].loop_counter.fill(-1);
         channel_[ch].note_volume = 64;
     }

@@ -6,6 +6,7 @@
 #include "assets.h"
 #include "state.h"
 #include "engine_bay.h"
+#include "ui/main_font.h"
 #include "embedded_loader.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
@@ -688,25 +689,25 @@ void Garage::ShowStickerDialog() {
     SDL_Rect scrollDownRect   = {scrollX, dialogRect.y + dialogH - 31, scrollBtnW, scrollBtnH};
     SDL_Rect scrollBottomRect = {scrollX, dialogRect.y + dialogH - 15, scrollBtnW, scrollBtnH};
 
-    zones.push_back(Zone("sticker_scroll_top",    "\\", scrollTopRect));
-    zones.push_back(Zone("sticker_scroll_up",     "<",  scrollUpRect));
-    zones.push_back(Zone("sticker_scroll_down",   ">",  scrollDownRect));
-    zones.push_back(Zone("sticker_scroll_bottom", "/",  scrollBottomRect));
+    zones.push_back(Zone("sticker_scroll_top",    std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect));
+    zones.push_back(Zone("sticker_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect));
+    zones.push_back(Zone("sticker_scroll_down",   std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect));
+    zones.push_back(Zone("sticker_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect));
 
     std::vector<ButtonConfig> buttons;
-    ButtonConfig scrollTopBtn = {scrollTopRect, "\\", nullptr, false, 1};
+    ButtonConfig scrollTopBtn = {scrollTopRect, std::string(1, MAIN_FONT_SCROLL_TOP), nullptr, false, 1};
     scrollTopBtn.fillColor = frameBg;
     scrollTopBtn.borderColor = frameBorder;
     scrollTopBtn.textColor = ButtonDefaultChoiceColor;
-    ButtonConfig scrollUpBtn = {scrollUpRect, "<", nullptr, false, 2};
+    ButtonConfig scrollUpBtn = {scrollUpRect, std::string(1, MAIN_FONT_SCROLL_UP), nullptr, false, 2};
     scrollUpBtn.fillColor = frameBg;
     scrollUpBtn.borderColor = frameBorder;
     scrollUpBtn.textColor = ButtonDefaultChoiceColor;
-    ButtonConfig scrollDownBtn = {scrollDownRect, ">", nullptr, false, 3};
+    ButtonConfig scrollDownBtn = {scrollDownRect, std::string(1, MAIN_FONT_SCROLL_DOWN), nullptr, false, 3};
     scrollDownBtn.fillColor = frameBg;
     scrollDownBtn.borderColor = frameBorder;
     scrollDownBtn.textColor = ButtonDefaultChoiceColor;
-    ButtonConfig scrollBottomBtn = {scrollBottomRect, "/", nullptr, false, 4};
+    ButtonConfig scrollBottomBtn = {scrollBottomRect, std::string(1, MAIN_FONT_SCROLL_BOTTOM), nullptr, false, 4};
     scrollBottomBtn.fillColor = frameBg;
     scrollBottomBtn.borderColor = frameBorder;
     scrollBottomBtn.textColor = ButtonDefaultChoiceColor;
@@ -941,10 +942,10 @@ void Garage::ShowTireDialog() {
 
     Zone switchItZone("tire_switch_it",     "Switch it", switchItRect);
     Zone forgetItZone("tire_forget_it",     "Forget it", forgetItRect);
-    Zone scrollTopZone("tire_scroll_top",   "\\",        scrollTopRect);
-    Zone scrollDownZone("tire_scroll_down", ">",         scrollDownRect);
-    Zone scrollUpZone("tire_scroll_up",     "<",         scrollUpRect);
-    Zone scrollBottomZone("tire_scroll_bottom", "/",     scrollBottomRect);
+    Zone scrollTopZone("tire_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("tire_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("tire_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("tire_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {switchItRect, "Switch it", nullptr, true,  0},

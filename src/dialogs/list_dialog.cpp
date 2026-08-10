@@ -1,6 +1,7 @@
 #include "list_dialog.h"
 #include "../state.h"
 #include "../SFont.h"
+#include "../ui/main_font.h"
 #include "../ui/button.h"
 
 ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
@@ -10,7 +11,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     rowHeight = SFont_TextHeight(config.font);
 
     ButtonConfig topConfig;
-    topConfig.text = "\\";
+    topConfig.text = std::string(1, MAIN_FONT_SCROLL_TOP);
     topConfig.bounds = listConfig.scrollButtons.topRect;
     topConfig.fillColor = config.backgroundColor;
     topConfig.borderColor = config.borderColor;
@@ -21,7 +22,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     scrollTopBtn = new Button(topConfig);
 
     ButtonConfig upConfig;
-    upConfig.text = "<";
+    upConfig.text = std::string(1, MAIN_FONT_SCROLL_UP);
     upConfig.bounds = listConfig.scrollButtons.upRect;
     upConfig.fillColor = config.backgroundColor;
     upConfig.borderColor = config.borderColor;
@@ -32,7 +33,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     scrollUpBtn = new Button(upConfig);
     
     ButtonConfig downConfig;
-    downConfig.text = ">";
+    downConfig.text = std::string(1, MAIN_FONT_SCROLL_DOWN);
     downConfig.bounds = listConfig.scrollButtons.downRect;
     downConfig.fillColor = config.backgroundColor;
     downConfig.borderColor = config.borderColor;
@@ -44,7 +45,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     scrollDownBtn = new Button(downConfig);
 
     ButtonConfig bottomConfig;
-    bottomConfig.text = "/";
+    bottomConfig.text = std::string(1, MAIN_FONT_SCROLL_BOTTOM);
     bottomConfig.bounds = listConfig.scrollButtons.bottomRect;
     bottomConfig.fillColor = config.backgroundColor;
     bottomConfig.borderColor = config.borderColor;

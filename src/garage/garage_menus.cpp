@@ -7,6 +7,7 @@
 #include "state.h"
 #include "engine_bay.h"
 #include "embedded_loader.h"
+#include "ui/main_font.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
 #include "parsers/libp.h"
@@ -270,10 +271,10 @@ void Garage::ShowLoadGameDialog() {
 
     Zone loadItZone("load_it",       "Load it",   loadItRect);
     Zone cancelZone("load_cancel",   "Cancel",    cancelRect);
-    Zone scrollTopZone("load_scroll_top",     "\\", scrollTopRect);
-    Zone scrollDownZone("load_scroll_down",   ">",  scrollDownRect);
-    Zone scrollUpZone("load_scroll_up",       "<",  scrollUpRect);
-    Zone scrollBottomZone("load_scroll_bottom", "/", scrollBottomRect);
+    Zone scrollTopZone("load_scroll_top",     std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("load_scroll_down",   std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("load_scroll_up",       std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("load_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {loadItRect, "Load it", nullptr, true,  0},

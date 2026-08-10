@@ -181,6 +181,7 @@ cpp_sources = files(
     'ui/bubble.cpp',
     'ui/label.cpp',
     'ui/hud.cpp',
+    'ui/main_font.cpp',
     'dialogs/dialog.cpp',
     'dialogs/list_dialog.cpp',
     'dialogs/colorpicker.cpp',

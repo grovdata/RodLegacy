@@ -7,6 +7,7 @@
 #include "animated_bitmap.h"
 #include "scene_layout.h"
 #include "embedded_resources.h"
+#include "ui/main_font.h"
 #include <cstdlib>
 
 double carAnimationTimeDiner = 0;
@@ -587,10 +588,10 @@ void Diner::ShowCallListDialog() {
 
     Zone callZone("diner_call", "Call", callRect);
     Zone forgetItZone("diner_forget_it", "Forget it", forgetItRect);
-    Zone scrollTopZone("diner_scroll_top", "\\", scrollTopRect);
-    Zone scrollUpZone("diner_scroll_up", "<", scrollUpRect);
-    Zone scrollDownZone("diner_scroll_down", ">", scrollDownRect);
-    Zone scrollBottomZone("diner_scroll_bottom", "/", scrollBottomRect);
+    Zone scrollTopZone("diner_scroll_top", std::string(1, MAIN_FONT_SCROLL_TOP), scrollTopRect);
+    Zone scrollUpZone("diner_scroll_up", std::string(1, MAIN_FONT_SCROLL_UP), scrollUpRect);
+    Zone scrollDownZone("diner_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN), scrollDownRect);
+    Zone scrollBottomZone("diner_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
         {callRect, "Call", nullptr, true, 0},
