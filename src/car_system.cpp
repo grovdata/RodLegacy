@@ -43,13 +43,14 @@ std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissi
 
 std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarEngine_t engine) {
     switch (engine) {
+        // Triple-2bbl only fits V6s (confirmed in game: a GM 327 V8 rejects
+        // it as an install option), not any V8, big-block or small.
         case CarEngineGM_V6:
         case CarEngineFord_V6:
         case CarEngineChrysler_V6:
-            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL};
+            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_TRIPLE_2BARREL};
         default: // V8s
-            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD,
-                     MANIFOLD_TRIPLE_2BARREL, MANIFOLD_RACING};
+            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD, MANIFOLD_RACING};
     }
 }
 

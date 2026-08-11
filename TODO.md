@@ -18,11 +18,11 @@
     - [ ] Swapping parts
     - [ ] Dismantling and assembling the engine
     - [x] Transmission swapping
-    - [ ] Animating screws and parts
+    - [x] Animating screws and parts
     - [ ] Tune animation without glitches
     - [x] Menu dialog
         - [ ] New game
-        - [ ] Old game
+        - [x] Old game
         - [ ] Save game
         - [x] Quitting
     - [ ] Calendar
@@ -36,8 +36,8 @@
     - [ ] Newspaper
         - [x] Buying cars with dialogs
         - [x] Buying parts
-        - [ ] Updating headlines from the current date
-        - [ ] Close newspaper by clicking in the bottom-right area
+        - [x] Updating headlines from the current date
+        - [x] Close newspaper by clicking in the bottom-right area
         - [ ] Improvement: pull more historic headlines to use randomly?
     - [x] Changing tires
     - [x] Radio mute/unmute

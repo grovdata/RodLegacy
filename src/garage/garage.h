@@ -110,6 +110,77 @@ class Garage : public CarScene {
     void ResetTransmissionInstallToMounted();
     DialogBitmap BuildTransmissionBitmapEntry(TransmissionType type);
 
+    // Engine bay part-swap animation (garage/garage_engine_bay_install.cpp).
+    // Same idea as the transmission install above, but 3 slots sharing
+    // EngineBay's own overview dialog instead of a dedicated popup: engine
+    // (1 screw), manifold (2 screws), carb (1 screw) - 4 screws total,
+    // flat-indexed 0=engine, 1=manifold-left, 2=manifold-right, 3=carb.
+    // Unlike the transmission's growing-crop screws, ENGINE_BOLT is a real
+    // 3-frame turn-state sheet, so these are frame-select, not push-out.
+   public:
+    // Public so garage_engine_bay_install.cpp's free functions (ScrewSlot,
+    // SlotMountRect, etc.) can name them; the members using these types
+    // stay private below.
+    enum class EngineBaySlot { ENGINE = 0, MANIFOLD = 1, CARB = 2 };
+    enum class PartInstallPhase { MOUNTED, UNSCREWING, EMPTY, SLIDING_IN, SCREWING_IN };
+   private:
+    PartInstallPhase engineBaySlotPhase[3] = {
+        PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED
+    };
+    // Set when a slide-in was started for a part that doesn't fit the car's
+    // current engine (e.g. a triple-2bbl manifold on a V8) - the original
+    // still animates it in before rejecting it, rather than hiding it from
+    // the picker. See UpdateEngineBayInstallAnimation.
+    bool engineBaySlotRejected[3] = {false, false, false};
+    int engineBayScrewState[4] = {0, 0, 0, 0};
+    bool engineBayScrewFalling[4] = {false, false, false, false};
+    bool engineBayScrewFallingOut[4] = {false, false, false, false};
+    float engineBayScrewFallTimer[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int engineBayScrewFallFromY[4] = {0, 0, 0, 0};
+    int engineBayScrewFallToY[4] = {0, 0, 0, 0};
+    float engineBayScrewFallDelay[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    float engineBaySlideTimer[3] = {0.0f, 0.0f, 0.0f};
+    SDL_Point engineBaySlideStart[3]{};
+    SDL_Point engineBaySlideMid[3]{};
+    SDL_Point engineBaySlideEnd[3]{};
+
+    // The engine's ground wire: a second, independent precondition (besides
+    // its screw) for the ENGINE slot to count as fully disassembled/
+    // reassembled. Single click toggles it - no multi-step crop/fall, it's
+    // a straight swap between the two ENGINE_WIRE_* bitmaps.
+    bool engineWireAttached = true;
+
+    EnginePart pendingEngine;
+    Part pendingManifold;
+    Part pendingCarb;
+
+    std::unique_ptr<ListDialog> engineSwapDialog;
+    std::unique_ptr<ListDialog> manifoldSwapDialog;
+    std::unique_ptr<ListDialog> carbSwapDialog;
+
+    void OnEngineBayZoneClicked(Zone& zone);
+    void UpdateEngineBayInstallAnimation(double deltaTime);
+    void OnEngineBayScrewClicked(int screwIndex);
+    void UpdateEngineBayScrewVisual(int screwIndex);
+    void ApplyEngineBayScrewGeometry(int screwIndex, int y);
+    void StartEngineBayScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);
+    void UpdateEngineBayScrewFallAnimations(double deltaTime);
+    void OnEngineBayPartClicked(EngineBaySlot slot);
+    void OnEngineWireClicked();
+    void OnEngineBayPartsButtonClicked();
+    bool IsEngineBaySlotFullyOut(EngineBaySlot slot);
+    bool IsEngineBaySlotFullySeated(EngineBaySlot slot);
+    void StartEngineSlideIn(const EnginePart& newEngine);
+    void StartManifoldSlideIn(const Part& newManifold);
+    void StartCarbSlideIn(const Part& newCarb);
+    void CommitEngineSwap();
+    void CommitManifoldSwap();
+    void CommitCarbSwap();
+    void ShowEngineDialog();
+    void ShowManifoldDialog();
+    void ShowCarburetorDialog();
+
     // Read-only readout of state's spare engines/transmissions/manifolds/
     // carburetors (bought from the newspaper, not yet installed). Selling is
     // tracked separately (TODO.md's "Selling parts").

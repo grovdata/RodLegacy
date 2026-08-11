@@ -39,6 +39,10 @@ class Car {
         Part carburator;
         Part manifold;
 
+        // Gallons x10 (matches the save format's own units - see
+        // save_loader.h's fuelTenths). 160 = 16gal, a fresh car's full tank.
+        int fuelTenths = 160;
+
         // SR_data car-spec class byte 0..8, the weight term in the top-speed
         // score. 4 until someone who knows the spec sets it.
         int weightClass = 4;
@@ -76,6 +80,8 @@ class Car {
         }
         Part GetCarburator() const { return carburator; }
         Part GetManifold() const { return manifold; }
+        int GetFuelTenths() const { return fuelTenths; }
+        void SetFuelTenths(int tenths) { fuelTenths = tenths; }
         int GetTuneLevel() const { return tuneLevel; }
         CarModel GetModel();
         const CarModel& GetModelRef() const { return model; }
@@ -106,7 +112,8 @@ class Car {
         bool HasScoop() const { return engine.HasScoop(); }
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; RecalculatePerformance(); }
-        void SetTires(CarWheelType type);
+        void SetTires(CarWheelType type) { SetTires(type, 0, 0); }
+        void SetTires(CarWheelType type, int wear, int cost);
         // Fitting a part supersedes whatever the car's spec said about it.
         void SetEngine(EnginePart engine) { this->engine = engine; specEngineClass = -1; RecalculatePerformance(); }
         void SetEngine(Part engine) { SetEngine(EnginePart::FromPart(engine)); }

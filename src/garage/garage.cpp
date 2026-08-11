@@ -159,6 +159,18 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto transNotEmptyBubble = std::make_unique<Bubble>("Where will you put it, speedy`?\nMake some room first !", BUBBLE_RIGHT_TWO_LINES, 80, 30, true);
     transNotEmptyBubble->SetVisible(false);
     bubbles.push_back(std::move(transNotEmptyBubble));
+    auto noSpareEngineBubble = std::make_unique<Bubble>("  You\'ve got no spare engines, dummy!", BUBBLE_LEFT, 93, 30, true);
+    noSpareEngineBubble->SetVisible(false);
+    bubbles.push_back(std::move(noSpareEngineBubble));
+    auto noSpareManifoldBubble = std::make_unique<Bubble>("  You\'ve got no spare manifolds, dummy!", BUBBLE_LEFT, 93, 30, true);
+    noSpareManifoldBubble->SetVisible(false);
+    bubbles.push_back(std::move(noSpareManifoldBubble));
+    auto noSpareCarbBubble = std::make_unique<Bubble>("  You\'ve got no spare carburetors, dummy!", BUBBLE_LEFT, 93, 30, true);
+    noSpareCarbBubble->SetVisible(false);
+    bubbles.push_back(std::move(noSpareCarbBubble));
+    auto partIncompatibleBubble = std::make_unique<Bubble>("  Pay attention, dummy! That won\'t fit!", BUBBLE_LEFT, 93, 30, true);
+    partIncompatibleBubble->SetVisible(false);
+    bubbles.push_back(std::move(partIncompatibleBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -371,8 +383,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                     }
                     break;
                 case 1: // Parts
-                    engineBay->SwitchToState(ENGINE_BAY_PARTS);
-                    SetActiveDialog(engineBay->GetDialog());
+                    OnEngineBayPartsButtonClicked();
                     break;
                 case 2: // Done
                     //state.SetGameState(GAME_STATE_GARAGE);
@@ -386,6 +397,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         },
         [this](Zone& zone) {
             this->hud->SetText(zone.GetText().c_str());
+        },
+        [this](Zone& zone) {
+            OnEngineBayZoneClicked(zone);
         }
     );
 
@@ -472,6 +486,7 @@ void Garage::DrawScene() {
     UpdateCarAnimation(deltaTime);
     UpdateTireChangeAnimation(deltaTime);
     UpdateTransmissionInstallAnimation(deltaTime);
+    UpdateEngineBayInstallAnimation(deltaTime);
 
     Scene::DrawScene();
 
@@ -594,6 +609,17 @@ void Garage::DrawScene() {
     if (transmissionInstallDialog && transmissionInstallDialog->IsVisible() &&
         activeDialog != transmissionInstallDialog.get()) {
         transmissionInstallDialog->Draw();
+    }
+
+    // Same idea for the engine bay: its own overview dialog stays visible
+    // underneath whichever spare-part picker (engine/manifold/carb) is on
+    // top of it.
+    bool engineBayPickerActive =
+        (engineSwapDialog && activeDialog == engineSwapDialog.get()) ||
+        (manifoldSwapDialog && activeDialog == manifoldSwapDialog.get()) ||
+        (carbSwapDialog && activeDialog == carbSwapDialog.get());
+    if (engineBay && engineBayPickerActive && engineBay->GetDialog()->IsVisible()) {
+        engineBay->GetDialog()->Draw();
     }
 
     if (activeDialog && activeDialog->IsVisible()) {

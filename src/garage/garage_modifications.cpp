@@ -381,12 +381,50 @@ void Garage::ShowCarInfoDialog() {
                 }
             }
         };
-        auto carbName = [](AmigaLibAsset aid) -> const char* {
-            switch (aid) {
-                case ENGINE_CARB_2BARREL: return "2-brl carb. Fits all.";
-                case ENGINE_CARB_4BARREL: return "4-brl carb.";
-                case ENGINE_CARB_4BARREL_RACING: return "Racing 4-brl carb.";
-                default: return "carburetor.";
+        // Carbs aren't brand-locked (newspaper.cpp's catalog comment: "Fits
+        // all" -- not brand-locked in the ad text), so no vendor prefix,
+        // unlike manifold/transmission below.
+        auto carbName = [](CarburetorType type) -> const char* {
+            switch (type) {
+                case CARB_2BARREL: return "2-brl carb. Fits all models.";
+                case CARB_4BARREL: return "4-brl carb. Fits all models.";
+                case CARB_4BARREL_RACING: return "4-brl racing carb. Fits all models.";
+            }
+            return "carburetor. Fits all models.";
+        };
+        // Only the RACING wording is confirmed ("GM racing manifold.",
+        // matching transmission's own vendor-prefixed style); the other 4
+        // tiers follow the same pattern by extrapolation, unconfirmed.
+        auto manifoldName = [](ManifoldType type, const char* v) -> std::string {
+            switch (type) {
+                case MANIFOLD_2BARREL: return std::string(v) + " 2-brl manifold.";
+                case MANIFOLD_4BARREL: return std::string(v) + " 4-brl manifold.";
+                case MANIFOLD_DUAL_QUAD: return std::string(v) + " dual-quad manifold.";
+                case MANIFOLD_TRIPLE_2BARREL: return std::string(v) + " triple 2-brl manifold.";
+                case MANIFOLD_RACING: return std::string(v) + " racing manifold.";
+            }
+            return std::string(v) + " manifold.";
+        };
+        // Only RACING ("Racing slicks.") is confirmed; STOCK/BRAND are best-
+        // effort, matching the wording used elsewhere (WheelTypeName).
+        auto tireName = [](CarWheelType type) -> const char* {
+            switch (type) {
+                case STOCK: return "Stock tires.";
+                case BRAND: return "Brand name tires.";
+                case RACING: return "Racing slicks.";
+            }
+            return "Tires.";
+        };
+        // "GM V-8 engine. 327 cu.in." - cylinder count isn't stored
+        // directly on EnginePart, only derivable from engineType.
+        auto cylinderLabel = [](CarEngine_t type) -> const char* {
+            switch (type) {
+                case CarEngineGM_V6:
+                case CarEngineFord_V6:
+                case CarEngineChrysler_V6:
+                    return "V-6";
+                default:
+                    return "V-8";
             }
         };
 
@@ -394,38 +432,39 @@ void Garage::ShowCarInfoDialog() {
         if (vendor == CarVendorUnknown) {
             vendor = SrLibQueryGetCarVendor(model.index);
         }
-
-        // Debug: Car Vendor
-        std::string vendorLabel = "Car Vendor: " + std::string(vendorToStr(vendor));
-        addLeft(vendorLabel.c_str());
+        const char* vendorStr = vendorToStr(vendor);
 
         // Engine line
         EnginePart engine = car->GetEngine();
-        std::string engineLabel = engine.GetEngineName();
-        addRightNote(engineLabel.c_str(), wearNote(engine.wear).c_str());
-        // Manifold line (based on carb type if possible)
-        const Part carb = car->GetCarburator();
-        const char* maniText = (carb.assetId == ENGINE_CARB_2BARREL) ? "  2-brl manifold." : "  4-brl manifold.";
-        addIndented(maniText);
+        char engineBuf[64];
+        snprintf(engineBuf, sizeof(engineBuf), "%s %s engine. %d cu.in.",
+                 vendorStr, cylinderLabel(engine.engineType), engine.displacement);
+        addRightNote(engineBuf, wearNote(engine.wear).c_str());
+        // Manifold line
+        const Part manifold = car->GetManifold();
+        std::string maniText = std::string("  ") + manifoldName(manifold.partType.manifoldType, vendorStr);
+        addIndented(maniText.c_str());
         // Carb line
-        std::string carbText = std::string("  ") + carbName(carb.assetId);
+        const Part carb = car->GetCarburator();
+        std::string carbText = std::string("  ") + carbName(carb.partType.carburetorType);
         addIndented(carbText.c_str());
         // Transmission line
         const Part trans = car->GetGearbox();
         std::string transText = transName(trans.assetId, vendor);
         addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
         // Tires line
-        addRightNote("Tires.", wearNote(car->GetTires().wear).c_str());
+        addRightNote(tireName(car->GetWheelType()), wearNote(car->GetTires().wear).c_str());
 
         // Blank line
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
-        // Fuel (placeholder until wired)
-        addLeft("Fuel     4 gallons");
+        char fuelBuf[64];
+        snprintf(fuelBuf, sizeof(fuelBuf), "Fuel     %d gallons.", car->GetFuelTenths() / 10);
+        addLeft(fuelBuf);
         // Blank line
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
         // Same number the original prints here (ComputeCarTopSpeed 0x243b9c).
         char speedBuf[64];
-        snprintf(speedBuf, sizeof(speedBuf), "Max speed %3d mph", car->GetTopSpeed());
+        snprintf(speedBuf, sizeof(speedBuf), "Max speed %d mph.", car->GetTopSpeed());
         addLeft(speedBuf);
     }
 
@@ -1071,6 +1110,288 @@ void Garage::ShowTransmissionDialog() {
         }
     );
     SetActiveDialog((Dialog*)transmissionDialog.get());
+}
+
+// Spare engine/manifold/carb pickers: same green list-dialog geometry as
+// ShowTransmissionDialog, but returning focus to engineBay->GetDialog()
+// (the engine bay's own overview) rather than a dedicated popup - see
+// garage_engine_bay_install.cpp. Only reachable while that slot is already
+// EMPTY (OnEngineBayPartClicked gates it), so no "make room first" bubble
+// needed here.
+void Garage::ShowEngineDialog() {
+    const auto& spareEngines = state.GetSpareEngines();
+    if (spareEngines.empty()) { bubbles[9]->SetVisible(true); return; }
+
+    std::vector<std::string> labels;
+    for (const EnginePart& p : spareEngines) {
+        std::string name = p.name.empty() ? p.GetEngineName() : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
+    }
+
+    SDL_Rect bounds = {20, 17, 245, 136};
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    SDL_Rect topRect = {bounds.x + 1, bounds.y + 1, bounds.w - 14, 95};
+    SDL_Rect bottomRect = {bounds.x + 1, topRect.y + topRect.h, bounds.w - 14, 40};
+    SDL_Rect selectedItemRect = {bounds.x + 3, bottomRect.y + 4, bounds.w - 18, 12};
+    SDL_Rect listBoxRect = {bounds.x + 4, bounds.y + 14, bounds.w - 18, 80};
+    SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone switchItZone("engine_switch_it", "Change", switchItRect);
+    Zone forgetItZone("engine_forget_it", "Forget it", forgetItRect);
+    Zone scrollTopZone("engine_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("engine_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("engine_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("engine_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {switchItRect, "Change",    nullptr, true,  0},
+        {forgetItRect, "Forget it", nullptr, false, 1},
+    };
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare engines", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {bounds.x + 4, listBoxRect.y - 1, bounds.w - 6, 1} };
+    std::vector<Zone> dialogZones = {
+        switchItZone, forgetItZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText().c_str());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Change
+                int selectedIndex = engineSwapDialog->GetSelectedIndex();
+                if (selectedIndex < 0) break;
+                const auto& spareEngines = state.GetSpareEngines();
+                if (selectedIndex >= (int)spareEngines.size()) break;
+                EnginePart newEngine = spareEngines[selectedIndex];
+                engineSwapDialog->Hide();
+                StartEngineSlideIn(newEngine);
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+            }
+            case 1: // Forget it
+                engineSwapDialog->Hide();
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    engineSwapDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels, {}, [](int) {},
+            listBoxRect, selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)engineSwapDialog.get());
+}
+
+void Garage::ShowManifoldDialog() {
+    const auto& spareManifolds = state.GetSpareManifolds();
+    if (spareManifolds.empty()) { bubbles[10]->SetVisible(true); return; }
+
+    std::vector<std::string> labels;
+    for (const Part& p : spareManifolds) {
+        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
+    }
+
+    SDL_Rect bounds = {20, 17, 245, 136};
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    SDL_Rect topRect = {bounds.x + 1, bounds.y + 1, bounds.w - 14, 95};
+    SDL_Rect bottomRect = {bounds.x + 1, topRect.y + topRect.h, bounds.w - 14, 40};
+    SDL_Rect selectedItemRect = {bounds.x + 3, bottomRect.y + 4, bounds.w - 18, 12};
+    SDL_Rect listBoxRect = {bounds.x + 4, bounds.y + 14, bounds.w - 18, 80};
+    SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone switchItZone("manifold_switch_it", "Change", switchItRect);
+    Zone forgetItZone("manifold_forget_it", "Forget it", forgetItRect);
+    Zone scrollTopZone("manifold_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("manifold_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("manifold_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("manifold_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {switchItRect, "Change",    nullptr, true,  0},
+        {forgetItRect, "Forget it", nullptr, false, 1},
+    };
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare manifolds", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {bounds.x + 4, listBoxRect.y - 1, bounds.w - 6, 1} };
+    std::vector<Zone> dialogZones = {
+        switchItZone, forgetItZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText().c_str());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Change
+                int selectedIndex = manifoldSwapDialog->GetSelectedIndex();
+                if (selectedIndex < 0) break;
+                const auto& spareManifolds = state.GetSpareManifolds();
+                if (selectedIndex >= (int)spareManifolds.size()) break;
+                Part newManifold = spareManifolds[selectedIndex];
+                Car* car = state.GetCurrentCar();
+                engineBaySlotRejected[(int)EngineBaySlot::MANIFOLD] = car &&
+                    !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, ResolveEngineType(*car));
+                manifoldSwapDialog->Hide();
+                StartManifoldSlideIn(newManifold);
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+            }
+            case 1: // Forget it
+                manifoldSwapDialog->Hide();
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    manifoldSwapDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels, {}, [](int) {},
+            listBoxRect, selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)manifoldSwapDialog.get());
+}
+
+void Garage::ShowCarburetorDialog() {
+    const auto& spareCarburetors = state.GetSpareCarburetors();
+    if (spareCarburetors.empty()) { bubbles[11]->SetVisible(true); return; }
+
+    std::vector<std::string> labels;
+    for (const Part& p : spareCarburetors) {
+        std::string name = p.name.empty() ? CarburetorTypeName(p.partType.carburetorType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
+    }
+
+    SDL_Rect bounds = {20, 17, 245, 136};
+    const int buttonWidth = 66;
+    const int buttonHeight = 16;
+    SDL_Rect topRect = {bounds.x + 1, bounds.y + 1, bounds.w - 14, 95};
+    SDL_Rect bottomRect = {bounds.x + 1, topRect.y + topRect.h, bounds.w - 14, 40};
+    SDL_Rect selectedItemRect = {bounds.x + 3, bottomRect.y + 4, bounds.w - 18, 12};
+    SDL_Rect listBoxRect = {bounds.x + 4, bounds.y + 14, bounds.w - 18, 80};
+    SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
+    SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
+
+    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
+    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
+    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
+    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
+
+    Zone switchItZone("carb_switch_it", "Change", switchItRect);
+    Zone forgetItZone("carb_forget_it", "Forget it", forgetItRect);
+    Zone scrollTopZone("carb_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
+    Zone scrollDownZone("carb_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
+    Zone scrollUpZone("carb_scroll_up",     std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
+    Zone scrollBottomZone("carb_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
+
+    std::vector<ButtonConfig> buttons = {
+        {switchItRect, "Change",    nullptr, true,  0},
+        {forgetItRect, "Forget it", nullptr, false, 1},
+    };
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare carburetors", {0xFF, 0xFF, 0xFF, 0xFF}, true}
+    };
+    std::vector<SDL_Rect> lines = { {bounds.x + 4, listBoxRect.y - 1, bounds.w - 6, 1} };
+    std::vector<Zone> dialogZones = {
+        switchItZone, forgetItZone,
+        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
+    };
+
+    DialogConfig dialogConfig;
+    dialogConfig.bounds = bounds;
+    dialogConfig.backgroundColor = {0, 208, 0, 255};
+    dialogConfig.borderColor = {0, 111, 239, 255};
+    dialogConfig.buttons = buttons;
+    dialogConfig.lines = lines;
+    dialogConfig.zones = dialogZones;
+    dialogConfig.contentAreas = {topRect, bottomRect};
+    dialogConfig.font = state.GetAssets().GetMainFont();
+    dialogConfig.onZoneHover = [this](Zone& zone) {
+        this->hud->SetText(zone.GetText().c_str());
+    };
+    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+        switch (buttonIndex) {
+            case 0: { // Change
+                int selectedIndex = carbSwapDialog->GetSelectedIndex();
+                if (selectedIndex < 0) break;
+                const auto& spareCarburetors = state.GetSpareCarburetors();
+                if (selectedIndex >= (int)spareCarburetors.size()) break;
+                Part newCarb = spareCarburetors[selectedIndex];
+                Car* car = state.GetCurrentCar();
+                engineBaySlotRejected[(int)EngineBaySlot::CARB] = car &&
+                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, ResolveEngineType(*car));
+                carbSwapDialog->Hide();
+                StartCarbSlideIn(newCarb);
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+            }
+            case 1: // Forget it
+                carbSwapDialog->Hide();
+                SetActiveDialog(engineBay->GetDialog());
+                break;
+        }
+    };
+    dialogConfig.texts = texts;
+
+    carbSwapDialog = std::make_unique<ListDialog>(
+        dialogConfig,
+        ListDialogConfig{
+            labels, {}, [](int) {},
+            listBoxRect, selectedItemRect,
+            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
+            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+        }
+    );
+    SetActiveDialog((Dialog*)carbSwapDialog.get());
 }
 
 void Garage::ShowSparePartsDialog() {

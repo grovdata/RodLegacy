@@ -37,7 +37,9 @@ struct LoadedCarRecord {
     uint8_t fuelTenths = 0;   // gallons * 10
     uint8_t bodyByte = 0;     // low nibble: bumper/roof flags; high nibble: sticker index
 
-    // Slot 0=Transmission, 1=Engine, 2=Manifold, 3=Carb, 4/5=unmapped, 6=Tires.
+    // Slot 0=Transmission, 1=Engine, 2=Manifold, 3=Carb, 4=second Carb,
+    // 5=third Carb (dual-quad/triple-2bbl manifolds pair with 2 or 3
+    // carbs), 6=Tires.
     std::vector<LoadedPartRecord> sublists[7];
 };
 

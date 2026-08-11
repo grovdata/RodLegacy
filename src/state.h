@@ -234,12 +234,33 @@ public:
 
     const std::vector<Part>& GetSpareManifolds() const { return spareManifolds; }
     void AddSpareManifold(Part p) { spareManifolds.push_back(p); }
+    bool RemoveSpareManifold(ManifoldType type) {
+        auto it = std::find_if(spareManifolds.begin(), spareManifolds.end(),
+                                [type](const Part& p) { return p.partType.manifoldType == type; });
+        if (it == spareManifolds.end()) return false;
+        spareManifolds.erase(it);
+        return true;
+    }
 
     const std::vector<Part>& GetSpareCarburetors() const { return spareCarburetors; }
     void AddSpareCarburetor(Part p) { spareCarburetors.push_back(p); }
+    bool RemoveSpareCarburetor(CarburetorType type) {
+        auto it = std::find_if(spareCarburetors.begin(), spareCarburetors.end(),
+                                [type](const Part& p) { return p.partType.carburetorType == type; });
+        if (it == spareCarburetors.end()) return false;
+        spareCarburetors.erase(it);
+        return true;
+    }
 
     const std::vector<EnginePart>& GetSpareEngines() const { return spareEngines; }
     void AddSpareEngine(EnginePart p) { spareEngines.push_back(p); }
+    bool RemoveSpareEngine(CarEngine_t type) {
+        auto it = std::find_if(spareEngines.begin(), spareEngines.end(),
+                                [type](const EnginePart& p) { return p.engineType == type; });
+        if (it == spareEngines.end()) return false;
+        spareEngines.erase(it);
+        return true;
+    }
 
     Roster& GetRoster() { return roster; }
     std::vector<Car *>& GetClassifiedCars() { return classifiedCars; }

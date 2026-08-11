@@ -39,7 +39,7 @@ CarWheelType Car::GetWheelType() const {
     return STOCK;
 }
 
-void Car::SetTires(CarWheelType type) {
+void Car::SetTires(CarWheelType type, int wear, int cost) {
     // model.vendor is already resolved for both sources; the lookup only knows
     // lib.p assets and would answer Unknown for a Street Rod SE car.
     CarVendor_t vendor = model.vendor;
@@ -61,7 +61,7 @@ void Car::SetTires(CarWheelType type) {
 
     LOG_INFO("Setting tires for %d to %d", model.index, aid);
 
-    this->tires = Part(0, 0, vendor, aid, TRANS_4SPD_UNIVERSAL);
+    this->tires = Part(wear, cost, vendor, aid, type);
     RecalculatePerformance();
 }
 

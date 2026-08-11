@@ -310,52 +310,67 @@ Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
     // (racing.cpp), i.e. 9 is its own "perfectly tuned" center -- this
     // mapping stays compatible with that formula on both sides of the range.
     car->SetTuneLevel(9 + rec.tuningKnob);
+    car->SetFuelTenths(rec.fuelTenths);
 
-    // Sub-list slot -> category, confirmed in save_game.md. Only a handful
-    // of variant indices are confirmed to a specific named part (see that
-    // doc); everything else keeps a vendor-appropriate default type but
-    // still carries the real wear/cost across, per this session's plan.
+    // Sub-list slot -> category, confirmed in save_game.md.
     for (int slot = 0; slot < 7; ++slot) {
         if (rec.sublists[slot].empty()) continue;
         const LoadedPartRecord& p = rec.sublists[slot][0];
         switch (slot) {
-            case 0: { // Transmission
-                Part part = CarBuilder::CreateTransmissionPart(TRANS_4SPD_UNIVERSAL, model.vendor);
+            case 0: { // Transmission - decode owned by CarBuilder::TransmissionTypeFromSaveVariant
+                TransmissionType type;
+                if (!CarBuilder::TransmissionTypeFromSaveVariant(p.variant, type)) type = TRANS_4SPD_UNIVERSAL;
+                Part part = CarBuilder::CreateTransmissionPart(type, model.vendor);
                 part.wear = p.wearRaw / 100;
                 part.cost = p.value;
                 car->SetGearbox(part);
                 break;
             }
-            case 1: { // Engine
-                Part enginePart(p.wearRaw / 100, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
-                car->SetEngine(enginePart); // EnginePart::FromPart picks a vendor-appropriate type
+            case 1: { // Engine - decode owned by CarBuilder::EngineTypeFromSaveVariant
+                CarEngine_t type;
+                AmigaLibAsset asset;
+                if (CarBuilder::EngineTypeFromSaveVariant(p.variant, type, asset)) {
+                    EnginePart enginePart(type, p.wearRaw / 100, p.value, model.vendor, asset);
+                    car->SetEngine(enginePart);
+                } else {
+                    Part enginePart(p.wearRaw / 100, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
+                    car->SetEngine(enginePart); // EnginePart::FromPart picks a vendor-appropriate type
+                }
                 break;
             }
-            case 2: { // Manifold
-                Part part = CarBuilder::CreateManifoldPart(MANIFOLD_2BARREL, model.vendor);
+            case 2: { // Manifold - decode owned by CarBuilder::ManifoldTypeFromSaveVariant
+                ManifoldType type;
+                if (!CarBuilder::ManifoldTypeFromSaveVariant(p.variant, type)) type = MANIFOLD_2BARREL;
+                Part part = CarBuilder::CreateManifoldPart(type, model.vendor);
                 part.wear = p.wearRaw / 100;
                 part.cost = p.value;
                 car->SetManifold(part);
                 break;
             }
-            case 3: { // Carb
-                Part part = CarBuilder::CreateCarburetorPart(CARB_2BARREL, model.vendor);
+            case 3: { // Carb - decode owned by CarBuilder::CarburetorTypeFromSaveVariant
+                CarburetorType type;
+                if (!CarBuilder::CarburetorTypeFromSaveVariant(p.variant, type)) type = CARB_4BARREL;
+                Part part = CarBuilder::CreateCarburetorPart(type, model.vendor);
                 part.wear = p.wearRaw / 100;
                 part.cost = p.value;
                 car->SetCarburator(part);
                 break;
             }
-            case 4:
+            case 4: // Second carb
             case 5:
+                // Dual-quad/triple-2bbl manifolds pair with 2 or 3 carbs -
+                // confirmed present in real saves (a triple-2bbl test save
+                // has all 3 slots holding an identical carb entry), but Car
+                // only models a single carburetor slot, so these are
+                // dropped rather than silently overwriting slot 3's.
                 LOG_INFO("LoadSaveGame: car sub-list slot %d has data but no known category, skipping", slot);
                 break;
-            case 6: // Tires
-                // Car::SetTires only takes a bare CarWheelType (no wear/cost
-                // input), unlike gearbox/manifold/carburetor -- and the raw
-                // variant byte has no confirmed CarWheelType mapping either,
-                // so this loads a fixed default rather than guessing.
-                car->SetTires(STOCK);
+            case 6: { // Tires - decode owned by CarBuilder::TireTypeFromSaveVariant
+                CarWheelType type;
+                if (!CarBuilder::TireTypeFromSaveVariant(p.variant, type)) type = STOCK;
+                car->SetTires(type, p.wearRaw / 100, p.value);
                 break;
+            }
             default:
                 break;
         }

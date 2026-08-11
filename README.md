@@ -44,8 +44,7 @@ The Amiga disk images are required to run the game. They can be found for free o
 
 The images must be named `SR1AMIGA_DISK1.adf` and `SR1AMIGA_DISK2.adf`.
 
-`LIB2` file from the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on) will get you some new stickers
-to add to your cars.
+If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. 
 
 # Notes
 

@@ -5,7 +5,96 @@
 const int buttonWidth = 39;
 const int buttonHeight = 9;
 
-EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback)
+// Which lib.p body bitmap represents each part. Manifold/carb are confirmed
+// (car_builder.cpp's CreateManifoldPart/CreateCarburetorPart use the exact
+// same mapping). Engine is inferred by displacement tier - only 3 lib.p
+// engine bodies exist (V6/V8/V8_BIG) for 9 CarEngine_t values across 3
+// vendors, and the body art isn't vendor-specific elsewhere (transmission,
+// manifold, carb all reuse one bitmap across GM/Ford/Chrysler too) - flag if
+// a particular engine shows the wrong body.
+AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
+    switch (type) {
+        case CarEngineGM_V6:
+        case CarEngineFord_V6:
+        case CarEngineChrysler_V6:
+            return ENGINE_V6;
+        case CarEngineGM_V8_282:
+        case CarEngineFord_V8_292:
+        case CarEngineChrysler_V8_285:
+            return ENGINE_V8;
+        case CarEngineGM_V8_327:
+        case CarEngineFord_V8_351:
+        case CarEngineChrysler_V8_340:
+            return ENGINE_V8_BIG;
+    }
+    return ENGINE_V8;
+}
+
+AmigaLibAsset ManifoldBodyAsset(ManifoldType type) {
+    switch (type) {
+        case MANIFOLD_2BARREL: return ENGINE_MANIFOLD1;
+        case MANIFOLD_4BARREL: return ENGINE_MANIFOLD2;
+        case MANIFOLD_DUAL_QUAD: return ENGINE_MANIFOLD3;
+        case MANIFOLD_TRIPLE_2BARREL: return ENGINE_MANIFOLD4;
+        case MANIFOLD_RACING: return ENGINE_MANIFOLD6;
+    }
+    return ENGINE_MANIFOLD1;
+}
+
+// A car loaded from its SR_data spec (i.e. never had this part explicitly
+// fitted - see car.h's specEngineClass/specManifoldClass comment) never gets
+// a concrete manifold/engine Part; GetManifold()/GetEngine() return a
+// default-constructed Part/EnginePart whose fields are garbage for this
+// purpose (Part's union field reads back as whichever enum bit-pattern
+// TRANS_4SPD_UNIVERSAL happens to be). car.cpp's CarSetupFromCar already
+// handles this correctly for scoring - mirror it here for display. Carb has
+// no such gap: ApplySpec always calls SetCarburator with a real part.
+static ManifoldType ManifoldTypeFromSpecClass(int cls) {
+    switch (cls) {
+        case 0: return MANIFOLD_2BARREL;
+        case 1: return MANIFOLD_4BARREL;
+        case 2: return MANIFOLD_DUAL_QUAD;
+        case 3: return MANIFOLD_TRIPLE_2BARREL;
+        case 4: return MANIFOLD_RACING;
+    }
+    return MANIFOLD_2BARREL;
+}
+
+ManifoldType ResolveManifoldType(const Car& car) {
+    if (car.GetSpecManifoldClass() >= 0) return ManifoldTypeFromSpecClass(car.GetSpecManifoldClass());
+    return car.GetManifold().partType.manifoldType;
+}
+
+// Unlike manifold, the raw SR_data engine class (0..3) has no confirmed
+// mapping to a specific CarEngine_t - it's a scoring tier, not a documented
+// body-shape selector (docs/formats/sr_data.md just calls it "engine class
+// 0..3"), and CarSetupFromCar's own derivation collapses V8/V8_BIG to the
+// same scoring class in the other direction, so it can't be inverted either.
+// This is a guess (weakest->V6, strongest->V8_BIG): flag if a spec-based
+// car's engine body looks wrong.
+CarEngine_t ResolveEngineType(const Car& car) {
+    if (car.GetSpecEngineClass() >= 0) {
+        switch (car.GetSpecEngineClass()) {
+            case 0: return CarEngineGM_V6;
+            case 1:
+            case 2: return CarEngineGM_V8_282;
+            default: return CarEngineGM_V8_327;
+        }
+    }
+    return car.GetEngine().engineType;
+}
+
+AmigaLibAsset CarbBodyAsset(CarburetorType type) {
+    switch (type) {
+        case CARB_2BARREL: return ENGINE_CARB_2BARREL;
+        case CARB_4BARREL: return ENGINE_CARB_4BARREL;
+        case CARB_4BARREL_RACING: return ENGINE_CARB_4BARREL_RACING;
+    }
+    return ENGINE_CARB_2BARREL;
+}
+
+EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback,
+                      ZoneClickCallback zoneClickCallback)
     : state(&state), currentState(ENGINE_BAY_OVERVIEW) {
 
     // Initial level
@@ -43,7 +132,40 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     Zone advanceZone("advance", "Advance", advanceRect);
     Zone doneTuneZone("done_tune", "Done", partsRect);
 
-    std::vector<Zone> engineDialogZones = {tuneZone, partsZone, doneZone};
+    // Part-swap screws (engine mount x1, manifold x2, carb x1) - see
+    // garage/garage_engine_bay_install.cpp for the click-driven state
+    // machine (same idea as the transmission window's screws, but frame-
+    // select rather than a growing crop - see the screw bitmap setup
+    // below). Positions are placeholders (borrowed from the existing
+    // static part-bitmap rects below) pending eyeballing against the
+    // running game.
+    SDL_Rect engineScrewRect = {126, 165, 16, 8};
+    SDL_Rect manifoldLeftScrewRect = {90, 48, 16, 8};
+    SDL_Rect manifoldRightScrewRect = {170, 48, 16, 8};
+    SDL_Rect carbScrewRect = {130, 32, 16, 8};
+    Zone engineScrewZone("screw_0", "Screw", SDL_Rect{engineScrewRect.x - 4, engineScrewRect.y - 4, 24, 16});
+    Zone manifoldLeftScrewZone("screw_1", "Screw", SDL_Rect{manifoldLeftScrewRect.x - 4, manifoldLeftScrewRect.y - 4, 24, 16});
+    Zone manifoldRightScrewZone("screw_2", "Screw", SDL_Rect{manifoldRightScrewRect.x - 4, manifoldRightScrewRect.y - 4, 24, 16});
+    Zone carbScrewZone("screw_3", "Screw", SDL_Rect{carbScrewRect.x - 4, carbScrewRect.y - 4, 24, 16});
+
+    // Same rects as the body bitmaps below - click to open the spare-parts
+    // picker once a slot is fully unscrewed (Garage ignores the click
+    // otherwise). This is also the only way back in after "Forget it".
+    Zone enginePartZone("part_0", "Engine", SDL_Rect{62, 51, 136, 112});
+    Zone manifoldPartZone("part_1", "Manifold", SDL_Rect{93, 52, 88, 31});
+    Zone carbPartZone("part_2", "Carburetor", SDL_Rect{116, 35, 32, 29});
+
+    // The engine's ground wire has to be unplugged (as well as its screw
+    // backed out) before the engine can come out - same rect as the
+    // engine_wire bitmap below.
+    SDL_Rect wireRect = {162, 149, 40, 21};
+    Zone wireZone("wire_0", "Wire", wireRect);
+
+    std::vector<Zone> engineDialogZones = {
+        tuneZone, partsZone, doneZone,
+        engineScrewZone, manifoldLeftScrewZone, manifoldRightScrewZone, carbScrewZone,
+        enginePartZone, manifoldPartZone, carbPartZone, wireZone
+    };
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
     // Common button configuration
@@ -194,6 +316,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     overviewConfig.font = state.GetAssets().GetMainFont();
     overviewConfig.onButtonPressed = buttonCallbackWrapper;
     overviewConfig.onZoneHover = zoneHoverWrapper;
+    overviewConfig.onZoneClick = zoneClickCallback;
 
     // Overview dialog bitmaps
     overviewConfig.bitmaps["background"] = {
@@ -204,19 +327,27 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
         {225, 0, 71, 190}, 1
     };
-    overviewConfig.bitmaps["engine_test_v6"] = {
-        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_V6}),
+    // Engine/manifold/carb bitmaps track the current car's actual parts
+    // (previously always drew the same placeholder V6/MANIFOLD5/2-barrel
+    // regardless of what was installed). Swapping updates these via
+    // GetBitmap() rather than rebuilding the dialog - see
+    // garage/garage_engine_bay_install.cpp.
+    Car* currentCar = state.GetCurrentCar();
+    overviewConfig.bitmaps["engine_body"] = {
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, EngineBodyAsset(ResolveEngineType(*currentCar))}),
         {62, 51, 136, 112}, 2
     };
-    overviewConfig.bitmaps["manifold"] = {
-        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_MANIFOLD5}),
+    overviewConfig.bitmaps["manifold_body"] = {
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ManifoldBodyAsset(ResolveManifoldType(*currentCar))}),
         {93, 52, 88, 31}, 2
     };
-    overviewConfig.bitmaps["carb2brl"] = {
-        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_CARB_2BARREL}),
+    overviewConfig.bitmaps["carb_body"] = {
+        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CarbBodyAsset(currentCar->GetCarburator().partType.carburetorType)}),
         {116, 35, 32, 29}, 4
     };
-    overviewConfig.bitmaps["engine_wire_attached"] = {
+    // "engine_wire" (not "..._attached") since garage_engine_bay_install.cpp
+    // toggles this between ENGINE_WIRE_ATTACHED/ENGINE_WIRE_DETACHED.
+    overviewConfig.bitmaps["engine_wire"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED}),
         {162, 149, 40, 21}, 3
     };
@@ -225,6 +356,24 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         {162, 180, 8, 4}, 3,
         {0, 0, 8, 4}  // crop to just the bolt head (rows 0-3 of the 8x12 asset)
     };
+
+    // Part-mount screws: independent ENGINE_BOLT copies (not a shared
+    // pointer - same reasoning as the transmission screws, so hiding one
+    // via SetVisible can't affect the others), turn-state selected via a
+    // row crop (ENGINE_BOLT is a real 3-frame sheet - one 8x4 frame per
+    // row - unlike the transmission's ENGINE_TRANSMISSION_BOLT which was a
+    // single growing image, so no push-out/rotation here, just frame select).
+    Bitmap* boltSrc = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT});
+    SDL_Rect screwRects[4] = {engineScrewRect, manifoldLeftScrewRect, manifoldRightScrewRect, carbScrewRect};
+    for (int i = 0; i < 4; i++) {
+        screwBitmap[i] = std::make_unique<Bitmap>(*boltSrc);
+        SDL_Rect natural = screwBitmap[i]->GetPosition();
+        screwNaturalSize[i] = {natural.w, natural.h};
+        SDL_Rect frameCrop = {0, 0, natural.w, natural.h / 3};  // state 0 = seated
+        overviewConfig.bitmaps["screw_" + std::to_string(i)] = {
+            screwBitmap[i].get(), {screwRects[i].x, screwRects[i].y, frameCrop.w, frameCrop.h}, 5, frameCrop
+        };
+    }
 
     engineDialog = new Dialog(overviewConfig);
 

@@ -20,6 +20,16 @@ public:
     static Part CreateManifoldPart(ManifoldType type, CarVendor_t vendor);
     static Part CreateCarburetorPart(CarburetorType type, CarVendor_t vendor);
 
+    // Decode a save file's part "variant" byte (save_game.md) into a real
+    // type. Returns false (leaving out untouched) when the variant isn't
+    // one this has a confirmed mapping for, so callers can fall back
+    // explicitly instead of guessing.
+    static bool TransmissionTypeFromSaveVariant(int variant, TransmissionType& out);
+    static bool CarburetorTypeFromSaveVariant(int variant, CarburetorType& out);
+    static bool EngineTypeFromSaveVariant(int variant, CarEngine_t& outType, AmigaLibAsset& outAsset);
+    static bool ManifoldTypeFromSaveVariant(int variant, ManifoldType& out);
+    static bool TireTypeFromSaveVariant(int variant, CarWheelType& out);
+
     // Overwrite a car's drivetrain with the parts its SR_data spec says it
     // carries, and hand it the spec's class byte for the top-speed weight
     // term. A car for sale in the newspaper ships with fixed parts in the

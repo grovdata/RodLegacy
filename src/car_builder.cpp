@@ -192,3 +192,100 @@ Part CarBuilder::CreateCarburetorPart(CarburetorType type, CarVendor_t vendor) {
     }
     return Part(0, 0, vendor, assetId, type);
 }
+
+// Data-mined from every sample .sav in RodLegacyResearch/savegames/amiga/
+// (RodLegacyResearch/docs/formats/save_game.md): the save's part "variant"
+// byte is an index into one flat master parts table, not a per-category
+// one. Transmissions occupy variant 9-21, in exactly the price-catalog
+// order README_transmission.md already extracted from the binary (which
+// matches libp.h's SrTransmissionType enum) - every (price, variant) pair
+// across every sample save agrees with "variant - 9 = catalog index".
+bool CarBuilder::TransmissionTypeFromSaveVariant(int variant, TransmissionType& out) {
+    static constexpr TransmissionType kCatalogOrder[SR_TRANS_COUNT] = {
+        TRANS_AUTO_GM, TRANS_AUTO_FORD, TRANS_AUTO_CHRYSLER,
+        TRANS_3SPD_GM, TRANS_3SPD_FORD, TRANS_3SPD_CHRYSLER,
+        TRANS_4SPD_GM, TRANS_4SPD_FORD, TRANS_4SPD_CHRYSLER, TRANS_4SPD_UNIVERSAL,
+        TRANS_RACING_GM, TRANS_RACING_FORD, TRANS_RACING_CHRYSLER,
+    };
+    int catalogIndex = variant - 9;
+    if (catalogIndex < 0 || catalogIndex >= SR_TRANS_COUNT) return false;
+    out = kCatalogOrder[catalogIndex];
+    return true;
+}
+
+// The full carb catalog (3 entries, variant 22-24) is now confirmed: it
+// sits immediately after transmission's 9-21 block in the master table, in
+// ascending price order matching CarburetorType's own order. A Corvette
+// test save went dual racing carbs (24/$60 x2) -> single 2-barrel (22/$25)
+// -> dual plain 4-barrel (23/$40 x2, explicitly "not racing" per the
+// player), pinning all 3 directly.
+bool CarBuilder::CarburetorTypeFromSaveVariant(int variant, CarburetorType& out) {
+    switch (variant) {
+        case 22: out = CARB_2BARREL; return true;
+        case 23: out = CARB_4BARREL; return true;
+        case 24: out = CARB_4BARREL_RACING; return true;
+    }
+    return false;
+}
+
+// 3 of the engine catalog's 9 variants directly confirmed, all GM: 0=V6,
+// 3=V8 small-block, 6=V8 big-block - a stride of 3 across GM's own 3 tiers.
+// The other 6 (Ford/Chrysler) are inferred, not save-verified, by reusing
+// the vendor order the game's transmission catalog already confirms
+// (README_transmission.md, extracted from the binary): GM, Ford, Chrysler,
+// repeated per tier, with no exception across any of its 4 tiers. Applying
+// that same order to engine's 3 tiers is what fills in the other 6 -
+// variant now fully determines vendor, so the caller no longer needs to
+// pass one in.
+bool CarBuilder::EngineTypeFromSaveVariant(int variant, CarEngine_t& outType, AmigaLibAsset& outAsset) {
+    switch (variant) {
+        case 0: outType = CarEngineGM_V6; outAsset = ENGINE_V6; return true;
+        case 1: outType = CarEngineFord_V6; outAsset = ENGINE_V6; return true;
+        case 2: outType = CarEngineChrysler_V6; outAsset = ENGINE_V6; return true;
+        case 3: outType = CarEngineGM_V8_282; outAsset = ENGINE_V8; return true;
+        case 4: outType = CarEngineFord_V8_292; outAsset = ENGINE_V8; return true;
+        case 5: outType = CarEngineChrysler_V8_285; outAsset = ENGINE_V8; return true;
+        case 6: outType = CarEngineGM_V8_327; outAsset = ENGINE_V8_BIG; return true;
+        case 7: outType = CarEngineFord_V8_351; outAsset = ENGINE_V8_BIG; return true;
+        case 8: outType = CarEngineChrysler_V8_340; outAsset = ENGINE_V8_BIG; return true;
+    }
+    return false;
+}
+
+// Manifold's block starts right after carb's (25 = class 0, matching the
+// carb/transmission pattern exactly). 4 of 5 ManifoldType values confirmed,
+// all on the same GM Corvette test save sequence: variant 25/$20 =
+// 2-barrel, variant 31/$35 = triple-2bbl (only fits after swapping to a V6
+// - see PartsCompatibilityManager::GetCompatibleManifolds), variant 34/$35
+// = dual-quad (explicitly "not racing" per the player), variant 37/$60 =
+// racing (the car's original manifold - a plain "4-brl, 2 carbs"
+// description without the "not racing" qualifier turned out to mean
+// racing, not dual-quad; corrected after a follow-up save disambiguated
+// it). 38 and 39 (seen at the same $60 price on other specs) are presumably
+// the Ford/Chrysler racing-tier variants, unconfirmed. MANIFOLD_4BARREL has
+// no confirmed variant. Not enough data yet to fit a formula for the rest
+// of the catalog.
+bool CarBuilder::ManifoldTypeFromSaveVariant(int variant, ManifoldType& out) {
+    switch (variant) {
+        case 25: out = MANIFOLD_2BARREL; return true;
+        case 31: out = MANIFOLD_TRIPLE_2BARREL; return true;
+        case 34: out = MANIFOLD_DUAL_QUAD; return true;
+        case 37: out = MANIFOLD_RACING; return true;
+    }
+    return false;
+}
+
+// All 3 CarWheelType values confirmed: variant 40/$50 = stock (a second,
+// unrelated car's tires in the same save batch - cheapest of the three,
+// consistent with STOCK being the base tier), variant 41/$80 = brand-name
+// (switched to from racing on the main test car), variant 42/$150 = racing
+// slicks (that same car's original tires, matching its spec's
+// TireClass=2 - see SrCarSpecEntry::TireClass in libp.h).
+bool CarBuilder::TireTypeFromSaveVariant(int variant, CarWheelType& out) {
+    switch (variant) {
+        case 40: out = STOCK; return true;
+        case 41: out = BRAND; return true;
+        case 42: out = RACING; return true;
+    }
+    return false;
+}
