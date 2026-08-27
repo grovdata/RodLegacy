@@ -6,16 +6,17 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# trixie, not bookworm: meson.options needs meson >= 1.1, bookworm ships 1.0.1.
+# Every job apt-installs nodejs + git BEFORE actions/checkout, since a bare
+# debian image has neither and checkout is a JS action. ca-certificates is
+# needed or the ADFlib submodule clone fails cert verification.
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    # trixie, not bookworm: meson.options needs meson >= 1.1, bookworm ships 1.0.1
     container:
       image: debian:trixie
-
     steps:
-      # Must run before any JS action: a bare debian image has no node or git,
-      # and actions/checkout needs both.
       - name: Install build dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -26,18 +27,77 @@ jobs:
             libsdl2-dev libogg-dev libvorbis-dev \
             git ca-certificates nodejs
 
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Configure
-        run: meson setup builddir
+      - run: meson setup builddir
 
       # Only the test target: building `all` would drag in the game's X11,
       # wayland and pulse link deps for no benefit here.
-      - name: Build unit tests
-        run: ninja -C builddir tests/test_libp
+      - run: ninja -C builddir tests/test_libp
 
-      - name: Run unit tests
-        run: meson test -C builddir --no-rebuild --print-errorlogs
+      - run: meson test -C builddir --no-rebuild --print-errorlogs
+
+  linux:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            build-essential cmake meson ninja-build pkg-config \
+            libsdl2-dev libogg-dev libvorbis-dev \
+            libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxcursor-dev libxinerama-dev libxi-dev \
+            libxfixes-dev libxrandr-dev libxss-dev libxxf86vm-dev libxrender-dev \
+            libxcb1-dev libxau-dev libxdmcp-dev \
+            libdrm-dev libgbm-dev libwayland-dev libxkbcommon-dev libdecor-0-dev \
+            git ca-certificates nodejs
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - run: meson setup builddir
+      - run: ninja -C builddir rodlegacy
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rodlegacy-linux
+          path: builddir/rodlegacy
+          retention-days: 7
+
+  windows:
+    runs-on: ubuntu-latest
+    # Cross toolchain from Forgejo's built-in registry. See build-windows.yml
+    # for how to push it and what the runner host needs.
+    container:
+      image: registry.example:3000/rodlegacy/win32-builder:latest
+    steps:
+      - name: Install checkout prerequisites
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends nodejs
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - run: meson setup builddir --cross-file /cross-mingw.txt
+
+      # Only the game target. The doctest suite cannot cross-compile: mingw's
+      # win32 threads model has no std::mutex, and it is run natively in `test`.
+      - run: ninja -C builddir rodlegacy.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rodlegacy-windows
+          path: builddir/rodlegacy.exe
+          retention-days: 7

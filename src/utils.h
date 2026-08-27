@@ -1,5 +1,6 @@
 #pragma once
 #include <set>
+#include <stdexcept>  // std::out_of_range
 #include <random>
 #include <memory>
 

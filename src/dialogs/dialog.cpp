@@ -5,6 +5,7 @@
 #include "../animated_bitmap.h"
 #include "ui/zone.h"
 #include <vector>
+#include <algorithm>  // std::sort
 
 Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config) {
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
