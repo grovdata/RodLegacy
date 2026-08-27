@@ -164,11 +164,6 @@ void TakeScreenshot() {
     // RAII handles cleanup automatically
 }
 
-#ifdef _WIN32
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    int argc = 1;
-    char* argv[] = { "open_sr.exe", nullptr };
-#else
 
 // Gathers the debug panel contents for one frame. Only reads what main.cpp can
 // already reach; the per-scene diagnostics (Racing's flyby lines) sit behind
@@ -255,6 +250,12 @@ static void RemapMouseToGameViewport(SDL_Event& event, const SDL_Rect& vp) {
             break;
     }
 }
+
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = 1;
+    char* argv[] = { "rodlegacy.exe", nullptr };
+#else
 
 int main(int argc, char* argv[]) {
 #endif

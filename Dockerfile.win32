@@ -231,6 +231,8 @@ ar = 'i686-w64-mingw32-ar'
 strip = 'i686-w64-mingw32-strip'
 pkgconfig = 'pkg-config'
 windres = 'i686-w64-mingw32-windres'
+# meson >= 1.11 will not fall back to PATH for cmake in a cross build
+cmake = '/usr/bin/cmake'
 
 [host_machine]
 system = 'windows'

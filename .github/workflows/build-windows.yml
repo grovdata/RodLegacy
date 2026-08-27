@@ -1,108 +1,92 @@
 name: Build Windows Release
 
 on:
-    release:
-        types: [published]
+  release:
+    types: [ published ]
+
+# Uses the cross toolchain image from Forgejo's built-in container registry
+# (same host and port as the web UI) instead of building it per run. Push it
+# once, and again whenever Dockerfile.win32 changes. From the Mac, --platform
+# matters: the runner is amd64.
+#
+#   IMG=registry.example:3000/rodlegacy/win32-builder:latest
+#   docker build --platform linux/amd64 -f Dockerfile.win32 -t $IMG .
+#   docker login registry.example:3000      # Forgejo username + a token
+#   docker push $IMG
+#
+# The Forgejo instance is plain HTTP, so both dockerds need it trusted:
+#   /etc/docker/daemon.json -> { "insecure-registries": ["registry.example:3000"] }
+# on the runner PC (to pull), and the same in Docker Desktop settings on the
+# machine you push from. Restart docker after editing.
+#
+# No-registry alternative: build the image directly on the runner PC with the
+# tag `win32-builder:latest`, set `container.force_pull: false` in the runner's
+# config.yaml, and change the image below to that bare tag.
 
 jobs:
-    build-windows:
-        runs-on: ubuntu-latest
+  build-windows:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.example:3000/rodlegacy/win32-builder:latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                  submodules: recursive
-                  fetch-depth: 0
+    steps:
+      - name: Install packaging tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends zip nodejs
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-            - name: Cache Docker layers
-              uses: actions/cache@v3
-              with:
-                  path: /tmp/.buildx-cache
-                  key: ${{ runner.os }}-buildx-${{ github.sha }}
-                  restore-keys: |
-                      ${{ runner.os }}-buildx-
+      - name: Configure build
+        run: meson setup builddir --cross-file /cross-mingw.txt
 
-            - name: Build Docker image
-              run: |
-                  # Build the Docker image for Windows cross-compilation with caching
-                  docker buildx build --load --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache,mode=max -f Dockerfile.win32 -t streetrod-win32-builder .
+      # Only the game target. The doctest suite cannot cross-compile: mingw's
+      # win32 threads model has no std::mutex, and it is run natively in build-test.
+      - name: Compile project
+        run: ninja -C builddir rodlegacy.exe
 
-            - name: Update subprojects
-              run: |
-                  # Update subprojects in the container
-                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-                    cd /project &&
-                    meson subprojects update
-                  "
+      - name: Verify executable
+        run: |
+          test -f builddir/rodlegacy.exe
+          ls -la builddir/rodlegacy.exe
 
-            - name: Configure build
-              run: |
-                  # Configure the build with meson
-                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-                    cd /project &&
-                    meson setup builddir --cross-file /cross-mingw.txt
-                  "
+      - name: Assemble release directory
+        run: |
+          mkdir -p release
+          cp builddir/rodlegacy.exe release/
+          cp data/font/bee.png data/font/lemon.png data/res/icon.png release/
+          cat > release/README.txt <<'EOF'
+          Street Rod Legacy Windows Build
+          =================================
 
-            - name: Compile project
-              run: |
-                  # Compile the project with ninja
-                  docker run --rm -v "$(pwd):/project" streetrod-win32-builder bash -c "
-                    cd /project/builddir &&
-                    ninja
-                  "
+          To run the game:
+          1. Extract all files to a folder
+          2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder
+          3. Run rodlegacy.exe
 
-            - name: Create release directory
-              run: |
-                  mkdir -p release
-                  cp builddir/src/open_sr.exe release/
-                  cp -r data/font/bee.png release/
-                  cp -r data/font/lemon.png release/
-                  cp -r data/res/icon.png release/
-                  echo "Street Rod Legacy Windows Build" > release/README.txt
-                  echo "=================================" >> release/README.txt
-                  echo "" >> release/README.txt
-                  echo "To run the game:" >> release/README.txt
-                  echo "1. Extract all files to a folder" >> release/README.txt
-                  echo "2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder" >> release/README.txt
-                  echo "3. Run open_sr.exe" >> release/README.txt
-                  echo "" >> release/README.txt
-                  echo "Controls:" >> release/README.txt
-                  echo "- Mouse: Navigate and click" >> release/README.txt
-                  echo "- Ctrl+F: Toggle fullscreen" >> release/README.txt
-                  echo "- Escape: Exit game" >> release/README.txt
+          Controls:
+          - Mouse: Navigate and click
+          - Ctrl+F: Toggle fullscreen
+          - Escape: Exit game
+          EOF
+          zip -r streetrod-legacy-windows.zip release
 
-            - name: Create zip file for release
-              run: |
-                  cd release
-                  zip -r ../streetrod-legacy-windows.zip .
-                  cd ..
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetrod-legacy-windows
+          path: release/
+          retention-days: 30
 
-            - name: Upload build artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: streetrod-legacy-windows
-                  path: release/
-                  retention-days: 30
-
-            - name: Create Release
-              uses: softprops/action-gh-release@v1
-              with:
-                  files: streetrod-legacy-windows.zip
-                  body: |
-                      Windows build of Street Rod Legacy
-
-                      ## Installation
-                      1. Extract the zip file
-                      2. Place your SR1AMIGA_DISK1.adf and SR1AMIGA_DISK2.adf files in the data folder
-                      3. Run open_sr.exe
-
-                      ## Controls
-                      - Mouse: Navigate and click
-                      - Ctrl+F: Toggle fullscreen
-                      - Escape: Exit game
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Forgejo has no GitHub releases API, so attach the asset with its own.
+      - name: Attach zip to release
+        run: |
+          curl -sSf -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -F "attachment=@streetrod-legacy-windows.zip" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=streetrod-legacy-windows.zip"

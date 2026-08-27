@@ -16,6 +16,23 @@ sdl2_dep = dependency('sdl2', static: true)
 
 subdir('src')
 
+if host_machine.system() == 'linux'
+    game_link_args = [
+        '-lm', '-ldl', '-lpthread', '-lrt',
+        '-lasound', '-lpulse-simple', '-lpulse',
+        '-lX11', '-lXext', '-lXcursor', '-lXinerama', '-lXi', '-lXfixes', '-lXrandr', '-lXss', '-lXxf86vm',
+        '-ldrm', '-lgbm', '-lwayland-egl', '-lwayland-client', '-lwayland-cursor', '-lxkbcommon', '-ldecor-0',
+        '-lxcb', '-lXau', '-lXdmcp', '-lpthread',
+        '-lXrender'
+    ]
+elif host_machine.system() == 'windows'
+    # adf.c calls GetTempPathA/GetTempFileNameA. sdl2.pc supplies its own explicit
+    # -l list, and kernel32 is not in it, so name it here.
+    game_link_args = ['-lkernel32']
+else
+    game_link_args = []
+endif
+
 executable('rodlegacy',
     sources: c_sources + cpp_sources + [embedded_resources],
     include_directories: inc_dirs,
@@ -31,14 +48,7 @@ executable('rodlegacy',
     ] + game_extra_deps,
     cpp_args: cpp_args,
     c_args: c_args,
-    link_args: host_machine.system() == 'linux' ? [
-        '-lm', '-ldl', '-lpthread', '-lrt',
-        '-lasound', '-lpulse-simple', '-lpulse',
-        '-lX11', '-lXext', '-lXcursor', '-lXinerama', '-lXi', '-lXfixes', '-lXrandr', '-lXss', '-lXxf86vm',
-        '-ldrm', '-lgbm', '-lwayland-egl', '-lwayland-client', '-lwayland-cursor', '-lxkbcommon', '-ldecor-0',
-        '-lxcb', '-lXau', '-lXdmcp', '-lpthread',
-        '-lXrender'
-    ] : []
+    link_args: game_link_args,
 )
 
 executable('pc_speaker_test',

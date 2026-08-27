@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <strings.h> // strcasecmp
 #else
+#include <windows.h>  // GetTempPathA / GetTempFileNameA below
 #define strcasecmp _stricmp
 #endif
 
