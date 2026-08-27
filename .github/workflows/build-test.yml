@@ -66,7 +66,7 @@ jobs:
       - run: meson setup builddir
       - run: ninja -C builddir rodlegacy
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: rodlegacy-linux
           path: builddir/rodlegacy
@@ -96,7 +96,7 @@ jobs:
       # win32 threads model has no std::mutex, and it is run natively in `test`.
       - run: ninja -C builddir rodlegacy.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: rodlegacy-windows
           path: builddir/rodlegacy.exe

@@ -61,7 +61,7 @@ jobs:
           cp builddir/rodlegacy.exe release/
           cp data/font/bee.png data/font/lemon.png data/res/icon.png release/
           cat > release/README.txt <<'EOF'
-          Street Rod Legacy Windows Build
+          RodLegacy Windows Build
           =================================
 
           To run the game:
@@ -74,10 +74,10 @@ jobs:
           - Ctrl+F: Toggle fullscreen
           - Escape: Exit game
           EOF
-          zip -r streetrod-legacy-windows.zip release
+          zip -r rod-legacy-windows.zip release
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: streetrod-legacy-windows
           path: release/
