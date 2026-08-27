@@ -74,6 +74,46 @@ TEST_CASE("player weaker: very high chance (threshold=90)") {
 
 } // TEST_SUITE
 
+TEST_SUITE("LoadBetThresholdTable") {
+
+TEST_CASE("decodes big-endian words at offset 0x74C and rewires OpponentAcceptsBet") {
+    std::vector<uint8_t> srData(0x74C + 24, 0);
+    // NoMoney row set to {1, 2, 3} instead of the default {40, 60, 90}.
+    const uint8_t table[24] = {
+        0, 1, 0, 2, 0, 3,     // NoMoney
+        0, 70, 0, 65, 0, 25,  // SmallMoney (unchanged)
+        0, 90, 0, 70, 0, 15,  // LargeMoney (unchanged)
+        0, 90, 0, 35, 0, 0,   // PinkSlips (unchanged)
+    };
+    std::copy(std::begin(table), std::end(table), srData.begin() + 0x74C);
+
+    LoadBetThresholdTable(srData);
+    CHECK(OpponentAcceptsBet(70, 120, BetType::NoMoney, 1) == true);   // weaker col, threshold 1
+    CHECK(OpponentAcceptsBet(70, 120, BetType::NoMoney, 2) == false);
+    CHECK(OpponentAcceptsBet(95, 95, BetType::NoMoney, 2) == true);    // equal col, threshold 2
+    CHECK(OpponentAcceptsBet(95, 95, BetType::NoMoney, 3) == false);
+
+    // Restore the default table so later test suites see the original values.
+    std::vector<uint8_t> defaultSrData(0x74C + 24, 0);
+    const uint8_t defaultTable[24] = {
+        0, 40, 0, 60, 0, 90,
+        0, 70, 0, 65, 0, 25,
+        0, 90, 0, 70, 0, 15,
+        0, 90, 0, 35, 0, 0,
+    };
+    std::copy(std::begin(defaultTable), std::end(defaultTable), defaultSrData.begin() + 0x74C);
+    LoadBetThresholdTable(defaultSrData);
+}
+
+TEST_CASE("too-short buffer leaves the table unchanged") {
+    std::vector<uint8_t> tooShort(10, 0);
+    LoadBetThresholdTable(tooShort);
+    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 90) == true);
+    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 91) == false);
+}
+
+} // TEST_SUITE
+
 TEST_SUITE("OpponentAcceptsBet - tier boundary") {
 
 TEST_CASE("score 89 is tier 0 (weak)") {

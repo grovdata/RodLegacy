@@ -126,7 +126,7 @@ lives is answered by a field read rather than a per-source rule.
   selects exactly the same 25 the old cap did.
 
 Enabled by `car_set_srse=1` in the config file
-(`~/Library/Application Support/se.grovdata/opensr/config.txt` on macOS).
+(`~/Library/Application Support/se.grovdata/rodlegacy/config.txt` on macOS).
 Defaults off, so nothing changes until it is set.
 
 ### What is missing

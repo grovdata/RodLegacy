@@ -10,9 +10,15 @@
 #include "debug_ui.h"
 #include "audio/audio_manager.h"
 #include "utils.h"
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <memory>
+
+struct DrawableEntry {
+    std::string id;
+    IDrawable* drawable;  // Non-owning; ownership is elsewhere (e.g. AssetManager or scene)
+};
 
 typedef enum {
     SCENE_BLACK,
@@ -23,7 +29,7 @@ typedef enum {
 
 class Car;
 
-class Scene: public IDrawableContainer {
+class Scene {
    private:
 
     Zone* FindZone(int x, int y);
@@ -31,6 +37,8 @@ class Scene: public IDrawableContainer {
 
 
    protected:
+    std::vector<DrawableEntry> drawables;
+
     bool isSetup;
 
     SceneTransition sceneTransition;
@@ -126,6 +134,51 @@ class Scene: public IDrawableContainer {
 
     // Debug methods
     void AddGamepadDebugInfo(const Mouse& mouse);
+
+    void AddDrawable(const std::string& id, IDrawable* drawable) {
+        drawables.push_back({id, drawable});
+    }
+
+    void RemoveDrawable(const std::string& id) {
+        drawables.erase(
+            std::remove_if(drawables.begin(), drawables.end(),
+                [&id](const DrawableEntry& entry) { return entry.id == id; }),
+            drawables.end()
+        );
+    }
+
+    void ClearDrawables() {
+        drawables.clear();
+    }
+
+    IDrawable* GetDrawable(const std::string& id) {
+        for (const auto& entry : drawables) {
+            if (entry.id == id) {
+                return entry.drawable;
+            }
+        }
+        return nullptr;
+    }
+
+    void DrawAll() {
+        for (const auto& entry : drawables) {
+            if (entry.drawable) {
+                entry.drawable->Draw();
+            }
+        }
+    }
+
+    void SetAllVisible(bool visible) {
+        for (const auto& entry : drawables) {
+            if (entry.drawable) {
+                entry.drawable->SetVisible(visible);
+            }
+        }
+    }
+
+    size_t GetDrawableCount() const {
+        return drawables.size();
+    }
 };
 
 enum class CarAnimationType {

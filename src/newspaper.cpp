@@ -1135,3 +1135,40 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     carViewDialog->Show();
     SetActiveDialog(carViewDialog.get());
 }
+
+std::string Newspaper::FindCatalogName(PartCategory category, CarVendor_t vendor, int typeValue) const {
+    for (int i = 0; i < 40 && i < (int)partMetadata.size(); i++) {
+        const PartCatalogEntry& e = kPartCatalog[i];
+        if (e.category != category) continue;
+        int entryType;
+        switch (category) {
+            case PartCategory::Engine:       entryType = (int)e.engineType; break;
+            case PartCategory::Transmission: entryType = (int)e.transType; break;
+            case PartCategory::Carburetor:   entryType = (int)e.carbType; break;
+            case PartCategory::Manifold:     entryType = (int)e.manifoldType; break;
+            case PartCategory::Tire:         entryType = (int)e.tireType; break;
+            default: continue;
+        }
+        if (entryType != typeValue) continue;
+        if (e.vendor != CarVendorUnknown && e.vendor != vendor) continue;
+        const char* name = partMetadata[i].classified.carName;
+        return name ? name : "";
+    }
+    return "";
+}
+
+std::string Newspaper::FindEngineCatalogName(CarEngine_t type, CarVendor_t vendor) const {
+    return FindCatalogName(PartCategory::Engine, vendor, (int)type);
+}
+std::string Newspaper::FindTransmissionCatalogName(TransmissionType type, CarVendor_t vendor) const {
+    return FindCatalogName(PartCategory::Transmission, vendor, (int)type);
+}
+std::string Newspaper::FindCarburetorCatalogName(CarburetorType type) const {
+    return FindCatalogName(PartCategory::Carburetor, CarVendorUnknown, (int)type);
+}
+std::string Newspaper::FindManifoldCatalogName(ManifoldType type, CarVendor_t vendor) const {
+    return FindCatalogName(PartCategory::Manifold, vendor, (int)type);
+}
+std::string Newspaper::FindTireCatalogName(CarWheelType type) const {
+    return FindCatalogName(PartCategory::Tire, CarVendorUnknown, (int)type);
+}

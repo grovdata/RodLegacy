@@ -1,13 +1,30 @@
 # To do in dissassembly / reversing
 
-- [ ] Understand delays/timings between scene transitions, etc. so it looks better
-- [ ] Racing: map ALL roadside objects to pre-drawn frames (RodEdit composite editor +
-      SPRITE_ANIMATIONS[] entries), then remove the nearest-neighbor scaling fallback in
-      racing.cpp (kSpriteScale table + scaling path in DrawNearestNeighborScaled). Only
-      road post and tree2 are mapped so far.
+- [ ] Understand delays/timings between scene transitions, etc. so it looks better. Reverse+Implement Amiga palette fade.
+
+# Legal TODO
+
+  - [x] src/racing.cpp:58 kSpriteScale pixel-scale data lifted from the original Amiga binary, hardcoded in source. Read it from the
+  loaded Amiga assets at runtime instead of shipping it as a source constant (same pattern already used for graphics/audio: user supplies the disk images).
+  - [x] src/bet_acceptance.cpp:6 kThreshold table - read from binary. Found live via Copperline (breakpoint at
+  FUN_0023d718 showed `LEA (-$2B64,A4),A0` indexing a 4x3 word table); the table itself lives in the SR_data
+  asset (disk2), not the Street_Rod exe -- confirmed at file offset 0x74C. Now read at runtime via
+  LoadBetThresholdTable(assets.GetSrData()), called from State::Init.
+  - [x] data/drivers/guybrush.png, Homer.png, mario.png, zak.png — third-party copyrighted characters (LucasArts/Disney, Fox/Disney, Nintendo), unrelated to Street Rod. Remove or replace before any public release.
+  - [ ] Remove before release: data/snd/sr1_ost.ogg, s1.aiff/wav, srl0/1.aiff, srs0/1.aiff, data/font/sr_font*.png.
+  - [ ] No LICENSE file in RodLegacy yet — add one (see below).
+
+  License
+
+  ADFlib is vendored in subprojects/ADFlib and is GPL-2.0-or-later (COPYING-GPL2, confirmed in the header). Since RodLegacy links it to read Amiga disk images,
+  that forces the whole binary to be GPL-2.0-or-later-compatible on distribution — this isn't really a choice, it's inherited.
+
+  So: GPL-2.0-or-later, or GPLv3 if you want the newer terms (both satisfy ADFlib's "or later" clause). This also matches the norm for this exact genre —  OpenTTD is GPLv2, OpenRCT2 and OpenMW are GPLv3, ScummVM is LGPL/GPL mixed. Add a LICENSE file at the RodLegacy root and an SPDX header convention if you  want one; not required, just common practice.
 
 # Current progress
 
+- [ ] Intro sequence
+- [ ] GameOver sequence
 - [x] Garage
   - [ ] Selling cars
     - [ ] Add asking price dialog and the price "haggling" flow
@@ -21,7 +38,7 @@
     - [x] Animating screws and parts
     - [ ] Tune animation without glitches
     - [x] Menu dialog
-        - [ ] New game
+        - [x] New game
         - [x] Old game
         - [ ] Save game
         - [x] Quitting
@@ -32,24 +49,26 @@
     - [ ] Car painting
         - [x] Mask spray can with car color
         - [x] Implement painting with stock colors
-        - [ ] Custom color?
+
     - [ ] Newspaper
         - [x] Buying cars with dialogs
         - [x] Buying parts
         - [x] Updating headlines from the current date
         - [x] Close newspaper by clicking in the bottom-right area
-        - [ ] Improvement: pull more historic headlines to use randomly?
     - [x] Changing tires
     - [x] Radio mute/unmute
 
 - [ ] Diner
     - [ ] Fix actor animations
-    - [ ] Add jail state
+    - [ ] Add jail state with GameOver flow when caught by police
 
 - [ ] Gas station
     - [ ] Fix actor animation
     - [ ] Implement filling up gas
-  
+
+- [ ] Possible enhancements
+    - [ ] Paint with custom color?
+    - [ ] Newspaper: pull historic headlines to use randomly?
 
 # Chores
 

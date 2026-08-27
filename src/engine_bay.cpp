@@ -5,13 +5,13 @@
 const int buttonWidth = 39;
 const int buttonHeight = 9;
 
-// Which lib.p body bitmap represents each part. Manifold/carb are confirmed
-// (car_builder.cpp's CreateManifoldPart/CreateCarburetorPart use the exact
-// same mapping). Engine is inferred by displacement tier - only 3 lib.p
-// engine bodies exist (V6/V8/V8_BIG) for 9 CarEngine_t values across 3
-// vendors, and the body art isn't vendor-specific elsewhere (transmission,
-// manifold, carb all reuse one bitmap across GM/Ford/Chrysler too) - flag if
-// a particular engine shows the wrong body.
+// Which lib.p body bitmap represents each part. Carb is confirmed
+// (car_builder.cpp's CreateCarburetorPart uses the exact same mapping).
+// Engine is inferred by displacement tier - only 3 lib.p engine bodies exist
+// (V6/V8/V8_BIG) for 9 CarEngine_t values across 3 vendors, and the body art
+// isn't vendor-specific elsewhere (transmission, manifold, carb all reuse one
+// bitmap across GM/Ford/Chrysler too) - flag if a particular engine shows the
+// wrong body.
 AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
     switch (type) {
         case CarEngineGM_V6:
@@ -30,15 +30,27 @@ AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
     return ENGINE_V8;
 }
 
+// Reconstructed from the actual lib.p art (RodLegacyBins/amiga/SR_disk2/lib.p,
+// indices 328-333), not confirmed against the game's own class->asset table
+// (no Ghidra symbols found for that code path) - flag if a manifold shows
+// the wrong body. By mount-flange shape: MANIFOLD1/328 and MANIFOLD3/330 show
+// two/one mounts respectively that don't match their old assignments here
+// (the previous mapping had 2-barrel showing 328's dual-mount flange, which
+// is what prompted this fix); MANIFOLD6/333 shows three mounts (triple);
+// MANIFOLD4/331 shows a single narrow 2-bolt flange (2-barrel). Racing has no
+// distinct art of its own - it reuses 4-barrel's flange (330), since
+// GetCompatibleCarburetors(MANIFOLD_RACING) requires a 4-barrel-shaped carb
+// and no second wide-flange asset exists. MANIFOLD2/329 and MANIFOLD5/332
+// are near-duplicates of 328 and 331 and appear unused.
 AmigaLibAsset ManifoldBodyAsset(ManifoldType type) {
     switch (type) {
-        case MANIFOLD_2BARREL: return ENGINE_MANIFOLD1;
-        case MANIFOLD_4BARREL: return ENGINE_MANIFOLD2;
-        case MANIFOLD_DUAL_QUAD: return ENGINE_MANIFOLD3;
-        case MANIFOLD_TRIPLE_2BARREL: return ENGINE_MANIFOLD4;
-        case MANIFOLD_RACING: return ENGINE_MANIFOLD6;
+        case MANIFOLD_2BARREL: return ENGINE_MANIFOLD4;
+        case MANIFOLD_4BARREL: return ENGINE_MANIFOLD3;
+        case MANIFOLD_DUAL_QUAD: return ENGINE_MANIFOLD1;
+        case MANIFOLD_TRIPLE_2BARREL: return ENGINE_MANIFOLD6;
+        case MANIFOLD_RACING: return ENGINE_MANIFOLD3;
     }
-    return ENGINE_MANIFOLD1;
+    return ENGINE_MANIFOLD4;
 }
 
 // A car loaded from its SR_data spec (i.e. never had this part explicitly
@@ -520,6 +532,24 @@ Dialog* EngineBay::GetDialog() {
 
 void EngineBay::OnDialogShown() {
     // No need to restore visibility since we're using separate dialogs
+}
+
+void EngineBay::RefreshPartsForCurrentCar() {
+    Car* car = state->GetCurrentCar();
+    if (!car || !engineDialog) return;
+
+    if (DialogBitmap* db = engineDialog->GetBitmap("engine_body")) {
+        db->bitmap = state->GetAssets().GetBitmapAsset(
+            {LibAssetRegular, SrLibFileAmigaLibP, EngineBodyAsset(ResolveEngineType(*car))});
+    }
+    if (DialogBitmap* db = engineDialog->GetBitmap("manifold_body")) {
+        db->bitmap = state->GetAssets().GetBitmapAsset(
+            {LibAssetRegular, SrLibFileAmigaLibP, ManifoldBodyAsset(ResolveManifoldType(*car))});
+    }
+    if (DialogBitmap* db = engineDialog->GetBitmap("carb_body")) {
+        db->bitmap = state->GetAssets().GetBitmapAsset(
+            {LibAssetRegular, SrLibFileAmigaLibP, CarbBodyAsset(car->GetCarburator().partType.carburetorType)});
+    }
 }
 
 void EngineBay::SetKnobPosition(int level) {

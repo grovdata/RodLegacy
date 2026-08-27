@@ -418,13 +418,13 @@ Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asse
     // Create cache key: asset ID + palette hash
     size_t paletteHash = hashPalette(carPalette);
     AssetPaletteKey cacheKey{asset.id, paletteHash};
-    
+
     // Check if this asset+palette combination is already cached
     auto it = paletteVariantCache.find(cacheKey);
     if (it != paletteVariantCache.end()) {
         return it->second.get();  // Return cached version
     }
-    
+
     // Not in cache, create new variant and cache it
     CreateAndCachePaletteVariant(libfile, asset.id, carPalette, cacheKey);
     return paletteVariantCache[cacheKey].get();
@@ -458,7 +458,7 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
     bitmap->SetDimensions(b.width, b.height);
-    
+
     // Store in palette variant cache (not in imageAssets to prevent unbounded growth)
     paletteVariantCache[cacheKey] = std::move(bitmap);
 }
@@ -776,7 +776,7 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
 // ---------------------------------------------------------------------------
 
 static fs::path GetConfigPath() {
-    char* p = SDL_GetPrefPath("se.grovdata", "opensr");
+    char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
     if (!p) return {};
     fs::path result = fs::path(p) / "config.txt";
     SDL_free(p);
@@ -895,4 +895,3 @@ void AssetManager::SaveSettings() {
     kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";
     WriteConfigFile(kv);
 }
-

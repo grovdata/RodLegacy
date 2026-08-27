@@ -30,7 +30,3 @@ void Rectangle::Draw() {
 void Rectangle::SetVisible(bool visible) {
     this->visible = visible;
 }
-
-bool Rectangle::IsWithin(SDL_Rect rect) {
-    return sdl2::SDL_RectIsWithinRect(rect, config.rect);
-}

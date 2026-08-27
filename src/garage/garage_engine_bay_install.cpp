@@ -179,6 +179,40 @@ bool Garage::IsEngineBaySlotFullySeated(EngineBaySlot slot) {
     return true;
 }
 
+// Called the moment a slot goes fully EMPTY (last screw out / wire
+// unplugged) so the just-removed part is immediately available again in its
+// swap dialog - Commit*Swap used to be the only place a part was added to
+// spares, which meant it stayed invisible to the picker until you fitted
+// something else in its place.
+void Garage::ReleaseEngineBayPartToSpares(EngineBaySlot slot) {
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
+    switch (slot) {
+        case EngineBaySlot::ENGINE: {
+            EnginePart old;
+            if (car->GetSpecEngineClass() >= 0) {
+                CarEngine_t type = ResolveEngineType(*car);
+                old = EnginePart(type, 0, 0, car->GetModelRef().vendor, EngineBodyAsset(type));
+            } else {
+                old = car->GetEngine();
+            }
+            state.AddSpareEngine(old);
+            break;
+        }
+        case EngineBaySlot::MANIFOLD: {
+            Part old = car->GetSpecManifoldClass() >= 0
+                ? CarBuilder::CreateManifoldPart(ResolveManifoldType(*car), car->GetModelRef().vendor)
+                : car->GetManifold();
+            state.AddSpareManifold(old);
+            break;
+        }
+        case EngineBaySlot::CARB: {
+            state.AddSpareCarburetor(car->GetCarburator());
+            break;
+        }
+    }
+}
+
 void Garage::OnEngineBayScrewClicked(int screwIndex) {
     EngineBaySlot slot = ScrewSlot(screwIndex);
     int slotIdx = (int)slot;
@@ -199,6 +233,7 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
                 DialogBitmap* db = engineBay->GetDialog()->GetBitmap(SlotBitmapId(slot));
                 if (db && db->bitmap) db->bitmap->SetVisible(false);
             }
+            ReleaseEngineBayPartToSpares(slot);
             engineBaySlotPhase[slotIdx] = PartInstallPhase::EMPTY;
         }
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN) {
@@ -243,6 +278,7 @@ void Garage::OnEngineWireClicked() {
             DialogBitmap* db = engineBay->GetDialog()->GetBitmap(SlotBitmapId(slot));
             if (db && db->bitmap) db->bitmap->SetVisible(false);
         }
+        ReleaseEngineBayPartToSpares(slot);
         engineBaySlotPhase[slotIdx] = PartInstallPhase::EMPTY;
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN && IsEngineBaySlotFullySeated(slot)) {
         CommitEngineSwap();
@@ -287,9 +323,11 @@ void Garage::OnEngineBayZoneClicked(Zone& zone) {
 
 static void BeginSlide(EngineBaySlot slot, SDL_Point& start, SDL_Point& mid, SDL_Point& end) {
     SDL_Rect mount = SlotMountRect(slot);
+    // All engine bay parts drop straight down from above - mid == end so
+    // the update loop's horizontal phase is a no-op hold, not a slide.
     end = {mount.x, mount.y};
-    mid = {mount.x - 16, mount.y};
-    start = {mount.x - 16, kEngineBayBounds.y + kEngineBayBounds.h};
+    mid = end;
+    start = {mount.x, kEngineBayBounds.y - mount.h};
 }
 
 void Garage::StartEngineSlideIn(const EnginePart& newEngine) {
@@ -355,21 +393,11 @@ void Garage::StartCarbSlideIn(const Part& newCarb) {
     engineBaySlideTimer[idx] = 0.0f;
 }
 
+// The old part was already handed to spares in ReleaseEngineBayPartToSpares
+// when the slot was unscrewed - this just installs the new one.
 void Garage::CommitEngineSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
-    // A spec-based car (never had this part explicitly fitted) has no real
-    // EnginePart to hand back - GetEngine() would return garbage. Build one
-    // from the resolved spec class instead (see engine_bay.cpp's
-    // ResolveEngineType/ResolveManifoldType for why this gap exists).
-    EnginePart old;
-    if (car->GetSpecEngineClass() >= 0) {
-        CarEngine_t type = ResolveEngineType(*car);
-        old = EnginePart(type, 0, 0, car->GetModelRef().vendor, EngineBodyAsset(type));
-    } else {
-        old = car->GetEngine();
-    }
-    state.AddSpareEngine(old);
     state.RemoveSpareEngine(pendingEngine.engineType);
     car->SetEngine(pendingEngine);
 }
@@ -377,10 +405,6 @@ void Garage::CommitEngineSwap() {
 void Garage::CommitManifoldSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
-    Part old = car->GetSpecManifoldClass() >= 0
-        ? CarBuilder::CreateManifoldPart(ResolveManifoldType(*car), car->GetModelRef().vendor)
-        : car->GetManifold();
-    state.AddSpareManifold(old);
     state.RemoveSpareManifold(pendingManifold.partType.manifoldType);
     car->SetManifold(pendingManifold);
 }
@@ -388,8 +412,6 @@ void Garage::CommitManifoldSwap() {
 void Garage::CommitCarbSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
-    Part old = car->GetCarburator();
-    state.AddSpareCarburetor(old);
     state.RemoveSpareCarburetor(pendingCarb.partType.carburetorType);
     car->SetCarburator(pendingCarb);
 }

@@ -1,11 +1,21 @@
-# Street Rod Legacy
+# RodLegacy
 
-Street Rod Legacy is a reimplementation of the classic Street Rod game for modern systems.
+RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
 It aims to stay true to the original, with some light enhancements.
+
+# Running the game
+
+Download the latest RodLegacy binaries from the release page.
+
+The Amiga disk images are *required* to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
+
+Start RodLegacy and point it to the folder where `sr1amiga.zip` sits.
+
+If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. Just put `sr1pc.zip` in the same folder.
 
 # Building
 
-The game is built with [Meson build system](https://mesonbuild.com/).
+The game is built using [Meson build system](https://mesonbuild.com/).
 
 ```
 meson setup build
@@ -38,14 +48,6 @@ To run with verbose output:
 ./build/tests/test_libp
 ```
 
-# Running the game
-
-The Amiga disk images are required to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
-
-The images must be named `SR1AMIGA_DISK1.adf` and `SR1AMIGA_DISK2.adf`.
-
-If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. 
-
 # Notes
 
 Per-subsystem notes on how this port differs from the original, what is
@@ -61,12 +63,12 @@ Research on the original game and its file formats lives in the sibling
 
 # Credits
 
-StreetRod Legacy use these fine libraries:
+RodLegacy use these fine libraries:
 
  - [SDL2](https://github.com/libsdl-org/SDL)
  - [SDL2_image](https://github.com/libsdl-org/SDL_image)
  - [SDL2_mixer](https://github.com/libsdl-org/SDL_mixer)
- - [ADFlib](https://github.com/michalp/adflib)
+ - [ADFlib](https://github.com/adflib/ADFlib)
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
  - [lemon font](https://github.com/cmvnd/fonts)
@@ -74,3 +76,8 @@ StreetRod Legacy use these fine libraries:
  - [tinyfiledialogs](http://tinyfiledialogs.sourceforge.net)
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
+
+ # Legal
+ 
+RodLegacy make no claim for Street Rod copyright, it contains no assets or original code from the game.
+The copyright sits solely with the owner of [streetrodonline.com](https://www.streetrodonline.com/about/).

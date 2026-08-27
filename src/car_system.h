@@ -62,25 +62,24 @@ struct CarModificationConstraints {
     }
 };
 
-// Parts compatibility manager
-class PartsCompatibilityManager {
-public:
+// Parts compatibility checks
+namespace PartsCompatibilityManager {
     // Check if transmission fits with engine
-    static bool IsTransmissionCompatible(TransmissionType transmission, CarEngine_t engine);
+    bool IsTransmissionCompatible(TransmissionType transmission, CarEngine_t engine);
 
     // Check if manifold fits with engine
-    static bool IsManifoldCompatible(ManifoldType manifold, CarEngine_t engine);
+    bool IsManifoldCompatible(ManifoldType manifold, CarEngine_t engine);
 
     // Check if carburetor fits with engine (V6 → 2-brl only; V8 → 4-brl or racing)
-    static bool IsCarburetorCompatible(CarburetorType carburetor, CarEngine_t engine);
+    bool IsCarburetorCompatible(CarburetorType carburetor, CarEngine_t engine);
 
     // Check if carburetor fits with manifold
     // STOCK/PERFORMANCE manifolds take 2-brl; RACING manifold takes 4-brl or racing
-    static bool IsCarburetorCompatible(CarburetorType carburetor, ManifoldType manifold);
+    bool IsCarburetorCompatible(CarburetorType carburetor, ManifoldType manifold);
 
     // Get compatible parts for engine
-    static std::vector<TransmissionType> GetCompatibleTransmissions(CarEngine_t engine);
-    static std::vector<ManifoldType> GetCompatibleManifolds(CarEngine_t engine);
-    static std::vector<CarburetorType> GetCompatibleCarburetors(CarEngine_t engine);
-    static std::vector<CarburetorType> GetCompatibleCarburetors(ManifoldType manifold);
-};
+    std::vector<TransmissionType> GetCompatibleTransmissions(CarEngine_t engine);
+    std::vector<ManifoldType> GetCompatibleManifolds(CarEngine_t engine);
+    std::vector<CarburetorType> GetCompatibleCarburetors(CarEngine_t engine);
+    std::vector<CarburetorType> GetCompatibleCarburetors(ManifoldType manifold);
+}

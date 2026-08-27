@@ -10,6 +10,7 @@
 #include "embedded_loader.h"
 #include "audio/audio_manager.h"
 #include "engine_part.h"
+#include "newspaper.h"
 #include "parsers/libp.h"
 #include <SDL_image.h>
 #include <algorithm>
@@ -948,7 +949,15 @@ static const char* WheelTypeName(CarWheelType type) {
     }
 }
 
-static const char* TransmissionTypeName(TransmissionType type) {
+// Each of these tries the newspaper's own classified-ad name first (matches
+// what a part bought from the newspaper already gets via Part::name), and
+// only falls back to a generic description for combinations that were never
+// one of the 40 fixed AUTO PARTS slots.
+static std::string TransmissionTypeName(TransmissionType type, CarVendor_t vendor) {
+    if (Newspaper* np = state.GetNewspaper()) {
+        std::string catalogName = np->FindTransmissionCatalogName(type, vendor);
+        if (!catalogName.empty()) return catalogName;
+    }
     switch (type) {
         case TRANS_AUTO_GM:        return "Auto transmission (GM)";
         case TRANS_AUTO_FORD:      return "Auto transmission (Ford)";
@@ -967,7 +976,11 @@ static const char* TransmissionTypeName(TransmissionType type) {
     }
 }
 
-static const char* ManifoldTypeName(ManifoldType type) {
+static std::string ManifoldTypeName(ManifoldType type, CarVendor_t vendor) {
+    if (Newspaper* np = state.GetNewspaper()) {
+        std::string catalogName = np->FindManifoldCatalogName(type, vendor);
+        if (!catalogName.empty()) return catalogName;
+    }
     switch (type) {
         case MANIFOLD_2BARREL:       return "2-barrel manifold";
         case MANIFOLD_4BARREL:       return "4-barrel manifold";
@@ -978,13 +991,25 @@ static const char* ManifoldTypeName(ManifoldType type) {
     }
 }
 
-static const char* CarburetorTypeName(CarburetorType type) {
+static std::string CarburetorTypeName(CarburetorType type) {
+    if (Newspaper* np = state.GetNewspaper()) {
+        std::string catalogName = np->FindCarburetorCatalogName(type);
+        if (!catalogName.empty()) return catalogName;
+    }
     switch (type) {
         case CARB_2BARREL:        return "2-barrel carburetor";
         case CARB_4BARREL:        return "4-barrel carburetor";
         case CARB_4BARREL_RACING: return "Racing 4-barrel carburetor";
         default: return "Unknown carburetor";
     }
+}
+
+static std::string EngineDisplayName(const EnginePart& p) {
+    if (Newspaper* np = state.GetNewspaper()) {
+        std::string catalogName = np->FindEngineCatalogName(p.engineType, p.vendor);
+        if (!catalogName.empty()) return catalogName;
+    }
+    return p.GetEngineName();
 }
 
 // Same convention ShowCarInfoDialog uses for a car's installed parts.
@@ -1001,7 +1026,7 @@ void Garage::ShowTransmissionDialog() {
 
     std::vector<std::string> labels;
     for (const Part& p : spareTransmissions) {
-        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType) : p.name;
+        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType, p.vendor) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
 
@@ -1124,7 +1149,7 @@ void Garage::ShowEngineDialog() {
 
     std::vector<std::string> labels;
     for (const EnginePart& p : spareEngines) {
-        std::string name = p.name.empty() ? p.GetEngineName() : p.name;
+        std::string name = p.name.empty() ? EngineDisplayName(p) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
 
@@ -1214,7 +1239,7 @@ void Garage::ShowManifoldDialog() {
 
     std::vector<std::string> labels;
     for (const Part& p : spareManifolds) {
-        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType) : p.name;
+        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType, p.vendor) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
 
@@ -1368,7 +1393,7 @@ void Garage::ShowCarburetorDialog() {
                 Part newCarb = spareCarburetors[selectedIndex];
                 Car* car = state.GetCurrentCar();
                 engineBaySlotRejected[(int)EngineBaySlot::CARB] = car &&
-                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, ResolveEngineType(*car));
+                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, ResolveManifoldType(*car));
                 carbSwapDialog->Hide();
                 StartCarbSlideIn(newCarb);
                 SetActiveDialog(engineBay->GetDialog());
@@ -1397,15 +1422,15 @@ void Garage::ShowCarburetorDialog() {
 void Garage::ShowSparePartsDialog() {
     std::vector<std::string> labels;
     for (const EnginePart& p : state.GetSpareEngines()) {
-        std::string name = p.name.empty() ? p.GetEngineName() : p.name;
+        std::string name = p.name.empty() ? EngineDisplayName(p) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareTransmissions()) {
-        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType) : p.name;
+        std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType, p.vendor) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareManifolds()) {
-        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType) : p.name;
+        std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType, p.vendor) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
     for (const Part& p : state.GetSpareCarburetors()) {

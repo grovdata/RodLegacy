@@ -46,5 +46,5 @@ private:
     static CarEngine_t SelectCompatibleEngine(const CarModel& model);
     static TransmissionType SelectCompatibleTransmission(CarEngine_t engine);
     static ManifoldType SelectCompatibleManifold(CarEngine_t engine);
-    static CarburetorType SelectCompatibleCarburetor(CarEngine_t engine);
+    static CarburetorType SelectCompatibleCarburetor(ManifoldType manifold);
 };

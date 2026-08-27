@@ -500,12 +500,24 @@ void Garage::DrawScene() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
+            Car* current = state.GetCurrentCar();
             // Nothing to drive in before the player's bought their first car.
-            if (state.GetCurrentCar() != nullptr) {
-                needsNewAnimation = true;  // Ensure parent's initialization logic runs
-
-                StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
-                animatingCar = true;
+            if (current != nullptr) {
+                if (current == lastParkedCar) {
+                    // Same car that was already sitting here (e.g. just came
+                    // back from the newspaper) - pop it back into place
+                    // instantly instead of replaying the off-screen drive-in.
+                    carBitmap = GetOrCreateCarBitmap(current);
+                    SDL_Point idlePos = GetCarIdlePosition();
+                    carx = idlePos.x;
+                    cary = idlePos.y;
+                    carBitmap->Move({carx, cary});
+                    UpdateSign();
+                } else {
+                    needsNewAnimation = true;  // Ensure parent's initialization logic runs
+                    StartAnimateCar(current, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+                    animatingCar = true;
+                }
             }
         }
         return;
@@ -636,6 +648,11 @@ void Garage::OnFadeComplete() {
     CarScene::OnFadeComplete();
 }
 
+void Garage::OnSceneExit() {
+    lastParkedCar = carBitmap ? state.GetCurrentCar() : nullptr;
+    CarScene::OnSceneExit();
+}
+
 void Garage::SetActiveDialog(Dialog *dialog) {
     // Call the base class implementation
     CarScene::SetActiveDialog(dialog);
@@ -674,6 +691,10 @@ void Garage::OnCarAnimationComplete() {
         state.SetCurrentCar(pendingCar);
 
         UpdateSign();
+        // The new car's engine bay art was frozen at whatever car was
+        // current when EngineBay was built - resync now that a different
+        // car is actually being driven in.
+        if (engineBay) engineBay->RefreshPartsForCurrentCar();
 
         // Mark that we need a new animation (important for parent's StartAnimateCar logic)
         needsNewAnimation = true;
@@ -750,11 +771,19 @@ void Garage::ResetForNewCarSet() {
     pendingCar = nullptr;
     InitCarBitmaps();
     if (state.GetCurrentCar()) UpdateSign();
+    // New game / car bought / save loaded - the engine bay overview may
+    // still be showing whatever car it last synced to.
+    if (engineBay) engineBay->RefreshPartsForCurrentCar();
 
     // Always drop CarScene's own live car-bitmap/animation state: carBitmap
     // is a raw pointer into the carBitmaps map cleared above, so leaving it
     // set would dangle regardless of whether Garage is the active scene.
     OnSceneExit();
+    // The car set was just rebuilt (new game / car bought / save loaded) -
+    // OnSceneExit() above may have captured the about-to-be-shown car as
+    // "already parked" off the stale carBitmap. Force a real drive-in
+    // rather than a silent pop-into-place, matching the FadeIn() below.
+    lastParkedCar = nullptr;
 
     // If Garage is the scene on screen right now, also fade it back in so
     // the (possibly absent) current car drives in normally instead of

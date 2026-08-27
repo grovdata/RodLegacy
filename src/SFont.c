@@ -263,4 +263,3 @@ SFont_Font* SFont_InitFontDirect(
         SDL_FreeSurface(surf);
     return font;
 }
-

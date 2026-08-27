@@ -55,28 +55,32 @@ constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
 constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
 constexpr SDL_Color kArchColor = {180, 32, 32, 255};  // overhead gantry: red
 
-constexpr std::array<std::array<std::array<uint8_t, 2>, 11>, 20> kSpriteScale = {{
-    {{{56, 87}, {34, 52}, {23, 35}, {19, 29}, {15, 24}, {13, 20}, {11, 17}, {10, 15}, {9, 14}, {7, 11}, {6, 9}}},
-    {{{7, 14}, {5, 9}, {3, 6}, {2, 5}, {2, 4}, {1, 3}, {1, 3}, {1, 2}, {1, 1}, {1, 1}, {1, 1}}},
-    {{{14, 19}, {9, 12}, {7, 8}, {5, 7}, {4, 5}, {3, 4}, {3, 3}, {2, 3}, {2, 3}, {1, 2}, {1, 1}}},
-    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
-    {{{30, 21}, {18, 13}, {13, 9}, {10, 7}, {8, 6}, {7, 5}, {6, 4}, {5, 4}, {4, 3}, {4, 3}, {3, 2}}},
-    {{{25, 57}, {15, 35}, {11, 25}, {8, 19}, {7, 16}, {6, 14}, {5, 12}, {4, 10}, {4, 9}, {3, 8}, {2, 6}}},
-    {{{89, 31}, {54, 19}, {38, 13}, {30, 10}, {24, 8}, {20, 7}, {18, 6}, {15, 5}, {13, 5}, {12, 4}, {9, 3}}},
-    {{{19, 9}, {12, 7}, {8, 5}, {7, 3}, {6, 2}, {4, 1}, {3, 1}, {3, 1}, {2, 1}, {1, 1}, {1, 1}}},
-    {{{19, 9}, {12, 7}, {8, 5}, {7, 3}, {6, 2}, {4, 1}, {3, 1}, {3, 1}, {2, 1}, {1, 1}, {1, 1}}},
-    {{{29, 82}, {17, 49}, {12, 35}, {10, 27}, {8, 22}, {7, 19}, {6, 16}, {5, 14}, {4, 12}, {4, 10}, {3, 8}}},
-    {{{68, 70}, {41, 42}, {29, 29}, {22, 23}, {18, 19}, {16, 16}, {14, 14}, {12, 12}, {10, 10}, {8, 8}, {7, 7}}},
-    {{{80, 76}, {48, 46}, {34, 32}, {26, 25}, {22, 20}, {18, 17}, {16, 15}, {14, 13}, {12, 11}, {10, 10}, {8, 8}}},
-    {{{56, 23}, {34, 14}, {23, 10}, {19, 8}, {15, 6}, {13, 5}, {11, 4}, {10, 4}, {9, 3}, {7, 3}, {6, 2}}},
-    {{{64, 23}, {39, 14}, {27, 10}, {21, 8}, {17, 6}, {15, 5}, {13, 4}, {11, 3}, {10, 2}, {8, 2}, {6, 1}}},
-    {{{56, 23}, {34, 14}, {23, 10}, {19, 8}, {15, 6}, {13, 5}, {11, 4}, {10, 4}, {9, 3}, {7, 3}, {6, 2}}},
-    {{{25, 57}, {15, 35}, {11, 25}, {8, 19}, {7, 16}, {6, 14}, {5, 12}, {4, 10}, {4, 9}, {3, 8}, {2, 6}}},
-    {{{25, 54}, {15, 33}, {11, 23}, {8, 18}, {7, 15}, {6, 13}, {5, 11}, {4, 9}, {4, 8}, {3, 7}, {2, 5}}},
-    {{{25, 54}, {15, 33}, {11, 23}, {8, 18}, {7, 15}, {6, 13}, {5, 11}, {4, 9}, {4, 8}, {3, 7}, {2, 5}}},
-    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
-    {{{32, 63}, {20, 38}, {14, 27}, {11, 21}, {9, 17}, {7, 15}, {6, 13}, {5, 11}, {5, 10}, {4, 8}, {3, 6}}},
-}};
+// roadside_sprite_table in the Amiga Street_Rod binary: 20 records of 0x36
+// bytes {loadHandle:u16, bitmapPtr:u32, maskPtr:u32, frames[11]:{srcX,srcY,w,h}
+// u8 each}. Offset verified byte-for-byte against the known frame dump in
+// RodLegacyResearch/docs/driving/roadside_sprite_table.md (all 20 records,
+// including loadHandle == lib.p id + 1 for each).
+constexpr size_t kSpriteScaleTableOffset = 0x28024;
+constexpr size_t kSpriteScaleRecordSize = 0x36;
+constexpr int kSpriteScaleFrameCount = 11;
+
+std::array<std::array<std::array<uint8_t, 2>, 11>, 20> LoadSpriteScaleTable(const byte_vector& exe) {
+    std::array<std::array<std::array<uint8_t, 2>, 11>, 20> table{};
+    const size_t needed = kSpriteScaleTableOffset + 20 * kSpriteScaleRecordSize;
+    if (exe.size() < needed) {
+        LOG_ERROR("LoadSpriteScaleTable: Street_Rod exe too small (%zu < %zu)", exe.size(), needed);
+        return table;
+    }
+    for (int slot = 0; slot < 20; ++slot) {
+        const uint8_t* rec = exe.data() + kSpriteScaleTableOffset + slot * kSpriteScaleRecordSize;
+        for (int r = 0; r < kSpriteScaleFrameCount; ++r) {
+            const uint8_t* frame = rec + 10 + static_cast<size_t>(r) * 4;  // {srcX, srcY, w, h}
+            table[slot][r][0] = frame[2];  // w
+            table[slot][r][1] = frame[3];  // h
+        }
+    }
+    return table;
+}
 
 int ClampInt(int v, int lo, int hi) {
     return std::max(lo, std::min(hi, v));
@@ -232,6 +236,7 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
 }
 
 void Racing::LoadSpriteBitmaps() {
+    spriteScale = LoadSpriteScaleTable(state.GetAssets().GetSrExeData());
     for (int slot = 0; slot < 20; ++slot) {
         // slot is the roadside_sprite_table record index (0 = palm); record N =
         // lib.p asset id 21 + N (see roadside_sprite_table.md).
@@ -1149,9 +1154,9 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             // is not how the original game draws scenery. Once every roadside object
             // has pre-drawn frames mapped (author them in RodEdit's composite editor
             // and add SPRITE_ANIMATIONS[] entries in libp.h), delete this branch, the
-            // kSpriteScale table, and the scaling path of DrawNearestNeighborScaled.
-            w = kSpriteScale[slot][sr][0];
-            h = kSpriteScale[slot][sr][1];
+            // spriteScale table, and the scaling path of DrawNearestNeighborScaled.
+            w = spriteScale[slot][sr][0];
+            h = spriteScale[slot][sr][1];
         }
         if (w <= 0 || h <= 0) {
             return;

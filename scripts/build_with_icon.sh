@@ -3,16 +3,16 @@
 
 set -e
 
-echo "Building Street Rod Legacy with embedded icon..."
+echo "Building RodLegacy with embedded icon..."
 
 # Check if we're cross-compiling for Windows
 if [ "$1" = "windows" ]; then
     echo "Cross-compiling for Windows with icon embedding..."
-    
+
     # Convert PNG to ICO
     echo "Converting icon.png to icon.ico..."
     python3 scripts/convert_icon.py data/res/icon.png data/res/icon.ico
-    
+
     # Build with meson
     meson setup builddir --cross-file /project/cross-mingw.txt
     cd builddir
@@ -24,4 +24,4 @@ else
     cd builddir
     ninja
     echo "Build complete!"
-fi 
+fi

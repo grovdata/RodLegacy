@@ -19,6 +19,7 @@
 #include "zip_utils.h"
 #include "car_builder.h"
 #include "save_loader.h"
+#include "bet_acceptance.h"
 #include <fstream>
 #include <cstring>
 
@@ -30,7 +31,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
     try {
         assets.Init(gamePath, muteAudio);
         assets.ReadAssets();
-        std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();   
+        std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();
 
         carData.ReadEntries(assets.GetSrData(), GetTomlFile(), entries);
 
@@ -39,6 +40,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
         srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
+        LoadBetThresholdTable(assets.GetSrData());
 
         // The Amiga set always goes in first, so its specs keep indices 0..25
         // - the range original .SAV files store - whatever else is switched on.
@@ -342,7 +344,8 @@ Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 ManifoldType type;
                 if (!CarBuilder::ManifoldTypeFromSaveVariant(p.variant, type)) type = MANIFOLD_2BARREL;
                 Part part = CarBuilder::CreateManifoldPart(type, model.vendor);
-                part.wear = p.wearRaw / 100;
+                // wearRaw is the fixed sentinel 0xFF80 here, not a real wear
+                // value - manifolds don't track wear (save_game.md:100).
                 part.cost = p.value;
                 car->SetManifold(part);
                 break;
@@ -351,7 +354,8 @@ Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 CarburetorType type;
                 if (!CarBuilder::CarburetorTypeFromSaveVariant(p.variant, type)) type = CARB_4BARREL;
                 Part part = CarBuilder::CreateCarburetorPart(type, model.vendor);
-                part.wear = p.wearRaw / 100;
+                // wearRaw is the fixed sentinel 0xFF80 here, not a real wear
+                // value - carbs don't track wear (save_game.md:100).
                 part.cost = p.value;
                 car->SetCarburator(part);
                 break;
@@ -567,8 +571,6 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
                 currentCar = wonCar;
                 LOG_INFO("State::OnRaceFinished - pink slip win: now driving %s",
                          wonCar->GetModel().name.c_str());
-            } else {
-                LOG_INFO("State::OnRaceFinished - pink slip win but no opponent car to take");
             }
         } else {
             bankroll += pendingBetAmount;
@@ -695,7 +697,7 @@ std::vector<State::HallEntry> State::LoadHallDat() const {
 void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
     uint8_t buf[HALL_DAT_FILE_SIZE] = {};
 
-    // Header: int16 entry count (big-endian, Amiga native, unencoded)
+    // Header: int16 entry count (big-endian)
     buf[0] = (HALL_DAT_ENTRY_COUNT >> 8) & 0xFF;
     buf[1] = HALL_DAT_ENTRY_COUNT & 0xFF;
 

@@ -130,7 +130,7 @@ float EngineSound::RPMToFrequencyMultiplier(int16_t rpm) {
     // Linear mapping
     const float MIN_RPM = 1500.0f;
     const float MAX_RPM = 7000.0f;
-    float clampedRPM = std::max(MIN_RPM, std::min(MAX_RPM, static_cast<float>(rpm)));
+    float clampedRPM = std::clamp(static_cast<float>(rpm), MIN_RPM, MAX_RPM);
     int velocity = static_cast<int>((clampedRPM - MIN_RPM) / (MAX_RPM - MIN_RPM) * 130.0f);
 
     // Map velocity to audio level (0-16) using Amiga's thresholds from LAB_1392

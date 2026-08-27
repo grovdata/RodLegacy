@@ -3,6 +3,7 @@
 #include "parsers/carcolor.h"
 #include "state.h"
 #include "car_builder.h"
+#include "utils.h"
 #include <random>
 #include <algorithm>
 #include <filesystem>
@@ -69,8 +70,7 @@ void Roster::Initialize(CarData& carData) {
     LoadCustomDrivers();
     LoadCustomStickers();
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    auto& gen = RandomEngine();
 
     // Opponents drive anything buyable from any enabled car set, not just the
     // stock 25. The merged table's -1 entries are The King's slot in each set.
@@ -137,8 +137,7 @@ Car* Roster::GenerateRandomCar(const CarModel& model) {
     Car* car = CarBuilder::BuildRandomCar(model);
     
     // Random color selection
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    auto& gen = RandomEngine();
     std::uniform_int_distribution<> colorDist(0, StandardCarColor::CarColorCount - 1);
     StandardCarColor randomColor = static_cast<StandardCarColor>(colorDist(gen));
     
@@ -258,8 +257,7 @@ void Roster::SetDriverTable(const std::vector<SrDriverData>& drivers,
 }
 
 Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    auto& gen = RandomEngine();
     std::uniform_int_distribution<> spriteIndexDist(DRIVER_01, DRIVER_01 + DRIVER_COUNT - 1);
     Driver driver;
     // Name and portrait are a pair held in SR_data - the portrait is a stored
@@ -354,8 +352,7 @@ bool Roster::HasMoreOpponents() const {
 }
 
 void Roster::ShuffleOpponents() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    auto& gen = RandomEngine();
     std::shuffle(opponents.begin(), opponents.end(), gen);
     currentOpponent = opponents.begin();
 }

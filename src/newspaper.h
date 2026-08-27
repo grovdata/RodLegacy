@@ -107,6 +107,13 @@ private:
     void ShowCarPurchaseDialog(int carIndex);
     void ShowCarViewDialog(int carIndex);
     void ShowPartPurchaseDialog(int partIndex);
+
+    // Shared lookup behind the FindXCatalogName wrappers below - scans the
+    // fixed 40-slot kPartCatalog for a category+vendor+type match and
+    // returns that slot's classified-ad name. Carb/tire ads aren't
+    // vendor-specific (their kPartCatalog entries always carry
+    // CarVendorUnknown), so vendor is ignored for those two categories.
+    std::string FindCatalogName(PartCategory category, CarVendor_t vendor, int typeValue) const;
 public:
     Newspaper();
     ~Newspaper();
@@ -120,4 +127,17 @@ public:
     // it. Called from State::MoveToScene every time the player walks back
     // in, so it always opens on the front page.
     void ResetToFrontPage();
+
+    // Authentic classified-ad name for a part, keyed by its logical type
+    // (+vendor where the ad text is vendor-specific) - lets other screens
+    // (e.g. the garage's spare-parts pickers) match the newspaper's own
+    // wording for parts that weren't bought there (stock/savegame parts,
+    // whose Part::name is empty) instead of falling back to a generic
+    // description. Returns "" if this exact type/vendor never appears in
+    // the fixed 40-slot classified catalog.
+    std::string FindEngineCatalogName(CarEngine_t type, CarVendor_t vendor) const;
+    std::string FindTransmissionCatalogName(TransmissionType type, CarVendor_t vendor) const;
+    std::string FindCarburetorCatalogName(CarburetorType type) const;
+    std::string FindManifoldCatalogName(ManifoldType type, CarVendor_t vendor) const;
+    std::string FindTireCatalogName(CarWheelType type) const;
 };

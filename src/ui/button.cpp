@@ -50,15 +50,31 @@ void Button::CreateButtonSurface() {
         return;
     }
     
-    // Create background rectangle
+    // Background rectangle always uses the button's configured colors, so the
+    // border/edge never changes with pressed state.
     RectangleConfig rectConfig{};
     rectConfig.rect = config.bounds;
-    rectConfig.fillColor = pressed ? SDL_Color{255, 255, 255, 255} : config.fillColor;
+    rectConfig.fillColor = config.fillColor;
     rectConfig.borderColor = config.defaultChoice ? SDL_Color{255, 255, 255, 255} : config.borderColor;
     rectConfig.inset = 1;
-    
+
     background = std::make_unique<Rectangle>(rectConfig);
     background->SetVisible(true);
+
+    // Pressed state: cover just the inner face (inside the border ring) with
+    // an inverted color; text color is swapped to match below.
+    if (pressed) {
+        RectangleConfig faceConfig{};
+        faceConfig.rect = {config.bounds.x + 2, config.bounds.y + 2,
+                            config.bounds.w - 4, config.bounds.h - 4};
+        faceConfig.fillColor = config.textColor;
+        faceConfig.borderColor = config.textColor;
+        faceConfig.inset = 0;
+        pressedFace = std::make_unique<Rectangle>(faceConfig);
+        pressedFace->SetVisible(true);
+    } else {
+        pressedFace.reset();
+    }
 
     // Create text bitmap or use provided bitmap
     if (config.bitmapConfig.bitmap) {
@@ -79,20 +95,23 @@ void Button::CreateButtonSurface() {
         textBitmap->SetVisible(true);
         
         // Center text
-        int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), config.text.c_str());
-        int textHeight = SFont_TextHeight(state.GetAssets().GetMainFont());
+        SFont_Font* font = config.font ? config.font : state.GetAssets().GetMainFont();
+        int textWidth = SFont_TextWidth(font, config.text.c_str());
+        int textHeight = SFont_TextHeight(font);
         int textX = (config.bounds.w - textWidth) / 2;
         int textY = (config.bounds.h - textHeight) / 2;
 
-        SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), textX, textY, config.text.c_str());
+        SFont_Write(textBitmap->GetSurface(), font, textX, textY, config.text.c_str());
         textBitmap->UpdateFromSurface();
-        SDL_SetTextureColorMod(textBitmap->GetTexture(), config.textColor.r, config.textColor.g, config.textColor.b);
+        SDL_Color textColor = pressed ? config.fillColor : config.textColor;
+        SDL_SetTextureColorMod(textBitmap->GetTexture(), textColor.r, textColor.g, textColor.b);
     }
 }
 
 void Button::Draw() {
     if (!visible || config.invisible) return;
     background->Draw();
+    if (pressedFace) pressedFace->Draw();
     textBitmap->Draw();
 }
 

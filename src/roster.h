@@ -12,11 +12,6 @@ class Opponent {
     Car* car;
     Opponent();
     ~Opponent() { }
-    // ~Opponent() { delete car; }
-    // Opponent(const Opponent&) = delete;
-    // Opponent& operator=(const Opponent&) = delete;
-    // Opponent(Opponent&&) = default;
-    // Opponent& operator=(Opponent&&) = default;
 };
 
 class Roster {

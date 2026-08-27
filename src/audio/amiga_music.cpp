@@ -1,4 +1,5 @@
 #include "amiga_music.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,11 +20,6 @@ constexpr int kArrangementSteps = 3;
 // Master volume while music plays. The game sets 0xF at audio init but drops
 // to 9 on every music start, and the envelope curve is scaled by it.
 constexpr int kMusicMasterVolume = 9;
-
-std::mt19937& RandomEngine() {
-    static std::mt19937 gen(std::random_device {}());
-    return gen;
-}
 }  // namespace
 
 AmigaMusic::AmigaMusic() = default;

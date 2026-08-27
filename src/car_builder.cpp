@@ -2,15 +2,9 @@
 #include "car.h"
 #include "parsers/libp.h"
 #include "car_system.h"
+#include "utils.h"
 #include <random>
 #include <algorithm>
-
-namespace {
-std::mt19937& RandomEngine() {
-    static std::mt19937 gen(std::random_device{}());
-    return gen;
-}
-}
 
 Car* CarBuilder::BuildCar(CarModel model) {
     Car* car = new Car(model);
@@ -41,8 +35,13 @@ Car* CarBuilder::BuildRandomCar(CarModel model) {
     Part manifold = CreateManifoldPart(manifoldType, model.vendor);
     car->SetManifold(manifold);
 
-    // Select compatible carburetor
-    CarburetorType carbType = SelectCompatibleCarburetor(engineType);
+    // Select compatible carburetor - must fit the manifold just chosen, not
+    // just the engine: a manifold's own carb fitment is stricter (e.g. a
+    // 4-barrel manifold only takes a 4-barrel carb, per the newspaper
+    // classifieds' own ad text - PartsCompatibilityManager::
+    // GetCompatibleCarburetors(ManifoldType)). Picking carb from the engine
+    // alone could pair a 4-barrel manifold with a 2-barrel carb on a V6.
+    CarburetorType carbType = SelectCompatibleCarburetor(manifoldType);
     Part carburetor = CreateCarburetorPart(carbType, model.vendor);
     car->SetCarburator(carburetor);
 
@@ -141,8 +140,8 @@ ManifoldType CarBuilder::SelectCompatibleManifold(CarEngine_t engine) {
     return compatible[dist(RandomEngine())];
 }
 
-CarburetorType CarBuilder::SelectCompatibleCarburetor(CarEngine_t engine) {
-    auto compatible = PartsCompatibilityManager::GetCompatibleCarburetors(engine);
+CarburetorType CarBuilder::SelectCompatibleCarburetor(ManifoldType manifold) {
+    auto compatible = PartsCompatibilityManager::GetCompatibleCarburetors(manifold);
     if (compatible.empty()) {
         return CARB_2BARREL; // Default fallback
     }
@@ -171,14 +170,17 @@ Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendo
     return Part(0, 0, vendor, assetId, type);
 }
 
+// Kept in sync with engine_bay.cpp's ManifoldBodyAsset - see its comment for
+// how this mapping was reconstructed from the actual lib.p art (not
+// Ghidra-confirmed).
 Part CarBuilder::CreateManifoldPart(ManifoldType type, CarVendor_t vendor) {
     AmigaLibAsset assetId;
     switch (type) {
-        case MANIFOLD_2BARREL: assetId = ENGINE_MANIFOLD1; break;
-        case MANIFOLD_4BARREL: assetId = ENGINE_MANIFOLD2; break;
-        case MANIFOLD_DUAL_QUAD: assetId = ENGINE_MANIFOLD3; break;
-        case MANIFOLD_TRIPLE_2BARREL: assetId = ENGINE_MANIFOLD4; break;
-        case MANIFOLD_RACING: assetId = ENGINE_MANIFOLD6; break;
+        case MANIFOLD_2BARREL: assetId = ENGINE_MANIFOLD4; break;
+        case MANIFOLD_4BARREL: assetId = ENGINE_MANIFOLD3; break;
+        case MANIFOLD_DUAL_QUAD: assetId = ENGINE_MANIFOLD1; break;
+        case MANIFOLD_TRIPLE_2BARREL: assetId = ENGINE_MANIFOLD6; break;
+        case MANIFOLD_RACING: assetId = ENGINE_MANIFOLD3; break;
     }
     return Part(0, 0, vendor, assetId, type);
 }
@@ -253,24 +255,35 @@ bool CarBuilder::EngineTypeFromSaveVariant(int variant, CarEngine_t& outType, Am
 }
 
 // Manifold's block starts right after carb's (25 = class 0, matching the
-// carb/transmission pattern exactly). 4 of 5 ManifoldType values confirmed,
-// all on the same GM Corvette test save sequence: variant 25/$20 =
-// 2-barrel, variant 31/$35 = triple-2bbl (only fits after swapping to a V6
-// - see PartsCompatibilityManager::GetCompatibleManifolds), variant 34/$35
-// = dual-quad (explicitly "not racing" per the player), variant 37/$60 =
-// racing (the car's original manifold - a plain "4-brl, 2 carbs"
-// description without the "not racing" qualifier turned out to mean
+// carb/transmission pattern exactly). Only the GM column (25, 31, 34, 37)
+// is save-verified, all on the same GM Corvette test save sequence: variant
+// 25/$20 = 2-barrel, variant 31/$35 = triple-2bbl (only fits after
+// swapping to a V6 - see PartsCompatibilityManager::GetCompatibleManifolds),
+// variant 34/$35 = dual-quad (explicitly "not racing" per the player),
+// variant 37/$60 = racing (the car's original manifold - a plain "4-brl, 2
+// carbs" description without the "not racing" qualifier turned out to mean
 // racing, not dual-quad; corrected after a follow-up save disambiguated
-// it). 38 and 39 (seen at the same $60 price on other specs) are presumably
-// the Ford/Chrysler racing-tier variants, unconfirmed. MANIFOLD_4BARREL has
-// no confirmed variant. Not enough data yet to fit a formula for the rest
-// of the catalog.
+// it). MANIFOLD_4BARREL had no GM anchor at all until this table was
+// widened to the full grid below.
+//
+// The Ford/Chrysler columns (everything else here) are INFERRED, not
+// save-verified: newspaper.cpp's classifieds catalog lists manifolds as 5
+// types x 3 vendors (GM, Ford, Chrysler) in that order, and every other
+// save-format catalog block (transmission's variant-9 stride, engine's
+// stride-3 GM/Ford/Chrysler grouping) uses the same vendor order per tier -
+// applying that stride-3 pattern to the 4 confirmed GM anchors is what
+// fills in the other 11. Before this widening, any save with a non-GM
+// manifold (or any 4-barrel manifold at all) silently fell through to the
+// MANIFOLD_2BARREL fallback in State::LoadSaveGame, which is what produced
+// bogus manifold/carb mismatches on load - flag if a specific Ford/Chrysler
+// entry below turns out wrong.
 bool CarBuilder::ManifoldTypeFromSaveVariant(int variant, ManifoldType& out) {
     switch (variant) {
-        case 25: out = MANIFOLD_2BARREL; return true;
-        case 31: out = MANIFOLD_TRIPLE_2BARREL; return true;
-        case 34: out = MANIFOLD_DUAL_QUAD; return true;
-        case 37: out = MANIFOLD_RACING; return true;
+        case 25: case 26: case 27: out = MANIFOLD_2BARREL; return true;
+        case 28: case 29: case 30: out = MANIFOLD_4BARREL; return true;
+        case 31: case 32: case 33: out = MANIFOLD_TRIPLE_2BARREL; return true;
+        case 34: case 35: case 36: out = MANIFOLD_DUAL_QUAD; return true;
+        case 37: case 38: case 39: out = MANIFOLD_RACING; return true;
     }
     return false;
 }

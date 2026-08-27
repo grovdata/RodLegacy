@@ -1,7 +1,5 @@
 #pragma once
 #include "log.h"
-#include <algorithm>
-#include <memory>
 #include <string>
 #include "parsers/libp.h"
 #include "car_set.h"
@@ -14,68 +12,6 @@ class IDrawable {
         virtual ~IDrawable() = default;
         virtual void Draw() = 0;
         virtual void SetVisible(bool visible) = 0;
-};
-
-struct DrawableEntry {
-    std::string id;
-    IDrawable* drawable;  // Non-owning; ownership is elsewhere (e.g. AssetManager or scene)
-};
-
-class IDrawableContainer {
-    protected:
-        std::vector<DrawableEntry> drawables;
-
-    public:
-        virtual ~IDrawableContainer() = default;
-
-        void AddDrawable(const std::string& id, IDrawable* drawable) {
-            drawables.push_back({id, drawable});
-        }
-
-        void RemoveDrawable(const std::string& id) {
-            drawables.erase(
-                std::remove_if(drawables.begin(), drawables.end(),
-                    [&id](const DrawableEntry& entry) { return entry.id == id; }),
-                drawables.end()
-            );
-        }
-
-        void ClearDrawables() {
-            drawables.clear();
-        }
-
-        IDrawable* GetDrawable(const std::string& id) {
-            for (const auto& entry : drawables) {
-                if (entry.id == id) {
-                    return entry.drawable;
-                }
-            }
-            return nullptr;
-        }
-
-        void DrawAll() {
-            for (const auto& entry : drawables) {
-                if (entry.drawable) {
-                    entry.drawable->Draw();
-                }
-            }
-        }
-
-        void SetAllVisible(bool visible) {
-            for (const auto& entry : drawables) {
-                if (entry.drawable) {
-                    entry.drawable->SetVisible(visible);
-                }
-            }
-        }
-
-        void Clear() {
-            drawables.clear();
-        }
-
-        size_t GetDrawableCount() const {
-            return drawables.size();
-        }
 };
 
 struct CarModel {

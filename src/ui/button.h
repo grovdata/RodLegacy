@@ -12,6 +12,7 @@ class Button: public IDrawable {
 private:
     ButtonConfig config;
     std::unique_ptr<Rectangle> background;
+    std::unique_ptr<Rectangle> pressedFace;  // Inverted overlay for just the button face when pressed
     std::unique_ptr<Bitmap> textBitmap;
     bool pressed;
     bool visible;

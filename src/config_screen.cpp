@@ -4,6 +4,7 @@
 #include "embedded_loader.h"
 #include "SFont.h"
 #include "tinyfiledialogs.h"
+#include "ui/button.h"
 
 extern "C" {
     #include "embedded_resources.h"
@@ -20,16 +21,13 @@ extern "C" {
 // ---------------------------------------------------------------------------
 
 const std::vector<ZipPack>& GetZipPacks() {
+    // Add more later, as they are supported
     static const std::vector<ZipPack> packs = {
         {
             "sr1amiga.zip", true, "Amiga disks (required)",
             {"SR1AMIGA_DISK1.adf", "SR1AMIGA_DISK2.adf"}
-        },
-        { "sr1pc.zip",        false, "PC version (music + graphics)", {} },
-        { "srsepc.zip",       false, "SE/Data Disk (stickers, cars)", {} },
-        { "sr2pc.zip",        false, "Street Rod 2 PC (future)",     {} },
-        { "sr2amiga.zip",     false, "Street Rod 2 Amiga (future)",  {} },
-        { "sr1commodore.zip", false, "Commodore version (future)",   {} },
+        },        
+        { "srsepc.zip",       false, "SE/Data Disk (stickers, cars)", {} },        
     };
     return packs;
 }
@@ -66,24 +64,41 @@ static void DrawScreen(SDL_Surface* surf,
                        const std::vector<ZipPackStatus>& status,
                        const fs::path& currentDir,
                        bool canStart) {
-    // Black background
-    SDL_FillRect(surf, nullptr, SDL_MapRGB(surf->format, 0, 0, 0));
+    // Dialog green background (matches in-game dialogs, e.g. engine_bay.cpp)
+    SDL_FillRect(surf, nullptr, SDL_MapRGB(surf->format, 0, 208, 0));
+
+    // White border around the screen
+    const int borderThickness = 1;
+    Uint32 white = SDL_MapRGB(surf->format, 255, 255, 255);
+    SDL_Rect top    = {1, 1, surf->w - 2, borderThickness};
+    SDL_Rect bottom = {1, surf->h - borderThickness, surf->w - 2, borderThickness};
+    SDL_Rect left   = {1, 1, borderThickness, surf->h - 2};
+    SDL_Rect right  = {surf->w - borderThickness, 1, borderThickness, surf->h - 2};
+    SDL_FillRect(surf, &top, white);
+    SDL_FillRect(surf, &bottom, white);
+    SDL_FillRect(surf, &left, white);
+    SDL_FillRect(surf, &right, white);
 
     int headH = SFont_TextHeight(headingFont) + 2;
     int lineH  = SFont_TextHeight(bodyFont)   + 2;
     int y = 4;
 
-    // Title in bee font (centered)
-    SFont_WriteCenter(surf, headingFont, y, "ROD LEGACY - SETUP");
-    y += headH + lineH;
+    SFont_WriteCenter(surf, headingFont, y, "RodLegacy Setup");
+    y += headH;
+    SFont_WriteCenter(surf, bodyFont, y, "Welcome to RodLegacy. You need to");
+    y += lineH;
+    SFont_WriteCenter(surf, bodyFont, y, "select where Street Rod");
+    y += lineH;
+    SFont_WriteCenter(surf, bodyFont, y, "game files are located.");
+    y += lineH * 2;
 
-    // Current directory (truncated if too wide)
+    // Current directory (just the folder name; full path can be too long to fit)
     if (!currentDir.empty()) {
-        std::string dirStr = "Dir: " + currentDir.string();
-        while (SFont_TextWidth(bodyFont, dirStr.c_str()) > GAME_WIDTH - 4 && dirStr.size() > 8) {
-            dirStr = "..." + dirStr.substr(4);
-        }
-        SFont_Write(surf, bodyFont, 2, y, dirStr.c_str());
+        // A trailing separator (e.g. from the folder picker) makes filename()
+        // return empty; fall back to the parent path's filename in that case.
+        fs::path dirPath = currentDir.filename().empty() ? currentDir.parent_path() : currentDir;
+        std::string dirStr = "Dir: " + dirPath.filename().string();
+        SFont_Write(surf, bodyFont, 5, y, dirStr.c_str());
         y += lineH;
     }
     y += lineH / 2;
@@ -93,24 +108,13 @@ static void DrawScreen(SDL_Surface* surf,
         const char* tag = (s.zipValid ? "[FOUND]  " : "[MISSING]");
         std::string line = std::string(tag) + " " + s.pack.filename;
         if (s.pack.mandatory) line += " *";
-        SFont_Write(surf, bodyFont, 2, y, line.c_str());
+        SFont_Write(surf, bodyFont, 5, y, line.c_str());
         y += lineH;
     }
 
     y += lineH / 2;
 
-    // Instructions
-    if (canStart) {
-        SFont_WriteCenter(surf, bodyFont, y, "ENTER or A  - Start game");
-        y += lineH;
-    }
-    SFont_WriteCenter(surf, bodyFont, y, "F or X  - Browse for folder");
-    y += lineH;
-    SFont_WriteCenter(surf, bodyFont, y, "Q or B  - Quit");
-    y += lineH;
-
     if (!canStart) {
-        y += lineH / 2;
         SFont_WriteCenter(surf, bodyFont, y, "* required to play");
     }
 }
@@ -119,7 +123,7 @@ static void DrawScreen(SDL_Surface* surf,
 // ConfigScreen::Run
 // ---------------------------------------------------------------------------
 
-fs::path ConfigScreen::Run(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
+fs::path RunConfigScreen(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
 
     // Heading font: bee.png
@@ -137,19 +141,19 @@ fs::path ConfigScreen::Run(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
         return {};
     }
 
-    // Body font: lemon.png
-    SDL_Surface* lemonSurf = LoadSurfaceFromMemory(embedded_lemon_png, embedded_lemon_png_len);
-    if (!lemonSurf) {
+    // Body font: g1-7x8
+    SDL_Surface* g1Surf = LoadSurfaceFromMemory(embedded_g1_7x8_sfont_png, embedded_g1_7x8_sfont_png_len);
+    if (!g1Surf) {
         SFont_FreeFont(headingFont);
-        LOG_WARN("ConfigScreen: failed to load embedded lemon font");
+        LOG_WARN("ConfigScreen: failed to load embedded g1-7x8 font");
         SDL_RenderSetLogicalSize(renderer, 0, 0);
         return {};
     }
-    SFont_Font* bodyFont = SFont_InitFont(lemonSurf);
+    SFont_Font* bodyFont = SFont_InitFont(g1Surf);
     if (!bodyFont) {
-        SDL_FreeSurface(lemonSurf);
+        SDL_FreeSurface(g1Surf);
         SFont_FreeFont(headingFont);
-        LOG_WARN("ConfigScreen: failed to init lemon SFont");
+        LOG_WARN("ConfigScreen: failed to init g1-7x8 SFont");
         SDL_RenderSetLogicalSize(renderer, 0, 0);
         return {};
     }
@@ -221,6 +225,49 @@ fs::path ConfigScreen::Run(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
         }
     };
 
+    // Bottom-anchored Browse / Start game / Quit buttons.
+    const int btnW = 90, btnH = 16, btnY = GAME_HEIGHT - 22, btnGap = 10;
+    const int btnX = (GAME_WIDTH - (btnW * 3 + btnGap * 2)) / 2;
+
+    ButtonConfig browseCfg{};
+    browseCfg.bounds = {btnX, btnY, btnW, btnH};
+    browseCfg.text = "Browse";
+    browseCfg.font = bodyFont;
+    browseCfg.onClick = browseForFolder;
+    browseCfg.fillColor = {0, 0, 0, 255};
+    browseCfg.borderColor = {255, 255, 255, 255};
+    browseCfg.textColor = {255, 255, 255, 255};
+    Button browseButton(browseCfg);
+
+    // Start game is disabled (greyed out, unclickable) while canStart is
+    // false. Button has no live enable/disable toggle, so it's rebuilt
+    // whenever canStart changes instead.
+    const SDL_Color startEnabledColor  = {255, 255, 255, 255};
+    const SDL_Color startDisabledColor = {110, 110, 110, 255};
+    auto makeStartButton = [&]() {
+        ButtonConfig cfg{};
+        cfg.bounds = {btnX + btnW + btnGap, btnY, btnW, btnH};
+        cfg.text = "Start game";
+        cfg.font = bodyFont;
+        cfg.onClick = canStart ? confirmStart : std::function<void()>{};
+        cfg.fillColor = {0, 0, 0, 255};
+        cfg.borderColor = canStart ? startEnabledColor : startDisabledColor;
+        cfg.textColor = canStart ? startEnabledColor : startDisabledColor;
+        return std::make_unique<Button>(cfg);
+    };
+    std::unique_ptr<Button> startButton = makeStartButton();
+    bool startButtonWasEnabled = canStart;
+
+    ButtonConfig quitCfg{};
+    quitCfg.bounds = {btnX + (btnW + btnGap) * 2, btnY, btnW, btnH};
+    quitCfg.text = "Quit";
+    quitCfg.font = bodyFont;
+    quitCfg.onClick = [&]() { running = false; };
+    quitCfg.fillColor = {0, 0, 0, 255};
+    quitCfg.borderColor = {255, 255, 255, 255};
+    quitCfg.textColor = {255, 255, 255, 255};
+    Button quitButton(quitCfg);
+
     while (running) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -259,6 +306,14 @@ fs::path ConfigScreen::Run(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
                     browseForFolder();
                 }
             }
+            browseButton.HandleEvent(&e);
+            startButton->HandleEvent(&e);
+            quitButton.HandleEvent(&e);
+        }
+
+        if (canStart != startButtonWasEnabled) {
+            startButton = makeStartButton();
+            startButtonWasEnabled = canStart;
         }
 
         // Render
@@ -269,6 +324,9 @@ fs::path ConfigScreen::Run(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
             SDL_RenderCopy(renderer, tex, nullptr, nullptr);
             SDL_DestroyTexture(tex);
         }
+        browseButton.Draw();
+        startButton->Draw();
+        quitButton.Draw();
         SDL_RenderPresent(renderer);
         SDL_Delay(16);  // ~60 fps, no vsync needed here
     }

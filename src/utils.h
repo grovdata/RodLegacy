@@ -7,6 +7,11 @@
 // padding the surface by this many pixels avoids it.
 constexpr int kSFontClipPad = 2;
 
+inline std::mt19937& RandomEngine() {
+    static std::mt19937 gen(std::random_device{}());
+    return gen;
+}
+
 template <typename T>
 T getRandomElement(const std::set<T>& inputSet) {
     if (inputSet.empty()) {
@@ -46,8 +51,4 @@ namespace sdl2 {
     using RendererPtr = std::unique_ptr<SDL_Renderer, SDL_Deleter>;
     using WindowPtr   = std::unique_ptr<SDL_Window,   SDL_Deleter>;
     using RWopsPtr    = std::unique_ptr<SDL_RWops,    SDL_Deleter>;
-
-    inline bool SDL_RectIsWithinRect(SDL_Rect source, SDL_Rect destination) {
-        return source.x >= destination.x && source.y >= destination.y && source.x + source.w <= destination.x + destination.w && source.y + source.h <= destination.y + destination.h;
-    }
 }

@@ -12,6 +12,7 @@
 #include "scene.h"
 #include "debug_overlay.h"
 #include "debug_ui.h"
+#include "main_debug.h"
 #include "tinyfiledialogs.h"
 #include "embedded_loader.h"
 #include "config_screen.h"
@@ -21,7 +22,7 @@
 #include <fstream>
 #include <cstring>
 
-// Generated embedded resources
+// Embed resources for some small data files
 extern "C" {
     #include "embedded_resources.h"
 }
@@ -278,10 +279,10 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
-            printf("  --debug          Enable debug mode (F9 flyby on driving scene)\n");
+            printf("  --debug          Enable debug mode\n");
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
-            printf("  -config          Show setup screen even if game files are already configured\n");
+            printf("  -config          Show setup screen\n");
             printf("  --purist         Score the engine tune exactly as the original does, so\n");
             printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
             printf("  --help, -h       Show this help message\n");
@@ -312,13 +313,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Set log priority: default to INFO, verbose in debug mode
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_WARN);
     if (debugMode) {
         SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
     }
 
-    // Create window after SDL_Init
     int windowWidth = useOriginalSize ? ORIGINAL_WINDOW_WIDTH : WINDOW_WIDTH;
     int windowHeight = useOriginalSize ? ORIGINAL_WINDOW_HEIGHT : WINDOW_HEIGHT;
 
@@ -405,7 +404,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (needsConfig) {
-        gamePath = ConfigScreen::Run(renderer, controller);
+        gamePath = RunConfigScreen(renderer, controller);
         if (gamePath.empty()) {
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
@@ -594,10 +593,6 @@ int main(int argc, char* argv[]) {
             SDL_Delay((1000 / GAME_FPS) - delta);
         }
     }
-
-    //printf("Whadda loser!\n");
-
-    // delete currentScene;
 
     // tinyfiledialogs doesn't require cleanup
 

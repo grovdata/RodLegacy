@@ -811,7 +811,7 @@ float AudioManager::RPMToPitchMultiplier(int16_t rpm) {
     const float MIN_FREQ = 0.7f;
     const float MAX_FREQ = 2.2f;
 
-    float clampedRPM = std::max(MIN_RPM, std::min(MAX_RPM, static_cast<float>(rpm)));
+    float clampedRPM = std::clamp(static_cast<float>(rpm), MIN_RPM, MAX_RPM);
     float t = (clampedRPM - MIN_RPM) / (MAX_RPM - MIN_RPM);
     return MIN_FREQ + t * (MAX_FREQ - MIN_FREQ);
 }

@@ -171,6 +171,7 @@ class Garage : public CarScene {
     void OnEngineBayPartsButtonClicked();
     bool IsEngineBaySlotFullyOut(EngineBaySlot slot);
     bool IsEngineBaySlotFullySeated(EngineBaySlot slot);
+    void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
     void StartEngineSlideIn(const EnginePart& newEngine);
     void StartManifoldSlideIn(const Part& newManifold);
     void StartCarbSlideIn(const Part& newCarb);
@@ -188,6 +189,11 @@ class Garage : public CarScene {
     void ShowSparePartsDialog();
 
     Car *pendingCar = nullptr;
+    // Car shown here when the scene was last exited (nullptr if the garage
+    // was empty) - lets DrawScene tell "car was already parked, just show
+    // it" apart from "this car wasn't here before, drive it in".
+    Car *lastParkedCar = nullptr;
+    void OnSceneExit() override;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;

@@ -134,6 +134,7 @@ c_sources = files(
 # C++ sources
 cpp_sources = files(
     'main.cpp',
+    'main_debug.cpp',
     'mouse.cpp',
     'parsers/adf.c',
     'state.cpp',
@@ -187,7 +188,6 @@ cpp_sources = files(
     'ui/main_font.cpp',
     'dialogs/dialog.cpp',
     'dialogs/list_dialog.cpp',
-    'dialogs/colorpicker.cpp',
     'ui/rectangle.cpp',
     'zip_utils.cpp',
     'config_screen.cpp',
@@ -228,6 +228,7 @@ embedded_resources = custom_target('embedded_resources',
     input: [
         '../data/font/bee.png',
         '../data/font/lemon.png',
+        '../data/font/g1-7x8-sfont.png',
         '../data/res/icon.png',
         '../data/res/paintcan.png',
         '../data/scenes/garage.toml',
@@ -248,7 +249,8 @@ embedded_resources = custom_target('embedded_resources',
 # Include directories
 inc_dirs = include_directories(
     '.',
-    'include'
+    'include',
+    'include' / 'miniz'
 )
 
 # Add compiler flags specific to GCC
@@ -261,10 +263,10 @@ c_args = ['-ggdb2', '-O0']
 miniz_lib = static_library(
     'miniz',
     files(
-        'miniz.c',
-        'miniz_tdef.c',
-        'miniz_tinfl.c',
-        'miniz_zip.c'
+        'include' / 'miniz' / 'miniz.c',
+        'include' / 'miniz' / 'miniz_tdef.c',
+        'include' / 'miniz' / 'miniz_tinfl.c',
+        'include' / 'miniz' / 'miniz_zip.c'
     ),
     include_directories: inc_dirs,
     c_args: c_args,

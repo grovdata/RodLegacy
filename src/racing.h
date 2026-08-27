@@ -96,8 +96,11 @@ private:
 
     std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
     // Per-slot animation frames (pre-drawn scale levels) when the sprite has them;
-    // nullptr slots fall back to kSpriteScale nearest-neighbor scaling.
+    // nullptr slots fall back to spriteScale nearest-neighbor scaling.
     std::array<const SpriteAnimationInfo*, 20> roadsideAnim {};
+    // Per-slot, per-distance-row {w,h} read at load time from the Amiga
+    // Street_Rod binary's roadside_sprite_table (see LoadSpriteScaleTable).
+    std::array<std::array<std::array<uint8_t, 2>, 11>, 20> spriteScale {};
     std::unique_ptr<Bitmap> mountainSprite;
     std::unique_ptr<Bitmap> cloudSprite;
     std::unique_ptr<Bitmap> startLightSprite;

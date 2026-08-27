@@ -4,7 +4,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## Project Overview
 
-Street Rod Legacy is a C++17 reimplementation of the classic Street Rod game using SDL2. It reads original Amiga disk images (.adf) for game assets. The executable is `rodlegacy`.
+RodLegacy is a C++17 reimplementation of the classic Street Rod game using SDL2. It reads original Amiga disk images (.adf) for game assets. The executable is `rodlegacy`.
 
 ## Build Commands
 

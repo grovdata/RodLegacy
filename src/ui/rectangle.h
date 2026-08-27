@@ -24,6 +24,5 @@ class Rectangle: public IDrawable {
         Rectangle(RectangleConfig config = { {0, 0, 0, 0}, {255, 255, 255, 255}, {0, 0, 0, 255}, 0 });
         void Draw();
         void SetVisible(bool visible);
-        bool IsWithin(SDL_Rect rect);
         SDL_Surface* GetSurface() { return surface.get(); }
 };

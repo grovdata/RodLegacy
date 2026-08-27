@@ -100,21 +100,27 @@ TEST_CASE("GM V6: 2-brl and 4-brl manifolds fit") {
     CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_4BARREL, CarEngineGM_V6));
 }
 
-TEST_CASE("GM V6: racing/dual-quad/triple-2brl manifolds do not fit") {
+TEST_CASE("GM V6: racing/dual-quad manifolds do not fit") {
     CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_RACING, CarEngineGM_V6));
     CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_DUAL_QUAD, CarEngineGM_V6));
-    CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6));
 }
 
-TEST_CASE("GM V6: returns exactly 2 compatible manifolds") {
+// Triple-2bbl only fits V6s (confirmed in game: a GM 327 V8 rejects it as an
+// install option), not any V8, big-block or small.
+TEST_CASE("GM V6: triple-2brl manifold fits") {
+    CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6));
+}
+
+TEST_CASE("GM V6: returns exactly 3 compatible manifolds") {
     auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V6);
-    CHECK(m.size() == 2);
+    CHECK(m.size() == 3);
     CHECK(Contains(m, MANIFOLD_2BARREL));
     CHECK(Contains(m, MANIFOLD_4BARREL));
+    CHECK(Contains(m, MANIFOLD_TRIPLE_2BARREL));
     CHECK_FALSE(Contains(m, MANIFOLD_RACING));
 }
 
-TEST_CASE("V8 engines: every manifold subtype fits") {
+TEST_CASE("V8 engines: 2-brl/4-brl/dual-quad/racing manifolds fit, triple-2brl does not") {
     const CarEngine_t v8s[] = {
         CarEngineGM_V8_282, CarEngineGM_V8_327,
         CarEngineFord_V8_292, CarEngineFord_V8_351,
@@ -124,18 +130,18 @@ TEST_CASE("V8 engines: every manifold subtype fits") {
         CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_2BARREL, eng));
         CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_4BARREL, eng));
         CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_DUAL_QUAD, eng));
-        CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, eng));
+        CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, eng));
         CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_RACING, eng));
     }
 }
 
-TEST_CASE("V8 engines: returns exactly 5 compatible manifolds") {
+TEST_CASE("V8 engines: returns exactly 4 compatible manifolds") {
     auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V8_327);
-    CHECK(m.size() == 5);
+    CHECK(m.size() == 4);
     CHECK(Contains(m, MANIFOLD_2BARREL));
     CHECK(Contains(m, MANIFOLD_4BARREL));
     CHECK(Contains(m, MANIFOLD_DUAL_QUAD));
-    CHECK(Contains(m, MANIFOLD_TRIPLE_2BARREL));
+    CHECK_FALSE(Contains(m, MANIFOLD_TRIPLE_2BARREL));
     CHECK(Contains(m, MANIFOLD_RACING));
 }
 

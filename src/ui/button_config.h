@@ -4,6 +4,7 @@
 #include <string>
 #include <SDL.h>
 #include "../global.h"
+#include "../SFont.h"
 
 // Forward declaration
 class Bitmap;
@@ -31,4 +32,6 @@ struct ButtonConfig {
         Bitmap* bitmap = nullptr;
         SDL_Rect sourceRect = {0, 0, 0, 0};
     } bitmapConfig = {};
-}; 
+
+    SFont_Font* font = nullptr;  // If null, falls back to state.GetAssets().GetMainFont()
+};

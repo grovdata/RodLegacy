@@ -1,7 +1,7 @@
-// Windows Resource File for OpenSR
+// Windows Resource File for RodLegacy
 // This file defines the application icon
 
 #include <windows.h>
 
 // Application icon
-IDI_ICON1 ICON "src/icon.ico" 
+IDI_ICON1 ICON "src/icon.ico"

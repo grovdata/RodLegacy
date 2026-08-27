@@ -58,6 +58,13 @@ public:
     void ResetToOverview();
     EngineBayState GetCurrentState() const { return currentState; }
     void OnDialogShown(); // Call this after dialog->Show() to restore correct visibility
+    // Re-syncs the engine/manifold/carb overview bitmaps to whichever car is
+    // now current. The constructor only sets these once (for whatever car
+    // was current when EngineBay was built) - switching to a different
+    // owned car or loading a save otherwise leaves the overview showing
+    // stale parts (e.g. always the 2-barrel carb the starter car shipped
+    // with) until the player manually swaps something in that slot.
+    void RefreshPartsForCurrentCar();
     void SetKnobPosition(int level);
     void InitPartsDialog();
     SDL_Point GetScrewNaturalSize(int screwIndex) const { return screwNaturalSize[screwIndex]; }
