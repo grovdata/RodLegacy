@@ -30,12 +30,13 @@ jobs:
       image: registry.example:3000/rodlegacy/win32-builder:latest
 
     steps:
+      # node comes from the image; only zip is missing.
       - name: Install packaging tools
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends zip nodejs
+          apt-get install -y -qq --no-install-recommends zip
 
       - name: Checkout code
         uses: actions/checkout@v4

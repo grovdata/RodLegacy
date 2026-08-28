@@ -250,6 +250,14 @@ pkg_config_libdir = '/opt/sdl2-mingw/lib/pkgconfig'
 PKG_CONFIG_PATH = '/opt/sdl2-mingw/lib/pkgconfig'
 EOF
 
+# forgejo-runner runs JS actions (checkout, upload-artifact) with this image's
+# node. Bullseye ships node 12, too old for the static class blocks in their
+# bundles, so install a current one over it.
+RUN wget -q https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz && \
+    tar -xJf node-v20.18.1-linux-x64.tar.xz -C /usr/local --strip-components=1 && \
+    rm node-v20.18.1-linux-x64.tar.xz && \
+    node --version
+
 # Set working dir for user project
 WORKDIR /project
 

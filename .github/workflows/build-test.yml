@@ -79,13 +79,8 @@ jobs:
     container:
       image: registry.example:3000/rodlegacy/win32-builder:latest
     steps:
-      - name: Install checkout prerequisites
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends nodejs
-
+      # node comes from the image (see Dockerfile.win32) - bullseye's apt node
+      # is v12 and too old for the JS actions below.
       - uses: actions/checkout@v4
         with:
           submodules: recursive
