@@ -5,11 +5,12 @@ on:
     types: [ published ]
 
 # Uses the cross toolchain image from Forgejo's built-in container registry
-# (same host and port as the web UI) instead of building it per run. Push it
-# once, and again whenever Dockerfile.win32 changes. From the Mac, --platform
-# matters: the runner is amd64.
+# (same host and port as the web UI) instead of building it per run.
+# Bump the date tag whenever Dockerfile.win32 changes: the runner pulls with
+# force_pull=false, so it will keep using a cached `:latest` forever.
+# From the Mac, --platform matters: the runner is amd64.
 #
-#   IMG=registry.example:3000/rodlegacy/win32-builder:latest
+#   IMG=registry.example:3000/rodlegacy/win32-builder:20260828
 #   docker build --platform linux/amd64 -f Dockerfile.win32 -t $IMG .
 #   docker login registry.example:3000      # Forgejo username + a token
 #   docker push $IMG
@@ -20,14 +21,14 @@ on:
 # machine you push from. Restart docker after editing.
 #
 # No-registry alternative: build the image directly on the runner PC with the
-# tag `win32-builder:latest`, set `container.force_pull: false` in the runner's
+# tag `win32-builder:20260828`, set `container.force_pull: false` in the runner's
 # config.yaml, and change the image below to that bare tag.
 
 jobs:
   build-windows:
     runs-on: ubuntu-latest
     container:
-      image: registry.example:3000/rodlegacy/win32-builder:latest
+      image: registry.example:3000/rodlegacy/win32-builder:20260828
 
     steps:
       # node comes from the image; only zip is missing.

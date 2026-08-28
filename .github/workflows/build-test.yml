@@ -77,7 +77,7 @@ jobs:
     # Cross toolchain from Forgejo's built-in registry. See build-windows.yml
     # for how to push it and what the runner host needs.
     container:
-      image: registry.example:3000/rodlegacy/win32-builder:latest
+      image: registry.example:3000/rodlegacy/win32-builder:20260828
     steps:
       # node comes from the image (see Dockerfile.win32) - bullseye's apt node
       # is v12 and too old for the JS actions below.
