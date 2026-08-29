@@ -21,6 +21,7 @@ constexpr int SEASON_END_DAY = 91;                  // caps at September 15, 196
 
 struct GameDate {
     const char* month;
+    int monthNumber;  // 6..9, for callers that index by month (the calendar)
     int dayOfMonth;
     int year = 1963;
 };
@@ -29,6 +30,18 @@ struct GameTime {
     int hour;    // 0-11 (twelve 300-tick blocks/day)
     int minute;  // 0-59
 };
+
+// Where the 24x9 "current date" highlight goes on a calendar sheet, relative to
+// that sheet's top-left. lib.p 320 holds June+July, 319 holds August+September;
+// both are 168x150 with day columns Sunday..Saturday on an 18px pitch and week
+// rows on a 7px pitch. Measured off the bitmaps: each sheet has a cyan ring
+// drawn over a season boundary (June 15 / September 15) that is exactly 24x9
+// and lands on the cell this returns.
+struct CalendarPos {
+    int x;
+    int y;
+};
+CalendarPos CalendarHighlightPos(int month, int day);  // month 6..9; {0,0} if out of season
 
 int DayNumber(uint32_t elapsedTicks);
 GameDate GetDate(uint32_t elapsedTicks);

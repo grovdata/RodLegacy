@@ -492,37 +492,25 @@ void Garage::ShowCarInfoDialog() {
     SetActiveDialog(carInfoDialog.get());
 }
 
+// Grid lives in GameClock so it can be unit tested without SDL.
 SDL_Point Garage::GetCalendarDateHighlightPosition(int month, int day) {
-    switch (month) {
-        case 6:
-            return SDL_Point{114, 39};
-        case 7:
-        switch (day) {
-            case 1:
-                return SDL_Point{114, 39};
-            case 2:
-                return SDL_Point{114, 39};
-            case 3:
-                return SDL_Point{114, 39};
-        }
-            return SDL_Point{114, 39};
-        case 8:
-            return SDL_Point{114, 39};
-    }
-    return SDL_Point{0, 0};
+    const GameClock::CalendarPos pos = GameClock::CalendarHighlightPos(month, day);
+    return SDL_Point{pos.x, pos.y};
 }
 
 void Garage::ShowCalendarDialog() {
-    // Load the June/July calendar bitmap (hardcoded to July for now)
+    // Which of the two sheets to show follows the current date.
+    const GameClock::GameDate today = GameClock::GetDate(state.GetElapsedTicks());
+    const int month = today.monthNumber;
+    const int day = today.dayOfMonth;
+
     Bitmap* calBitmap = state.GetAssets().GetBitmapAsset(
-        {LibAssetRegular, SrLibFileAmigaLibP, CALENDAR_JUNE_JULY_SCREEN});
+        {LibAssetRegular, SrLibFileAmigaLibP,
+         month <= 7 ? CALENDAR_JUNE_JULY_SCREEN : CALENDAR_AUGUST_SEPTEMBER_SCREEN});
     if (!calBitmap) {
         LOG_INFO("Failed to load calendar bitmap");
         return;
     }
-
-    int month = 7;
-    int day = 16;
 
     int calW = calBitmap->GetSurface()->w;
     int calH = calBitmap->GetSurface()->h;
@@ -538,13 +526,12 @@ void Garage::ShowCalendarDialog() {
     Bitmap* dateRect = state.GetAssets().GetBitmapAsset(
         {LibAssetRegular, SrLibFileAmigaLibP, CALENDAR_CURRENT_DATE_RECTANGLE});
     if (dateRect) {
-        // TODO: Position the date rectangle on the correct day cell
-        // For now, place it on July 2 (first row, second column of the July grid)
-        // This needs to be mapped out from the actual calendar image layout
         int dateW = dateRect->GetSurface()->w;
         int dateH = dateRect->GetSurface()->h;
+        // The grid is relative to the calendar bitmap; dialog bitmaps are drawn
+        // in screen coordinates, so shift by where the calendar itself sits.
         SDL_Point datePos = GetCalendarDateHighlightPosition(month, day);
-        SDL_Rect dateHighlightRect = {datePos.x, datePos.y, dateW, dateH};
+        SDL_Rect dateHighlightRect = {dialogX + datePos.x, dialogY + datePos.y, dateW, dateH};
         bitmaps["date_highlight"] = {dateRect, dateHighlightRect, 1};
     }
 
