@@ -61,14 +61,15 @@ void Button::CreateButtonSurface() {
     background = std::make_unique<Rectangle>(rectConfig);
     background->SetVisible(true);
 
-    // Pressed state: cover just the inner face (inside the border ring) with
-    // an inverted color; text color is swapped to match below.
+    // Pressed state: cover just the inner face (inside the border ring) with a
+    // fixed light grey. The label keeps its normal color - this is a tint, not
+    // an inversion, so swapping the text would only hurt contrast.
     if (pressed) {
         RectangleConfig faceConfig{};
         faceConfig.rect = {config.bounds.x + 2, config.bounds.y + 2,
                             config.bounds.w - 4, config.bounds.h - 4};
-        faceConfig.fillColor = config.textColor;
-        faceConfig.borderColor = config.textColor;
+        faceConfig.fillColor = ButtonPressedFillColor;
+        faceConfig.borderColor = ButtonPressedFillColor;
         faceConfig.inset = 0;
         pressedFace = std::make_unique<Rectangle>(faceConfig);
         pressedFace->SetVisible(true);
@@ -103,8 +104,8 @@ void Button::CreateButtonSurface() {
 
         SFont_Write(textBitmap->GetSurface(), font, textX, textY, config.text.c_str());
         textBitmap->UpdateFromSurface();
-        SDL_Color textColor = pressed ? config.fillColor : config.textColor;
-        SDL_SetTextureColorMod(textBitmap->GetTexture(), textColor.r, textColor.g, textColor.b);
+        SDL_SetTextureColorMod(textBitmap->GetTexture(),
+                               config.textColor.r, config.textColor.g, config.textColor.b);
     }
 }
 

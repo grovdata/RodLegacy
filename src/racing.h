@@ -56,7 +56,6 @@ private:
     bool simInitialized = false;
     bool bShowCrashOverlay = false;
     bool crashHandled = false;
-    Uint32 crashOverlayEndMs = 0;
     float fixedAccumulator = 0.0f;
     bool prevSpaceDown = false;
     bool pendingShift = false;
@@ -236,7 +235,6 @@ public:
 
     bool ShouldShowCrashOverlay() const;
     bool ShouldShowCrashBlood() const;
-    void HideCrashOverlay();
 
     RaceOutcome GetRaceOutcome() const;
     void ResetRaceOutcome();

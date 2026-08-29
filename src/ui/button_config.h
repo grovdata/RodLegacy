@@ -13,6 +13,9 @@ static const SDL_Color ButtonDefaultTextColor = {0, 0, 0, 255};
 static const SDL_Color ButtonDefaultFillColor = {144, 144, 144, 255};
 static const SDL_Color ButtonDefaultBorderColor = {0, 0, 0, 255};
 static const SDL_Color ButtonDefaultChoiceColor = {255, 255, 255, 255};
+// Clicked-state face fill. The original game does not highlight buttons at all;
+// this is a light grey chosen for RodLegacy rather than an inversion.
+static const SDL_Color ButtonPressedFillColor = {0xb1, 0xb1, 0xb1, 255};
 
 // Text and bitmap are mutually exclusive
 // If bitmap is provided, text will still be used for hover event

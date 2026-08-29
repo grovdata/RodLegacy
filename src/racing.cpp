@@ -450,7 +450,6 @@ void Racing::InitializeRaceSimulation() {
     raceOutcome = RaceOutcome::Ongoing;
     bShowCrashOverlay = false;
     crashHandled = false;
-    crashOverlayEndMs = 0;
     startLightHeight = 32;  // full; retracts once the car launches
     npcRearFrame = 0;
     npcRearFrameLastTick = -1;
@@ -675,10 +674,6 @@ bool Racing::ShouldShowCrashOverlay() const {
 // TUNE THIS once the real condition is known.
 bool Racing::ShouldShowCrashBlood() const {
     return bShowCrashOverlay && sim.PlayerWrecked() && sim.Player().speed >= 60;
-}
-
-void Racing::HideCrashOverlay() {
-    bShowCrashOverlay = false;
 }
 
 RaceOutcome Racing::GetRaceOutcome() const {
@@ -2008,7 +2003,6 @@ void Racing::HandleOutcomeAfterTicks() {
             crashHandled = true;
             if (sim.PlayerWrecked()) {
                 bShowCrashOverlay = true;
-                crashOverlayEndMs = SDL_GetTicks() + 3000;
             }
         }
         raceOutcome = RaceOutcome::PlayerLost;

@@ -249,6 +249,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Renderer hints only take effect if they are set before the renderer is
+    // created, so they belong here rather than next to SDL_RenderSetIntegerScale.
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // Nearest neighbor scaling
+    if (useOriginalSize) {
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Pixel-perfect at 1x
+        LOG_INFO("Using software renderer for original size mode");
+    }
+
     // Create renderer with proper flags
     renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
@@ -278,21 +286,17 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    // Set up renderer for pixel-perfect rendering
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // Nearest neighbor scaling
-    if (useOriginalSize) {
-        // For original size, disable all scaling hints
-        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Use software renderer for pixel-perfect rendering
-        LOG_INFO("Using software renderer for original size mode");
-    } else {
+    if (!useOriginalSize) {
         SDL_RenderSetIntegerScale(renderer, SDL_TRUE);    // Force integer scaling only for upscaled mode
     }
 
     // Initialize SDL2_mixer
     if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
-        LOG_WARN("SDL2_mixer could not be initialized! SDL_Error: %s",
-            SDL_GetError());
-        return 0;
+        LOG_INFO("error opening audio: %s\n", Mix_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 1;
     }
     //Mix_Music *music = Mix_LoadMUS(TUNE);
     //Mix_PlayMusic(music, 1);
@@ -521,4 +525,5 @@ int main(int argc, char* argv[]) {
     Mix_CloseAudio();
     SDL_Quit();
 
+    return 0;
 }

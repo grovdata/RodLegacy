@@ -12,32 +12,6 @@ void Mouse::Update(SDL_Event *event, Scene*) {
         gamepadActive = false;
     }
 
-    if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT) {
-        switch (pointerType) {
-            case SrLibAmigaSpriteAssetMousePointerHand:
-                pointerType = SrLibAmigaSpriteAssetMousePointerWrench;
-                break;
-            case SrLibAmigaSpriteAssetMousePointerWrench:
-                pointerType = SrLibAmigaSpriteAssetMousePointerPump;
-                break;
-            case SrLibAmigaSpriteAssetMousePointerPump:
-                pointerType = SrLibAmigaSpriteAssetMousePointerRag;
-                break;
-            case SrLibAmigaSpriteAssetMousePointerRag:
-                pointerType = SrLibAmigaSpriteAssetMousePointerThumbsUp;
-                break;
-            case SrLibAmigaSpriteAssetMousePointerThumbsUp:
-                pointerType = SrLibAmigaSpriteAssetMousePointerThumbsDown;
-                break;
-            case SrLibAmigaSpriteAssetMousePointerThumbsDown:
-                pointerType = SrLibAmigaSpriteAssetMousePointerHand;
-                break;
-            default:
-                break;
-        }
-        cursorTexture = pointerTextures[pointerType];
-    }
-    
     // Handle gamepad events
     if (event->type == SDL_JOYAXISMOTION) {
         // Activate gamepad mode when joystick is used
@@ -171,7 +145,7 @@ void Mouse::UpdateGamepad(Scene* scene) {
             keyEvent.key.keysym.sym = SDLK_ESCAPE;
             scene->PushEvent(&keyEvent);
         } else {
-            // Simulate right click for pointer change
+            // Forward a right click to the scene (e.g. the garage radio)
             SDL_Event clickEvent;
             clickEvent.type = SDL_MOUSEBUTTONDOWN;
             clickEvent.button.button = SDL_BUTTON_RIGHT;
