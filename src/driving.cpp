@@ -431,6 +431,11 @@ void Driving::OnFadeComplete() {
     raceEndPendingKing = false;
     raceEndBubble.reset();
     raceEndDismissAllowedMs = 0;
+    // Scene::FadeIn already hid the pointer on entry, but DrawScene keeps running
+    // through the fade and can re-raise the previous outcome before
+    // ResetForNewRace() lands, putting the race-end thumb back on screen. That is
+    // the same reason the bubble above has to be cleared here.
+    mouse.SetVisible(false);
 
     // Dice pendulum starts from rest.
     currentDiceIndex = 0;
@@ -662,7 +667,6 @@ bool Driving::PushEvent(SDL_Event *event) {
         }
         raceEnded = false;
         raceEndBubble.reset();
-        mouse.SetVisible(false);
         const bool endGame = raceEndPendingKing;
         raceEndPendingKing = false;
         if (endGame) {

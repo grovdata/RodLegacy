@@ -251,9 +251,13 @@ void Scene::FadeIn() {
     fadeAlpha = 255;
     fadeStartTime = SDL_GetTicks64();
     sceneTransition = SCENE_FADE_IN;
-    // Scene entry owns cursor visibility: each scene declares whether it wants
-    // the pointer, so the next scene entered always sets it correctly.
+    // Scene entry owns the cursor: each scene declares whether it wants the
+    // pointer and which one, so the next scene entered always sets both. Type and
+    // visibility have to be restored together - setting the type only once the
+    // fade completed left the previous scene's cursor (the race-end thumb, say)
+    // on screen for the whole fade into the next one.
     mouse.SetVisible(WantsPointer());
+    mouse.SetPointerType(GetPointerType());
 }
 
 void Scene::FadeOut() {
@@ -304,8 +308,6 @@ void Scene::OnFadeComplete() {
     } else if (sceneTransition == SCENE_FADE_IN) {
         sceneTransition = SCENE_SOLID;
         // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
-        // Update mouse pointer when scene fade-in completes (only on scene change, not every frame)
-        mouse.SetPointerType(GetPointerType());
     }
 }
 
