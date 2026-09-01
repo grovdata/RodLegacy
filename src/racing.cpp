@@ -418,7 +418,7 @@ void Racing::InitializeRaceSimulation() {
     srrace::CarSetup npcSetup;
     Opponent* opponent = state.GetCurrentOpponent();
     if (opponent && opponent->car) {
-        npcSetup = BuildCarSetupFromCar(opponent->car, false);
+        npcSetup = BuildCarSetupFromCar(opponent->car.get(), false);
     } else {
         npcSetup = playerSetup;
         npcSetup.driverSkill = 100;

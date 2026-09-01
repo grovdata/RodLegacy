@@ -9,6 +9,7 @@
 #include "mouse.h"
 #include "parsers/libp.h"
 #include "state.h"
+#include "save_file.h"
 #include "scene.h"
 #include "debug_overlay.h"
 #include "debug_ui.h"
@@ -179,6 +180,7 @@ int main(int argc, char* argv[]) {
     bool muteAudio = false;
     bool forceConfig = false;
     bool purist = false;
+    bool selfTestSave = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
@@ -188,6 +190,8 @@ int main(int argc, char* argv[]) {
             muteAudio = true;
         } else if (strcmp(argv[i], "-config") == 0) {
             forceConfig = true;
+        } else if (strcmp(argv[i], "--selftest-save") == 0) {
+            selfTestSave = true;
         } else if (strcmp(argv[i], "--purist") == 0) {
             purist = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -196,6 +200,7 @@ int main(int argc, char* argv[]) {
             printf("  --debug          Enable debug mode\n");
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
+            printf("  --selftest-save  Save/load round-trip check, then exit (0 = pass)\n");
             printf("  -config          Show setup screen\n");
             printf("  --purist         Score the engine tune exactly as the original does, so\n");
             printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
@@ -342,6 +347,7 @@ int main(int argc, char* argv[]) {
         mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(SCENE_NAME_ENTRY);
+        if (selfTestSave) return RunSaveRoundTripSelfTest() ? 0 : 1;
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         SDL_DestroyRenderer(renderer);

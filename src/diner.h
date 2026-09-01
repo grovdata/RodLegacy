@@ -75,7 +75,7 @@ class Diner: public CarScene {
         void DrawMaskAfterCar() override;
         // void SetStatusBar(char *text) override;
 
-        void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType) override;
+        void StartAnimateCar(CarPtr car, Driver *driver, CarAnimationType animType) override;
         void UpdateCarAnimation(double deltaTime) override;
         void UpdateAnimation(double deltaTime);
         void UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight);

@@ -161,7 +161,7 @@ void Diner::DrawScene() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
+            StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }
         // Still draw everything else while waiting
 
@@ -262,7 +262,7 @@ std::string Diner::GetOpponentText(Opponent *opponent) {
     return result;
 }
 
-void Diner::StartAnimateCar(Car*, Driver*, CarAnimationType) {
+void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     if (animatingCar && carBitmap) return;
 
     this->currentOpponent = state.GetNextOpponent();
@@ -661,8 +661,6 @@ void Diner::ShowCallListDialog() {
             },
             listBoxRect,
             selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF},
-            {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -680,7 +678,7 @@ void Diner::OnFadeComplete() {
         // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !carBitmap) {
             state.PickNextOpponent();
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
+            StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }
     }
 }

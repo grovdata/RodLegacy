@@ -236,7 +236,7 @@ public:
     void Init(bool debugMode) override;
     virtual void DrawMaskAfterCar();
     virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
-    virtual void StartAnimateCar(Car *car, Driver *driver, CarAnimationType animType);
+    virtual void StartAnimateCar(CarPtr car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
     virtual bool PushEvent(SDL_Event *event) override;

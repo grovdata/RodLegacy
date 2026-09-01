@@ -9,6 +9,7 @@
 #include "newspaper.h"
 #include "king_of_county.h"
 #include "name_entry.h"
+#include "save_load_scene.h"
 #ifdef RODLEGACY_DEBUG_UI
 #include "car_debug.h"
 #endif
@@ -76,7 +77,19 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
             srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
-            racerPool.Init(srDriverData, mergedCarSpecs);
+            // Which cars can wear which modifications, so the pool only
+            // rolls appearance changes the model actually has sprites for -
+            // the same gate the original applies.
+            std::vector<uint8_t> specMods(mergedCarSpecs.size(), 0);
+            for (size_t i = 0; i < mergedCarSpecs.size(); ++i) {
+                if (i >= mergedCarSpecModelIndex.size()) break;
+                const int modelIdx = mergedCarSpecModelIndex[i];
+                if (modelIdx < 0) continue;  // The King's slot, no buyable car
+                const CarModel model = carData.GetModelFromIndex(modelIdx);
+                if (CarModelCanChopRoof(model))     specMods[i] |= SPEC_CAN_CHOP_ROOF;
+                if (CarModelCanStripBumpers(model)) specMods[i] |= SPEC_CAN_STRIP_BUMPERS;
+            }
+            racerPool.Init(mergedCarSpecs, specMods);
             LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
         } else {
             LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
@@ -128,14 +141,14 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
                 continue;
             }
             CarModel model = carData.GetModelFromIndex(carAssetId);
-            Car* car = roster.GenerateRandomCar(model);
+            CarPtr car = roster.GenerateRandomCar(model);
             // Stock appearance for classifieds...
             car->SetRoofChopped(false);
             car->SetBumpersStripped(false);
             car->SetDecal(SrLibCarDecalNone);
             car->SetScoop(SCOOP_NONE);
             // ...and the drivetrain the car is actually advertised with.
-            CarBuilder::ApplySpec(car, mergedCarSpecs[spec], model.vendor);
+            CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
             classifiedCars.push_back(car);
         }
         LOG_INFO("Generated %zu classified cars", classifiedCars.size());
@@ -151,6 +164,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         driving = std::make_unique<Driving>();
         newspaper = std::make_unique<Newspaper>();
         nameEntry = std::make_unique<NameEntry>();
+        saveLoad = std::make_unique<SaveLoadScene>();
 #ifdef RODLEGACY_DEBUG_UI
         carDebug = std::make_unique<CarDebug>();
 #endif
@@ -161,6 +175,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         newspaper->Init(debugMode);
         driving->Init(debugMode);
         nameEntry->Init(debugMode);
+        saveLoad->Init(debugMode);
 #ifdef RODLEGACY_DEBUG_UI
         carDebug->Init(debugMode);
 #endif
@@ -229,6 +244,9 @@ void State::MoveToScene(SrLibGameScene scene) {
         case SCENE_NAME_ENTRY:
             this->currentScene = nameEntry.get();
             break;
+        case SCENE_SAVE_LOAD:
+            this->currentScene = saveLoad.get();
+            break;
         case SCENE_CAR_DEBUG:
 #ifdef RODLEGACY_DEBUG_UI
             this->currentScene = carDebug.get();
@@ -245,34 +263,20 @@ void State::MoveToScene(SrLibGameScene scene) {
 }
 
 void State::StartNewGame() {
-    for (Car* c : ownedCars) delete c;
     ownedCars.clear();
-    currentCar = nullptr;
-
-    if (garage) garage->ResetForNewCarSet();
+    currentCar.reset();
 }
 
 Car* State::GetCurrentCar() {
-    return this->currentCar;
+    return this->currentCar.get();
 }
 
-void State::SetCurrentCar(Car *car) {
-    this->currentCar = car;
+void State::SetCurrentCar(CarPtr car) {
+    this->currentCar = std::move(car);
 }
 
-std::vector<Car *> State::GetOwnedCars() {
-    return ownedCars;
-}
-
-void State::AddOwnedCar(Car* car) {
-    ownedCars.push_back(car);
-
-    // Garage is constructed once at startup and otherwise never refreshes
-    // its owned-car bitmap cache (InitCarBitmaps only reruns via
-    // ResetForNewCarSet, which nothing calls after a purchase) -- without
-    // this, a car bought from the newspaper never appears in the garage.
-    // Same pattern StartNewGame already uses to rebuild the cache.
-    if (garage) garage->ResetForNewCarSet();
+void State::AddOwnedCar(CarPtr car) {
+    ownedCars.push_back(std::move(car));
 }
 
 namespace {
@@ -288,14 +292,14 @@ namespace {
 // CHEVROLET_2DR_COUPE_1940 ... 24 = CHEVROLET_BELAIR_SPORTS_COUPE), but
 // only holds the 25 player-ownable cars -- The King (spec index 25) isn't
 // in it, since his car is never actually owned by the player in practice.
-Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
+CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                         const std::vector<SrCarSpecEntry>& specs) {
     if (rec.specIndex < 0 || rec.specIndex >= CAR_INDEX_COUNT) {
         LOG_INFO("LoadSaveGame: car spec index %d has no known lib.p asset (King's car or out of range), using a placeholder model", rec.specIndex);
     }
     int assetId = (rec.specIndex >= 0 && rec.specIndex < CAR_INDEX_COUNT) ? kCarIndex[rec.specIndex] : kCarIndex[0];
     CarModel model = carData.GetModelFromIndex(assetId);
-    Car* car = CarBuilder::BuildCar(model);
+    CarPtr car = CarBuilder::BuildCar(model);
 
     // The saved car keeps its own parts (loaded below), but the class byte is
     // a property of the model, not of the save, so it comes from the spec.
@@ -304,9 +308,12 @@ Car* BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
     }
 
     car->SetColor(static_cast<StandardCarColor>(rec.colorIndex));
-    car->SetRoofChopped((rec.bodyByte & 0x04) != 0);
-    car->SetBumpersStripped((rec.bodyByte & 0x01) != 0 && (rec.bodyByte & 0x02) != 0);
-    car->SetDecal(static_cast<SrLibCarDecal>(rec.bodyByte >> 4));
+    // Shared decoders (libp.h). The sticker nibble is one-based, so reading it
+    // as a plain index used to give every unstickered car decal 0 - which is
+    // most of them, since the original leaves the nibble at 0 by default.
+    car->SetRoofChopped(CarBodyRoofChopped(rec.bodyByte));
+    car->SetBumpersStripped(CarBodyBumpersStripped(rec.bodyByte));
+    car->SetDecal(CarBodyDecal(rec.bodyByte));
     // Confirmed save byte is signed -8..+4, 0=perfectly tuned. RodLegacy's
     // own tuneLevel is used elsewhere as abs(tuneLevel-9) clamped 0..8
     // (racing.cpp), i.e. 9 is its own "perfectly tuned" center -- this
@@ -396,21 +403,21 @@ bool State::LoadSaveGame(const fs::path& path) {
     SetBankroll(loaded.bankroll);
     SetElapsedTicks(loaded.elapsedTicks);
 
-    // Replace the owned-car roster. These are always freshly built here (no
-    // pre-existing load path reuses them), so it's safe to free the old set.
-    for (Car* c : ownedCars) delete c;
+    // Replace the owned-car roster. Anything still showing one of the old
+    // cars (a cached CarBitmap, a scene mid-animation) keeps it alive until
+    // it lets go, so dropping them here cannot dangle.
     ownedCars.clear();
-    currentCar = nullptr;
+    currentCar.reset();
 
     if (loaded.hasActiveCar) {
-        Car* active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);
+        CarPtr active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);
         ownedCars.push_back(active);
         currentCar = active;
     }
     for (const auto& rec : loaded.roster) {
         ownedCars.push_back(BuildCarFromRecord(rec, carData, srCarSpecData));
     }
-    if (currentCar == nullptr && !ownedCars.empty()) currentCar = ownedCars.at(0);
+    if (!currentCar && !ownedCars.empty()) currentCar = ownedCars.at(0);
 
     // Known opponents (trailer chunk 6): slot 21 is The King, who has no
     // mutable storage in RacerPool (RACER_KING_SLOT is a sentinel, not a
@@ -420,17 +427,29 @@ bool State::LoadSaveGame(const fs::path& path) {
         if (i < static_cast<int>(racerPool.pool.size())) racerPool.pool[i].status = 0;
     }
 
-    // Race record. The save doesn't distinguish drag vs. road wins, so the
-    // full win count is attributed to drag_wins; races_won() (the only
-    // thing read elsewhere) is unaffected by which bucket it's in.
+    // Race record. The save stores standing directly (trailer chunk 5 - see
+    // save_loader.h), so both reputations round-trip exactly.
+    //
+    // It does NOT store win counts: the original tracks only reputation and
+    // races completed. drag_wins/road_wins are a RodLegacy addition, so the
+    // best that can be done is leave them at 0 - reputation, which is what
+    // actually gates opponent difficulty and the King, is exact.
     reputation = Reputation();
-    reputation.races_completed = loaded.racesEntered;
-    reputation.drag_wins = loaded.racesWon;
+    reputation.races_completed = loaded.racesCompleted;
+    reputation.drag_rep        = loaded.dragRep;
+    reputation.road_rep        = loaded.roadRep;
+    reputation.last_race_won   = loaded.lastRaceWon;
+
+    // The header carries the profile name, space-padded (save_game.md).
+    std::string savedName = loaded.name;
+    while (!savedName.empty() && savedName.back() == ' ') savedName.pop_back();
+    if (!savedName.empty()) SetPlayerName(savedName);
 
     LOG_INFO("LoadSaveGame: loaded '%s', bankroll=%d, %d owned car(s), %zu spare part(s) not sorted by category (see save_loader.h)",
               loaded.name.c_str(), loaded.bankroll, (int)ownedCars.size(), loaded.spareParts.size());
     return true;
 }
+
 
 void State::SetElapsedTime(Uint64 elapsedTime) {
     this->elapsedTime = elapsedTime;
@@ -540,6 +559,20 @@ void State::PickNextOpponent() {
     int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
     Opponent* opp = roster.GetOpponentByIndex(driverIdx);
     if (opp) {
+        // Give the opponent the look the pool rolled for this slot, so the
+        // same rival always turns up in the same paint and body trim. The
+        // car itself still comes from the Roster - wiring the pool's
+        // car_spec_index through to the raced car is a separate gap.
+        if (opp->car) {
+            opp->car->SetColor(static_cast<StandardCarColor>(entry.color_index));
+            opp->car->SetDecal(CarBodyDecal(entry.body_byte));
+            if (CarModelCanChopRoof(opp->car->GetModelRef())) {
+                opp->car->SetRoofChopped(CarBodyRoofChopped(entry.body_byte));
+            }
+            if (CarModelCanStripBumpers(opp->car->GetModelRef())) {
+                opp->car->SetBumpersStripped(CarBodyBumpersStripped(entry.body_byte));
+            }
+        }
         roster.SetNextOpponent(opp);
         LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d car_spec=%d score=%d",
                  poolIdx, entry.driver_index, entry.car_spec_index, playerScore);
@@ -555,16 +588,12 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             racerPool.OnRaceWon(lastChallengerPoolIndex, pinkSlip);
         }
         if (pinkSlip) {
-            // The stake was the cars: take theirs. The pointer moves rather than
-            // being copied, and the opponent is left without one so the same Car
-            // is never owned twice - they have just lost it, after all.
+            // The stake was the cars: take theirs. They are left without one -
+            // they have just lost it, after all.
             Opponent* opponent = GetCurrentOpponent();
-            if (opponent != nullptr && opponent->car != nullptr) {
-                Car* wonCar = opponent->car;
-                // The pointer moves rather than being copied: Opponent does not
-                // own its car, so leaving it in place would give one Car two
-                // owners. They have just lost it in any case.
-                opponent->car = nullptr;
+            if (opponent != nullptr && opponent->car) {
+                CarPtr wonCar = opponent->car;
+                opponent->car.reset();
                 ownedCars.push_back(wonCar);
                 // Drive it away: winning the pink slip means it is yours now,
                 // and the old car stays in the garage alongside it.
@@ -591,17 +620,17 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
         }
         if (pinkSlip) {
-            // The stake was the cars, so the one that was raced is gone. It is
-            // dropped rather than deleted: nothing else in the game deletes a
-            // Car, and the roster may still be holding this pointer.
-            Car* lostCar = currentCar;
-            if (lostCar != nullptr) {
+            // The stake was the cars, so the one that was raced is gone. It
+            // stays alive as long as anything is still showing it (a cached
+            // CarBitmap, a scene mid-animation) and is freed once they let go.
+            CarPtr lostCar = currentCar;
+            if (lostCar) {
                 ownedCars.erase(std::remove(ownedCars.begin(), ownedCars.end(), lostCar),
                                 ownedCars.end());
                 // Fall back to whatever else is in the garage. With nothing
                 // left the player is carless and has to buy one from the
                 // paper, which is what the original does with its single car.
-                currentCar = ownedCars.empty() ? nullptr : ownedCars.front();
+                currentCar = ownedCars.empty() ? CarPtr{} : ownedCars.front();
                 LOG_INFO("State::OnRaceFinished - pink slip loss: forfeited %s, %zu car(s) left",
                          lostCar->GetModel().name.c_str(), ownedCars.size());
             }

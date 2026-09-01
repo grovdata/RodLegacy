@@ -70,7 +70,9 @@ class CarShadow: public Bitmap {
 
 class CarBitmap {
 private:
-    Car* car;  // This stays a pointer as it's managed elsewhere
+    // Shared so a cached CarBitmap can never outlive its car (loading a save
+    // replaces State's whole roster).
+    CarPtr car;
     Bitmap bodyOriginal;
     Bitmap bodyChopped;
     Bitmap* body;  // Points to either bodyOriginal or bodyChopped
@@ -118,10 +120,10 @@ private:
 public:
    
     // Main constructor
-    CarBitmap(Car* car, Driver* driverInfo, StandardCarColor color);
+    CarBitmap(CarPtr car, Driver* driverInfo, StandardCarColor color);
     
     // No need for destructor anymore as members clean up automatically
-    void LoadCarParts(Car *car, Driver *driver, StandardCarColor color);
+    void LoadCarParts(CarPtr car, Driver *driver, StandardCarColor color);
 
     void Draw();
     void Move(SDL_Point p);
@@ -147,7 +149,8 @@ public:
     // is the frame SpriteInfo's x_driver / y_driver are expressed in.
     SDL_Point GetDriverOffsetFromBody() const;
     StandardCarColor GetCurrentColor() const { return currentColor; }
-    Car* GetCar() const { return car; }
+    Car* GetCar() const { return car.get(); }
+    const CarPtr& GetCarPtr() const { return car; }
     BitmapOffset_t GetOffset();
 
     // Tire change animation methods

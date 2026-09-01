@@ -11,11 +11,9 @@
 #include "audio/audio_manager.h"
 #include "engine_part.h"
 #include "parsers/libp.h"
-#include "parsers/adf.h"
-#include "save_loader.h"
+#include "save_load_scene.h"
 #include <SDL_image.h>
 #include <algorithm>
-#include <fstream>
 
 void Garage::InitGameMenuDialog() {
 
@@ -133,12 +131,17 @@ void Garage::InitGameMenuDialog() {
         switch (buttonIndex) {
             case 0:
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Save Game");
-                // state.SaveGame();
+                gameMenuDialog->Hide();
+                SetActiveDialog(nullptr);
+                state.GetSaveLoadScene()->Configure(SaveLoadScene::Mode::Save, SCENE_GARAGE);
+                state.MoveToScene(SCENE_SAVE_LOAD);
                 break;
             case 1:
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: Load Game");
                 gameMenuDialog->Hide();
-                ShowLoadGameDialog();
+                SetActiveDialog(nullptr);
+                state.GetSaveLoadScene()->Configure(SaveLoadScene::Mode::Load, SCENE_GARAGE);
+                state.MoveToScene(SCENE_SAVE_LOAD);
                 break;
             case 2:
                 LOG_INFO("Garage::MenuDialogConfig::onButtonPressed: New Game");
@@ -164,210 +167,6 @@ void Garage::InitGameMenuDialog() {
         }
     };
     gameMenuDialog = std::make_unique<Dialog>(menuDialogConfig);
-}
-
-namespace {
-// Combines a filename with the profile name stored inside the save itself
-// (trimmed of the space-padding save_game.md documents), e.g.
-// "StreetRodC.sav (STEVE)". Falls back to the bare filename if the save
-// can't be parsed or its name field is blank.
-std::string BuildLoadGameLabel(const std::string& filename, const std::string& rawSaveName) {
-    std::string trimmed = rawSaveName;
-    while (!trimmed.empty() && trimmed.back() == ' ') trimmed.pop_back();
-    if (trimmed.empty()) return filename;
-    return filename + " (" + trimmed + ")";
-}
-} // namespace
-
-void Garage::ScanDisk2Samples() {
-    // Sample saves the original Amiga disk2 ships in its root directory --
-    // gives a new player something to try loading immediately. Called once
-    // from Init() rather than lazily on first dialog open: listing means
-    // mounting the ADF via a temp file, and doing that the first time the
-    // player clicks the menu turned a real, noticeable hitch into the
-    // dialog's own opening delay. The image never changes mid-session, so
-    // one scan at startup (where a small hitch is already expected/hidden
-    // in loading) covers the whole session.
-    cachedDisk2Samples.clear();
-    const auto& disk2 = state.GetAssets().GetDisk2Adf();
-    if (disk2.empty()) return;
-    AdfFileNameList* names = list_adf_files_from_buffer(disk2.data(), disk2.size(), ".sav");
-    if (!names) {
-        LOG_INFO("Garage::ScanDisk2Samples: failed to list .sav files on disk2");
-        return;
-    }
-    for (size_t i = 0; i < names->count; ++i) {
-        LoadGameEntry e;
-        e.fromDisk2 = true;
-        e.adfFileName = names->names[i];
-
-        std::string saveName;
-        AdfFileData* data = extract_adf_file_from_buffer(disk2.data(), disk2.size(), names->names[i]);
-        if (data) {
-            try {
-                std::vector<uint8_t> bytes(data->data, data->data + data->size);
-                saveName = SaveGameLoader::Parse(bytes).name;
-            } catch (const SaveLoadError& ex) {
-                LOG_INFO("Garage::ScanDisk2Samples: couldn't read name from %s: %s", names->names[i], ex.what());
-            }
-            free_adf_file_data(data);
-        }
-        e.label = std::string("[sample] ") + BuildLoadGameLabel(names->names[i], saveName);
-        cachedDisk2Samples.push_back(e);
-    }
-    free_adf_file_name_list(names);
-}
-
-void Garage::ShowLoadGameDialog() {
-    loadGameFiles.clear();
-
-    // Real saves in the game directory.
-    try {
-        for (const auto& entry : std::filesystem::directory_iterator(state.GetAssets().GetBasePath())) {
-            if (entry.is_regular_file() && entry.path().extension() == ".sav") {
-                LoadGameEntry e;
-                e.fromDisk2 = false;
-                e.gameDirPath = entry.path();
-
-                std::string saveName;
-                try {
-                    saveName = SaveGameLoader::Load(entry.path()).name;
-                } catch (const SaveLoadError& ex) {
-                    LOG_INFO("Garage::ShowLoadGameDialog: couldn't read name from %s: %s",
-                             entry.path().string().c_str(), ex.what());
-                }
-                e.label = BuildLoadGameLabel(entry.path().filename().string(), saveName);
-                loadGameFiles.push_back(e);
-            }
-        }
-    } catch (const std::filesystem::filesystem_error& ex) {
-        LOG_INFO("Garage::ShowLoadGameDialog: failed to scan for .sav files: %s", ex.what());
-    }
-
-    for (const auto& e : cachedDisk2Samples) loadGameFiles.push_back(e);
-
-    if (loadGameFiles.empty()) return;
-
-    std::vector<std::string> labels;
-    for (const auto& e : loadGameFiles) labels.push_back(e.label);
-
-    SDL_Rect bounds = {36, 26, 260, 136};
-
-    const int buttonWidth = 66;
-    const int buttonHeight = 16;
-    const int buttonY = bounds.y + bounds.h - buttonHeight - 8;
-
-    SDL_Rect listBoxRect = {40, 40, 242, 80};
-    SDL_Rect topRect = {37, 27, 246, 95};
-    SDL_Rect bottomRect = {37, 123, 246, 40};
-    SDL_Rect selectedItemRect = {39, 127, 242, 12};
-    SDL_Rect loadItRect = {bounds.x + 14, buttonY, buttonWidth, buttonHeight};
-    SDL_Rect cancelRect = {bounds.x + 165, buttonY, buttonWidth, buttonHeight};
-
-    SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
-    SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
-    SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
-    SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
-
-    Zone loadItZone("load_it",       "Load it",   loadItRect);
-    Zone cancelZone("load_cancel",   "Cancel",    cancelRect);
-    Zone scrollTopZone("load_scroll_top",     std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
-    Zone scrollDownZone("load_scroll_down",   std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
-    Zone scrollUpZone("load_scroll_up",       std::string(1, MAIN_FONT_SCROLL_UP),     scrollUpRect);
-    Zone scrollBottomZone("load_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
-
-    std::vector<ButtonConfig> buttons = {
-        {loadItRect, "Load it", nullptr, true,  0},
-        {cancelRect, "Cancel",  nullptr, false, 1},
-    };
-
-    std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Load which game?", {0xFF, 0xFF, 0xFF, 0xFF}, true}
-    };
-    std::vector<SDL_Rect> lines = { {40, 39, 240, 1} };
-
-    std::vector<Zone> dialogZones = {
-        loadItZone, cancelZone,
-        scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
-    };
-
-    DialogConfig dialogConfig;
-    dialogConfig.bounds = bounds;
-    dialogConfig.backgroundColor = {0, 208, 0, 255};
-    dialogConfig.borderColor = {0, 111, 239, 255};
-    dialogConfig.buttons = buttons;
-    dialogConfig.lines = lines;
-    dialogConfig.zones = dialogZones;
-    dialogConfig.contentAreas = {topRect, bottomRect};
-    dialogConfig.font = state.GetAssets().GetMainFont();
-    dialogConfig.texts = texts;
-    dialogConfig.onZoneHover = [this](Zone& zone) {
-        this->hud->SetText(zone.GetText().c_str());
-    };
-    dialogConfig.onButtonPressed = [this](int buttonIndex) {
-        switch (buttonIndex) {
-            case 0: { // Load it
-                int selectedIndex = loadGameDialog->GetSelectedIndex();
-                if (selectedIndex >= 0 && selectedIndex < (int)loadGameFiles.size()) {
-                    bool ok = LoadSelectedGame(loadGameFiles[selectedIndex]);
-                    LOG_INFO("Garage::ShowLoadGameDialog: load %s -> %s",
-                             loadGameFiles[selectedIndex].label.c_str(), ok ? "ok" : "FAILED");
-                }
-                loadGameDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
-            }
-            case 1: // Cancel
-                loadGameDialog->Hide();
-                SetActiveDialog(nullptr);
-                break;
-        }
-    };
-
-    ListDialogConfig listDialogConfig;
-    listDialogConfig.labels = labels;
-    listDialogConfig.listBoxRect = listBoxRect;
-    listDialogConfig.selectedItemRect = selectedItemRect;
-
-    loadGameDialog = std::make_unique<ListDialog>(dialogConfig, listDialogConfig);
-    SetActiveDialog(loadGameDialog.get());
-}
-
-bool Garage::LoadSelectedGame(const LoadGameEntry& entry) {
-    bool ok;
-    if (!entry.fromDisk2) {
-        ok = state.LoadSaveGame(entry.gameDirPath);
-    } else {
-        // Disk2 sample: extract to a temp file first, since SaveGameLoader
-        // (like the rest of the codebase's file handling) reads from a real path.
-        const auto& disk2 = state.GetAssets().GetDisk2Adf();
-        AdfFileData* data = extract_adf_file_from_buffer(disk2.data(), disk2.size(), entry.adfFileName.c_str());
-        if (!data) {
-            LOG_INFO("Garage::LoadSelectedGame: failed to extract %s from disk2", entry.adfFileName.c_str());
-            return false;
-        }
-
-        auto tempPath = std::filesystem::temp_directory_path() / ("rodlegacy_sample_" + entry.adfFileName);
-        ok = false;
-        {
-            std::ofstream f(tempPath, std::ios::binary);
-            if (f) {
-                f.write(reinterpret_cast<const char*>(data->data), static_cast<std::streamsize>(data->size));
-                f.close();
-                ok = state.LoadSaveGame(tempPath);
-            }
-        }
-        free_adf_file_data(data);
-        std::filesystem::remove(tempPath);
-    }
-
-    if (ok) {
-        // LoadSaveGame just replaced (and freed) every Car* State owned.
-        // Every cached bitmap/animation object keyed on those old pointers
-        // is now dangling -- rebuild them the same way Init() originally did.
-        ResetForNewCarSet();
-    }
-    return ok;
 }
 
 void Garage::InitOptionsDialog() {

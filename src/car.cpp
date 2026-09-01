@@ -39,6 +39,15 @@ CarWheelType Car::GetWheelType() const {
     return STOCK;
 }
 
+AmigaLibAsset TireAssetForType(CarWheelType type) {
+    switch (type) {
+        case STOCK:  return CAR_TIRES_STOCK;
+        case BRAND:  return CAR_TIRES_BRAND;
+        case RACING: return CAR_TIRES_RACING;
+    }
+    return CAR_TIRES_STOCK;
+}
+
 void Car::SetTires(CarWheelType type, int wear, int cost) {
     // model.vendor is already resolved for both sources; the lookup only knows
     // lib.p assets and would answer Unknown for a Street Rod SE car.
@@ -46,18 +55,7 @@ void Car::SetTires(CarWheelType type, int wear, int cost) {
     if (vendor == CarVendorUnknown) {
         vendor = SrLibQueryGetCarVendor(model.index);
     }
-    AmigaLibAsset aid;
-    switch (type) {
-        case STOCK:
-            aid = CAR_TIRES_STOCK;
-            break;
-        case BRAND:
-            aid = CAR_TIRES_BRAND;
-            break;
-        case RACING:
-            aid = CAR_TIRES_RACING;
-            break;
-    }
+    const AmigaLibAsset aid = TireAssetForType(type);
 
     LOG_INFO("Setting tires for %d to %d", model.index, aid);
 

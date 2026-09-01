@@ -188,33 +188,15 @@ class Garage : public CarScene {
     std::unique_ptr<ListDialog> sparePartsDialog;
     void ShowSparePartsDialog();
 
-    Car *pendingCar = nullptr;
+    CarPtr pendingCar;
     // Car shown here when the scene was last exited (nullptr if the garage
     // was empty) - lets DrawScene tell "car was already parked, just show
     // it" apart from "this car wasn't here before, drive it in".
-    Car *lastParkedCar = nullptr;
+    CarPtr lastParkedCar;
     void OnSceneExit() override;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
-    std::unique_ptr<ListDialog> loadGameDialog;
-
-    // A save the "Load Game" dialog can offer: either a real file in the
-    // game directory, or a sample save embedded in disk2's ADF image (the
-    // original Amiga disk ships a handful in its root directory).
-    struct LoadGameEntry {
-        std::string label;
-        bool fromDisk2 = false;
-        std::filesystem::path gameDirPath;  // valid when !fromDisk2
-        std::string adfFileName;            // valid when fromDisk2
-    };
-    std::vector<LoadGameEntry> loadGameFiles;
-    // Scanned once from Init() (see ScanDisk2Samples's own comment for why
-    // not lazily on first dialog open).
-    std::vector<LoadGameEntry> cachedDisk2Samples;
-    void ScanDisk2Samples();
-    void ShowLoadGameDialog();
-    bool LoadSelectedGame(const LoadGameEntry& entry);
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> optionsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;
@@ -236,10 +218,12 @@ class Garage : public CarScene {
     std::vector<std::string> customStickerPaths;
     int stickerScrollRow = 0;
     bool stickerNeedsRefresh = false;
-    std::vector<Car*> sortedOwnedCars;
+    std::vector<CarPtr> sortedOwnedCars;
     std::vector<SDL_Surface*> carListSwatches;
     void FreeCarListSwatches();
-    std::map<Car*, std::unique_ptr<CarBitmap>> carBitmaps;
+    // Housekeeping on scene entry - see the definition for why it is only that.
+    void DropUnownedCarBitmaps();
+    std::map<CarPtr, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
     void InitGameMenuDialog();
     void InitOptionsDialog();
@@ -269,23 +253,15 @@ class Garage : public CarScene {
     Garage();
     ~Garage();
 
-    void InitCarBitmaps();
-    CarBitmap* GetOrCreateCarBitmap(Car* car);
+    CarBitmap* GetOrCreateCarBitmap(const CarPtr& car);
 
-    // Rebuilds every cache keyed on Car* (bitmaps, swatches, the sign) after
-    // State's owned-car set has been replaced out from under Garage, e.g. by
-    // LoadSaveGame or a new game. If Garage is the scene on screen right now,
-    // also resets it to the same state a fresh scene entry leaves behind so
-    // the (possibly absent) current car drives in normally instead of
-    // popping into place.
-    void ResetForNewCarSet();
 
     SDL_Point GetCarIdlePosition() override;
 
     bool PushEvent(SDL_Event* event) override;
     void DrawScene() override;
     void SetActiveDialog(Dialog *dialog) override;
-    void StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) override;
+    void StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) override;
     void OnCarAnimationComplete() override;
     void OnFadeComplete() override;
 };

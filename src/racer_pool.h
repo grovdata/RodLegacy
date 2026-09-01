@@ -12,6 +12,21 @@ struct RacerEntry {
     int    driver_index;    // index into SrDriverData table (0-20)
     int    car_spec_index;  // index into SrCarSpecEntry table (0-24)
     int8_t status;          // 0=active, 1=currently challenging, -1=eliminated
+
+    // Appearance, rolled once when the pool is built and then fixed for the
+    // rest of the game - the original stores both in the opponent's 8-byte
+    // pool record (byte 2 and byte 6) and saves them, so you meet the same
+    // rival in the same car every time.
+    uint8_t color_index = 0;  // 0..12, the 13 standard paints
+    uint8_t body_byte = 0;    // roof/bumper/sticker bitfield, see libp.h
+};
+
+// Which appearance changes a given car spec is even capable of, parallel to
+// the car_specs table handed to Init. The original gates the same way, on
+// whether the model has the sprites for it.
+enum SpecModFlags : uint8_t {
+    SPEC_CAN_CHOP_ROOF     = 1 << 0,
+    SPEC_CAN_STRIP_BUMPERS = 1 << 1,
 };
 
 // The listed car's top speed in mph (Amiga ComputeCarTopSpeed 0x243b9c):
@@ -25,9 +40,14 @@ class RacerPool {
 public:
     RacerPool() = default;
 
-    // Initialize 21-entry pool (7 per driver tier). Stores car_specs for score computation.
-    void Init(const std::vector<SrDriverData>& drivers,
-              const std::vector<SrCarSpecEntry>& car_specs);
+    // Initialize the 21-entry pool: 7 slots from each car-class band, in
+    // easy/mid/hard order, matching the original's InitRacerPool. Stores
+    // car_specs for score computation. The driver table is not needed - a
+    // pool slot's position IS the opponent's identity.
+    // spec_mods is parallel to car_specs (see SpecModFlags); pass an empty
+    // vector to leave every car stock.
+    void Init(const std::vector<SrCarSpecEntry>& car_specs,
+              const std::vector<uint8_t>& spec_mods = {});
 
     // Returns up to SELECTION_POOL_SIZE pool indices sorted by |player_score - entry_score|.
     // Excludes eliminated (status==-1) entries.

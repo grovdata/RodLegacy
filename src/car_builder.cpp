@@ -6,8 +6,8 @@
 #include <random>
 #include <algorithm>
 
-Car* CarBuilder::BuildCar(CarModel model) {
-    Car* car = new Car(model);
+CarPtr CarBuilder::BuildCar(CarModel model) {
+    CarPtr car = std::make_shared<Car>(model);
 
     // Set up proper engine matching the vendor
     CarEngine_t engineType = GetDefaultEngineForVendor(model.vendor);
@@ -17,8 +17,8 @@ Car* CarBuilder::BuildCar(CarModel model) {
     return car;
 }
 
-Car* CarBuilder::BuildRandomCar(CarModel model) {
-    Car* car = new Car(model);
+CarPtr CarBuilder::BuildRandomCar(CarModel model) {
+    CarPtr car = std::make_shared<Car>(model);
 
     // Select compatible engine
     CarEngine_t engineType = SelectCompatibleEngine(model);

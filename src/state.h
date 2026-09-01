@@ -29,6 +29,7 @@ class Newspaper;
 class GasStation;
 class Racing;
 class NameEntry;
+class SaveLoadScene;
 class CarDebug;
 
 class State {
@@ -62,10 +63,10 @@ private:
     int      pendingBetAmount  = 50;
     bool     pendingIsPinkSlip = false;
 
-    std::vector<Car *> carRoster;
-    std::vector<Car *> ownedCars;
-    std::vector<Car *> classifiedCars; // Cars for sale in the newspaper
-    Car *currentCar = nullptr;
+    std::vector<CarPtr> carRoster;
+    std::vector<CarPtr> ownedCars;
+    std::vector<CarPtr> classifiedCars; // Cars for sale in the newspaper
+    CarPtr currentCar;
 
     // Spare-parts inventory (segment 4 of the save format -- not attached to
     // a car), one collection per category, mirroring Car's own per-category
@@ -101,6 +102,7 @@ private:
     std::unique_ptr<Newspaper> newspaper;
     std::unique_ptr<KingOfCounty> kingOfCounty;
     std::unique_ptr<NameEntry> nameEntry;
+    std::unique_ptr<SaveLoadScene> saveLoad;
 #ifdef RODLEGACY_DEBUG_UI
     std::unique_ptr<CarDebug> carDebug;
 #endif
@@ -120,6 +122,7 @@ public:
 
     AssetManager& GetAssets() { return assets; }
     Newspaper* GetNewspaper() const { return newspaper.get(); }
+    SaveLoadScene* GetSaveLoadScene() const { return saveLoad.get(); }
 
     // Every enabled car set's specs in one table, Amiga set first. Parallel
     // to GetCarSpecModelIndex(), which maps each entry back to a pool key.
@@ -202,9 +205,10 @@ public:
     int  CalculateScore() const;
 
     Car* GetCurrentCar();
-    void SetCurrentCar(Car *car);
-    std::vector<Car *> GetOwnedCars();
-    void AddOwnedCar(Car* car);
+    const CarPtr& GetCurrentCarPtr() const { return currentCar; }
+    void SetCurrentCar(CarPtr car);
+    const std::vector<CarPtr>& GetOwnedCars() const { return ownedCars; }
+    void AddOwnedCar(CarPtr car);
 
     // Loads a real Amiga .sav file, replacing bankroll, owned cars, known-
     // opponent car specs, race record, and elapsed time. Returns false
@@ -212,6 +216,13 @@ public:
     // the parser and its documented gaps; RodLegacyResearch/docs/formats/
     // save_game.md is the authoritative format reference.
     bool LoadSaveGame(const fs::path& path);
+
+    // RodLegacy's own save format (save_file.h): unlike the read-only .sav
+    // path above, this round-trips everything State holds - player name,
+    // spare parts, both reputation buckets and the full racer pool.
+    // Both return false and leave State untouched on a bad file.
+    bool SaveGameToml(const fs::path& path);
+    bool LoadGameToml(const fs::path& path);
 
     const std::vector<Part>& GetSpareTires() const { return spareTires; }
     void AddSpareTire(Part tire) { spareTires.push_back(tire); }
@@ -264,7 +275,7 @@ public:
     }
 
     Roster& GetRoster() { return roster; }
-    std::vector<Car *>& GetClassifiedCars() { return classifiedCars; }
+    std::vector<CarPtr>& GetClassifiedCars() { return classifiedCars; }
     CarData carData;
 
 };

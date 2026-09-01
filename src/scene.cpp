@@ -413,7 +413,7 @@ void CarScene::Init(bool debugMode) {
 //    Scene::Draw();
 //}
 
-void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) {
 
     currentAnimationType = animType;
     
@@ -456,7 +456,7 @@ void CarScene::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animTy
     }
     
     // Use flag instead of null check
-    if (car != nullptr && needsNewAnimation) {
+    if (car && needsNewAnimation) {
         if (carBitmap == nullptr) {
             carBitmap = new CarBitmap(car, driver, car->GetColor());
         }
@@ -675,7 +675,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 waitTimer += deltaTime;
                 if (waitTimer >= WAIT_BEFORE_NEXT) {
                     waitTimer = 0;
-                    StartAnimateCar(state.GetCurrentCar(), nullptr, currentAnimationType);
+                    StartAnimateCar(state.GetCurrentCarPtr(), nullptr, currentAnimationType);
                 }
             }
         }

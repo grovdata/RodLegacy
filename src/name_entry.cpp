@@ -1,5 +1,6 @@
 #include "name_entry.h"
 #include "state.h"
+#include "save_load_scene.h"
 #include "SFont.h"
 
 namespace {
@@ -26,7 +27,12 @@ void NameEntry::Init(bool debugMode) {
     ButtonConfig oldGameConfig{};
     oldGameConfig.bounds = kOldGameRect;
     oldGameConfig.text = "Old Game";
-    oldGameConfig.onClick = nullptr; // Unwired, matching Garage's own "Old Game" button.
+    oldGameConfig.onClick = []() {
+        // Back here rather than to the garage when the player cancels: at this
+        // point there is no game to return to yet.
+        state.GetSaveLoadScene()->Configure(SaveLoadScene::Mode::Load, SCENE_NAME_ENTRY);
+        state.MoveToScene(SCENE_SAVE_LOAD);
+    };
     oldGameButton = std::make_unique<Button>(oldGameConfig);
 
     ButtonConfig okConfig{};

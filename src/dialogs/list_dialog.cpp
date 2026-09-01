@@ -9,6 +9,12 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
       listConfig(listConfig)
 {
     rowHeight = SFont_TextHeight(config.font);
+    // How many rows actually fit, rather than a fixed 10 - a taller list box
+    // used to draw 10 rows and leave the rest of itself blank, and a shorter
+    // one used to overflow its own border.
+    if (rowHeight > 0 && listConfig.listBoxRect.h > 0) {
+        visibleItems = SDL_max(1, listConfig.listBoxRect.h / rowHeight);
+    }
 
     ButtonConfig topConfig;
     topConfig.text = std::string(1, MAIN_FONT_SCROLL_TOP);
@@ -70,63 +76,75 @@ ListDialog::~ListDialog() {
 
 void ListDialog::Draw() {
     Dialog::Draw();
-    
+
     if (!IsVisible()) return;
 
     // Clear list box area
     SDL_Rect clearRect = listConfig.listBoxRect;
     SDL_FillRect(mainBitmap->GetSurface(), &clearRect, 0);
-    mainBitmap->UpdateFromSurface();
+
+    const int lastVisible =
+        SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size());
 
     // Draw list items
-    for (int i = scrollOffset; i < SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size()); i++) {
-        SDL_Rect itemRect = listConfig.selectedItemRect;
-        itemRect.x = listConfig.listBoxRect.x;
-        itemRect.y = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;
-        
-        SDL_Color textColor;
-        if (static_cast<int>(i) == selectedIndex) {
-            textColor = listConfig.selectedTextColor;
-        } else if (static_cast<int>(i) == hoverIndex) {
-            textColor = {255, 255, 255, 255};  // White for hover
-        } else {
-            textColor = {0, 0, 0, 255};  // Gray for normal
-        }
-        
-        SFont_Write(mainBitmap->GetSurface(), config.font, itemRect.x, itemRect.y,
-                   listConfig.labels[i].c_str());
-        SDL_SetTextureColorMod(mainBitmap->GetTexture(), textColor.r, textColor.g, textColor.b);
-        mainBitmap->UpdateFromSurface();
+    for (int i = scrollOffset; i < lastVisible; i++) {
+        const int rowY = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;
+
+        SFont_Write(mainBitmap->GetSurface(), config.font,
+                    listConfig.listBoxRect.x, rowY, listConfig.labels[i].c_str());
 
         // Draw swatch if provided
         if (!listConfig.swatches.empty() && i < static_cast<int>(listConfig.swatches.size()) && listConfig.swatches[i]) {
             SDL_Surface* swatch = listConfig.swatches[i];
             int swatchX = listConfig.listBoxRect.x + listConfig.listBoxRect.w - swatch->w - 2;
-            int swatchY = itemRect.y;
-            SDL_Rect dstRect = {swatchX, swatchY, swatch->w, swatch->h};
+            SDL_Rect dstRect = {swatchX, rowY, swatch->w, swatch->h};
             SDL_BlitSurface(swatch, nullptr, mainBitmap->GetSurface(), &dstRect);
-            mainBitmap->UpdateFromSurface();
         }
     }
 
-    if (selectedIndex != -1) {
-        // Clear selected item area first
-        SDL_Rect clearRect = listConfig.selectedItemRect;
-        SDL_FillRect(mainBitmap->GetSurface(), &clearRect, 0);
-        mainBitmap->UpdateFromSurface();
+    // The centred read-out of the current pick is optional: a caller with no
+    // room for it (or whose list already highlights the selection clearly
+    // enough) leaves selectedItemRect empty.
+    const bool hasReadout = listConfig.selectedItemRect.w > 0 &&
+                            listConfig.selectedItemRect.h > 0;
+    if (selectedIndex != -1 && hasReadout) {
+        SDL_Rect readoutRect = listConfig.selectedItemRect;
+        SDL_FillRect(mainBitmap->GetSurface(), &readoutRect, 0);
 
-        // Draw centered selected text
         int textWidth = SFont_TextWidth(config.font, listConfig.labels[selectedIndex].c_str());
         int xOffset = (listConfig.selectedItemRect.w - textWidth) / 2;
-        SFont_Write(mainBitmap->GetSurface(), config.font, 
-                   listConfig.selectedItemRect.x + xOffset, 
-                   listConfig.selectedItemRect.y, 
-                   listConfig.labels[selectedIndex].c_str());
-        SDL_SetTextureColorMod(mainBitmap->GetTexture(), 
-                              listConfig.selectedTextColor.r, 
-                              listConfig.selectedTextColor.g, 
-                              listConfig.selectedTextColor.b);
-        mainBitmap->UpdateFromSurface();
+        SFont_Write(mainBitmap->GetSurface(), config.font,
+                    listConfig.selectedItemRect.x + xOffset,
+                    listConfig.selectedItemRect.y,
+                    listConfig.labels[selectedIndex].c_str());
+    }
+
+    // One texture rebuild for the whole list, not one per row. This also has
+    // to come after every write: UpdateFromSurface recreates the texture, so
+    // a colour mod set before it is thrown away - which is why the per-row
+    // colours this used to set never appeared.
+    mainBitmap->UpdateFromSurface();
+    if (listConfig.textColor.a > 0) {
+        SDL_SetTextureColorMod(mainBitmap->GetTexture(), listConfig.textColor.r,
+                               listConfig.textColor.g, listConfig.textColor.b);
+    }
+
+    // Selection box, drawn straight to the renderer so the list's colour mod
+    // does not tint it.
+    if (listConfig.selectionBoxColor.a > 0 &&
+        selectedIndex >= scrollOffset && selectedIndex < lastVisible) {
+        SDL_Rect box = {listConfig.listBoxRect.x - 1,
+                        listConfig.listBoxRect.y + (selectedIndex - scrollOffset) * rowHeight - 1,
+                        listConfig.listBoxRect.w + 2,
+                        rowHeight + 1};
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+        SDL_SetRenderDrawColor(renderer, listConfig.selectionBoxColor.r,
+                               listConfig.selectionBoxColor.g,
+                               listConfig.selectionBoxColor.b,
+                               listConfig.selectionBoxColor.a);
+        SDL_RenderDrawRect(renderer, &box);
+        SDL_SetRenderDrawColor(renderer, r, g, b, a);
     }
 }
 
@@ -154,7 +172,6 @@ void ListDialog::HandleEvent(SDL_Event *event) {
 
     // Handle mouse motion
     if (event->type == SDL_MOUSEMOTION) {
-        hoverIndex = GetIndexAtPosition(event->motion.x, event->motion.y);
         mousePos.x = event->motion.x;
         mousePos.y = event->motion.y;
     }

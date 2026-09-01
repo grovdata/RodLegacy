@@ -52,8 +52,17 @@ struct LoadedSave {
     std::vector<LoadedCarRecord> roster;       // ownedCarCount - 1 entries
     std::vector<LoadedPartRecord> spareParts;  // flat, category unknown per-entry
 
-    int racesEntered = 0;
-    int racesWon = 0;
+    // Trailer chunk 5, four int16 BE fields. Confirmed against the Amiga
+    // binary: saveGame (0023f3aa) writes 8 bytes from A4-0x467a, and
+    // GetOpponentDifficulty (0023d03a) names them races_completed
+    // (A4-0x467a), road_race_rep (A4-0x4678), drag_race_rep (A4-0x4676)
+    // and last_race_won (A4-0x4674), in ascending address order.
+    //
+    // There is NO races-won field: the original tracks standing, not wins.
+    int racesCompleted = 0;
+    int roadRep = 0;
+    int dragRep = 0;
+    bool lastRaceWon = false;
 
     // Trailer chunk 6: 22 records, position i = driver slot i (0-20 = pool
     // drivers, 21 = The King -- see save_game.md; inferred from matching

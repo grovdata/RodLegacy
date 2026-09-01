@@ -185,9 +185,9 @@ void CarDebug::ShowModel(int index) {
 
     // A plain stock car: no chop, no stripped bumpers, no sticker, so the
     // wheel line is measured against the car as drawn in the dealer ad.
-    car = std::make_unique<Car>(models[currentIndex]);
+    car = std::make_shared<Car>(models[currentIndex]);
     car->SetTires(STOCK);
-    carBitmap = std::make_unique<CarBitmap>(car.get(), &debugDriver, CarColorRed);
+    carBitmap = std::make_unique<CarBitmap>(car, &debugDriver, CarColorRed);
     carBitmap->Move({kCarX, kCarY});
     carBitmap->MoveWheelsYOffset(CurrentAdjust());
     const SDL_Point driverNudge = CurrentDriverAdjust();

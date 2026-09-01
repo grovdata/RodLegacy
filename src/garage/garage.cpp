@@ -89,7 +89,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (!CanInteract()) return;
         sortedOwnedCars.clear();
         for (auto& car : state.GetOwnedCars()) sortedOwnedCars.push_back(car);
-        std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](Car* a, Car* b) {
+        std::sort(sortedOwnedCars.begin(), sortedOwnedCars.end(), [](const CarPtr& a, const CarPtr& b) {
             return a->GetModel().name < b->GetModel().name;
         });
         std::vector<std::string> labels;
@@ -283,13 +283,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             case 0: { // Switch it
                 int selectedIndex = carSelectDialog->GetSelectedIndex();
                 if (selectedIndex >= 0 && selectedIndex < (int)sortedOwnedCars.size()) {
-                    Car* selectedCar = sortedOwnedCars[selectedIndex];
-                    if (selectedCar != state.GetCurrentCar()) {
+                    const CarPtr& selectedCar = sortedOwnedCars[selectedIndex];
+                    if (selectedCar != state.GetCurrentCarPtr()) {
                         previewColor = selectedCar->GetColor();
                         originalColor = previewColor;
                         UpdatePaintCanPreview();
                         pendingCar = selectedCar;
-                        StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                        StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
                     }
                 }
                 carSelectDialog->Hide();
@@ -316,11 +316,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             labels,
             {},
             [this](int selectedIndex) {
-                Car* selectedCar = sortedOwnedCars[selectedIndex];
+                const CarPtr& selectedCar = sortedOwnedCars[selectedIndex];
             LOG_INFO("Garage::ListDialog: Selected index=%d, car=%s (ptr: %p)",
                    selectedIndex,
                    selectedCar->GetModel().name.c_str(),
-                   (void*)selectedCar);
+                   (void*)selectedCar.get());
 
             // Update paint can to show the selected car's color
             previewColor = selectedCar->GetColor();
@@ -329,21 +329,19 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             UpdatePaintCanPreview();
 
             // Only switch if selecting a different car
-            if (selectedCar != state.GetCurrentCar()) {
+            if (selectedCar != state.GetCurrentCarPtr()) {
                 pendingCar = selectedCar;
                 carSelectDialog->Hide();  // Hide dialog immediately when switching cars
-                StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
                 LOG_INFO("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
                        (void*)state.GetCurrentCar(),
-                       (void*)pendingCar);
+                       (void*)pendingCar.get());
             } else {
                 LOG_INFO("Garage::ListDialog: Same car selected, ignoring");
             }
         },
         listBoxRect,
         selectedItemRect,
-        {0xFF, 0xFF, 0xFF, 0xFF},
-        {0xFF, 0xFF, 0x00, 0xFF},
         {
             scrollTopRect,
             scrollUpRect,
@@ -403,13 +401,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     );
 
-    InitCarBitmaps();
-    ScanDisk2Samples();
-
-    // Set initial car bitmap
-    if (state.GetCurrentCar()) {
-        carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
-    }
 
     // Load jack animation
     auto* jackBitmap = state.GetAssets().GetBitmapAsset(
@@ -500,9 +491,9 @@ void Garage::DrawScene() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
-            Car* current = state.GetCurrentCar();
+            const CarPtr& current = state.GetCurrentCarPtr();
             // Nothing to drive in before the player's bought their first car.
-            if (current != nullptr) {
+            if (current) {
                 if (current == lastParkedCar) {
                     // Same car that was already sitting here (e.g. just came
                     // back from the newspaper) - pop it back into place
@@ -577,8 +568,12 @@ void Garage::DrawScene() {
             }
         }
 
-        // get clickboxes
-        CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+        // Click boxes belong to the car being drawn, not to whatever State
+        // currently calls the player's car - the two can differ (a carless
+        // player still has a bitmap mid-exit-animation), and carBitmap keeps
+        // its own car alive, so this is the source that cannot be null here.
+        CarMetadata_t metadata =
+            state.carData.GetCarMetadata(carBitmap->GetCar()->GetModelRef().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
 
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
@@ -645,11 +640,15 @@ void Garage::DrawScene() {
 }
 
 void Garage::OnFadeComplete() {
+    DropUnownedCarBitmaps();
+    // The overview may still be showing the parts of whatever car it last
+    // synced to, which a purchase or a save load can have replaced.
+    if (engineBay) engineBay->RefreshPartsForCurrentCar();
     CarScene::OnFadeComplete();
 }
 
 void Garage::OnSceneExit() {
-    lastParkedCar = carBitmap ? state.GetCurrentCar() : nullptr;
+    lastParkedCar = carBitmap ? state.GetCurrentCarPtr() : CarPtr{};
     CarScene::OnSceneExit();
 }
 
@@ -726,8 +725,12 @@ void Garage::UpdateCarZones() {
         carBitmap->Move(p);
         carBitmap->Draw();
 
-        // get clickboxes
-        CarMetadata_t metadata = state.carData.GetCarMetadata(state.GetCurrentCar()->GetModel().index);
+        // Click boxes belong to the car being drawn, not to whatever State
+        // currently calls the player's car - the two can differ (a carless
+        // player still has a bitmap mid-exit-animation), and carBitmap keeps
+        // its own car alive, so this is the source that cannot be null here.
+        CarMetadata_t metadata =
+            state.carData.GetCarMetadata(carBitmap->GetCar()->GetModelRef().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
 
         SDL_Rect rearBumperRect = {carx + clickBoxes.clickBoxRearBumper.x, cary + clickBoxes.clickBoxRearBumper.y, clickBoxes.clickBoxRearBumper.width, clickBoxes.clickBoxRearBumper.height};
@@ -747,50 +750,40 @@ void Garage::UpdateCarZones() {
     }
 }
 
-void Garage::InitCarBitmaps() {
-    // Create bitmaps for all owned cars
-    for (auto& car : state.GetOwnedCars()) {
-        if (carBitmaps.find(car) == carBitmaps.end()) {
-            carBitmaps[car] = std::make_unique<CarBitmap>(car, nullptr, car->GetColor());
-        }
-    }
-}
-
-CarBitmap* Garage::GetOrCreateCarBitmap(Car* car) {
+CarBitmap* Garage::GetOrCreateCarBitmap(const CarPtr& car) {
     auto it = carBitmaps.find(car);
     if (it == carBitmaps.end()) {
-        carBitmaps[car] = std::make_unique<CarBitmap>(car, nullptr, car->GetColor());
+        it = carBitmaps.emplace(car, std::make_unique<CarBitmap>(car, nullptr, car->GetColor())).first;
     }
-    return carBitmaps[car].get();
+    return it->second.get();
 }
 
-void Garage::ResetForNewCarSet() {
-    carBitmaps.clear();
+void Garage::DropUnownedCarBitmaps() {
+    // Cars can have been bought, sold, or replaced wholesale (a save load)
+    // since this scene was last on screen, and nothing tells the Garage that.
+    // So it checks for itself on the way in rather than relying on every
+    // mutation site to remember to call something.
+    //
+    // Cars are shared-owned, so an entry for a car that is no longer in the
+    // roster is only wasted memory - never a dangling pointer. That makes
+    // this housekeeping, not a correctness requirement, which is why it can
+    // safely skip the one entry the scene is currently drawing.
+    const std::vector<CarPtr>& owned = state.GetOwnedCars();
+    for (auto it = carBitmaps.begin(); it != carBitmaps.end(); ) {
+        if (std::find(owned.begin(), owned.end(), it->first) == owned.end()) {
+            // Stop drawing a car the player no longer has. Without this a
+            // New Game (which empties the roster) would leave the previous
+            // car on screen, and every "is there a car?" check that reads
+            // carBitmap would answer yes while State says otherwise.
+            if (it->second.get() == carBitmap) carBitmap = nullptr;
+            it = carBitmaps.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    // Both are rebuilt from State when the car-select list is next opened.
     FreeCarListSwatches();
     sortedOwnedCars.clear();
-    pendingCar = nullptr;
-    InitCarBitmaps();
-    if (state.GetCurrentCar()) UpdateSign();
-    // New game / car bought / save loaded - the engine bay overview may
-    // still be showing whatever car it last synced to.
-    if (engineBay) engineBay->RefreshPartsForCurrentCar();
-
-    // Always drop CarScene's own live car-bitmap/animation state: carBitmap
-    // is a raw pointer into the carBitmaps map cleared above, so leaving it
-    // set would dangle regardless of whether Garage is the active scene.
-    OnSceneExit();
-    // The car set was just rebuilt (new game / car bought / save loaded) -
-    // OnSceneExit() above may have captured the about-to-be-shown car as
-    // "already parked" off the stale carBitmap. Force a real drive-in
-    // rather than a silent pop-into-place, matching the FadeIn() below.
-    lastParkedCar = nullptr;
-
-    // If Garage is the scene on screen right now, also fade it back in so
-    // the (possibly absent) current car drives in normally instead of
-    // popping into place.
-    if (state.GetCurrentScene() == this) {
-        FadeIn();
-    }
 }
 
 void Garage::FreeCarListSwatches() {
@@ -805,15 +798,15 @@ Garage::~Garage() {
     carBitmaps.clear();
 }
 
-void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType) {
+void Garage::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
     if (state.GetCurrentCar() == nullptr) return;
 
-    LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car, animType);
+    LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car.get(), animType);
 
     // Garage-specific setup BEFORE calling parent
     // Create/get car bitmap
-    carBitmap = GetOrCreateCarBitmap(state.GetCurrentCar());
+    carBitmap = GetOrCreateCarBitmap(state.GetCurrentCarPtr());
     cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
 
     // Set initial position based on animation type
@@ -832,7 +825,7 @@ void Garage::StartAnimateCar(Car* car, Driver* driver, CarAnimationType animType
 
     // Call parent method to start engine sound and set up animation
     // Parent will NOT override our position for reverse animations
-    CarScene::StartAnimateCar(car, driver, animType);
+    CarScene::StartAnimateCar(std::move(car), driver, animType);
 
     // Update sign for initial car
     UpdateSign();

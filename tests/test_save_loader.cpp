@@ -93,9 +93,13 @@ std::vector<uint8_t> BuildSyntheticSave() {
 
     // --- Trailer (190 bytes, always the last 190 bytes of the file) ---
     size_t trailerStart = d.size();
-    AppendU16BE(d, 10);  // races entered
-    AppendU16BE(d, 3);   // races won
-    AppendU32BE(d, 0);   // chunk 5 is a full 8 bytes; bytes 4-7 are unused/undecoded
+    // Chunk 5: races_completed, road_rep, drag_rep, last_race_won (see
+    // save_loader.h). road_rep is deliberately negative here - a losing
+    // streak drives it below zero, and it is read as a signed int16.
+    AppendU16BE(d, 10);      // races completed
+    AppendU16BE(d, 0xFFFD);  // road_rep = -3
+    AppendU16BE(d, 6);       // drag_rep = 6
+    AppendU16BE(d, 1);       // last race won
     REQUIRE(d.size() == trailerStart + 8);
     for (int i = 0; i < 22; ++i) {
         d.push_back(0);                          // byte 0: always 0x00
@@ -163,8 +167,10 @@ TEST_CASE("SaveGameLoader: parses a synthetic save matching save_game.md exactly
     CHECK(save.spareParts[0].wearRaw == 0xFF80);
     CHECK(save.spareParts[0].variant == 18);
 
-    CHECK(save.racesEntered == 10);
-    CHECK(save.racesWon == 3);
+    CHECK(save.racesCompleted == 10);
+    CHECK(save.roadRep == -3);
+    CHECK(save.dragRep == 6);
+    CHECK(save.lastRaceWon == true);
     for (int i = 0; i < 22; ++i) CHECK(save.opponentCarSpec[i] == i);
 
     CHECK(save.elapsedTicks == 12345);

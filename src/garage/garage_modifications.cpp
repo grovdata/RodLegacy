@@ -264,7 +264,7 @@ void Garage::ShowPaintDialog() {
                     int currentMoney = state.GetBankroll();
                     if (currentMoney >= 20) {
                         state.SetBankroll(currentMoney - 20);
-                        Car* car = state.GetCurrentCar();
+                        const CarPtr& car = state.GetCurrentCarPtr();
                         if (car) {
                             car->SetColor(previewColor);
                             car->SetDecal(SrLibCarDecalNone);  // Remove sticker when repainted
@@ -342,7 +342,7 @@ void Garage::ShowCarInfoDialog() {
     };
 
     // Populate from current car parts (engine, manifold, carb, transmission, tires)
-    Car* car = state.GetCurrentCar();
+    const CarPtr& car = state.GetCurrentCarPtr();
     if (car) {
         CarModel model = car->GetModel();
         auto vendorToStr = [](CarVendor_t v) -> const char* {
@@ -784,13 +784,13 @@ void Garage::ShowStickerDialog() {
     stickerCfg.onZoneClick = [this](Zone& zone) {
         const std::string& id = zone.GetId();
         auto applySticker = [&](auto applyFn) {
-            Car* car = state.GetCurrentCar();
+            const CarPtr& car = state.GetCurrentCarPtr();
             if (car && car->CanAddDecal()) {
                 int money = state.GetBankroll();
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
                     state.AdvanceGameHours(1);
-                    applyFn(car);
+                    applyFn(car.get());
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                     GetOrCreateCarBitmap(car)->StartStickerWipe();
                 }
@@ -1116,8 +1116,6 @@ void Garage::ShowTransmissionDialog() {
             [](int) {},
             listBoxRect,
             selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF},
-            {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -1213,7 +1211,6 @@ void Garage::ShowEngineDialog() {
         ListDialogConfig{
             labels, {}, [](int) {},
             listBoxRect, selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -1285,7 +1282,7 @@ void Garage::ShowManifoldDialog() {
                 const auto& spareManifolds = state.GetSpareManifolds();
                 if (selectedIndex >= (int)spareManifolds.size()) break;
                 Part newManifold = spareManifolds[selectedIndex];
-                Car* car = state.GetCurrentCar();
+                const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::MANIFOLD] = car &&
                     !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, ResolveEngineType(*car));
                 manifoldSwapDialog->Hide();
@@ -1306,7 +1303,6 @@ void Garage::ShowManifoldDialog() {
         ListDialogConfig{
             labels, {}, [](int) {},
             listBoxRect, selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -1378,7 +1374,7 @@ void Garage::ShowCarburetorDialog() {
                 const auto& spareCarburetors = state.GetSpareCarburetors();
                 if (selectedIndex >= (int)spareCarburetors.size()) break;
                 Part newCarb = spareCarburetors[selectedIndex];
-                Car* car = state.GetCurrentCar();
+                const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::CARB] = car &&
                     !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, ResolveManifoldType(*car));
                 carbSwapDialog->Hide();
@@ -1399,7 +1395,6 @@ void Garage::ShowCarburetorDialog() {
         ListDialogConfig{
             labels, {}, [](int) {},
             listBoxRect, selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF}, {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -1492,8 +1487,6 @@ void Garage::ShowSparePartsDialog() {
             [](int) {},
             listBoxRect,
             selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF},
-            {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );
@@ -1593,8 +1586,6 @@ void Garage::ShowTireDialog() {
             [](int) {},
             listBoxRect,
             selectedItemRect,
-            {0xFF, 0xFF, 0xFF, 0xFF},
-            {0xFF, 0xFF, 0x00, 0xFF},
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
         }
     );

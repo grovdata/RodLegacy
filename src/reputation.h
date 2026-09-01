@@ -26,9 +26,12 @@ struct Reputation {
         last_race_won = true;
     }
 
+    // Penalties confirmed against the Amiga original (ChallengeRaceLoop
+    // 0023e60c): a loss costs road standing more than drag standing,
+    // whichever kind of race it was. These were the other way round here.
     void RecordLoss() {
-        drag_rep -= 3;
-        road_rep -= 2;
+        road_rep -= 3;
+        drag_rep -= 2;
         races_completed += 1;
         last_race_won = false;
     }

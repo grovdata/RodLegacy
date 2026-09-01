@@ -9,7 +9,7 @@ lodepng_test_dep = lodepng_test_proj.get_variable('lodepng_dep')
 test_inc = include_directories(
     'include',          # doctest/doctest.h
     '../src',           # parsers/libp.h, parsers/carcolor.h
-    '../src/include',   # tinyfiledialogs etc (not needed, but harmless)
+    '../src/include',   # tinyfiledialogs, toml.hpp
 )
 
 test_sources = [
@@ -23,6 +23,7 @@ test_sources = [
     'test_car_system.cpp',
     'test_engine_part.cpp',
     'test_racer_pool.cpp',
+    'test_reputation.cpp',
     'test_bet_acceptance.cpp',
     'test_track_gen.cpp',
     'test_race_sim.cpp',

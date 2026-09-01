@@ -690,8 +690,6 @@ void EngineBay::InitPartsDialog() {
     listConfig.labels = partsLabels;
     listConfig.listBoxRect = partsListRect;
     listConfig.selectedItemRect = selectedPartRect;
-    listConfig.normalTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
-    listConfig.selectedTextColor = {0xFF, 0xFF, 0x00, 0xFF};
     listConfig.scrollButtons = {
         scrollTopRect,
         scrollUpRect,

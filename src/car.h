@@ -7,6 +7,7 @@
 #include "engine_part.h"
 #include "car_system.h"
 #include "race/race_sim.h"
+#include <memory>
 #include <string>
 
 class AnimatedBitmap;
@@ -14,6 +15,21 @@ class AnimatedBitmap;
 
 // CarWheelType now lives in car_system.h (part.h needs it and can't include car.h).
 enum CarScoopType { SCOOP1, SCOOP2, SCOOP3, SCOOP4, SCOOP_NONE };
+
+// Cars are shared-owned: State holds the player's roster and the classifieds,
+// but the Garage caches a rendered CarBitmap per car and scenes hold onto the
+// car being animated, all of which outlive any single call. Loading a save
+// replaces State's whole roster, so a raw pointer held elsewhere would dangle
+// - sharing ownership is what makes that safe rather than a rule everyone has
+// to remember. Pass a plain Car* or const Car& to anything that only reads a
+// car for the duration of a call; CarPtr is for storage.
+class Car;
+using CarPtr = std::shared_ptr<Car>;
+
+// Which lib.p bitmap represents each tire type. Shared by Car::SetTires and
+// by everything that builds a loose (not-yet-fitted) tire Part - the
+// newspaper's parts counter and save loading.
+AmigaLibAsset TireAssetForType(CarWheelType type);
 
 class Car {
     /*
@@ -30,7 +46,10 @@ class Car {
         SrLibCarDecal decal;
         std::string customDecalPath;
         CarScoopType scoop;
-        StandardCarColor color;
+        // Initialised here: a car built by CarBuilder (save loading) has no
+        // colour set until its caller supplies one, and an unset colour used
+        // to reach GetStandardCarColor as a garbage value.
+        StandardCarColor color = CarColorRed;
         int tuneLevel = 9;
 
         Part gearbox;

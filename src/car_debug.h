@@ -38,7 +38,7 @@ private:
     std::vector<CarModel> models;
     int currentIndex = 0;
 
-    std::unique_ptr<Car> car;
+    CarPtr car;
     std::unique_ptr<CarBitmap> carBitmap;
     std::unique_ptr<Button> prevButton;
     std::unique_ptr<Button> nextButton;

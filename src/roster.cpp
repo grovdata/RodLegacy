@@ -90,7 +90,7 @@ void Roster::Initialize(CarData& carData) {
 
         Driver driver = GenerateRandomDriver(preferredCarIndex);
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
-        Car* car = GenerateRandomCar(model);
+        CarPtr car = GenerateRandomCar(model);
 
         opponents.emplace_back();
         opponents.back().driver = std::move(driver);
@@ -101,7 +101,7 @@ void Roster::Initialize(CarData& carData) {
     for (const auto& path : customDriverPaths) {
         int preferredCarIndex = poolCarIndices[distrCar(gen)];
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
-        Car* car = GenerateRandomCar(model);
+        CarPtr car = GenerateRandomCar(model);
 
         Driver driver;
         driver.customDriverPath = path;
@@ -133,8 +133,8 @@ void Roster::Initialize(CarData& carData) {
     }
 }
 
-Car* Roster::GenerateRandomCar(const CarModel& model) {
-    Car* car = CarBuilder::BuildRandomCar(model);
+CarPtr Roster::GenerateRandomCar(const CarModel& model) {
+    CarPtr car = CarBuilder::BuildRandomCar(model);
     
     // Random color selection
     auto& gen = RandomEngine();

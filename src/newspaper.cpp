@@ -906,7 +906,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                     LOG_INFO("Car %d already sold", carIndex);
                 } else {
                     state.SetBankroll(state.GetBankroll() - price);
-                    Car* boughtCar = state.GetClassifiedCars()[carIndex];
+                    CarPtr boughtCar = state.GetClassifiedCars()[carIndex];
                     state.AddOwnedCar(boughtCar);
                     state.SetCurrentCar(boughtCar);
                     state.GetClassifiedCars()[carIndex] = nullptr;
@@ -1018,13 +1018,8 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                             break;
                         }
                         case PartCategory::Tire: {
-                            AmigaLibAsset asset = CAR_TIRES_STOCK;
-                            switch (entry.tireType) {
-                                case STOCK:  asset = CAR_TIRES_STOCK;  break;
-                                case BRAND:  asset = CAR_TIRES_BRAND;  break;
-                                case RACING: asset = CAR_TIRES_RACING; break;
-                            }
-                            Part part(0, price, entry.vendor, asset, entry.tireType);
+                            Part part(0, price, entry.vendor,
+                                      TireAssetForType(entry.tireType), entry.tireType);
                             part.name = adName;
                             state.AddSpareTire(part);
                             break;
@@ -1062,7 +1057,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     const CarMetadata_t& metadata = carMetadata[carIndex];
     const char* carName = metadata.classified.carName ? metadata.classified.carName : "Unknown Car";
 
-    Car* car = state.GetClassifiedCars()[carIndex];
+    const CarPtr& car = state.GetClassifiedCars()[carIndex];
     if (!car) {
         return; // Already sold
     }

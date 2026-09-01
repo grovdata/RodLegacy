@@ -108,7 +108,7 @@ void GasStation::DrawScene() {
     if (initialDelay) {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
-            StartAnimateCar(state.GetCurrentCar(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+            StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
         }
         return;
     }
@@ -242,7 +242,7 @@ bool GasStation::PushEvent(SDL_Event* event) {
     return consumed;
 }
 
-void GasStation::StartAnimateCar(Car *car, Driver*, CarAnimationType animType) {
+void GasStation::StartAnimateCar(CarPtr car, Driver*, CarAnimationType animType) {
     if (animatingCar && carBitmap) return;
 
     if (car != nullptr && carBitmap == nullptr) {
@@ -264,8 +264,8 @@ void GasStation::OnCarAnimationComplete() {
 
 
 CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
-    Car* cur = state.GetCurrentCar();
-    if (currentCarBitmap && currentCarBitmap->GetCar() != cur) {
+    const CarPtr& cur = state.GetCurrentCarPtr();
+    if (currentCarBitmap && currentCarBitmap->GetCar() != cur.get()) {
         currentCarBitmap.reset();
         carBitmap = nullptr;
     }

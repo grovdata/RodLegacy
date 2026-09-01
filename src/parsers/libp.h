@@ -107,6 +107,10 @@ enum SrLibGameScene {
     // car/wheel-offset inspector. Same caveat as SCENE_NAME_ENTRY - never
     // passed to the per-scene car tables.
     SCENE_CAR_DEBUG = 8,
+    // RodLegacy addition: the save/load screen, on the original's unused
+    // California Highway Patrol roster background. Same caveat as
+    // SCENE_NAME_ENTRY - never passed to the per-scene car tables.
+    SCENE_SAVE_LOAD = 9,
 };
 
 enum SrLibCarDecal {
@@ -130,6 +134,35 @@ enum SrLibCarDecal {
     SrLibCarDecalNone,
     SrLibCarDecalCustom,
 };
+
+// The car "body/sticker" bitfield: byte 0x2E of a saved car record, and byte 6
+// of an opponent's pool record. Both are written by the original with the same
+// encoding (see FUN_0023eac0 / save_game.md).
+//
+//   bit 0+1  bumpers stripped (the original sets both together)
+//   bit 2    roof chopped
+//   bit 3    set when the car spec's config word has (word & 7) == 2
+//   bits 4-7 sticker, ONE-BASED: 0 = no sticker, 1..8 = the eight Amiga decals
+//
+// The one-based sticker matters: the original rolls random(9) for it, and
+// leaves the nibble at 0 when a car gets no sticker at all. Reading the nibble
+// as a plain decal index therefore puts decal 0 on every unstickered car.
+constexpr uint8_t CAR_BODY_BUMPERS_STRIPPED = 0x03;
+constexpr uint8_t CAR_BODY_ROOF_CHOPPED     = 0x04;
+constexpr uint8_t CAR_BODY_SPEC_CONFIG_BIT  = 0x08;
+
+inline bool CarBodyRoofChopped(uint8_t body) {
+    return (body & CAR_BODY_ROOF_CHOPPED) != 0;
+}
+inline bool CarBodyBumpersStripped(uint8_t body) {
+    return (body & CAR_BODY_BUMPERS_STRIPPED) == CAR_BODY_BUMPERS_STRIPPED;
+}
+// Returns SrLibCarDecalNone when the car carries no sticker.
+inline SrLibCarDecal CarBodyDecal(uint8_t body) {
+    const int nibble = (body >> 4) & 0x0F;
+    if (nibble == 0) return SrLibCarDecalNone;
+    return static_cast<SrLibCarDecal>(nibble - 1);
+}
 
 extern const char* SrLibCarDecalNames[16];
 

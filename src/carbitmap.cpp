@@ -199,7 +199,7 @@ void CarShadow::Draw() {
 }
 
 
-CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
+CarBitmap::CarBitmap(CarPtr car, Driver* driver, StandardCarColor color)
     : car(car)
     , body(&bodyOriginal)
     , shadow(car->GetModel().width)
@@ -219,7 +219,7 @@ CarBitmap::CarBitmap(Car* car, Driver* driver, StandardCarColor color)
     LoadCarParts(car, driver, color);
 }
 
-void CarBitmap::LoadCarParts(Car* car, Driver* driverInfo, StandardCarColor color) {
+void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor color) {
     this->car = car;
     this->currentColor = color;
 

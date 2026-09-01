@@ -9,7 +9,7 @@
 class Opponent {
     public:
     Driver driver;
-    Car* car;
+    CarPtr car;
     Opponent();
     ~Opponent() { }
 };
@@ -46,7 +46,7 @@ class Roster {
     public:
         Roster();
         void Initialize(CarData& carData);
-        Car* GenerateRandomCar(const CarModel& model);
+        CarPtr GenerateRandomCar(const CarModel& model);
         Opponent* GetNextOpponent();
         Opponent* GetCurrentOpponent();
         bool HasMoreOpponents() const;

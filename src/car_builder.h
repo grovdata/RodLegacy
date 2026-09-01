@@ -9,10 +9,10 @@
 class CarBuilder {
 public:
     // Build a car with proper engine matching the vendor
-    static Car* BuildCar(CarModel model);
+    static CarPtr BuildCar(CarModel model);
 
     // Build a car with random parts (for roster generation)
-    static Car* BuildRandomCar(CarModel model);
+    static CarPtr BuildRandomCar(CarModel model);
 
     // Public so save-loading code can build a Part with the same asset-ID
     // mapping used everywhere else, without duplicating these tables.

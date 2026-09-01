@@ -815,6 +815,14 @@ fs::path AssetManager::LoadSavedGamePath() {
     return {};
 }
 
+fs::path AssetManager::GetSavesDir() {
+    char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
+    if (!p) return {};
+    fs::path result = fs::path(p) / "saves";
+    SDL_free(p);
+    return result;
+}
+
 void AssetManager::SaveGamePath(const fs::path& path) {
     auto kv = ReadConfigFile();
     kv["game_path"] = path.string();

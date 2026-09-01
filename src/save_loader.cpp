@@ -101,8 +101,12 @@ LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
 
     // --- Trailer: always the last 190 bytes ---
     size_t trailerStart = data.size() - 190;
-    save.racesEntered = ReadU16BE(data, trailerStart + 0);
-    save.racesWon = ReadU16BE(data, trailerStart + 2);
+    // Reputation is signed: it goes negative on a losing streak (road -3 /
+    // drag -2 per loss, confirmed in ChallengeRaceLoop 0023e60c).
+    save.racesCompleted = static_cast<int16_t>(ReadU16BE(data, trailerStart + 0));
+    save.roadRep        = static_cast<int16_t>(ReadU16BE(data, trailerStart + 2));
+    save.dragRep        = static_cast<int16_t>(ReadU16BE(data, trailerStart + 4));
+    save.lastRaceWon    = ReadU16BE(data, trailerStart + 6) != 0;
     for (size_t i = 0; i < 22; ++i) {
         save.opponentCarSpec[i] = data[trailerStart + 8 + i * 8 + 1];
     }

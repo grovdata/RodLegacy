@@ -40,18 +40,47 @@ int ComputeCarPerformanceScore(const SrCarSpecEntry& spec) {
 // RacerPool
 // ============================================================================
 
-void RacerPool::Init(const std::vector<SrDriverData>& drivers,
-                     const std::vector<SrCarSpecEntry>& car_specs) {
+namespace {
+
+// The original's per-slot appearance roll (FUN_0023eac0). Every bound below is
+// taken from its disassembly; its random(n) returns 0..n-1.
+//
+//   threshold = (car_class >> 1) + 1        class 0..8 -> 1..5
+//   bit 3     = (spec config word & 7) == 2
+//   sticker   : random(20) < threshold, then random(9) into the high nibble
+//   bumpers   : random(25) < threshold, only if the model has the sprites
+//   roof      : random(30) < threshold, only if the model has the sprites
+//
+// So faster cars are modified more often - at class 8 a sticker is 25% likely,
+// at class 0 it is 5%.
+uint8_t RollBodyByte(const SrCarSpecEntry& spec, uint8_t mods, std::mt19937& rng) {
+    auto roll = [&rng](int n) {
+        return static_cast<int>(std::uniform_int_distribution<int>(0, n - 1)(rng));
+    };
+    const int threshold = (spec.car_class >> 1) + 1;
+
+    uint8_t body = ((spec.ConfigWord() & 7) == 2) ? CAR_BODY_SPEC_CONFIG_BIT : 0;
+
+    if (roll(20) < threshold) {
+        // One-based on purpose: 0 leaves the car unstickered (see libp.h).
+        body |= static_cast<uint8_t>(roll(9) << 4);
+    }
+    if (mods & SPEC_CAN_STRIP_BUMPERS) {
+        if (roll(25) < threshold) body |= CAR_BODY_BUMPERS_STRIPPED;
+    }
+    if (mods & SPEC_CAN_CHOP_ROOF) {
+        if (roll(30) < threshold) body |= CAR_BODY_ROOF_CHOPPED;
+    }
+    return body;
+}
+
+} // namespace
+
+void RacerPool::Init(const std::vector<SrCarSpecEntry>& car_specs,
+                     const std::vector<uint8_t>& spec_mods) {
     car_specs_ = car_specs;
     pool.clear();
     pool.reserve(RACER_POOL_SIZE);
-
-    // Group driver indices (0..20) by their tier byte.
-    std::vector<int> tier_drivers[3];
-    for (int i = 0; i < SR_DATA_KING_DRIVER_INDEX && i < static_cast<int>(drivers.size()); ++i) {
-        int t = std::min<int>(drivers[i].tier, 2);
-        tier_drivers[t].push_back(i);
-    }
 
     // Group car specs into three tiers by their class byte, which runs 0..8 -
     // so three classes per tier. Over the shipped SR_data that splits 9/8/8,
@@ -68,22 +97,53 @@ void RacerPool::Init(const std::vector<SrDriverData>& drivers,
         tier_specs[c].push_back(i);
     }
 
-    // Fill pool: 7 slots per tier.
+    rng_ = std::mt19937(std::random_device{}());
+
+    // Fill pool: 7 slots per class band, matching the original's InitRacerPool
+    // (0023ebfa), which fills A4-0x2c38 as 7 records from each band in
+    // easy/mid/hard order.
+    //
+    // The driver is the slot itself: the original's 8-byte pool record holds
+    // no driver field (byte 1 is the car spec, byte 2 is random, the tail is
+    // appearance flags), so opponent identity is the record's position. This
+    // used to group drivers by their SR_data tier byte and take the first 7 of
+    // each, which is not what the original does and does not fit the data:
+    // the shipped tiers are 4/7/10, so the easy band ran 3 slots short and
+    // back-filled them with indices that collided with real mid-tier drivers,
+    // putting 3 drivers in the pool twice and leaving drivers 18-20 out
+    // entirely.
+    //
+    // Cars are drawn at random without replacement within each band, as the
+    // original's per-slot filler does (FUN_0023eac0): it picks a random entry
+    // from the band, retries while that entry is already taken, then marks it
+    // taken. Shuffling and taking a prefix gives the same distribution without
+    // the retry loop - and cannot spin forever on a band of fewer than 7,
+    // which the original would.
     for (int tier = 0; tier < 3; ++tier) {
+        std::vector<int> band = tier_specs[tier];
+        std::shuffle(band.begin(), band.end(), rng_);
         for (int j = 0; j < 7; ++j) {
             RacerEntry entry;
-            entry.driver_index = (j < static_cast<int>(tier_drivers[tier].size()))
-                                 ? tier_drivers[tier][j]
-                                 : (tier * 7 + j);
-            entry.car_spec_index = (j < static_cast<int>(tier_specs[tier].size()))
-                                   ? tier_specs[tier][j]
-                                   : 0;
+            entry.driver_index = static_cast<int>(pool.size());
+            // A band with fewer than 7 cars cannot fill its slots; the stock
+            // table splits 9/8/8 so this only guards non-stock car sets.
+            entry.car_spec_index = (j < static_cast<int>(band.size())) ? band[j] : 0;
             entry.status = 0;
+
+            const int spec = entry.car_spec_index;
+            if (spec >= 0 && spec < static_cast<int>(car_specs.size())) {
+                const uint8_t mods = (spec < static_cast<int>(spec_mods.size()))
+                                     ? spec_mods[spec] : 0;
+                entry.body_byte = RollBodyByte(car_specs[spec], mods, rng_);
+            }
+            // 13 standard paints, picked per opponent - the original's
+            // random(13) into pool record byte 2.
+            entry.color_index = static_cast<uint8_t>(
+                std::uniform_int_distribution<int>(0, 12)(rng_));
+
             pool.push_back(entry);
         }
     }
-
-    rng_ = std::mt19937(std::random_device{}());
 }
 
 int RacerPool::GetEntryScore(int pool_index) const {
