@@ -1455,6 +1455,32 @@ void Racing::DrawRearviewMirror() {
     }
 }
 
+// Door mirror. The original projects no second view for it: at the end of the
+// mirror pass (RenderMirrorView 0x238318) it copies a block of the roof mirror's
+// glass into the interior bitmap, so the door mirror is the roof mirror's own
+// left-hand corner, re-blitted every frame. Both rects sit in the road surface
+// here (Driving composites it at screen y 14) and Driving punches the interior's
+// glass transparent, so the copy ends up on screen in the same place.
+void Racing::DrawSideMirror() {
+    if (!pixels || pixels->format->BytesPerPixel != 4) {
+        return;
+    }
+    Uint32* px = static_cast<Uint32*>(pixels->pixels);
+    const int stride = pixels->pitch / 4;
+    for (int row = 0; row < kSideMirrorRows; ++row) {
+        const SideMirrorRow& g = kSideMirrorGlass[row];
+        const int w = g.right - g.left + 1;
+        const int srcY = kSideMirrorSrcY - kViewOffsetY + row;
+        const int dstY = kSideMirrorTop - kViewOffsetY + row;
+        if (kSideMirrorSrcX + w > GAME_WIDTH || g.right >= GAME_WIDTH ||
+            srcY < 0 || dstY + 1 > GAME_RACING_HEIGHT) {
+            continue;
+        }
+        std::memcpy(&px[dstY * stride + g.left],
+                    &px[srcY * stride + kSideMirrorSrcX], w * sizeof(Uint32));
+    }
+}
+
 void Racing::DrawHud() {
     if (!hud) {
         return;
@@ -2132,6 +2158,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     DrawNpcCar(lastVisibleRow);
     DrawStartLight();
     DrawRearviewMirror();
+    DrawSideMirror();
 
     SDL_UnlockSurface(pixels);
     if (flybyMode) {

@@ -20,6 +20,31 @@
 
 class Car;
 
+// Door mirror glass, one entry per row, screen coordinates, top row first.
+//
+// The original copies a flat 26x16 block of the roof mirror's glass from screen
+// (242,27) into the interior bitmap at (7,1) = screen (7,101). The glass painted
+// into RACING_INTERIOR_1 is wider than that on its upper rows - its right edge
+// slants in three pixels down the 16 rows - so this covers the whole trapezoid
+// instead of leaving a sliver of flat colour on the right.
+//
+// The source starts at 243, not the original's 242, which pulls the reflection
+// one pixel left. DrawRearviewMirror insets its glass by a pixel (gLeft =
+// mirrorX + 1), so column 242 is never painted and copying it laid a black
+// stripe down the left of the door mirror.
+struct SideMirrorRow { int16_t left, right; };
+inline constexpr int kSideMirrorTop  = 101;   // screen y of the first row
+inline constexpr int kSideMirrorSrcX = 243;   // roof mirror glass, screen coords
+inline constexpr int kSideMirrorSrcY = 27;
+inline constexpr SideMirrorRow kSideMirrorGlass[] = {
+    {7, 34},
+    {7, 35}, {7, 35}, {7, 35}, {7, 35},
+    {7, 34}, {7, 34}, {7, 34}, {7, 34}, {7, 34}, {7, 34},
+    {7, 33}, {7, 33}, {7, 33}, {7, 33},
+    {7, 32},
+};
+inline constexpr int kSideMirrorRows = static_cast<int>(std::size(kSideMirrorGlass));
+
 enum class RaceOutcome {
     Ongoing,
     PlayerWon,
@@ -165,6 +190,7 @@ private:
     void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue);
     void LoadSpriteBitmaps();
     void DrawRearviewMirror();
+    void DrawSideMirror();
     std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);
     void LoadOpponentCarSprites();
     void InitializeRaceSimulation();

@@ -12,6 +12,34 @@
 
 extern Mouse mouse;  // defined in main.cpp
 
+// The original writes the door mirror straight into the interior bitmap
+// (RenderMirrorView 0x238318); RodLegacy lets Racing paint the same pixels into
+// the road surface instead, so punch the glass out of the interior and the copy
+// shows through. The bitmap bottom-aligns at screen y 100, so bitmap y is screen
+// y - 100. kSideMirrorGlass (racing.h) carries the shape both sides share.
+static void PunchSideMirrorGlass(Bitmap* interior) {
+    SDL_Surface* s = interior ? interior->GetSurface() : nullptr;
+    if (!s || s->format->BytesPerPixel != 4) {
+        return;
+    }
+    SDL_LockSurface(s);
+    Uint32* px = static_cast<Uint32*>(s->pixels);
+    const int stride = s->pitch / 4;
+    for (int row = 0; row < kSideMirrorRows; ++row) {
+        const SideMirrorRow& g = kSideMirrorGlass[row];
+        const int y = kSideMirrorTop - (GAME_HEIGHT - GAME_STATUSBAR_HEIGHT - s->h) + row;
+        if (y < 0 || y >= s->h || g.right >= s->w) {
+            LOG_ERROR("Driving: door mirror glass row %d falls outside the interior bitmap", row);
+            break;
+        }
+        for (int x = g.left; x <= g.right; ++x) {
+            px[y * stride + x] = 0;   // RGBA all zero: fully transparent
+        }
+    }
+    SDL_UnlockSurface(s);
+    interior->UpdateFromSurface();
+}
+
 Driving::Driving() : Scene() {
     LOG_INFO("Driving::Driving() constructor called\n");
     // Create racing component with audio manager
@@ -61,6 +89,7 @@ void Driving::Init(bool debugMode) {
         byte_vector& libFile = state.GetAssets().GetLibPData();
         return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
     }();
+    PunchSideMirrorGlass(dashboard);
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
     AddDrawable("dashboard", dashboard);
