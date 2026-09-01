@@ -4,10 +4,13 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "reputation.h"
+#include "mouse.h"
 #include <fstream>
 #include <vector>
 #include <cstring>
 #include <cmath>
+
+extern Mouse mouse;  // defined in main.cpp
 
 Driving::Driving() : Scene() {
     LOG_INFO("Driving::Driving() constructor called\n");
@@ -511,6 +514,11 @@ void Driving::DrawScene() {
                     // before any key can dismiss it, so a still-held accelerator
                     // (or other key) can't skip the win/loss/crash message.
                     raceEndDismissAllowedMs = SDL_GetTicks() + 4000;
+                    // The race-end screen brings the pointer back, thumb up or
+                    // down depending on how it went.
+                    mouse.SetPointerType(won ? SrLibAmigaSpriteAssetMousePointerThumbsUp
+                                             : SrLibAmigaSpriteAssetMousePointerThumbsDown);
+                    mouse.SetVisible(true);
                 }
             }
 
@@ -625,6 +633,7 @@ bool Driving::PushEvent(SDL_Event *event) {
         }
         raceEnded = false;
         raceEndBubble.reset();
+        mouse.SetVisible(false);
         const bool endGame = raceEndPendingKing;
         raceEndPendingKing = false;
         if (endGame) {
