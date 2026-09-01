@@ -34,6 +34,10 @@ class Driving: public Scene {
     std::unique_ptr<Bitmap> crashBloodBitmap;
     bool lastCrashState = false; // Track previous crash state to avoid blinking
 
+    // Music is silenced for the duration of a race; remember whether the player
+    // had already paused it so leaving does not un-pause it for them.
+    bool musicWasPaused = false;
+
     DrivingState currentState = DRIVING_STATE_NORMAL;
 
     // Race-end pause: freeze the scene, show the reason in a bubble, and wait for
@@ -96,6 +100,7 @@ private:
 
         void SetState(DrivingState state);
         void OnFadeComplete() override;
+        void OnSceneExit() override;
         // Driven with the wheel/pedals; no pointer cursor in this scene.
         bool WantsPointer() const override { return false; }
 };

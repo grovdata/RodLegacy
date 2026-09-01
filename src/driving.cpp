@@ -25,6 +25,12 @@ void Driving::Init(bool debugMode) {
     LOG_INFO("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
 
+    // No music while racing.
+    if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+        musicWasPaused = am->IsMusicPaused();
+        am->PauseMusic();
+    }
+
     // Fresh race: clear any leftover race-end pause state.
     raceEnded = false;
     raceEndPendingKing = false;
@@ -835,4 +841,12 @@ void Driving::DrawSteeringDot() {
             }
         }
     }
+}
+
+void Driving::OnSceneExit() {
+    AudioManager* am = state.GetAssets().GetAudioManager();
+    if (am && !musicWasPaused) {
+        am->ResumeMusic();
+    }
+    Scene::OnSceneExit();
 }

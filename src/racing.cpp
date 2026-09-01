@@ -1468,15 +1468,8 @@ void Racing::DrawHud() {
     } else {
         std::snprintf(gearText, sizeof(gearText), "Gear: %d", sim.Player().gear);
     }
-    char infoText[128];
-    const int distanceToFinish = std::max(sim.FinishSegment() - static_cast<int>(sim.Player().segPos), 0);
-    std::snprintf(infoText, sizeof(infoText), "Speed: %3d mph  RPM: %4d  To finish: %d",
-                  static_cast<int>(sim.Player().speed),
-                  static_cast<int>(sim.Player().rpm),
-                  distanceToFinish);
     hud->Clear();
     hud->AddText(6, 0, gearText);
-    hud->AddText(68, 0, infoText);
     if (sim.InCountdown()) {
         hud->AddText(104, 45, "STAGE - WAIT FOR GREEN");
     }
