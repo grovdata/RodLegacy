@@ -71,10 +71,18 @@ class Scene {
     std::vector<std::string> debugLines;
     std::vector<DebugRow> debugRows;
     
-    Uint8 fadeAlpha = 255;
+    // Amiga fade state: fadeLevel is the 4-bit ceiling every colour channel is
+    // clamped to, 15 = untouched, 0 = black. One step per PAL frame.
+    // See RodLegacyResearch/docs/palette_fade.md.
+    Uint8 fadeLevel = 0;
     Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
     Uint64 fadeStartTime = 0;
-    static constexpr Uint64 FADE_DURATION_MS = 500; // 500ms fade duration
+    static constexpr Uint64 FADE_STEP_MS = 35;    // 20ms = one PAL frame, adjusted slightly to look better
+    static constexpr Uint8 FADE_LEVELS = 15;      // top 4-bit colour level
+    static constexpr Uint64 FADE_IN_STEPS = 16;   // 320ms, as the Amiga
+    static constexpr Uint64 FADE_OUT_STEPS = 15;  // 300ms, as the Amiga
+
+    void DrawFadeClamp();
     
     virtual void ToggleDebugMode();
     virtual void DrawDebugZones();
@@ -95,7 +103,6 @@ class Scene {
 
     virtual void FadeOut();
     void FadeIn();
-    void PrepareFadeIn();
     virtual void OnFadeComplete();
     virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
     virtual void OnSceneExit();
@@ -104,7 +111,7 @@ class Scene {
     // centrally on scene entry (FadeIn); override to false to hide it.
     virtual bool WantsPointer() const { return true; }
 
-    void Draw();                // Non-virtual: manages render target + fade color mod
+    void Draw();                // Non-virtual: manages render target + fade clamp
     virtual void DrawScene();  // Override in derived classes for scene-specific drawing
     virtual void DrawExtra() {} // Override in derived classes for additional drawing
     virtual bool PushEvent(SDL_Event *event);

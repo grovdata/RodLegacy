@@ -196,9 +196,38 @@ void Scene::Draw() {
 
     SDL_SetRenderTarget(renderer, callerTarget);
 
-    Uint8 c = 255 - fadeAlpha;
-    SDL_SetTextureColorMod(sceneTarget.get(), c, c, c);
     SDL_RenderCopy(renderer, sceneTarget.get(), nullptr, nullptr);
+    DrawFadeClamp();
+}
+
+// The Amiga fade clamps every 4-bit colour channel to a ceiling that drops one
+// level per frame, so highlights are crushed first while dark areas hold until
+// the ceiling reaches them. That is a per-channel minimum, not the proportional
+// darkening a colour mod gives, so it is drawn as a full-screen grey composited
+// with a minimum blend. See RodLegacyResearch/docs/palette_fade.md.
+void Scene::DrawFadeClamp() {
+    if (fadeLevel >= FADE_LEVELS) {
+        return;
+    }
+
+    static const SDL_BlendMode minBlend = SDL_ComposeCustomBlendMode(
+        SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_MINIMUM,
+        SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_MINIMUM);
+
+    // Palettes are expanded as nibble << 4, so level 15 is 240, not 255.
+    Uint8 c = static_cast<Uint8>(fadeLevel * 16);
+    if (SDL_SetRenderDrawBlendMode(renderer, minBlend) == 0) {
+        SDL_SetRenderDrawColor(renderer, c, c, c, 255);
+    } else {
+        // ponytail: no minimum blending on this renderer, fall back to the old
+        // proportional wash. Drop it if every backend we ship supports MINIMUM.
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, static_cast<Uint8>(255 - c));
+    }
+    SDL_RenderFillRect(renderer, nullptr);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 }
 
 void Scene::SetActiveDialog(Dialog *dialog) {
@@ -248,7 +277,7 @@ bool Scene::PushEvent(SDL_Event *event) {
 }
 
 void Scene::FadeIn() {
-    fadeAlpha = 255;
+    fadeLevel = 0;
     fadeStartTime = SDL_GetTicks64();
     sceneTransition = SCENE_FADE_IN;
     // Scene entry owns the cursor: each scene declares whether it wants the
@@ -261,37 +290,31 @@ void Scene::FadeIn() {
 }
 
 void Scene::FadeOut() {
-    fadeAlpha = 0;
+    fadeLevel = FADE_LEVELS;
     fadeStartTime = SDL_GetTicks64();
     sceneTransition = SCENE_FADE_OUT;
 }
 
 void Scene::UpdateFade(Uint64) {
-    if (sceneTransition == SCENE_FADE_IN || sceneTransition == SCENE_FADE_OUT) {
-        Uint64 elapsed = SDL_GetTicks64() - fadeStartTime;
-        
-        if (elapsed >= FADE_DURATION_MS) {
-            // Fade complete
-            if (sceneTransition == SCENE_FADE_IN) {
-                fadeAlpha = 0;
-                sceneTransition = SCENE_SOLID;
-            } else if (sceneTransition == SCENE_FADE_OUT) {
-                fadeAlpha = 255;
-                sceneTransition = SCENE_BLACK;
-            }
-            OnFadeComplete();
-        } else {
-            // Calculate fade progress (0.0 to 1.0)
-            float progress = static_cast<float>(elapsed) / static_cast<float>(FADE_DURATION_MS);
+    if (sceneTransition != SCENE_FADE_IN && sceneTransition != SCENE_FADE_OUT) {
+        return;
+    }
 
-            // Quantize to 15 steps to match Amiga palette nibble stepping
-            Uint8 step;
-            if (sceneTransition == SCENE_FADE_IN) {
-                step = static_cast<Uint8>((1.0f - progress) * 15);
-            } else {
-                step = static_cast<Uint8>(progress * 15);
-            }
-            fadeAlpha = step * 17;
+    // The Amiga moves the ceiling exactly one level per vblank, so step off
+    // wall clock rather than off our own frame rate.
+    Uint64 step = (SDL_GetTicks64() - fadeStartTime) / FADE_STEP_MS;
+
+    if (sceneTransition == SCENE_FADE_IN) {
+        fadeLevel = static_cast<Uint8>(std::min<Uint64>(step, FADE_LEVELS));
+        if (step >= FADE_IN_STEPS) {
+            sceneTransition = SCENE_SOLID;
+            OnFadeComplete();
+        }
+    } else {
+        fadeLevel = step >= FADE_LEVELS ? 0 : static_cast<Uint8>(FADE_LEVELS - step);
+        if (step >= FADE_OUT_STEPS) {
+            sceneTransition = SCENE_BLACK;
+            OnFadeComplete();
         }
     }
 }
@@ -339,7 +362,7 @@ void Scene::UpdateDebugInfo() {
     AddDebugValue("zones", std::to_string(zones.size()));
     AddDebugValue("buttons", std::to_string(buttons.size()));
     AddDebugValue("bubbles", std::to_string(bubbles.size()));
-    AddDebugValue("fade alpha", std::to_string(static_cast<int>(fadeAlpha)));
+    AddDebugValue("fade level", std::to_string(static_cast<int>(fadeLevel)));
 }
 
 void Scene::DrawLegacyDebugOverlay() {
