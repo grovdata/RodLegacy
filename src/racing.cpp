@@ -521,54 +521,51 @@ void Racing::SetOpponentColor(StandardCarColor color) {
 // CHEVROLET_2DR_COUPE_1940_BODY..THE_KING_CHEVROLET_CORVETTE_1963_BODY ids in
 // libp.h) to the race-view NPC sprite category (see LoadOpponentCarSprites:
 // 0 chevy, 1 chrysler, 3 oldsmobile, 4 chevy2/corvette-56-61, 5 corvette-63,
-// 6 ford; 2 is the cop, never selected by body).
+// 6 ford; 2 is the cop, which the game never selects by body).
 //
-// Coverage is from the "Used by:" notes already recorded next to each NPC
-// sprite block in libp.h (prior research, not verified again in this pass).
-// That only accounts for 16 of the 26 SR_data cars. The remaining 8 -
-// Chevrolet 2dr Coupe 1940, Chevrolet Roadster 1940, Chevrolet Master Deluxe
-// 2dr 1938, Dodge Polara 1962, Chevrolet Styleline 2dr 1949, Pontiac Silver
-// Streak 1950, Ford Thunderbird 1957, Valiant V200 1961 - have no documented
-// category, so they fall through to the caller's vendor-based guess below.
-//
-// The real selector is a runtime table (26 entries x 10 bytes, category in
-// byte 0) at A4-0x2960 in the Amiga binary (static 0x0024C478, confirmed via
-// Ghidra: xref from a bounds pointer pair at 0x0024AA90, 0x104 = 26*10 bytes
-// apart). It is zeroed BSS in the static image - populated at runtime, so
-// static analysis can't read the real values; a live capture (vAmiga save
-// state) would be needed to fill in the other 8. Not done here per the
-// "don't assume game logic" rule.
+// All 26 SR_data cars, transcribed from the game's own selector: byte 0 of the
+// per-car asset table at A4-0x2960, which the opponent-sprite loader multiplies
+// by 0x1a to index a 13-entry lib.p id list per sprite set. Read live out of
+// three Amiga save states. Full derivation and the raw table:
+// RodLegacyResearch/docs/garage/car_asset_table.md.
 static int NpcCarTypeForBodyAsset(int bodyAsset) {
     switch (bodyAsset) {
-        // Used by: Ford Fairlane Victoria, Plymouth Savoy 2-dr, Chevrolet
-        // Impala, Valiant V-100 (chevy set, RACING_OPPONENT_CAR_CHEVY_*)
-        case FORD_FAIRLANE_VICTORIA_1955_BODY:
+        // chevy set (selector 1)
+        case DODGE_POLARA_1962_BODY:
         case PLYMOUTH_SAVOY_2DR_1962_BODY:
+        case FORD_FAIRLANE_VICTORIA_1955_BODY:
+        case FORD_FAIRLANE_500_1956_BODY:
         case CHEVROLET_IMPALA_1958_BODY:
+        case VALIANT_V200_1961_BODY:
         case VALIANT_V100_2DR_1963_BODY:
             return 0;
-        // Used by: Mercury Monterey, Mercury Custom 2-dr, Chevrolet Bel Air
-        // Sport Coupe, Dodge Custom Royal Lancer (chrysler set)
+        // chrysler set (selector 2)
+        case DODGE_CUSTOM_ROYAL_LANCER_1955_BODY:
         case MERCURY_MONTEREY_1954_BODY:
         case MERCURY_CUSTOM_2DR_1956_BODY:
         case CHEVROLET_BELAIR_SPORTS_COUPE_BODY:
-        case DODGE_CUSTOM_ROYAL_LANCER_1955_BODY:
             return 1;
-        // Used by: Oldsmobile 88 Custom 1949/1952, Ford Deluxe 1940
-        case OLDSMOBILE_88_2DR_CUSTOM_1949_BODY:
-        case OLDSMOBILE_88_CUSTOM_1952_BODY:
+        // oldsmobile set (selector 3) - the prewar bodies
+        case CHEVROLET_2DR_COUPE_1940_BODY:
+        case CHEVROLET_ROADSTER_1940_BODY:
+        case CHEVROLET_MASTER_DELUXE_2DR_1938_BODY:
+        case FORD_DEUCE_COUPE_1932_BODY:
         case FORD_DELUXE_2DR_1940_BODY:
             return 3;
-        // Used by: Chevrolet Corvette 1956/1961
+        // chevy2 set (selector 4)
         case CHEVROLET_CORVETTE_1956_BODY:
         case CHEVROLET_CORVETTE_1961_BODY:
-            return 4;
-        // Used by: Chevrolet Corvette 1963 (and the King's own Corvette 63)
         case CHEVROLET_CORVETTE_1963_BODY:
+        case CHEVROLET_STYLELINE_2DR_1949_BODY:
+        case OLDSMOBILE_88_2DR_CUSTOM_1949_BODY:
+        case OLDSMOBILE_88_CUSTOM_1952_BODY:
+        case PONTIAC_SILVER_STREAK_1950_BODY:
+        case FORD_THUNDERBIRD_1957_BODY:
+            return 4;
+        // corvette-63 set (selector 0) - The King only
         case THE_KING_CHEVROLET_CORVETTE_1963_BODY:
             return 5;
-        // Used by: Ford Deuce Coupe 1932, Ford Sedan 1932
-        case FORD_DEUCE_COUPE_1932_BODY:
+        // ford set (selector 5)
         case FORD_SEDAN_1932_BODY:
             return 6;
         default:
@@ -593,8 +590,9 @@ void Racing::InitializeOpponent() {
         return;
     }
 
-    // No documented body-to-category mapping for this car (see
-    // NpcCarTypeForBodyAsset) - fall back to the coarser vendor guess.
+    // Every Amiga car is mapped, so this is reached only by a non-Amiga car
+    // set, whose model indices sit clear of the lib.p body-asset range (see
+    // CarModel::index). Fall back to the coarser vendor guess.
     switch (model.vendor) {
         case CarVendorGM:
             opponentCarType = 0;

@@ -281,7 +281,9 @@ enum AmigaLibAsset {
     RACING_RACING_CLOCK_02_55 = 80,    // Clock for automatic transmission (unknown mode)
     RACING_HORIZON_1 = 81,
     RACING_HORIZON_REARVIEWMIRROR = 82,
-    // Used by: Ford Fairlane Victoria, Plymouth Savoy 2-dr, Chevrolet Impala, Valiant V-100
+    // Used by: Dodge Polara 1962, Plymouth Savoy 2dr 1962, Ford Fairlane
+    // Victoria 1955, Ford Fairlane 500 1956, Chevrolet Impala 1958, Valiant
+    // V200 1961, Valiant V100 2dr 1963.
     RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE = 83,
     RACING_OPPONENT_CAR_CHEVY_REAR_SIDE = 84, 
     RACING_OPPONENT_CAR_CHEVY_REAR_1 = 85,
@@ -297,12 +299,13 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY_BEHIND_4 = 95,
     // Confirmed via the Amiga NPC-sprite-set table (roadside/opponent art table
     // at 0x2395f4, read directly from the binary): this category's 13-asset row
-    // is {96, 126..137} in front/rear_side/rear1-7/behind1-4 order, i.e. 96 IS
-    // the front-side view for this set (previously marked "need to verify");
-    // see the corrected numbering at 126 below.
+    // The oldsmobile set is {96, 126..137} in
+    // front_side/rear_side/rear_1..7/behind_1..4 order, so 96 is its front-side
+    // view and sits apart from the rest of the block at 126 below.
     RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE = 96,
     RACING_RED_LIGHTS = 97,
-    // Used by: Mercury Monterey, Mercury Custom 2-dr, Chevrolet Bel Air Sport Coupe, Dodge Custom Royal Lancer, two-tone cars?
+    // Used by: Dodge Custom Royal Lancer 1955, Mercury Monterey 1954, Mercury
+    // Custom 2dr 1956, Chevrolet Bel Air Sports Coupe.
     RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE = 98, 
     RACING_OPPONENT_CAR_CHRYSLER_REAR_SIDE = 99,
     RACING_OPPONENT_CAR_CHRYSLER_REAR_1 = 100,
@@ -331,11 +334,10 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_COP_BEHIND_4 = 123,
     RACING_RACING_SPEEDING_TICKET = 124,
     RACING_RACING_SPEEDING_TICKET_COP_HAND = 125,
-    // Used by: Oldsmobile 88 Custom 1949/1952, Ford Deluxe 1940
-    // NOTE: this block used to start with FRONT_SIDE=126, one slot off from the
-    // real table. The verified row is {96(front_side), 126(rear_side),
-    // 127..133(rear_1..7), 134..137(behind_1..4)} - 96 above is the real
-    // front-side view, and there are 4 behind frames here, not 3.
+    // Used by: Chevrolet 2dr Coupe 1940, Chevrolet Roadster 1940, Chevrolet
+    // Master Deluxe 2dr 1938, Ford Deuce Coupe 1932, Ford Deluxe 2dr 1940.
+    // Row is {96(front_side), 126(rear_side), 127..133(rear_1..7),
+    // 134..137(behind_1..4)}.
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_SIDE = 126,
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_1 = 127,
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_2 = 128,
@@ -348,7 +350,9 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_2 = 135,
     RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_3 = 136,
     RACING_OPPONENT_CAR_OLDMOBILE_BEHIND_4 = 137,
-    // Used by: Chevrolet Corvette 1956/1961
+    // Used by: Chevrolet Corvette 1956/1961/1963, Chevrolet Styleline 2dr 1949,
+    // Oldsmobile 88 2dr Custom 1949, Oldsmobile 88 Custom 1952, Pontiac Silver
+    // Streak 1950, Ford Thunderbird 1957.
     RACING_OPPONENT_CAR_CHEVY2_FRONT_SIDE = 138,
     RACING_OPPONENT_CAR_CHEVY2_REAR_SIDE = 139,
     RACING_OPPONENT_CAR_CHEVY2_REAR_1 = 140,
@@ -365,7 +369,7 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_2 = 148,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_3 = 149,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_4 = 150,
-    // Used by:Chevrolet Corvette 1963
+    // Used by: The King's Chevrolet Corvette 1963 only.
     RACING_OPPONENT_CAR_CORVETTE_FRONT_SIDE = 151,
     RACING_OPPONENT_CAR_CORVETTE_REAR_SIDE = 152,
     RACING_OPPONENT_CAR_CORVETTE_REAR_1 = 153,
@@ -379,7 +383,7 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CORVETTE_BEHIND_2 = 161,
     RACING_OPPONENT_CAR_CORVETTE_BEHIND_3 = 162,
     RACING_OPPONENT_CAR_CORVETTE_BEHIND_4 = 163,
-    // Used by: Ford Deuce Coupe 1932, Ford Sedan 1932
+    // Used by: Ford Sedan 1932 only.
     RACING_OPPONENT_CAR_FORD_FRONT_SIDE = 164,
     RACING_OPPONENT_CAR_FORD_REAR_SIDE = 165,
     RACING_OPPONENT_CAR_FORD_REAR_1 = 166,
