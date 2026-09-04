@@ -39,6 +39,8 @@ class Bitmap : public IDrawable {
 
         virtual void     SetDimensions(int width, int height);
         SDL_Rect GetPosition();
+        /** The loaded image's own size, unaffected by draw-time SetDimensions. */
+        SDL_Rect GetNaturalSize();
 
         virtual void     SetPosition(int x, int y);
         void     SetSourceRect(const SDL_Rect& rect);

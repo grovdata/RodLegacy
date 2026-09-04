@@ -95,6 +95,14 @@ SDL_Rect Bitmap::GetPosition() {
     return this->rect;
 }
 
+// rect is scribbled on by every draw (Dialog::Draw calls SetDimensions with
+// whatever box it is blitting into), so it is not a reliable source for the
+// image's own size - go to the surface.
+SDL_Rect Bitmap::GetNaturalSize() {
+    SDL_Surface* s = GetSurface();
+    return s ? SDL_Rect{0, 0, s->w, s->h} : SDL_Rect{0, 0, 0, 0};
+}
+
 void Bitmap::SetPosition(int x, int y) {
     this->rect.x = x;
     this->rect.y = y;

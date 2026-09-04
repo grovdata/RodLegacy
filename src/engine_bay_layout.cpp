@@ -46,25 +46,27 @@ const SDL_Point kEngineWire[3] = {{150, 160}, {168, 161}, {174, 169}};   // A4-0
 const SDL_Point kManifoldBody = {56, 76};
 
 // Carb position slots 4..13 (A4-0x4402), and the first slot each manifold
-// class draws into (A4-0x3b7a). A class with more than one carb uses
-// consecutive slots; only the first is used here since a Car carries one
-// carburetor.
-// ponytail: single carb only. Class 2 wants 3 and classes 3/4 want 2 - the
-// remaining slots are in the doc if the car model ever grows extra carbs.
+// class draws into (A4-0x3b7a).
 const SDL_Point kCarbSlot[10] = {
     {80, 56}, {87, 51}, {80, 51}, {56, 56}, {80, 56},
     {104, 56}, {64, 51}, {104, 51}, {64, 52}, {104, 52}
 };
 const int kClassFirstSlot[5] = {5, 6, 7, 10, 12};
+// Carburetors per manifold class (A4-0x3b9c).
+const int kClassCarbCount[5] = {1, 1, 3, 2, 2};
 
 // Added to the carb's own slot position to get its screw (A4-0x43da).
 const SDL_Point kCarbScrewOffset[3] = {{18, -4}, {30, -2}, {30, -2}};
 
-SDL_Point CarbSlot(ManifoldType manifold, CarEngine_t engine) {
+// A class with more than one carb uses consecutive slots.
+SDL_Point CarbSlot(ManifoldType manifold, CarEngine_t engine, int carbIndex) {
     int cls = ManifoldClass(manifold);
     int slot = kClassFirstSlot[cls];
     // The single-carb 2-barrel manifold sits lower on a V6 block.
     if (cls == 0 && EngineTier(engine) == 0) slot = 4;
+    slot += carbIndex;
+    if (slot < 4) slot = 4;
+    if (slot > 13) slot = 13;
     return kCarbSlot[slot - 4];
 }
 
@@ -83,8 +85,12 @@ SDL_Rect ManifoldBodyRect(SDL_Rect asset, ManifoldType manifold) {
     return BottomAnchoredRect(asset, kManifoldBody);
 }
 
-SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine) {
-    return BottomAnchoredRect(asset, CarbSlot(manifold, engine));
+int CarbCount(ManifoldType manifold) {
+    return kClassCarbCount[ManifoldClass(manifold)];
+}
+
+SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine, int carbIndex) {
+    return BottomAnchoredRect(asset, CarbSlot(manifold, engine, carbIndex));
 }
 
 // The wire is the one part that isn't bottom-anchored: its table entry is an
@@ -109,7 +115,7 @@ SDL_Point EngineBayScrewAnchor(int screwIndex, CarEngine_t engine, ManifoldType 
             t = {ManifoldClass(manifold) == 2 ? 131 : 153, 75};
             break;
         default: {
-            SDL_Point slot = CarbSlot(manifold, engine);
+            SDL_Point slot = CarbSlot(manifold, engine, screwIndex - 3);
             const SDL_Point& off = kCarbScrewOffset[carb];
             t = {slot.x + off.x, slot.y + off.y};
             break;

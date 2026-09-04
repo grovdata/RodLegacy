@@ -153,29 +153,23 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     Bitmap* carbBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CarbBodyAsset(carbType)});
     Bitmap* wireBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED});
 
-    SDL_Rect engineBodyRect = EngineBodyRect(engineBmp->GetPosition(), engineType);
-    SDL_Rect manifoldBodyRect = ManifoldBodyRect(manifoldBmp->GetPosition(), manifoldType);
-    SDL_Rect carbBodyRect = CarbBodyRect(carbBmp->GetPosition(), manifoldType, engineType);
-    SDL_Rect wireRect = EngineWireRect(wireBmp->GetPosition(), engineType);
+    SDL_Rect engineBodyRect = EngineBodyRect(engineBmp->GetNaturalSize(), engineType);
+    SDL_Rect manifoldBodyRect = ManifoldBodyRect(manifoldBmp->GetNaturalSize(), manifoldType);
+    SDL_Rect wireRect = EngineWireRect(wireBmp->GetNaturalSize(), engineType);
 
-    // Part-swap screws (engine mount x1, manifold x2, carb x1) - see
+    // Part-swap screws (engine x1, manifold x2, one per carburetor) - see
     // garage/garage_engine_bay_install.cpp for the click-driven state
     // machine.
-    SDL_Point screwAnchor[4];
-    for (int i = 0; i < 4; i++) {
+    SDL_Point screwAnchor[kEngineBayScrewCount];
+    for (int i = 0; i < kEngineBayScrewCount; i++) {
         screwAnchor[i] = EngineBayScrewAnchor(i, engineType, manifoldType, carbType);
     }
-    Zone engineScrewZone("screw_0", "Screw", EngineBayScrewZone(screwAnchor[0]));
-    Zone manifoldLeftScrewZone("screw_1", "Screw", EngineBayScrewZone(screwAnchor[1]));
-    Zone manifoldRightScrewZone("screw_2", "Screw", EngineBayScrewZone(screwAnchor[2]));
-    Zone carbScrewZone("screw_3", "Screw", EngineBayScrewZone(screwAnchor[3]));
 
     // Same rects as the body bitmaps - click to open the spare-parts picker
     // once a slot is fully unscrewed (Garage ignores the click otherwise).
     // This is also the only way back in after "Forget it".
     Zone enginePartZone("part_0", "Engine", engineBodyRect);
     Zone manifoldPartZone("part_1", "Manifold", manifoldBodyRect);
-    Zone carbPartZone("part_2", "Carburetor", carbBodyRect);
 
     // The engine's ground wire has to be unplugged (as well as its screw
     // backed out) before the engine can come out.
@@ -185,11 +179,21 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // these run smallest-on-top first: the part bodies overlap each other
     // and swallow the screws and the wire otherwise (the engine body alone
     // covers most of the bay).
-    std::vector<Zone> engineDialogZones = {
-        tuneZone, partsZone, doneZone,
-        engineScrewZone, manifoldLeftScrewZone, manifoldRightScrewZone, carbScrewZone,
-        wireZone, carbPartZone, manifoldPartZone, enginePartZone
-    };
+    std::vector<Zone> engineDialogZones = {tuneZone, partsZone, doneZone};
+    for (int i = 0; i < kEngineBayScrewCount; i++) {
+        engineDialogZones.emplace_back("screw_" + std::to_string(i), "Screw",
+                                       EngineBayScrewZone(screwAnchor[i]));
+    }
+    engineDialogZones.push_back(wireZone);
+    // Always three carb zones (part_2..part_4); RefreshPartsForCurrentCar
+    // disables the ones this manifold doesn't mount.
+    for (int i = 0; i < 3; i++) {
+        engineDialogZones.emplace_back("part_" + std::to_string(2 + i), "Carburetor",
+                                       CarbBodyRect(carbBmp->GetNaturalSize(), manifoldType, engineType, i),
+                                       i < CarbCount(manifoldType));
+    }
+    engineDialogZones.push_back(manifoldPartZone);
+    engineDialogZones.push_back(enginePartZone);
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
     // Common button configuration
@@ -356,7 +360,16 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // dialog - see garage/garage_engine_bay_install.cpp.
     overviewConfig.bitmaps["engine_body"] = {engineBmp, engineBodyRect, 2};
     overviewConfig.bitmaps["manifold_body"] = {manifoldBmp, manifoldBodyRect, 2};
-    overviewConfig.bitmaps["carb_body"] = {carbBmp, carbBodyRect, 4};
+    // One carb bitmap per mount the manifold has; own copies so the unused
+    // ones can be hidden without hiding the others.
+    for (int i = 0; i < 3; i++) {
+        carbBitmap[i] = std::make_unique<Bitmap>(*carbBmp);
+        carbBitmap[i]->SetVisible(i < CarbCount(manifoldType));
+        overviewConfig.bitmaps["carb_body_" + std::to_string(i)] = {
+            carbBitmap[i].get(),
+            CarbBodyRect(carbBmp->GetNaturalSize(), manifoldType, engineType, i), 4
+        };
+    }
     // "engine_wire" (not "..._attached") since garage_engine_bay_install.cpp
     // toggles this between ENGINE_WIRE_ATTACHED/ENGINE_WIRE_DETACHED.
     overviewConfig.bitmaps["engine_wire"] = {wireBmp, wireRect, 3};
@@ -373,9 +386,10 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // row - unlike the transmission's ENGINE_TRANSMISSION_BOLT which was a
     // single growing image, so no push-out/rotation here, just frame select).
     Bitmap* boltSrc = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT});
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < kEngineBayScrewCount; i++) {
         screwBitmap[i] = std::make_unique<Bitmap>(*boltSrc);
-        SDL_Rect natural = screwBitmap[i]->GetPosition();
+        screwBitmap[i]->SetVisible(i < 3 + CarbCount(manifoldType));
+        SDL_Rect natural = screwBitmap[i]->GetNaturalSize();
         screwNaturalSize[i] = {natural.w, natural.h};
         SDL_Rect frameCrop = {0, 0, natural.w, natural.h / 3};  // state 0 = seated
         overviewConfig.bitmaps["screw_" + std::to_string(i)] = {
@@ -532,18 +546,45 @@ void EngineBay::OnDialogShown() {
     // No need to restore visibility since we're using separate dialogs
 }
 
-static const char* kPartBitmapId[3] = {"engine_body", "manifold_body", "carb_body"};
+int EngineBay::GetPartCount(int partSlot) {
+    Car* car = state->GetCurrentCar();
+    if (partSlot != 2 || !car) return 1;
+    return CarbCount(ResolveManifoldType(*car));
+}
 
-SDL_Rect EngineBay::GetPartRect(int partSlot) {
+std::string EngineBay::GetPartBitmapId(int partSlot, int index) {
+    if (partSlot == 0) return "engine_body";
+    if (partSlot == 1) return "manifold_body";
+    return "carb_body_" + std::to_string(index);
+}
+
+SDL_Rect EngineBay::GetPartRect(int partSlot, int index) {
     Car* car = state->GetCurrentCar();
     if (!car || !engineDialog) return {0, 0, 0, 0};
-    DialogBitmap* db = engineDialog->GetBitmap(kPartBitmapId[partSlot]);
+    DialogBitmap* db = engineDialog->GetBitmap(GetPartBitmapId(partSlot, index));
     if (!db || !db->bitmap) return {0, 0, 0, 0};
-    SDL_Rect asset = db->bitmap->GetPosition();
+    SDL_Rect asset = db->bitmap->GetNaturalSize();
     switch (partSlot) {
         case 0: return EngineBodyRect(asset, ResolveEngineType(*car));
         case 1: return ManifoldBodyRect(asset, ResolveManifoldType(*car));
-        default: return CarbBodyRect(asset, ResolveManifoldType(*car), ResolveEngineType(*car));
+        default: return CarbBodyRect(asset, ResolveManifoldType(*car), ResolveEngineType(*car), index);
+    }
+}
+
+void EngineBay::SetPartAsset(int partSlot, AmigaLibAsset asset) {
+    if (!engineDialog) return;
+    Bitmap* src = state->GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+    int shown = GetPartCount(partSlot);
+    for (int i = 0; i < (partSlot == 2 ? 3 : 1); i++) {
+        DialogBitmap* db = engineDialog->GetBitmap(GetPartBitmapId(partSlot, i));
+        if (!db) continue;
+        if (partSlot == 2) {
+            carbBitmap[i] = std::make_unique<Bitmap>(*src);
+            db->bitmap = carbBitmap[i].get();
+        } else {
+            db->bitmap = src;
+        }
+        db->bitmap->SetVisible(i < shown);
     }
 }
 
@@ -554,40 +595,59 @@ SDL_Point EngineBay::GetScrewAnchor(int screwIndex) {
                                 car->GetCarburator().partType.carburetorType);
 }
 
+int EngineBay::GetFirstScrew(int partSlot) {
+    return partSlot == 0 ? 0 : (partSlot == 1 ? 1 : 3);
+}
+
+int EngineBay::GetScrewCount(int partSlot) {
+    return partSlot == 1 ? 2 : GetPartCount(partSlot);
+}
+
 void EngineBay::RefreshPartsForCurrentCar() {
     Car* car = state->GetCurrentCar();
     if (!car || !engineDialog) return;
 
     CarEngine_t engineType = ResolveEngineType(*car);
+    int carbs = CarbCount(ResolveManifoldType(*car));
     AmigaLibAsset bodyAsset[3] = {
         EngineBodyAsset(engineType),
         ManifoldBodyAsset(ResolveManifoldType(*car)),
         CarbBodyAsset(car->GetCarburator().partType.carburetorType)
     };
-    for (int i = 0; i < 3; i++) {
-        DialogBitmap* db = engineDialog->GetBitmap(kPartBitmapId[i]);
-        if (!db) continue;
-        db->bitmap = state->GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, bodyAsset[i]});
-        db->rect = GetPartRect(i);
-        db->sourceRect = {0, 0, 0, 0};
-        if (Zone* z = engineDialog->GetZone("part_" + std::to_string(i))) z->SetRect(db->rect);
+    // Slots 0 and 1 draw once; slot 2 draws once per carburetor, with the
+    // spare mounts hidden.
+    for (int slot = 0; slot < 3; slot++) {
+        SetPartAsset(slot, bodyAsset[slot]);
+        for (int i = 0; i < (slot == 2 ? 3 : 1); i++) {
+            DialogBitmap* db = engineDialog->GetBitmap(GetPartBitmapId(slot, i));
+            if (!db) continue;
+            db->rect = GetPartRect(slot, i);
+            db->sourceRect = {0, 0, 0, 0};
+            if (Zone* z = engineDialog->GetZone("part_" + std::to_string(slot == 2 ? 2 + i : slot))) {
+                z->SetRect(db->rect);
+                if (slot == 2) z->SetEnabled(i < carbs);
+            }
+        }
     }
 
     if (DialogBitmap* db = engineDialog->GetBitmap("engine_wire"); db && db->bitmap) {
-        db->rect = EngineWireRect(db->bitmap->GetPosition(), engineType);
+        db->rect = EngineWireRect(db->bitmap->GetNaturalSize(), engineType);
         db->sourceRect = {0, 0, 0, 0};
         if (Zone* z = engineDialog->GetZone("wire_0")) z->SetRect(db->rect);
     }
 
     // A car swap always arrives fully assembled, so the screws go back to
     // their seated frame at the new mount points.
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < kEngineBayScrewCount; i++) {
+        bool used = i < 3 + carbs;
         SDL_Point anchor = GetScrewAnchor(i);
         if (Zone* z = engineDialog->GetZone("screw_" + std::to_string(i))) {
             z->SetRect(EngineBayScrewZone(anchor));
+            z->SetEnabled(used);
         }
         DialogBitmap* db = engineDialog->GetBitmap("screw_" + std::to_string(i));
         if (!db) continue;
+        screwBitmap[i]->SetVisible(used);
         SDL_Rect frameCrop = {0, 0, screwNaturalSize[i].x, screwNaturalSize[i].y / 3};
         db->sourceRect = frameCrop;
         db->rect = {anchor.x, anchor.y - frameCrop.h, frameCrop.w, frameCrop.h};

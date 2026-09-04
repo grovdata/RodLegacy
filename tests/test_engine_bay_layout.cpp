@@ -44,15 +44,34 @@ TEST_CASE("manifold body has one position for every class") {
     CHECK(Same(ManifoldBodyRect(kManifoldWide, MANIFOLD_RACING), {80, 42, 112, 34}));
 }
 
+TEST_CASE("manifold class decides how many carbs it mounts") {
+    CHECK(CarbCount(MANIFOLD_2BARREL) == 1);
+    CHECK(CarbCount(MANIFOLD_4BARREL) == 1);
+    CHECK(CarbCount(MANIFOLD_TRIPLE_2BARREL) == 3);
+    CHECK(CarbCount(MANIFOLD_DUAL_QUAD) == 2);
+    CHECK(CarbCount(MANIFOLD_RACING) == 2);
+}
+
 TEST_CASE("carb position is decided by the manifold under it") {
     // Single-carb 2-barrel manifold sits lower on a V6 than on a V8.
-    CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V6), {104, 27, 32, 29}));
-    CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V8_327), {111, 22, 32, 29}));
-    CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_4BARREL, CarEngineGM_V6), {104, 13, 40, 38}));
-    CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6), {80, 27, 32, 29}));
-    CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_DUAL_QUAD, CarEngineGM_V6), {88, 13, 40, 38}));
-    // Verified: this carb's topmost drawn row is y 5 in screenshot 010.png.
-    CHECK(Same(CarbBodyRect(kCarbRacing, MANIFOLD_RACING, CarEngineGM_V8_327), {88, 5, 40, 47}));
+    CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V6, 0), {104, 27, 32, 29}));
+    CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V8_327, 0), {111, 22, 32, 29}));
+    CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_4BARREL, CarEngineGM_V6, 0), {104, 13, 40, 38}));
+    // Verified: these carbs' topmost drawn row is y 5 in screenshot 010.png,
+    // at x 88 and 128.
+    CHECK(Same(CarbBodyRect(kCarbRacing, MANIFOLD_RACING, CarEngineGM_V8_327, 0), {88, 5, 40, 47}));
+    CHECK(Same(CarbBodyRect(kCarbRacing, MANIFOLD_RACING, CarEngineGM_V8_327, 1), {128, 5, 40, 47}));
+}
+
+TEST_CASE("multi-carb manifolds space their mounts evenly") {
+    // Triple 2-barrel: three carbs, 24px apart, all on one row.
+    for (int i = 0; i < 3; i++) {
+        SDL_Rect r = CarbBodyRect(kCarb2Brl, MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6, i);
+        CHECK(Same(r, {80 + i * 24, 27, 32, 29}));
+    }
+    // Dual quad: two 4-barrels, 40px apart.
+    CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_DUAL_QUAD, CarEngineGM_V6, 0), {88, 13, 40, 38}));
+    CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_DUAL_QUAD, CarEngineGM_V6, 1), {128, 13, 40, 38}));
 }
 
 TEST_CASE("screws mount on the part they hold") {
@@ -72,6 +91,11 @@ TEST_CASE("screws mount on the part they hold") {
         EngineBayScrewAnchor(3, CarEngineGM_V8_327, MANIFOLD_RACING, CARB_4BARREL_RACING);
     CHECK(carbScrew.x == 118);
     CHECK(carbScrew.y == 50);
+    // The second carb's screw follows its own mount.
+    SDL_Point carbScrew2 =
+        EngineBayScrewAnchor(4, CarEngineGM_V8_327, MANIFOLD_RACING, CARB_4BARREL_RACING);
+    CHECK(carbScrew2.x == 158);
+    CHECK(carbScrew2.y == 50);
 }
 
 TEST_CASE("screw hotspot covers the sprite") {

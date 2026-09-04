@@ -2,6 +2,7 @@
 
 #include "dialogs/dialog.h"
 #include "dialogs/list_dialog.h"
+#include "engine_bay_layout.h"
 #include "state.h"
 #include <functional>
 
@@ -41,16 +42,18 @@ private:
     float engineSpeed = 0.0f;
 
     // Part-mount screws (0=engine, 1=manifold-left, 2=manifold-right,
-    // 3=carb) - independent ENGINE_BOLT copies, see the constructor's
-    // "screw_N" bitmap setup. Owned here since EngineBay builds engineDialog;
-    // Garage (garage_engine_bay_install.cpp) owns the actual swap state
-    // machine and drives these through engineDialog's public GetBitmap().
-    std::unique_ptr<Bitmap> screwBitmap[4];
-    SDL_Point screwNaturalSize[4]{};
+    // 3..5=carb 0..2) - independent ENGINE_BOLT copies, see the
+    // constructor's "screw_N" bitmap setup. Owned here since EngineBay
+    // builds engineDialog; Garage (garage_engine_bay_install.cpp) owns the
+    // actual swap state machine and drives these through engineDialog's
+    // public GetBitmap().
+    std::unique_ptr<Bitmap> screwBitmap[kEngineBayScrewCount];
+    SDL_Point screwNaturalSize[kEngineBayScrewCount]{};
 
-    // partSlot 0=engine, 1=manifold, 2=carb. Sized from whichever asset is
-    // in the slot right now, since the tables are bottom-anchored.
-    SDL_Rect GetPartRect(int partSlot);
+    // A dual-quad or triple manifold draws the same carb asset in 2 or 3
+    // mounts, so each needs its own Bitmap: SetVisible on a shared asset
+    // would hide them all at once.
+    std::unique_ptr<Bitmap> carbBitmap[3];
 
 public:
     EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr,
@@ -69,9 +72,21 @@ public:
     // stale parts (e.g. always the 2-barrel carb the starter car shipped
     // with) until the player manually swaps something in that slot.
     void RefreshPartsForCurrentCar();
-    // Mount point of a screw on the current car, from engine_bay_layout.h.
-    // screwIndex 0=engine, 1=manifold-left, 2=manifold-right, 3=carb.
+
+    // Live geometry for the current car, from engine_bay_layout.h.
+    // partSlot 0=engine, 1=manifold, 2=carb. The carb slot draws one bitmap
+    // per carburetor its manifold takes, hence the index.
+    int GetPartCount(int partSlot);
+    std::string GetPartBitmapId(int partSlot, int index);
+    SDL_Rect GetPartRect(int partSlot, int index);
+    // Points the slot's bitmaps at `asset` and shows exactly as many as the
+    // current manifold mounts.
+    void SetPartAsset(int partSlot, AmigaLibAsset asset);
+    // Mount point of a screw: 0=engine, 1=manifold-left, 2=manifold-right,
+    // 3..5=carb 0..2.
     SDL_Point GetScrewAnchor(int screwIndex);
+    int GetScrewCount(int partSlot);
+    int GetFirstScrew(int partSlot);
     void SetKnobPosition(int level);
     void InitPartsDialog();
     SDL_Point GetScrewNaturalSize(int screwIndex) const { return screwNaturalSize[screwIndex]; }

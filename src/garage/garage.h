@@ -113,13 +113,14 @@ class Garage : public CarScene {
     // Engine bay part-swap animation (garage/garage_engine_bay_install.cpp).
     // Same idea as the transmission install above, but 3 slots sharing
     // EngineBay's own overview dialog instead of a dedicated popup: engine
-    // (1 screw), manifold (2 screws), carb (1 screw) - 4 screws total,
-    // flat-indexed 0=engine, 1=manifold-left, 2=manifold-right, 3=carb.
+    // (1 screw), manifold (2 screws), carb (1 per carburetor the manifold
+    // mounts, 1 to 3) - 6 screws total, flat-indexed 0=engine,
+    // 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
     // Unlike the transmission's growing-crop screws, ENGINE_BOLT is a real
     // 3-frame turn-state sheet, so these are frame-select, not push-out.
    public:
     // Public so garage_engine_bay_install.cpp's free functions (ScrewSlot,
-    // SlotMountRect, etc.) can name them; the members using these types
+    // SlotScrewCount, etc.) can name them; the members using these types
     // stay private below.
     enum class EngineBaySlot { ENGINE = 0, MANIFOLD = 1, CARB = 2 };
     enum class PartInstallPhase { MOUNTED, UNSCREWING, EMPTY, SLIDING_IN, SCREWING_IN };
@@ -132,17 +133,17 @@ class Garage : public CarScene {
     // still animates it in before rejecting it, rather than hiding it from
     // the picker. See UpdateEngineBayInstallAnimation.
     bool engineBaySlotRejected[3] = {false, false, false};
-    int engineBayScrewState[4] = {0, 0, 0, 0};
-    bool engineBayScrewFalling[4] = {false, false, false, false};
-    bool engineBayScrewFallingOut[4] = {false, false, false, false};
-    float engineBayScrewFallTimer[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    int engineBayScrewFallFromY[4] = {0, 0, 0, 0};
-    int engineBayScrewFallToY[4] = {0, 0, 0, 0};
-    float engineBayScrewFallDelay[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    // Six screws: 1 engine, 2 manifold, up to 3 carburetor.
+    int engineBayScrewState[kEngineBayScrewCount]{};
+    bool engineBayScrewFalling[kEngineBayScrewCount]{};
+    bool engineBayScrewFallingOut[kEngineBayScrewCount]{};
+    float engineBayScrewFallTimer[kEngineBayScrewCount]{};
+    int engineBayScrewFallFromY[kEngineBayScrewCount]{};
+    int engineBayScrewFallToY[kEngineBayScrewCount]{};
+    float engineBayScrewFallDelay[kEngineBayScrewCount]{};
 
     float engineBaySlideTimer[3] = {0.0f, 0.0f, 0.0f};
     SDL_Point engineBaySlideStart[3]{};
-    SDL_Point engineBaySlideMid[3]{};
     SDL_Point engineBaySlideEnd[3]{};
 
     // The engine's ground wire: a second, independent precondition (besides
@@ -173,6 +174,7 @@ class Garage : public CarScene {
     bool IsEngineBaySlotFullySeated(EngineBaySlot slot);
     void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
     void RefreshEngineBayGeometry();
+    void ApplyEngineBaySlideFrame(EngineBaySlot slot, int y, const SDL_Rect& mount);
     void StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount);
     void StartEngineSlideIn(const EnginePart& newEngine);
     void StartManifoldSlideIn(const Part& newManifold);
