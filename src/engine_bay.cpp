@@ -181,10 +181,14 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     // backed out) before the engine can come out.
     Zone wireZone("wire_0", "Wire", wireRect);
 
+    // Dialog hit-testing takes the first zone that contains the click, so
+    // these run smallest-on-top first: the part bodies overlap each other
+    // and swallow the screws and the wire otherwise (the engine body alone
+    // covers most of the bay).
     std::vector<Zone> engineDialogZones = {
         tuneZone, partsZone, doneZone,
         engineScrewZone, manifoldLeftScrewZone, manifoldRightScrewZone, carbScrewZone,
-        enginePartZone, manifoldPartZone, carbPartZone, wireZone
+        wireZone, carbPartZone, manifoldPartZone, enginePartZone
     };
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
