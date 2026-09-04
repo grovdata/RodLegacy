@@ -183,6 +183,13 @@ DialogBitmap* Dialog::GetBitmap(const std::string& id) {
     return nullptr;
 }
 
+Zone* Dialog::GetZone(const std::string& id) {
+    for (auto& zone : config.zones) {
+        if (zone.GetId() == id) return &zone;
+    }
+    return nullptr;
+}
+
 void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect logicalRect) {
     SDL_Rect visible;
     if (!SDL_IntersectRect(&logicalRect, &mask, &visible)) {

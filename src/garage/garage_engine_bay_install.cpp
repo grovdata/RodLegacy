@@ -1,4 +1,5 @@
 #include "garage.h"
+#include "engine_bay_layout.h"
 #include "state.h"
 #include "ui/hud.h"
 #include "assets.h"
@@ -48,29 +49,9 @@ static const char* SlotBitmapId(EngineBaySlot slot) {
     return "engine_body";
 }
 
-// Fixed display box per part - matches engine_bay.cpp's own static rects.
-// Unlike the transmission (which sizes to the bitmap's natural size), these
-// stretch whatever asset is loaded into a fixed box, same convention the
-// overview screen already used for its old hardcoded placeholders.
-static SDL_Rect SlotMountRect(EngineBaySlot slot) {
-    switch (slot) {
-        case EngineBaySlot::ENGINE: return {62, 51, 136, 112};
-        case EngineBaySlot::MANIFOLD: return {93, 52, 88, 31};
-        case EngineBaySlot::CARB: return {116, 35, 32, 29};
-    }
-    return {0, 0, 0, 0};
-}
-
-// Matches engine_bay.cpp's engineScrewRect/manifoldLeftScrewRect/
-// manifoldRightScrewRect/carbScrewRect - kept in sync manually since the
-// zones live in that file and the geometry lives here.
-static SDL_Point ScrewPos(int screwIndex) {
-    switch (screwIndex) {
-        case 0: return {126, 165};
-        case 1: return {90, 48};
-        case 2: return {170, 48};
-        default: return {130, 32};
-    }
+// Screw mount point: x is the sprite's left edge, y its bottom edge.
+static SDL_Point ScrewPos(EngineBay* bay, int screwIndex) {
+    return bay ? bay->GetScrewAnchor(screwIndex) : SDL_Point{0, 0};
 }
 
 // ENGINE_BOLT is a real 3-frame sheet (one 8x4 frame per row) - state
@@ -80,7 +61,9 @@ static SDL_Rect ScrewFrameCrop(const SDL_Point& natural, int state) {
     return {0, state * frameH, natural.x, frameH};
 }
 
-void Garage::ApplyEngineBayScrewGeometry(int screwIndex, int y) {
+// bottomY is the screw's bottom edge - the crop shrinks as it is driven in,
+// so anchoring the top would slide it off its mount.
+void Garage::ApplyEngineBayScrewGeometry(int screwIndex, int bottomY) {
     if (!engineBay) return;
     Dialog* dlg = engineBay->GetDialog();
     if (!dlg) return;
@@ -89,13 +72,13 @@ void Garage::ApplyEngineBayScrewGeometry(int screwIndex, int y) {
 
     SDL_Point natural = engineBay->GetScrewNaturalSize(screwIndex);
     SDL_Rect crop = ScrewFrameCrop(natural, engineBayScrewState[screwIndex]);
-    SDL_Point pos = ScrewPos(screwIndex);
-    SDL_Rect logical = {pos.x, y, crop.w, crop.h};
+    SDL_Point pos = ScrewPos(engineBay.get(), screwIndex);
+    SDL_Rect logical = {pos.x, bottomY - crop.h, crop.w, crop.h};
     ClipDialogBitmapToRect(*db, kEngineBayMask, logical);
 }
 
 void Garage::UpdateEngineBayScrewVisual(int screwIndex) {
-    ApplyEngineBayScrewGeometry(screwIndex, ScrewPos(screwIndex).y);
+    ApplyEngineBayScrewGeometry(screwIndex, ScrewPos(engineBay.get(), screwIndex).y);
 }
 
 void Garage::StartEngineBayScrewFall(int screwIndex, bool fallingOut, float delay) {
@@ -112,7 +95,7 @@ void Garage::StartEngineBayScrewFall(int screwIndex, bool fallingOut, float dela
     }
     engineBayScrewFallDelay[screwIndex] = 0.0f;
 
-    SDL_Point pos = ScrewPos(screwIndex);
+    SDL_Point pos = ScrewPos(engineBay.get(), screwIndex);
     SDL_Point natural = engineBay->GetScrewNaturalSize(screwIndex);
     int cropH = ScrewFrameCrop(natural, engineBayScrewState[screwIndex]).h;
 
@@ -123,7 +106,7 @@ void Garage::StartEngineBayScrewFall(int screwIndex, bool fallingOut, float dela
         engineBayScrewFallFromY[screwIndex] = pos.y;
         engineBayScrewFallToY[screwIndex] = kEngineBayBounds.y + kEngineBayBounds.h + cropH;
     } else {
-        engineBayScrewFallFromY[screwIndex] = kEngineBayBounds.y - cropH;
+        engineBayScrewFallFromY[screwIndex] = kEngineBayBounds.y;
         engineBayScrewFallToY[screwIndex] = pos.y;
         bmp->SetVisible(true);
         ApplyEngineBayScrewGeometry(screwIndex, engineBayScrewFallFromY[screwIndex]);
@@ -321,8 +304,7 @@ void Garage::OnEngineBayZoneClicked(Zone& zone) {
     if (id == "part_2") { OnEngineBayPartClicked(EngineBaySlot::CARB); return; }
 }
 
-static void BeginSlide(EngineBaySlot slot, SDL_Point& start, SDL_Point& mid, SDL_Point& end) {
-    SDL_Rect mount = SlotMountRect(slot);
+static void BeginSlide(const SDL_Rect& mount, SDL_Point& start, SDL_Point& mid, SDL_Point& end) {
     // All engine bay parts drop straight down from above - mid == end so
     // the update loop's horizontal phase is a no-op hold, not a slide.
     end = {mount.x, mount.y};
@@ -330,76 +312,73 @@ static void BeginSlide(EngineBaySlot slot, SDL_Point& start, SDL_Point& mid, SDL
     start = {mount.x, kEngineBayBounds.y - mount.h};
 }
 
-void Garage::StartEngineSlideIn(const EnginePart& newEngine) {
-    pendingEngine = newEngine;
-    int idx = (int)EngineBaySlot::ENGINE;
-    BeginSlide(EngineBaySlot::ENGINE, engineBaySlideStart[idx], engineBaySlideMid[idx], engineBaySlideEnd[idx]);
+// The mount rect has to come from the part being fitted, not the one still
+// on the car - a bigger block sits at a different spot, not just a bigger
+// box at the same one.
+void Garage::StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount) {
+    int idx = (int)slot;
+    BeginSlide(mount, engineBaySlideStart[idx], engineBaySlideMid[idx], engineBaySlideEnd[idx]);
 
     if (engineBay) {
-        Bitmap* bmp = state.GetAssets().GetBitmapAsset(
-            {LibAssetRegular, SrLibFileAmigaLibP, EngineBodyAsset(newEngine.engineType)});
-        DialogBitmap* db = engineBay->GetDialog()->GetBitmap("engine_body");
+        Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+        DialogBitmap* db = engineBay->GetDialog()->GetBitmap(SlotBitmapId(slot));
         if (db) {
             db->bitmap = bmp;
             bmp->SetVisible(true);
-            SDL_Rect mount = SlotMountRect(EngineBaySlot::ENGINE);
             SDL_Rect logical = {engineBaySlideStart[idx].x, engineBaySlideStart[idx].y, mount.w, mount.h};
             ClipDialogBitmapToRect(*db, kEngineBayMask, logical);
         }
     }
     engineBaySlotPhase[idx] = PartInstallPhase::SLIDING_IN;
     engineBaySlideTimer[idx] = 0.0f;
+}
+
+void Garage::StartEngineSlideIn(const EnginePart& newEngine) {
+    pendingEngine = newEngine;
+    AmigaLibAsset asset = EngineBodyAsset(newEngine.engineType);
+    Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+    StartEngineBaySlideIn(EngineBaySlot::ENGINE, asset,
+                          EngineBodyRect(bmp->GetPosition(), newEngine.engineType));
 }
 
 void Garage::StartManifoldSlideIn(const Part& newManifold) {
     pendingManifold = newManifold;
-    int idx = (int)EngineBaySlot::MANIFOLD;
-    BeginSlide(EngineBaySlot::MANIFOLD, engineBaySlideStart[idx], engineBaySlideMid[idx], engineBaySlideEnd[idx]);
-
-    if (engineBay) {
-        Bitmap* bmp = state.GetAssets().GetBitmapAsset(
-            {LibAssetRegular, SrLibFileAmigaLibP, ManifoldBodyAsset(newManifold.partType.manifoldType)});
-        DialogBitmap* db = engineBay->GetDialog()->GetBitmap("manifold_body");
-        if (db) {
-            db->bitmap = bmp;
-            bmp->SetVisible(true);
-            SDL_Rect mount = SlotMountRect(EngineBaySlot::MANIFOLD);
-            SDL_Rect logical = {engineBaySlideStart[idx].x, engineBaySlideStart[idx].y, mount.w, mount.h};
-            ClipDialogBitmapToRect(*db, kEngineBayMask, logical);
-        }
-    }
-    engineBaySlotPhase[idx] = PartInstallPhase::SLIDING_IN;
-    engineBaySlideTimer[idx] = 0.0f;
+    ManifoldType type = newManifold.partType.manifoldType;
+    AmigaLibAsset asset = ManifoldBodyAsset(type);
+    Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+    StartEngineBaySlideIn(EngineBaySlot::MANIFOLD, asset, ManifoldBodyRect(bmp->GetPosition(), type));
 }
 
 void Garage::StartCarbSlideIn(const Part& newCarb) {
     pendingCarb = newCarb;
-    int idx = (int)EngineBaySlot::CARB;
-    BeginSlide(EngineBaySlot::CARB, engineBaySlideStart[idx], engineBaySlideMid[idx], engineBaySlideEnd[idx]);
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
+    AmigaLibAsset asset = CarbBodyAsset(newCarb.partType.carburetorType);
+    Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+    // Where a carb sits is decided by the manifold under it, not the carb.
+    StartEngineBaySlideIn(EngineBaySlot::CARB, asset,
+                          CarbBodyRect(bmp->GetPosition(), ResolveManifoldType(*car), ResolveEngineType(*car)));
+}
 
-    if (engineBay) {
-        Bitmap* bmp = state.GetAssets().GetBitmapAsset(
-            {LibAssetRegular, SrLibFileAmigaLibP, CarbBodyAsset(newCarb.partType.carburetorType)});
-        DialogBitmap* db = engineBay->GetDialog()->GetBitmap("carb_body");
-        if (db) {
-            db->bitmap = bmp;
-            bmp->SetVisible(true);
-            SDL_Rect mount = SlotMountRect(EngineBaySlot::CARB);
-            SDL_Rect logical = {engineBaySlideStart[idx].x, engineBaySlideStart[idx].y, mount.w, mount.h};
-            ClipDialogBitmapToRect(*db, kEngineBayMask, logical);
-        }
-    }
-    engineBaySlotPhase[idx] = PartInstallPhase::SLIDING_IN;
-    engineBaySlideTimer[idx] = 0.0f;
+void Garage::RefreshEngineBayGeometry() {
+    if (!engineBay) return;
+    engineBay->RefreshPartsForCurrentCar();
+    // That re-seats every screw; put back the state each one is actually
+    // in, since another slot can be mid-disassembly.
+    for (int i = 0; i < 4; i++) UpdateEngineBayScrewVisual(i);
 }
 
 // The old part was already handed to spares in ReleaseEngineBayPartToSpares
-// when the slot was unscrewed - this just installs the new one.
+// when the slot was unscrewed - this just installs the new one. The refresh
+// afterwards re-seats everything the new part moves: a different block
+// shifts its own screw and ground wire, and a different manifold shifts the
+// carburetor sitting on it.
 void Garage::CommitEngineSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
     state.RemoveSpareEngine(pendingEngine.engineType);
     car->SetEngine(pendingEngine);
+    RefreshEngineBayGeometry();
 }
 
 void Garage::CommitManifoldSwap() {
@@ -407,6 +386,7 @@ void Garage::CommitManifoldSwap() {
     if (!car) return;
     state.RemoveSpareManifold(pendingManifold.partType.manifoldType);
     car->SetManifold(pendingManifold);
+    RefreshEngineBayGeometry();
 }
 
 void Garage::CommitCarbSwap() {
@@ -414,6 +394,7 @@ void Garage::CommitCarbSwap() {
     if (!car) return;
     state.RemoveSpareCarburetor(pendingCarb.partType.carburetorType);
     car->SetCarburator(pendingCarb);
+    RefreshEngineBayGeometry();
 }
 
 void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
@@ -432,7 +413,7 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
         if (!db) continue;
 
         engineBaySlideTimer[idx] += (float)deltaTime;
-        SDL_Rect mount = SlotMountRect(slot);
+        SDL_Rect mount = db->bitmap ? db->bitmap->GetPosition() : SDL_Rect{0, 0, 0, 0};
         int logicalX;
         int logicalY;
         if (engineBaySlideTimer[idx] < kSlideUpDuration) {

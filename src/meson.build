@@ -162,6 +162,7 @@ cpp_sources = files(
     'garage/garage_transmission_install.cpp',
     'garage/garage_engine_bay_install.cpp',
     'engine_bay.cpp',
+    'engine_bay_layout.cpp',
     'scene_layout.cpp',
     'newspaper.cpp',
     'gas_station.cpp',

@@ -48,6 +48,10 @@ private:
     std::unique_ptr<Bitmap> screwBitmap[4];
     SDL_Point screwNaturalSize[4]{};
 
+    // partSlot 0=engine, 1=manifold, 2=carb. Sized from whichever asset is
+    // in the slot right now, since the tables are bottom-anchored.
+    SDL_Rect GetPartRect(int partSlot);
+
 public:
     EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr,
               ZoneClickCallback zoneClickCallback = nullptr);
@@ -65,6 +69,9 @@ public:
     // stale parts (e.g. always the 2-barrel carb the starter car shipped
     // with) until the player manually swaps something in that slot.
     void RefreshPartsForCurrentCar();
+    // Mount point of a screw on the current car, from engine_bay_layout.h.
+    // screwIndex 0=engine, 1=manifold-left, 2=manifold-right, 3=carb.
+    SDL_Point GetScrewAnchor(int screwIndex);
     void SetKnobPosition(int level);
     void InitPartsDialog();
     SDL_Point GetScrewNaturalSize(int screwIndex) const { return screwNaturalSize[screwIndex]; }

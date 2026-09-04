@@ -93,4 +93,6 @@ public:
     void OnButtonPressed(int index);
 
     DialogBitmap* GetBitmap(const std::string& id);
+    /** Live zone, so a caller can move a hotspot that tracks a bitmap. */
+    Zone* GetZone(const std::string& id);
 }; 

@@ -163,7 +163,7 @@ class Garage : public CarScene {
     void UpdateEngineBayInstallAnimation(double deltaTime);
     void OnEngineBayScrewClicked(int screwIndex);
     void UpdateEngineBayScrewVisual(int screwIndex);
-    void ApplyEngineBayScrewGeometry(int screwIndex, int y);
+    void ApplyEngineBayScrewGeometry(int screwIndex, int bottomY);
     void StartEngineBayScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);
     void UpdateEngineBayScrewFallAnimations(double deltaTime);
     void OnEngineBayPartClicked(EngineBaySlot slot);
@@ -172,6 +172,8 @@ class Garage : public CarScene {
     bool IsEngineBaySlotFullyOut(EngineBaySlot slot);
     bool IsEngineBaySlotFullySeated(EngineBaySlot slot);
     void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
+    void RefreshEngineBayGeometry();
+    void StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount);
     void StartEngineSlideIn(const EnginePart& newEngine);
     void StartManifoldSlideIn(const Part& newManifold);
     void StartCarbSlideIn(const Part& newCarb);

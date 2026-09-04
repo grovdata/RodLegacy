@@ -31,6 +31,8 @@ test_sources = [
     'test_game_clock.cpp',
     'test_save_loader.cpp',
     'test_gas_station_pump.cpp',
+    'test_engine_bay_layout.cpp',
+    '../src/engine_bay_layout.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',
     '../src/race/race_end_message.cpp',
@@ -50,7 +52,10 @@ test_sources = [
 test_exe = executable('test_libp',
     sources: test_sources,
     include_directories: test_inc,
-    dependencies: [lodepng_test_dep],
+    # SDL headers only (SDL_Rect/SDL_Point in engine_bay_layout.h); linking
+    # SDL into a test binary would drag in its main() shim.
+    dependencies: [lodepng_test_dep,
+                   sdl2_dep.partial_dependency(includes: true, compile_args: true)],
     cpp_args: ['-std=c++17', '-O0'],
 )
 
