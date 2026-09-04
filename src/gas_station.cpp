@@ -199,7 +199,7 @@ void GasStation::DrawMaskAfterCar() {
         pumpFilling->Draw();
     }
 
-    // Pump's digital display: a direct pixel fill in the original (see
+    // Pump display: a direct pixel fill in the original (see
     // PUMP_DISPLAY_FAST's comment). Lit is PAL_GAS index 0xf (0x0999)
     // converted to RGB: 0x9 * 17 = 153; unlit is index 0, black.
     if (sceneState == GAS_STATION_PUMPING && !waitingForAttendant) {
@@ -422,8 +422,6 @@ void GasStation::StartAnimateCar(CarPtr car, Driver*, CarAnimationType animType)
 
 void GasStation::OnCarAnimationComplete() {
     CarScene::OnCarAnimationComplete();
-    // Gas cap stays closed on arrival - it only opens once the player lifts
-    // the pump handle (see the "pump" zone's onClick).
 }
 
 void GasStation::OnCarExitComplete() {
@@ -491,10 +489,7 @@ void GasStation::OnSceneExit() {
 }
 
 void GasStation::FadeOut() {
-    // Call exit handler when fading out
     OnSceneExit();
-    
-    // Call parent implementation
     Scene::FadeOut();
 }
 

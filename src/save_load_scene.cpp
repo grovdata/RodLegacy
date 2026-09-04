@@ -40,7 +40,7 @@ std::string TrimTrailingSpaces(std::string s) {
 std::string LegacyLabel(const std::string& filename, const std::string& rawSaveName) {
     const std::string trimmed = TrimTrailingSpaces(rawSaveName);
     if (trimmed.empty()) return filename;
-    return filename + " (" + trimmed + ")";
+    return trimmed;
 }
 
 // Keeps a player name usable as a filename on every platform we build for.
@@ -107,7 +107,7 @@ void SaveLoadScene::ScanDisk2Samples() {
             }
             free_adf_file_data(data);
         }
-        e.label = "[disk] " + LegacyLabel(names->names[i], saveName);
+        e.label = "[adf] " + LegacyLabel(names->names[i], saveName);
         disk2Samples.push_back(e);
     }
     free_adf_file_name_list(names);
@@ -127,8 +127,7 @@ void SaveLoadScene::RebuildList() {
         e.label = path.stem().string();
         try {
             const SaveSummary s = PeekSave(path);
-            e.label += "  " + s.playerName + "  " + GameClock::FormatDate(s.elapsedTicks) +
-                       "  $" + std::to_string(s.bankroll);
+            e.label = s.playerName;
         } catch (const SaveLoadError& ex) {
             LOG_INFO("SaveLoadScene: couldn't read %s: %s", path.string().c_str(), ex.what());
             e.label += "  (unreadable)";

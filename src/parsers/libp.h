@@ -362,14 +362,12 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY2_REAR_5 = 144,
     RACING_OPPONENT_CAR_CHEVY2_REAR_6 = 145,
     RACING_OPPONENT_CAR_CHEVY2_REAR_7 = 146,
-    // Confirmed via the same 0x2395f4 table: this category's row is a
-    // contiguous 138..150 (13 assets), so it DOES have behind frames - they
-    // were just missing from this enum before.
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_1 = 147,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_2 = 148,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_3 = 149,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_4 = 150,
     // Used by: The King's Chevrolet Corvette 1963 only.
+    // TODO: Is this really correct?
     RACING_OPPONENT_CAR_CORVETTE_FRONT_SIDE = 151,
     RACING_OPPONENT_CAR_CORVETTE_REAR_SIDE = 152,
     RACING_OPPONENT_CAR_CORVETTE_REAR_1 = 153,
