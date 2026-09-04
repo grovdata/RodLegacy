@@ -1,4 +1,5 @@
 #include "rectangle.h"
+#include "../log.h"
 
 Rectangle::Rectangle(RectangleConfig config) : config(config) {
     Fill();
@@ -8,7 +9,14 @@ void Rectangle::Fill() {
     surface.reset(SDL_CreateRGBSurface(0, config.rect.w, config.rect.h, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 
     SDL_Surface *s = surface.get();
-    
+    // SDL refuses dimensions it cannot represent, so a bad rect leaves no
+    // surface to draw into - every FillRect below would dereference null.
+    if (!s) {
+        LOG_ERROR("Rectangle::Fill: no surface for %dx%d: %s", config.rect.w, config.rect.h,
+                  SDL_GetError());
+        return;
+    }
+
     if (config.inset > 0) {
         SDL_FillRect(s, NULL, SDL_MapRGB(s->format, config.fillColor.r, config.fillColor.g, config.fillColor.b));
     }

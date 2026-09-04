@@ -157,19 +157,14 @@ void GasStation::DrawScene() {
 
     DrawAll();
 
-    // Attendant behind the car: drawn before carBitmap, so the car occludes
-    // it where their rects overlap.
     if (attendantAnim && attendantAnim->IsVisible()) {
         attendantAnim->Draw();
     }
 
-    // Pump sandwich, part 1: asset 338 behind the car. Part 2 (asset 339) is
-    // in DrawMaskAfterCar, which runs after this whole function.
     if (pumpNoHandle && pumpNoHandle->IsVisible()) {
         pumpNoHandle->Draw();
     }
 
-    // Draw car bitmap separately since it's not in the container
     if (carBitmap != nullptr) {
         carBitmap->Draw();
     }
@@ -194,18 +189,12 @@ void GasStation::DrawMaskAfterCar() {
         SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
     }
 
-    // Call parent implementation for any additional mask effects
     CarScene::DrawMaskAfterCar();
 
-    // Pump sandwich, part 2: asset 339 (pump side with background) over the
-    // car, so the pump occludes it. Always drawn.
     if (pumpSideMask) {
         pumpSideMask->Draw();
     }
 
-    // Drawn here rather than in DrawScene: DrawExtra (which calls this) runs
-    // after DrawScene, so the masks above would otherwise paint over it every
-    // frame.
     if (pumpFilling && pumpFilling->IsVisible()) {
         pumpFilling->Draw();
     }
@@ -285,25 +274,20 @@ void GasStation::UpdatePumping(double deltaTime) {
             break;
         }
         case GAS_STATION_PUMPING: {
-            // Self-service has no animation to wait for (IsPlaying() is
-            // already false), so this only holds up the attendant path -
-            // the handle doesn't appear in the cap, and the bubble line
-            // doesn't show, until he's done standing up.
             if (attendantAnim && attendantAnim->IsPlaying()) return;
+
             if (waitingForAttendant) {
                 waitingForAttendant = false;
                 if (attendantBubble) attendantBubble->SetVisible(true);
             }
-            // Nozzle in the cap for the whole fill, not just from the first
-            // dispensing tick 1.44s in.
+
             if (pumpFilling) pumpFilling->SetVisible(true);
 
             loopTimer += deltaTime;
             if (loopTimer < LOOP_ITERATION_SEC) return;
             loopTimer -= LOOP_ITERATION_SEC;
 
-            // One GasStationPumpLoop iteration: blink the display, then
-            // dispense on every 4th.
+            // Dispense fuel every 4th blink from the dispplay
             pumpDisplayFastLit = (pumpDisplayCounter & 1) != 0;
             pumpDisplayCounter++;
             if ((pumpDisplayCounter & 3) != 0) return;
@@ -319,11 +303,7 @@ void GasStation::UpdatePumping(double deltaTime) {
             }
 
             if (tick.done) {
-                // Tank full (or out of money): nozzle out, cap shut, then a
-                // beat before driving off to the right. The original's
-                // GasStationLeave runs the drive-home cruise from here;
-                // RodLegacy's exit animation ends in OnCarExitComplete, which
-                // moves to the garage.
+                // Tank full or out of money
                 sceneState = GAS_STATION_IDLE;
                 StopPumpDisplay();
                 carBitmap->SetGasCapRemoved(false);
@@ -331,8 +311,6 @@ void GasStation::UpdatePumping(double deltaTime) {
                 if (pumpNoHandle) pumpNoHandle->SetVisible(false);  // handle back on the pump
                 if (attendantBubble) attendantBubble->SetVisible(false);
                 leaveTimer = 0.0;
-                // Not stopping attendantAnim here: SetLoop(false) already ends
-                // it naturally, and stopping it froze it on frame 0.
             }
             break;
         }
@@ -354,7 +332,6 @@ void GasStation::StopPumpDisplay() {
 void GasStation::UpdateDebugInfo() {
     if (!debugMode) return;
 
-    // As in Diner: not gated on debugOverlay, and the base rows are kept.
     CarScene::UpdateDebugInfo();
 
     AddDebugValue("gas station", "");

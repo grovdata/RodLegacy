@@ -2,19 +2,22 @@
 #include "dialog.h"
 #include <functional>
 
+// Zeroed by default: a caller that wants no scroll buttons (SaveLoadScene)
+// just leaves these alone, and default-initialising a ListDialogConfig on the
+// stack can't hand Rectangle garbage dimensions to build a surface from.
 struct ScrollButtonsConfig {
-    SDL_Rect topRect;
-    SDL_Rect upRect;
-    SDL_Rect downRect;
-    SDL_Rect bottomRect;
+    SDL_Rect topRect{};
+    SDL_Rect upRect{};
+    SDL_Rect downRect{};
+    SDL_Rect bottomRect{};
 };
 
 struct ListDialogConfig {
     std::vector<std::string> labels;
     std::vector<SDL_Surface*> swatches;
     std::function<void(int)> onItemSelected;
-    SDL_Rect listBoxRect;
-    SDL_Rect selectedItemRect;
+    SDL_Rect listBoxRect{};
+    SDL_Rect selectedItemRect{};
 
     ScrollButtonsConfig scrollButtons;
 

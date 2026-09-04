@@ -67,14 +67,21 @@ void SaveLoadScene::Init(bool debugMode) {
 }
 
 void SaveLoadScene::Configure(Mode newMode, SrLibGameScene newReturnTo) {
+    const Uint64 t0 = SDL_GetTicks64();
     mode = newMode;
     returnTo = newReturnTo;
     RebuildList();
+    const Uint64 t1 = SDL_GetTicks64();
     BuildDialog();
+    const Uint64 t2 = SDL_GetTicks64();
     SetActiveDialog(listDialog.get());
+    LOG_INFO("SaveLoadScene::Configure: RebuildList %llums, BuildDialog %llums, total %llums",
+             (unsigned long long)(t1 - t0), (unsigned long long)(t2 - t1),
+             (unsigned long long)(SDL_GetTicks64() - t0));
 }
 
 void SaveLoadScene::ScanDisk2Samples() {
+    const Uint64 scanStart = SDL_GetTicks64();
     disk2Samples.clear();
     const auto& disk2 = state.GetAssets().GetDisk2Adf();
     if (disk2.empty()) return;
@@ -104,7 +111,8 @@ void SaveLoadScene::ScanDisk2Samples() {
         disk2Samples.push_back(e);
     }
     free_adf_file_name_list(names);
-    LOG_INFO("SaveLoadScene: %d sample save(s) on disk2", (int)disk2Samples.size());
+    LOG_INFO("SaveLoadScene: %d sample save(s) on disk2 in %llums", (int)disk2Samples.size(),
+             (unsigned long long)(SDL_GetTicks64() - scanStart));
 }
 
 void SaveLoadScene::RebuildList() {
