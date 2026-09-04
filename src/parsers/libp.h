@@ -558,7 +558,7 @@ enum AmigaLibAsset {
     DINER_WAITRESS_ANIM_RIGHT = 336,
     GUS_GAS_ATTENDANT = 337,
     GUS_GAS_PUMP2 = 338,
-    GUS_GAS_PUMP3 = 339,
+    GUS_GAS_PUMP3_MASK = 339,
     GUS_GAS_SCREEN = 340,
     GUS_GAS_MASK = 341,
     DRIVER_01 = 342,
@@ -1325,72 +1325,13 @@ const int CAR_IDLE_X[][2] = {
 
 #define CAR_IDLE_X_COUNT (sizeof(CAR_IDLE_X) / sizeof(CAR_IDLE_X[0]))
 
-// Car Y offset lookup table by scene and car model
-const int CAR_Y_OFFSETS[][6] = {
-    // Format: {CarModel, Garage, Diner, GasStation, Cruising, Driving}
-    {CHEVROLET_2DR_COUPE_1940,             82, 96, 112, 0, 0},
-    {CHEVROLET_ROADSTER_1940,              82, 96, 112, 0, 0},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938,     82, 96, 112, 0, 0},
-    {CHEVROLET_CORVETTE_1956,              100, 106, 102, 0, 0},
-    {CHEVROLET_CORVETTE_1961,              102, 108, 104, 0, 0},
-    {CHEVROLET_CORVETTE_1963,              92, 98, 94, 0, 0},
-    {DODGE_CUSTOM_ROYAL_LANCER_1955,       90, 96, 92, 0, 0},
-    {FORD_DEUCE_COUPE_1932,                86, 92, 88, 0, 0},
-    {DODGE_POLARA_1962,                    94, 100, 96, 0, 0},
-    {PLYMOUTH_SAVOY_2DR_1962,              92, 98, 94, 0, 0},
-    {FORD_SEDAN_1932,                      84, 90, 86, 0, 0},
-    {FORD_DELUXE_2DR_1940,                 90, 96, 92, 0, 0},
-    {FORD_FAIRLANE_VICTORIA_1955,          96, 102, 98, 0, 0},
-    {FORD_FAIRLANE_500_1956,               94, 100, 96, 0, 0},
-    {MERCURY_MONTEREY_1954,                96, 102, 98, 0, 0},
-    {MERCURY_CUSTOM_2DR_1956,              92, 98, 94, 0, 0},
-    {CHEVROLET_STYLELINE_2DR_1949,         90, 96, 92, 0, 0},
-    {CHEVROLET_IMPALA_1958,                94, 100, 96, 0, 0},
-    {OLDSMOBILE_88_2DR_CUSTOM_1949,        92, 98, 94, 0, 10},
-    {OLDSMOBILE_88_CUSTOM_1952,            90, 96, 92, 0, 0},
-    {PONTIAC_SILVER_STREAK_1950,           90, 96, 92, 0, 0},
-    {FORD_THUNDERBIRD_1957,                96, 102, 98, 0, 0},
-    {VALIANT_V200_1961,                    94, 100, 96, 0, 0},
-    {VALIANT_V100_2DR_1963,                92, 98, 94, 0, 0},
-    {CHEVROLET_BELAIR_SPORTS_COUPE,        94, 100, 96, 0, 0},
-    {THE_KING_CHEVROLET_CORVETTE_1963,     92, 98, 94, 0, 0}
-};
-
-#define CAR_Y_OFFSETS_COUNT (sizeof(CAR_Y_OFFSETS) / sizeof(CAR_Y_OFFSETS[0]))
 
 // Wheel Y per car now lives in car_set.cpp (CarSetWheelY), because it is
 // per car set rather than per lib.p asset and no data file supplies it.
-
-const int CAR_GAS_CAP_XY_OFFSETS[][3] = {
-    {CHEVROLET_2DR_COUPE_1940, 74, 35},
-    {CHEVROLET_ROADSTER_1940, 44, 7},
-    {CHEVROLET_MASTER_DELUXE_2DR_1938, 37, 7},
-    {CHEVROLET_CORVETTE_1956, 24, 7},
-    {CHEVROLET_CORVETTE_1961, 30, 7},
-    {CHEVROLET_CORVETTE_1963, 30, 7},
-    {DODGE_CUSTOM_ROYAL_LANCER_1955, 30, 7},
-    {FORD_DEUCE_COUPE_1932, 30, 7},
-    {DODGE_POLARA_1962, 30, 7},
-    {PLYMOUTH_SAVOY_2DR_1962, 30, 7},
-    {FORD_SEDAN_1932, 30, 7},
-    {FORD_DELUXE_2DR_1940, 39, 7},
-    {FORD_FAIRLANE_VICTORIA_1955, 30, 7},
-    {FORD_FAIRLANE_500_1956, 30, 7},
-    {MERCURY_MONTEREY_1954, 30, 7},
-    {MERCURY_CUSTOM_2DR_1956, 30, 7},
-    {CHEVROLET_STYLELINE_2DR_1949, 30, 7},
-    {CHEVROLET_IMPALA_1958, 30, 7},
-    {OLDSMOBILE_88_2DR_CUSTOM_1949, 30, 7},
-    {OLDSMOBILE_88_CUSTOM_1952, 30, 7},
-    {PONTIAC_SILVER_STREAK_1950, 30, 7},
-    {FORD_THUNDERBIRD_1957, 30, 7},
-    {VALIANT_V200_1961, 30, 7},
-    {VALIANT_V100_2DR_1963, 30, 7},
-    {CHEVROLET_BELAIR_SPORTS_COUPE, 30, 7},
-    {THE_KING_CHEVROLET_CORVETTE_1963, 30, 7}
-};
-
-#define CAR_GAS_CAP_XY_OFFSETS_COUNT (sizeof(CAR_GAS_CAP_XY_OFFSETS) / sizeof(CAR_GAS_CAP_XY_OFFSETS[0]))
+//
+// Gas cap X/Y (unlike the fields above) is not a separate hand-measured
+// table - it comes straight from CLICKBOX_GASSTATION_START, the same point
+// the click box itself reads, in SrLibDataReadDataFromBuffer.
 
 #pragma pack(push, 1)
 struct BitmapEntry_t {
@@ -1683,21 +1624,28 @@ struct SrLibAmigaSpriteInfo {
     int offset;
     int width;
     int height;
+    // Sprite colours 1..3, Amiga 12-bit RGB. The mouse pointer is always
+    // hardware sprite 0, so the original loads these three into colour
+    // registers 17-19 every time the pointer changes - they are a property of
+    // the pointer, not of the scene palette. Read out of the pointer table at
+    // A4-0x6630 in the Amiga binary (SetMousePointer, 0x002260e2), 0x12 bytes
+    // per entry: +0 data, +4 width, +6 height, +8/+a hotspot, +c/+e/+10 colours.
+    uint16_t colors[3];
 };
 
 const SrLibAmigaSpriteInfo SPRITE_INFO_LOOKUP[] = {
-    // {offset, width, height}
-    {0x7AA8, 16, 16},  // SrLibAmigaSpriteAssetMousePointerWrench
-    {0x7AF0, 16, 12},  // SrLibAmigaSpriteAssetMousePointerHand
-    {0x7B28, 11, 16},  // SrLibAmigaSpriteAssetMousePointerPump
-    {0x7B70, 16, 14},  // SrLibAmigaSpriteAssetMousePointerRag
-    {0x7BB0, 16, 17},  // SrLibAmigaSpriteAssetMousePointerThumbsUp
-    {0x7BFC, 16, 17},  // SrLibAmigaSpriteAssetMousePointerThumbsDown
+    // {offset, width, height, {c1, c2, c3}}
+    {0x7AA8, 16, 16, {0x0950, 0x0C71, 0x0F96}},  // SrLibAmigaSpriteAssetMousePointerWrench
+    {0x7AF0, 16, 12, {0x0950, 0x0C71, 0x0F96}},  // SrLibAmigaSpriteAssetMousePointerHand
+    {0x7B28, 11, 16, {0x0CCC, 0x0888, 0x0FFF}},  // SrLibAmigaSpriteAssetMousePointerPump
+    {0x7B70, 16, 14, {0x00F0, 0x00B0, 0x0950}},  // SrLibAmigaSpriteAssetMousePointerRag
+    {0x7BB0, 16, 17, {0x0330, 0x0970, 0x0860}},  // SrLibAmigaSpriteAssetMousePointerThumbsUp
+    {0x7BFC, 16, 17, {0x0330, 0x0970, 0x0860}},  // SrLibAmigaSpriteAssetMousePointerThumbsDown
 };
 
 #define SPRITE_INFO_LOOKUP_COUNT (sizeof(SPRITE_INFO_LOOKUP) / sizeof(SPRITE_INFO_LOOKUP[0]))
 
-int SrLibAmigaSpriteToRGBA(const uint16_t* data, int startOffset, const uint16_t* palette, int sprite_num, int width, int height, SrLibColor* out_buffer);
+int SrLibAmigaSpriteToRGBA(const uint16_t* data, int startOffset, const uint16_t* colors, int width, int height, SrLibColor* out_buffer);
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer);
 
 /*
@@ -1975,7 +1923,8 @@ public:
     TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
-int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex);
+// Calcuates car Y offset fpr a scene
+int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight);
 int SrLibQueryGetCarIdleX(SrLibGameScene scene);
 CarVendor_t SrLibQueryGetCarVendor(int carIndex);
 

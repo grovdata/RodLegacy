@@ -120,7 +120,7 @@ Diner::~Diner() {
 SDL_Point Diner::GetCarIdlePosition() {
     if (!currentOpponent) return {80, 95};
     int x = SrLibQueryGetCarIdleX(SCENE_DINER);
-    int y = SrLibQueryGetCarRoofYOffset(SCENE_DINER, currentOpponent->car->GetModel().index);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_DINER, currentOpponent->car->GetModel().height);
     return {x, y};
 }
 
@@ -286,7 +286,8 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
         opponentCarBitmaps[opponentId] = std::move(newBitmap);
     }
 
-    int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), currentOpponent->car->GetModel().index);
+    int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(),
+                                                  currentOpponent->car->GetModel().height);
     this->cary = carYOffset;
 
     // Reset state for new opponent

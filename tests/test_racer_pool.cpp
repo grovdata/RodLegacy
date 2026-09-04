@@ -433,8 +433,6 @@ TEST_CASE("all 26 entries are parsed") {
 // SR_data driver names and portraits, against the shipped file
 // ============================================================================
 
-TEST_SUITE("SrDataDrivers") {
-
 static std::vector<uint8_t> LoadRealSrData() {
     const char* paths[] = {
         "../RodLegacyBins/amiga/SR_disk2/SR_data",
@@ -449,6 +447,9 @@ static std::vector<uint8_t> LoadRealSrData() {
     }
     return {};
 }
+
+
+TEST_SUITE("SrDataDrivers") {
 
 TEST_CASE("driver names and portraits come out of SR_data") {
     const std::vector<uint8_t> data = LoadRealSrData();
@@ -479,6 +480,62 @@ TEST_CASE("driver names and portraits come out of SR_data") {
     for (int i = 0; i < SR_DATA_KING_DRIVER_INDEX; ++i) {
         CHECK(drivers[i].PortraitAsset() >= DRIVER_01);
         CHECK(drivers[i].PortraitAsset() <= DRIVER_22);
+    }
+}
+
+} // TEST_SUITE
+
+// ============================================================================
+// Gas cap visual offset vs. click box: they must agree, or the visible
+// removed-cap sprite and the clickable "put the handle in" zone drift apart.
+// See RodLegacyResearch/docs/driving/gas_station.md.
+// ============================================================================
+
+TEST_SUITE("SrDataGasCap") {
+
+TEST_CASE("Amiga gas cap visual offset matches the gas station click box") {
+    const std::vector<uint8_t> data = LoadRealSrData();
+    if (data.empty()) {
+        MESSAGE("shipped SR_data not found next to the build; skipping");
+        return;
+    }
+
+    DataParser parser;
+    int count = 0;
+    CarMetadata_t* meta = parser.SrLibDataReadDataFromBuffer(data.data(), data.size(), &count);
+    REQUIRE(meta != nullptr);
+    REQUIRE(count == CAR_PLAYER_MODEL_COUNT);
+
+    for (int i = 0; i < count; ++i) {
+        CHECK(meta[i].offsets.offsetXGasCap == meta[i].clickBoxes.clickBoxGasCap.x);
+        CHECK(meta[i].offsets.offsetYGasCap == meta[i].clickBoxes.clickBoxGasCap.y);
+    }
+
+    for (int i = 0; i < count; i++) SrLibDataFreeClassified(&meta[i].classified);
+    free(meta);
+}
+
+// Garage, Diner and GasStation are all bottom-aligned against each car's
+// real sprite height (from lib.p), live-verified with Copperline against
+// the Amiga binary - see RodLegacyResearch/docs/driving/gas_station.md.
+// A chopped roof doesn't change this: CarBitmap::ChopRoof() composites the
+// small chopped-roof patch onto bodyOriginal's existing canvas in place,
+// and every position calculation deliberately keeps using bodyOriginal's
+// full height (see the "Always use bodyOriginal for position calculations"
+// comments in carbitmap.cpp), so the formula only needs the body height.
+TEST_CASE("Garage, Diner and GasStation Y offsets are bottom-aligned to real sprite height") {
+    // Body sprite heights from lib.p for all 26 cars (see
+    // RodLegacyResearch/docs/driving/gas_station.md) - fixed here as
+    // literals so this test doesn't depend on the shipped game data being
+    // present.
+    const int kHeights[] = {69, 69, 68, 56, 54, 59, 63, 69, 62, 62, 68, 69,
+                             63, 63, 63, 66, 69, 63, 66, 66, 66, 62, 62, 62, 66, 59};
+    REQUIRE(sizeof(kHeights) / sizeof(kHeights[0]) == 26);
+
+    for (const int height : kHeights) {
+        CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, height) == 151 - height);
+        CHECK(SrLibQueryGetCarRoofYOffset(SCENE_DINER, height) == 162 - height);
+        CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, height) == 181 - height);
     }
 }
 

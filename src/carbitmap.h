@@ -80,7 +80,6 @@ private:
     Bitmap driver;
     CarWheel wheels;
     Bitmap gasCap;
-    Bitmap pumpingHandle;
     Bitmap hoodScoop;
     Bitmap rearWheelhouse;
     Bitmap frontWheelhouse;
@@ -107,7 +106,6 @@ private:
     bool wheelsVisible;
     StandardCarColor currentColor;
     bool gasCapRemoved;
-    bool pumpingHandleVisible;
 
     bool stickerWipeActive = false;
     float stickerWipeProgress = 0.0f;
@@ -165,11 +163,9 @@ public:
 
     // Gas station methods
     void SetGasCapRemoved(bool removed);
-    void SetPumpingHandleVisible(bool visible);
     void SetShadowVisible(bool visible);
-    
+
     bool IsGasCapRemoved() const { return gasCapRemoved; }
-    bool IsPumpingHandleVisible() const { return pumpingHandleVisible; }
     
     // Bumper methods
     void StripFrontBumper();

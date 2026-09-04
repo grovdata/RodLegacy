@@ -115,20 +115,26 @@ TEST_CASE("unknown scene returns default 35") {
 
 TEST_SUITE("SrLibQueryGetCarRoofYOffset") {
 
-TEST_CASE("known car and garage scene returns correct offset") {
-    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, CHEVROLET_2DR_COUPE_1940) == 82);
+// Garage/Diner/GasStation are all bottom-aligned against sprite height -
+// live-verified with Copperline, see gas_station.md. No per-car table.
+TEST_CASE("known car and height returns the live-verified garage offset") {
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, 69) == 82);
 }
 
-TEST_CASE("same car, different scenes return different offsets") {
-    int garage = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE,      CHEVROLET_CORVETTE_1956);
-    int diner  = SrLibQueryGetCarRoofYOffset(SCENE_DINER,       CHEVROLET_CORVETTE_1956);
-    int gas    = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, CHEVROLET_CORVETTE_1956);
+TEST_CASE("same height, different scenes return different offsets") {
+    // Corvette 1956 body sprite height (lib.p), see gas_station.md.
+    const int height = 56;
+    int garage = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, height);
+    int diner  = SrLibQueryGetCarRoofYOffset(SCENE_DINER, height);
+    int gas    = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, height);
     CHECK(garage != diner);
     CHECK(garage != gas);
 }
 
-TEST_CASE("unknown car index returns default 96") {
-    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, 9999) == 96);
+TEST_CASE("all three scenes are bottom-aligned to sprite height") {
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, 69) == 82);
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_DINER, 69) == 93);
+    CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, 69) == 112);
 }
 
 } // TEST_SUITE

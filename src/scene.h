@@ -101,6 +101,12 @@ class Scene {
 
     virtual SrLibAmigaSpriteAsset GetPointerType() { return currentPointer; }
 
+    // Sets currentPointer and applies it to the actual cursor right away.
+    // currentPointer alone is only picked up on scene entry (FadeIn) - a
+    // scene that wants the pointer to change on click (e.g. gas station's
+    // pump vs. rag) needs this instead of assigning currentPointer directly.
+    void SetPointer(SrLibAmigaSpriteAsset type);
+
     virtual void FadeOut();
     void FadeIn();
     virtual void OnFadeComplete();
@@ -239,7 +245,7 @@ protected:
 
 public:
     CarScene(std::string backgroundName);
-    CarScene(Asset backgroundAsset);
+    CarScene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     void Init(bool debugMode) override;
     virtual void DrawMaskAfterCar();
     virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
@@ -251,6 +257,12 @@ public:
     virtual void OnSceneExit() override;
     
     void SetAudioManager(AudioManager* audioMgr) { audioManager = audioMgr; }
+
+    // Whether a zone click should be handled right now: no scene fade and no
+    // car drive-in/out animation in progress. A subclass with more ways to
+    // be mid-action (e.g. Garage's tire-change animation) should shadow this
+    // with its own CanInteract() that also checks CarScene::CanInteract().
+    bool CanInteract() const { return sceneTransition == SCENE_SOLID && !animatingCar; }
 
     CarBitmap *carBitmap = nullptr;
     bool animatingCar = false;

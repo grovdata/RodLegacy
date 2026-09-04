@@ -214,8 +214,7 @@ CarBitmap::CarBitmap(CarPtr car, Driver* driver, StandardCarColor color)
     , lastWheelUpdateTime(0)
     , wheelsVisible(true)
     , currentColor(color)
-    , gasCapRemoved(false)
-    , pumpingHandleVisible(false) {
+    , gasCapRemoved(false) {
     LoadCarParts(car, driver, color);
 }
 
@@ -598,11 +597,6 @@ void CarBitmap::SetGasCapRemoved(bool removed) {
     gasCap.SetVisible(removed);
 }
 
-void CarBitmap::SetPumpingHandleVisible(bool visible) {
-    gasCap.SetVisible(visible);
-    pumpingHandle.SetVisible(visible);
-}
-
 void CarBitmap::Move(SDL_Point p) {
     // Update both bodies so they move together
     bodyOriginal.SetPosition(p.x, p.y);
@@ -652,7 +646,6 @@ void CarBitmap::UpdateTextures() {
     customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
-    pumpingHandle.SetPosition(bodyRect.x + offsets.offsetXGasCap - 16, bodyRect.y + offsets.offsetYGasCap - 5);
 
     // Note: bumper overlays are positioned in Draw() to match body exactly
     shadow.SetPosition(bodyRect.x, bodyRect.y + model.height - 6);

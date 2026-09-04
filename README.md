@@ -69,6 +69,7 @@ RodLegacy use these fine libraries:
  - [SDL2_image](https://github.com/libsdl-org/SDL_image)
  - [SDL2_mixer](https://github.com/libsdl-org/SDL_mixer)
  - [ADFlib](https://github.com/adflib/ADFlib)
+ - [exepack](https://www.bamsoftware.com/software/exepack/)
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
  - [lemon font](https://github.com/cmvnd/fonts)

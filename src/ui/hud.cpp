@@ -50,6 +50,7 @@ void HUD::Draw() {
 
 void HUD::SetText(const char *text) {
     Clear();
+    if (text != lastText.c_str()) lastText = text;
     
     // Use the stored RGB components directly
     SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 

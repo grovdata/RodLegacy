@@ -812,7 +812,7 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                 case GUS_GAS_ATTENDANT:
                 case GUS_GAS_PUMP1:
                 case GUS_GAS_PUMP2:
-                case GUS_GAS_PUMP3:
+                case GUS_GAS_PUMP3_MASK:
                 case GUS_GAS_PUMP_FILLING:
                     return PAL_GAS;
                 default:
@@ -1216,10 +1216,12 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         newEntry.offsetYDecal = *ptr++;
 
         // Add supplemental offsets
-        StockCarModels model = (StockCarModels)i;
         newEntry.offsetYTires = CarSetWheelY(kAmigaCarSet, kCarIndex[i]);
-        newEntry.offsetXGasCap = CAR_GAS_CAP_XY_OFFSETS[model][1];
-        newEntry.offsetYGasCap = CAR_GAS_CAP_XY_OFFSETS[model][2];
+        // offsetXGasCap/Y are filled in below from CLICKBOX_GASSTATION_START -
+        // the same point the click box uses, so the visible removed-cap
+        // sprite and the clickable zone never drift apart. See
+        // test_racer_pool.cpp's "Amiga gas cap visual offset matches..." and
+        // RodLegacyResearch/docs/driving/gas_station.md.
 
         result[i].offsets = newEntry;
     }
@@ -1279,6 +1281,8 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         clickBoxes.clickBoxGasCap.y = *ptr++;
         clickBoxes.clickBoxGasCap.width = 12;
         clickBoxes.clickBoxGasCap.height = 12;
+        metadataEntry.offsets.offsetXGasCap = clickBoxes.clickBoxGasCap.x;
+        metadataEntry.offsets.offsetYGasCap = clickBoxes.clickBoxGasCap.y;
 
         clickBoxes.clickBoxRearWindow.x = *ptr++;
         clickBoxes.clickBoxRearWindow.y = *ptr++;
@@ -1434,15 +1438,13 @@ cleanup:
 
 // Convert Amiga sprite data to RGBA buffer
 // data: Pointer to sprite data
-// palette: Array of Amiga format colors (0000 rrrrggggbbbb)
-// sprite_num: Sprite number (0-7) to determine color registers
+// colors: The sprite's three colors 1..3, Amiga format (0000 rrrrggggbbbb)
 // width: Sprite width (typically 16)
 // height: Sprite height
 // out_buffer: Pre-allocated RGBA buffer of size width*height
 int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                            int startOffset,
-                           const uint16_t* palette,
-                           int sprite_num,
+                           const uint16_t* colors,
                            int width,
                            int height,
                            SrLibColor* out_buffer) {
@@ -1472,10 +1474,7 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
                 // Color 0 is transparent
                 pixel->r = pixel->g = pixel->b = pixel->a = 0;
             } else {
-                // Get color from sprite palette registers
-                // Sprites are paired (0/1, 2/3, etc) and share color registers
-                uint16_t palette_color = palette[17 + ((sprite_num & 6) * 2) + color_idx - 1];
-                SrLibColor rgb_color = BitmapParser::GetRGBFromRGB4(palette_color);
+                SrLibColor rgb_color = BitmapParser::GetRGBFromRGB4(colors[color_idx - 1]);
                 pixel->r = rgb_color.r;
                 pixel->g = rgb_color.g;
                 pixel->b = rgb_color.b;
@@ -1488,9 +1487,8 @@ int SrLibAmigaSpriteToRGBA(const uint16_t* data,
 }
 
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer) {
-    uint16_t pal[] = PAL1;
     SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[sprite];
-    return SrLibAmigaSpriteToRGBA(data, info.offset, pal, int(sprite), info.width, info.height, out_buffer);
+    return SrLibAmigaSpriteToRGBA(data, info.offset, info.colors, info.width, info.height, out_buffer);
 }
 
 // File-based wrapper
@@ -1569,14 +1567,11 @@ bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
     }
 }
 
-int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int carIndex) {
-    for (size_t i = 0; i < CAR_Y_OFFSETS_COUNT; i++) {
-        if (CAR_Y_OFFSETS[i][0] == carIndex) {
-            // Add 1 to scene index since car model is in column 0
-            return CAR_Y_OFFSETS[i][(int)(scene) + 1];
-        }
-    }
-    return 96; // Default offset if car not found
+// Bottom-aligned against the car's sprite height
+int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight) {
+    if (scene == SCENE_DINER) return 162 - spriteHeight;
+    if (scene == SCENE_GAS_STATION) return 181 - spriteHeight;
+    return 151 - spriteHeight; // SCENE_GARAGE (and default for any other scene)
 }
 
 // Helper function to get car X position for a specific scene

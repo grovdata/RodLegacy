@@ -30,6 +30,7 @@ test_sources = [
     'test_race_end_message.cpp',
     'test_game_clock.cpp',
     'test_save_loader.cpp',
+    'test_gas_station_pump.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',
     '../src/race/race_end_message.cpp',
@@ -40,6 +41,7 @@ test_sources = [
     '../src/bet_acceptance.cpp',
     '../src/game_clock.cpp',
     '../src/save_loader.cpp',
+    '../src/gas_station_pump.cpp',
     # carcolor.cpp intentionally excluded: libp.cpp never calls GetStandardCarColor
     # and carcolor.cpp unnecessarily includes <SDL.h>
     # types.cpp intentionally excluded: operator<(CarModel) is not called by any test

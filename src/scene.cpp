@@ -86,7 +86,14 @@ void Scene::Init(bool initialDebugMode) {
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    hud = std::make_unique<HUD>(palette, 20, 59);
+    // Status bar pens. The original does not hardcode indices: it
+    // nearest-colour-matches two fixed RGB values inside the scene's own
+    // palette, considering EHB half-brights too (SetupStatusBar 0x002259d0 ->
+    // 0x002259a2 -> the matcher at 0x00226200). Text is 0x0C71, background is
+    // 0x0333. PAL1 resolves those to 59 (EHB of index 27) and 20; PAL_GAS to
+    // 31 (0x0C63) and 20.
+    const int fontColorIndex = (palette == StockPaletteAmigaGasStation) ? 31 : 59;
+    hud = std::make_unique<HUD>(palette, 20, fontColorIndex);
     hud->SetVisible(true);
     hud->Clear();
 
@@ -289,6 +296,11 @@ void Scene::FadeIn() {
     mouse.SetPointerType(GetPointerType());
 }
 
+void Scene::SetPointer(SrLibAmigaSpriteAsset type) {
+    currentPointer = type;
+    mouse.SetPointerType(type);
+}
+
 void Scene::FadeOut() {
     fadeLevel = FADE_LEVELS;
     fadeStartTime = SDL_GetTicks64();
@@ -423,7 +435,7 @@ void Scene::DrawDebugZones() {
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
 }
 
-CarScene::CarScene(Asset backgroundAsset): Scene(backgroundAsset) {
+CarScene::CarScene(Asset backgroundAsset, StockPalette palette): Scene(backgroundAsset, palette) {
 }
 
 void CarScene::Init(bool debugMode) {
@@ -497,7 +509,7 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
         }
         carxFloat = carx;
         
-        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().index);
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
         carBitmap->Move({carx, cary});
         carAnimationTime = 0;  // Reset animation timer
         animatingCar = true;

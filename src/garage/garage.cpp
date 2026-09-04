@@ -427,7 +427,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
 
 SDL_Point Garage::GetCarIdlePosition() {
     int x = SrLibQueryGetCarIdleX(SCENE_GARAGE);
-    int y = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, state.GetCurrentCar()->GetModel().index);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, state.GetCurrentCar()->GetModel().height);
     return {x, y};
 }
 
@@ -668,7 +668,9 @@ bool Garage::PushEvent(SDL_Event* event) {
         return true;
     }
     // Right-click on the radio opens the song control dialog.
-    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+    if (false) {
+    // TODO: Disabled until milestone 0.2
+    //if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
         static const SDL_Rect radioRect = {259, 61, 25, 12};
         int mx = event->button.x, my = event->button.y;
         if (mx >= radioRect.x && mx < radioRect.x + radioRect.w &&
@@ -807,7 +809,7 @@ void Garage::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animTy
     // Garage-specific setup BEFORE calling parent
     // Create/get car bitmap
     carBitmap = GetOrCreateCarBitmap(state.GetCurrentCarPtr());
-    cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().index);
+    cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().height);
 
     // Set initial position based on animation type
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {

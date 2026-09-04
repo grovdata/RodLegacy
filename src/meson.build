@@ -165,6 +165,7 @@ cpp_sources = files(
     'scene_layout.cpp',
     'newspaper.cpp',
     'gas_station.cpp',
+    'gas_station_pump.cpp',
     'king_of_county.cpp',
     'name_entry.cpp',
     'save_load_scene.cpp',
