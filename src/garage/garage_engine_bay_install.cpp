@@ -37,12 +37,8 @@ static int SlotScrewCount(EngineBay* bay, EngineBaySlot slot) {
     return bay ? bay->GetScrewCount((int)slot) : 1;
 }
 
-static void SetSlotVisible(EngineBay* bay, Dialog* dlg, EngineBaySlot slot, bool visible) {
-    if (!bay || !dlg) return;
-    for (int i = 0; i < bay->GetPartCount((int)slot); i++) {
-        DialogBitmap* db = dlg->GetBitmap(bay->GetPartBitmapId((int)slot, i));
-        if (db && db->bitmap) db->bitmap->SetVisible(visible);
-    }
+static void SetSlotVisible(EngineBay* bay, EngineBaySlot slot, bool visible) {
+    if (bay) bay->SetPartVisible((int)slot, visible);
 }
 
 // Screw mount point: x is the sprite's left edge, y its bottom edge.
@@ -50,11 +46,12 @@ static SDL_Point ScrewPos(EngineBay* bay, int screwIndex) {
     return bay ? bay->GetScrewAnchor(screwIndex) : SDL_Point{0, 0};
 }
 
-// ENGINE_BOLT is a real 3-frame sheet (one 8x4 frame per row) - state
-// selects a frame, not a growing crop like the transmission's screws.
+// ENGINE_BOLT is one image, not a frame sheet: the game crops it from the
+// top and blits it bottom-aligned on the mount, so backing a screw out grows
+// it upwards a third at a time - seated, half out, all the way out.
 static SDL_Rect ScrewFrameCrop(const SDL_Point& natural, int state) {
     int frameH = natural.y / 3;
-    return {0, state * frameH, natural.x, frameH};
+    return {0, 0, natural.x, frameH * (state + 1)};
 }
 
 // bottomY is the screw's bottom edge - the crop shrinks as it is driven in,
@@ -208,7 +205,7 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
         }
 
         if (IsEngineBaySlotFullyOut(slot)) {
-            SetSlotVisible(engineBay.get(), engineBay ? engineBay->GetDialog() : nullptr, slot, false);
+            SetSlotVisible(engineBay.get(), slot, false);
             ReleaseEngineBayPartToSpares(slot);
             engineBaySlotPhase[slotIdx] = PartInstallPhase::EMPTY;
         }
@@ -250,7 +247,7 @@ void Garage::OnEngineWireClicked() {
     }
 
     if (engineBaySlotPhase[slotIdx] == PartInstallPhase::UNSCREWING && IsEngineBaySlotFullyOut(slot)) {
-        SetSlotVisible(engineBay.get(), engineBay ? engineBay->GetDialog() : nullptr, slot, false);
+        SetSlotVisible(engineBay.get(), slot, false);
         ReleaseEngineBayPartToSpares(slot);
         engineBaySlotPhase[slotIdx] = PartInstallPhase::EMPTY;
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN && IsEngineBaySlotFullySeated(slot)) {
@@ -427,7 +424,7 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
                 // the pick up front. No screws, no commit, no spares change
                 // - the part just goes back to being a spare.
                 engineBaySlotRejected[idx] = false;
-                SetSlotVisible(engineBay.get(), dlg, slot, false);
+                SetSlotVisible(engineBay.get(), slot, false);
                 engineBaySlotPhase[idx] = PartInstallPhase::EMPTY;
                 bubbles[12]->SetVisible(true);  // partIncompatibleBubble
                 continue;

@@ -82,6 +82,9 @@ public:
     // Points the slot's bitmaps at `asset` and shows exactly as many as the
     // current manifold mounts.
     void SetPartAsset(int partSlot, AmigaLibAsset asset);
+    // Hides every bitmap the slot owns; showing reveals only the mounts in
+    // use, so a spare carb mount can never linger on top of a real one.
+    void SetPartVisible(int partSlot, bool visible);
     // Mount point of a screw: 0=engine, 1=manifold-left, 2=manifold-right,
     // 3..5=carb 0..2.
     SDL_Point GetScrewAnchor(int screwIndex);

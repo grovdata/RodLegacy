@@ -116,8 +116,8 @@ class Garage : public CarScene {
     // (1 screw), manifold (2 screws), carb (1 per carburetor the manifold
     // mounts, 1 to 3) - 6 screws total, flat-indexed 0=engine,
     // 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
-    // Unlike the transmission's growing-crop screws, ENGINE_BOLT is a real
-    // 3-frame turn-state sheet, so these are frame-select, not push-out.
+    // Like the transmission's screws these grow as they back out, but
+    // upwards out of the mount rather than sideways - see ScrewFrameCrop.
    public:
     // Public so garage_engine_bay_install.cpp's free functions (ScrewSlot,
     // SlotScrewCount, etc.) can name them; the members using these types

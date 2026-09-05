@@ -543,7 +543,18 @@ Dialog* EngineBay::GetDialog() {
 }
 
 void EngineBay::OnDialogShown() {
-    // No need to restore visibility since we're using separate dialogs
+    // Dialog::Show() turns every bitmap on, including the carb mounts and
+    // screws this manifold doesn't use. Hide those again - but only those,
+    // so a slot left mid-disassembly isn't reassembled behind Garage's back.
+    if (!engineDialog) return;
+    int carbs = GetPartCount(2);
+    for (int i = carbs; i < 3; i++) {
+        DialogBitmap* db = engineDialog->GetBitmap(GetPartBitmapId(2, i));
+        if (db && db->bitmap) db->bitmap->SetVisible(false);
+    }
+    for (int i = 3 + carbs; i < kEngineBayScrewCount; i++) {
+        if (screwBitmap[i]) screwBitmap[i]->SetVisible(false);
+    }
 }
 
 int EngineBay::GetPartCount(int partSlot) {
@@ -568,6 +579,15 @@ SDL_Rect EngineBay::GetPartRect(int partSlot, int index) {
         case 0: return EngineBodyRect(asset, ResolveEngineType(*car));
         case 1: return ManifoldBodyRect(asset, ResolveManifoldType(*car));
         default: return CarbBodyRect(asset, ResolveManifoldType(*car), ResolveEngineType(*car), index);
+    }
+}
+
+void EngineBay::SetPartVisible(int partSlot, bool visible) {
+    if (!engineDialog) return;
+    int shown = GetPartCount(partSlot);
+    for (int i = 0; i < (partSlot == 2 ? 3 : 1); i++) {
+        DialogBitmap* db = engineDialog->GetBitmap(GetPartBitmapId(partSlot, i));
+        if (db && db->bitmap) db->bitmap->SetVisible(visible && i < shown);
     }
 }
 
