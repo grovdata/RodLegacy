@@ -17,10 +17,13 @@ SDL_Rect EngineBodyRect(SDL_Rect asset, CarEngine_t engine);
 SDL_Rect ManifoldBodyRect(SDL_Rect asset, ManifoldType manifold);
 SDL_Rect EngineWireRect(SDL_Rect asset, CarEngine_t engine);
 
-// How many carburetors the manifold class mounts: 1, 2 or 3. They all use
-// the same asset, each in its own slot.
-int CarbCount(ManifoldType manifold);
+// Mount `carbIndex` of however many CarburetorsPerManifold says this
+// manifold takes (car_system.h).
 SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine, int carbIndex);
+
+// Five drawn parts: 0=engine, 1=manifold, 2..4=carburetor 0..2 - one per
+// pointer on the original's car struct.
+constexpr int kEngineBayPartSlots = 2 + kMaxCarburetors;
 
 // Six screws: 0=engine, 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
 // Returns the mount point: x is the sprite's left edge, y its bottom edge,

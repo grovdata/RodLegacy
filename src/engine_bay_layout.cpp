@@ -26,20 +26,6 @@ int EngineTier(CarEngine_t engine) {
     }
 }
 
-// The binary's manifold class field is not in ManifoldType's order: it has
-// triple 2-barrel at 2 and dual quad at 3 (proven by the carbs-per-class
-// table, 1/1/3/2/2).
-int ManifoldClass(ManifoldType manifold) {
-    switch (manifold) {
-        case MANIFOLD_2BARREL: return 0;
-        case MANIFOLD_4BARREL: return 1;
-        case MANIFOLD_DUAL_QUAD: return 3;
-        case MANIFOLD_TRIPLE_2BARREL: return 2;
-        case MANIFOLD_RACING: return 4;
-    }
-    return 0;
-}
-
 const SDL_Point kEngineBody[3] = {{24, 156}, {24, 156}, {14, 165}};    // A4-0x4432
 const SDL_Point kEngineScrew[3] = {{147, 129}, {166, 129}, {174, 134}};  // A4-0x4426
 const SDL_Point kEngineWire[3] = {{150, 160}, {168, 161}, {174, 169}};   // A4-0x441a
@@ -52,8 +38,6 @@ const SDL_Point kCarbSlot[10] = {
     {104, 56}, {64, 51}, {104, 51}, {64, 52}, {104, 52}
 };
 const int kClassFirstSlot[5] = {5, 6, 7, 10, 12};
-// Carburetors per manifold class (A4-0x3b9c).
-const int kClassCarbCount[5] = {1, 1, 3, 2, 2};
 
 // Added to the carb's own slot position to get its screw (A4-0x43da).
 const SDL_Point kCarbScrewOffset[3] = {{18, -4}, {30, -2}, {30, -2}};
@@ -85,10 +69,6 @@ SDL_Rect ManifoldBodyRect(SDL_Rect asset, ManifoldType manifold) {
     return BottomAnchoredRect(asset, kManifoldBody);
 }
 
-int CarbCount(ManifoldType manifold) {
-    return kClassCarbCount[ManifoldClass(manifold)];
-}
-
 SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine, int carbIndex) {
     return BottomAnchoredRect(asset, CarbSlot(manifold, engine, carbIndex));
 }
@@ -116,7 +96,9 @@ SDL_Point EngineBayScrewAnchor(int screwIndex, CarEngine_t engine, ManifoldType 
             break;
         default: {
             SDL_Point slot = CarbSlot(manifold, engine, screwIndex - 3);
-            const SDL_Point& off = kCarbScrewOffset[carb];
+            int carbType = (int)carb;
+            if (carbType < 0 || carbType > (int)CARB_4BARREL_RACING) carbType = 0;
+            const SDL_Point& off = kCarbScrewOffset[carbType];
             t = {slot.x + off.x, slot.y + off.y};
             break;
         }

@@ -156,6 +156,18 @@ SaveValue CarToToml(Car& c) {
     v["carburetor"] = PartToToml(carb,     static_cast<int>(carb.partType.carburetorType));
     v["tires"]      = PartToToml(tires,    static_cast<int>(tires.partType.tireType));
     v["engine"]     = EngineToToml(c.GetEngine());
+
+    // Which mounts actually hold a carburetor, and whether the block and
+    // manifold are in at all - a car can be left half apart in the garage.
+    // "carburetor" above stays the first fitted one so an older reader still
+    // sees something sane.
+    std::vector<int> fittedCarbs;
+    for (int i = 0; i < kMaxCarburetors; i++) {
+        if (c.HasCarburetor(i)) fittedCarbs.push_back(i);
+    }
+    v["carburetor_mounts"] = fittedCarbs;
+    v["engine_fitted"]     = c.HasEngine();
+    v["manifold_fitted"]   = c.HasManifold();
     return v;
 }
 
@@ -174,6 +186,9 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
 
     if (v.contains("gearbox"))    car->SetGearbox(TransmissionFromToml(toml::find(v, "gearbox")));
     if (v.contains("manifold"))   car->SetManifold(ManifoldFromToml(toml::find(v, "manifold")));
+    // SetCarburator fills every mount the manifold has, which is right for
+    // an assembled car and for saves written before mounts were tracked;
+    // carburetor_mounts then narrows it to the ones really fitted.
     if (v.contains("carburetor")) car->SetCarburator(CarburetorFromToml(toml::find(v, "carburetor")));
     if (v.contains("tires")) {
         const Part t = TireFromToml(toml::find(v, "tires"));
@@ -189,6 +204,16 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     if (engineClass >= 0 || manifoldClass >= 0) {
         car->SetSpecPartClasses(engineClass, manifoldClass);
     }
+
+    // Anything left apart in the garage stays apart across a save.
+    if (v.contains("carburetor_mounts")) {
+        const auto mounts = toml::find<std::vector<int>>(v, "carburetor_mounts");
+        for (int i = 0; i < kMaxCarburetors; i++) {
+            if (std::find(mounts.begin(), mounts.end(), i) == mounts.end()) car->RemoveCarburetor(i);
+        }
+    }
+    if (!toml::find_or(v, "engine_fitted", true)) car->RemoveEngine();
+    if (!toml::find_or(v, "manifold_fitted", true)) car->RemoveManifold();
     return car;
 }
 

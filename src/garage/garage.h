@@ -122,17 +122,21 @@ class Garage : public CarScene {
     // Public so garage_engine_bay_install.cpp's free functions (ScrewSlot,
     // SlotScrewCount, etc.) can name them; the members using these types
     // stay private below.
-    enum class EngineBaySlot { ENGINE = 0, MANIFOLD = 1, CARB = 2 };
+    // One slot per drawn part, matching the original's car struct: a
+    // dual-quad or triple manifold really does carry two or three separate
+    // carburetors, each fitted and pulled on its own.
+    enum class EngineBaySlot { ENGINE = 0, MANIFOLD = 1, CARB0 = 2, CARB1 = 3, CARB2 = 4 };
     enum class PartInstallPhase { MOUNTED, UNSCREWING, EMPTY, SLIDING_IN, SCREWING_IN };
    private:
-    PartInstallPhase engineBaySlotPhase[3] = {
-        PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED
+    PartInstallPhase engineBaySlotPhase[kEngineBayPartSlots] = {
+        PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED,
+        PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED
     };
     // Set when a slide-in was started for a part that doesn't fit the car's
     // current engine (e.g. a triple-2bbl manifold on a V8) - the original
     // still animates it in before rejecting it, rather than hiding it from
     // the picker. See UpdateEngineBayInstallAnimation.
-    bool engineBaySlotRejected[3] = {false, false, false};
+    bool engineBaySlotRejected[kEngineBayPartSlots]{};
     // Six screws: 1 engine, 2 manifold, up to 3 carburetor.
     int engineBayScrewState[kEngineBayScrewCount]{};
     bool engineBayScrewFalling[kEngineBayScrewCount]{};
@@ -142,9 +146,9 @@ class Garage : public CarScene {
     int engineBayScrewFallToY[kEngineBayScrewCount]{};
     float engineBayScrewFallDelay[kEngineBayScrewCount]{};
 
-    float engineBaySlideTimer[3] = {0.0f, 0.0f, 0.0f};
-    SDL_Point engineBaySlideStart[3]{};
-    SDL_Point engineBaySlideEnd[3]{};
+    float engineBaySlideTimer[kEngineBayPartSlots]{};
+    SDL_Point engineBaySlideStart[kEngineBayPartSlots]{};
+    SDL_Point engineBaySlideEnd[kEngineBayPartSlots]{};
 
     // The engine's ground wire: a second, independent precondition (besides
     // its screw) for the ENGINE slot to count as fully disassembled/
@@ -154,7 +158,7 @@ class Garage : public CarScene {
 
     EnginePart pendingEngine;
     Part pendingManifold;
-    Part pendingCarb;
+    Part pendingCarb[kMaxCarburetors];
 
     std::unique_ptr<ListDialog> engineSwapDialog;
     std::unique_ptr<ListDialog> manifoldSwapDialog;
@@ -173,18 +177,19 @@ class Garage : public CarScene {
     bool IsEngineBaySlotFullyOut(EngineBaySlot slot);
     bool IsEngineBaySlotFullySeated(EngineBaySlot slot);
     void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
+    void EmptyEngineBaySlot(EngineBaySlot slot);
+    void ApplyEngineBayAssemblyState();
     void RefreshEngineBayGeometry();
     void ApplyEngineBaySlideFrame(EngineBaySlot slot, int y, const SDL_Rect& mount);
     void StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount);
     void StartEngineSlideIn(const EnginePart& newEngine);
     void StartManifoldSlideIn(const Part& newManifold);
-    void StartCarbSlideIn(const Part& newCarb);
-    void CommitEngineSwap();
-    void CommitManifoldSwap();
-    void CommitCarbSwap();
+    void StartCarbSlideIn(int carbIndex, const Part& newCarb);
+    void CommitEngineBaySwap(EngineBaySlot slot);
+    void SyncEngineBayPhasesFromCar();
     void ShowEngineDialog();
     void ShowManifoldDialog();
-    void ShowCarburetorDialog();
+    void ShowCarburetorDialog(int carbIndex);
 
     // Read-only readout of state's spare engines/transmissions/manifolds/
     // carburetors (bought from the newspaper, not yet installed). Selling is

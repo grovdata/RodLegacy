@@ -32,6 +32,7 @@ test_sources = [
     'test_save_loader.cpp',
     'test_gas_station_pump.cpp',
     'test_engine_bay_layout.cpp',
+    'test_car_carburetors.cpp',
     '../src/engine_bay_layout.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',

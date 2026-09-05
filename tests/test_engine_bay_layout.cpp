@@ -44,12 +44,12 @@ TEST_CASE("manifold body has one position for every class") {
     CHECK(Same(ManifoldBodyRect(kManifoldWide, MANIFOLD_RACING), {80, 42, 112, 34}));
 }
 
-TEST_CASE("manifold class decides how many carbs it mounts") {
-    CHECK(CarbCount(MANIFOLD_2BARREL) == 1);
-    CHECK(CarbCount(MANIFOLD_4BARREL) == 1);
-    CHECK(CarbCount(MANIFOLD_TRIPLE_2BARREL) == 3);
-    CHECK(CarbCount(MANIFOLD_DUAL_QUAD) == 2);
-    CHECK(CarbCount(MANIFOLD_RACING) == 2);
+TEST_CASE("manifold class decides how many carburetors it mounts") {
+    CHECK(CarburetorsPerManifold(MANIFOLD_2BARREL) == 1);
+    CHECK(CarburetorsPerManifold(MANIFOLD_4BARREL) == 1);
+    CHECK(CarburetorsPerManifold(MANIFOLD_TRIPLE_2BARREL) == 3);
+    CHECK(CarburetorsPerManifold(MANIFOLD_DUAL_QUAD) == 2);
+    CHECK(CarburetorsPerManifold(MANIFOLD_RACING) == 2);
 }
 
 TEST_CASE("carb position is decided by the manifold under it") {

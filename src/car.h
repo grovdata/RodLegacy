@@ -55,8 +55,17 @@ class Car {
         Part gearbox;
         Part tires;
         EnginePart engine;
-        Part carburator;
         Part manifold;
+        // The original carries three separate carburetor pointers on the car
+        // struct (+0x0A slots 2-4) and the manifold class decides how many
+        // are used - a dual quad runs two, a triple 2-barrel three. Each is
+        // fitted and removed on its own, so each needs its own "is it there".
+        Part carburetors[kMaxCarburetors];
+        bool carbFitted[kMaxCarburetors] = {false, false, false};
+        // A part pulled in the engine bay really leaves the car, so the car
+        // stops running until it is replaced - see IsRunning().
+        bool engineFitted = true;
+        bool manifoldFitted = true;
 
         // Gallons x10 (matches the save format's own units - see
         // save_loader.h's fuelTenths). 160 = 16gal, a fresh car's full tank.
@@ -97,8 +106,29 @@ class Car {
         EnginePart GetEngine() const {
             return engine;
         }
-        Part GetCarburator() const { return carburator; }
         Part GetManifold() const { return manifold; }
+
+        // A car loaded from its SR_data spec never had a concrete part
+        // fitted for engine/manifold, so those resolve from the spec class
+        // instead of reading a default-constructed Part's garbage.
+        CarEngine_t GetEngineType() const;
+        ManifoldType GetManifoldType() const;
+
+        // How many carburetors this car's manifold mounts, and which of
+        // those mounts currently hold one.
+        int GetCarburetorSlots() const { return CarburetorsPerManifold(GetManifoldType()); }
+        bool HasCarburetor(int slot) const { return slot >= 0 && slot < kMaxCarburetors && carbFitted[slot]; }
+        Part GetCarburetor(int slot) const { return HasCarburetor(slot) ? carburetors[slot] : Part{}; }
+        // The first fitted carb - every mount on a car carries the same type,
+        // so this is the car's carburetor for scoring and display.
+        Part GetCarburator() const;
+        int FittedCarburetorCount() const;
+
+        bool HasEngine() const { return engineFitted; }
+        bool HasManifold() const { return manifoldFitted; }
+        // The original refuses to move a car whose engine is apart:
+        // "Your car's not running, speedy!"
+        bool IsRunning() const;
         int GetFuelTenths() const { return fuelTenths; }
         void SetFuelTenths(int tenths) { fuelTenths = tenths; }
         int GetTuneLevel() const { return tuneLevel; }
@@ -119,7 +149,8 @@ class Car {
         void SetSpecPartClasses(int engineCls, int manifoldCls) {
             specEngineClass = engineCls;
             specManifoldClass = manifoldCls;
-            RecalculatePerformance();
+            // The spec's manifold class is what decides the carb mounts.
+            RefitCarburetorMounts();
         }
 
         // Modification methods with validation
@@ -134,10 +165,24 @@ class Car {
         void SetTires(CarWheelType type) { SetTires(type, 0, 0); }
         void SetTires(CarWheelType type, int wear, int cost);
         // Fitting a part supersedes whatever the car's spec said about it.
-        void SetEngine(EnginePart engine) { this->engine = engine; specEngineClass = -1; RecalculatePerformance(); }
+        void SetEngine(EnginePart engine) { this->engine = engine; engineFitted = true; specEngineClass = -1; RecalculatePerformance(); }
         void SetEngine(Part engine) { SetEngine(EnginePart::FromPart(engine)); }
-        void SetCarburator(Part carburator) { this->carburator = carburator; RecalculatePerformance(); }
-        void SetManifold(Part manifold) { this->manifold = manifold; specManifoldClass = -1; RecalculatePerformance(); }
+        void SetManifold(Part manifold) {
+            this->manifold = manifold; manifoldFitted = true; specManifoldClass = -1;
+            RefitCarburetorMounts();
+        }
+        // Fits the same carburetor in every mount the manifold has - how a
+        // spec-built car and a save's slot-3 entry both arrive.
+        void SetCarburator(Part carburator);
+        void SetCarburetor(int slot, Part carburator);
+
+        // Pulling a part in the engine bay: the car loses it for real, and
+        // IsRunning() goes false until something is put back. The part's own
+        // data is left alone so the bay can still lay out the mounts around
+        // the hole while the rest comes off.
+        void RemoveEngine() { engineFitted = false; RecalculatePerformance(); }
+        void RemoveManifold() { manifoldFitted = false; RecalculatePerformance(); }
+        void RemoveCarburetor(int slot);
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         const std::string& GetCustomDecalPath() const { return customDecalPath; }
         void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }
@@ -146,6 +191,9 @@ class Car {
         void SetTuneLevel(const int level) { this->tuneLevel = level; RecalculatePerformance(); }
 
     private:
+        // Fills exactly the mounts this manifold has with the fitted
+        // carburetor, and clears the rest.
+        void RefitCarburetorMounts();
         // Re-derives topSpeed from the installed parts (ComputeTopSpeed).
         void RecalculatePerformance();
 };

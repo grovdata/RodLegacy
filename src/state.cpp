@@ -357,25 +357,18 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 car->SetManifold(part);
                 break;
             }
-            case 3: { // Carb - decode owned by CarBuilder::CarburetorTypeFromSaveVariant
+            case 3:    // Carb, and slots 4/5 its second and third - a
+            case 4:    // dual-quad or triple-2bbl manifold really does carry
+            case 5: {  // that many separate carburetors.
                 CarburetorType type;
                 if (!CarBuilder::CarburetorTypeFromSaveVariant(p.variant, type)) type = CARB_4BARREL;
                 Part part = CarBuilder::CreateCarburetorPart(type, model.vendor);
                 // wearRaw is the fixed sentinel 0xFF80 here, not a real wear
                 // value - carbs don't track wear (save_game.md:100).
                 part.cost = p.value;
-                car->SetCarburator(part);
+                car->SetCarburetor(slot - 3, part);
                 break;
             }
-            case 4: // Second carb
-            case 5:
-                // Dual-quad/triple-2bbl manifolds pair with 2 or 3 carbs -
-                // confirmed present in real saves (a triple-2bbl test save
-                // has all 3 slots holding an identical carb entry), but Car
-                // only models a single carburetor slot, so these are
-                // dropped rather than silently overwriting slot 3's.
-                LOG_INFO("LoadSaveGame: car sub-list slot %d has data but no known category, skipping", slot);
-                break;
             case 6: { // Tires - decode owned by CarBuilder::TireTypeFromSaveVariant
                 CarWheelType type;
                 if (!CarBuilder::TireTypeFromSaveVariant(p.variant, type)) type = STOCK;

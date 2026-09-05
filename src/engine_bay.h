@@ -24,12 +24,7 @@ AmigaLibAsset EngineBodyAsset(CarEngine_t type);
 AmigaLibAsset ManifoldBodyAsset(ManifoldType type);
 AmigaLibAsset CarbBodyAsset(CarburetorType type);
 
-// A spec-based car (never had this part explicitly fitted) has no concrete
-// Part/EnginePart for engine/manifold - resolve from the spec class instead
-// of reading garbage. See engine_bay.cpp for why carb doesn't need this.
 class Car;
-ManifoldType ResolveManifoldType(const Car& car);
-CarEngine_t ResolveEngineType(const Car& car);
 
 class EngineBay {
 private:
@@ -74,22 +69,20 @@ public:
     void RefreshPartsForCurrentCar();
 
     // Live geometry for the current car, from engine_bay_layout.h.
-    // partSlot 0=engine, 1=manifold, 2=carb. The carb slot draws one bitmap
-    // per carburetor its manifold takes, hence the index.
-    int GetPartCount(int partSlot);
-    std::string GetPartBitmapId(int partSlot, int index);
-    SDL_Rect GetPartRect(int partSlot, int index);
-    // Points the slot's bitmaps at `asset` and shows exactly as many as the
-    // current manifold mounts.
+    // partSlot 0=engine, 1=manifold, 2..4=carburetor 0..2 - one drawn part
+    // each, as on the original's car struct. Slots past the manifold's
+    // carburetor count exist but are never shown.
+    static std::string GetPartBitmapId(int partSlot);
+    SDL_Rect GetPartRect(int partSlot);
+    bool IsPartFitted(int partSlot);
+    bool IsPartSlotUsed(int partSlot);
     void SetPartAsset(int partSlot, AmigaLibAsset asset);
-    // Hides every bitmap the slot owns; showing reveals only the mounts in
-    // use, so a spare carb mount can never linger on top of a real one.
     void SetPartVisible(int partSlot, bool visible);
     // Mount point of a screw: 0=engine, 1=manifold-left, 2=manifold-right,
-    // 3..5=carb 0..2.
+    // 3..5=carburetor 0..2.
     SDL_Point GetScrewAnchor(int screwIndex);
-    int GetScrewCount(int partSlot);
-    int GetFirstScrew(int partSlot);
+    static int GetScrewCount(int partSlot);
+    static int GetFirstScrew(int partSlot);
     void SetKnobPosition(int level);
     void InitPartsDialog();
     SDL_Point GetScrewNaturalSize(int screwIndex) const { return screwNaturalSize[screwIndex]; }

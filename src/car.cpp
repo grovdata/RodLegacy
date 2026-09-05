@@ -25,6 +25,111 @@ Car::~Car() {
 
 }
 
+// ============================================================================
+// Fitted parts
+// ============================================================================
+
+// Unlike manifold, the raw SR_data engine class (0..3) has no confirmed
+// mapping to a specific CarEngine_t - it's a scoring tier, not a documented
+// body-shape selector (docs/formats/sr_data.md just calls it "engine class
+// 0..3"), and CarSetupFromCar's own derivation collapses V8/V8_BIG to the
+// same scoring class in the other direction, so it can't be inverted either.
+// This is a guess (weakest->V6, strongest->V8_BIG): flag if a spec-based
+// car's engine body looks wrong.
+CarEngine_t Car::GetEngineType() const {
+    if (specEngineClass >= 0) {
+        switch (specEngineClass) {
+            case 0: return CarEngineGM_V6;
+            case 1:
+            case 2: return CarEngineGM_V8_282;
+            default: return CarEngineGM_V8_327;
+        }
+    }
+    return engine.engineType;
+}
+
+// A car loaded from its SR_data spec (i.e. never had this part explicitly
+// fitted - see specManifoldClass above) never gets a concrete manifold Part;
+// the default-constructed one's fields are garbage for this purpose (Part's
+// union field reads back as whichever enum bit-pattern TRANS_4SPD_UNIVERSAL
+// happens to be), so resolve from the spec class instead.
+ManifoldType Car::GetManifoldType() const {
+    switch (specManifoldClass) {
+        case 0: return MANIFOLD_2BARREL;
+        case 1: return MANIFOLD_4BARREL;
+        case 2: return MANIFOLD_DUAL_QUAD;
+        case 3: return MANIFOLD_TRIPLE_2BARREL;
+        case 4: return MANIFOLD_RACING;
+        default: break;
+    }
+    return manifold.partType.manifoldType;
+}
+
+// The first fitted carburetor, or - while the car is apart - the last one
+// that was in mount 0. A default-constructed Part is no good here: its union
+// reads back as whatever bit pattern another enum happens to have, and
+// callers index tables with the carburetor type.
+Part Car::GetCarburator() const {
+    for (int i = 0; i < kMaxCarburetors; i++) {
+        if (carbFitted[i]) return carburetors[i];
+    }
+    return carburetors[0];
+}
+
+int Car::FittedCarburetorCount() const {
+    int n = 0;
+    for (int i = 0; i < kMaxCarburetors; i++) {
+        if (carbFitted[i]) n++;
+    }
+    return n;
+}
+
+void Car::SetCarburator(Part carburator) {
+    for (int i = 0; i < kMaxCarburetors; i++) carburetors[i] = carburator;
+    RefitCarburetorMounts();
+}
+
+// Every mount on an assembled car carries the same carburetor - confirmed by
+// a real save, where a triple-2bbl car holds the identical entry in all three
+// slots. Re-run whenever the manifold changes, since it decides how many
+// mounts there are, and because the car builders fit the carb before they
+// know the manifold. The garage clears the mounts again straight after
+// installing a bare manifold, so they get filled one at a time there.
+void Car::RefitCarburetorMounts() {
+    int slots = GetCarburetorSlots();
+    Part fitted = GetCarburator();
+    for (int i = 0; i < kMaxCarburetors; i++) {
+        if (i < slots && !carbFitted[i]) carburetors[i] = fitted;
+        carbFitted[i] = i < slots;
+    }
+    RecalculatePerformance();
+}
+
+void Car::SetCarburetor(int slot, Part carburator) {
+    if (slot < 0 || slot >= kMaxCarburetors) return;
+    carburetors[slot] = carburator;
+    carbFitted[slot] = true;
+    RecalculatePerformance();
+}
+
+void Car::RemoveCarburetor(int slot) {
+    if (slot < 0 || slot >= kMaxCarburetors) return;
+    carbFitted[slot] = false;
+    RecalculatePerformance();
+}
+
+// The original won't move a car whose engine is apart. Every mount the
+// manifold has must be filled, so a triple-2bbl with one carb still off is
+// just as dead as one with no block in it.
+bool Car::IsRunning() const {
+    if (!engineFitted || !manifoldFitted) return false;
+    int slots = GetCarburetorSlots();
+    for (int i = 0; i < slots; i++) {
+        if (!carbFitted[i]) return false;
+    }
+    return true;
+}
+
 CarModel Car::GetModel() {
     return model;
 }

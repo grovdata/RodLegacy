@@ -36,6 +36,17 @@ enum CarburetorType {
     CARB_4BARREL_RACING
 };
 
+// The Amiga part table's manifold class (flag bits 3-5 of the 14-byte part
+// record at A4-0x48ea). Deliberately not ManifoldType's order: the original
+// has triple 2-barrel at class 2 and dual quad at class 3.
+int ManifoldClass(ManifoldType type);
+
+// How many carburetors a manifold mounts (A4-0x3b9c: 1, 1, 3, 2, 2). Each is
+// a part in its own right - the car struct carries three separate carburetor
+// pointers, see RodLegacyResearch/docs/garage/engine_bay_layout.md.
+int CarburetorsPerManifold(ManifoldType type);
+constexpr int kMaxCarburetors = 3;
+
 enum CarWheelType { STOCK, BRAND, RACING };
 
 enum CarModificationType {

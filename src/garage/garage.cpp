@@ -104,6 +104,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     GetZone("goto_diner").onClick = [this] {
         if (!CanInteract()) return;
         if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
+        // A car with its engine apart doesn't go anywhere.
+        if (!state.GetCurrentCar()->IsRunning()) { bubbles[13]->SetVisible(true); return; }
         state.MoveToScene(SCENE_DINER);
     };
     GetZone("rear_bumper").onClick = [this] {
@@ -171,6 +173,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto partIncompatibleBubble = std::make_unique<Bubble>("  Pay attention, dummy! That won\'t fit!", BUBBLE_LEFT, 93, 30, true);
     partIncompatibleBubble->SetVisible(false);
     bubbles.push_back(std::move(partIncompatibleBubble));
+    // bubbles[13] - shown when the player tries to leave with the engine apart.
+    auto notRunningBubble = std::make_unique<Bubble>("  Your car\'s not running, speedy`!", BUBBLE_LEFT, 93, 30, true);
+    notRunningBubble->SetVisible(false);
+    bubbles.push_back(std::move(notRunningBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -643,7 +649,7 @@ void Garage::OnFadeComplete() {
     DropUnownedCarBitmaps();
     // The overview may still be showing the parts of whatever car it last
     // synced to, which a purchase or a save load can have replaced.
-    if (engineBay) engineBay->RefreshPartsForCurrentCar();
+    RefreshEngineBayGeometry();
     CarScene::OnFadeComplete();
 }
 
@@ -656,9 +662,11 @@ void Garage::SetActiveDialog(Dialog *dialog) {
     // Call the base class implementation
     CarScene::SetActiveDialog(dialog);
 
-    // If this is the engine bay dialog, restore the correct visibility
+    // Show() just turned every bitmap in the dialog on - put back the
+    // mounts this manifold doesn't use, then whatever is still apart.
     if (dialog == engineBay->GetDialog()) {
         engineBay->OnDialogShown();
+        ApplyEngineBayAssemblyState();
     }
 }
 
@@ -695,7 +703,7 @@ void Garage::OnCarAnimationComplete() {
         // The new car's engine bay art was frozen at whatever car was
         // current when EngineBay was built - resync now that a different
         // car is actually being driven in.
-        if (engineBay) engineBay->RefreshPartsForCurrentCar();
+        RefreshEngineBayGeometry();
 
         // Mark that we need a new animation (important for parent's StartAnimateCar logic)
         needsNewAnimation = true;

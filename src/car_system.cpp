@@ -1,6 +1,22 @@
 #include "car_system.h"
 #include <algorithm>
 
+int ManifoldClass(ManifoldType type) {
+    switch (type) {
+        case MANIFOLD_2BARREL: return 0;
+        case MANIFOLD_4BARREL: return 1;
+        case MANIFOLD_DUAL_QUAD: return 3;
+        case MANIFOLD_TRIPLE_2BARREL: return 2;
+        case MANIFOLD_RACING: return 4;
+    }
+    return 0;
+}
+
+int CarburetorsPerManifold(ManifoldType type) {
+    static const int kPerClass[5] = {1, 1, 3, 2, 2};
+    return kPerClass[ManifoldClass(type)];
+}
+
 // Parts compatibility manager implementation
 bool PartsCompatibilityManager::IsTransmissionCompatible(TransmissionType transmission, CarEngine_t engine) {
     auto compatible = GetCompatibleTransmissions(engine);

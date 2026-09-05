@@ -130,7 +130,7 @@ void SaveLoadScene::RebuildList() {
     if (mode == Mode::Save) {
         Entry e;
         e.kind = Entry::Kind::NewSave;
-        e.label = "[ new save ]";
+        e.label = state.GetPlayerName();
         entries.push_back(e);
         return;
     }
@@ -180,18 +180,13 @@ void SaveLoadScene::BuildDialog() {
     DialogConfig cfg;
     cfg.font = assets.GetMainFont();
     cfg.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT};
-    // No contentAreas: the CHP artwork is the dialog's background, so nothing
-    // paints a panel over it. The title text below is what makes Dialog::Draw
-    // render its mainBitmap at all, which is also what the list rows go into.
+
     cfg.texts = {
         DialogTextConfig{SDL_Rect{kListRect.x, kListRect.y - 11, kListRect.w, 10},
                          saving ? "Save which slot?" : "Load which game?",
                          kTextColor, true}
     };
     cfg.buttons = {
-        // defaultChoice stays false on both: ListDialog already maps Enter to
-        // the selected row, and Dialog::HandleEvent would otherwise fire the
-        // default button off the same keypress.
         {kActionRect,   actionText,  nullptr, false, 0, ButtonDefaultTextColor,
          ButtonDefaultFillColor, ButtonDefaultBorderColor, true, {}, cfg.font},
         {kForgetItRect, "Forget it", nullptr, false, 1, ButtonDefaultTextColor,
@@ -199,9 +194,6 @@ void SaveLoadScene::BuildDialog() {
     };
     cfg.zones = {actionZone, forgetZone};
 
-    // The button faces. Drawn at each sprite's natural size so they are never
-    // stretched; if the background art already carries them this just paints
-    // the same pixels back over themselves.
     auto placeSprite = [](Bitmap* sprite, const SDL_Rect& at) {
         DialogBitmap db;
         db.bitmap = sprite;

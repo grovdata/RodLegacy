@@ -445,9 +445,14 @@ void Garage::ShowCarInfoDialog() {
         const Part manifold = car->GetManifold();
         std::string maniText = std::string("  ") + manifoldName(manifold.partType.manifoldType, vendorStr);
         addIndented(maniText.c_str());
-        // Carb line
+        // Carb line - a dual-quad or triple manifold carries more than one,
+        // and the original's classifieds name them as a set ("2-4brl carbs").
         const Part carb = car->GetCarburator();
-        std::string carbText = std::string("  ") + carbName(carb.partType.carburetorType);
+        int carbCount = car->FittedCarburetorCount();
+        std::string carbText = std::string("  ");
+        if (carbCount > 1) carbText += std::to_string(carbCount) + "-";
+        carbText += carbName(carb.partType.carburetorType);
+        if (carbCount > 1) carbText += "s";
         addIndented(carbText.c_str());
         // Transmission line
         const Part trans = car->GetGearbox();
@@ -1284,7 +1289,7 @@ void Garage::ShowManifoldDialog() {
                 Part newManifold = spareManifolds[selectedIndex];
                 const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::MANIFOLD] = car &&
-                    !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, ResolveEngineType(*car));
+                    !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, car->GetEngineType());
                 manifoldSwapDialog->Hide();
                 StartManifoldSlideIn(newManifold);
                 SetActiveDialog(engineBay->GetDialog());
@@ -1309,7 +1314,7 @@ void Garage::ShowManifoldDialog() {
     SetActiveDialog((Dialog*)manifoldSwapDialog.get());
 }
 
-void Garage::ShowCarburetorDialog() {
+void Garage::ShowCarburetorDialog(int carbIndex) {
     const auto& spareCarburetors = state.GetSpareCarburetors();
     if (spareCarburetors.empty()) { bubbles[11]->SetVisible(true); return; }
 
@@ -1366,7 +1371,7 @@ void Garage::ShowCarburetorDialog() {
     dialogConfig.onZoneHover = [this](Zone& zone) {
         this->hud->SetText(zone.GetText().c_str());
     };
-    dialogConfig.onButtonPressed = [this](int buttonIndex) {
+    dialogConfig.onButtonPressed = [this, carbIndex](int buttonIndex) {
         switch (buttonIndex) {
             case 0: { // Change
                 int selectedIndex = carbSwapDialog->GetSelectedIndex();
@@ -1375,10 +1380,10 @@ void Garage::ShowCarburetorDialog() {
                 if (selectedIndex >= (int)spareCarburetors.size()) break;
                 Part newCarb = spareCarburetors[selectedIndex];
                 const CarPtr& car = state.GetCurrentCarPtr();
-                engineBaySlotRejected[(int)EngineBaySlot::CARB] = car &&
-                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, ResolveManifoldType(*car));
+                engineBaySlotRejected[(int)EngineBaySlot::CARB0 + carbIndex] = car &&
+                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, car->GetManifoldType());
                 carbSwapDialog->Hide();
-                StartCarbSlideIn(newCarb);
+                StartCarbSlideIn(carbIndex, newCarb);
                 SetActiveDialog(engineBay->GetDialog());
                 break;
             }
