@@ -257,8 +257,8 @@ void Garage::UpdateScrewFallAnimations(double deltaTime) {
 void Garage::CommitTransmissionSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
-    Part oldGearbox = car->GetGearbox();
-    state.AddSpareTransmission(oldGearbox);
+    // Nothing to hand back if the car dropped its transmission in a race.
+    if (car->HasGearbox()) state.AddSpareTransmission(car->GetGearbox());
     state.RemoveSpareTransmission(pendingGearbox.partType.transmissionType);
     car->SetGearbox(pendingGearbox);
 }
@@ -337,26 +337,32 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
     }
 }
 
+// Also the "changed my mind" path: backing out of a swap puts the car's own
+// gearbox back. A car that dropped its transmission in a race has none to
+// put back, so it comes up empty and has to be given a new one.
 void Garage::ResetTransmissionInstallToMounted() {
     Car* car = state.GetCurrentCar();
     if (!car || !transmissionInstallDialog) return;
 
+    const bool fitted = car->HasGearbox();
     DialogBitmap* db = transmissionInstallDialog->GetBitmap("transmission");
     if (db) {
         *db = BuildTransmissionBitmapEntry(car->GetGearbox().partType.transmissionType);
-        db->bitmap->SetVisible(true);
+        db->bitmap->SetVisible(fitted);
     }
-    transScrewState[0] = 0;
-    transScrewState[1] = 0;
+    transScrewState[0] = fitted ? 0 : 2;
+    transScrewState[1] = fitted ? 0 : 2;
     transScrewFalling[0] = false;
     transScrewFalling[1] = false;
     transScrewFallDelay[0] = 0.0f;
     transScrewFallDelay[1] = 0.0f;
-    transInstallPhase = TransInstallPhase::MOUNTED;
-    if (transScrewBitmap[0]) transScrewBitmap[0]->SetVisible(true);
-    if (transScrewBitmap[1]) transScrewBitmap[1]->SetVisible(true);
-    UpdateTransScrewVisual(0);
-    UpdateTransScrewVisual(1);
+    transInstallPhase = fitted ? TransInstallPhase::MOUNTED : TransInstallPhase::EMPTY;
+    if (transScrewBitmap[0]) transScrewBitmap[0]->SetVisible(fitted);
+    if (transScrewBitmap[1]) transScrewBitmap[1]->SetVisible(fitted);
+    if (fitted) {
+        UpdateTransScrewVisual(0);
+        UpdateTransScrewVisual(1);
+    }
 }
 
 void Garage::ShowTransmissionInstallDialog() {

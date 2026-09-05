@@ -167,6 +167,7 @@ SaveValue CarToToml(Car& c) {
     }
     v["carburetor_mounts"] = fittedCarbs;
     v["engine_fitted"]     = c.HasEngine();
+    v["gearbox_fitted"]    = c.HasGearbox();
     v["manifold_fitted"]   = c.HasManifold();
     return v;
 }
@@ -214,6 +215,7 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     }
     if (!toml::find_or(v, "engine_fitted", true)) car->RemoveEngine();
     if (!toml::find_or(v, "manifold_fitted", true)) car->RemoveManifold();
+    if (!toml::find_or(v, "gearbox_fitted", true)) car->RemoveGearbox();
     return car;
 }
 

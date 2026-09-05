@@ -63,9 +63,12 @@ class Car {
         Part carburetors[kMaxCarburetors];
         bool carbFitted[kMaxCarburetors] = {false, false, false};
         // A part pulled in the engine bay really leaves the car, so the car
-        // stops running until it is replaced - see IsRunning().
+        // stops running until it is replaced - see IsRunning(). The gearbox
+        // only goes missing by dropping it in a race; the transmission
+        // window puts its own back if you change your mind.
         bool engineFitted = true;
         bool manifoldFitted = true;
+        bool gearboxFitted = true;
 
         // Gallons x10 (matches the save format's own units - see
         // save_loader.h's fuelTenths). 160 = 16gal, a fresh car's full tank.
@@ -125,6 +128,7 @@ class Car {
         int FittedCarburetorCount() const;
 
         bool HasEngine() const { return engineFitted; }
+        bool HasGearbox() const { return gearboxFitted; }
         bool HasManifold() const { return manifoldFitted; }
         // The original refuses to move a car whose engine is apart:
         // "Your car's not running, speedy!"
@@ -161,7 +165,7 @@ class Car {
         // Scoop is automatic with V8 engines
         bool HasScoop() const { return engine.HasScoop(); }
 
-        void SetGearbox(Part gearbox) { this->gearbox = gearbox; RecalculatePerformance(); }
+        void SetGearbox(Part gearbox) { this->gearbox = gearbox; gearboxFitted = true; RecalculatePerformance(); }
         void SetTires(CarWheelType type) { SetTires(type, 0, 0); }
         void SetTires(CarWheelType type, int wear, int cost);
         // Fitting a part supersedes whatever the car's spec said about it.
@@ -183,6 +187,11 @@ class Car {
         void RemoveEngine() { engineFitted = false; RecalculatePerformance(); }
         void RemoveManifold() { manifoldFitted = false; RecalculatePerformance(); }
         void RemoveCarburetor(int slot);
+        // A blown engine takes the whole assembly with it - block, manifold
+        // and every carburetor. Nothing is salvaged; see racing.cpp.
+        void StripEngineAssembly();
+        // Dropped in a race - same deal, the gearbox is simply gone.
+        void RemoveGearbox() { gearboxFitted = false; RecalculatePerformance(); }
         void SetDecal(SrLibCarDecal decal) { this->decal = decal; }
         const std::string& GetCustomDecalPath() const { return customDecalPath; }
         void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }

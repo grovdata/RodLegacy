@@ -118,11 +118,18 @@ void Car::RemoveCarburetor(int slot) {
     RecalculatePerformance();
 }
 
+void Car::StripEngineAssembly() {
+    engineFitted = false;
+    manifoldFitted = false;
+    for (int i = 0; i < kMaxCarburetors; i++) carbFitted[i] = false;
+    RecalculatePerformance();
+}
+
 // The original won't move a car whose engine is apart. Every mount the
 // manifold has must be filled, so a triple-2bbl with one carb still off is
 // just as dead as one with no block in it.
 bool Car::IsRunning() const {
-    if (!engineFitted || !manifoldFitted) return false;
+    if (!engineFitted || !manifoldFitted || !gearboxFitted) return false;
     int slots = GetCarburetorSlots();
     for (int i = 0; i < slots; i++) {
         if (!carbFitted[i]) return false;

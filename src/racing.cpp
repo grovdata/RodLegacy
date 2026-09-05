@@ -2021,6 +2021,22 @@ void Racing::HandleOutcomeAfterTicks() {
             if (sim.PlayerWrecked()) {
                 bShowCrashOverlay = true;
             }
+            // A blown engine takes the whole assembly with it. The original's
+            // StripAllDrivetrain nulls all five part pointers on the car
+            // struct (engine, manifold, carb 0-2), takes their value back off
+            // the car and zeroes the six engine bay screws - see
+            // ProcessRaceOutcome's `bVar5` branch and
+            // RodLegacyResearch/docs/garage/engine_bay_layout.md. Nothing is
+            // salvaged, so the car has to be rebuilt from bought parts.
+            // A dropped transmission is the same routine one branch over
+            // (StripTransmission), clearing the single pointer at car+0x06.
+            if (Car* car = state.GetCurrentCar()) {
+                if (sim.Player().endFlags & srrace::END_ENGINE_BLOWN) {
+                    car->StripEngineAssembly();
+                } else if (sim.Player().endFlags & srrace::END_TRANS_DROPPED) {
+                    car->RemoveGearbox();
+                }
+            }
         }
         raceOutcome = RaceOutcome::PlayerLost;
         return;
