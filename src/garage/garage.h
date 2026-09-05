@@ -67,6 +67,9 @@ class Garage : public CarScene {
         SCREWING_IN,
     };
     TransInstallPhase transInstallPhase = TransInstallPhase::MOUNTED;
+    // Picked a transmission of the wrong make: it still animates in before
+    // bouncing back out, same as the engine bay slots.
+    bool transRejected = false;
     float transInstallTimer = 0.0f;
     int transScrewState[2] = {0, 0};  // 0 = seated .. 2 = fully backed out
     Part pendingGearbox;

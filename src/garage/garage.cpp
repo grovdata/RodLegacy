@@ -123,8 +123,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     GetZone("transmission").onClick = [this] {
         if (!CanInteract()) return;
         if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
-        if (state.GetSpareTransmissions().empty()) bubbles[1]->SetVisible(true);
-        else ShowTransmissionInstallDialog();
+        // The window opens whether or not you own a spare - you may just want
+        // to unscrew what's in there, and a car that dropped its transmission
+        // in a race has to be able to get in to fit a new one. "No spares" is
+        // SELECT's problem, same as the engine bay's pickers.
+        ShowTransmissionInstallDialog();
     };
     GetZone("engine").onClick = [this] {
         if (!CanInteract()) return;

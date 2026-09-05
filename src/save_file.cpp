@@ -183,7 +183,7 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     car->SetRoofChopped(toml::find_or(v, "roof_chopped", false));
     car->SetBumpersStripped(toml::find_or(v, "bumpers_stripped", false));
     car->SetFuelTenths(toml::find_or(v, "fuel_tenths", 160));
-    car->SetTuneLevel(toml::find_or(v, "tune_level", 9));
+    car->SetTuneLevel(toml::find_or(v, "tune_level", kPerfectTuneLevel));
 
     if (v.contains("gearbox"))    car->SetGearbox(TransmissionFromToml(toml::find(v, "gearbox")));
     if (v.contains("manifold"))   car->SetManifold(ManifoldFromToml(toml::find(v, "manifold")));

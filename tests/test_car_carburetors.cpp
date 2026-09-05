@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "car_system.h"
+#include <cstdlib>
 
 // The original carries three separate carburetor pointers on its car struct
 // and the manifold class decides how many are used - see
@@ -36,6 +37,39 @@ TEST_CASE("every manifold fits within the three mounts a car has") {
         CHECK(CarburetorsPerManifold(m) >= 1);
         CHECK(CarburetorsPerManifold(m) <= kMaxCarburetors);
     }
+}
+
+}  // TEST_SUITE
+
+// The tuning knob drifted apart once already: the save loader mapped it onto
+// base 9, the indicator art rests at base 8, and the top of the save's range
+// fell off the end. These pin the one mapping everything now shares.
+TEST_SUITE("Tuning knob") {
+
+TEST_CASE("the original's whole knob range fits, nothing clamped off") {
+    // car+0x2b is signed -8..+4, 0 = perfectly tuned (save_game.md).
+    for (int knob = -8; knob <= 4; knob++) {
+        int level = kPerfectTuneLevel + knob;
+        CHECK(level >= 0);
+        CHECK(level <= kTuneLevelCount - 1);
+    }
+    // And it fills the range exactly - 13 knob values, 13 positions.
+    CHECK(kPerfectTuneLevel + -8 == 0);
+    CHECK(kPerfectTuneLevel + 4 == kTuneLevelCount - 1);
+}
+
+TEST_CASE("perfect is a round trip and scores no penalty") {
+    CHECK(kPerfectTuneLevel - kPerfectTuneLevel == 0);
+    // CarSetupFromCar's tuneOffset is |level - perfect|, capped at 8, which
+    // is exactly |knob| over the original's range.
+    CHECK(std::abs(0 - kPerfectTuneLevel) == 8);              // knob -8
+    CHECK(std::abs((kTuneLevelCount - 1) - kPerfectTuneLevel) == 4);  // knob +4
+}
+
+TEST_CASE("the indicator's resting slot is the perfect position") {
+    // engine_bay.cpp draws the knob at 108 + level*2; the tune_knob entry's
+    // own rect in the window art is x 124.
+    CHECK(108 + kPerfectTuneLevel * 2 == 124);
 }
 
 }  // TEST_SUITE

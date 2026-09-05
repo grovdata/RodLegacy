@@ -47,6 +47,16 @@ int ManifoldClass(ManifoldType type);
 int CarburetorsPerManifold(ManifoldType type);
 constexpr int kMaxCarburetors = 3;
 
+// The ignition timing knob has 13 positions. The original stores it signed at
+// car+0x2b, -8..+4 with 0 perfectly tuned (save_game.md), and re-rolls it as
+// `rand(13) - 8` after every engine bay part change. RodLegacy stores the
+// same knob unsigned, so perfect sits at 8 with 8 steps of retard below it
+// and 4 of advance above - which is also where the tuning window's indicator
+// art rests, its own rect being x 124, the position-8 slot in
+// `108 + level * 2`.
+constexpr int kTuneLevelCount = 13;
+constexpr int kPerfectTuneLevel = 8;
+
 enum CarWheelType { STOCK, BRAND, RACING };
 
 enum CarModificationType {

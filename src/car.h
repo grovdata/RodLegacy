@@ -50,7 +50,7 @@ class Car {
         // colour set until its caller supplies one, and an unset colour used
         // to reach GetStandardCarColor as a garbage value.
         StandardCarColor color = CarColorRed;
-        int tuneLevel = 9;
+        int tuneLevel = kPerfectTuneLevel;
 
         Part gearbox;
         Part tires;

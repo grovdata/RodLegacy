@@ -40,11 +40,11 @@ static void SetSlotVisible(EngineBay* bay, EngineBaySlot slot, bool visible) {
 // does `car+0x2b = rand(13) - 8` after every install and every removal
 // (Street_Rod.asm:46017 and :46250, both `MOVEQ #13,D0` into the RNG), so
 // the knob lands anywhere across its 13 positions and only 1 in 13 comes out
-// perfectly tuned. RodLegacy's tuneLevel is the same 13 positions with 9 as
-// perfect - see docs/garage/engine_bay_layout.md.
+// perfectly tuned. RodLegacy stores the same knob unsigned - see car.h's
+// kPerfectTuneLevel and docs/garage/engine_bay_layout.md.
 static void ShakeTuning(Car* car, EngineBay* bay) {
     if (!car) return;
-    std::uniform_int_distribution<int> knob(0, 12);
+    std::uniform_int_distribution<int> knob(0, kTuneLevelCount - 1);
     int level = knob(RandomEngine());
     car->SetTuneLevel(level);
     // The tuning window's indicator and its animation speeds run off

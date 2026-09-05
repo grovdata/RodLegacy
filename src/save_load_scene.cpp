@@ -20,7 +20,7 @@ constexpr SDL_Rect kActionRect    = {240, 100, 56, 39};  // Load or Save
 constexpr SDL_Rect kForgetItRect  = {240, 140, 56, 39};
 
 constexpr SDL_Color kTextColor         = {0x00, 0x00, 0x00, 0xFF};
-constexpr SDL_Color kSelectionBoxColor = {0x00, 0x6F, 0xEF, 0xFF};
+constexpr SDL_Color kSelectionBoxColor = {0x00, 0xAF, 0xEF, 0xFF};
 
 // Trims the space padding the .sav header stores names with (save_game.md).
 std::string TrimTrailingSpaces(std::string s) {

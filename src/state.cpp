@@ -315,10 +315,10 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
     car->SetBumpersStripped(CarBodyBumpersStripped(rec.bodyByte));
     car->SetDecal(CarBodyDecal(rec.bodyByte));
     // Confirmed save byte is signed -8..+4, 0=perfectly tuned. RodLegacy's
-    // own tuneLevel is used elsewhere as abs(tuneLevel-9) clamped 0..8
-    // (racing.cpp), i.e. 9 is its own "perfectly tuned" center -- this
-    // mapping stays compatible with that formula on both sides of the range.
-    car->SetTuneLevel(9 + rec.tuningKnob);
+    // own tuneLevel is the same knob stored unsigned, perfect at
+    // kPerfectTuneLevel - so the save byte maps onto it directly and the
+    // full -8..+4 range lands inside 0..12 with nothing clamped off.
+    car->SetTuneLevel(kPerfectTuneLevel + rec.tuningKnob);
     car->SetFuelTenths(rec.fuelTenths);
 
     // Sub-list slot -> category, confirmed in save_game.md.

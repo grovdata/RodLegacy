@@ -1014,7 +1014,9 @@ static std::string WearNote(int wear) {
 
 void Garage::ShowTransmissionDialog() {
     const auto& spareTransmissions = state.GetSpareTransmissions();
-    if (spareTransmissions.empty()) return;
+    // Say so rather than swallowing the click - the engine bay's pickers do
+    // the same with their own bubbles.
+    if (spareTransmissions.empty()) { bubbles[1]->SetVisible(true); return; }
 
     std::vector<std::string> labels;
     for (const Part& p : spareTransmissions) {
@@ -1097,6 +1099,15 @@ void Garage::ShowTransmissionDialog() {
                 const auto& spareTransmissions = state.GetSpareTransmissions();
                 if (selectedIndex >= (int)spareTransmissions.size()) break;
                 Part newTransmission = spareTransmissions[selectedIndex];
+                // The original's only fitment test for a transmission is
+                // make: `carSpec.brand & part.brand & 0xF000` in
+                // FUN_00241304, with no class matrix the way the manifold
+                // and carb have. A mismatch still slides in and bounces
+                // back out - see UpdateTransmissionInstallAnimation.
+                const CarPtr& car = state.GetCurrentCarPtr();
+                transRejected = car &&
+                    !PartsCompatibilityManager::IsVendorCompatible(newTransmission.vendor,
+                                                                   car->GetModelRef().vendor);
                 transmissionDialog->Hide();
                 // Actual swap (SetGearbox + spare-list bookkeeping) happens once
                 // the slide-in/screw-down animation completes - see

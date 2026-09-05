@@ -266,8 +266,9 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     }
 
     setup.weightClass = std::clamp(car.GetWeightClass(), 0, 8);
-    // Tune level runs 0..12 with 9 perfect, against the original's -8..+4 knob.
-    setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - 9), 0, 8);
+    // |distance from perfect|, which over the original's -8..+4 knob is just
+    // |knob| - see car_system.h's kPerfectTuneLevel.
+    setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - kPerfectTuneLevel), 0, 8);
     setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 10000);
     setup.engineWear = std::clamp(car.GetEngine().wear, 0, 10000);
     setup.transWear = std::clamp(car.GetGearbox().wear, 0, 10000);

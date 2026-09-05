@@ -197,11 +197,10 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
     }
 
     // Tuning level is divided into 13 steps
-    std::uniform_int_distribution<> tuningDist(0, 12);
+    std::uniform_int_distribution<> tuningDist(0, kTuneLevelCount - 1);
     std::uniform_int_distribution<> optimalTuningDist(0, 3);
     if (optimalTuningDist(gen) == 0) {
-        // 9 is the optimal tuning
-        car->SetTuneLevel(9);
+        car->SetTuneLevel(kPerfectTuneLevel);
     } else {
         car->SetTuneLevel(tuningDist(gen));
     }
