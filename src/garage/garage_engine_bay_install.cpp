@@ -36,6 +36,22 @@ static void SetSlotVisible(EngineBay* bay, EngineBaySlot slot, bool visible) {
     if (bay) bay->SetPartVisible((int)slot, visible);
 }
 
+// Touching anything in the engine bay knocks the timing out. The original
+// does `car+0x2b = rand(13) - 8` after every install and every removal
+// (Street_Rod.asm:46017 and :46250, both `MOVEQ #13,D0` into the RNG), so
+// the knob lands anywhere across its 13 positions and only 1 in 13 comes out
+// perfectly tuned. RodLegacy's tuneLevel is the same 13 positions with 9 as
+// perfect - see docs/garage/engine_bay_layout.md.
+static void ShakeTuning(Car* car, EngineBay* bay) {
+    if (!car) return;
+    std::uniform_int_distribution<int> knob(0, 12);
+    int level = knob(RandomEngine());
+    car->SetTuneLevel(level);
+    // The tuning window's indicator and its animation speeds run off
+    // EngineBay's own copy of the level, so it has to be told too.
+    if (bay) bay->SetKnobPosition(level);
+}
+
 // Screw mount point: x is the sprite's left edge, y its bottom edge.
 static SDL_Point ScrewPos(EngineBay* bay, int screwIndex) {
     return bay ? bay->GetScrewAnchor(screwIndex) : SDL_Point{0, 0};
@@ -191,6 +207,8 @@ void Garage::ReleaseEngineBayPartToSpares(EngineBaySlot slot) {
 void Garage::EmptyEngineBaySlot(EngineBaySlot slot) {
     int idx = (int)slot;
     if (engineBaySlotPhase[idx] == PartInstallPhase::EMPTY) return;
+
+    ShakeTuning(state.GetCurrentCar(), engineBay.get());
 
     // Top of the stack downwards: every carburetor bolts to the manifold and
     // the manifold to the block, so they come off before whatever holds
@@ -459,6 +477,7 @@ void Garage::CommitEngineBaySwap(EngineBaySlot slot) {
         state.RemoveSpareCarburetor(pendingCarb[idx].partType.carburetorType);
         car->SetCarburetor(idx, pendingCarb[idx]);
     }
+    ShakeTuning(car, engineBay.get());
     RefreshEngineBayGeometry();
 }
 

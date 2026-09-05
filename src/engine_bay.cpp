@@ -587,6 +587,10 @@ void EngineBay::RefreshPartsForCurrentCar() {
     Car* car = state->GetCurrentCar();
     if (!car || !engineDialog) return;
 
+    // The tuning window keeps its own copy of the level - a different car
+    // (or a rebuild that knocked the timing out) has to move the indicator.
+    SetKnobPosition(car->GetTuneLevel());
+
     CarEngine_t engineType = car->GetEngineType();
     int carbSlots = car->GetCarburetorSlots();
     for (int slot = 0; slot < kEngineBayPartSlots; slot++) {
@@ -660,12 +664,13 @@ void EngineBay::SetKnobPosition(int level) {
         }
     }
 
+    // Move the dialog entry's own draw rect, not the Bitmap's position:
+    // Dialog::Draw re-applies db.rect to the bitmap every frame for entries
+    // without a sourceRect, so setting the bitmap directly never showed.
     DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
     if (knobBitmap) {
-        int baseX = 108;  // Starting X position
-        int baseY = 22;   // Y position (unchanged)
-        int newX = baseX + (level * 2);
-        knobBitmap->bitmap->SetPosition(newX, baseY);
+        // Position 8 is where the indicator's own static rect sits (124).
+        knobBitmap->rect.x = 108 + level * 2;
     }
 }
 

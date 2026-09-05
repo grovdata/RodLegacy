@@ -379,6 +379,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             switch (buttonIndex) {
                 case 0: // Tune
                     if (engineBay->GetCurrentState() == ENGINE_BAY_OVERVIEW) {
+                        // Nothing to tune while the engine is in pieces.
+                        Car* car = state.GetCurrentCar();
+                        if (!car || !car->IsRunning()) {
+                            bubbles[13]->SetVisible(true);
+                            break;
+                        }
                         engineBay->SwitchToState(ENGINE_BAY_TUNING);
                         SetActiveDialog(engineBay->GetDialog());
                     } else {
