@@ -111,7 +111,10 @@ void Dialog::Draw() {
     for (const auto& bitmap : bitmaps) {
         sortedBitmaps.push_back(bitmap.second);
     }
-    sort(sortedBitmaps.begin(), sortedBitmaps.end(),
+    // Stable: entries sharing a zOrder keep the map's own (name) order rather
+    // than an arbitrary one, so two overlapping bitmaps on the same layer
+    // don't swap which is on top from one build or frame to the next.
+    std::stable_sort(sortedBitmaps.begin(), sortedBitmaps.end(),
         [](const auto& a, const auto& b) { return a.zOrder < b.zOrder; });
     
     // Update animations

@@ -742,14 +742,27 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
     }
 }
 
-bool BitmapParser::IsTransparent(SrLibFile location, int index) {
+// Whether an asset keeps colour 0 (black) as a real, drawn colour instead of
+// keying it out. Most lib.p art is a sprite on black and wants the key; these
+// are the ones whose black is part of the picture.
+bool BitmapParser::LoadsOpaque(SrLibFile location, int index) {
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset asset = static_cast<AmigaLibAsset>(index);
             switch (asset) {
-                // Masks should be transparent (color 0 = transparent)
+                // Masks: colour 0 is the mask itself.
                 case GUS_GAS_MASK:
                 case DINER_SCREEN_MASK:
+                // The engine tuning screen's moving parts are drawn on their
+                // own black background, which has to cover the frame
+                // underneath - keyed out, each frame shows the last one
+                // through its gaps.
+                case ENGINE_BELT_ANIMATION:
+                case ENGINE_PISTON_LEFT_ANIMATION:
+                case ENGINE_PISTON_RIGHT_ANIMATION:
+                case ENGINE_CRANK_ANIMATION:
+                case ENGINE_FLYWHEEL_ANIMATION:
+                case ENGINE_CAM_ANIMATION:
                     return true;
                 default:
                     return false;

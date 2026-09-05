@@ -371,14 +371,14 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
 
     bool isMask = a.type == LibAssetMask;
-    bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
+    const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index);
     // Bumper overlays use normal transparency (black = transparent, colors = opaque)
     // They don't need special handling
 
     if (a.type == LibAssetSpritesheet) {
         std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
         std::unique_ptr<AnimatedBitmap> spriteSheet = std::make_unique<AnimatedBitmap>();
-        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
+        spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
         spriteSheet->SetDimensions(b.width, b.height);
         if (info.first > 0 && info.second > 0) {
             spriteSheet->SetGrid(info.first, info.second);
@@ -386,7 +386,7 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
         imageAssets.push_back(std::make_pair(a, std::move(spriteSheet)));
     } else {
         std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
-        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
+        bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
         bitmap->SetDimensions(b.width, b.height);
         imageAssets.push_back(std::make_pair(a, std::move(bitmap)));
     }
@@ -453,10 +453,10 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
 
     bool isMask = a.type == LibAssetMask;
-    bool isTransparent = bp.IsTransparent(SrLibFileAmigaLibP, index);
+    const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index);
 
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
-    bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, isTransparent);
+    bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
     bitmap->SetDimensions(b.width, b.height);
 
     // Store in palette variant cache (not in imageAssets to prevent unbounded growth)

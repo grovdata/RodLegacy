@@ -1039,35 +1039,48 @@ static const SpriteRect RACING_LIGHT_FRAMES[] = {
     {24, 0, 24, 32}, {0, 0, 24, 32}
 };
 
-// Engine animation frame definitions
-// Belt animation: 2x2 grid of 86x53 frames
+// Engine animation frame definitions.
+//
+// Frames are packed at exactly their own size, with no gutter - the sheets
+// are wider than frames*width and the slack sits unused at the right edge.
+// Straight from the original: FUN_002416bc picks a frame with
+//
+//     srcX = (counter & 3) * w        srcY = row ? h : 0
+//
+// off the blit record's own width/height fields, so the stride IS the frame
+// size. Do not "correct" these to the sheet divided by its grid - that pulls
+// in a strip of the neighbouring frame. Sizes below match the original's
+// records at A4-0x3b40 / A4-0x3b1c exactly; see
+// RodLegacyResearch/docs/garage/engine_bay_layout.md.
+
+// Belt: 176x106 sheet, 2x2 of 86x53
 static const SpriteRect ENGINE_BELT_FRAMES[] = {
     {0, 0, 86, 53}, {86, 0, 86, 53}, {0, 53, 86, 53}, {86, 53, 86, 53}
 };
 
-// Left piston animation: 4x2 grid of 42x55 frames
+// Left piston: 168x110 sheet, 4x2 of 42x55
 static const SpriteRect ENGINE_PISTON_LEFT_FRAMES[] = {
     {0, 0, 42, 55}, {42, 0, 42, 55}, {84, 0, 42, 55}, {126, 0, 42, 55},
     {0, 55, 42, 55}, {42, 55, 42, 55}, {84, 55, 42, 55}, {126, 55, 42, 55}
 };
 
-// Right piston animation: 4x2 grid of 41x54 frames
+// Right piston: 168x108 sheet, 4x2 of 41x54
 static const SpriteRect ENGINE_PISTON_RIGHT_FRAMES[] = {
     {0, 0, 41, 54}, {41, 0, 41, 54}, {82, 0, 41, 54}, {123, 0, 41, 54},
     {0, 54, 41, 54}, {41, 54, 41, 54}, {82, 54, 41, 54}, {123, 54, 41, 54}
 };
 
-// Crank animation: 2x2 grid of 71x33 frames
+// Crank: 144x66 sheet, 2x2 of 71x33
 static const SpriteRect ENGINE_CRANK_FRAMES[] = {
     {0, 0, 71, 33}, {71, 0, 71, 33}, {0, 33, 71, 33}, {71, 33, 71, 33}
 };
 
-// Flywheel animation: 2x2 grid of 43x34 frames
+// Flywheel: 88x68 sheet, 2x2 of 43x34
 static const SpriteRect ENGINE_FLYWHEEL_FRAMES[] = {
     {0, 0, 43, 34}, {43, 0, 43, 34}, {0, 34, 43, 34}, {43, 34, 43, 34}
 };
 
-// Camshaft animation: 4x2 grid of 39x14 frames
+// Camshaft: 160x28 sheet, 4x2 of 39x14
 static const SpriteRect ENGINE_CAM_FRAMES[] = {
     {0, 0, 39, 14}, {39, 0, 39, 14}, {78, 0, 39, 14}, {117, 0, 39, 14},
     {0, 14, 39, 14}, {39, 14, 39, 14}, {78, 14, 39, 14}, {117, 14, 39, 14}
@@ -1586,7 +1599,8 @@ class BitmapParser {
     std::vector<uint16_t>                                GetPalette(SrLibFile location, int index);
     static std::vector<uint16_t>                         GetStockPalette(StockPalette palette);
     LibAssetType                                    GetAssetType(SrLibFile location, int index);
-    bool                                            IsTransparent(SrLibFile location, int index);
+    // True when colour 0 (black) is drawn rather than keyed out - see .cpp.
+    bool                                            LoadsOpaque(SrLibFile location, int index);
 
     std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);

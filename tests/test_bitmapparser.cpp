@@ -305,26 +305,38 @@ TEST_CASE("non-libp files default to regular") {
 } // TEST_SUITE
 
 // ---------------------------------------------------------------------------
-// IsTransparent
+// LoadsOpaque
 // ---------------------------------------------------------------------------
 
-TEST_SUITE("BitmapParser::IsTransparent") {
+TEST_SUITE("BitmapParser::LoadsOpaque") {
 
-TEST_CASE("mask assets are transparent") {
+TEST_CASE("mask assets keep their black") {
     BitmapParser p;
-    CHECK(p.IsTransparent(SrLibFileAmigaLibP, GUS_GAS_MASK)    == true);
-    CHECK(p.IsTransparent(SrLibFileAmigaLibP, DINER_SCREEN_MASK) == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, GUS_GAS_MASK)      == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, DINER_SCREEN_MASK) == true);
 }
 
-TEST_CASE("non-mask assets are not transparent") {
+// Each frame has to paint over the one before it, so its black background is
+// part of the picture rather than a colour key.
+TEST_CASE("engine tuning animations keep their black") {
     BitmapParser p;
-    CHECK(p.IsTransparent(SrLibFileAmigaLibP, GARAGE_SCREEN) == false);
-    CHECK(p.IsTransparent(SrLibFileAmigaLibP, GUS_GAS_SCREEN) == false);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION)         == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION)  == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_PISTON_RIGHT_ANIMATION) == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_CRANK_ANIMATION)        == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_FLYWHEEL_ANIMATION)     == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_CAM_ANIMATION)          == true);
 }
 
-TEST_CASE("non-libp files are not transparent") {
+TEST_CASE("ordinary art keys its black out") {
     BitmapParser p;
-    CHECK(p.IsTransparent(SrLibFileAmigaLibStart, 0) == false);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, GARAGE_SCREEN) == false);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, GUS_GAS_SCREEN) == false);
+}
+
+TEST_CASE("non-libp files key their black out") {
+    BitmapParser p;
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibStart, 0) == false);
 }
 
 } // TEST_SUITE

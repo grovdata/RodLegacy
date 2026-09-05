@@ -227,8 +227,13 @@ void Garage::EmptyEngineBaySlot(EngineBaySlot slot) {
     int first = SlotFirstScrew(slot);
     for (int i = first; i < first + SlotScrewCount(slot); i++) {
         engineBayScrewState[i] = 2;
-        engineBayScrewFalling[i] = false;
         engineBayScrewFallDelay[i] = 0.0f;
+        // A screw already dropping out is left to finish - it hides itself
+        // on landing. Cancelling it here is what made a one-screw slot's
+        // screw vanish on the click that freed the part instead of falling,
+        // since that click both starts the drop and empties the slot.
+        if (engineBayScrewFalling[i] && engineBayScrewFallingOut[i]) continue;
+        engineBayScrewFalling[i] = false;
         if (engineBay->GetScrewBitmap(i)) engineBay->GetScrewBitmap(i)->SetVisible(false);
     }
 }

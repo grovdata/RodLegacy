@@ -234,6 +234,38 @@ TEST_CASE("GetAnimationFrameRect returns correct frame") {
     CHECK(r.h == 53);
 }
 
+// The original picks a frame with srcX = (counter & 3) * w, srcY = row ? h : 0
+// (FUN_002416bc), off the blit record's own width and height - so frames are
+// packed at exactly their own size and any slack sits at the sheet's right
+// edge. Spacing them by the sheet divided by its grid instead drags in a
+// strip of the next frame.
+TEST_CASE("engine animation frames are packed at their own size") {
+    struct Case { uint16_t id; int sheetW, sheetH, cols, rows; };
+    const Case cases[] = {
+        {ENGINE_BELT_ANIMATION,          176, 106, 2, 2},
+        {ENGINE_PISTON_LEFT_ANIMATION,   168, 110, 4, 2},
+        {ENGINE_PISTON_RIGHT_ANIMATION,  168, 108, 4, 2},
+        {ENGINE_CRANK_ANIMATION,         144,  66, 2, 2},
+        {ENGINE_FLYWHEEL_ANIMATION,       88,  68, 2, 2},
+        {ENGINE_CAM_ANIMATION,           160,  28, 4, 2},
+    };
+    for (const Case& c : cases) {
+        const SpriteAnimationInfo* info = GetSpriteAnimationInfo(c.id);
+        REQUIRE(info != nullptr);
+        CHECK(info->frameCount == c.cols * c.rows);
+        const SpriteRect first = GetAnimationFrameRect(info, 0);
+        for (int i = 0; i < info->frameCount; i++) {
+            SpriteRect r = GetAnimationFrameRect(info, i);
+            CHECK(r.w == first.w);
+            CHECK(r.h == first.h);
+            CHECK(r.x == (i % c.cols) * first.w);
+            CHECK(r.y == (i / c.cols) * first.h);
+            CHECK(r.x + r.w <= c.sheetW);
+            CHECK(r.y + r.h <= c.sheetH);
+        }
+    }
+}
+
 TEST_CASE("GetAnimationFrameRect out-of-range returns zero rect") {
     const SpriteAnimationInfo* info = GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION);
     REQUIRE(info != nullptr);

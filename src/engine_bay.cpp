@@ -80,12 +80,17 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect retardRect = {98, 9, 10, 11};
     SDL_Rect advanceRect = {143, 9, 10, 11};
     SDL_Rect tuningGadgetRect = {98, 9, 56, 11};
-    SDL_Rect beltAnimationRect = {65, 37, 85, 53};
-    SDL_Rect leftPistonRect = {52, 68, 42, 55};
-    SDL_Rect rightPistonRect = {135, 68, 41, 54};
-    SDL_Rect crankRect = {80, 122, 71, 33};
-    SDL_Rect flywheelRect = {150,122,43,34};
-    SDL_Rect camRect = {96,110,38,14};
+    // Position and size of every moving part, straight out of the original's
+    // own blit records (A4-0x3b40 and A4-0x3b1c, read by FUN_002416bc) - see
+    // RodLegacyResearch/docs/garage/engine_bay_layout.md. These had been
+    // within a pixel or two by eye, which is enough for the parts not to
+    // line up with each other.
+    SDL_Rect beltAnimationRect = {65, 37, 86, 53};
+    SDL_Rect leftPistonRect = {53, 68, 42, 55};
+    SDL_Rect rightPistonRect = {134, 68, 41, 54};
+    SDL_Rect crankRect = {79, 122, 71, 33};
+    SDL_Rect flywheelRect = {148, 122, 43, 34};
+    SDL_Rect camRect = {95, 109, 39, 14};
     SDL_Rect tuneKnobRect = {124, 22, 16, 10};
 
 
@@ -372,12 +377,14 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     };
     tuningConfig.bitmaps["tuning_gadget"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNE_GADGET}),
-        tuningGadgetRect
+        tuningGadgetRect, 3
     };
 
+    // The still engine behind the moving parts: above the window frame,
+    // below everything that animates.
     tuningConfig.bitmaps["engine_backdrop"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNING_SCREEN}),
-        engineBackdropRect
+        engineBackdropRect, 2
     };
 
     // Create animated engine tune bitmap - using animation data from libp.h
@@ -388,7 +395,8 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     tuningConfig.bitmaps["engine_tune_animation"] = {
         engineTuneAnimation,
-        beltAnimationRect
+        beltAnimationRect,
+        5
     };
 
     Bitmap* leftPiston = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_PISTON_LEFT_ANIMATION});
