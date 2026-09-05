@@ -16,16 +16,9 @@
 namespace {
 
 constexpr SDL_Rect kListRect      = {79, 37, 160, 142};
-constexpr SDL_Rect kActionRect    = {200, 100, 56, 39};  // Load or Save
+constexpr SDL_Rect kActionRect    = {240, 100, 56, 39};  // Load or Save
 constexpr SDL_Rect kForgetItRect  = {240, 140, 56, 39};
 
-constexpr SDL_Rect kActionHitRect   = {kActionRect.x, kActionRect.y,
-                                       kForgetItRect.x - kActionRect.x, kActionRect.h};
-constexpr SDL_Rect kForgetItHitRect = kForgetItRect;
-
-// Black on the light roster board, with the current pick boxed rather than
-// recoloured - a colour mod covers the whole list texture, so one row cannot
-// be tinted differently from the others.
 constexpr SDL_Color kTextColor         = {0x00, 0x00, 0x00, 0xFF};
 constexpr SDL_Color kSelectionBoxColor = {0x00, 0x6F, 0xEF, 0xFF};
 
@@ -35,8 +28,6 @@ std::string TrimTrailingSpaces(std::string s) {
     return s;
 }
 
-// "StreetRodC.sav (STEVE)", falling back to the bare filename when the save
-// cannot be parsed or carries no name.
 std::string LegacyLabel(const std::string& filename, const std::string& rawSaveName) {
     const std::string trimmed = TrimTrailingSpaces(rawSaveName);
     if (trimmed.empty()) return filename;
@@ -183,8 +174,8 @@ void SaveLoadScene::BuildDialog() {
     std::vector<std::string> labels;
     for (const Entry& e : entries) labels.push_back(e.label);
 
-    Zone actionZone("save_load_action", actionText, kActionHitRect);
-    Zone forgetZone("save_load_forget", "Forget it", kForgetItHitRect);
+    Zone actionZone("save_load_action", actionText, kActionRect);
+    Zone forgetZone("save_load_forget", "Forget it", kForgetItRect);
 
     DialogConfig cfg;
     cfg.font = assets.GetMainFont();
@@ -201,9 +192,9 @@ void SaveLoadScene::BuildDialog() {
         // defaultChoice stays false on both: ListDialog already maps Enter to
         // the selected row, and Dialog::HandleEvent would otherwise fire the
         // default button off the same keypress.
-        {kActionHitRect,   actionText,  nullptr, false, 0, ButtonDefaultTextColor,
+        {kActionRect,   actionText,  nullptr, false, 0, ButtonDefaultTextColor,
          ButtonDefaultFillColor, ButtonDefaultBorderColor, true, {}, cfg.font},
-        {kForgetItHitRect, "Forget it", nullptr, false, 1, ButtonDefaultTextColor,
+        {kForgetItRect, "Forget it", nullptr, false, 1, ButtonDefaultTextColor,
          ButtonDefaultFillColor, ButtonDefaultBorderColor, true, {}, cfg.font},
     };
     cfg.zones = {actionZone, forgetZone};
