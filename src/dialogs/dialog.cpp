@@ -140,8 +140,11 @@ void Dialog::Draw() {
         button->Draw();
     }
 
-    // Only draw mainBitmap when dialog has content (text/areas/lines); bitmap-only dialogs skip it
-    bool hasContent = !contentAreas.empty() || !config.texts.empty() || !config.lines.empty();
+    // Only draw mainBitmap when dialog has content (text/areas/lines); bitmap-only dialogs skip it.
+    // mainBitmapHasContent covers subclasses that write to it themselves
+    // (ListDialog draws its rows there), whose config carries none of the above.
+    bool hasContent = mainBitmapHasContent || !contentAreas.empty() ||
+                      !config.texts.empty() || !config.lines.empty();
     if (hasContent) {
         mainBitmap->Draw();
     }

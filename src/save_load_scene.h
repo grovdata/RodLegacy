@@ -53,10 +53,23 @@ private:
     std::vector<Entry> disk2Samples;
     std::unique_ptr<ListDialog> listDialog;
 
+    // Save mode: the name typed into the "new save" row. Starts as the
+    // player's own name so hitting Save straight away does the obvious
+    // thing, and is what the finished save is named after.
+    std::string newSaveName;
+    static constexpr size_t kMaxSaveNameLength = 20;
+    static constexpr Uint64 kCursorBlinkMs = 400;
+
     void ScanDisk2Samples();
     void RebuildList();
     void BuildDialog();
+    // Re-labels the new-save row in place (with its caret) without tearing
+    // the dialog down, so typing doesn't lose the list's scroll or selection.
+    void RefreshNewSaveRow();
+    // Blinking block cursor after the typed name on the new-save row.
+    void DrawNameCursor();
     void Commit();       // load or save the selected row
+    void SaveAsNew();    // write a new save under the typed name
     void Leave();        // "Forget it"
     void GoTo(SrLibGameScene scene);
     bool LoadEntry(const Entry& e);

@@ -60,6 +60,10 @@ public:
 
     void OnItemSelected(int index);
     int GetSelectedIndex() const { return selectedIndex; }
+    /** Highlights a row without acting on it, scrolling it into view. */
+    void SetSelectedIndex(int index);
+    /** On-screen rect of a row, or a zero rect if it is scrolled out of view. */
+    SDL_Rect GetRowRect(int index) const;
     int GetIndexAtPosition(int x, int y) const;
     void SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches = {});
 }; 

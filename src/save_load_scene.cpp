@@ -61,10 +61,20 @@ void SaveLoadScene::Configure(Mode newMode, SrLibGameScene newReturnTo) {
     const Uint64 t0 = SDL_GetTicks64();
     mode = newMode;
     returnTo = newReturnTo;
+    newSaveName = state.GetPlayerName();
+    if (newSaveName.size() > kMaxSaveNameLength) newSaveName.resize(kMaxSaveNameLength);
+    // Saving is the only mode with something to type into.
+    if (mode == Mode::Save) SDL_StartTextInput();
+    else                    SDL_StopTextInput();
     RebuildList();
     const Uint64 t1 = SDL_GetTicks64();
     BuildDialog();
     const Uint64 t2 = SDL_GetTicks64();
+    // Open on the new-save row so the row being typed into is the one
+    // highlighted, and scrolled to if the save list is long enough to hide it.
+    if (mode == Mode::Save && listDialog && !entries.empty()) {
+        listDialog->SetSelectedIndex(static_cast<int>(entries.size()) - 1);
+    }
     SetActiveDialog(listDialog.get());
     LOG_INFO("SaveLoadScene::Configure: RebuildList %llums, BuildDialog %llums, total %llums",
              (unsigned long long)(t1 - t0), (unsigned long long)(t2 - t1),
@@ -130,7 +140,7 @@ void SaveLoadScene::RebuildList() {
     if (mode == Mode::Save) {
         Entry e;
         e.kind = Entry::Kind::NewSave;
-        e.label = state.GetPlayerName();
+        e.label = newSaveName;  // the block cursor is drawn on top, see DrawScene
         entries.push_back(e);
         return;
     }
@@ -181,11 +191,7 @@ void SaveLoadScene::BuildDialog() {
     cfg.font = assets.GetMainFont();
     cfg.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT};
 
-    cfg.texts = {
-        DialogTextConfig{SDL_Rect{kListRect.x, kListRect.y - 11, kListRect.w, 10},
-                         saving ? "Save which slot?" : "Load which game?",
-                         kTextColor, true}
-    };
+    cfg.texts = {};
     cfg.buttons = {
         {kActionRect,   actionText,  nullptr, false, 0, ButtonDefaultTextColor,
          ButtonDefaultFillColor, ButtonDefaultBorderColor, true, {}, cfg.font},
@@ -226,6 +232,21 @@ void SaveLoadScene::BuildDialog() {
     listDialog = std::make_unique<ListDialog>(cfg, listCfg);
 }
 
+void SaveLoadScene::RefreshNewSaveRow() {
+    if (mode != Mode::Save || !listDialog || entries.empty()) return;
+    Entry& e = entries.back();
+    if (e.kind != Entry::Kind::NewSave) return;
+    e.label = newSaveName;
+
+    std::vector<std::string> labels;
+    labels.reserve(entries.size());
+    for (const Entry& row : entries) labels.push_back(row.label);
+    // SetLabels drops the selection; typing shouldn't move the highlight off
+    // the row being typed into.
+    listDialog->SetLabels(labels);
+    listDialog->SetSelectedIndex(static_cast<int>(entries.size()) - 1);
+}
+
 bool SaveLoadScene::LoadEntry(const Entry& e) {
     switch (e.kind) {
         case Entry::Kind::Modern:
@@ -264,6 +285,35 @@ bool SaveLoadScene::LoadEntry(const Entry& e) {
     return false;
 }
 
+// Writes a fresh save under the typed name. The name is the player's from
+// here on, since the list shows each save by the player name inside it - a
+// save called one thing and reading back as another would be a lie.
+void SaveLoadScene::SaveAsNew() {
+    std::string name = newSaveName;
+    while (!name.empty() && name.back() == ' ') name.pop_back();
+    if (name.empty()) {
+        if (hud) hud->SetText("Type a name first");
+        SetActiveDialog(listDialog.get());
+        return;
+    }
+    state.SetPlayerName(name);
+
+    const fs::path dir = AssetManager::GetSavesDir();
+    const std::string stem = SanitiseForFilename(name);
+    fs::path target = dir / (stem + ".toml");
+    for (int n = 2; fs::exists(target) && n < 100; ++n) {
+        target = dir / (stem + "-" + std::to_string(n) + ".toml");
+    }
+
+    if (!state.SaveGameToml(target)) {
+        LOG_INFO("SaveLoadScene: save '%s' FAILED", target.string().c_str());
+        Configure(mode, returnTo);
+        if (hud) hud->SetText("Save failed");
+        return;
+    }
+    GoTo(returnTo);
+}
+
 void SaveLoadScene::Commit() {
     const int index = listDialog ? listDialog->GetSelectedIndex() : -1;
     if (index < 0 || index >= static_cast<int>(entries.size())) {
@@ -275,18 +325,14 @@ void SaveLoadScene::Commit() {
     }
     const Entry e = entries[index];
 
+    if (mode == Mode::Save && e.kind == Entry::Kind::NewSave) {
+        SaveAsNew();
+        return;
+    }
+
     bool ok;
     if (mode == Mode::Save) {
-        fs::path target = e.path;
-        if (e.kind == Entry::Kind::NewSave) {
-            const fs::path dir = AssetManager::GetSavesDir();
-            const std::string stem = SanitiseForFilename(state.GetPlayerName());
-            target = dir / (stem + ".toml");
-            for (int n = 2; fs::exists(target) && n < 100; ++n) {
-                target = dir / (stem + "-" + std::to_string(n) + ".toml");
-            }
-        }
-        ok = state.SaveGameToml(target);
+        ok = state.SaveGameToml(e.path);
     } else {
         ok = LoadEntry(e);
     }
@@ -312,6 +358,7 @@ void SaveLoadScene::Leave() {
 }
 
 void SaveLoadScene::GoTo(SrLibGameScene scene) {
+    SDL_StopTextInput();
     SetActiveDialog(nullptr);
     if (listDialog) listDialog->Hide();
     state.MoveToScene(scene);
@@ -322,6 +369,34 @@ void SaveLoadScene::DrawScene() {
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
     }
+    DrawNameCursor();
+}
+
+// A blinking block sitting after the typed name, on the new-save row only.
+// Drawn straight to the renderer after the dialog so the list's own colour
+// mod doesn't tint it, same reasoning as ListDialog's selection box.
+void SaveLoadScene::DrawNameCursor() {
+    if (mode != Mode::Save || !listDialog || !listDialog->IsVisible() || entries.empty()) return;
+    if (entries.back().kind != Entry::Kind::NewSave) return;
+    if ((SDL_GetTicks64() / kCursorBlinkMs) % 2 != 0) return;
+
+    const SDL_Rect row = listDialog->GetRowRect(static_cast<int>(entries.size()) - 1);
+    if (row.w <= 0 || row.h <= 0) return;  // scrolled out of view
+
+    SFont_Font* font = state.GetAssets().GetMainFont();
+    if (!font) return;
+    const int textW = newSaveName.empty()
+                          ? 0
+                          : SFont_TextWidth(font, newSaveName.c_str());
+    const int blockW = SFont_TextWidth(font, "M");
+    SDL_Rect block = {row.x + textW, row.y, blockW > 0 ? blockW : 6, row.h - 1};
+    if (block.x + block.w > row.x + row.w) return;  // name filled the row
+
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(renderer, kSelectionBoxColor.r, kSelectionBoxColor.g, kSelectionBoxColor.b, kSelectionBoxColor.a);
+    SDL_RenderFillRect(renderer, &block);
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
 }
 
 bool SaveLoadScene::PushEvent(SDL_Event* event) {
@@ -332,6 +407,34 @@ bool SaveLoadScene::PushEvent(SDL_Event* event) {
         Leave();
         return true;
     }
+
+    // Typing edits the new-save row. There is only ever one typeable row, so
+    // keystrokes go to it without having to select it first.
+    if (mode == Mode::Save) {
+        if (event->type == SDL_TEXTINPUT) {
+            for (const char* p = event->text.text; *p; ++p) {
+                if (newSaveName.size() >= kMaxSaveNameLength) break;
+                if (*p >= 32 && *p < 127) newSaveName.push_back(*p);
+            }
+            RefreshNewSaveRow();
+            return true;
+        }
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_BACKSPACE) {
+            if (!newSaveName.empty()) {
+                newSaveName.pop_back();
+                RefreshNewSaveRow();
+            }
+            return true;
+        }
+        // Enter saves under the typed name rather than whatever row the mouse
+        // last touched - you have just been typing it.
+        if (event->type == SDL_KEYDOWN &&
+            (event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER)) {
+            SaveAsNew();
+            return true;
+        }
+    }
+
     return Scene::PushEvent(event);
 }
 

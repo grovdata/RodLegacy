@@ -8,6 +8,9 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     : Dialog(config),         
       listConfig(listConfig)
 {
+    // The rows are written into mainBitmap, so it has to be blitted even for
+    // a list whose config carries no text, content areas or lines of its own.
+    mainBitmapHasContent = true;
     rowHeight = SFont_TextHeight(config.font);
     // How many rows actually fit, rather than a fixed 10 - a taller list box
     // used to draw 10 rows and leave the rest of itself blank, and a shorter
@@ -157,6 +160,33 @@ void ListDialog::SetLabels(const std::vector<std::string>& labels, const std::ve
     listConfig.swatches = swatches;
     selectedIndex = -1;
     scrollOffset = 0;
+}
+
+void ListDialog::SetSelectedIndex(int index) {
+    const int count = static_cast<int>(listConfig.labels.size());
+    if (index < 0 || index >= count) {
+        selectedIndex = -1;
+        return;
+    }
+    selectedIndex = index;
+    // Only the visible window is drawn, so a row picked past its end has to
+    // be scrolled to or the highlight lands on nothing.
+    if (index < scrollOffset) {
+        scrollOffset = index;
+    } else if (index >= scrollOffset + visibleItems) {
+        scrollOffset = index - visibleItems + 1;
+    }
+    if (scrollOffset < 0) scrollOffset = 0;
+}
+
+SDL_Rect ListDialog::GetRowRect(int index) const {
+    if (index < scrollOffset || index >= scrollOffset + visibleItems ||
+        index >= static_cast<int>(listConfig.labels.size())) {
+        return {0, 0, 0, 0};
+    }
+    return {listConfig.listBoxRect.x,
+            listConfig.listBoxRect.y + (index - scrollOffset) * rowHeight,
+            listConfig.listBoxRect.w, rowHeight};
 }
 
 void ListDialog::OnItemSelected(int index) {

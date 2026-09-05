@@ -75,6 +75,10 @@ protected:
     std::vector<Rectangle*> contentAreas;
     DialogConfig config;
     bool isVisible = false;
+    // Set by a subclass that writes its own content into mainBitmap, so
+    // Draw() blits it even when the config has no text, areas or lines of
+    // its own - see ListDialog, whose rows live there.
+    bool mainBitmapHasContent = false;
 
 public:
     Dialog(const DialogConfig& cfg);
