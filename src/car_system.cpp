@@ -1,6 +1,17 @@
 #include "car_system.h"
 #include <algorithm>
 
+// The original gates every engine bay part on make before anything else:
+// `carSpec.brand & part.brand & 0xF000` (Street_Rod.c's engine bay loop,
+// all three slot groups). The brand is a 1/2/4 bitmask, one bit per car -
+// it matches the real manufacturer of all 26 specs, so this is a plain
+// equality. A car with no known make takes anything.
+bool PartsCompatibilityManager::IsVendorCompatible(CarVendor_t part, CarVendor_t car) {
+    if (car == CarVendorCustom || car == CarVendorUnknown) return true;
+    if (part == CarVendorCustom || part == CarVendorUnknown) return true;
+    return part == car;
+}
+
 int ManifoldClass(ManifoldType type) {
     switch (type) {
         case MANIFOLD_2BARREL: return 0;
@@ -57,15 +68,23 @@ std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissi
     }
 }
 
+// Straight off the original's fitment table at A4-0x4672, a 3x5 byte matrix
+// of [engine tier][manifold class] - see
+// RodLegacyResearch/docs/garage/engine_bay_layout.md:
+//
+//   V6      1 0 1 0 0
+//   V8      1 1 0 1 1
+//   V8 big  1 1 0 1 1     (cols: 2brl, 4brl, triple, dual quad, racing)
+//
+// So a V6 takes the two 2-barrel manifolds and nothing else, and no V8 takes
+// the triple.
 std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarEngine_t engine) {
     switch (engine) {
-        // Triple-2bbl only fits V6s (confirmed in game: a GM 327 V8 rejects
-        // it as an install option), not any V8, big-block or small.
         case CarEngineGM_V6:
         case CarEngineFord_V6:
         case CarEngineChrysler_V6:
-            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_TRIPLE_2BARREL};
-        default: // V8s
+            return {MANIFOLD_2BARREL, MANIFOLD_TRIPLE_2BARREL};
+        default: // V8s, small block and big
             return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD, MANIFOLD_RACING};
     }
 }
@@ -81,18 +100,25 @@ std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(
     }
 }
 
+// The original's other fitment table, A4-0x4663, a 5x3 byte matrix of
+// [manifold class][carb type]:
+//
+//   2brl        1 0 0
+//   4brl        0 1 1
+//   triple      1 0 0
+//   dual quad   0 1 1
+//   racing      0 1 1     (cols: 2brl, 4brl, racing 4brl)
+//
+// A 2-barrel manifold takes 2-barrels; everything else takes a 4-barrel of
+// either kind. Note a dual quad will not take 2-barrels, and a plain
+// 4-barrel manifold does accept the racing carb.
 std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(ManifoldType manifold) {
-    // Per the newspaper classifieds' own ad text ("manifold, for 2-4brl
-    // carbs" / "manifold, for 3-2brl carbs"), fitment is explicit, not
-    // guessed:
     switch (manifold) {
         case MANIFOLD_2BARREL:
         case MANIFOLD_TRIPLE_2BARREL: // three 2-barrels
             return {CARB_2BARREL};
         case MANIFOLD_4BARREL:
-            return {CARB_4BARREL};
-        case MANIFOLD_DUAL_QUAD: // "for 2-4brl carbs"
-            return {CARB_2BARREL, CARB_4BARREL};
+        case MANIFOLD_DUAL_QUAD:
         case MANIFOLD_RACING:
             return {CARB_4BARREL, CARB_4BARREL_RACING};
         default:

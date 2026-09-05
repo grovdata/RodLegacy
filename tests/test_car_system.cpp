@@ -95,9 +95,12 @@ TEST_CASE("V6 engines accept racing transmission of own vendor") {
 
 TEST_SUITE("PartsCompatibilityManager manifolds") {
 
-TEST_CASE("GM V6: 2-brl and 4-brl manifolds fit") {
+// Row 0 of the original's fitment table (A4-0x4672) reads 1 0 1 0 0 over
+// 2brl/4brl/triple/dual-quad/racing, so a V6 takes the two 2-barrel
+// manifolds and nothing else. See docs/garage/engine_bay_layout.md.
+TEST_CASE("GM V6: 2-brl manifold fits, 4-brl does not") {
     CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_2BARREL, CarEngineGM_V6));
-    CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_4BARREL, CarEngineGM_V6));
+    CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_4BARREL, CarEngineGM_V6));
 }
 
 TEST_CASE("GM V6: racing/dual-quad manifolds do not fit") {
@@ -111,12 +114,12 @@ TEST_CASE("GM V6: triple-2brl manifold fits") {
     CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6));
 }
 
-TEST_CASE("GM V6: returns exactly 3 compatible manifolds") {
+TEST_CASE("GM V6: returns exactly the two 2-barrel manifolds") {
     auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V6);
-    CHECK(m.size() == 3);
+    CHECK(m.size() == 2);
     CHECK(Contains(m, MANIFOLD_2BARREL));
-    CHECK(Contains(m, MANIFOLD_4BARREL));
     CHECK(Contains(m, MANIFOLD_TRIPLE_2BARREL));
+    CHECK_FALSE(Contains(m, MANIFOLD_4BARREL));
     CHECK_FALSE(Contains(m, MANIFOLD_RACING));
 }
 
@@ -198,20 +201,25 @@ TEST_CASE("2-brl manifold takes only 2-brl carb") {
     CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
 }
 
-TEST_CASE("4-brl manifold takes only 4-brl carb") {
+// The original's carb fitment table (A4-0x4663) is 1 0 0 / 0 1 1 / 1 0 0 /
+// 0 1 1 / 0 1 1 over manifold classes 2brl, 4brl, triple, dual quad, racing:
+// a 2-barrel manifold takes 2-barrels, everything else takes a 4-barrel of
+// either kind.
+TEST_CASE("4-brl manifold takes either 4-brl carb") {
     auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_4BARREL);
-    CHECK(c.size() == 1);
+    CHECK(c.size() == 2);
     CHECK(Contains(c, CARB_4BARREL));
+    CHECK(Contains(c, CARB_4BARREL_RACING));
     CHECK_FALSE(Contains(c, CARB_2BARREL));
-    CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
 }
 
-TEST_CASE("dual-quad manifold (for 2-4brl carbs) takes 2-brl or 4-brl carbs") {
+// "2-4brl carbs" in the classifieds means two 4-barrels, not 2-brl or 4-brl.
+TEST_CASE("dual-quad manifold takes 4-brl carbs, not 2-brls") {
     auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_DUAL_QUAD);
     CHECK(c.size() == 2);
-    CHECK(Contains(c, CARB_2BARREL));
     CHECK(Contains(c, CARB_4BARREL));
-    CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
+    CHECK(Contains(c, CARB_4BARREL_RACING));
+    CHECK_FALSE(Contains(c, CARB_2BARREL));
 }
 
 TEST_CASE("triple-2brl manifold (for 3-2brl carbs) takes only 2-brl carbs") {

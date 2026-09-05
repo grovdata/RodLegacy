@@ -87,6 +87,8 @@ namespace PartsCompatibilityManager {
     // Check if carburetor fits with manifold
     // STOCK/PERFORMANCE manifolds take 2-brl; RACING manifold takes 4-brl or racing
     bool IsCarburetorCompatible(CarburetorType carburetor, ManifoldType manifold);
+    // Make must match before any of the above is even asked - see .cpp.
+    bool IsVendorCompatible(CarVendor_t part, CarVendor_t car);
 
     // Get compatible parts for engine
     std::vector<TransmissionType> GetCompatibleTransmissions(CarEngine_t engine);

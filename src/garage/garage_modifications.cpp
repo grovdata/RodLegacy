@@ -1198,6 +1198,11 @@ void Garage::ShowEngineDialog() {
                 const auto& spareEngines = state.GetSpareEngines();
                 if (selectedIndex >= (int)spareEngines.size()) break;
                 EnginePart newEngine = spareEngines[selectedIndex];
+                const CarPtr& car = state.GetCurrentCarPtr();
+                // The original tests make first for every engine bay slot;
+                // for the block it is the only test there is.
+                engineBaySlotRejected[(int)EngineBaySlot::ENGINE] = car &&
+                    !PartsCompatibilityManager::IsVendorCompatible(newEngine.vendor, car->GetModelRef().vendor);
                 engineSwapDialog->Hide();
                 StartEngineSlideIn(newEngine);
                 SetActiveDialog(engineBay->GetDialog());
@@ -1289,7 +1294,8 @@ void Garage::ShowManifoldDialog() {
                 Part newManifold = spareManifolds[selectedIndex];
                 const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::MANIFOLD] = car &&
-                    !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, car->GetEngineType());
+                    (!PartsCompatibilityManager::IsVendorCompatible(newManifold.vendor, car->GetModelRef().vendor) ||
+                     !PartsCompatibilityManager::IsManifoldCompatible(newManifold.partType.manifoldType, car->GetEngineType()));
                 manifoldSwapDialog->Hide();
                 StartManifoldSlideIn(newManifold);
                 SetActiveDialog(engineBay->GetDialog());
@@ -1381,7 +1387,8 @@ void Garage::ShowCarburetorDialog(int carbIndex) {
                 Part newCarb = spareCarburetors[selectedIndex];
                 const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::CARB0 + carbIndex] = car &&
-                    !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, car->GetManifoldType());
+                    (!PartsCompatibilityManager::IsVendorCompatible(newCarb.vendor, car->GetModelRef().vendor) ||
+                     !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, car->GetManifoldType()));
                 carbSwapDialog->Hide();
                 StartCarbSlideIn(carbIndex, newCarb);
                 SetActiveDialog(engineBay->GetDialog());
