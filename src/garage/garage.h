@@ -196,11 +196,24 @@ class Garage : public CarScene {
     void ShowManifoldDialog();
     void ShowCarburetorDialog(int carbIndex);
 
-    // Read-only readout of state's spare engines/transmissions/manifolds/
-    // carburetors (bought from the newspaper, not yet installed). Selling is
-    // tracked separately (TODO.md's "Selling parts").
+    // The spare parts list (bought from the newspaper or pulled off a car),
+    // in the order it is shown - and the one place that order is defined, so
+    // a row index means the same thing to the list and to the sale.
+    struct SpareRef {
+        PartCategory category;
+        int index;        // position within that category's vector
+        std::string label;
+        int value;
+        int wear;
+    };
+    std::vector<SpareRef> CollectSpares() const;
     std::unique_ptr<ListDialog> sparePartsDialog;
+    std::unique_ptr<Dialog> sellPartDialog;
+    // Reopening the list from inside its own row callback would destroy the
+    // dialog whose event handler is running, so the sale defers it a frame.
+    bool sparePartsNeedsReopen = false;
     void ShowSparePartsDialog();
+    void SellSparePart(int row);
 
     CarPtr pendingCar;
     // Car shown here when the scene was last exited (nullptr if the garage
@@ -211,6 +224,11 @@ class Garage : public CarScene {
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
+
+    // The bubble everything buying from the player talks through - the car
+    // buyer's haggle lines and the parts screen's sign-off. Appended last in
+    // Garage's constructor.
+    static constexpr size_t kSellerBubble = 14;
 
     // Selling a car. The haggle itself is in car_haggle.h; this end owns the
     // two dialogs it drives and the car being sold. See garage_sell_car.cpp.

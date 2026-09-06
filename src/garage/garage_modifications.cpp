@@ -1424,24 +1424,39 @@ void Garage::ShowCarburetorDialog(int carbIndex) {
     SetActiveDialog((Dialog*)carbSwapDialog.get());
 }
 
-void Garage::ShowSparePartsDialog() {
-    std::vector<std::string> labels;
+std::vector<Garage::SpareRef> Garage::CollectSpares() const {
+    std::vector<SpareRef> spares;
+    int i = 0;
     for (const EnginePart& p : state.GetSpareEngines()) {
         std::string name = p.name.empty() ? EngineDisplayName(p) : p.name;
-        labels.push_back(name + " " + WearNote(p.wear));
+        spares.push_back({PartCategory::Engine, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
     }
+    i = 0;
     for (const Part& p : state.GetSpareTransmissions()) {
         std::string name = p.name.empty() ? TransmissionTypeName(p.partType.transmissionType, p.vendor) : p.name;
-        labels.push_back(name + " " + WearNote(p.wear));
+        spares.push_back({PartCategory::Transmission, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
     }
+    i = 0;
     for (const Part& p : state.GetSpareManifolds()) {
         std::string name = p.name.empty() ? ManifoldTypeName(p.partType.manifoldType, p.vendor) : p.name;
-        labels.push_back(name + " " + WearNote(p.wear));
+        spares.push_back({PartCategory::Manifold, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
     }
+    i = 0;
     for (const Part& p : state.GetSpareCarburetors()) {
         std::string name = p.name.empty() ? CarburetorTypeName(p.partType.carburetorType) : p.name;
-        labels.push_back(name + " " + WearNote(p.wear));
+        spares.push_back({PartCategory::Carburetor, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
     }
+    i = 0;
+    for (const Part& p : state.GetSpareTires()) {
+        std::string name = p.name.empty() ? WheelTypeName(p.partType.tireType) : p.name;
+        spares.push_back({PartCategory::Tire, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
+    }
+    return spares;
+}
+
+void Garage::ShowSparePartsDialog() {
+    std::vector<std::string> labels;
+    for (const SpareRef& s : CollectSpares()) labels.push_back(s.label);
 
     if (labels.empty()) return;
 
@@ -1455,13 +1470,17 @@ void Garage::ShowSparePartsDialog() {
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
     SDL_Rect selectedItemRect = {39, 127, 242, 12};
-    SDL_Rect closeRect = {bounds.x + (bounds.w - buttonWidth) / 2, buttonY, buttonWidth, buttonHeight};
+    // Same idiom as "Your cars": clicking a row only highlights it, a button
+    // acts on the highlight.
+    SDL_Rect sellItRect = {bounds.x + 52, buttonY, buttonWidth, buttonHeight};
+    SDL_Rect closeRect = {bounds.x + 142, buttonY, buttonWidth, buttonHeight};
 
     SDL_Rect scrollTopRect    = {topRect.x + topRect.w + 2, topRect.y + 14, 15, 15};
     SDL_Rect scrollUpRect     = {topRect.x + topRect.w + 2, topRect.y + 30, 15, 15};
     SDL_Rect scrollDownRect   = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15};
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};
 
+    Zone sellItZone("spare_parts_sell_it",    "Sell it",     sellItRect);
     Zone closeZone("spare_parts_close",       "Close",       closeRect);
     Zone scrollTopZone("spare_parts_scroll_top",   std::string(1, MAIN_FONT_SCROLL_TOP),    scrollTopRect);
     Zone scrollDownZone("spare_parts_scroll_down", std::string(1, MAIN_FONT_SCROLL_DOWN),   scrollDownRect);
@@ -1469,7 +1488,8 @@ void Garage::ShowSparePartsDialog() {
     Zone scrollBottomZone("spare_parts_scroll_bottom", std::string(1, MAIN_FONT_SCROLL_BOTTOM), scrollBottomRect);
 
     std::vector<ButtonConfig> buttons = {
-        {closeRect, "Close", nullptr, true, 0},
+        {sellItRect, "Sell it", nullptr, true, 0},
+        {closeRect, "Close", nullptr, false, 1},
     };
 
     std::vector<DialogTextConfig> texts = {
@@ -1478,7 +1498,7 @@ void Garage::ShowSparePartsDialog() {
     std::vector<SDL_Rect> lines = { {40, 39, 240, 1} };
 
     std::vector<Zone> dialogZones = {
-        closeZone,
+        sellItZone, closeZone,
         scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
     };
 
@@ -1495,10 +1515,12 @@ void Garage::ShowSparePartsDialog() {
         this->hud->SetText(zone.GetText().c_str());
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
-        if (buttonIndex == 0) { // Close
-            sparePartsDialog->Hide();
-            SetActiveDialog(nullptr);
+        if (buttonIndex == 0) { // Sell it
+            SellSparePart(sparePartsDialog->GetSelectedIndex());
+            return;
         }
+        sparePartsDialog->Hide();
+        SetActiveDialog(nullptr);
     };
     dialogConfig.texts = texts;
 
@@ -1507,7 +1529,8 @@ void Garage::ShowSparePartsDialog() {
         ListDialogConfig{
             labels,
             {},
-            [](int) {},
+            // Enter on a highlighted row is the keyboard shortcut for Sell it.
+            [this](int row) { SellSparePart(row); },
             listBoxRect,
             selectedItemRect,
             {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}

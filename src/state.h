@@ -278,6 +278,25 @@ public:
         return true;
     }
 
+    // Drops one spare by category and position in that category's vector -
+    // what the garage's spare-parts list needs, since Remove*(type) above
+    // would take the first match rather than the row the player picked.
+    bool RemoveSpareAt(PartCategory category, size_t index) {
+        auto eraseAt = [index](auto& v) {
+            if (index >= v.size()) return false;
+            v.erase(v.begin() + static_cast<long>(index));
+            return true;
+        };
+        switch (category) {
+            case PartCategory::Engine:       return eraseAt(spareEngines);
+            case PartCategory::Transmission: return eraseAt(spareTransmissions);
+            case PartCategory::Manifold:     return eraseAt(spareManifolds);
+            case PartCategory::Carburetor:   return eraseAt(spareCarburetors);
+            case PartCategory::Tire:         return eraseAt(spareTires);
+        }
+        return false;
+    }
+
     Roster& GetRoster() { return roster; }
     std::vector<CarPtr>& GetClassifiedCars() { return classifiedCars; }
     CarData carData;

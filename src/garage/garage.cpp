@@ -74,11 +74,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("sell_parts").onClick = [this] {
         if (!CanInteract()) return;
-        bool anySpareParts = !state.GetSpareEngines().empty() ||
-                              !state.GetSpareTransmissions().empty() ||
-                              !state.GetSpareManifolds().empty() ||
-                              !state.GetSpareCarburetors().empty();
-        if (!anySpareParts) bubbles[1]->SetVisible(true);
+        if (CollectSpares().empty()) bubbles[1]->SetVisible(true);
         else ShowSparePartsDialog();
     };
     GetZone("menu").onClick = [this] {
@@ -180,8 +176,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto notRunningBubble = std::make_unique<Bubble>("  Your car\'s not running, speedy`!", BUBBLE_LEFT, 93, 30, true);
     notRunningBubble->SetVisible(false);
     bubbles.push_back(std::move(notRunningBubble));
-    // bubbles[14] - every line the car buyer says; the text is set per
-    // message by ShowHaggleMessage (garage_sell_car.cpp).
+    // bubbles[kSellerBubble] - every line a buyer says, car or part; the text
+    // is set per message by ShowHaggleMessage (garage_sell_car.cpp) and by the
+    // spare-parts sell-out above.
     // Placed for its longest line ("You must be crazy. I'll take it`!"), the
     // same way the other bubbles here are nudged left as their text grows.
     auto haggleBubble = std::make_unique<Bubble>("  No thanks`!", BUBBLE_LEFT, 93, 30, true);
@@ -501,6 +498,19 @@ void Garage::DrawScene() {
     if (rebuildRadio_) {
         rebuildRadio_ = false;
         ShowRadioDialog();
+    }
+    // Back to the spare-parts list once the take-it-or-leave-it offer is gone,
+    // rebuilt so a sold part drops off it.
+    if (sparePartsNeedsReopen && GetActiveDialog() == nullptr) {
+        sparePartsNeedsReopen = false;
+        if (CollectSpares().empty()) {
+            // Selling out closes the screen with this, not the "no spare
+            // parts, dummy" line - that one is for opening it empty.
+            bubbles[kSellerBubble]->SetText("  All parts gone`!");
+            bubbles[kSellerBubble]->SetVisible(true);
+        } else {
+            ShowSparePartsDialog();
+        }
     }
 
     currentTime = SDL_GetTicks64() / 1000.0;

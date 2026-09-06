@@ -3,6 +3,38 @@
 #include "car_system.h"
 #include <string>
 
+// Which spare-parts category a part belongs to. Used to route a newspaper
+// purchase to the matching State::AddSpare* accessor, and to pick the sale
+// formula below.
+enum class PartCategory { Engine, Transmission, Carburetor, Manifold, Tire };
+
+// What a spare part fetches at the garage: one take-it-or-leave-it price,
+// from SellSparePartsLoop (Amiga 0x0024284a). The category jump table there
+// pairs engine with transmission and carburettor with manifold; tires are
+// always worthless. Full write-up in RodLegacyResearch/docs/gameplay.md
+// ("Selling").
+//
+// wear is RodLegacy's 0..100 percent, where the original keeps 0..10000 and
+// divides by 100 to get the same number.
+inline int PartSalePrice(PartCategory category, int value, int wear, int roll20) {
+    const int condition = 100 - wear;
+    int price = value;
+    switch (category) {
+        case PartCategory::Engine:
+        case PartCategory::Transmission:
+            price = value * condition * 9 / 1000;
+            break;
+        case PartCategory::Carburetor:
+        case PartCategory::Manifold:
+            price = value * (70 + roll20) / 100;
+            break;
+        case PartCategory::Tire:
+            price = 0;
+            break;
+    }
+    return price / 5 * 5;
+}
+
 struct Part {
     int wear;
     int cost;

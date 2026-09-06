@@ -6,12 +6,9 @@
 #include "parsers/libp.h"
 #include "dialogs/dialog.h"
 #include "car_system.h"
+#include "part.h"
 #include <vector>
 #include <memory>
-
-// Which spare-parts category a newspaper classified entry belongs to. Used
-// to route a purchase to the matching State::AddSpare* accessor.
-enum class PartCategory { Engine, Transmission, Carburetor, Manifold, Tire };
 
 // One of the 40 fixed AUTO PARTS classified slots (see LoadClassifiedsData /
 // kPartCatalog in newspaper.cpp). Name and price always come from the parsed

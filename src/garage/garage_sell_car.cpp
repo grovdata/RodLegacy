@@ -15,9 +15,6 @@
 
 #include <random>
 
-// The bubble the haggle talks through. Appended last in Garage's constructor.
-static constexpr size_t kHaggleBubble = 14;
-
 int Garage::CarSaleValue(const CarPtr& car) {
     if (!car) return 0;
     // ponytail: the newspaper list price, not a running total that the garage
@@ -77,6 +74,69 @@ void Garage::StartSellCar(const CarPtr& car) {
                                                            SDL_Color{0x00, 0x00, 0x00, 0xFF});
     priceEntryDialog->Show();
     SetActiveDialog(priceEntryDialog.get());
+}
+
+// Selling a spare part: no haggle at all, the buyer names one price and you
+// take it or leave it. SellSparePartsLoop (0x0024284a); the formula is
+// PartSalePrice in part.h.
+void Garage::SellSparePart(int row) {
+    const std::vector<SpareRef> spares = CollectSpares();
+    if (row < 0 || row >= static_cast<int>(spares.size())) return;
+    const SpareRef& spare = spares[row];
+
+    std::uniform_int_distribution<int> roll20(0, 19);
+    const int price = PartSalePrice(spare.category, spare.value, spare.wear, roll20(RandomEngine()));
+
+    // Original strings; a worthless part gets its own line rather than an
+    // offer of $0.
+    const std::string title = price == 0
+        ? "I'll take it off your hands for nothing."
+        : "Will you take $" + std::to_string(price) + " ?";
+
+    sparePartsDialog->Hide();
+
+    // Same box as the car buyer's counter-offer: the "for nothing" line needs
+    // the full width, which the garage's 156px modification dialog cuts off.
+    SDL_Rect dialogRect = {34, 97, 252, 46};
+    SDL_Rect yeahRect = {88, 123, 66, 16};
+    SDL_Rect noRect = {166, 123, 66, 16};
+
+    DialogConfig cfg;
+    cfg.bounds = dialogRect;
+    cfg.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    cfg.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    cfg.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    cfg.font = state.GetAssets().GetMainFont();
+    cfg.texts = std::vector<DialogTextConfig>{
+        DialogTextConfig{SDL_Rect{38, 101, 248, 10}, spare.label, {0x00, 0x00, 0x00, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{38, 111, 248, 10}, title, {0x00, 0x00, 0x00, 0xFF}, true}
+    };
+    cfg.buttons = std::vector<ButtonConfig>{
+        {yeahRect, "Yeah", nullptr, true, 0},
+        {noRect, "No thanks", nullptr, false, 1}
+    };
+    cfg.onButtonPressed = [this, spare, price](int index) {
+        if (index == 0) {
+            state.SetBankroll(state.GetBankroll() + price);
+            state.AdvanceGameHours(2);
+            state.RemoveSpareAt(spare.category, static_cast<size_t>(spare.index));
+            LOG_INFO("Sold spare '%s' for $%d, bankroll now $%d",
+                     spare.label.c_str(), price, state.GetBankroll());
+        }
+        sellPartDialog->Hide();
+        SetActiveDialog(nullptr);
+        // Back to the list, rebuilt a frame later (see Garage::DrawScene) -
+        // doing it here would destroy the dialog whose callback is running.
+        sparePartsNeedsReopen = true;
+    };
+    cfg.onDismiss = [this] {
+        SetActiveDialog(nullptr);
+        sparePartsNeedsReopen = true;
+    };
+
+    sellPartDialog = std::make_unique<Dialog>(cfg);
+    sellPartDialog->Show();
+    SetActiveDialog(sellPartDialog.get());
 }
 
 void Garage::ShowCounterOfferDialog(int amount) {
@@ -141,7 +201,7 @@ void Garage::HandleHaggleStep(const HaggleStep& step) {
 
 void Garage::ShowHaggleMessage(HaggleMessage message) {
     if (message == HaggleMessage::None) return;
-    if (bubbles.size() <= kHaggleBubble) return;
+    if (bubbles.size() <= kSellerBubble) return;
 
     // Original strings; the backtick renders as a space (see the bubbles in
     // Garage's constructor).
@@ -155,8 +215,8 @@ void Garage::ShowHaggleMessage(HaggleMessage message) {
         case HaggleMessage::MustBeCrazy:   text = "  You must be crazy. I'll take it`!"; break;
         case HaggleMessage::None:          return;
     }
-    bubbles[kHaggleBubble]->SetText(text);
-    bubbles[kHaggleBubble]->SetVisible(true);
+    bubbles[kSellerBubble]->SetText(text);
+    bubbles[kSellerBubble]->SetVisible(true);
 }
 
 void Garage::FinishCarSale(int price) {
