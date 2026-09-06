@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 
 extern Mouse mouse;  // defined in main.cpp
 
@@ -68,31 +69,9 @@ void Driving::Init(bool debugMode) {
     raceEndBubble.reset();
     
     
-    // Hood colour ramp for the assets that carry hood pixels. The Amiga
-    // copperlist reloads the hood scanlines' COLOR06/COLOR07 with shades 2 and 3
-    // of the car's ramp: the reference frame's hood is 0x0962/0x0A73, and those
-    // two words occur exactly once in the Amiga executable, as entries 2 and 3
-    // of the golden brown ramp. GetBitmapAssetWithPalette maps palette slot N to
-    // carPalette[N-1], so the two shades have to sit at 5 and 6.
-    auto hoodPalette = [&]() {
-        std::vector<uint16_t> carPalette = GetStandardCarColor(state.GetCurrentCar()->GetColor());
-        if (carPalette.size() >= 7) {
-            carPalette[5] = carPalette[2];
-            carPalette[6] = carPalette[3];
-        }
-        return carPalette;
-    }();
+    ApplyCarLivery();
 
-    // The dashboard bitmap includes the hood's left edge, so it takes the same
-    // palette as the hood itself.
-    auto dashboard = [&]() {
-        byte_vector& libFile = state.GetAssets().GetLibPData();
-        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
-    }();
-    PunchSideMirrorGlass(dashboard);
-    dashboard->Align(BitmapAlignBottom, true);
-    dashboard->SetVisible(true);
-    AddDrawable("dashboard", dashboard);
+    Bitmap* dashboard = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
 
     // Load pillar (windshield beam)
     auto pillar = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
@@ -105,15 +84,6 @@ void Driving::Init(bool debugMode) {
     roof->AlignAbove(pillar);
     roof->SetVisible(true);
     AddDrawable("roof", roof);
-
-    // Load hood with current car's color
-    auto hood = [&]() {
-        byte_vector& libFile = state.GetAssets().GetLibPData();
-        return state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, hoodPalette);
-    }();
-    hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
-    hood->SetVisible(true);
-    AddDrawable("hood", hood);
 
     // Load mirror stem
     // auto mirrorStem = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
@@ -224,19 +194,10 @@ void Driving::Init(bool debugMode) {
     wheelTurningRightOpposite->SetVisible(false);
     AddWheelDrawable("wheel_turning_right_opposite", wheelTurningRightOpposite);
 
+    LoadShifter();
+
     SetState(DRIVING_STATE_NORMAL);
     
-    // Load crash overlay bitmap with current car's color palette. The wrecked
-    // interior shows the buckled hood, so it takes the same ramp as the intact
-    // one rather than the raw car palette.
-    byte_vector& libFile = state.GetAssets().GetLibPData();
-    auto crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, hoodPalette);
-    if (crashOverlayAsset) {
-        crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
-        crashOverlayBitmap->SetVisible(false); // Initially hidden
-        crashOverlayBitmap->SetPosition(0, 18);
-    }
-
     // Blood on the windscreen, drawn over the wrecked interior on a hard enough
     // impact. Not car-coloured, so it keeps the plain driving palette.
     auto* crashBloodAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_BLOOD});
@@ -322,17 +283,10 @@ void Driving::LoadTrackData() {
         // Load track data into racing component
         if (racing) {
             LOG_INFO("Loading track data into racing component...\n");
+            // Builds the race sim off whatever car is current, gearbox
+            // included - nothing to configure separately here.
             racing->LoadTrackData(srExeData, SR_TRACK_ROAD_RACE);
-            
-            // Configure racing physics based on current car's transmission
-            Car* currentCar = state.GetCurrentCar();
-            if (currentCar) {
-                // Automatic transmissions are types 0-2 (SR_TRANS_AUTO_GM, SR_TRANS_AUTO_FORD, SR_TRANS_AUTO_CHRYSLER)
-                bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
-                racing->SetTransmissionType(isAutomatic);
-                LOG_INFO("Car transmission: %s\n", isAutomatic ? "Automatic" : "Manual");
-            }
-            
+
             // Initialize opponent for the race
             LOG_INFO("Initializing race opponent...\n");
             racing->InitializeOpponent();
@@ -353,6 +307,53 @@ Driving::~Driving() {
     if (roadTexture) {
         SDL_DestroyTexture(roadTexture);
         roadTexture = nullptr;
+    }
+}
+
+// Everything in the cockpit that carries the car's own colour. Init runs once
+// at game start, so this has to re-run per race (OnFadeComplete) or every race
+// after the first is driven in whatever car was current at startup.
+void Driving::ApplyCarLivery() {
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
+
+    // Hood colour ramp for the assets that carry hood pixels. The Amiga
+    // copperlist reloads the hood scanlines' COLOR06/COLOR07 with shades 2 and 3
+    // of the car's ramp: the reference frame's hood is 0x0962/0x0A73, and those
+    // two words occur exactly once in the Amiga executable, as entries 2 and 3
+    // of the golden brown ramp. GetBitmapAssetWithPalette maps palette slot N to
+    // carPalette[N-1], so the two shades have to sit at 5 and 6.
+    std::vector<uint16_t> hoodPalette = GetStandardCarColor(car->GetColor());
+    if (hoodPalette.size() >= 7) {
+        hoodPalette[5] = hoodPalette[2];
+        hoodPalette[6] = hoodPalette[3];
+    }
+
+    byte_vector& libFile = state.GetAssets().GetLibPData();
+
+    // The dashboard bitmap includes the hood's left edge, so it takes the same
+    // palette as the hood itself.
+    Bitmap* dashboard = state.GetAssets().GetBitmapAssetWithPalette(
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
+    PunchSideMirrorGlass(dashboard);
+    dashboard->Align(BitmapAlignBottom, true);
+    dashboard->SetVisible(true);
+    SetDrawable("dashboard", dashboard);
+
+    Bitmap* hood = state.GetAssets().GetBitmapAssetWithPalette(
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, hoodPalette);
+    hood->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
+    hood->SetVisible(true);
+    SetDrawable("hood", hood);
+
+    // The wrecked interior shows the buckled hood, so it takes the same ramp as
+    // the intact one rather than the raw car palette.
+    Bitmap* crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, hoodPalette);
+    if (crashOverlayAsset) {
+        crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
+        crashOverlayBitmap->SetVisible(false);
+        crashOverlayBitmap->SetPosition(0, 18);
     }
 }
 
@@ -387,8 +388,6 @@ void Driving::SetState(DrivingState state) {
             wheelLeftHand1->SetVisible(true);
             wheelRightHand1->SetVisible(true);
             break;
-        case DRIVING_STATE_SHIFTING:
-            break;
         case DRIVING_STATE_TURNING_LEFT:
             wheelRightHand2->SetVisible(true);
             wheelRightHand3->SetVisible(true);
@@ -407,10 +406,25 @@ void Driving::SetState(DrivingState state) {
             // All wheels are already hidden, do nothing
             break;
     }
+
+    // The right hand is on the shifter for the length of a shift, so it cannot
+    // also be on the wheel. Here rather than in UpdateShifter because the
+    // steering can re-run SetState mid-shift.
+    if (shiftPhase != ShiftPhase::Idle) {
+        wheelRightHand1->SetVisible(false);
+        wheelRightHand2->SetVisible(false);
+        wheelRightHand3->SetVisible(false);
+        wheelRightHand4->SetVisible(false);
+    }
 }
 
 void Driving::OnFadeComplete() {
     if (!racing) return;
+
+    // Before the track loads (which builds the race sim off the current car):
+    // this race may be in a different car than the last one, or than the one
+    // that was current when Init ran.
+    ApplyCarLivery();
 
     RaceType pendingType = state.GetPendingRaceType();
     SrTrackType trackType = (pendingType == RaceType::Drag)
@@ -446,10 +460,138 @@ void Driving::OnFadeComplete() {
     racing->ResetForNewRace();
     racing->InitializeOpponent();
 
+    // After ResetForNewRace: the gate plate to show depends on this car's box.
+    ResetShifter();
+
     LOG_INFO("Driving::OnFadeComplete - race starting: type=%s bet=%d pinkSlip=%d",
              pendingType == RaceType::Drag ? "Drag" : "Road",
              state.GetPendingBetAmount(),
              state.GetPendingIsPinkSlip() ? 1 : 0);
+}
+
+// The gear shifter. RodLegacyResearch/docs/driving/shifter.md has the full
+// write-up; the short version is that the knob walks a gate path one stop per
+// race frame with a hand on it, and sits bare at each end.
+//
+// Gate paths, offsets from the plate's top-left. The manual one is an
+// H-pattern whose odd entries are the route through the gate, so 2 -> 3 walks
+// back to centre-left, across, then up-right.
+static constexpr SDL_Point kGateManual[9] = {
+    {22, 19}, {22, 11}, {22, 19}, {22, 29}, {22, 19},
+    {31, 19}, {31, 11}, {31, 19}, {31, 29}
+};
+static constexpr SDL_Point kGateAuto[3] = {{28, 21}, {28, 27}, {28, 34}};
+// Where each gear rests on the manual path; an automatic uses 0 (N) and 2 (D).
+static constexpr int kGearStop[5] = {0, 1, 3, 6, 8};
+
+void Driving::LoadShifter() {
+    const AmigaLibAsset plates[3] = {RACING_GEARBOX_AUTO, RACING_GEARBOX_MANUAL_3SPEED,
+                                     RACING_GEARBOX_MANUAL_4SPEED};
+    const AmigaLibAsset knobs[3] = {RACING_GEARBOX_KNOB_AUTOMATIC, RACING_GEARBOX_KNOB_3SPEED,
+                                    RACING_GEARBOX_KNOB_4SPEED};
+    for (int i = 0; i < 3; ++i) {
+        shifterPlate[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, plates[i]});
+        shifterPlate[i]->SetVisible(false);
+        AddDrawable("shifter_plate_" + std::to_string(i), shifterPlate[i]);
+        shifterKnob[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, knobs[i]});
+        shifterKnob[i]->SetVisible(false);
+        AddDrawable("shifter_knob_" + std::to_string(i), shifterKnob[i]);
+    }
+    shifterHand = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RIGHT_HAND_SHIFTING});
+    shifterHand->SetVisible(false);
+    AddDrawable("shifter_hand", shifterHand);
+
+    // The plate sits at (0x110, 0x2c) in the dashboard bitmap, which we draw
+    // bottom-aligned, so anchor to it rather than to the screen. The dashboard
+    // is positioned once, just above, and never moves.
+    auto* dash = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
+    SDL_Rect dashRect = dash ? dash->GetPosition() : SDL_Rect{0, 0, 0, 0};
+    shifterOrigin = {dashRect.x + 0x110, dashRect.y + 0x2c};
+    for (Bitmap* plate : shifterPlate) plate->SetPosition(shifterOrigin.x, shifterOrigin.y);
+}
+
+void Driving::ResetShifter() {
+    shiftPhase = ShiftPhase::Idle;
+    shiftStepTimer = 0.0f;
+    shifterKind = 2;
+    if (racing) {
+        shifterKind = racing->IsAutomatic() ? 0 : (racing->GetNumGears() == 3 ? 1 : 2);
+    }
+    shiftStop = 0;
+    shiftCursor = 0;
+
+    for (int i = 0; i < 3; ++i) {
+        shifterPlate[i]->SetVisible(false);
+        shifterKnob[i]->SetVisible(false);
+    }
+    shifterHand->SetVisible(false);
+}
+
+void Driving::UpdateShifter(float deltaTime) {
+    if (!racing || !shifterHand) return;
+
+    const bool automatic = (shifterKind == 0);
+    const SDL_Point* gate = automatic ? kGateAuto : kGateManual;
+    // An automatic's lever shows the selector, not the gear.
+    const int gear = std::clamp<int>(racing->GetCurrentGear(), 0, 4);
+    const int wanted = automatic ? (racing->IsAutoDriveEngaged() ? 2 : 0) : kGearStop[gear];
+
+    // The wrecked interior replaces the dashboard, and the flyby has no cockpit.
+    const bool hidden = racing->IsFlybyMode() || racing->ShouldShowCrashOverlay();
+    if (hidden) {
+        shiftPhase = ShiftPhase::Idle;
+        shiftStop = wanted;
+    } else if (shiftPhase == ShiftPhase::Idle && wanted != shiftStop) {
+        shiftPhase = ShiftPhase::KnobStart;
+        shiftCursor = shiftStop;
+        shiftTarget = wanted;
+        shiftStep = (shiftStop < wanted) ? 1 : -1;
+        shiftStepTimer = 0.0f;
+        SetState(currentState);   // takes the right hand off the wheel
+    }
+
+    if (shiftPhase != ShiftPhase::Idle) {
+        shiftStepTimer += deltaTime * 1000.0f;
+        while (shiftPhase != ShiftPhase::Idle && shiftStepTimer >= SHIFT_STEP_MS) {
+            shiftStepTimer -= SHIFT_STEP_MS;
+            switch (shiftPhase) {
+                case ShiftPhase::KnobStart:
+                    shiftPhase = ShiftPhase::Slide;
+                    break;
+                case ShiftPhase::Slide:
+                    if (shiftCursor == shiftTarget) shiftPhase = ShiftPhase::KnobEnd;
+                    else shiftCursor += shiftStep;
+                    break;
+                case ShiftPhase::KnobEnd:
+                    shiftStop = shiftTarget;
+                    shiftPhase = ShiftPhase::Idle;
+                    SetState(currentState);   // hand back on the wheel
+                    break;
+                case ShiftPhase::Idle:
+                    break;
+            }
+        }
+    }
+
+    // Nothing of the gearbox shows at rest; during a shift the plate is up,
+    // with the bare knob at each end and the hand on it for the slide.
+    const bool active = (shiftPhase != ShiftPhase::Idle);
+    shifterPlate[shifterKind]->SetVisible(active);
+    shifterKnob[shifterKind]->SetVisible(active && shiftPhase != ShiftPhase::Slide);
+    shifterHand->SetVisible(shiftPhase == ShiftPhase::Slide);
+    if (!active) return;
+
+    if (shiftPhase == ShiftPhase::Slide) {
+        // Top-left anchored at (0xfc, 0x22) - up and left of the plate, since
+        // the arm reaches in from that side.
+        const SDL_Point at = gate[shiftCursor];
+        shifterHand->SetPosition(shifterOrigin.x + at.x - 20, shifterOrigin.y + at.y - 10);
+    } else {
+        const SDL_Point at = gate[shiftPhase == ShiftPhase::KnobStart ? shiftStop : shiftTarget];
+        SDL_Rect knob = shifterKnob[shifterKind]->GetNaturalSize();
+        shifterKnob[shifterKind]->SetPosition(shifterOrigin.x + at.x - knob.w / 2,
+                                              shifterOrigin.y + at.y + 5 - knob.h / 2);
+    }
 }
 
 void Driving::UpdateDiceAnimation(float deltaTime) {
@@ -558,6 +700,9 @@ void Driving::DrawScene() {
 
             // Dice pendulum swing.
             UpdateDiceAnimation(deltaTime);
+
+            // Gear shifter.
+            UpdateShifter(deltaTime);
         }
 
         // Get the updated racing surface and create texture
@@ -717,11 +862,6 @@ bool Driving::PushEvent(SDL_Event *event) {
                 if (racing) {
                     LOG_INFO("Switching to Road Race track\n");
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_ROAD_RACE);
-                    Car* currentCar = state.GetCurrentCar();
-                    if (currentCar) {
-                        bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
-                        racing->SetTransmissionType(isAutomatic);
-                    }
                     return true;
                 }
                 break;
@@ -729,11 +869,6 @@ bool Driving::PushEvent(SDL_Event *event) {
                 if (racing) {
                     LOG_INFO("Switching to Drag Race track\n");
                     racing->LoadTrackData(state.GetAssets().GetSrExeData(), SR_TRACK_DRAG_RACE);
-                    Car* currentCar = state.GetCurrentCar();
-                    if (currentCar) {
-                        bool isAutomatic = (currentCar->GetGearbox().assetId <= (AmigaLibAsset)SR_TRANS_AUTO_CHRYSLER);
-                        racing->SetTransmissionType(isAutomatic);
-                    }
                     return true;
                 }
                 break;

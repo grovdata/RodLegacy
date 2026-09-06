@@ -232,8 +232,6 @@ public:
     void SetTrackType(SrTrackType trackType);
     SrTrackType GetTrackType() const;
 
-    void SetTransmissionType(bool automatic);
-
     void InitializeOpponent();
     void SetOpponentActive(bool active);
     void SetOpponentCarType(int carType);
@@ -258,6 +256,10 @@ public:
     int SpeedingFine() const { return sim.SpeedingFine(); }
     bool IsTransmissionDamaged() const;
     bool IsAutomatic() const;
+    // For the dashboard shifter: which gate plate to show, and where an
+    // automatic's selector sits (it shows N/D, not the gear).
+    int GetNumGears() const;
+    bool IsAutoDriveEngaged() const;
 
     bool ShouldShowCrashOverlay() const;
     bool ShouldShowCrashBlood() const;

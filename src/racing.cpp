@@ -394,12 +394,12 @@ void Racing::LoadOpponentCarSprites() {
 srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) const {
     srrace::CarSetup setup;
     if (car) {
-        setup = CarSetupFromCar(*car, automaticOverride);
-        // Off the automatic override, a car with no gearbox class races on the
-        // manual tables rather than the (slower) automatic ones.
-        if (!automaticOverride && setup.transClass == 0) {
-            setup.transClass = 2;
-        }
+        // The car's own gearbox decides, never automaticOverride: that is set
+        // once from whatever car was current at game start (Driving::Init runs
+        // once), so honouring it here raced every later car on the startup
+        // car's tables - an automatic forced onto manual ratios, or worse.
+        // CarSetupFromCar already maps an unset gearbox to the 4-speed class.
+        setup = CarSetupFromCar(*car, false);
     } else {
         setup.transClass = automaticOverride ? 0 : 2;
     }
@@ -414,6 +414,11 @@ void Racing::InitializeRaceSimulation() {
 
     const Car* playerCar = state.GetCurrentCar();
     srrace::CarSetup playerSetup = BuildCarSetupFromCar(playerCar, true);
+    // Keep the carless fallback and IsAutomatic()'s pre-init answer in step
+    // with the car actually being raced.
+    if (playerCar) {
+        automaticOverride = (playerSetup.transClass == 0);
+    }
 
     srrace::CarSetup npcSetup;
     Opponent* opponent = state.GetCurrentOpponent();
@@ -497,10 +502,6 @@ void Racing::ResetForNewRace() {
     opponentActiveBeforeFlyby = false;
 
     InitializeRaceSimulation();
-}
-
-void Racing::SetTransmissionType(bool automatic) {
-    automaticOverride = automatic;
 }
 
 void Racing::SetOpponentActive(bool active) {
@@ -656,6 +657,14 @@ bool Racing::IsAutomatic() const {
         return automaticOverride;
     }
     return sim.PlayerTables().automatic;
+}
+
+int Racing::GetNumGears() const {
+    return sim.PlayerTables().numGears;
+}
+
+bool Racing::IsAutoDriveEngaged() const {
+    return sim.Player().autoDrive;
 }
 
 bool Racing::ShouldShowCrashOverlay() const {

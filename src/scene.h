@@ -152,6 +152,18 @@ class Scene {
         drawables.push_back({id, drawable});
     }
 
+    // Swaps what an id points at without moving it in the list, so draw order
+    // survives. Adds it at the end if the id is new.
+    void SetDrawable(const std::string& id, IDrawable* drawable) {
+        for (auto& entry : drawables) {
+            if (entry.id == id) {
+                entry.drawable = drawable;
+                return;
+            }
+        }
+        drawables.push_back({id, drawable});
+    }
+
     void RemoveDrawable(const std::string& id) {
         drawables.erase(
             std::remove_if(drawables.begin(), drawables.end(),

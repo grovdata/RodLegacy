@@ -13,7 +13,6 @@
 
 enum DrivingState {
     DRIVING_STATE_NORMAL,
-    DRIVING_STATE_SHIFTING,
     DRIVING_STATE_TURNING_LEFT,
     DRIVING_STATE_TURNING_RIGHT,
     DRIVING_STATE_CRASHED
@@ -72,9 +71,37 @@ class Driving: public Scene {
     // frame; this decouples the swing rate from our display frame rate).
     static constexpr float DICE_SWING_STEP_MS = 130.0f;
 
+    // Gear shifter - RodLegacyResearch/docs/driving/shifter.md.
+    // Indexed 0 = automatic, 1 = 3-speed, 2 = 4-speed, the same order the
+    // original's asset table at A4-0x42d4 uses.
+    Bitmap* shifterPlate[3] = {nullptr, nullptr, nullptr};
+    Bitmap* shifterKnob[3] = {nullptr, nullptr, nullptr};
+    Bitmap* shifterHand = nullptr;
+    int shifterKind = 2;             // which of the three is on screen
+    SDL_Point shifterOrigin{};       // plate top-left on screen
+    // Nothing of the gearbox is drawn at rest - the dashboard already has one
+    // painted in. A shift shows the plate, the bare knob for one frame at each
+    // end, and the hand on the knob for the slide between them.
+    enum class ShiftPhase { Idle, KnobStart, Slide, KnobEnd };
+    ShiftPhase shiftPhase = ShiftPhase::Idle;
+    int shiftStop = 0;               // where the knob rests, a gate-path index
+    int shiftCursor = 0;             // where the hand is while a shift runs
+    int shiftTarget = 0;
+    int shiftStep = 0;
+    float shiftStepTimer = 0.0f;
+    // ponytail: the original advances one animation phase per race frame, but
+    // that frame rate is not pinned down; this is the calibration knob. Same
+    // value as the dice swing, which is the other per-race-frame animation.
+    static constexpr float SHIFT_STEP_MS = 130.0f;
+
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
+    // Rebuilds the cockpit bitmaps that carry the car's own colour.
+    void ApplyCarLivery();
     void LoadTrackData();
+    void LoadShifter();
+    void ResetShifter();
+    void UpdateShifter(float deltaTime);
     void UpdateDiceAnimation(float deltaTime);
     void DrawCrashOverlay();
     void DrawSteeringDot();
