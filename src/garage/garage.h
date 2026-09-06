@@ -6,6 +6,8 @@
 #include "ui/zone.h"
 #include "ui/bubble.h"
 #include "dialogs/list_dialog.h"
+#include "dialogs/number_entry_dialog.h"
+#include "car_haggle.h"
 #include "carbitmap.h"
 #include "engine_bay.h"
 #include "animated_bitmap.h"
@@ -209,6 +211,22 @@ class Garage : public CarScene {
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
+
+    // Selling a car. The haggle itself is in car_haggle.h; this end owns the
+    // two dialogs it drives and the car being sold. See garage_sell_car.cpp.
+    std::unique_ptr<CarHaggle> haggle;
+    CarPtr haggleCar;
+    std::unique_ptr<NumberEntryDialog> priceEntryDialog;
+    std::unique_ptr<Dialog> counterOfferDialog;
+    void StartSellCar(const CarPtr& car);
+    void ShowCounterOfferDialog(int amount);
+    void HandleHaggleStep(const HaggleStep& step);
+    void ShowHaggleMessage(HaggleMessage message);
+    void FinishCarSale(int price);
+    void CloseHaggle();
+    // What the buyer values a car at: its newspaper list price.
+    int CarSaleValue(const CarPtr& car);
+
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> optionsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;

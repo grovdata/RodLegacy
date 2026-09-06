@@ -279,6 +279,13 @@ void State::AddOwnedCar(CarPtr car) {
     ownedCars.push_back(std::move(car));
 }
 
+void State::RemoveOwnedCar(const CarPtr& car) {
+    auto it = std::find(ownedCars.begin(), ownedCars.end(), car);
+    if (it != ownedCars.end()) {
+        ownedCars.erase(it);
+    }
+}
+
 namespace {
 
 // Builds one Car* from a parsed car record. Shared by the active car and

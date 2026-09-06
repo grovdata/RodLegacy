@@ -209,6 +209,10 @@ public:
     void SetCurrentCar(CarPtr car);
     const std::vector<CarPtr>& GetOwnedCars() const { return ownedCars; }
     void AddOwnedCar(CarPtr car);
+    // Drops one car from the roster. Does not touch the current car, so a
+    // caller that sells the car it is driving clears that itself - the
+    // original leaves the player carless in exactly that case.
+    void RemoveOwnedCar(const CarPtr& car);
 
     // Loads a real Amiga .sav file, replacing bankroll, owned cars, known-
     // opponent car specs, race record, and elapsed time. Returns false

@@ -180,6 +180,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto notRunningBubble = std::make_unique<Bubble>("  Your car\'s not running, speedy`!", BUBBLE_LEFT, 93, 30, true);
     notRunningBubble->SetVisible(false);
     bubbles.push_back(std::move(notRunningBubble));
+    // bubbles[14] - every line the car buyer says; the text is set per
+    // message by ShowHaggleMessage (garage_sell_car.cpp).
+    // Placed for its longest line ("You must be crazy. I'll take it`!"), the
+    // same way the other bubbles here are nudged left as their text grows.
+    auto haggleBubble = std::make_unique<Bubble>("  No thanks`!", BUBBLE_LEFT, 93, 30, true);
+    haggleBubble->SetVisible(false);
+    bubbles.push_back(std::move(haggleBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -304,9 +311,16 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                 carSelectDialog->Hide();
                 break;
             }
-            case 1: // Sell it
+            case 1: { // Sell it
+                int selectedIndex = carSelectDialog->GetSelectedIndex();
                 carSelectDialog->Hide();
+                if (selectedIndex >= 0 && selectedIndex < (int)sortedOwnedCars.size()) {
+                    StartSellCar(sortedOwnedCars[selectedIndex]);
+                } else {
+                    SetActiveDialog(nullptr);
+                }
                 break;
+            }
             case 2: // Forget it
                 carSelectDialog->Hide();
                 break;
@@ -449,18 +463,22 @@ SDL_Point Garage::GetCarIdlePosition() {
 void Garage::UpdateSign() {
 
     LOG_INFO("Garage::UpdateSign");
+    // The garage can be carless - after a New Game, or after selling the car
+    // that was parked here - and then the sign simply says nothing.
+    Car* current = state.GetCurrentCar();
     char text[50];
-    CarModel m = state.GetCurrentCar()->GetModel();
-    snprintf(text, 50, "%s", m.name.c_str());
+    snprintf(text, 50, "%s", current ? current->GetModel().name.c_str() : "");
 
     // Clear the surface
     Uint32 transparent = SDL_MapRGBA(signSurface->format, 0, 0, 0, 0);
     SDL_FillRect(signSurface, NULL, transparent);
 
     // Write new text
-    int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
-    int x = signRect.x + (signRect.w - textWidth) / 2;
-    SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
+    if (text[0] != '\0') {
+        int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
+        int x = signRect.x + (signRect.w - textWidth) / 2;
+        SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
+    }
 
     // Destroy old texture if it exists
     if (signTexture) {
