@@ -346,6 +346,10 @@ void Scene::OnFadeComplete() {
     }
 }
 
+void Scene::OnSceneEnter() {
+    // Base implementation - can be overridden by derived classes
+}
+
 void Scene::OnSceneExit() {
     // Base implementation - can be overridden by derived classes
     // This is called when the scene is being exited via hotkeys or other means

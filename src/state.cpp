@@ -259,6 +259,9 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
     }
 
+    // Before FadeIn, so the scene is reset before it is drawn once: the fade
+    // does not hide the previous visit's leftovers, it fades them up.
+    this->currentScene->OnSceneEnter();
     this->currentScene->FadeIn();
 }
 

@@ -418,7 +418,7 @@ void Driving::SetState(DrivingState state) {
     }
 }
 
-void Driving::OnFadeComplete() {
+void Driving::OnSceneEnter() {
     if (!racing) return;
 
     // Before the track loads (which builds the race sim off the current car):
@@ -438,17 +438,12 @@ void Driving::OnFadeComplete() {
         racing->SetTrackType(trackType);
     }
 
-    // Scene-side per-race state. OnFadeComplete is the only per-entry hook:
-    // Init() runs once at game start, so the race-end pause and its bubble have
-    // to be cleared here.
+    // Scene-side per-race state. Init() runs once at game start, so the
+    // race-end pause and its bubble are cleared here instead.
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
     raceEndDismissAllowedMs = 0;
-    // Scene::FadeIn already hid the pointer on entry, but DrawScene keeps running
-    // through the fade and can re-raise the previous outcome before
-    // ResetForNewRace() lands, putting the race-end thumb back on screen. That is
-    // the same reason the bubble above has to be cleared here.
     mouse.SetVisible(false);
 
     // Dice pendulum starts from rest.
@@ -463,7 +458,7 @@ void Driving::OnFadeComplete() {
     // After ResetForNewRace: the gate plate to show depends on this car's box.
     ResetShifter();
 
-    LOG_INFO("Driving::OnFadeComplete - race starting: type=%s bet=%d pinkSlip=%d",
+    LOG_INFO("Driving::OnSceneEnter - race starting: type=%s bet=%d pinkSlip=%d",
              pendingType == RaceType::Drag ? "Drag" : "Road",
              state.GetPendingBetAmount(),
              state.GetPendingIsPinkSlip() ? 1 : 0);

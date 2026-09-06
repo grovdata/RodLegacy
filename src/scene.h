@@ -111,6 +111,11 @@ class Scene {
     void FadeIn();
     virtual void OnFadeComplete();
     virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
+    // Called on entry, before the fade-in starts and so before the scene is
+    // drawn once. Per-entry state belongs here, not in OnFadeComplete: that
+    // runs 560ms later, and everything drawn until then is the previous
+    // visit's leftovers fading up.
+    virtual void OnSceneEnter();
     virtual void OnSceneExit();
 
     // Whether the custom mouse pointer should show in this scene. Applied
