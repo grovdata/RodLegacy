@@ -30,6 +30,7 @@ class GasStation;
 class Racing;
 class NameEntry;
 class SaveLoadScene;
+class GameOverMenu;
 class CarDebug;
 
 class State {
@@ -104,6 +105,7 @@ private:
     std::unique_ptr<KingOfCounty> kingOfCounty;
     std::unique_ptr<NameEntry> nameEntry;
     std::unique_ptr<SaveLoadScene> saveLoad;
+    std::unique_ptr<GameOverMenu> gameOverMenu;
 #ifdef RODLEGACY_DEBUG_UI
     std::unique_ptr<CarDebug> carDebug;
 #endif

@@ -81,7 +81,9 @@ void KingOfCounty::DrawScene() {
 
 bool KingOfCounty::PushEvent(SDL_Event* event) {
     if (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN) {
-        state.MoveToScene(SCENE_DINER);
+        // The run is over either way it got here - won or jailed - so the only
+        // way on is the game-over menu.
+        state.MoveToScene(SCENE_GAME_OVER_MENU);
         return true;
     }
     return Scene::PushEvent(event);

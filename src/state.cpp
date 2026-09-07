@@ -10,6 +10,7 @@
 #include "king_of_county.h"
 #include "name_entry.h"
 #include "save_load_scene.h"
+#include "game_over_menu.h"
 #ifdef RODLEGACY_DEBUG_UI
 #include "car_debug.h"
 #endif
@@ -165,6 +166,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         newspaper = std::make_unique<Newspaper>();
         nameEntry = std::make_unique<NameEntry>();
         saveLoad = std::make_unique<SaveLoadScene>();
+        gameOverMenu = std::make_unique<GameOverMenu>();
 #ifdef RODLEGACY_DEBUG_UI
         carDebug = std::make_unique<CarDebug>();
 #endif
@@ -176,6 +178,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         driving->Init(debugMode);
         nameEntry->Init(debugMode);
         saveLoad->Init(debugMode);
+        gameOverMenu->Init(debugMode);
 #ifdef RODLEGACY_DEBUG_UI
         carDebug->Init(debugMode);
 #endif
@@ -247,6 +250,9 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
         case SCENE_SAVE_LOAD:
             this->currentScene = saveLoad.get();
+            break;
+        case SCENE_GAME_OVER_MENU:
+            this->currentScene = gameOverMenu.get();
             break;
         case SCENE_CAR_DEBUG:
 #ifdef RODLEGACY_DEBUG_UI

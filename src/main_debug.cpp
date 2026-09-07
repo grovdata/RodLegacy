@@ -19,6 +19,7 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     scenes.buttons.push_back({"Driving",        [] { state.MoveToScene(SCENE_DRIVING); }});
     scenes.buttons.push_back({"King of County", [] { state.MoveToScene(SCENE_KING_OF_COUNTY); }});
     scenes.buttons.push_back({"Name Entry",     [] { state.MoveToScene(SCENE_NAME_ENTRY); }});
+    scenes.buttons.push_back({"Game Over Menu", [] { state.MoveToScene(SCENE_GAME_OVER_MENU); }});
     scenes.buttons.push_back({"Car Debug",      [] { state.MoveToScene(SCENE_CAR_DEBUG); }});
     panels.push_back(std::move(scenes));
 

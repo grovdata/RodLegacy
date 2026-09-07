@@ -172,6 +172,7 @@ cpp_sources = files(
     'king_of_county.cpp',
     'name_entry.cpp',
     'save_load_scene.cpp',
+    'game_over_menu.cpp',
     'assets.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',

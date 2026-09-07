@@ -111,6 +111,10 @@ enum SrLibGameScene {
     // California Highway Patrol roster background. Same caveat as
     // SCENE_NAME_ENTRY - never passed to the per-scene car tables.
     SCENE_SAVE_LOAD = 9,
+    // RodLegacy addition: where a finished run ends, after the hall of fame.
+    // Same caveat as SCENE_NAME_ENTRY - never passed to the per-scene car
+    // tables.
+    SCENE_GAME_OVER_MENU = 10,
 };
 
 enum SrLibCarDecal {
