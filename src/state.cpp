@@ -297,6 +297,15 @@ void State::RemoveOwnedCar(const CarPtr& car) {
     }
 }
 
+// $400 is the cheapest car in SR_data (the 1940 Chevrolet coupe), and the
+// original hardcodes the same number.
+bool State::IsOutOfDough() const {
+    return currentCar == nullptr && ownedCars.empty() &&
+           spareTires.empty() && spareTransmissions.empty() && spareManifolds.empty() &&
+           spareCarburetors.empty() && spareEngines.empty() &&
+           bankroll < 400;
+}
+
 void State::ScrapCurrentCar() {
     // The car stays alive as long as anything is still showing it (a cached
     // CarBitmap, a scene mid-animation) and is freed once they let go.

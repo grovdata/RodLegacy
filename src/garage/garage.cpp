@@ -184,6 +184,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto haggleBubble = std::make_unique<Bubble>("  No thanks`!", BUBBLE_LEFT, 93, 30, true);
     haggleBubble->SetVisible(false);
     bubbles.push_back(std::move(haggleBubble));
+    // bubbles[kOutOfDoughBubble] - both lines of the original's message 0x15.
+    auto outOfDoughBubble = std::make_unique<Bubble>(
+        "You're outta dough.\nLooks like you're done for the summer`!",
+        BUBBLE_RIGHT_TWO_LINES, 80, 30, false);
+    outOfDoughBubble->SetVisible(false);
+    bubbles.push_back(std::move(outOfDoughBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -676,6 +682,10 @@ void Garage::DrawScene() {
         activeDialog->Draw();
     }
 
+    // Bubbles time themselves out after a few seconds; this one is the end of
+    // the run and has to stay up until the player acknowledges it.
+    if (outOfDough) bubbles[kOutOfDoughBubble]->SetVisible(true);
+
     // Draw bubbles last so they appear on top of dialogs
     for (auto& b : bubbles) {
         b->Draw();
@@ -688,6 +698,18 @@ void Garage::OnFadeComplete() {
     // synced to, which a purchase or a save load can have replaced.
     RefreshEngineBayGeometry();
     CarScene::OnFadeComplete();
+}
+
+// The original runs this check every time the garage loop comes round
+// (FUN_0023fe24): with the car gone, nothing left to sell and no money, the
+// run is over and the hall of fame follows.
+void Garage::OnSceneEnter() {
+    CarScene::OnSceneEnter();
+    outOfDough = state.IsOutOfDough();
+    if (outOfDough) {
+        bubbles[kOutOfDoughBubble]->SetVisible(true);
+        LOG_INFO("Garage: out of dough - the run is over");
+    }
 }
 
 void Garage::OnSceneExit() {
@@ -708,6 +730,16 @@ void Garage::SetActiveDialog(Dialog *dialog) {
 }
 
 bool Garage::PushEvent(SDL_Event* event) {
+    // Nothing in the garage is worth clicking once the run is over; the next
+    // key or click rolls the hall of fame.
+    if (outOfDough) {
+        if (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN) {
+            outOfDough = false;
+            bubbles[kOutOfDoughBubble]->SetVisible(false);
+            state.MoveToScene(SCENE_KING_OF_COUNTY);
+        }
+        return true;
+    }
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->HandleEvent(event);
         return true;

@@ -151,6 +151,12 @@ public:
     // or via Garage's "New Game" button.
     void StartNewGame();
 
+    // Nothing left to race and nothing left to sell: no car anywhere, no
+    // spare parts, and less than the cheapest car in the paper. The original
+    // checks exactly this on every return to the garage (FUN_0023fdb4, called
+    // from the garage loop 0x23fe24) and ends the run - "You're outta dough."
+    bool IsOutOfDough() const;
+
     // Fined more than you had: the run is over and the diner is seen from
     // inside a cell. See RodLegacyResearch/docs/diner.md ("Jail").
     bool IsJailed() const { return jailed; }

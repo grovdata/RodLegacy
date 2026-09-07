@@ -229,6 +229,12 @@ class Garage : public CarScene {
     // buyer's haggle lines and the parts screen's sign-off. Appended last in
     // Garage's constructor.
     static constexpr size_t kSellerBubble = 14;
+    // bubbles[kOutOfDoughBubble] - the end of the run, shown on entering a
+    // garage with no car, nothing to sell and no money (State::IsOutOfDough).
+    // The original shows its message box here and then rolls the hall of fame;
+    // this holds the garage until a key or click moves on to it.
+    static constexpr size_t kOutOfDoughBubble = 15;
+    bool outOfDough = false;
 
     // Selling a car. The haggle itself is in car_haggle.h; this end owns the
     // two dialogs it drives and the car being sold. See garage_sell_car.cpp.
@@ -307,6 +313,7 @@ class Garage : public CarScene {
 
     bool PushEvent(SDL_Event* event) override;
     void DrawScene() override;
+    void OnSceneEnter() override;
     void SetActiveDialog(Dialog *dialog) override;
     void StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) override;
     void OnCarAnimationComplete() override;

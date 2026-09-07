@@ -892,8 +892,9 @@ void Driving::LeaveAfterRace() {
         state.MoveToScene(SCENE_DINER);
     } else if (state.GetCurrentCar() == nullptr) {
         // Nothing left in the garage - a forfeited pink slip, or a car that was
-        // totaled or junked. The paper is the only way back into the game.
-        state.MoveToScene(SCENE_NEWSPAPER);
+        // totaled or junked. The paper is the only way back into the game, and
+        // if there is no buying your way back the garage ends the run instead.
+        state.MoveToScene(state.IsOutOfDough() ? SCENE_GARAGE : SCENE_NEWSPAPER);
     } else {
         state.MoveToScene(SCENE_GARAGE);
     }
