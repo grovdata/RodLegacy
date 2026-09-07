@@ -566,8 +566,17 @@ const SrDriverData* State::GetCurrentDriverData() {
 }
 
 int State::GetChallengerScore() const {
+    // The King sits at RACER_KING_SLOT, one past the pool, so his car is not
+    // in pool[] - it is the last SR_data spec.
+    if (lastChallengerPoolIndex == RACER_KING_SLOT &&
+        SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
+        return ComputeCarPerformanceScore(mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+    }
+    // No pool-backed challenger: read as evenly matched. Anything below 91 is
+    // a score no car in the game can have (ComputeTopSpeed's floor), and would
+    // make the player look stronger than every opponent alive.
     if (lastChallengerPoolIndex < 0 ||
-        lastChallengerPoolIndex >= RACER_POOL_SIZE) return 70;
+        lastChallengerPoolIndex >= RACER_POOL_SIZE) return GetPlayerScore();
     return racerPool.GetEntryScore(lastChallengerPoolIndex);
 }
 

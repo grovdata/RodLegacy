@@ -2,7 +2,20 @@
 #include "bet_acceptance.h"
 #include "state.h"
 #include "log.h"
+#include "utils.h"
 #include <cstdlib>
+#include <random>
+
+namespace {
+// rand() is never seeded anywhere in RodLegacy, so it replays the same
+// sequence on every launch - which made a bet's outcome a fixed function of
+// how many draws had happened, identical in every new game. RandomEngine()
+// is the seeded one the rest of the code already uses.
+int Roll(int n) {
+    std::uniform_int_distribution<int> dist(0, n - 1);
+    return dist(RandomEngine());
+}
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // String tables
@@ -170,7 +183,7 @@ void Challenge::ShowDragBetDialog() {
             static const int bets[] = {0, 25, 50};
 
             BetType bet = betTypes[idx];
-            int roll    = rand() % 100;
+            int roll    = Roll(100);
             bool accepted = OpponentAcceptsBet(
                 state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
 
@@ -196,7 +209,7 @@ void Challenge::ShowRoadBetDialog() {
             static const int bets[] = {25, 100, 0};
 
             BetType bet = betTypes[idx];
-            int roll    = rand() % 100;
+            int roll    = Roll(100);
             bool accepted = OpponentAcceptsBet(
                 state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
 
@@ -217,7 +230,7 @@ void Challenge::ShowSpeech(const std::string& text) {
 void Challenge::Accept() {
     step = Step::None;
     dialog.reset();
-    ShowSpeech(kAcceptances[rand() % kAcceptances.size()]);
+    ShowSpeech(kAcceptances[Roll(static_cast<int>(kAcceptances.size()))]);
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::Accept - race pending");
 }
@@ -226,7 +239,7 @@ void Challenge::Reject() {
     step = Step::None;
     dialog.reset();
     insultFromOpponent = false;
-    ShowSpeech(kInsults[rand() % kInsults.size()]);
+    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
     insultTimer = 0.0f;
     LOG_INFO("Challenge::Reject - player backed out");
 }
@@ -239,7 +252,7 @@ void Challenge::OpponentRejectsBet() {
     dialog.reset();
     ++betAttempts;
     insultFromOpponent = true;
-    ShowSpeech(kInsults[rand() % kInsults.size()]);
+    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
     insultTimer = 0.0f;
     LOG_INFO("Challenge::OpponentRejectsBet - attempt %d/%d", betAttempts, kMaxBetAttempts);
 }

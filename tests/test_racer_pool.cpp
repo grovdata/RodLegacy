@@ -729,3 +729,30 @@ TEST_CASE("sticker index stays inside the Amiga decal sheet") {
 }
 
 } // TEST_SUITE
+
+
+TEST_SUITE("SrDataCarScores") {
+
+// ComputeTopSpeed is base*13/10 capped at 130, and ComputeBasePerformance
+// floors at 70, so no car in the game can score below 91. State::GetChallenger
+// Score used to fall back to 70 for an unknown challenger, which made the
+// player read as stronger than every opponent alive - and the pink-slip
+// threshold for "player stronger" is 0, i.e. never accepted.
+TEST_CASE("no car spec can score below the 91 mph floor") {
+    const std::vector<uint8_t> data = LoadRealSrData();
+    if (data.empty()) {
+        MESSAGE("shipped SR_data not found next to the build; skipping");
+        return;
+    }
+    DataParser dp;
+    const std::vector<SrCarSpecEntry> specs = dp.ParseCarSpecTable(data);
+    REQUIRE(specs.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
+    for (size_t i = 0; i < specs.size(); ++i) {
+        const int score = ComputeCarPerformanceScore(specs[i]);
+        CAPTURE(i);
+        CHECK(score >= 91);
+        CHECK(score <= 130);
+    }
+}
+
+} // TEST_SUITE
