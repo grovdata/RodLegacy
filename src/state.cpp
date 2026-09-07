@@ -565,21 +565,11 @@ const SrDriverData* State::GetCurrentDriverData() {
     return &srDriverData[driverIndex];
 }
 
-// Engine tier 0..2 (V6 / small V8 / big V8), the strength table's column. The
-// original reads it off the engine part actually bolted in (car+0x0A into the
-// master parts table); a car still carrying its spec's engine has only the
-// class. CarEngine_t runs brand-major with the three tiers in order, so the
-// tier of a fitted engine is its index mod 3.
-static int PlayerEngineClass(const Car& car) {
-    if (car.GetSpecEngineClass() >= 0) return car.GetSpecEngineClass();
-    return static_cast<int>(car.GetEngine().engineType) % 3;
-}
-
 BetContext State::GetBetContext() {
     BetContext ctx;
     if (currentCar) {
         ctx.playerCarClass    = currentCar->GetWeightClass();
-        ctx.playerEngineClass = PlayerEngineClass(*currentCar);
+        ctx.playerEngineClass = currentCar->GetEngineClass();
         const SrLibCarDecal decal = currentCar->GetDecal();
         // The sticker nibble is one-based; a custom decal is not in the
         // original's set, so it counts as the first one.
@@ -591,9 +581,6 @@ BetContext State::GetBetContext() {
     const SrCarSpecEntry* spec = GetChallengerSpec();
     if (spec != nullptr) {
         ctx.oppCarClass = spec->car_class;
-        // Both sides go through SrCarSpecEntry::EngineClass, so the comparison
-        // stays consistent while issue #54 (engine and carburettor config bits
-        // swapped) is open, and both become right the moment it lands.
         ctx.oppEngineClass = spec->EngineClass();
     } else {
         // No pool-backed challenger: read as evenly matched.

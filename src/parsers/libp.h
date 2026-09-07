@@ -1757,21 +1757,21 @@ struct SrCarSpecEntry {
     // Brand is stored as a bitmask (bit12=GM, bit13=Ford, bit14=Chrysler), and
     // >>13 conveniently collapses that to 0/1/2 - which is what the Amiga does.
     //
-    // The field layout is the same one the Amiga's parts table uses (carb & 7,
-    // manifold (& 0x38) >> 3, engine (& 0xc0) >> 6, transmission (& 0x300) >> 8,
-    // tires (& 0xc00) >> 10), which is what makes the classes drop straight into
-    // the top-speed scoring. Two things pin manifold and engine to those bits:
-    // manifold reaches 4 across the 26 specs, which only fits the 5-column
-    // engine/manifold matrix, while engine never leaves 0..3, exactly its 4
-    // rows; and spec 5 (1963 Corvette) reads 119 mph tuned in the real game,
-    // which only this layout produces.
+    // The field layout is the same one the Amiga's master parts table uses for
+    // a part's own class word (engine & 7, manifold (& 0x38) >> 3, carb
+    // (& 0xc0) >> 6, transmission (& 0x300) >> 8, tires (& 0xc00) >> 10), which
+    // is what makes the classes drop straight into the top-speed scoring.
+    // GenerateOpponentCar (0x23bd6a) builds a car's parts from this word and
+    // pins engine and carb to those bits: engine variant = brand + (cfg & 7) * 3
+    // (master indices 0..8, the nine engines), carb = ((cfg & 0xc0) >> 6) + 0x16
+    // (22..24, the three carburettors).
     // See RodLegacyResearch/docs/driving/top_speed.md.
     int Brand()         const { return (ConfigWord() >> 13) & 0x7; }  // 0=GM 1=Ford 2=Chrysler
     int TireClass()     const { return (ConfigWord() >> 10) & 0x3; }  // 0..2
     int TransClass()    const { return (ConfigWord() >> 8)  & 0x3; }  // 0..3
-    int EngineClass()   const { return (ConfigWord() >> 6)  & 0x3; }  // 0..3
+    int CarbClass()     const { return (ConfigWord() >> 6)  & 0x3; }  // 0..2
     int ManifoldClass() const { return (ConfigWord() >> 3)  & 0x7; }  // 0..4 in practice
-    int CarbClass()     const { return  ConfigWord()        & 0x7; }  // 0..2
+    int EngineClass()   const { return  ConfigWord()        & 0x7; }  // 0..2: V6, 283, 327
 
     int BodyAsset() const { return ((body[0] << 8) | body[1]) - 1; }
     uint32_t AdTextPtr() const {

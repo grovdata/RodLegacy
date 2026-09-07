@@ -53,7 +53,7 @@ enum class RacePhase : uint8_t { Countdown, Running, Ended };
 struct CarSetup {
     int carbClass = 0;      // 0=2bbl, 1=4bbl, 2=racing
     int transClass = 2;     // 0=auto, 1=3spd, 2=4spd, 3=racing
-    int engineClass = 2;    // 0..3 row in eng_x_mani matrix; V6=1, V8=2
+    int engineClass = 2;    // 0..3 row in eng_x_mani; part tier V6=0, 283=1, 327=2
     int manifoldClass = 0;  // 0..4 column in eng_x_mani; stock=0, perf=3, racing=4
     int tireClass = 0;      // 0=stock, 1=brand, 2=racing slicks
     int weightClass = 4;    // SR_data car-spec class byte 0..8, indexes weight_pts

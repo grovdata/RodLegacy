@@ -152,6 +152,10 @@ class Car {
         void SetWeightClass(int cls) { weightClass = cls; RecalculatePerformance(); }
 
         int GetSpecEngineClass() const { return specEngineClass; }
+        // Engine tier 0..2 (V6 / small V8 / big V8): the spec's own class
+        // while the car still carries its spec engine, the fitted part's tier
+        // once one has been swapped in. Scoring and bet strength both use it.
+        int GetEngineClass() const;
         int GetSpecManifoldClass() const { return specManifoldClass; }
         void SetSpecPartClasses(int engineCls, int manifoldCls) {
             specEngineClass = engineCls;

@@ -402,8 +402,8 @@ void RaceSim::SpawnCop() {
     CarSetup copSetup{};
     copSetup.carbClass = 2;
     copSetup.transClass = 3;
-    copSetup.engineClass = 3;
-    copSetup.manifoldClass = 2;
+    copSetup.engineClass = 2;
+    copSetup.manifoldClass = 4;
     copSetup.tireClass = 2;
     copSetup.driverSkill = 130;
     npcSetup = copSetup;

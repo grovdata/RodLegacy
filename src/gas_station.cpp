@@ -136,6 +136,9 @@ void GasStation::DrawScene() {
     lastFrameTime = currentTime;
 
     UpdateCarAnimation(deltaTime);
+    // UpdateCarAnimation can trigger OnCarExitComplete -> MoveToScene
+    // synchronously, switching the active scene away mid-call.
+    if (state.GetCurrentScene() != this) return;
 
     // Update attendant animation
     if (attendantAnim) {
@@ -413,6 +416,7 @@ void GasStation::StartAnimateCar(CarPtr car, Driver*, CarAnimationType animType)
         carBitmap = GetOrCreateCurrentCarBitmap();
         if (carBitmap) {
             carx = -GAME_WIDTH;
+            carxFloat = carx;  // else UpdateCarAnimation resumes from wherever the previous visit's exit left it
             cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
             animatingCar = true;
             currentAnimationType = animType;

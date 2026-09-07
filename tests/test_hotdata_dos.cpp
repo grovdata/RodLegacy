@@ -28,7 +28,7 @@ std::vector<uint8_t> MakeSyntheticHotData() {
         buf[spec + 2] = static_cast<uint8_t>(i % 9);       // tier
         buf[spec + 3] = static_cast<uint8_t>(i + 1);       // listing order
         buf[spec + 4] = 0x02 | (1 << 4) | (3 << 6);        // Ford, tires 1, trans 3
-        buf[spec + 5] = 2 | (4 << 3) | (1 << 6);           // carb 2, manifold 4, engine 1
+        buf[spec + 5] = 1 | (4 << 3) | (2 << 6);           // engine 1, manifold 4, carb 2
         PutU16LE(buf, spec + 8, static_cast<uint16_t>(HOT_DATA_SPRITE_BASE + 40 + i));
 
         const size_t spr = HOT_DATA_CARSPRITES_START + i * 10;

@@ -19,11 +19,12 @@ static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
     s.car_class = car_class;
     s.price[0]  = static_cast<uint8_t>((price >> 8) & 0xff);
     s.price[1]  = static_cast<uint8_t>(price & 0xff);
-    // Engine is the 2-bit field at bit 6, manifold the 3-bit field at bit 3 -
-    // the same layout the Amiga's parts table uses. See SrCarSpecEntry.
+    // Carb is the 2-bit field at bit 6, manifold the 3-bit field at bit 3, and
+    // engine the 3-bit field at bit 0 - the same layout the Amiga's parts table
+    // uses for a part's own class word. See SrCarSpecEntry.
     const int cfg = ((brand & 0x7) << 13) | ((tires & 0x3) << 10) |
-                    ((trans & 0x3) << 8)  | ((engine & 0x3) << 6) |
-                    ((manifold & 0x7) << 3) |  (carb & 0x7);
+                    ((trans & 0x3) << 8)  | ((carb & 0x3) << 6) |
+                    ((manifold & 0x7) << 3) |  (engine & 0x7);
     s.config[0] = static_cast<uint8_t>((cfg >> 8) & 0xff);
     s.config[1] = static_cast<uint8_t>(cfg & 0xff);
     return s;
@@ -95,7 +96,7 @@ TEST_CASE("score stays within the original's 0..130 range") {
 }
 
 TEST_CASE("config word packs and unpacks through the accessors") {
-    // Engine is 2 bits (0..3), manifold 3 bits (0..4 in the shipped data).
+    // Engine is 3 bits (0..2 in the shipped data), carb 2 bits, manifold 3.
     const auto spec = MakeSpec(5, /*engine*/3, /*trans*/2, /*carb*/1,
                                /*tires*/2, /*manifold*/4, /*brand*/2,
                                /*price*/1234);

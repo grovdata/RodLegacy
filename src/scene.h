@@ -221,7 +221,6 @@ class CarScene: public Scene {
 private:
     // Original game: 2 pixels/frame at 50 Hz PAL = 100 px/s constant linear speed
     static constexpr double CAR_SPEED_PX_PER_SEC = 100.0;
-    double carxFloat = 0.0;  // sub-pixel accumulator
     double carAnimationTime = 0;
     double carExitAnimationTime = 0;
     double waitTimer = 0;
@@ -235,6 +234,13 @@ private:
     bool isPaused = false;
 
 protected:
+    // Sub-pixel accumulator driving carx during drive-in/exit animations
+    // (see CarScene::UpdateCarAnimation). A subclass that overrides
+    // StartAnimateCar without delegating to CarScene::StartAnimateCar must
+    // sync this itself, or the next animation starts from wherever this was
+    // left (e.g. past GAME_WIDTH after driving off), which can make
+    // UpdateCarAnimation see it as already "done" and skip the animation.
+    double carxFloat = 0.0;
     AudioManager* audioManager = nullptr;
     CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
     bool initialDelay = true;

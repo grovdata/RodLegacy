@@ -29,23 +29,27 @@ Car::~Car() {
 // Fitted parts
 // ============================================================================
 
-// Unlike manifold, the raw SR_data engine class (0..3) has no confirmed
-// mapping to a specific CarEngine_t - it's a scoring tier, not a documented
-// body-shape selector (docs/formats/sr_data.md just calls it "engine class
-// 0..3"), and CarSetupFromCar's own derivation collapses V8/V8_BIG to the
-// same scoring class in the other direction, so it can't be inverted either.
-// This is a guess (weakest->V6, strongest->V8_BIG): flag if a spec-based
-// car's engine body looks wrong.
+// The SR_data engine class is the master parts table's engine tier: the nine
+// engines are three tiers by three brands, and the ad text names them "V-6",
+// "V-8 283 cu.in." and "V-8 327 cu.in." (docs/formats/parts_catalog.md).
 CarEngine_t Car::GetEngineType() const {
     if (specEngineClass >= 0) {
         switch (specEngineClass) {
             case 0: return CarEngineGM_V6;
-            case 1:
-            case 2: return CarEngineGM_V8_282;
+            case 1: return CarEngineGM_V8_282;
             default: return CarEngineGM_V8_327;
         }
     }
     return engine.engineType;
+}
+
+// The scoring tier of the engine in the car: the spec's own class while the
+// spec engine is still in, otherwise the fitted part's tier. CarEngine_t runs
+// brand-major with the three tiers in order, so a part's tier is its index
+// mod 3 - which is how the original reads it off the parts table (+2).
+int Car::GetEngineClass() const {
+    if (specEngineClass >= 0) return specEngineClass;
+    return static_cast<int>(engine.engineType) % 3;
 }
 
 // A car loaded from its SR_data spec (i.e. never had this part explicitly
@@ -245,20 +249,7 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // A car that still carries its spec's engine and manifold scores on the
     // spec's own classes; once the player fits a different part the class comes
     // from that part instead.
-    if (car.GetSpecEngineClass() >= 0) {
-        setup.engineClass = car.GetSpecEngineClass();
-    } else {
-        switch (car.GetEngine().engineType) {
-            case CarEngineGM_V6:
-            case CarEngineFord_V6:
-            case CarEngineChrysler_V6:
-                setup.engineClass = 1;
-                break;
-            default:
-                setup.engineClass = 2;
-                break;
-        }
-    }
+    setup.engineClass = car.GetEngineClass();
 
     if (car.GetSpecManifoldClass() >= 0) {
         setup.manifoldClass = car.GetSpecManifoldClass();

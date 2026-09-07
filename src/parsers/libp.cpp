@@ -1927,11 +1927,11 @@ std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTableDOS(const std::vector<u
         const int brandMask = partsA & 0x0F;         // 1=GM, 2=Ford, 4=Chrysler
         const int tires     = (partsA >> 4) & 0x03;
         const int trans     = (partsA >> 6) & 0x03;
-        const int carb      = partsB & 0x07;
+        const int engine    = partsB & 0x07;
         const int manifold  = (partsB >> 3) & 0x07;
-        const int engine    = (partsB >> 6) & 0x03;
+        const int carb      = (partsB >> 6) & 0x03;
         const int config    = (brandMask << 12) | (tires << 10) | (trans << 8) |
-                              (engine << 6) | (manifold << 3) | carb;
+                              (carb << 6) | (manifold << 3) | engine;
 
         // Absolute file offset, so AdTextPtr() means the same thing it does on
         // the Amiga (where it is an absolute pointer into the loaded file).
