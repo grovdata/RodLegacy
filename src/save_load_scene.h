@@ -52,6 +52,9 @@ private:
     // image never changes mid-session.
     std::vector<Entry> disk2Samples;
     std::unique_ptr<ListDialog> listDialog;
+    // Save mode: "Overwrite <name> ?" box, put up when the name being saved
+    // under is already taken by one of our own saves.
+    std::unique_ptr<Dialog> confirmDialog;
 
     // Save mode: the name typed into the "new save" row. Starts as the
     // player's own name so hitting Save straight away does the obvious
@@ -68,8 +71,16 @@ private:
     void RefreshNewSaveRow();
     // Blinking block cursor after the typed name on the new-save row.
     void DrawNameCursor();
+    // Index of our own save carrying `name` (trimmed, case-insensitive), or -1.
+    int FindSaveNamed(const std::string& name) const;
     void Commit();       // load or save the selected row
-    void SaveAsNew();    // write a new save under the typed name
+    // Saves under `name`, which becomes the player name. A save already using
+    // that name is overwritten (after confirming) rather than joined by a
+    // second row reading the same - .sav files are read-only and can't clash.
+    void SaveUnderName(const std::string& name);
+    void ConfirmOverwrite(const std::filesystem::path& target, const std::string& name);
+    void CancelConfirm();
+    void WriteSave(const std::filesystem::path& target, const std::string& name);
     void Leave();        // "Forget it"
     void GoTo(SrLibGameScene scene);
     bool LoadEntry(const Entry& e);
