@@ -35,11 +35,16 @@ AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
 // asset id at +0x02, manifold class in flag bits 3-5) - see
 // RodLegacyResearch/docs/garage/engine_bay_layout.md. The binary's asset ids
 // are lib.p index + 1, and its class order is not ManifoldType's: it has
-// triple 2-barrel at class 2 and dual quad at class 3. MANIFOLD5/332 is
-// unreferenced by any part.
-AmigaLibAsset ManifoldBodyAsset(ManifoldType type) {
+// triple 2-barrel at class 2 and dual quad at class 3.
+//
+// No part record names MANIFOLD5: it is the 88x30 narrow twin of the 2-barrel
+// body, and FUN_00241afa substitutes it for MANIFOLD4 after the table lookup
+// whenever the fitted engine is a V6. A V6 only takes the two 2-barrel
+// manifolds, and the other one (triple) is already an 88-wide body.
+AmigaLibAsset ManifoldBodyAsset(ManifoldType type, CarEngine_t engine) {
     switch (type) {
-        case MANIFOLD_2BARREL: return ENGINE_MANIFOLD4;
+        case MANIFOLD_2BARREL:
+            return ManifoldBodyIsNarrow(type, engine) ? ENGINE_MANIFOLD5 : ENGINE_MANIFOLD4;
         case MANIFOLD_4BARREL: return ENGINE_MANIFOLD3;
         case MANIFOLD_DUAL_QUAD: return ENGINE_MANIFOLD2;
         case MANIFOLD_TRIPLE_2BARREL: return ENGINE_MANIFOLD6;
@@ -111,7 +116,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     CarburetorType carbType = currentCar->GetCarburator().partType.carburetorType;
 
     Bitmap* engineBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, EngineBodyAsset(engineType)});
-    Bitmap* manifoldBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ManifoldBodyAsset(manifoldType)});
+    Bitmap* manifoldBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ManifoldBodyAsset(manifoldType, engineType)});
     Bitmap* carbBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, CarbBodyAsset(carbType)});
     Bitmap* wireBmp = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_ATTACHED});
 
@@ -603,7 +608,7 @@ void EngineBay::RefreshPartsForCurrentCar() {
     int carbSlots = car->GetCarburetorSlots();
     for (int slot = 0; slot < kEngineBayPartSlots; slot++) {
         AmigaLibAsset asset = slot == 0   ? EngineBodyAsset(engineType)
-                              : slot == 1 ? ManifoldBodyAsset(car->GetManifoldType())
+                              : slot == 1 ? ManifoldBodyAsset(car->GetManifoldType(), engineType)
                                           : CarbBodyAsset(car->GetCarburetor(slot - 2).partType.carburetorType);
         SetPartAsset(slot, asset);
         SetPartVisible(slot, IsPartFitted(slot));

@@ -279,13 +279,7 @@ void Garage::OnEngineWireClicked() {
     }
 
     engineWireAttached = !engineWireAttached;
-    if (engineBay) {
-        DialogBitmap* db = engineBay->GetDialog()->GetBitmap("engine_wire");
-        if (db) {
-            db->bitmap = state.GetAssets().GetBitmapAsset(
-                {LibAssetRegular, SrLibFileAmigaLibP, engineWireAttached ? ENGINE_WIRE_ATTACHED : ENGINE_WIRE_DETACHED});
-        }
-    }
+    ApplyEngineWireVisual();
 
     if (engineBaySlotPhase[slotIdx] == PartInstallPhase::UNSCREWING && IsEngineBaySlotFullyOut(slot)) {
         EmptyEngineBaySlot(slot);
@@ -383,9 +377,12 @@ void Garage::StartEngineSlideIn(const EnginePart& newEngine) {
 }
 
 void Garage::StartManifoldSlideIn(const Part& newManifold) {
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
     pendingManifold = newManifold;
     ManifoldType type = newManifold.partType.manifoldType;
-    AmigaLibAsset asset = ManifoldBodyAsset(type);
+    // The 2-barrel body it slides in as depends on the block it lands on.
+    AmigaLibAsset asset = ManifoldBodyAsset(type, car->GetEngineType());
     Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
     StartEngineBaySlideIn(EngineBaySlot::MANIFOLD, asset, ManifoldBodyRect(bmp->GetNaturalSize(), type));
 }
@@ -402,6 +399,20 @@ void Garage::StartCarbSlideIn(int carbIndex, const Part& newCarb) {
         CarbBodyRect(bmp->GetNaturalSize(), car->GetManifoldType(), car->GetEngineType(), carbIndex));
 }
 
+// The Garage outlives every car it shows, and engineWireAttached is
+// re-derived per car by SyncEngineBayPhasesFromCar, so the sprite has to be
+// re-applied from it rather than only where it gets toggled - otherwise a
+// car bought while the last one's engine was out drives in with an unplugged
+// wire.
+void Garage::ApplyEngineWireVisual() {
+    if (!engineBay || !engineBay->GetDialog()) return;
+    DialogBitmap* db = engineBay->GetDialog()->GetBitmap("engine_wire");
+    if (!db) return;
+    db->bitmap = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP,
+         engineWireAttached ? ENGINE_WIRE_ATTACHED : ENGINE_WIRE_DETACHED});
+}
+
 // Dialog::Show() turns every bitmap in the dialog back on, and the bay is
 // re-shown every time a picker closes - so anything currently apart has to
 // be hidden again afterwards. Also the tail of a refresh, which reassembles
@@ -409,6 +420,7 @@ void Garage::StartCarbSlideIn(int carbIndex, const Part& newCarb) {
 // until they are fitted too.
 void Garage::ApplyEngineBayAssemblyState() {
     if (!engineBay) return;
+    ApplyEngineWireVisual();
     for (int idx = 0; idx < kEngineBayPartSlots; idx++) {
         EngineBaySlot slot = (EngineBaySlot)idx;
         PartInstallPhase phase = engineBaySlotPhase[idx];
@@ -534,11 +546,7 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
             if (slot == EngineBaySlot::ENGINE) {
                 // Fresh engine drops in with its wire unplugged too.
                 engineWireAttached = false;
-                DialogBitmap* wireDb = dlg->GetBitmap("engine_wire");
-                if (wireDb) {
-                    wireDb->bitmap = state.GetAssets().GetBitmapAsset(
-                        {LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WIRE_DETACHED});
-                }
+                ApplyEngineWireVisual();
             }
         }
     }

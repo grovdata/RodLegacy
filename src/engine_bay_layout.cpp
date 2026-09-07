@@ -69,6 +69,14 @@ SDL_Rect ManifoldBodyRect(SDL_Rect asset, ManifoldType manifold) {
     return BottomAnchoredRect(asset, kManifoldBody);
 }
 
+// Like CarbSlot's V6 case, this reads the engine the car carries rather than
+// whether one is bolted in right now; the original tests the engine part
+// pointer, so a bay with the engine pulled out reverts to the wide body.
+bool ManifoldBodyIsNarrow(ManifoldType manifold, CarEngine_t engine) {
+    const int cls = ManifoldClass(manifold);
+    return cls == 2 || (cls == 0 && EngineTier(engine) == 0);
+}
+
 SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine, int carbIndex) {
     return BottomAnchoredRect(asset, CarbSlot(manifold, engine, carbIndex));
 }
@@ -91,8 +99,8 @@ SDL_Point EngineBayScrewAnchor(int screwIndex, CarEngine_t engine, ManifoldType 
             t = {74, 75};
             break;
         case 2:
-            // The 88px-wide triple 2-barrel body pulls its right screw in.
-            t = {ManifoldClass(manifold) == 2 ? 131 : 153, 75};
+            // An 88px-wide body pulls its right screw in.
+            t = {ManifoldBodyIsNarrow(manifold, engine) ? 131 : 153, 75};
             break;
         default: {
             SDL_Point slot = CarbSlot(manifold, engine, screwIndex - 3);

@@ -21,7 +21,7 @@ enum EngineBayState {
 // garage/garage_engine_bay_install.cpp, which needs the same mapping to
 // swap bitmaps when a part is installed. See engine_bay.cpp for sourcing.
 AmigaLibAsset EngineBodyAsset(CarEngine_t type);
-AmigaLibAsset ManifoldBodyAsset(ManifoldType type);
+AmigaLibAsset ManifoldBodyAsset(ManifoldType type, CarEngine_t engine);
 AmigaLibAsset CarbBodyAsset(CarburetorType type);
 
 class Car;

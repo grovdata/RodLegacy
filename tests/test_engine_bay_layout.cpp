@@ -44,6 +44,19 @@ TEST_CASE("manifold body has one position for every class") {
     CHECK(Same(ManifoldBodyRect(kManifoldWide, MANIFOLD_RACING), {80, 42, 112, 34}));
 }
 
+TEST_CASE("the 2-barrel manifold has a narrow body for the V6 block") {
+    // A V6 takes only the two 2-barrel manifolds, and both draw 88px wide.
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_2BARREL, CarEngineGM_V6) == true);
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6) == true);
+    // On a V8 the same part is the 112px body.
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_2BARREL, CarEngineGM_V8_282) == false);
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_2BARREL, CarEngineFord_V8_351) == false);
+    // Nothing else changes with the block.
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_4BARREL, CarEngineGM_V6) == false);
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_RACING, CarEngineGM_V6) == false);
+    CHECK(ManifoldBodyIsNarrow(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V8_327) == true);
+}
+
 TEST_CASE("manifold class decides how many carburetors it mounts") {
     CHECK(CarburetorsPerManifold(MANIFOLD_2BARREL) == 1);
     CHECK(CarburetorsPerManifold(MANIFOLD_4BARREL) == 1);
@@ -84,6 +97,9 @@ TEST_CASE("screws mount on the part they hold") {
     CHECK(EngineBayScrewAnchor(1, CarEngineGM_V6, MANIFOLD_4BARREL, CARB_4BARREL).x == 98);
     CHECK(EngineBayScrewAnchor(2, CarEngineGM_V6, MANIFOLD_4BARREL, CARB_4BARREL).x == 177);
     CHECK(EngineBayScrewAnchor(2, CarEngineGM_V6, MANIFOLD_TRIPLE_2BARREL, CARB_2BARREL).x == 155);
+    // Same for the 2-barrel's narrow V6 body, which the V8 keeps wide.
+    CHECK(EngineBayScrewAnchor(2, CarEngineGM_V6, MANIFOLD_2BARREL, CARB_2BARREL).x == 155);
+    CHECK(EngineBayScrewAnchor(2, CarEngineGM_V8_282, MANIFOLD_2BARREL, CARB_2BARREL).x == 177);
 
     // Verified: this screw's head is at x 119-124, y 46-49 in screenshot
     // 010.png, i.e. bottom-aligned on y 50.

@@ -184,6 +184,8 @@ class Garage : public CarScene {
     void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
     void EmptyEngineBaySlot(EngineBaySlot slot);
     void ApplyEngineBayAssemblyState();
+    // Puts the ground wire's sprite in step with engineWireAttached.
+    void ApplyEngineWireVisual();
     void RefreshEngineBayGeometry();
     void ApplyEngineBaySlideFrame(EngineBaySlot slot, int y, const SDL_Rect& mount);
     void StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount);
