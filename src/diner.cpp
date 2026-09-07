@@ -60,6 +60,10 @@ void Diner::Init(bool debugMode) {
 
     LoadActors();
 
+    jailBars = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, JAIL});
+    jailBars->SetPosition(0, 0);
+    jailBars->SetVisible(true);
+
     // Create masked screen background (similar to gas station)
     Bitmap* screenMaskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
     if (screenMaskBitmap) {
@@ -209,6 +213,16 @@ void Diner::UpdateActors(double deltaTime) {
     dinerRollTimer = 0.0f;
 
     std::uniform_int_distribution<int> roll100(0, 99);
+    // The waitress never shows in jail: her scheduler lives in the challenger
+    // dialog, which the original's jail loop never reaches. The phone guy does.
+    if (state.IsJailed()) {
+        if (roll100(RandomEngine()) < 6) {
+            guyStep = 0;
+            guyHoldTimer = 0.0f;
+            ApplyGuyFrame();
+        }
+        return;
+    }
     if (!waitressOnScreen) {
         // Odds climb the longer she has been away, as the original's do as the
         // dialog goes on; it also refuses to bring her back straight away.
@@ -234,6 +248,9 @@ void Diner::UpdateActors(double deltaTime) {
 }
 
 void Diner::DrawScene() {
+    // No status bar in a cell.
+    hud->SetVisible(!state.IsJailed());
+
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
@@ -345,6 +362,11 @@ void Diner::DrawMaskAfterCar() {
     }
 
     CarScene::DrawMaskAfterCar();
+
+    // Last of all, so nothing draws over them - this runs from DrawExtra,
+    // after DrawScene has finished. Everything in the diner is behind the
+    // bars: the challengers keep arriving and leaving, you just watch.
+    if (state.IsJailed()) jailBars->Draw();
 }
 
 std::string Diner::GetOpponentText(Opponent *opponent) {
@@ -434,7 +456,35 @@ void Diner::UpdateDebugInfo() {
                            std::to_string(offset.offsetYDecal));
 }
 
+std::vector<DebugPanel> Diner::GetDebugPanels() {
+    std::vector<DebugPanel> panels = CarScene::GetDebugPanels();
+    DebugPanel jail{"Diner", {}};
+    jail.toggles.push_back({"Jailed (bars, no interaction)", state.DebugJailedFlag()});
+    jail.lines = {
+        "Jail is normally entered by losing a race to a cop",
+        "with less money than the fine. Untick to leave;",
+        "a key press in the game view ends the run instead.",
+    };
+    panels.push_back(std::move(jail));
+    return panels;
+}
+
 bool Diner::PushEvent(SDL_Event *event) {
+    // In jail nothing is clickable - the original passes 1 to its challenger
+    // calls, which is look-don't-touch. Watch as long as you like; a key ends
+    // the run and rolls the hall of fame.
+    if (state.IsJailed()) {
+        if (event->type == SDL_KEYDOWN) {
+            // MoveToScene reads the flag to build the hall of fame as a loss;
+            // clear it after, or leaving the hall locks the diner again.
+            // ponytail: a proper end-of-run reset belongs to the game-over
+            // sequence (issue #24), this only avoids the dead end.
+            state.MoveToScene(SCENE_KING_OF_COUNTY);
+            state.SetJailed(false);
+        }
+        return true;
+    }
+
     if (challenge->HandleEvent(event)) return true;
 
     bool consumed = CarScene::PushEvent(event);

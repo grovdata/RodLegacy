@@ -35,6 +35,7 @@ test_sources = [
     'test_car_carburetors.cpp',
     'test_car_haggle.cpp',
     'test_part_sale.cpp',
+    'test_diner_actors.cpp',
     '../src/engine_bay_layout.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',

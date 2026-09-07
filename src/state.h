@@ -39,6 +39,7 @@ private:
     // int roadRacesCompleted;
     bool debugMode;
     std::string playerName = "Player";
+    bool jailed = false;
 
     std::set<Driver *> allDrivers;
     std::set<Driver *> knownDrivers;
@@ -147,6 +148,14 @@ public:
     // NameEntry::HandleOk, so it applies whether the flow started at launch
     // or via Garage's "New Game" button.
     void StartNewGame();
+
+    // Fined more than you had: the run is over and the diner is seen from
+    // inside a cell. See RodLegacyResearch/docs/diner.md ("Jail").
+    bool IsJailed() const { return jailed; }
+    void SetJailed(bool v) { jailed = v; }
+    // For the debug UI checkbox (Diner::GetDebugPanels), so the jail view can
+    // be previewed without losing a race to a cop first.
+    bool* DebugJailedFlag() { return &jailed; }
 
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();

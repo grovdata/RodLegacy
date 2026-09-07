@@ -237,7 +237,8 @@ void State::MoveToScene(SrLibGameScene scene) {
             this->currentScene = newspaper.get();
             break;
         case SCENE_KING_OF_COUNTY:
-            kingOfCounty = std::make_unique<KingOfCounty>(true);
+            // Jail gets the same hall of fame, but you did not win it.
+            kingOfCounty = std::make_unique<KingOfCounty>(!jailed);
             kingOfCounty->Init(debugMode);
             this->currentScene = kingOfCounty.get();
             break;
@@ -268,6 +269,7 @@ void State::MoveToScene(SrLibGameScene scene) {
 void State::StartNewGame() {
     ownedCars.clear();
     currentCar.reset();
+    jailed = false;
 }
 
 Car* State::GetCurrentCar() {

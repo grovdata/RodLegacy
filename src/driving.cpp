@@ -666,11 +666,12 @@ void Driving::DrawScene() {
                         const int fine = racing->SpeedingFine();
                         if (state.GetBankroll() >= fine) {
                             state.SetBankroll(state.GetBankroll() - fine);
+                        } else {
+                            // Short of the fine: hauled off to the slammer and
+                            // the run is over. The diner draws itself behind
+                            // bars from here on - docs/diner.md ("Jail").
+                            state.SetJailed(true);
                         }
-                        // TODO: can't-pay is jail and the run ends. The bubble
-                        // already says so ("sentenced for debts"), but RodLegacy
-                        // has no game-over path to hand yet, so for now you just
-                        // keep the money you could not pay with.
                     }
                     raceEndPendingKing = state.OnRaceFinished(raceType, won);
                     racing->ResetRaceOutcome();
@@ -811,6 +812,9 @@ bool Driving::PushEvent(SDL_Event *event) {
         raceEndPendingKing = false;
         if (endGame) {
             state.MoveToScene(SCENE_KING_OF_COUNTY);
+        } else if (state.IsJailed()) {
+            // Not the garage: you are in a cell, watching the diner.
+            state.MoveToScene(SCENE_DINER);
         } else if (state.GetCurrentCar() == nullptr) {
             // Lost the pink slip with nothing else in the garage: the paper is
             // the only way back into the game, so go straight there.

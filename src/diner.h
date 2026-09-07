@@ -60,6 +60,10 @@ class Diner: public CarScene {
     int waitressWaits = 0;
     float waitressStepTimer = 0.0f;
 
+    // Jail: the diner seen from a cell. The scene keeps running behind the
+    // bars, nothing can be clicked. See RodLegacyResearch/docs/diner.md.
+    Bitmap* jailBars = nullptr;
+
     // Phone guy: -1 when idle, otherwise the step into the 44-entry table.
     int guyStep = -1;
     float guyHoldTimer = 0.0f;
@@ -108,6 +112,7 @@ class Diner: public CarScene {
         void OnCarExitComplete() override;
 
         bool PushEvent(SDL_Event *event) override;
+        std::vector<DebugPanel> GetDebugPanels() override;
 
         void OnFadeComplete() override;
         void OnSceneExit() override;
