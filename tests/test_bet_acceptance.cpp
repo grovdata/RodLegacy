@@ -1,137 +1,196 @@
 #include <doctest/doctest.h>
 #include "bet_acceptance.h"
 
-// Score thresholds: <90 = weak (tier 0), 90-109 = mid (tier 1), >=110 = strong (tier 2).
+// strength[carClassTier][engineClass], lower = faster:
+//   210 180 150 / 175 150 125 / 140 120 100
+// car class 0..2 = tier 0, 3..6 = tier 1, 7..8 = tier 2.
+// handicap[driverTier][stakeClass]: 60 45 12 / 55 40 8 / 50 30 5, added to the
+// opponent's value before comparing.
 
-TEST_SUITE("OpponentAcceptsBet - PinkSlips") {
+namespace {
 
-TEST_CASE("player stronger: never accepts (threshold=0, roll=0 is boundary)") {
-    // player tier 2 (score 110), opponent tier 0 (score 70) -> col=2, threshold=0
-    // roll=0 -> 0 <= 0 -> true (edge case: exactly on boundary)
-    CHECK(OpponentAcceptsBet(110, 70, BetType::PinkSlips, 0) == true);
+// Two identical cars, easy driver, no sticker.
+BetContext Even() {
+    BetContext ctx;
+    ctx.playerCarClass = 4;
+    ctx.playerEngineClass = 1;
+    ctx.oppCarClass = 4;
+    ctx.oppEngineClass = 1;
+    return ctx;
 }
 
-TEST_CASE("player stronger: rejects for roll > 0") {
-    CHECK(OpponentAcceptsBet(110, 70, BetType::PinkSlips, 1)  == false);
-    CHECK(OpponentAcceptsBet(110, 70, BetType::PinkSlips, 50) == false);
-    CHECK(OpponentAcceptsBet(110, 70, BetType::PinkSlips, 99) == false);
+// Player in the slowest car in the game, opponent in the fastest.
+BetContext PlayerWeaker() {
+    BetContext ctx = Even();
+    ctx.playerCarClass = 0;   // strength 210
+    ctx.playerEngineClass = 0;
+    ctx.oppCarClass = 8;      // strength 100, +12 handicap on slips = 112 < 210
+    ctx.oppEngineClass = 2;
+    return ctx;
 }
 
-TEST_CASE("equal strength: accepts up to threshold 35") {
-    // player tier 1 (score 95), opponent tier 1 (score 100) -> col=1, threshold=35
-    CHECK(OpponentAcceptsBet(95, 100, BetType::PinkSlips, 0)  == true);
-    CHECK(OpponentAcceptsBet(95, 100, BetType::PinkSlips, 35) == true);
-    CHECK(OpponentAcceptsBet(95, 100, BetType::PinkSlips, 36) == false);
-    CHECK(OpponentAcceptsBet(95, 100, BetType::PinkSlips, 99) == false);
+BetContext PlayerStronger() {
+    BetContext ctx = PlayerWeaker();
+    std::swap(ctx.playerCarClass, ctx.oppCarClass);
+    std::swap(ctx.playerEngineClass, ctx.oppEngineClass);
+    return ctx;
 }
 
-TEST_CASE("player weaker: accepts up to threshold 90") {
-    // player tier 0 (score 70), opponent tier 2 (score 120) -> col=0, threshold=90
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 0)  == true);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 90) == true);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 91) == false);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 99) == false);
+}  // namespace
+
+TEST_SUITE("OpponentAcceptsBet - relative strength") {
+
+TEST_CASE("identical cars are evenly matched") {
+    CHECK(OpponentAcceptsBet(Even(), BetType::PinkSlips, 35) == true);
+    CHECK(OpponentAcceptsBet(Even(), BetType::PinkSlips, 36) == false);
 }
 
-} // TEST_SUITE
-
-TEST_SUITE("OpponentAcceptsBet - SmallMoney") {
-
-TEST_CASE("player stronger: low chance (threshold=25)") {
-    // player tier 2, opponent tier 0 -> col=2, threshold=25
-    CHECK(OpponentAcceptsBet(115, 70, BetType::SmallMoney, 25) == true);
-    CHECK(OpponentAcceptsBet(115, 70, BetType::SmallMoney, 26) == false);
+TEST_CASE("player weaker: accepts slips up to 90") {
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::PinkSlips, 90) == true);
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::PinkSlips, 91) == false);
 }
 
-TEST_CASE("equal strength: moderate chance (threshold=65)") {
-    CHECK(OpponentAcceptsBet(95, 95, BetType::SmallMoney, 65) == true);
-    CHECK(OpponentAcceptsBet(95, 95, BetType::SmallMoney, 66) == false);
+TEST_CASE("player stronger: never accepts slips") {
+    CHECK(OpponentAcceptsBet(PlayerStronger(), BetType::PinkSlips, 0) == true);  // 0 <= 0
+    CHECK(OpponentAcceptsBet(PlayerStronger(), BetType::PinkSlips, 1) == false);
 }
 
-TEST_CASE("player weaker: high chance (threshold=70)") {
-    CHECK(OpponentAcceptsBet(70, 120, BetType::SmallMoney, 70) == true);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::SmallMoney, 71) == false);
+TEST_CASE("money rows read the same columns") {
+    CHECK(OpponentAcceptsBet(PlayerStronger(), BetType::SmallMoney, 25) == true);
+    CHECK(OpponentAcceptsBet(PlayerStronger(), BetType::SmallMoney, 26) == false);
+    CHECK(OpponentAcceptsBet(Even(), BetType::LargeMoney, 70) == true);
+    CHECK(OpponentAcceptsBet(Even(), BetType::LargeMoney, 71) == false);
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::NoMoney, 40) == true);
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::NoMoney, 41) == false);
 }
 
-} // TEST_SUITE
+TEST_CASE("car class tiers at 3 and 7") {
+    BetContext ctx = Even();
+    ctx.playerCarClass = 2;  // tier 0 -> 180
+    ctx.oppCarClass    = 3;  // tier 1 -> 150, +12 on slips = 162 < 180
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 90) == true);   // weaker col
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 91) == false);
 
-TEST_SUITE("OpponentAcceptsBet - LargeMoney") {
-
-TEST_CASE("player stronger: very low chance (threshold=15)") {
-    CHECK(OpponentAcceptsBet(115, 70, BetType::LargeMoney, 15) == true);
-    CHECK(OpponentAcceptsBet(115, 70, BetType::LargeMoney, 16) == false);
+    ctx.playerCarClass = 6;  // tier 1 -> 150
+    ctx.oppCarClass    = 7;  // tier 2 -> 120, +12 = 132 < 150
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 90) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 91) == false);
 }
 
-TEST_CASE("equal strength: moderate chance (threshold=70)") {
-    CHECK(OpponentAcceptsBet(95, 95, BetType::LargeMoney, 70) == true);
-    CHECK(OpponentAcceptsBet(95, 95, BetType::LargeMoney, 71) == false);
+}  // TEST_SUITE
+
+TEST_SUITE("OpponentAcceptsBet - handicap") {
+
+// The handicap is what makes a free race generous and a pink slip stingy: the
+// same pairing reads "evenly matched" for kicks and "player stronger" for slips.
+TEST_CASE("a wider free-race band covers a gap slips do not") {
+    BetContext ctx = Even();
+    ctx.playerCarClass = 4;     // 150
+    ctx.playerEngineClass = 1;
+    ctx.oppCarClass = 4;        // 125, so the player is 25 slower
+    ctx.oppEngineClass = 2;
+
+    // kicks: 125 + 60 = 185, not < 150, and 150 > 125 -> equal, threshold 60
+    CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 60) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 61) == false);
+    // slips: 125 + 12 = 137 < 150 -> player weaker, threshold 90
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 90) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 91) == false);
 }
 
-TEST_CASE("player weaker: very high chance (threshold=90)") {
-    CHECK(OpponentAcceptsBet(70, 120, BetType::LargeMoney, 90) == true);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::LargeMoney, 91) == false);
+TEST_CASE("a harder driver hands out less handicap") {
+    BetContext ctx = Even();
+    ctx.playerCarClass = 4;     // 150
+    ctx.playerEngineClass = 1;
+    ctx.oppCarClass = 4;        // 125
+    ctx.oppEngineClass = 2;
+    ctx.driverTier = 2;         // kicks handicap 50 instead of 60
+
+    // 125 + 50 = 175, still not < 150 -> equal
+    CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 60) == true);
+
+    ctx.playerCarClass = 0;     // 210 vs 125 + 50 = 175 -> player weaker
+    ctx.playerEngineClass = 0;
+    CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 40) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 41) == false);
 }
 
-} // TEST_SUITE
+}  // TEST_SUITE
 
-TEST_SUITE("LoadBetThresholdTable") {
+TEST_SUITE("OpponentAcceptsBet - sticker bonus") {
 
-TEST_CASE("decodes big-endian words at offset 0x74C and rewires OpponentAcceptsBet") {
-    std::vector<uint8_t> srData(0x74C + 24, 0);
-    // NoMoney row set to {1, 2, 3} instead of the default {40, 60, 90}.
-    const uint8_t table[24] = {
-        0, 1, 0, 2, 0, 3,     // NoMoney
-        0, 70, 0, 65, 0, 25,  // SmallMoney (unchanged)
-        0, 90, 0, 70, 0, 15,  // LargeMoney (unchanged)
-        0, 90, 0, 35, 0, 0,   // PinkSlips (unchanged)
+TEST_CASE("odd sticker adds 4, even adds 6, none adds nothing") {
+    BetContext ctx = Even();
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 36) == false);
+    ctx.stickerIndex = 1;
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 39) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 40) == false);
+    ctx.stickerIndex = 2;
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 41) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 42) == false);
+}
+
+TEST_CASE("the bonus can beat a zero threshold") {
+    BetContext ctx = PlayerStronger();
+    ctx.stickerIndex = 8;
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 6) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 7) == false);
+}
+
+}  // TEST_SUITE
+
+TEST_SUITE("LoadBetTables") {
+
+TEST_CASE("decodes big-endian words from offset 0x728") {
+    std::vector<uint8_t> srData(0x728 + 60, 0);
+    // Strength rows all 100 except tier 0 col 0, so Even() stays equal and a
+    // class-0 car reads as the slow one; NoMoney row set to {1, 2, 3}.
+    const uint8_t tables[60] = {
+        0, 200, 0, 100, 0, 100,   // strength
+        0, 100, 0, 100, 0, 100,
+        0, 100, 0, 100, 0, 100,
+        0,   0, 0,   0, 0,   0,   // handicap: none, so any gap counts
+        0,   0, 0,   0, 0,   0,
+        0,   0, 0,   0, 0,   0,
+        0,   1, 0,   2, 0,   3,   // NoMoney
+        0,  70, 0,  65, 0,  25,   // SmallMoney
+        0,  90, 0,  70, 0,  15,   // LargeMoney
+        0,  90, 0,  35, 0,   0,   // PinkSlips
     };
-    std::copy(std::begin(table), std::end(table), srData.begin() + 0x74C);
+    std::copy(std::begin(tables), std::end(tables), srData.begin() + 0x728);
+    LoadBetTables(srData);
 
-    LoadBetThresholdTable(srData);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::NoMoney, 1) == true);   // weaker col, threshold 1
-    CHECK(OpponentAcceptsBet(70, 120, BetType::NoMoney, 2) == false);
-    CHECK(OpponentAcceptsBet(95, 95, BetType::NoMoney, 2) == true);    // equal col, threshold 2
-    CHECK(OpponentAcceptsBet(95, 95, BetType::NoMoney, 3) == false);
+    BetContext weaker = Even();
+    weaker.playerCarClass = 0;     // 200 against the opponent's 100
+    weaker.playerEngineClass = 0;
+    CHECK(OpponentAcceptsBet(weaker, BetType::NoMoney, 1) == true);
+    CHECK(OpponentAcceptsBet(weaker, BetType::NoMoney, 2) == false);
+    CHECK(OpponentAcceptsBet(Even(), BetType::NoMoney, 2) == true);
+    CHECK(OpponentAcceptsBet(Even(), BetType::NoMoney, 3) == false);
 
-    // Restore the default table so later test suites see the original values.
-    std::vector<uint8_t> defaultSrData(0x74C + 24, 0);
-    const uint8_t defaultTable[24] = {
-        0, 40, 0, 60, 0, 90,
-        0, 70, 0, 65, 0, 25,
-        0, 90, 0, 70, 0, 15,
-        0, 90, 0, 35, 0, 0,
+    // Restore the shipped values so later suites see them.
+    const uint8_t shipped[60] = {
+        0, 210, 0, 180, 0, 150,
+        0, 175, 0, 150, 0, 125,
+        0, 140, 0, 120, 0, 100,
+        0,  60, 0,  45, 0,  12,
+        0,  55, 0,  40, 0,   8,
+        0,  50, 0,  30, 0,   5,
+        0,  40, 0,  60, 0,  90,
+        0,  70, 0,  65, 0,  25,
+        0,  90, 0,  70, 0,  15,
+        0,  90, 0,  35, 0,   0,
     };
-    std::copy(std::begin(defaultTable), std::end(defaultTable), defaultSrData.begin() + 0x74C);
-    LoadBetThresholdTable(defaultSrData);
+    std::vector<uint8_t> defaults(0x728 + 60, 0);
+    std::copy(std::begin(shipped), std::end(shipped), defaults.begin() + 0x728);
+    LoadBetTables(defaults);
 }
 
-TEST_CASE("too-short buffer leaves the table unchanged") {
+TEST_CASE("too-short buffer leaves the tables unchanged") {
     std::vector<uint8_t> tooShort(10, 0);
-    LoadBetThresholdTable(tooShort);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 90) == true);
-    CHECK(OpponentAcceptsBet(70, 120, BetType::PinkSlips, 91) == false);
+    LoadBetTables(tooShort);
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::PinkSlips, 90) == true);
+    CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::PinkSlips, 91) == false);
 }
 
-} // TEST_SUITE
-
-TEST_SUITE("OpponentAcceptsBet - tier boundary") {
-
-TEST_CASE("score 89 is tier 0 (weak)") {
-    // two weak-tier opponents -> equal (col=1), PinkSlips threshold=35
-    CHECK(OpponentAcceptsBet(89, 89, BetType::PinkSlips, 35) == true);
-    CHECK(OpponentAcceptsBet(89, 89, BetType::PinkSlips, 36) == false);
-}
-
-TEST_CASE("score 90 enters tier 1 (mid)") {
-    // player 90 (tier1) vs opponent 89 (tier0) -> player stronger (col=2), threshold=0
-    CHECK(OpponentAcceptsBet(90, 89, BetType::PinkSlips, 0) == true);
-    CHECK(OpponentAcceptsBet(90, 89, BetType::PinkSlips, 1) == false);
-}
-
-TEST_CASE("score 110 enters tier 2 (strong)") {
-    // player 110 (tier2) vs opponent 109 (tier1) -> player stronger
-    CHECK(OpponentAcceptsBet(110, 109, BetType::PinkSlips, 0) == true);
-    CHECK(OpponentAcceptsBet(110, 109, BetType::PinkSlips, 1) == false);
-}
-
-} // TEST_SUITE
+}  // TEST_SUITE

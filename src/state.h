@@ -8,6 +8,7 @@
 #include "reputation.h"
 #include "racer_pool.h"
 #include "game_clock.h"
+#include "bet_acceptance.h"
 
 #include <algorithm>
 #include <set>
@@ -199,9 +200,15 @@ public:
     int GetLastChallengerPoolIndex() const { return lastChallengerPoolIndex; }
     RacerPool&  GetRacerPool()  { return racerPool; }
 
-    // Performance scores for bet-acceptance logic.
+    // Performance scores, for opponent selection and the debug overlay.
     int GetPlayerScore()     const;
     int GetChallengerScore() const;
+
+    // SR_data car spec of the challenger the pool last selected (The King's
+    // included), or nullptr when there is no pool-backed challenger.
+    const SrCarSpecEntry* GetChallengerSpec() const;
+    // Everything OpponentAcceptsBet needs about the current pairing.
+    BetContext GetBetContext();
 
     void SetElapsedTime(Uint64 elapsedTime);
     Uint64 GetElapsedTime();

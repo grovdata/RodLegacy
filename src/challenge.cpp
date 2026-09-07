@@ -184,8 +184,7 @@ void Challenge::ShowDragBetDialog() {
 
             BetType bet = betTypes[idx];
             int roll    = Roll(100);
-            bool accepted = OpponentAcceptsBet(
-                state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
+            bool accepted = OpponentAcceptsBet(state.GetBetContext(), bet, roll);
 
             if (!accepted) { OpponentRejectsBet(); return; }
 
@@ -210,8 +209,7 @@ void Challenge::ShowRoadBetDialog() {
 
             BetType bet = betTypes[idx];
             int roll    = Roll(100);
-            bool accepted = OpponentAcceptsBet(
-                state.GetPlayerScore(), state.GetChallengerScore(), bet, roll);
+            bool accepted = OpponentAcceptsBet(state.GetBetContext(), bet, roll);
 
             if (!accepted) { OpponentRejectsBet(); return; }
 
