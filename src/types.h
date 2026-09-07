@@ -25,6 +25,9 @@ struct CarModel {
     
     // From SR_data
     int year;
+    // List price in dollars, 0 = never for sale. The car's own value starts
+    // here - see Car::SetValue.
+    int price = 0;
     std::string name;
     CarVendor_t vendor;
     BitmapOffset_t offsets;

@@ -3,6 +3,17 @@
 
 namespace srrace {
 
+CrashOutcome ClassifyCrash(const RaceEndContext& ctx) {
+    // The cop's branch is checked before the crash tree in ProcessRaceOutcome,
+    // so being busted costs you the ticket and nothing else.
+    if (ctx.endFlags & END_COP_CAUGHT) return CrashOutcome::None;
+    if ((ctx.endFlags & END_WRECK_MASK) == 0) return CrashOutcome::None;
+    if (ctx.isPinkSlip) return CrashOutcome::Forfeited;
+    if (ctx.crashSpeed > 90) return CrashOutcome::Totaled;
+    if (ctx.crashSpeed <= 30) return CrashOutcome::DroveAway;
+    return CrashOutcome::RepairOrJunk;
+}
+
 std::string BuildRaceEndReason(const RaceEndContext& ctx) {
     // Pulled over for speeding. Checked before the other failures because the
     // ticket is added on top of whatever else ended the race (a crash while
@@ -15,8 +26,29 @@ std::string BuildRaceEndReason(const RaceEndContext& ctx) {
         }
         return "You have been fined $" + std::to_string(ctx.speedingFine) + " for speeding.";
     }
-    if (ctx.endFlags & END_HIT_NPC)       return "You lose. Take a walk, sucker.";
-    if (ctx.endFlags & END_WALL_HIT)      return "You lose. Take a walk, sucker.";
+    switch (ClassifyCrash(ctx)) {
+        case CrashOutcome::Forfeited:
+            // The car goes with the bet either way, so there is no repair bill
+            // and no scrap money - just the short line (message 0x5a / 0x5b).
+            if (ctx.tireWearIncreased) {
+                return "Blew your tires again`?`You lose. Take a walk, sucker.";
+            }
+            return "You lose. Take a walk, sucker.";
+        case CrashOutcome::Totaled:
+            return "Lucky you weren't killed, 'cause the car`is totaled. You get $" +
+                   std::to_string(ScrapPayout(ctx.carStrippedValue)) + " for scrap.";
+        case CrashOutcome::DroveAway:
+            if (ctx.tireWearIncreased) {
+                return "Lucky you're so slow. You only lost`the race. But you need new tires.";
+            }
+            return "Lucky you're so slow. You only lost`the race.";
+        case CrashOutcome::RepairOrJunk:
+            // No bubble at all: the original goes straight to the repair quote
+            // dialog (Driving::ShowWreckDialog).
+            return "";
+        case CrashOutcome::None:
+            break;
+    }
     if (ctx.endFlags & END_ENGINE_BLOWN)  return "Blew your engine again, huh, Ace`?";
     if (ctx.endFlags & END_TRANS_DROPPED) return "You just dropped your`transmission,klutz`!";
     if (ctx.endFlags & END_STALLED)       return "Ya jumped the light, speedy`!";
@@ -47,13 +79,7 @@ std::string BuildRaceEndReason(const RaceEndContext& ctx) {
         }
         return "Lucky you're so slow. You only lost`the race.";
     }
-    // Endings TODO:
-    //  "Lucky you weren't killed, 'cause the car`is totaled. You get $N for scrap."
-    // and the totaled-car follow-up, which is a dialog rather than a bubble:
-    //  "Oh, well, it could have been worse.\n $N for parts and you are back on
-    //  the streets." with a "Junk it" (and possibly "Fix it") button.
-    //
-    // Also unresolved: the Amiga strings "Your winning time %d.%d sec., avg.
+    // Unresolved: the Amiga strings "Your winning time %d.%d sec., avg.
     // speed %2d mph" / "Congratulations !" and "In %d.%d sec you covered only
     // %2d%% of the distance. Your avg. speed %2d mph." exist in the binary
     // (BuildResultText, called from both the win and the outcome==1 loss

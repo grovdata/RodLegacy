@@ -247,9 +247,10 @@ public:
     // (the original's slide velocity A4+0x4b0e), so the wheel re-centers gradually.
     int16_t GetSteerDisplay() const;
 
-    // Short human-readable reason the race ended (e.g. "CRASHED", "YOU WIN!").
-    // Call while the outcome is still set (before ResetRaceOutcome).
-    std::string GetRaceEndReason() const;
+    // Everything the race-end screen needs. Call while the outcome is still
+    // set (before ResetRaceOutcome): srrace::BuildRaceEndReason() turns
+    // it into the bubble line, srrace::ClassifyCrash() into the wreck outcome.
+    srrace::RaceEndContext BuildRaceEndContext() const;
     // Pulled over for speeding, and what the ticket costs. See
     // RodLegacyResearch/docs/driving/cop.md.
     bool PlayerBusted() const { return sim.PlayerBusted(); }

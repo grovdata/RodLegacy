@@ -634,7 +634,7 @@ int16_t Racing::GetSteerDisplay() const {
 // Race-end bubble text. Gathers the current outcome into a context struct and
 // delegates to the pure (SDL-free, unit-tested) srrace::BuildRaceEndReason -
 // see race/race_end_message.h and RodLegacyResearch/docs/driving/race_end_messages.md.
-std::string Racing::GetRaceEndReason() const {
+srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     srrace::RaceEndContext ctx;
     ctx.endFlags = sim.Player().endFlags;
     ctx.playerWon = (raceOutcome == RaceOutcome::PlayerWon);
@@ -645,7 +645,12 @@ std::string Racing::GetRaceEndReason() const {
     ctx.tireWearIncreased = sim.Player().tireWearDelta > 0;
     ctx.speedingFine = sim.SpeedingFine();
     ctx.bankroll = state.GetBankroll();
-    return srrace::BuildRaceEndReason(ctx);
+    // The car freezes on the failure bit, so this is still the impact speed -
+    // what the original reads out of A4+0x4b0a to tier the crash outcome.
+    ctx.crashSpeed = sim.Player().speed;
+    ctx.carValue = state.GetCarValue(state.GetCurrentCar());
+    ctx.carStrippedValue = state.GetCarStrippedValue(state.GetCurrentCar());
+    return ctx;
 }
 
 bool Racing::IsTransmissionDamaged() const {

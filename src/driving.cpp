@@ -5,7 +5,9 @@
 #include "parsers/carcolor.h"
 #include "reputation.h"
 #include "mouse.h"
+#include "utils.h"
 #include <fstream>
+#include <random>
 #include <vector>
 #include <cstring>
 #include <cmath>
@@ -443,6 +445,7 @@ void Driving::OnSceneEnter() {
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
+    wreckDialog.reset();
     raceEndDismissAllowedMs = 0;
     mouse.SetVisible(false);
 
@@ -659,7 +662,9 @@ void Driving::DrawScene() {
                     bool won = (outcome == RaceOutcome::PlayerWon);
                     RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
                                         ? RaceType::Drag : RaceType::Road;
-                    const std::string reason = racing->GetRaceEndReason();
+                    const srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
+                    const std::string reason = srrace::BuildRaceEndReason(endCtx);
+                    const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
                     // Speeding ticket. Read before ResetRaceOutcome so the
                     // sim's cop state is still current.
                     if (racing->PlayerBusted()) {
@@ -677,11 +682,25 @@ void Driving::DrawScene() {
                     racing->ResetRaceOutcome();
                     state.AdvanceGameHours(2);
 
+                    // What the wreck costs, after the bet has been settled -
+                    // the order ProcessRaceOutcome uses.
+                    if (crash == srrace::CrashOutcome::Totaled) {
+                        const int scrap = srrace::ScrapPayout(endCtx.carStrippedValue);
+                        state.SetBankroll(state.GetBankroll() + scrap);
+                        state.ScrapCurrentCar();
+                        LOG_INFO("Driving: car totaled at %d mph, $%d for scrap",
+                                 endCtx.crashSpeed, scrap);
+                    }
+
                     LOG_INFO("Driving: race ended (%s); press any key for garage",
                              reason.c_str());
                     raceEnded = true;
-                    raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_LEFT, 85, 40, false);
-                    raceEndBubble->SetVisible(true);
+                    if (crash == srrace::CrashOutcome::RepairOrJunk) {
+                        ShowWreckDialog(endCtx);
+                    } else {
+                        raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_LEFT, 85, 40, false);
+                        raceEndBubble->SetVisible(true);
+                    }
                     // Hold every race-end message on screen for a minimum time
                     // before any key can dismiss it, so a still-held accelerator
                     // (or other key) can't skip the win/loss/crash message.
@@ -796,32 +815,100 @@ void Driving::DrawScene() {
     if (raceEnded && raceEndBubble) {
         raceEndBubble->Draw();
     }
+    if (wreckDialog && wreckDialog->IsVisible()) {
+        wreckDialog->Draw();
+    }
+}
+
+// The repair quote after a wreck at 31..90 mph (ProcessRaceOutcome dialogs 25
+// and 26). Above 60 mph the damage reads as terminal and the quote is worded
+// as a parts payout; below it, as getting the car running again. "Fix it" is
+// simply absent when the quote is more than the player has, which is what the
+// original's disabled-button flag amounts to.
+void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
+    std::uniform_int_distribution<int> roll(0, srrace::RepairRollRange(ctx.crashSpeed) - 1);
+    const int cost = 100 + roll(RandomEngine());
+    const int junk = srrace::JunkPayout(ctx.carValue);
+    const bool affordable = cost <= state.GetBankroll();
+
+    const std::string quote = (ctx.crashSpeed > 60)
+        ? "$" + std::to_string(cost) + " for parts and you are back on the streets."
+        : "Damn. It'll cost $" + std::to_string(cost) + " to get this baby running.";
+
+    SDL_Rect dialogRect = {34, 90, 252, 56};
+    std::vector<DialogTextConfig> texts = {
+        DialogTextConfig{SDL_Rect{38, 94, 248, 10}, "Oh, well, it could have been worse.",
+                         {0x00, 0x00, 0x00, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{38, 104, 248, 10}, quote, {0x00, 0x00, 0x00, 0xFF}, true}
+    };
+    if (ctx.tireWearIncreased) {
+        texts.push_back(DialogTextConfig{SDL_Rect{38, 114, 248, 10}, "Plus tires !",
+                                         {0x00, 0x00, 0x00, 0xFF}, true});
+    }
+
+    std::vector<ButtonConfig> buttons;
+    if (affordable) {
+        buttons.push_back({SDL_Rect{88, 126, 66, 16}, "Fix it", nullptr, true, 0});
+    }
+    buttons.push_back({SDL_Rect{166, 126, 66, 16}, "Junk it", nullptr, !affordable, 1});
+
+    DialogConfig cfg;
+    cfg.bounds = dialogRect;
+    cfg.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    cfg.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+    cfg.contentAreas = std::vector<SDL_Rect>{dialogRect};
+    cfg.font = state.GetAssets().GetMainFont();
+    cfg.texts = texts;
+    cfg.buttons = buttons;
+    cfg.onButtonPressed = [this, cost, junk](int index) {
+        if (index == 0) {
+            state.SetBankroll(state.GetBankroll() - cost);
+            LOG_INFO("Driving: wreck repaired for $%d", cost);
+        } else {
+            state.SetBankroll(state.GetBankroll() + junk);
+            state.ScrapCurrentCar();
+            LOG_INFO("Driving: wreck junked for $%d", junk);
+        }
+        SetActiveDialog(nullptr);
+        LeaveAfterRace();
+    };
+
+    wreckDialog = std::make_unique<Dialog>(cfg);
+    SetActiveDialog(wreckDialog.get());
+}
+
+// Called from the wreck dialog's own button callback, so the dialog is hidden
+// rather than destroyed here - OnSceneEnter clears it for the next race.
+void Driving::LeaveAfterRace() {
+    raceEnded = false;
+    raceEndBubble.reset();
+    if (wreckDialog) wreckDialog->Hide();
+    const bool endGame = raceEndPendingKing;
+    raceEndPendingKing = false;
+    if (endGame) {
+        state.MoveToScene(SCENE_KING_OF_COUNTY);
+    } else if (state.IsJailed()) {
+        // Not the garage: you are in a cell, watching the diner.
+        state.MoveToScene(SCENE_DINER);
+    } else if (state.GetCurrentCar() == nullptr) {
+        // Nothing left in the garage - a forfeited pink slip, or a car that was
+        // totaled or junked. The paper is the only way back into the game.
+        state.MoveToScene(SCENE_NEWSPAPER);
+    } else {
+        state.MoveToScene(SCENE_GARAGE);
+    }
 }
 
 bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
-    // to the garage (or the end-game screen if the King was just beaten).
-    if (raceEnded && event->type == SDL_KEYDOWN) {
+    // to the garage (or the end-game screen if the King was just beaten). The
+    // wreck dialog is the exception: it wants a button click, not any key.
+    if (raceEnded && !wreckDialog && event->type == SDL_KEYDOWN) {
         // Hold the crash screen for its minimum display time; ignore keys until then.
         if (SDL_GetTicks() < raceEndDismissAllowedMs) {
             return true;
         }
-        raceEnded = false;
-        raceEndBubble.reset();
-        const bool endGame = raceEndPendingKing;
-        raceEndPendingKing = false;
-        if (endGame) {
-            state.MoveToScene(SCENE_KING_OF_COUNTY);
-        } else if (state.IsJailed()) {
-            // Not the garage: you are in a cell, watching the diner.
-            state.MoveToScene(SCENE_DINER);
-        } else if (state.GetCurrentCar() == nullptr) {
-            // Lost the pink slip with nothing else in the garage: the paper is
-            // the only way back into the game, so go straight there.
-            state.MoveToScene(SCENE_NEWSPAPER);
-        } else {
-            state.MoveToScene(SCENE_GARAGE);
-        }
+        LeaveAfterRace();
         return true;
     }
 

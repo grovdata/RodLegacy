@@ -7,6 +7,7 @@
 #include "types.h"
 #include "parsers/libp.h"
 #include "ui/bubble.h"
+#include "dialogs/dialog.h"
 
 #include <vector>
 #include <memory>
@@ -47,6 +48,12 @@ class Driving: public Scene {
     // Earliest tick at which a keypress may dismiss the race-end screen. A crash
     // holds the screen for a minimum time so the crash view is actually seen.
     Uint32 raceEndDismissAllowedMs = 0;
+    // Wreck at 31..90 mph: the original replaces the bubble with a repair quote
+    // and lets you pay it or junk the car - see race/race_end_message.h.
+    std::unique_ptr<Dialog> wreckDialog;
+    void ShowWreckDialog(const srrace::RaceEndContext& ctx);
+    // Leaves the driving scene once the race-end screen is done with.
+    void LeaveAfterRace();
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;

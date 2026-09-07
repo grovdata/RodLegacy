@@ -125,6 +125,21 @@ void Car::StripEngineAssembly() {
     RecalculatePerformance();
 }
 
+int Car::GetPartsValue() const {
+    int total = tires.cost;
+    if (gearboxFitted) total += gearbox.cost;
+    if (engineFitted) total += engine.cost;
+    if (manifoldFitted) total += manifold.cost;
+    for (int i = 0; i < kMaxCarburetors; i++) {
+        if (carbFitted[i]) total += carburetors[i].cost;
+    }
+    return total;
+}
+
+int Car::GetStrippedValue() const {
+    return std::max(0, GetValue() - (GetPartsValue() - tires.cost));
+}
+
 // The original won't move a car whose engine is apart. Every mount the
 // manifold has must be filled, so a triple-2bbl with one carb still off is
 // just as dead as one with no block in it.

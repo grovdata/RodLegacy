@@ -16,12 +16,7 @@
 #include <random>
 
 int Garage::CarSaleValue(const CarPtr& car) {
-    if (!car) return 0;
-    // ponytail: the newspaper list price, not a running total that the garage
-    // adjusts as parts go on and off - which is what the original keeps on the
-    // car record. Fitting or pulling parts does not move what a car fetches
-    // here yet.
-    return state.carData.GetCarMetadata(car->GetModel().index).classified.price;
+    return state.GetCarValue(car.get());
 }
 
 void Garage::StartSellCar(const CarPtr& car) {

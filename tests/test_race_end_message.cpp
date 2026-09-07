@@ -35,13 +35,15 @@ TEST_CASE("cop caught takes priority over a simultaneous playerLost/win flag") {
 TEST_CASE("hit the NPC") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_HIT_NPC;
-    CHECK(BuildRaceEndReason(ctx) == "You lose. Take a walk, sucker.");
+    ctx.crashSpeed = 20;
+    CHECK(BuildRaceEndReason(ctx) == "Lucky you're so slow. You only lost`the race.");
 }
 
 TEST_CASE("hit the wall") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_WALL_HIT;
-    CHECK(BuildRaceEndReason(ctx) == "You lose. Take a walk, sucker.");
+    ctx.crashSpeed = 20;
+    CHECK(BuildRaceEndReason(ctx) == "Lucky you're so slow. You only lost`the race.");
 }
 
 TEST_CASE("engine blown") {
@@ -151,6 +153,74 @@ TEST_CASE("drag race loss ignores tire wear (that variant is road-only)") {
     ctx.isDragRace = true;
     ctx.tireWearIncreased = true;
     CHECK(BuildRaceEndReason(ctx) == "You lose, sucker.");
+}
+
+} // TEST_SUITE
+
+// The crash tree of ProcessRaceOutcome (0x23eaa2): the speed at the impact
+// decides whether you drive away, get a repair quote, or lose the car.
+TEST_SUITE("ClassifyCrash - wreck tiers") {
+
+using srrace::ClassifyCrash;
+using srrace::CrashOutcome;
+
+TEST_CASE("no wreck flag") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_ENGINE_BLOWN;
+    ctx.crashSpeed = 120;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::None);
+}
+
+TEST_CASE("the cop's branch wins over the crash tree") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_WALL_HIT | srrace::END_COP_CAUGHT;
+    ctx.crashSpeed = 100;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::None);
+}
+
+TEST_CASE("pink slip: the car is forfeited whatever the speed") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_WALL_HIT;
+    ctx.isPinkSlip = true;
+    ctx.crashSpeed = 120;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::Forfeited);
+    CHECK(BuildRaceEndReason(ctx) == "You lose. Take a walk, sucker.");
+}
+
+TEST_CASE("tier boundaries: 30 drives away, 31 gets a quote, 90 too, 91 totals it") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_WALL_HIT;
+    ctx.crashSpeed = 30;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::DroveAway);
+    ctx.crashSpeed = 31;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::RepairOrJunk);
+    ctx.crashSpeed = 90;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::RepairOrJunk);
+    ctx.crashSpeed = 91;
+    CHECK(ClassifyCrash(ctx) == CrashOutcome::Totaled);
+}
+
+TEST_CASE("totaled prints the scrap payout, value/10 + 19") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_HIT_NPC;
+    ctx.crashSpeed = 100;
+    ctx.carStrippedValue = 1000;
+    CHECK(srrace::ScrapPayout(ctx.carStrippedValue) == 119);
+    CHECK(BuildRaceEndReason(ctx) ==
+          "Lucky you weren't killed, 'cause the car`is totaled. You get $119 for scrap.");
+}
+
+TEST_CASE("the repair-quote tier has no bubble of its own") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_WALL_HIT;
+    ctx.crashSpeed = 50;
+    CHECK(BuildRaceEndReason(ctx).empty());
+}
+
+TEST_CASE("payout and quote arithmetic") {
+    CHECK(srrace::JunkPayout(1000) == 400);
+    CHECK(srrace::RepairRollRange(60) == 20);
+    CHECK(srrace::RepairRollRange(61) == 40);
 }
 
 } // TEST_SUITE

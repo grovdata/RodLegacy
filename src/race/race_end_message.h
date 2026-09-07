@@ -25,8 +25,32 @@ struct RaceEndContext {
     bool tireWearIncreased = false; // sim.Player().tireWearDelta > 0
     int speedingFine = 0;         // sim.SpeedingFine()
     int bankroll = 0;             // state.GetBankroll()
+    int crashSpeed = 0;           // sim.Player().speed, frozen at the impact
+    int carValue = 0;             // state.GetCarValue(current car)
+    int carStrippedValue = 0;     // state.GetCarStrippedValue(current car)
 };
 
 std::string BuildRaceEndReason(const RaceEndContext& ctx);
+
+// What a wreck costs you. ProcessRaceOutcome (0x23eaa2) tiers this on the
+// speed at the moment of impact (A4+0x4b0a), the same 31 / 61 / 91 mph
+// thresholds the crash graphics use.
+enum class CrashOutcome {
+    None,          // not a wreck, or the cop got you first (his branch wins)
+    Forfeited,     // pink-slip race: the car goes with the bet regardless
+    DroveAway,     // <= 30 mph, no bill
+    RepairOrJunk,  // 31..90 mph, the "Fix it" / "Junk it" dialog
+    Totaled,       // 91+ mph, the car is scrap and gone
+};
+
+CrashOutcome ClassifyCrash(const RaceEndContext& ctx);
+
+// Wreck payouts, straight off the original's arithmetic. Scrapping strips the
+// car first, so it is paid on DismantleCar's return; junking it after a repair
+// quote is paid on the car's full value, parts and all.
+inline int ScrapPayout(int strippedValue) { return strippedValue / 10 + 19; }
+inline int JunkPayout(int carValue) { return carValue * 4 / 10; }
+// The repair quote is $100 + rand(N) - N is 20 up to 60 mph, 40 above.
+inline int RepairRollRange(int crashSpeed) { return crashSpeed > 60 ? 40 : 20; }
 
 } // namespace srrace

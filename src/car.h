@@ -90,6 +90,9 @@ class Car {
         // Top speed in mph, recomputed whenever a part changes.
         int topSpeed;
 
+        // The car's worth with nothing bolted on - see SetValue/GetValue.
+        int bodyValue = 0;
+
     public:
 
         Car();
@@ -166,7 +169,7 @@ class Car {
         bool HasScoop() const { return engine.HasScoop(); }
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; gearboxFitted = true; RecalculatePerformance(); }
-        void SetTires(CarWheelType type) { SetTires(type, 0, 0); }
+        void SetTires(CarWheelType type) { SetTires(type, 0, PartCatalogPrice(type)); }
         void SetTires(CarWheelType type, int wear, int cost);
         // Fitting a part supersedes whatever the car's spec said about it.
         void SetEngine(EnginePart engine) { this->engine = engine; engineFitted = true; specEngineClass = -1; RecalculatePerformance(); }
@@ -198,6 +201,25 @@ class Car {
         void SetColor(StandardCarColor color) { this->color = color; }
         void SetScoop(CarScoopType type);
         void SetTuneLevel(const int level) { this->tuneLevel = level; RecalculatePerformance(); }
+
+        // --- Worth, in dollars ---
+        // The original keeps one live value on the car record: it starts at the
+        // SR_data list price when the car is created (GenerateOpponentCar
+        // 0x23bd6a) and moves by a part's own price every time one is fitted or
+        // pulled (FitPart 0x24086a / DetachPart 0x242b16). Rather than hook
+        // every install site, RodLegacy keeps the part-free remainder and adds
+        // what is bolted on right now - the same number for any sequence of
+        // swaps. SetValue seeds it, so call it once the parts are on.
+        void SetValue(int value) { bodyValue = value - GetPartsValue(); }
+        int GetValue() const { return bodyValue + GetPartsValue(); }
+        // Everything FitPart can put on a car: drivetrain, every fitted
+        // carburetor, and the tires.
+        int GetPartsValue() const;
+        // What DismantleCar (0x242b4c) hands back: every slot comes off and is
+        // deducted EXCEPT the tires, which it detaches without crediting. Never
+        // negative - the original clamps it the same way, and on a stock car
+        // the drivetrain is usually worth more than the shell.
+        int GetStrippedValue() const;
 
     private:
         // Fills exactly the mounts this manifold has with the fitted

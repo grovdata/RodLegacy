@@ -11,9 +11,10 @@ CarPtr CarBuilder::BuildCar(CarModel model) {
 
     // Set up proper engine matching the vendor
     CarEngine_t engineType = GetDefaultEngineForVendor(model.vendor);
-    EnginePart engine(engineType, 0, 0, model.vendor, (AmigaLibAsset)engineType);
+    EnginePart engine(engineType, 0, PartCatalogPrice(engineType), model.vendor, (AmigaLibAsset)engineType);
     car->SetEngine(engine);
 
+    car->SetValue(model.price);
     return car;
 }
 
@@ -22,7 +23,7 @@ CarPtr CarBuilder::BuildRandomCar(CarModel model) {
 
     // Select compatible engine
     CarEngine_t engineType = SelectCompatibleEngine(model);
-    EnginePart engine(engineType, 0, 0, model.vendor, (AmigaLibAsset)engineType);
+    EnginePart engine(engineType, 0, PartCatalogPrice(engineType), model.vendor, (AmigaLibAsset)engineType);
     car->SetEngine(engine);
 
     // Select compatible transmission
@@ -49,6 +50,9 @@ CarPtr CarBuilder::BuildRandomCar(CarModel model) {
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
     car->SetTires((CarWheelType)tireDist(RandomEngine()));
 
+    // Last: the original seeds the value word with the list price and only
+    // counts parts fitted after that (GenerateOpponentCar 0x23bd6a).
+    car->SetValue(model.price);
     return car;
 }
 
@@ -92,6 +96,9 @@ void CarBuilder::ApplySpec(Car* car, const SrCarSpecEntry& spec, CarVendor_t ven
     // different part. Must come last - SetManifold above would clear it.
     car->SetSpecPartClasses(std::clamp(spec.EngineClass(), 0, 3),
                             std::clamp(spec.ManifoldClass(), 0, 4));
+
+    // The spec's own list price, against the drivetrain just fitted.
+    car->SetValue(spec.Price());
 }
 
 CarEngine_t CarBuilder::GetDefaultEngineForVendor(CarVendor_t vendor) {
@@ -167,7 +174,7 @@ Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendo
         case TRANS_RACING_CHRYSLER: assetId = static_cast<AmigaLibAsset>(SR_TRANS_RACING_CHRYSLER); break;
         case TRANS_4SPD_UNIVERSAL: assetId = static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL); break;
     }
-    return Part(0, 0, vendor, assetId, type);
+    return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
 // Kept in sync with engine_bay.cpp's ManifoldBodyAsset - see its comment for
@@ -182,7 +189,7 @@ Part CarBuilder::CreateManifoldPart(ManifoldType type, CarVendor_t vendor) {
         case MANIFOLD_TRIPLE_2BARREL: assetId = ENGINE_MANIFOLD6; break;
         case MANIFOLD_RACING: assetId = ENGINE_MANIFOLD3; break;
     }
-    return Part(0, 0, vendor, assetId, type);
+    return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
 Part CarBuilder::CreateCarburetorPart(CarburetorType type, CarVendor_t vendor) {
@@ -192,7 +199,7 @@ Part CarBuilder::CreateCarburetorPart(CarburetorType type, CarVendor_t vendor) {
         case CARB_4BARREL: assetId = ENGINE_CARB_4BARREL; break;
         case CARB_4BARREL_RACING: assetId = ENGINE_CARB_4BARREL_RACING; break;
     }
-    return Part(0, 0, vendor, assetId, type);
+    return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
 // Data-mined from every sample .sav in RodLegacyResearch/savegames/amiga/

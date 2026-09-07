@@ -66,6 +66,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     m.offsets = metadata.offsets;
     m.vendor = SrLibQueryGetCarVendor(m.index);
     m.year = metadata.classified.year;
+    m.price = metadata.classified.price;
     return m;
 }
 

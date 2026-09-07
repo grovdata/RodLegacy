@@ -222,6 +222,14 @@ public:
     // caller that sells the car it is driving clears that itself - the
     // original leaves the player carless in exactly that case.
     void RemoveOwnedCar(const CarPtr& car);
+    // Drops the car being driven and falls back to whatever else is in the
+    // garage - a forfeited pink slip, or a wreck the player junked. With
+    // nothing left the player is carless and has to buy one from the paper.
+    void ScrapCurrentCar();
+    // What a car is worth, and what is left of that once the drivetrain has
+    // been pulled off it (DismantleCar's return) - see Car::SetValue.
+    int GetCarValue(const Car* car);
+    int GetCarStrippedValue(const Car* car);
 
     // Loads a real Amiga .sav file, replacing bankroll, owned cars, known-
     // opponent car specs, race record, and elapsed time. Returns false

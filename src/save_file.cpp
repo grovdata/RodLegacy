@@ -166,6 +166,7 @@ SaveValue CarToToml(Car& c) {
         if (c.HasCarburetor(i)) fittedCarbs.push_back(i);
     }
     v["carburetor_mounts"] = fittedCarbs;
+    v["value"]             = c.GetValue();
     v["engine_fitted"]     = c.HasEngine();
     v["gearbox_fitted"]    = c.HasGearbox();
     v["manifold_fitted"]   = c.HasManifold();
@@ -216,6 +217,10 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     if (!toml::find_or(v, "engine_fitted", true)) car->RemoveEngine();
     if (!toml::find_or(v, "manifold_fitted", true)) car->RemoveManifold();
     if (!toml::find_or(v, "gearbox_fitted", true)) car->RemoveGearbox();
+    // Last, once the parts are settled. Saves written before the car carried a
+    // value of its own fall back to the model's list price, which is where a
+    // fresh car starts anyway.
+    car->SetValue(toml::find_or(v, "value", model.price));
     return car;
 }
 

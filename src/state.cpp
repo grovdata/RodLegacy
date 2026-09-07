@@ -291,6 +291,25 @@ void State::RemoveOwnedCar(const CarPtr& car) {
     }
 }
 
+void State::ScrapCurrentCar() {
+    // The car stays alive as long as anything is still showing it (a cached
+    // CarBitmap, a scene mid-animation) and is freed once they let go.
+    CarPtr gone = currentCar;
+    if (!gone) return;
+    RemoveOwnedCar(gone);
+    currentCar = ownedCars.empty() ? CarPtr{} : ownedCars.front();
+    LOG_INFO("State::ScrapCurrentCar - lost %s, %zu car(s) left",
+             gone->GetModel().name.c_str(), ownedCars.size());
+}
+
+int State::GetCarValue(const Car* car) {
+    return car == nullptr ? 0 : car->GetValue();
+}
+
+int State::GetCarStrippedValue(const Car* car) {
+    return car == nullptr ? 0 : car->GetStrippedValue();
+}
+
 namespace {
 
 // Builds one Car* from a parsed car record. Shared by the active car and
@@ -391,6 +410,9 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 break;
         }
     }
+    // Last, against the parts just fitted: the save carries the original's own
+    // live value word (save_game.md, car record 0x00).
+    car->SetValue(rec.value);
     return car;
 }
 
@@ -625,20 +647,8 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
         }
         if (pinkSlip) {
-            // The stake was the cars, so the one that was raced is gone. It
-            // stays alive as long as anything is still showing it (a cached
-            // CarBitmap, a scene mid-animation) and is freed once they let go.
-            CarPtr lostCar = currentCar;
-            if (lostCar) {
-                ownedCars.erase(std::remove(ownedCars.begin(), ownedCars.end(), lostCar),
-                                ownedCars.end());
-                // Fall back to whatever else is in the garage. With nothing
-                // left the player is carless and has to buy one from the
-                // paper, which is what the original does with its single car.
-                currentCar = ownedCars.empty() ? CarPtr{} : ownedCars.front();
-                LOG_INFO("State::OnRaceFinished - pink slip loss: forfeited %s, %zu car(s) left",
-                         lostCar->GetModel().name.c_str(), ownedCars.size());
-            }
+            // The stake was the cars, so the one that was raced is gone.
+            ScrapCurrentCar();
         } else {
             bankroll = std::max(0, bankroll - pendingBetAmount);
         }

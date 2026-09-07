@@ -35,6 +35,72 @@ inline int PartSalePrice(PartCategory category, int value, int wear, int roll20)
     return price / 5 * 5;
 }
 
+// Catalog price of a part, in dollars. The original keeps one master parts
+// table (Amiga A4-0x48ec, 44 records of 14 bytes, price at +0) and every part
+// it ever creates - a car's stock drivetrain, a newspaper ad, a replacement
+// set of tires - carries that price as its value. The car's own value is built
+// out of these, so a part with no price makes the car it is on unsellable.
+// Records in order: 9 engines, 13 transmissions, 3 carbs, 15 manifolds,
+// 3 tires. See RodLegacyResearch/docs/formats/parts_catalog.md.
+inline int PartCatalogPrice(CarEngine_t type) {
+    switch (type) {
+        case CarEngineChrysler_V6:     return 100;
+        case CarEngineGM_V6:           return 100;
+        case CarEngineFord_V6:         return 100;
+        case CarEngineGM_V8_282:       return 350;
+        case CarEngineFord_V8_292:     return 340;
+        case CarEngineChrysler_V8_285: return 360;
+        case CarEngineGM_V8_327:       return 500;
+        case CarEngineFord_V8_351:     return 475;
+        case CarEngineChrysler_V8_340: return 525;
+    }
+    return 0;
+}
+
+inline int PartCatalogPrice(TransmissionType type) {
+    switch (type) {
+        case TRANS_AUTO_GM:            return 130;
+        case TRANS_AUTO_FORD:          return 120;
+        case TRANS_AUTO_CHRYSLER:      return 125;
+        case TRANS_3SPD_GM:            return 175;
+        case TRANS_3SPD_FORD:          return 160;
+        case TRANS_3SPD_CHRYSLER:      return 170;
+        case TRANS_4SPD_GM:            return 250;
+        case TRANS_4SPD_FORD:          return 260;
+        case TRANS_4SPD_CHRYSLER:      return 245;
+        case TRANS_4SPD_UNIVERSAL:     return 275;
+        case TRANS_RACING_GM:          return 400;
+        case TRANS_RACING_FORD:        return 405;
+        case TRANS_RACING_CHRYSLER:    return 410;
+    }
+    return 0;
+}
+
+inline int PartCatalogPrice(CarburetorType type) {
+    switch (type) {
+        case CARB_2BARREL:        return 25;
+        case CARB_4BARREL:        return 40;
+        case CARB_4BARREL_RACING: return 60;
+    }
+    return 0;
+}
+
+// Priced by class, not by brand - all three brands of a given manifold class
+// cost the same, and the two middle classes both cost $35.
+inline int PartCatalogPrice(ManifoldType type) {
+    static const int kByClass[5] = {20, 25, 35, 35, 60};
+    return kByClass[ManifoldClass(type)];
+}
+
+inline int PartCatalogPrice(CarWheelType type) {
+    switch (type) {
+        case STOCK:  return 50;
+        case BRAND:  return 80;
+        case RACING: return 150;
+    }
+    return 0;
+}
+
 struct Part {
     int wear;
     int cost;
