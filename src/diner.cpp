@@ -8,7 +8,11 @@
 #include "scene_layout.h"
 #include "embedded_resources.h"
 #include "ui/main_font.h"
+#include "utils.h"
+#include "diner_actors.h"
 #include <cstdlib>
+#include <algorithm>
+#include <random>
 
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
@@ -54,48 +58,7 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(std::move(guyBubble));
 
-    // Add phonebook guy as AnimatedBitmap to container (only if not already added)
-    if (!GetDrawable("phonebook_guy")) {
-        Bitmap* phonebookGuySheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, PHONEBOOK_GUY});
-
-        SDL_Rect phonebookGuyRect = {189, 65, 38, 60};
-        phonebookGuyAnim = std::make_unique<AnimatedBitmap>(phonebookGuySheet, phonebookGuyRect);
-        // PHONEBOOK_GUY is 2 rows, 5 columns according to libp.cpp
-        int frameWidth = phonebookGuySheet->GetSurface()->w / 5;
-        int frameHeight = phonebookGuySheet->GetSurface()->h / 2;
-        phonebookGuyAnim->SetAnimationFrames(frameWidth, frameHeight, 5, 2); // 5 columns, 2 rows
-        phonebookGuyAnim->SetSpeed(0.4f); // 0.4s per frame (similar to original 400ms cycle)
-        phonebookGuyAnim->SetLoop(true);
-        phonebookGuyAnim->Play();
-
-        AddDrawable("phonebook_guy", phonebookGuyAnim.get());
-    }
-
-    if (!GetDrawable("waitressLeft")) {
-        Bitmap* waitressLeftBitmap = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_LEFT});
-
-        SDL_Rect waitressLeftRect = {25, 68, 40, 41};
-        waitressLeftAnim = std::make_unique<AnimatedBitmap>(waitressLeftBitmap, waitressLeftRect);
-        waitressLeftAnim->SetAnimationFrames(40, 41, 6, 2);
-        waitressLeftAnim->SetSpeed(0.2f);
-        waitressLeftAnim->SetLoop(true);
-        waitressLeftAnim->Play();
-        waitressLeftAnim->SetVisible(false); // Start hidden
-        AddDrawable("waitressLeft", waitressLeftAnim.get());
-    }
-
-    if (!GetDrawable("waitressRight")) {
-        Bitmap* waitressRightBitmap = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DINER_WAITRESS_ANIM_RIGHT});
-
-        SDL_Rect waitressRightRect = {-40, 68, 40, 41}; // Start off-screen left
-        waitressRightAnim = std::make_unique<AnimatedBitmap>(waitressRightBitmap, waitressRightRect);
-        waitressRightAnim->SetAnimationFrames(40, 41, 6, 2);
-        waitressRightAnim->SetSpeed(0.2f);
-        waitressRightAnim->SetLoop(true);
-        waitressRightAnim->Play();
-        waitressRightAnim->SetVisible(true); // Start visible for entering
-        AddDrawable("waitressRight", waitressRightAnim.get());
-    }
+    LoadActors();
 
     // Create masked screen background (similar to gas station)
     Bitmap* screenMaskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
@@ -125,6 +88,151 @@ SDL_Point Diner::GetCarIdlePosition() {
 }
 
 
+using namespace srdiner;
+
+void Diner::LoadActors() {
+    if (guyAnim[0]) return;
+
+    const AmigaLibAsset guySheets[2] = {PHONEBOOK_GUY_1, PHONEBOOK_GUY};
+    for (int s = 0; s < 2; ++s) {
+        Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, guySheets[s]});
+        guyAnim[s] = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{kGuyX, kGuyBottomY - kGuyRowH[0], kGuyFrameW, kGuyRowH[0]});
+        // The original blits a fixed 40x60/64 cell out of both sheets, but they
+        // are not the same width (192 and 200), so the last column of the
+        // narrower one runs off the edge. Clip the cell to what is there rather
+        // than stretching 32 pixels of art across 40.
+        const int sheetW = sheet->GetSurface()->w;
+        const int sheetH = sheet->GetSurface()->h;
+        std::vector<SDL_Rect> frames;
+        for (int cell = 0; cell < 10; ++cell) {
+            const int row = cell / 5;
+            const int x = (cell % 5) * kGuyFrameW;
+            const int y = row == 0 ? 0 : kGuyRowH[0];
+            frames.push_back({x, y, std::min(kGuyFrameW, sheetW - x), std::min(kGuyRowH[row], sheetH - y)});
+        }
+        guyAnim[s]->SetAnimationFrames(frames);
+        guyAnim[s]->Stop();   // stepped from the table, never free-running
+    }
+    ApplyGuyFrame();   // puts him at the phone on his resting frame
+
+    const AmigaLibAsset waitressSheets[2] = {DINER_WAITRESS_ANIM_RIGHT, DINER_WAITRESS_ANIM_LEFT};
+    for (int d = 0; d < 2; ++d) {
+        Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, waitressSheets[d]});
+        const int fw = sheet->GetSurface()->w / kWaitressColumns;
+        const int fh = sheet->GetSurface()->h / 2;
+        waitressAnim[d] = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{kWaitressStartX[d], kWaitressY, fw, fh});
+        std::vector<SDL_Rect> frames;
+        // 11 frames out of the 6x2 grid; the twelfth cell is never used.
+        for (int i = 0; i < kWaitressFrameCount; ++i) {
+            frames.push_back({(i % kWaitressColumns) * fw, (i / kWaitressColumns) * fh, fw, fh});
+        }
+        waitressAnim[d]->SetAnimationFrames(frames);
+        waitressAnim[d]->Stop();
+        waitressAnim[d]->SetVisible(false);
+    }
+}
+
+void Diner::StartWaitressWalk(int dir) {
+    waitressDir = dir;
+    waitressStep = 0;
+    waitressStepTimer = 0.0f;
+    ApplyWaitressFrame();
+}
+
+void Diner::ApplyWaitressFrame() {
+    for (int d = 0; d < 2; ++d) waitressAnim[d]->SetVisible(waitressStep >= 0 && d == waitressDir);
+    if (waitressStep < 0) return;
+    waitressAnim[waitressDir]->SetFrame(kWaitressFrames[waitressStep] - 1);
+    SDL_Rect r = waitressAnim[waitressDir]->GetPosition();
+    waitressAnim[waitressDir]->SetPosition(WaitressX(waitressDir, waitressStep), kWaitressY);
+    waitressAnim[waitressDir]->SetDimensions(r.w, r.h);
+}
+
+void Diner::ApplyGuyFrame() {
+    // He stands at the phone the whole time. Frame 0 is his resting pose -
+    // the sequence both starts and ends on it.
+    const int frame = guyStep >= 0 ? kGuyFrames[guyStep] : 0;
+    const int sheet = frame / 10;
+    for (int s = 0; s < 2; ++s) guyAnim[s]->SetVisible(s == sheet);
+    guyAnim[sheet]->SetFrame(frame % 10);
+    // Draw the cell at its own size, so a clipped one is not scaled up. He is
+    // bottom-aligned, so a shorter cell sits lower.
+    const SDL_Rect src = guyAnim[sheet]->GetCurrentFrameRect();
+    guyAnim[sheet]->SetPosition(kGuyX, kGuyBottomY - src.h + 1);
+    guyAnim[sheet]->SetDimensions(src.w, src.h);
+}
+
+void Diner::UpdateActors(double deltaTime) {
+    if (!guyAnim[0]) return;
+    const float dtMs = static_cast<float>(deltaTime) * 1000.0f;
+
+    // Phone guy: one table step per hold, then off screen again.
+    if (guyStep >= 0) {
+        guyHoldTimer += dtMs;
+        const float hold = kGuyHold[kGuyFrames[guyStep]] * GUY_STEP_MS;
+        if (guyHoldTimer >= hold) {
+            guyHoldTimer -= hold;
+            if (++guyStep >= kGuySteps) guyStep = -1;
+        }
+        ApplyGuyFrame();
+    }
+
+    // Waitress: one table step per tick, X from the run-length table.
+    if (waitressStep >= 0) {
+        waitressStepTimer += dtMs;
+        while (waitressStepTimer >= WAITRESS_STEP_MS) {
+            waitressStepTimer -= WAITRESS_STEP_MS;
+            if (++waitressStep >= kWaitressSteps) {
+                waitressStep = -1;
+                // Walking in leaves her standing; walking out clears her.
+                waitressOnScreen = (waitressDir == 0);
+                if (waitressTurnAround) {
+                    waitressTurnAround = false;
+                    StartWaitressWalk(1);
+                }
+                break;
+            }
+        }
+        ApplyWaitressFrame();
+        // She stays on screen on the standing frame after walking in.
+        if (waitressStep < 0 && waitressOnScreen) {
+            waitressAnim[0]->SetVisible(true);
+        }
+    }
+
+    if (waitressStep >= 0 || guyStep >= 0) return;
+
+    // The rolls. Percentages are the original's; the cadence is not, since it
+    // rolls once per pass of the challenger dialog.
+    dinerRollTimer += static_cast<float>(deltaTime);
+    if (dinerRollTimer < ROLL_SECONDS) return;
+    dinerRollTimer = 0.0f;
+
+    std::uniform_int_distribution<int> roll100(0, 99);
+    if (!waitressOnScreen) {
+        // Odds climb the longer she has been away, as the original's do as the
+        // dialog goes on; it also refuses to bring her back straight away.
+        ++waitressWaits;
+        const int chance = std::min(85, 5 + 10 * (waitressWaits - 3));
+        if (waitressWaits >= 3 && roll100(RandomEngine()) < chance) {
+            waitressWaits = 0;
+            waitressTurnAround = roll100(RandomEngine()) < 10;  // walks straight through
+            StartWaitressWalk(0);
+            return;
+        }
+    } else if (roll100(RandomEngine()) < 20) {
+        waitressOnScreen = false;
+        StartWaitressWalk(1);
+        return;
+    }
+
+    if (roll100(RandomEngine()) < 6) {
+        guyStep = 0;
+        guyHoldTimer = 0.0f;
+        ApplyGuyFrame();
+    }
+}
+
 void Diner::DrawScene() {
     currentTime = SDL_GetTicks64() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
@@ -132,24 +240,10 @@ void Diner::DrawScene() {
 
     UpdateCarAnimation(deltaTime);
 
-    // Update animations - declare variables once for the entire method
-    auto phonebookGuy = dynamic_cast<AnimatedBitmap*>(GetDrawable("phonebook_guy"));
-    if (phonebookGuy) {
-        phonebookGuy->Update(deltaTime);
-    }
-
-    auto waitressLeft = dynamic_cast<AnimatedBitmap*>(GetDrawable("waitressLeft"));
-    if (waitressLeft) {
-        waitressLeft->Update(deltaTime);
-    }
-
-    auto waitressRight = dynamic_cast<AnimatedBitmap*>(GetDrawable("waitressRight"));
-    if (waitressRight) {
-        waitressRight->Update(deltaTime);
-    }
-
-    // Update waitress sequence animation
-    UpdateWaitressSequence(deltaTime, waitressLeft, waitressRight);
+    UpdateActors(deltaTime);
+    // Only ever one of each pair is visible; the other draws nothing.
+    AnimatedBitmap* waitressLeft = waitressAnim[1].get();
+    AnimatedBitmap* waitressRight = waitressAnim[0].get();
 
     Scene::DrawScene();
     if (!isSetup) {
@@ -179,10 +273,8 @@ void Diner::DrawScene() {
             SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
         }
 
-        // Draw other drawables (phonebook guy, etc.)
-        if (phonebookGuy) {
-            phonebookGuy->Draw();
-        }
+        // Draw the phone guy (the invisible half of the pair is a no-op)
+        for (auto& g : guyAnim) g->Draw();
 
         for (auto& b : bubbles) {
             b->Draw();
@@ -207,10 +299,8 @@ void Diner::DrawScene() {
         SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
     }
 
-    // Draw other drawables (phonebook guy, etc.)
-    if (phonebookGuy) {
-        phonebookGuy->Draw();
-    }
+    // Draw the phone guy (the invisible half of the pair is a no-op)
+    for (auto& g : guyAnim) g->Draw();
 
     if (carBitmap != nullptr) {
         carBitmap->Move({carx, cary});
@@ -488,81 +578,17 @@ void Diner::OnSceneExit() {
 
     challenge->Reset();
 
-    // Reset waitress animation state
-    waitressState = WAITRESS_ENTERING;
-    waitressAnimTime = 0.0;
+    // Reset the actors; both start off screen.
+    waitressStep = -1;
+    waitressOnScreen = false;
+    waitressTurnAround = false;
+    waitressWaits = 0;
+    guyStep = -1;
+    dinerRollTimer = 0.0f;
+    if (guyAnim[0]) { ApplyWaitressFrame(); ApplyGuyFrame(); }
 
     // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
-}
-
-void Diner::UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight) {
-    if (!waitressLeft || !waitressRight) return;
-
-    waitressAnimTime += deltaTime;
-
-    switch (waitressState) {
-        case WAITRESS_ENTERING: {
-            // Move waitress right from -40 to 208
-            double progress = waitressAnimTime * waitressSpeed;
-            int currentX = -40 + (int)progress;
-
-            if (currentX >= 208) {
-                // Reached target position, switch to pause
-                waitressRight->SetPosition(208, 68);
-                waitressRight->SetFrame(10); // Set to frame 11 for pause
-                waitressRight->Stop(); // Stop animation during pause
-                waitressState = WAITRESS_PAUSED;
-                waitressAnimTime = 0.0;
-            } else {
-                waitressRight->SetPosition(currentX, 68);
-            }
-            break;
-        }
-
-        case WAITRESS_PAUSED: {
-            // Wait for pause duration
-            if (waitressAnimTime >= waitressPauseTime) {
-                // Switch to left animation and start exiting
-                waitressRight->SetVisible(false);
-                waitressLeft->SetVisible(true);
-                waitressLeft->SetPosition(208, 68);
-                waitressLeft->Play(); // Restart animation for exiting
-                waitressState = WAITRESS_EXITING;
-                waitressAnimTime = 0.0;
-            }
-            break;
-        }
-
-        case WAITRESS_EXITING: {
-            // Move waitress left from 208 to off-screen left
-            double progress = waitressAnimTime * waitressSpeed;
-            int currentX = 208 - (int)progress;
-
-            if (currentX <= -40) {
-                // Exited screen, hide and reset
-                waitressLeft->SetVisible(false);
-                waitressLeft->SetPosition(25, 68); // Reset to original position
-                waitressRight->SetPosition(-40, 68); // Reset to start position
-                waitressRight->SetVisible(true);
-                waitressState = WAITRESS_HIDDEN;
-                waitressAnimTime = 0.0;
-            } else {
-                waitressLeft->SetPosition(currentX, 68);
-            }
-            break;
-        }
-
-        case WAITRESS_HIDDEN: {
-            // Wait a bit before starting the sequence again
-            if (waitressAnimTime >= 5.0) { // 5 second delay before repeating
-                waitressRight->Play(); // Restart animation for entering
-                waitressState = WAITRESS_ENTERING;
-                waitressAnimTime = 0.0;
-            }
-            break;
-        }
-    }
 }
 
 void Diner::ShowCallListDialog() {

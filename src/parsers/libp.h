@@ -533,6 +533,10 @@ enum AmigaLibAsset {
     CAR_SCOOP3 = 312,
     CAR_SCOOP4 = 313,
     //
+    // The phone guy's animation spans two sheets, five columns by two rows
+    // each: frames 0-9 here, 10-19 in PHONEBOOK_GUY. See
+    // RodLegacyResearch/docs/diner.md.
+    PHONEBOOK_GUY_1 = 315,
     CAR_SHADOW = 316,
     ENGINE_TUNING_SCREEN = 317,
     DMV_SCREEN = 318,
@@ -592,7 +596,7 @@ enum AmigaLibAsset {
     NOTHING_1 = 371,
     NOTHING_2 = 372,
     NOTHING_3 = 373,
-    PHONEBOOK_GUY = 374
+    PHONEBOOK_GUY = 374  // frames 10-19; PHONEBOOK_GUY_1 holds 0-9
 };
 
 enum DosLib1Asset {

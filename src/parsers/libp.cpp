@@ -723,6 +723,7 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
                 case CAR_TIRES_BRAND:
                 case CAR_TIRES_RACING:
                 case CAR_TIRES_STOCK:
+                case PHONEBOOK_GUY_1:
                 case PHONEBOOK_GUY:
                 case DECALS:
                 case GUS_GAS_ATTENDANT:
@@ -783,6 +784,7 @@ std::pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int ind
                 case CAR_TIRES_RACING:
                 case CAR_TIRES_STOCK:
                     return std::make_pair(1, 4);
+                case PHONEBOOK_GUY_1:
                 case PHONEBOOK_GUY:
                     return std::make_pair(2, 5);
                 case DECALS:

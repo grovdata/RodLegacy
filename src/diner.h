@@ -31,10 +31,14 @@ class Diner: public CarScene {
     // Add a map to store opponent car bitmaps
     std::map<std::string, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
 
-    // Scene-owned animated drawables (asset sheets are owned by AssetManager)
-    std::unique_ptr<AnimatedBitmap> phonebookGuyAnim;
-    std::unique_ptr<AnimatedBitmap> waitressLeftAnim;
-    std::unique_ptr<AnimatedBitmap> waitressRightAnim;
+    // Scene-owned animated drawables (asset sheets are owned by AssetManager).
+    // Both actors are table-driven one-shots, not free-running loops - see
+    // RodLegacyResearch/docs/diner.md.
+    //
+    // The phone guy's 20 frames live on two sheets, 0-9 and 10-19.
+    std::unique_ptr<AnimatedBitmap> guyAnim[2];
+    // The waitress has a sheet per direction: 0 walks right, 1 walks left.
+    std::unique_ptr<AnimatedBitmap> waitressAnim[2];
 
     Opponent *currentOpponent;
 
@@ -45,17 +49,31 @@ class Diner: public CarScene {
     double lastFrameTime;
     double currentTime;
 
-    // Waitress animation state
-    enum WaitressState {
-        WAITRESS_ENTERING,
-        WAITRESS_PAUSED,
-        WAITRESS_EXITING,
-        WAITRESS_HIDDEN
-    };
-    WaitressState waitressState = WAITRESS_ENTERING;
-    double waitressAnimTime = 0.0;
-    double waitressPauseTime = 2.0; // 2 second pause
-    double waitressSpeed = 100.0; // pixels per second
+    // Waitress: -1 when she is not walking, otherwise the step into the
+    // 84-entry frame table. dir picks the sheet and the run-length X table.
+    int waitressStep = -1;
+    int waitressDir = 0;
+    bool waitressOnScreen = false;
+    bool waitressTurnAround = false;  // walked in, rolled to walk straight out
+    // The original gates her on a counter that has to reach 3, and raises the
+    // odds the longer she has been away; this stands in for that.
+    int waitressWaits = 0;
+    float waitressStepTimer = 0.0f;
+
+    // Phone guy: -1 when idle, otherwise the step into the 44-entry table.
+    int guyStep = -1;
+    float guyHoldTimer = 0.0f;
+
+    float dinerRollTimer = 0.0f;
+
+    // One pass of the original's animation loops, which wait on the display.
+    // ponytail: eyeballed, one knob each - the guy's table holds each frame
+    // for 2 to 8 of his steps, so his unit is much shorter than hers.
+    static constexpr float WAITRESS_STEP_MS = 60.0f;
+    static constexpr float GUY_STEP_MS = 120.0f;
+    // How often the appear/leave/phone rolls are made. The original rolls once
+    // per pass of the challenger dialog, which RodLegacy has no equivalent of.
+    static constexpr float ROLL_SECONDS = 1.0f;
     bool engineSoundStarted = false;
     double debugWaitTimer = 0.0;
 
@@ -78,7 +96,11 @@ class Diner: public CarScene {
         void StartAnimateCar(CarPtr car, Driver *driver, CarAnimationType animType) override;
         void UpdateCarAnimation(double deltaTime) override;
         void UpdateAnimation(double deltaTime);
-        void UpdateWaitressSequence(double deltaTime, AnimatedBitmap* waitressLeft, AnimatedBitmap* waitressRight);
+        void LoadActors();
+        void UpdateActors(double deltaTime);
+        void StartWaitressWalk(int dir);
+        void ApplyWaitressFrame();
+        void ApplyGuyFrame();
 
 
         void UpdateDebugInfo() override;
