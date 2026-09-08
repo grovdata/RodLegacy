@@ -288,6 +288,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             2
         }
     };
+    buttons[2].cancelChoice = true;  // "Forget it"
 
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Your cars", {0xFF, 0xFF, 0xFF, 0xFF}, true}
@@ -764,8 +765,7 @@ bool Garage::PushEvent(SDL_Event* event) {
         return true;
     }
     if (activeDialog && activeDialog->IsVisible()) {
-        activeDialog->HandleEvent(event);
-        return true;
+        return activeDialog->HandleEvent(event);
     }
     // Right-click on the radio opens the song control dialog.
     if (false) {

@@ -260,8 +260,7 @@ bool Scene::PushEvent(SDL_Event *event) {
     
     // If there's an active dialog, pass the event to it first
     if (activeDialog && activeDialog->IsVisible()) {
-        activeDialog->HandleEvent(event);
-        return true;
+        return activeDialog->HandleEvent(event);
     }
     
     // Handle mouse events for scene zones

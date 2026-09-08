@@ -414,7 +414,7 @@ void Garage::ShowTransmissionInstallDialog() {
         {.bounds = selectRect, .text = "Select", .onClick = nullptr,
          .defaultChoice = true, .index = 0, .invisible = true},
         {.bounds = doneRect, .text = "Done", .onClick = nullptr,
-         .defaultChoice = false, .index = 1, .invisible = true},
+         .defaultChoice = false, .index = 1, .invisible = true, .cancelChoice = true},
     };
 
     DialogConfig cfg;

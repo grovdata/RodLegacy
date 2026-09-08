@@ -29,8 +29,8 @@ void NumberEntryDialog::Hide() {
     Dialog::Hide();
 }
 
-void NumberEntryDialog::HandleEvent(SDL_Event* event) {
-    if (!IsVisible()) return;
+bool NumberEntryDialog::HandleEvent(SDL_Event* event) {
+    if (!IsVisible()) return false;
 
     if (event->type == SDL_TEXTINPUT) {
         for (const char* c = event->text.text; *c != '\0'; c++) {
@@ -38,14 +38,14 @@ void NumberEntryDialog::HandleEvent(SDL_Event* event) {
                 digits.push_back(*c);
             }
         }
-        return;
+        return true;
     }
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_BACKSPACE) {
         if (!digits.empty()) digits.pop_back();
-        return;
+        return true;
     }
 
-    Dialog::HandleEvent(event);
+    return Dialog::HandleEvent(event);
 }
 
 void NumberEntryDialog::Draw() {

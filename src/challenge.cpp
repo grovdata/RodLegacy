@@ -65,7 +65,11 @@ static Dialog* MakeDialog(const std::vector<std::string>& labels,
 
     int y = dlgY + topPad;
     for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
-        cfg.buttons.push_back({{btnX, y, btnW, btnH}, labels[i], nullptr, i == 0, i});
+        ButtonConfig btn = {{btnX, y, btnW, btnH}, labels[i], nullptr, i == 0, i};
+        // Every one of these dialogs ends its label list with "Forget it" -
+        // Escape should back out the same way clicking it does.
+        btn.cancelChoice = (i == static_cast<int>(labels.size()) - 1);
+        cfg.buttons.push_back(btn);
         y += btnH + spacing;
     }
 
@@ -167,11 +171,11 @@ void Challenge::OpenKing(SFont_Font* f) {
 bool Challenge::HandleEvent(SDL_Event* event) {
     if (!dialog || !dialog->IsVisible()) return false;
     auto d = std::move(dialog);
-    d->HandleEvent(event);
+    bool handled = d->HandleEvent(event);
     // Restore only if the callback didn't end or replace the flow.
     // Accept/Reject set step=None; in that case the dialog stays dismissed.
     if (!dialog && step != Step::None) dialog = std::move(d);
-    return true;
+    return handled;
 }
 
 void Challenge::Draw(float deltaTime) {

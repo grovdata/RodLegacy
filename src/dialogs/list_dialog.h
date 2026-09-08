@@ -56,7 +56,7 @@ public:
     ~ListDialog();
 
     void Draw() override;
-    void HandleEvent(SDL_Event* event) override;
+    bool HandleEvent(SDL_Event* event) override;
 
     void OnItemSelected(int index);
     int GetSelectedIndex() const { return selectedIndex; }

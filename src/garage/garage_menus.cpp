@@ -94,6 +94,7 @@ void Garage::InitGameMenuDialog() {
         false,
         4
     };
+    forgetItButton.cancelChoice = true;
 
 
     std::vector<ButtonConfig> buttons = {
@@ -257,7 +258,9 @@ void Garage::InitOptionsDialog() {
 
     SDL_Rect backRect = {165, y, buttonWidth, buttonHeight};
     dialogZones.push_back(Zone("back", "Forget it", backRect));
-    buttons.push_back({backRect, "Forget it", nullptr, true, 5});
+    ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 5};
+    backButton.cancelChoice = true;  // only real action here - Enter and Escape both go back
+    buttons.push_back(backButton);
     y += rowHeight;
 
     optionsDialogRect.h = y - optionsDialogRect.y;

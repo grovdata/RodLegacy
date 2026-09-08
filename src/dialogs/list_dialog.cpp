@@ -196,9 +196,9 @@ void ListDialog::OnItemSelected(int index) {
     Hide();
 } 
 
-void ListDialog::HandleEvent(SDL_Event *event) {
-    Dialog::HandleEvent(event);
-    if (!IsVisible()) return;
+bool ListDialog::HandleEvent(SDL_Event *event) {
+    bool handled = Dialog::HandleEvent(event);
+    if (!IsVisible()) return handled;
 
     // Handle mouse motion
     if (event->type == SDL_MOUSEMOTION) {
@@ -254,6 +254,7 @@ void ListDialog::HandleEvent(SDL_Event *event) {
         }
         else if (event->key.keysym.sym == SDLK_UP) {
             // Move selection up
+            handled = true;
             if (selectedIndex > 0) {
                 selectedIndex--;
                 // Ensure the selected item is visible
@@ -264,6 +265,7 @@ void ListDialog::HandleEvent(SDL_Event *event) {
         }
         else if (event->key.keysym.sym == SDLK_DOWN) {
             // Move selection down
+            handled = true;
             if (selectedIndex < static_cast<int>(listConfig.labels.size()) - 1) {
                 selectedIndex++;
                 // Ensure the selected item is visible
@@ -273,6 +275,7 @@ void ListDialog::HandleEvent(SDL_Event *event) {
             }
         }
     }
+    return handled;
 }
 
 int ListDialog::GetIndexAtPosition(int x, int y) const {

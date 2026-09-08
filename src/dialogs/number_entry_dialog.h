@@ -20,7 +20,7 @@ class NumberEntryDialog : public Dialog {
                       SDL_Rect fieldRect, int maxDigits, SDL_Color textColor);
 
     void Draw() override;
-    void HandleEvent(SDL_Event* event) override;
+    bool HandleEvent(SDL_Event* event) override;
     void Show() override;
     void Hide() override;
 

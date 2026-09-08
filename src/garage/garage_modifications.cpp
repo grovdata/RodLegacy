@@ -241,6 +241,7 @@ void Garage::ShowPaintDialog() {
     ButtonConfig prevColorButton = {prevColorRect, "Previous color", nullptr, false, 1};
     ButtonConfig goAheadButton = {goAheadRect, "Go ahead", nullptr, true, 2}; // Default
     ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 3};
+    forgetItButton.cancelChoice = true;
 
     std::vector<ButtonConfig> buttons = {nextColorButton, prevColorButton, goAheadButton, forgetItButton};
 
@@ -868,6 +869,7 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
 
     ButtonConfig okButton = {okButtonRect, "OK", nullptr, true, 0}; // OK is default
     ButtonConfig forgetButton = {forgetButtonRect, "Forget it", nullptr, false, 1};
+    forgetButton.cancelChoice = true;
 
     std::vector<ButtonConfig> buttons = {okButton, forgetButton};
 
@@ -1060,6 +1062,7 @@ void Garage::ShowTransmissionDialog() {
         {switchItRect, "Change",    nullptr, true,  0},
         {forgetItRect, "Forget it", nullptr, false, 1},
     };
+    buttons[1].cancelChoice = true;
 
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare transmissions", {0xFF, 0xFF, 0xFF, 0xFF}, true}
@@ -1180,6 +1183,7 @@ void Garage::ShowEngineDialog() {
         {switchItRect, "Change",    nullptr, true,  0},
         {forgetItRect, "Forget it", nullptr, false, 1},
     };
+    buttons[1].cancelChoice = true;
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare engines", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
@@ -1274,6 +1278,7 @@ void Garage::ShowManifoldDialog() {
         {switchItRect, "Change",    nullptr, true,  0},
         {forgetItRect, "Forget it", nullptr, false, 1},
     };
+    buttons[1].cancelChoice = true;
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare manifolds", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
@@ -1367,6 +1372,7 @@ void Garage::ShowCarburetorDialog(int carbIndex) {
         {switchItRect, "Change",    nullptr, true,  0},
         {forgetItRect, "Forget it", nullptr, false, 1},
     };
+    buttons[1].cancelChoice = true;
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10}, "Spare carburetors", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };
@@ -1491,6 +1497,7 @@ void Garage::ShowSparePartsDialog() {
         {sellItRect, "Sell it", nullptr, true, 0},
         {closeRect, "Close", nullptr, false, 1},
     };
+    buttons[1].cancelChoice = true;
 
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{39, 30, 240, 10}, "Spare parts", {0xFF, 0xFF, 0xFF, 0xFF}, true}

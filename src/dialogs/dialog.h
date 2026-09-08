@@ -89,7 +89,7 @@ public:
     void AddText(const char* text, const SDL_Rect& area);
     void AddLine(SDL_Rect rect, SDL_Color color);
 
-    virtual void HandleEvent(SDL_Event *event);
+    virtual bool HandleEvent(SDL_Event *event);
     virtual void Draw();
     virtual void Show();
     virtual void Hide();

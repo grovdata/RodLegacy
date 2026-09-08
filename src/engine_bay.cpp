@@ -202,7 +202,8 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
             .invisible = true,
-            .bitmapConfig = {buttonBitmap, {18, 150, buttonWidth, buttonHeight}}
+            .bitmapConfig = {buttonBitmap, {18, 150, buttonWidth, buttonHeight}},
+            .cancelChoice = true
         }
     };
 
@@ -236,13 +237,14 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             .bounds = doneRectTune,
             .text = "Done",
             .onClick = nullptr,
-            .defaultChoice = false,
+            .defaultChoice = true,
             .index = 2,
             .textColor = ButtonDefaultTextColor,
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
             .invisible = true,
-            .bitmapConfig = {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}}
+            .bitmapConfig = {buttonBitmapDone, {18, 150, buttonWidth, buttonHeight}},
+            .cancelChoice = true
         }
     };
 
@@ -749,10 +751,11 @@ void EngineBay::InitPartsDialog() {
             .fillColor = ButtonDefaultFillColor,
             .borderColor = ButtonDefaultBorderColor,
             .invisible = false,
-            .bitmapConfig = {nullptr, {0, 0, 0, 0}}
+            .bitmapConfig = {nullptr, {0, 0, 0, 0}},
+            .cancelChoice = true
         }
     };
-    
+
     std::vector<DialogTextConfig> partsTexts = {
         DialogTextConfig{SDL_Rect{28, 30, 193, 10}, "Spare parts", {0xFF, 0xFF, 0xFF, 0xFF}, true}
     };

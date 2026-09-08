@@ -207,17 +207,20 @@ void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect log
     db.rect = visible;
 }
 
-void Dialog::HandleEvent(SDL_Event* event) {
-    if (!IsVisible()) return;
+bool Dialog::HandleEvent(SDL_Event* event) {
+    if (!IsVisible()) return false;
 
     // Handle button events
     for (auto button : buttons) {
         button->HandleEvent(event);
     }
 
-    // Handle Enter key for default button
+    bool handled = false;
+
+    // Handle Enter key for default button. Always consumed while a dialog is
+    // up, whether or not a default button exists - matches Escape below.
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_RETURN) {
-        // Find the default button
+        handled = true;
         for (auto button : buttons) {
             if (button->IsDefaultChoice()) {
                 button->SimulateClick();
@@ -226,20 +229,43 @@ void Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
-    // Dismiss on Escape or click outside dialog bounds
-    if (config.onDismiss) {
-        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
-            config.onDismiss();
-            return;
-        }
-        if (event->type == SDL_MOUSEBUTTONDOWN) {
-            const SDL_Rect& b = config.bounds;
-            int x = event->button.x;
-            int y = event->button.y;
-            if (x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) {
-                config.onDismiss();
-                return;
+    // Escape is always consumed while a dialog is up, even if the dialog has
+    // no cancelChoice/onDismiss wired - otherwise an unconsumed Escape quits
+    // the game outright via main.cpp. See SaveLoadScene::PushEvent for the
+    // same reasoning. A cancelChoice button (if any) takes priority over
+    // onDismiss so a dialog can wire either one without double-firing.
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+        handled = true;
+        Button* cancelButton = nullptr;
+        for (auto button : buttons) {
+            if (button->IsCancelChoice()) {
+                cancelButton = button;
+                break;
             }
+        }
+        if (cancelButton) cancelButton->SimulateClick();
+        else if (config.onDismiss) config.onDismiss();
+    }
+
+    // Any other key wired as a button's hotkey triggers that button too.
+    if (event->type == SDL_KEYDOWN) {
+        for (auto button : buttons) {
+            if (button->MatchesHotkey(event->key.keysym.sym)) {
+                button->SimulateClick();
+                handled = true;
+                break;
+            }
+        }
+    }
+
+    // Dismiss on click outside dialog bounds
+    if (config.onDismiss && event->type == SDL_MOUSEBUTTONDOWN) {
+        const SDL_Rect& b = config.bounds;
+        int x = event->button.x;
+        int y = event->button.y;
+        if (x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) {
+            config.onDismiss();
+            return true;
         }
     }
 
@@ -250,7 +276,7 @@ void Dialog::HandleEvent(SDL_Event* event) {
         for (auto& zone : config.zones) {
             if (zone.IsInsideZone(x, y)) {
                 config.onZoneClick(zone);
-                return;
+                return true;
             }
         }
     }
@@ -267,4 +293,19 @@ void Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
+    // Dialogs stay fully mouse-modal: any mouse event is consumed so it never
+    // bleeds through to the scene beneath, regardless of whether it hit
+    // anything above.
+    switch (event->type) {
+        case SDL_MOUSEMOTION:
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+        case SDL_MOUSEWHEEL:
+            handled = true;
+            break;
+        default:
+            break;
+    }
+
+    return handled;
 }

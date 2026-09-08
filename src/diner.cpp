@@ -681,6 +681,7 @@ void Diner::ShowCallListDialog() {
         {callRect, "Call", nullptr, true, 0},
         {forgetItRect, "Forget it", nullptr, false, 1}
     };
+    buttons[1].cancelChoice = true;
 
     std::vector<DialogTextConfig> texts = {
         DialogTextConfig{SDL_Rect{87, 40, 146, 10}, "Looking for", {0x00, 0x00, 0x00, 0xFF}, true}

@@ -379,8 +379,7 @@ void Newspaper::DrawScene() {
 
 bool Newspaper::PushEvent(SDL_Event *event) {
     if (activeDialog && activeDialog->IsVisible()) {
-        activeDialog->HandleEvent(event);
-        return true;
+        return activeDialog->HandleEvent(event);
     }
 
     if (event->type == SDL_MOUSEWHEEL && currentPage >= 1) {
@@ -874,6 +873,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
         {yeahRect, "Yeah", nullptr, true, 1},
         {forgetItRect, "Forget it", nullptr, false, 2}
     };
+    buttons[2].cancelChoice = true;
 
     std::string priceText = "You want to buy it for $" + std::to_string(price) + " ?";
 
@@ -951,6 +951,7 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
         {yeahRect, "Yeah", nullptr, true, 0},
         {forgetItRect, "Forget it", nullptr, false, 1}
     };
+    buttons[1].cancelChoice = true;
 
     std::string priceText = "You want to buy it for $" + std::to_string(price) + " ?";
 

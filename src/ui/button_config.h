@@ -37,4 +37,10 @@ struct ButtonConfig {
     } bitmapConfig = {};
 
     SFont_Font* font = nullptr;  // If null, falls back to state.GetAssets().GetMainFont()
+
+    // Kept last so existing positional aggregate initialisation of this
+    // struct (some callers list all fields up to `font` positionally) keeps
+    // compiling - see ListDialogConfig's own comment for the same reasoning.
+    bool cancelChoice = false;          // Escape triggers this button, like defaultChoice does for Enter
+    SDL_Keycode hotkey = SDLK_UNKNOWN;  // any other key that should also trigger this button
 };
