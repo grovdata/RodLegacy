@@ -236,6 +236,13 @@ int main(int argc, char* argv[]) {
         printf("\r  [loop %d]  %.1f / %.1fs    ", loop, pos, dur);
         fflush(stdout);
 
+        // Auto-advance when the song loops, same as the game does.
+        if (spk.ConsumeLoopFlag()) {
+            idx = (idx + 1) % (int)items.size();
+            StartItem(idx);
+            t0 = SDL_GetTicks64();
+        }
+
         char c = PollKey();
         if (c == 0) continue;
 

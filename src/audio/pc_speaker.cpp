@@ -347,8 +347,10 @@ void PCSpeaker::TickISR()
     }
 
     // Advance to next note, looping at end
-    if (note_idx_ >= (int)notes_.size())
+    if (note_idx_ >= (int)notes_.size()) {
         note_idx_ = 0;
+        looped_.store(true);
+    }
 
     const SrNote& n = notes_[note_idx_++];
     // duration_ticks is how many ISR ticks to hold the note; subtract 1 because

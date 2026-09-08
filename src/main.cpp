@@ -491,6 +491,10 @@ int main(int argc, char* argv[]) {
         // Update scene (handles fade transitions and other per-frame logic)
         scene->Update(delta);
 
+        if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+            am->UpdateMusic();
+        }
+
         // With the debug UI up the game renders into an offscreen texture that
         // the dockspace displays; otherwise it goes straight to the backbuffer.
         if (debugUi.Active()) {

@@ -74,6 +74,10 @@ public:
 
     bool IsPlaying() const { return playing_.load(); }
 
+    // True if the current song has looped back to its start since the last
+    // call (consumes the flag). Used to auto-advance to a different song.
+    bool ConsumeLoopFlag() { return looped_.exchange(false); }
+
     // Utility: PIT divisor -> Hz
     static float PitToHz(uint16_t pit_divisor)
     {
@@ -101,6 +105,7 @@ private:
 
     std::atomic<bool> playing_ {false};
     std::atomic<bool> do_play_ {false};
+    std::atomic<bool> looped_  {false};
 
     SDL_AudioDeviceID device_ = 0;
 };

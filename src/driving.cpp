@@ -59,12 +59,6 @@ void Driving::Init(bool debugMode) {
     LOG_INFO("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
 
-    // No music while racing.
-    if (AudioManager* am = state.GetAssets().GetAudioManager()) {
-        musicWasPaused = am->IsMusicPaused();
-        am->PauseMusic();
-    }
-
     // Fresh race: clear any leftover race-end pause state.
     raceEnded = false;
     raceEndPendingKing = false;
@@ -421,6 +415,13 @@ void Driving::SetState(DrivingState state) {
 }
 
 void Driving::OnSceneEnter() {
+    // No music while racing. Init() runs once at game start for every scene,
+    // so pausing there would kill music for the whole session.
+    if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+        musicWasPaused = am->IsMusicPaused();
+        am->PauseMusic();
+    }
+
     if (!racing) return;
 
     // Before the track loads (which builds the race sim off the current car):

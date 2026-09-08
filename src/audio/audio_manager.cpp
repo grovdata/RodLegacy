@@ -686,6 +686,21 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
     LOG_INFO("AudioManager: PC speaker music loaded (%zu songs)", pcSongs_.size());
 }
 
+void AudioManager::UpdateMusic() {
+    if (musicSource_ != MusicSource::DOS || !pcSpeaker_) return;
+    if (pcSongs_.size() < 2) return;
+    if (!pcSpeaker_->ConsumeLoopFlag()) return;
+
+    static std::mt19937 rng(std::random_device{}());
+    int next;
+    do {
+        next = std::uniform_int_distribution<int>(0, (int)pcSongs_.size() - 1)(rng);
+    } while (next == currentPCSong_);
+
+    currentPCSong_ = next;
+    pcSpeaker_->SetNotes(pcSongs_[(size_t)currentPCSong_]);
+}
+
 void AudioManager::NextPCSong() {
     if (!pcSpeaker_ || pcSongs_.empty()) return;
     currentPCSong_ = (currentPCSong_ + 1) % (int)pcSongs_.size();

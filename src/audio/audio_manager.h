@@ -123,6 +123,10 @@ public:
     void SetMusicMuted(bool muted);
     bool IsMusicMuted() const { return musicMuted_; }
 
+    // Call once per frame. Auto-advances to a random different DOS song
+    // whenever the currently playing one loops back to its start.
+    void UpdateMusic();
+
     // Song navigation (DOS PC speaker only).
     void NextPCSong();
     void PrevPCSong();
