@@ -8,6 +8,11 @@ id = "rag"
 text = "A rag"
 rect = [95, 176, 22, 14]
 
+[[zones]]
+id = "attendant"
+text = "Gus"
+rect = [200, 90, 47, 47]
+
 # Dynamic zones - rects updated at runtime based on car position
 [[zones]]
 id = "gas_cap"

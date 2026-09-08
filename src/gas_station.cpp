@@ -36,11 +36,33 @@ GasStation::GasStation()
     GetZone("gas_cap").onClick = [this] {
         if (!CanInteract() || !carBitmap) return;
         if (sceneState == GAS_STATION_HANDLEOFF) {
-            sceneState = GAS_STATION_PUMPING;
-            StartPumpDisplay();
-            carBitmap->SetGasCapRemoved(true);
-            if (pumpNoHandle) pumpNoHandle->SetVisible(true);
+            // Message 70 ("Pay attention, dummy!"): confirmed from
+            // GasStationPumpLoop, refuses to start dispensing when the tank
+            // is already full or the player can't cover the next tick -
+            // see gas_station.md. No state change on refusal.
+            Car* car = state.GetCurrentCar();
+            bool tankFull = car && car->GetFuelTenths() >= TANK_CAP_TENTHS;
+            bool cantAfford = state.GetBankroll() < pricePerTick;
+            if (tankFull || cantAfford) {
+                ShowPumpMessage("  Pay attention, dummy`!");
+            } else {
+                sceneState = GAS_STATION_PUMPING;
+                StartPumpDisplay();
+                carBitmap->SetGasCapRemoved(true);
+                if (pumpNoHandle) pumpNoHandle->SetVisible(true);
+            }
         } else if (sceneState == GAS_STATION_PUMPING) {
+            // Message 69 ("It's not full, speedy!"): confirmed from
+            // GasStationPumpLoop - GasPumpDisplayBlink(STOP) fires right
+            // before this check, so it belongs to putting the handle back
+            // EARLY, not grabbing it. Shown only if the tank could still
+            // have taken more and there was money left to pay for it -
+            // see gas_station.md.
+            Car* car = state.GetCurrentCar();
+            if (car && car->GetFuelTenths() < TANK_CAP_TENTHS &&
+                state.GetBankroll() >= pricePerTick) {
+                ShowPumpMessage("  It's not full, speedy`!");
+            }
             // Handle back on the pump: cap closes, asset 307 overlay hides.
             sceneState = GAS_STATION_IDLE;
             StopPumpDisplay();
@@ -54,6 +76,15 @@ GasStation::GasStation()
         if (!CanInteract()) return;
         SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
     };
+    // Message 71 ("Get out of my face, dummy!"): confirmed message ID from
+    // GasStationPumpLoop, but its exact trigger wasn't pinned down in the
+    // disassembly (reached via the scene's input switch, not a branch this
+    // session could trace back to a specific zone) - best guess is clicking
+    // Gus himself, which had no handler at all before this. See gas_station.md.
+    GetZone("attendant").onClick = [this] {
+        if (!CanInteract()) return;
+        ShowPumpMessage("  Get out of my face, dummy`!");
+    };
 
     carx = -GAME_WIDTH;
     cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height);
@@ -63,6 +94,13 @@ GasStation::GasStation()
         "Yo, you need full service, dummy`!", BUBBLE_RIGHT, 90, 30, true);
     attendantBubble = attendantLine.get();
     bubbles.push_back(std::move(attendantLine));
+
+    // Text set per-trigger by ShowPumpMessage; a separate y so it never
+    // stacks visually with attendantBubble above.
+    auto pumpMsg = std::make_unique<Bubble>("", BUBBLE_RIGHT, 90, 45, true);
+    pumpMsg->SetVisible(false);
+    pumpMessageBubble = pumpMsg.get();
+    bubbles.push_back(std::move(pumpMsg));
 }
 
 GasStation::~GasStation() {
@@ -332,6 +370,12 @@ void GasStation::StopPumpDisplay() {
     pumpDisplaySlowLit = false;
 }
 
+void GasStation::ShowPumpMessage(const std::string& text) {
+    if (!pumpMessageBubble) return;
+    pumpMessageBubble->SetText(text);
+    pumpMessageBubble->SetVisible(true);
+}
+
 void GasStation::UpdateDebugInfo() {
     if (!debugMode) return;
 
@@ -486,6 +530,9 @@ void GasStation::OnSceneExit() {
     }
     if (attendantBubble) {
         attendantBubble->SetVisible(false);
+    }
+    if (pumpMessageBubble) {
+        pumpMessageBubble->SetVisible(false);
     }
 
     // Call parent CarScene implementation (which handles common animation state)

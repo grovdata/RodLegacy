@@ -238,6 +238,12 @@ class Garage : public CarScene {
     static constexpr size_t kOutOfDoughBubble = 15;
     bool outOfDough = false;
 
+    // Fuel gates confirmed against FUN_002430d2 (Amiga garage main loop):
+    // messages 37/38/39, all car+0x2c (fuel tenths) checks. See gas_station.md.
+    static constexpr size_t kNotEnoughGasBubble = 16;  // fuel < 9, going to the diner
+    static constexpr size_t kFullTankBubble     = 17;  // fuel >= 140, going to the gas station
+    static constexpr size_t kGasNotFreeBubble   = 18;  // fuel < 140 and bankroll == 0, same trip
+
     // Selling a car. The haggle itself is in car_haggle.h; this end owns the
     // two dialogs it drives and the car being sold. See garage_sell_car.cpp.
     std::unique_ptr<CarHaggle> haggle;

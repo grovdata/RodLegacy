@@ -42,6 +42,9 @@ class GasStation : public CarScene {
     // Owned by the shared `bubbles` vector (see constructor); kept here too
     // so UpdatePumping can trigger it without indexing into that vector.
     Bubble* attendantBubble = nullptr;
+    // Transient scold/status lines (messages 69/70/71 - see gas_station.md),
+    // reused for whichever one fires; Bubble self-hides 5s after SetVisible(true).
+    Bubble* pumpMessageBubble = nullptr;
     CarBitmap* GetOrCreateCurrentCarBitmap();
 
     // Pacing verified against the Amiga disassembly - see
@@ -84,6 +87,7 @@ class GasStation : public CarScene {
     // GasPumpDisplayBlink modes 1 and 3: start (counter cleared) and stop.
     void StartPumpDisplay();
     void StopPumpDisplay();
+    void ShowPumpMessage(const std::string& text);
 
    public:
     GasStation();

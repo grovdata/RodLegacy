@@ -42,7 +42,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("gas_can").onClick = [this] {
         if (!CanInteract()) return;
-        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
+        Car* car = state.GetCurrentCar();
+        if (!car) { bubbles[7]->SetVisible(true); return; }
+        // Confirmed against FUN_002430d2 (messages 38/39): 140 tenths = 14.0
+        // gal is "full enough, not worth the trip"; below that, no trip
+        // without at least a dollar to spend on it.
+        if (car->GetFuelTenths() >= 140) { bubbles[kFullTankBubble]->SetVisible(true); return; }
+        if (state.GetBankroll() == 0) { bubbles[kGasNotFreeBubble]->SetVisible(true); return; }
         state.MoveToScene(SCENE_GAS_STATION);
     };
     GetZone("car_info").onClick = [this] {
@@ -99,9 +105,12 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("goto_diner").onClick = [this] {
         if (!CanInteract()) return;
-        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
+        Car* car = state.GetCurrentCar();
+        if (!car) { bubbles[7]->SetVisible(true); return; }
         // A car with its engine apart doesn't go anywhere.
-        if (!state.GetCurrentCar()->IsRunning()) { bubbles[13]->SetVisible(true); return; }
+        if (!car->IsRunning()) { bubbles[13]->SetVisible(true); return; }
+        // Confirmed against FUN_002430d2 (message 37): 9 tenths = 0.9 gal.
+        if (car->GetFuelTenths() < 9) { bubbles[kNotEnoughGasBubble]->SetVisible(true); return; }
         state.MoveToScene(SCENE_DINER);
     };
     GetZone("rear_bumper").onClick = [this] {
@@ -190,6 +199,20 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         BUBBLE_RIGHT_TWO_LINES, 80, 30, false);
     outOfDoughBubble->SetVisible(false);
     bubbles.push_back(std::move(outOfDoughBubble));
+    // bubbles[kNotEnoughGasBubble/kFullTankBubble/kGasNotFreeBubble] - see
+    // garage.h for the confirmed fuel thresholds.
+    auto notEnoughGasBubble = std::make_unique<Bubble>(
+        "  You don't got enough gas to cruise down to Bob's.", BUBBLE_LEFT, 93, 30, true);
+    notEnoughGasBubble->SetVisible(false);
+    bubbles.push_back(std::move(notEnoughGasBubble));
+    auto fullTankBubble = std::make_unique<Bubble>(
+        "  You've got a full tank`!", BUBBLE_LEFT, 93, 30, true);
+    fullTankBubble->SetVisible(false);
+    bubbles.push_back(std::move(fullTankBubble));
+    auto gasNotFreeBubble = std::make_unique<Bubble>(
+        "  Gas ain't free`!", BUBBLE_LEFT, 93, 30, true);
+    gasNotFreeBubble->SetVisible(false);
+    bubbles.push_back(std::move(gasNotFreeBubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
