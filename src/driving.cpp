@@ -663,7 +663,7 @@ void Driving::DrawScene() {
                     RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
                                         ? RaceType::Drag : RaceType::Road;
                     const srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
-                    const std::string reason = srrace::BuildRaceEndReason(endCtx);
+                    std::string reason = srrace::BuildRaceEndReason(endCtx);
                     const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
                     // Speeding ticket. Read before ResetRaceOutcome so the
                     // sim's cop state is still current.
@@ -678,9 +678,27 @@ void Driving::DrawScene() {
                             state.SetJailed(true);
                         }
                     }
+                    // Read before OnRaceFinished, which does not clear it, but
+                    // checking first is one less thing to get wrong later.
+                    const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
                     raceEndPendingKing = state.OnRaceFinished(raceType, won);
                     racing->ResetRaceOutcome();
-                    state.AdvanceGameHours(2);
+                    // King races advance the clock 600/1050 ticks (@150/hr =
+                    // 4h/7h) instead of the usual flat 2h - see king.md.
+                    if (wasKingRace) {
+                        state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : 7);
+                        // Confirmed from the disassembly's string table
+                        // (LAB_1551 / LAB_1552+LAB_1553). No King-specific
+                        // loss line has turned up, so a loss still uses the
+                        // generic crash/lose reason below.
+                        if (won) {
+                            reason = raceType == RaceType::Drag
+                                ? "Beginner's luck, punk!"
+                                : "You ran a good race. You deserve to be King of the County!";
+                        }
+                    } else {
+                        state.AdvanceGameHours(2);
+                    }
 
                     // What the wreck costs, after the bet has been settled -
                     // the order ProcessRaceOutcome uses.

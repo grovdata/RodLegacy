@@ -88,6 +88,7 @@ void Challenge::Reset() {
     insultTimer      = -1.0f;
     wantsRace        = false;
     wantsCarExit     = false;
+    wasOpponentRefusal = false;
     betAttempts      = 0;
     insultFromOpponent = false;
 }
@@ -104,6 +105,61 @@ void Challenge::Open(SFont_Font* f) {
     if (IsActive()) return;
     font = f;
     ShowRaceTypeDialog();
+}
+
+// All lines (messages 62/63/64) confirmed from the disassembly's string table.
+void Challenge::OpenKing(SFont_Font* f) {
+    if (IsActive()) return;
+    font = f;
+
+    // Ported from RaceSetupLoop's GetOpponentDifficulty() dispatch
+    // (Amiga 0x0023d03a / 0x0023d8e2-0x0023d92a): before he's unlocked, a
+    // click on The King is rebuffed with one of four lines picked by
+    // reputation tier - tier 1 (total rep < 3) is silent, not even a bubble.
+    const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive());
+    if (tier != 0) {
+        const char* line = nullptr;
+        switch (tier) {
+            case 2: line = "  I don't got time for amateurs like you!"; break;
+            case 3: line = "  You're doing OK kid, but you're gonna need to win more races!"; break;
+            case 4: line = "  You're gonna hafta win more drag races!"; break;
+            case 5: line = "  You're gonna hafta win more road races!"; break;
+            default: break;  // tier 1: silent
+        }
+        if (line) {
+            step = Step::None;
+            ShowSpeech(line);
+            insultTimer = 0.0f;
+            insultFromOpponent = false;
+        }
+        LOG_INFO("Challenge::OpenKing - not yet unlocked, tier=%d", tier);
+        return;
+    }
+
+    const bool qualified = state.IsKingQualifierWon();
+    if (!qualified) {
+        Car* car = state.GetCurrentCar();
+        if (!car || car->GetFuelTenths() < 22) {
+            step = Step::None;
+            ShowSpeech("  You're gonna hafta get more gas before you race.");
+            insultTimer = 0.0f;
+            insultFromOpponent = false;
+            LOG_INFO("Challenge::OpenKing - refused, not enough fuel");
+            return;
+        }
+    }
+
+    state.SetPendingRace(qualified ? RaceType::Road : RaceType::Drag, 0, qualified);
+    // Inline the tail of Accept(): it always picks a random line from
+    // kAcceptances, which would stomp the King-specific one below.
+    step = Step::None;
+    dialog.reset();
+    // Confirmed against RaceSetupLoop (Amiga 0x0023d954/0x0023d96e) and its
+    // string table (messages 0x3e/0x3f, LAB_153F and LAB_1540+LAB_1541).
+    ShowSpeech(qualified ? "  Cool, dude! Get your pink slip out, and let's go!"
+                         : "  You're on! Let's hit the drag race!");
+    acceptTimer = 0.0f;
+    LOG_INFO("Challenge::OpenKing - race pending, qualified=%d", qualified);
 }
 
 // The move trick: temporarily take ownership so HandleEvent can't destroy
@@ -144,6 +200,7 @@ void Challenge::Draw(float deltaTime) {
             if (insultFromOpponent && betAttempts < kMaxBetAttempts) {
                 ShowRaceTypeDialog();
             } else {
+                wasOpponentRefusal = insultFromOpponent;
                 wantsCarExit = true;
             }
         }

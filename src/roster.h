@@ -34,6 +34,11 @@ class Roster {
         // play. Not derivable from currentOpponent, which has already advanced
         // past them, and which a forced pick bypasses entirely.
         Opponent* activeOpponent = nullptr;
+        // The King: fixed driver+car, built once, never part of opponents[]
+        // (SR_data driver index 21 is deliberately excluded from the random
+        // roster - see GenerateRandomDriver). See king.md.
+        Opponent kingOpponent;
+        bool kingOpponentBuilt = false;
         Driver GenerateRandomDriver(int preferredCarIndex);
     public:
         // Supply the parsed SR_data driver table before Initialize() so drivers
@@ -58,4 +63,9 @@ class Roster {
         Opponent* FindOpponentByName(const std::string& name);
         void SetNextOpponent(Opponent* opp);
         Opponent* GetOpponentByIndex(int index);
+
+        // The King, built lazily on first request. His car is mechanically
+        // the stock '63 Corvette (kingSpec) wearing his own paint job - see
+        // king.md's "His car is mechanically a stock '63 Corvette".
+        Opponent* GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec);
 };

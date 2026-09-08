@@ -61,6 +61,11 @@ private:
     // King's slot in each set.
     std::vector<int>            mergedCarSpecModelIndex;
     int lastChallengerPoolIndex = -1;
+    // Won the King's drag qualifier; his road race (for pink slips) is forced
+    // next. Cleared by a loss to him in either race. See king.md.
+    bool kingQualifierWon = false;
+    // Set by RequestKingCameoRoll(), consumed by the next PickNextOpponent().
+    bool pendingKingCameoRoll = false;
 
     RaceType pendingRaceType   = RaceType::Road;
     int      pendingBetAmount  = 50;
@@ -187,11 +192,21 @@ public:
     // Diner code continues to work unchanged via GetNextOpponent().
     void PickNextOpponent();
 
+    // Ported from ShowOpponentRefusal (Amiga 0x0023e904): after an opponent
+    // turns down a bet, the very next reroll has a flat 1/100 chance of
+    // being The King, independent of reputation. Call once, right when the
+    // rejected opponent's car starts driving off; the next PickNextOpponent()
+    // consumes and clears it.
+    void RequestKingCameoRoll() { pendingKingCameoRoll = true; }
+
     // Call after a race finishes. won=true means the player crossed first.
     // Whether the stake was a pink slip is taken from the pending bet.
     // Updates Reputation, RacerPool, and bankroll as appropriate.
-    // Returns true if the King was beaten in a drag race (triggers end-game).
+    // Returns true if the King was beaten in his road race (triggers end-game).
     bool OnRaceFinished(RaceType raceType, bool won);
+
+    // Won the King's drag qualifier; his forced road race is next.
+    bool IsKingQualifierWon() const { return kingQualifierWon; }
 
     Reputation& GetReputation() { return reputation; }
     // SR_data driver row (tier / reaction / aggression) for the challenger the

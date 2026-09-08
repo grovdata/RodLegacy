@@ -16,6 +16,11 @@ public:
     // Open the dialog flow. Call when the player clicks the opponent car.
     void Open(SFont_Font* font);
 
+    // The King: no race-type/bet dialog, no accept/reject roll - forced drag
+    // (free) then forced road (pink slip), gated on fuel >= 22 tenths for the
+    // first challenge only. See king.md.
+    void OpenKing(SFont_Font* font);
+
     // Forward SDL events. Returns true if the event was consumed.
     bool HandleEvent(SDL_Event* event);
 
@@ -28,6 +33,11 @@ public:
     // Polled by Diner after Draw(): true for one frame when transition is due.
     bool WantsRace()     const { return wantsRace; }
     bool WantsCarExit()  const { return wantsCarExit; }
+    // True when WantsCarExit() fired because the OPPONENT turned down a bet
+    // (as opposed to the player picking "Forget it"). Diner uses this to
+    // roll the King's 1% cameo chance on the next opponent - see
+    // State::RequestKingCameoRoll.
+    bool WasOpponentRefusal() const { return wasOpponentRefusal; }
 
     void Reset();
 
@@ -43,6 +53,7 @@ private:
     float insultTimer = -1.0f;
     bool wantsRace     = false;
     bool wantsCarExit  = false;
+    bool wasOpponentRefusal = false;
 
     // Ported from RaceSetupLoop (Amiga 0x0023d8c8): the opponent gets to
     // reject a proposed bet twice before the encounter ends, not once. Counts

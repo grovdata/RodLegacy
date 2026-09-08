@@ -22,8 +22,10 @@
 #include "car_builder.h"
 #include "save_loader.h"
 #include "bet_acceptance.h"
+#include "utils.h"
 #include <fstream>
 #include <cstring>
+#include <random>
 
 State::State() : bankroll(5750) {
 }
@@ -276,6 +278,7 @@ void State::StartNewGame() {
     ownedCars.clear();
     currentCar.reset();
     jailed = false;
+    kingQualifierWon = false;
 }
 
 Car* State::GetCurrentCar() {
@@ -634,13 +637,27 @@ void State::PickNextOpponent() {
 
     int playerScore = GetPlayerScore();
 
-    // Check for King unlock.
-    bool kingUnlocked = reputation.IsKingUnlocked(racerPool.CountActive());
-    if (kingUnlocked) {
-        LOG_INFO("State::PickNextOpponent - The King is unlocked");
-        // King challenge uses the existing roster's next opponent slot for now.
-        // Full King flow wired in OnRaceFinished.
+    // Check for King unlock. Winning his drag qualifier forces the road race
+    // right back at him, bypassing the normal tier check entirely (king.md:
+    // "before the player gets to choose anything, SetupChallengerEncounter(21)").
+    bool kingUnlocked = kingQualifierWon || reputation.IsKingUnlocked(racerPool.CountActive());
+    // ShowOpponentRefusal (0x0023e904): after an opponent turns down a bet,
+    // the reroll has a flat 1/100 chance of being The King regardless of
+    // reputation - confirmed via SelectNextChallenger's GetRandom16or32(100)
+    // roll. He is still gated by the tier/fuel checks in Challenge::OpenKing
+    // if the player actually tries to challenge him this early.
+    bool kingCameo = false;
+    if (!kingUnlocked && pendingKingCameoRoll) {
+        kingCameo = std::uniform_int_distribution<int>(0, 99)(RandomEngine()) == 0;
+    }
+    pendingKingCameoRoll = false;
+    if (kingUnlocked || kingCameo) {
+        LOG_INFO("State::PickNextOpponent - The King (unlocked=%d cameo=%d)", kingUnlocked, kingCameo);
         lastChallengerPoolIndex = RACER_KING_SLOT;
+        if (SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
+            Opponent* king = roster.GetKingOpponent(carData, mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+            roster.SetNextOpponent(king);
+        }
         return;
     }
 
@@ -705,16 +722,25 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
                  pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep,
                  racerPool.CountActive());
 
-        // King beaten in drag race → end-game.
-        if (lastChallengerPoolIndex == RACER_KING_SLOT && raceType == RaceType::Drag) {
-            LOG_INFO("State::OnRaceFinished - King beaten in drag! Triggering end-game.");
-            return true;
+        if (lastChallengerPoolIndex == RACER_KING_SLOT) {
+            if (raceType == RaceType::Drag) {
+                // Qualifier only; his road race (forced next) is the decider.
+                kingQualifierWon = true;
+            } else {
+                LOG_INFO("State::OnRaceFinished - King beaten in the ROAD race! Triggering end-game.");
+                return true;
+            }
         }
     } else {
         reputation.RecordLoss();
         if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
             lastChallengerPoolIndex < RACER_POOL_SIZE) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
+        }
+        // Losing either King race clears the qualifier: the drag must be won
+        // again before the road race is offered.
+        if (lastChallengerPoolIndex == RACER_KING_SLOT) {
+            kingQualifierWon = false;
         }
         if (pinkSlip) {
             // The stake was the cars, so the one that was raced is gone.

@@ -38,8 +38,12 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     };
     GetZone("challenge_opponent").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (carBitmap && !animatingCar && !exitingCar && currentOpponent)
+        if (!carBitmap || animatingCar || exitingCar || !currentOpponent) return;
+        if (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT) {
+            challenge->OpenKing(state.GetAssets().GetMainFont());
+        } else {
             challenge->Open(state.GetAssets().GetMainFont());
+        }
     };
 }
 
@@ -340,6 +344,9 @@ void Diner::DrawScene() {
         state.MoveToScene(SCENE_DRIVING);
     }
     if (challenge->WantsCarExit()) {
+        // ShowOpponentRefusal (0x0023e904): the very next opponent has a
+        // 1/100 chance of being The King, win or lose reputation-wise.
+        if (challenge->WasOpponentRefusal()) state.RequestKingCameoRoll();
         challenge->Reset();
         TriggerCarExit();
         debugWaitTimer = 0;

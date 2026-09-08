@@ -367,3 +367,38 @@ Opponent* Roster::GetOpponentByIndex(int index) {
     if (index < 0 || index >= static_cast<int>(opponents.size())) return nullptr;
     return &opponents[index];
 }
+
+Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec) {
+    if (kingOpponentBuilt) return &kingOpponent;
+
+    if (SR_DATA_KING_DRIVER_INDEX < static_cast<int>(srDrivers.size()) &&
+        SR_DATA_KING_DRIVER_INDEX < static_cast<int>(srDriverNames.size())) {
+        kingOpponent.driver.srDriverIndex = SR_DATA_KING_DRIVER_INDEX;
+        kingOpponent.driver.name = srDriverNames[SR_DATA_KING_DRIVER_INDEX];
+        kingOpponent.driver.spriteIndex = srDrivers[SR_DATA_KING_DRIVER_INDEX].PortraitAsset();
+    } else {
+        kingOpponent.driver.name = "The King";
+        kingOpponent.driver.spriteIndex = DRIVER_01;
+    }
+    kingOpponent.driver.preferredCar = CHEVROLET_CORVETTE_1963;
+
+    // ponytail: no CarData metadata exists for the King's own body id (272 -
+    // it is deliberately excluded from kCarIndex, the buyable-car table), so
+    // build a real, working '63 Corvette and only swap in his paint. Bytes
+    // 2..7 of car specs 5 and 25 are byte-identical (king.md), so this is his
+    // real car, not a stand-in. Upgrade if the King ever needs his own
+    // metadata row (gas cap / wheel offsets) instead of borrowing the plain
+    // Corvette's.
+    CarModel model = carData.GetModelFromIndex(CHEVROLET_CORVETTE_1963);
+    model.sprites.body = THE_KING_CHEVROLET_CORVETTE_1963_BODY;
+    CarPtr car = CarBuilder::BuildCar(model);
+    car->SetRoofChopped(false);
+    car->SetBumpersStripped(false);
+    car->SetDecal(SrLibCarDecalNone);
+    car->SetScoop(CarScoopType::SCOOP_NONE);
+    CarBuilder::ApplySpec(car.get(), kingSpec, model.vendor);
+    kingOpponent.car = car;
+
+    kingOpponentBuilt = true;
+    return &kingOpponent;
+}
