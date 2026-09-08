@@ -735,7 +735,7 @@ void Newspaper::CreateAllAdsSurface() {
     }
 
     // Save to file for debugging (after updating the surface)
-    SaveAdsSurfaceToFile();
+    // SaveAdsSurfaceToFile();
 
     LOG_INFO("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
     LOG_INFO("Total ads rendered: %zu", adPositions.size());

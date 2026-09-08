@@ -28,3 +28,4 @@
 
 extern SDL_Window *win;
 extern SDL_Renderer *renderer;
+extern bool isFullScreen;

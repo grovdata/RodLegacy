@@ -177,103 +177,94 @@ void Garage::InitOptionsDialog() {
 
     AudioManager* am = state.GetAssets().GetAudioManager();
 
+    // Sound/music rows only make sense when an AudioManager exists -- it's
+    // null for the whole session under --mute, and the volume buttons would
+    // just silently no-op (nothing to set the volume on).
+    bool hasAudio = am != nullptr;
+
     // Show music source row whenever Amiga music is loaded (always).
     // The button only cycles if DOS music is also available.
     bool showMusicSource = am && am->HasAmigaMusic();
     bool canCycleMusicSource = showMusicSource && am->HasPCSpeaker();
 
-    int dialogHeight = showMusicSource ? 140 : 120;
-    int backY        = showMusicSource ? 150 : 140;
+    // Rows are laid out top-down as a cursor so any row can be skipped
+    // (no audio manager, no music source) without leaving a blank gap.
+    int y = 70;
+    const int rowHeight = 20;
 
-    SDL_Rect optionsDialogRect = {60, 50, 200, dialogHeight};
+    SDL_Rect optionsDialogRect = {60, 50, 200, 0};  // height fixed up below
 
-    // Button positions
-    SDL_Rect soundVolumeUpRect      = {190, 70, 20, buttonHeight - 3};
-    SDL_Rect soundVolumeDownRect    = {165, 70, 20, buttonHeight - 3};
-    SDL_Rect musicVolumeUpRect      = {190, 90, 20, buttonHeight - 3};
-    SDL_Rect musicVolumeDownRect    = {165, 90, 20, buttonHeight - 3};
-    SDL_Rect fullscreenCheckboxRect = {optionsDialogRect.x + labelWidth + 10, 109, checkboxSize, checkboxSize};
-    SDL_Rect musicSourceRect        = {optionsDialogRect.x + labelWidth + 10, 128, 50, buttonHeight};
-    SDL_Rect backRect               = {165, backY, buttonWidth, buttonHeight};
-
-    // Zones
-    Zone soundVolumeUpZone  ("sound_up",    "<",                    soundVolumeUpRect);
-    Zone soundVolumeDownZone("sound_down",  ">",                    soundVolumeDownRect);
-    Zone musicVolumeUpZone  ("music_up",    "<",                    musicVolumeUpRect);
-    Zone musicVolumeDownZone("music_down",  ">",                    musicVolumeDownRect);
-    Zone fullscreenZone     ("fullscreen",  "Toggle Fullscreen",    fullscreenCheckboxRect);
-    Zone musicSourceZone    ("music_source","Switch music version",  musicSourceRect);
-    Zone backZone           ("back",        "Forget it",            backRect);
-
-    std::vector<Zone> dialogZones = {
-        soundVolumeUpZone,
-        soundVolumeDownZone,
-        musicVolumeUpZone,
-        musicVolumeDownZone,
-        fullscreenZone,
-        backZone,
+    std::vector<Zone> dialogZones;
+    std::vector<DialogTextConfig> texts = {
+        {SDL_Rect{optionsDialogRect.x, optionsDialogRect.y + 3, optionsDialogRect.w, 10}, "Options", {0xFF,0xFF,0xFF,0xFF}, true},
     };
-    if (showMusicSource) dialogZones.push_back(musicSourceZone);
+    std::vector<ButtonConfig> buttons;
+    std::vector<Button*> buttonPtrs;
 
-    // Checkbox for fullscreen
+    char sfxLabel[32], musicLabel[32];
+    if (hasAudio) {
+        int sfxVol = am->GetSfxVolume();
+        snprintf(sfxLabel, sizeof(sfxLabel), "Sound: %d%%", sfxVol * 10);
+        SDL_Rect soundVolumeUpRect   = {190, y, 20, buttonHeight - 3};
+        SDL_Rect soundVolumeDownRect = {165, y, 20, buttonHeight - 3};
+        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, sfxLabel, {0xFF,0xFF,0xFF,0xFF}, false});
+        dialogZones.push_back(Zone("sound_up",   "[", soundVolumeUpRect));
+        dialogZones.push_back(Zone("sound_down", "]", soundVolumeDownRect));
+        buttons.push_back({soundVolumeUpRect,   "[", nullptr, false, 0});
+        buttons.push_back({soundVolumeDownRect, "]", nullptr, false, 1});
+        y += rowHeight;
+
+        int musicVol = am->GetMusicVolume();
+        snprintf(musicLabel, sizeof(musicLabel), "Music: %d%%", musicVol * 10);
+        SDL_Rect musicVolumeUpRect   = {190, y, 20, buttonHeight - 3};
+        SDL_Rect musicVolumeDownRect = {165, y, 20, buttonHeight - 3};
+        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, musicLabel, {0xFF,0xFF,0xFF,0xFF}, false});
+        dialogZones.push_back(Zone("music_up",   "]", musicVolumeUpRect));
+        dialogZones.push_back(Zone("music_down", "[", musicVolumeDownRect));
+        buttons.push_back({musicVolumeUpRect,   "[", nullptr, false, 2});
+        buttons.push_back({musicVolumeDownRect, "]", nullptr, false, 3});
+        y += rowHeight;
+    }
+
+    SDL_Rect fullscreenCheckboxRect = {optionsDialogRect.x + labelWidth + 10, y - 1, checkboxSize, checkboxSize};
+    texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false});
+    dialogZones.push_back(Zone("fullscreen", "Toggle Fullscreen", fullscreenCheckboxRect));
+    y += rowHeight;
+
     CheckboxConfig fullscreenCheckboxConfig;
     fullscreenCheckboxConfig.bounds = fullscreenCheckboxRect;
-    fullscreenCheckboxConfig.value = &fullscreenEnabled;
+    fullscreenCheckboxConfig.value = &isFullScreen;
     fullscreenCheckboxConfig.fillColor = {0, 208, 0, 255};
     fullscreenCheckboxConfig.borderColor = {0, 0, 0, 255};
     fullscreenCheckboxConfig.checkColor = {0, 0, 0, 255};
     fullscreenCheckboxConfig.index = 4;
     fullscreenCheckboxConfig.onChange = [](bool checked) {
         LOG_INFO("Options: Fullscreen %s", checked ? "enabled" : "disabled");
-        // TODO: Toggle fullscreen
+        SDL_SetWindowFullscreen(win, checked ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     };
+    buttonPtrs.push_back(new Checkbox(fullscreenCheckboxConfig));
 
-    int sfxVol   = am ? am->GetSfxVolume()   : 8;
-    int musicVol = am ? am->GetMusicVolume() : 8;
-
-    char sfxLabel[32], musicLabel[32], srcLabel[32];
-    snprintf(sfxLabel,   sizeof(sfxLabel),   "Sound: %d%%", sfxVol * 10);
-    snprintf(musicLabel, sizeof(musicLabel), "Music: %d%%", musicVol * 10);
-
-    const char* srcName = "Amiga";
-    if (am && am->GetMusicSource() == AudioManager::MusicSource::DOS) srcName = "DOS";
-    snprintf(srcLabel, sizeof(srcLabel), "%s", srcName);
-
-    std::vector<DialogTextConfig> texts = {
-        {SDL_Rect{optionsDialogRect.x, optionsDialogRect.y + 3, optionsDialogRect.w, 10}, "Options",     {0xFF,0xFF,0xFF,0xFF}, true},
-        {SDL_Rect{optionsDialogRect.x + 5, 70,  labelWidth, 10}, sfxLabel,   {0xFF,0xFF,0xFF,0xFF}, false},
-        {SDL_Rect{optionsDialogRect.x + 5, 90,  labelWidth, 10}, musicLabel, {0xFF,0xFF,0xFF,0xFF}, false},
-        {SDL_Rect{optionsDialogRect.x + 5, 110, labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false},
-    };
+    char srcLabel[32];
     if (showMusicSource) {
-        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, 130, labelWidth, 10}, "Soundtrack:", {0xFF,0xFF,0xFF,0xFF}, false});
+        const char* srcName = (am->GetMusicSource() == AudioManager::MusicSource::DOS) ? "DOS" : "Amiga";
+        snprintf(srcLabel, sizeof(srcLabel), "%s", srcName);
+        SDL_Rect musicSourceRect = {optionsDialogRect.x + labelWidth + 10, y, 50, buttonHeight};
+        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, "Soundtrack:", {0xFF,0xFF,0xFF,0xFF}, false});
+        dialogZones.push_back(Zone("music_source", "Switch music version", musicSourceRect));
+        buttons.push_back({musicSourceRect, srcLabel, nullptr, false, 6});
+        y += rowHeight;
     }
+
+    SDL_Rect backRect = {165, y, buttonWidth, buttonHeight};
+    dialogZones.push_back(Zone("back", "Forget it", backRect));
+    buttons.push_back({backRect, "Forget it", nullptr, true, 5});
+    y += rowHeight;
+
+    optionsDialogRect.h = y - optionsDialogRect.y;
 
     std::vector<SDL_Rect> lines = {
         {63, 62, 194, 1},
     };
-
-    // Buttons (indexed via ButtonConfig::index passed to onButtonPressed)
-    ButtonConfig soundVolumeUpButton   = {soundVolumeUpRect,   "<",   nullptr, false, 0};
-    ButtonConfig soundVolumeDownButton = {soundVolumeDownRect, ">",   nullptr, false, 1};
-    ButtonConfig musicVolumeUpButton   = {musicVolumeUpRect,   "<",   nullptr, false, 2};
-    ButtonConfig musicVolumeDownButton = {musicVolumeDownRect, ">",   nullptr, false, 3};
-    ButtonConfig backButton            = {backRect,            "Forget it", nullptr, true,  5};
-
-    std::vector<ButtonConfig> buttons = {
-        soundVolumeUpButton,
-        soundVolumeDownButton,
-        musicVolumeUpButton,
-        musicVolumeDownButton,
-        backButton,
-    };
-    if (showMusicSource) {
-        ButtonConfig srcButton = {musicSourceRect, srcLabel, nullptr, false, 6};
-        buttons.push_back(srcButton);
-    }
-
-    Checkbox* fullscreenCheckbox = new Checkbox(fullscreenCheckboxConfig);
-    std::vector<Button*> buttonPtrs = { fullscreenCheckbox };
 
     DialogConfig optionsDialogConfig;
     optionsDialogConfig.bounds          = optionsDialogRect;
@@ -291,6 +282,7 @@ void Garage::InitOptionsDialog() {
     };
     optionsDialogConfig.onButtonPressed = [this, canCycleMusicSource](int buttonIndex) {
         AudioManager* am = state.GetAssets().GetAudioManager();
+        LOG_INFO("Options: button %d pressed, AudioManager %s", buttonIndex, am ? "present" : "NULL");
         switch (buttonIndex) {
             case 0:
                 if (am) { am->SetSfxVolume(am->GetSfxVolume() + 1); state.GetAssets().SaveSettings(); rebuildOptions_ = true; }
