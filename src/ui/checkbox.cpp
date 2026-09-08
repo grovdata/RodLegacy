@@ -1,91 +1,80 @@
 #include "checkbox.h"
-#include "rectangle.h"
+#include "../bitmap.h"
+#include "../embedded_loader.h"
 #include "../state.h"
+
+extern "C" {
+    extern const unsigned char embedded_checkbox_on_png[];
+    extern const size_t embedded_checkbox_on_png_len;
+    extern const unsigned char embedded_checkbox_off_png[];
+    extern const size_t embedded_checkbox_off_png_len;
+}
 
 ButtonConfig Checkbox::CreateButtonConfig(const CheckboxConfig& config) {
     ButtonConfig btnConfig;
     btnConfig.bounds = config.bounds;
-    btnConfig.fillColor = config.fillColor;
-    btnConfig.borderColor = config.borderColor;
-    btnConfig.textColor = {0, 0, 0, 255};
     btnConfig.text = "";
     btnConfig.defaultChoice = false;
-    btnConfig.invisible = false;
+    btnConfig.invisible = true;  // fully drawn by checkbox-on/off.png instead
     btnConfig.index = config.index;
-    
+
     // Create a lambda that toggles the checkbox and calls onChange
     btnConfig.onClick = [this, config]() {
         bool newValue = !(valuePtr ? *valuePtr : localValue);
-        
+
         if (valuePtr) {
             *valuePtr = newValue;
         } else {
             localValue = newValue;
         }
-        
-        UpdateCheckMark();
-        
+
+        UpdateIcon();
+
         if (onChange) {
             onChange(newValue);
         }
     };
-    
+
     return btnConfig;
 }
 
-Checkbox::Checkbox(const CheckboxConfig& config) 
+Checkbox::Checkbox(const CheckboxConfig& config)
     : Button(CreateButtonConfig(config)),
       valuePtr(config.value),
       localValue(false),
       onChange(config.onChange),
-      checkColor(config.checkColor),
       bounds(config.bounds)
 {
     // Initialize local value if no external pointer provided
     if (!valuePtr) {
         localValue = false;
     }
-    UpdateCheckMark();
+    UpdateIcon();
 }
 
 Checkbox::~Checkbox() {
 }
 
-void Checkbox::UpdateCheckMark() {
+void Checkbox::UpdateIcon() {
     bool checked = valuePtr ? *valuePtr : localValue;
-    
-    if (checked) {
-        // Create a checkmark (filled square for now)
-        int padding = 3;
-        
-        RectangleConfig checkConfig{};
-        checkConfig.rect = {
-            bounds.x + padding, 
-            bounds.y + padding, 
-            bounds.w - (padding * 2), 
-            bounds.h - (padding * 2)
-        };
-        checkConfig.fillColor = checkColor;
-        checkConfig.borderColor = checkColor;
-        checkConfig.inset = 0;
-        
-        checkMark = std::make_unique<Rectangle>(checkConfig);
-        checkMark->SetVisible(true);
-    } else {
-        checkMark.reset();
-    }
+
+    const unsigned char* data = checked ? embedded_checkbox_on_png : embedded_checkbox_off_png;
+    size_t len = checked ? embedded_checkbox_on_png_len : embedded_checkbox_off_png_len;
+
+    SDL_Surface* iconSurface = LoadSurfaceFromMemory(data, len);
+    if (!iconSurface) return;
+
+    icon = std::make_unique<Bitmap>();
+    icon->LoadSurface(iconSurface);
+    SDL_FreeSurface(iconSurface);
+    icon->SetPosition(bounds.x, bounds.y);
+    icon->SetDimensions(bounds.w, bounds.h);
+    icon->SetVisible(true);
 }
 
 void Checkbox::Draw() {
     if (!IsVisible()) return;
-    
-    // Draw the button background
-    Button::Draw();
-    
-    // Draw the checkmark on top
-    if (checkMark) {
-        checkMark->Draw();
-    }
+    if (icon) icon->Draw();
 }
 
 void Checkbox::SetChecked(bool checked) {
@@ -94,7 +83,7 @@ void Checkbox::SetChecked(bool checked) {
     } else {
         localValue = checked;
     }
-    UpdateCheckMark();
+    UpdateIcon();
 }
 
 bool Checkbox::IsChecked() const {
