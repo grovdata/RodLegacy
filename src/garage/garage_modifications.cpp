@@ -644,6 +644,17 @@ void Garage::ShowStickerDialog() {
     std::vector<Zone> zones;
 
 
+    // Every sticker draws at its native size, centred in the cell, shrunk only
+    // if it does not fit - stretching to the cell distorted them.
+    auto fitInCell = [&](const SDL_Rect& cell, int w, int h) {
+        if (w > cellW || h > cellH) {
+            float scale = std::min((float)cellW / w, (float)cellH / h);
+            w = (int)(w * scale);
+            h = (int)(h * scale);
+        }
+        return SDL_Rect{cell.x + (cellW - w) / 2, cell.y + (cellH - h) / 2, w, h};
+    };
+
     // Populate visible cells based on scroll position
     // Layout: items 0-7 = Amiga stock, 8-15 = DOS (if available), then custom
     for (int displayRow = 0; displayRow < VISIBLE_ROWS; displayRow++) {
@@ -661,36 +672,19 @@ void Garage::ShowStickerDialog() {
                 SDL_Rect src = {stockCol * SRC_CELL_W, stockRow * SRC_CELL_H, SRC_CELL_W, SRC_CELL_H};
                 DialogBitmap db;
                 db.bitmap = decalsSheet;
-                db.rect = dest;
+                db.rect = fitInCell(dest, SRC_CELL_W, SRC_CELL_H);
                 db.zOrder = 0;
                 db.sourceRect = src;
                 bitmaps["decal_" + std::to_string(itemIndex)] = db;
                 zones.push_back(Zone("decal_" + std::to_string(itemIndex), SrLibCarDecalNames[itemIndex], dest));
             } else if (dosDecalCount > 0 && itemIndex < 8 + dosDecalCount) {
-                // DOS sticker - use native dimensions, center in cell, scale only if too big
                 int dosIndex = itemIndex - 8;
                 Bitmap* dosBmp = state.GetAssets().GetDosDecal(dosIndex);
                 if (dosBmp) {
                     SDL_Rect native = dosBmp->GetSourceRect();
-                    int drawW = native.w;
-                    int drawH = native.h;
-                    // Scale down proportionally if larger than cell
-                    if (drawW > cellW || drawH > cellH) {
-                        float scaleW = (float)cellW / drawW;
-                        float scaleH = (float)cellH / drawH;
-                        float scale = std::min(scaleW, scaleH);
-                        drawW = (int)(drawW * scale);
-                        drawH = (int)(drawH * scale);
-                    }
-                    // Center in cell
-                    SDL_Rect centered = {
-                        dest.x + (cellW - drawW) / 2,
-                        dest.y + (cellH - drawH) / 2,
-                        drawW, drawH
-                    };
                     DialogBitmap db;
                     db.bitmap = dosBmp;
-                    db.rect = centered;
+                    db.rect = fitInCell(dest, native.w, native.h);
                     db.zOrder = 0;
                     bitmaps["dos_" + std::to_string(dosIndex)] = db;
                     zones.push_back(Zone("dos_" + std::to_string(dosIndex), SrLibCarDecalNames[8 + dosIndex], dest));
@@ -698,9 +692,11 @@ void Garage::ShowStickerDialog() {
             } else {
                 // Custom sticker
                 int customIndex = itemIndex - 8 - dosDecalCount;
+                Bitmap* customBmp = customStickerBitmaps[customIndex].get();
+                SDL_Rect native = customBmp->GetNaturalSize();
                 DialogBitmap db;
-                db.bitmap = customStickerBitmaps[customIndex].get();
-                db.rect = dest;
+                db.bitmap = customBmp;
+                db.rect = fitInCell(dest, native.w, native.h);
                 db.zOrder = 0;
                 bitmaps["custom_" + std::to_string(customIndex)] = db;
                 std::string stickerName = std::filesystem::path(customStickerPaths[customIndex]).stem().string();
