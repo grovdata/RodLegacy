@@ -802,3 +802,68 @@ void EngineBay::InitPartsDialog() {
     
     partsDialog = std::make_unique<ListDialog>(partsDialogConfig, listConfig);
 }
+
+EngineBayView::EngineBayView(Car& car, State& state, std::function<void()> onClose) {
+    auto& assets = state.GetAssets();
+    auto lib = [&assets](AmigaLibAsset a) {
+        return assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, a});
+    };
+
+    CarEngine_t engineType = car.GetEngineType();
+    ManifoldType manifoldType = car.GetManifoldType();
+    CarburetorType carbType = car.GetCarburator().partType.carburetorType;
+
+    // Same bay rect as the garage's overview, so every position table in
+    // engine_bay_layout.h lands where it does there - just on black.
+    SDL_Rect bounds = {24, 0, 200, 189};
+
+    DialogConfig cfg;
+    cfg.bounds = bounds;
+    cfg.backgroundColor = {0, 0, 0, 255};
+    cfg.borderColor = {0, 0, 0, 255};
+    cfg.contentAreas = std::vector<SDL_Rect>{bounds};
+    cfg.font = assets.GetMainFont();
+    cfg.zones = {Zone("close", "", {0, 0, GAME_WIDTH, GAME_HEIGHT})};
+    cfg.onZoneClick = [onClose](Zone&) { if (onClose) onClose(); };
+    cfg.onDismiss = onClose;
+
+    // Same window border the garage bay wears (lib.p 288), minus its sidebar.
+    cfg.bitmaps["background"] = {lib(ENGINE_WINDOWFRAME), bounds, 0};
+
+    // Only what is actually bolted on gets an entry: Dialog::Show() turns
+    // every bitmap it holds visible, so a missing part has to be absent
+    // rather than hidden.
+    Bitmap* boltBmp = lib(ENGINE_BOLT);
+    SDL_Rect boltNatural = boltBmp->GetNaturalSize();
+    SDL_Rect boltCrop = {0, 0, boltNatural.w, boltNatural.h / 3};  // seated frame
+    auto addScrew = [&](int screwIndex) {
+        SDL_Point anchor = EngineBayScrewAnchor(screwIndex, engineType, manifoldType, carbType);
+        cfg.bitmaps["screw_" + std::to_string(screwIndex)] = {
+            boltBmp, {anchor.x, anchor.y - boltCrop.h, boltCrop.w, boltCrop.h}, 5, boltCrop};
+    };
+
+    if (car.HasEngine()) {
+        Bitmap* engineBmp = lib(EngineBodyAsset(engineType));
+        Bitmap* wireBmp = lib(ENGINE_WIRE_ATTACHED);
+        cfg.bitmaps["engine_body"] = {engineBmp, EngineBodyRect(engineBmp->GetNaturalSize(), engineType), 2};
+        cfg.bitmaps["engine_wire"] = {wireBmp, EngineWireRect(wireBmp->GetNaturalSize(), engineType), 3};
+        addScrew(0);
+    }
+    if (car.HasManifold()) {
+        Bitmap* manifoldBmp = lib(ManifoldBodyAsset(manifoldType, engineType));
+        cfg.bitmaps["manifold_body"] = {manifoldBmp, ManifoldBodyRect(manifoldBmp->GetNaturalSize(), manifoldType), 2};
+        addScrew(1);
+        addScrew(2);
+    }
+    // One shared carb asset across the mounts is fine here: nothing is ever
+    // hidden individually, and Dialog::Draw re-applies each entry's own rect.
+    Bitmap* carbBmp = lib(CarbBodyAsset(carbType));
+    for (int i = 0; i < car.GetCarburetorSlots(); i++) {
+        if (!car.HasCarburetor(i)) continue;
+        cfg.bitmaps["carb_body_" + std::to_string(i)] = {
+            carbBmp, CarbBodyRect(carbBmp->GetNaturalSize(), manifoldType, engineType, i), 4};
+        addScrew(3 + i);
+    }
+
+    dialog = std::make_unique<Dialog>(cfg);
+}

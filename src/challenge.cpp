@@ -95,6 +95,18 @@ void Challenge::Reset() {
     wasOpponentRefusal = false;
     betAttempts      = 0;
     insultFromOpponent = false;
+    tauntOnly          = false;
+}
+
+void Challenge::Taunt() {
+    if (IsActive()) return;
+    step = Step::None;
+    dialog.reset();
+    insultFromOpponent = false;
+    tauntOnly = true;
+    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
+    insultTimer = 0.0f;
+    LOG_INFO("Challenge::Taunt");
 }
 
 bool Challenge::IsActive() const {
@@ -198,6 +210,7 @@ void Challenge::Draw(float deltaTime) {
         if (insultTimer >= 2.0f) {
             insultTimer = -1.0f;
             bubble.reset();
+            if (tauntOnly) { tauntOnly = false; return; }
             // The opponent gets a second look at a bet before the player is
             // sent packing (RaceSetupLoop's 2-attempt loop); the player's own
             // "Forget it" always ends things on the spot.

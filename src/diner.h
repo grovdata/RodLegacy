@@ -7,6 +7,7 @@
 #include "dialogs/list_dialog.h"
 #include "challenge.h"
 class Opponent;
+class EngineBayView;
 
 class Diner: public CarScene {
    private:
@@ -86,6 +87,20 @@ class Diner: public CarScene {
 
     std::unique_ptr<Challenge> challenge;
 
+    // "Pop the hood": the challenger's engine bay in the garage's own window
+    // frame. Click anywhere to close, and it times out on its own - you don't
+    // get to stand there studying it. One look per challenger (reset when the
+    // next car drives in); asking the same guy again just gets you an earful.
+    std::unique_ptr<EngineBayView> hoodView;
+    float hoodTimer = 0.0f;
+    bool hoodPopped = false;
+    // ponytail: the original's own timeout is a frame count I could not read
+    // (the Ghidra decompiler is down on the Amiga binary) - replace this with
+    // the real value once it can be looked up.
+    static constexpr float HOOD_SECONDS = 5.0f;
+    bool IsHoodViewOpen() const;
+    void CloseHoodView();
+
     public:
         Diner();
         ~Diner();
@@ -118,5 +133,6 @@ class Diner: public CarScene {
         void OnSceneExit() override;
         void FadeOut() override;
 
-        bool CanStartCarExit() const override { return !challenge->IsActive(); }
+        // The challenger waits while his hood is up, same as during a challenge.
+        bool CanStartCarExit() const override { return !challenge->IsActive() && !IsHoodViewOpen(); }
 };

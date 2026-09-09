@@ -39,6 +39,10 @@ public:
     // State::RequestKingCameoRoll.
     bool WasOpponentRefusal() const { return wasOpponentRefusal; }
 
+    // A taunt with no encounter attached: he snaps a line and stays put.
+    // The diner uses it when the player pops his hood a second time.
+    void Taunt();
+
     void Reset();
 
 private:
@@ -66,6 +70,9 @@ private:
     // (as opposed to the player picking "Forget it"), so Draw() knows whether
     // to loop back to the race-type menu once the insult clears.
     bool insultFromOpponent = false;
+    // Set by Taunt(): the insult is all there is, so nothing is pending when
+    // its timer runs out - no race-type loop back, no car exit.
+    bool tauntOnly = false;
 
     static const std::vector<std::string> kInsults;
     static const std::vector<std::string> kAcceptances;

@@ -88,3 +88,16 @@ public:
     SDL_Point GetScrewNaturalSize(int screwIndex) const { return screwNaturalSize[screwIndex]; }
     Bitmap* GetScrewBitmap(int screwIndex) const { return screwBitmap[screwIndex].get(); }
 };
+
+// Look-don't-touch engine bay: one car's fitted parts on black, no window
+// frame, sidebar or buttons, nothing clickable. Built for the diner's "pop
+// the hood" on a challenger's car, so it takes the car outright instead of
+// reading State's current one. Any click (or Escape) calls onClose.
+class EngineBayView {
+public:
+    EngineBayView(Car& car, State& state, std::function<void()> onClose);
+    Dialog* GetDialog() { return dialog.get(); }
+
+private:
+    std::unique_ptr<Dialog> dialog;
+};

@@ -10,6 +10,8 @@
 #include "ui/main_font.h"
 #include "utils.h"
 #include "diner_actors.h"
+#include "engine_bay.h"
+#include "roster.h"
 #include <cstdlib>
 #include <algorithm>
 #include <random>
@@ -35,6 +37,18 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
         if (sceneTransition != SCENE_SOLID) return;
         if (state.GetKnownOpponents().empty()) bubbles[0]->SetVisible(true);
         else ShowCallListDialog();
+    };
+    GetZone("pop_hood").onClick = [this] {
+        if (sceneTransition != SCENE_SOLID) return;
+        if (!carBitmap || animatingCar || exitingCar || !currentOpponent) return;
+        // One look per challenger; a second try just annoys him.
+        if (hoodPopped) { challenge->Taunt(); return; }
+        hoodPopped = true;
+        hoodTimer = 0.0f;
+        // Rebuilt per opponent - the parts drawn are baked in at construction.
+        hoodView = std::make_unique<EngineBayView>(*currentOpponent->car, state,
+                                                   [this] { CloseHoodView(); });
+        SetActiveDialog(hoodView->GetDialog());
     };
     GetZone("challenge_opponent").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
@@ -262,6 +276,13 @@ void Diner::DrawScene() {
     UpdateCarAnimation(deltaTime);
 
     UpdateActors(deltaTime);
+
+    // He shuts the hood himself after a while - no studying it at leisure.
+    if (IsHoodViewOpen()) {
+        hoodTimer += static_cast<float>(deltaTime);
+        if (hoodTimer >= HOOD_SECONDS) CloseHoodView();
+    }
+
     // Only ever one of each pair is visible; the other draws nothing.
     AnimatedBitmap* waitressLeft = waitressAnim[1].get();
     AnimatedBitmap* waitressRight = waitressAnim[0].get();
@@ -328,7 +349,9 @@ void Diner::DrawScene() {
         carBitmap->Draw();
     }
 
-    if (activeDialog && activeDialog->IsVisible()) {
+    // The hood window is the exception: it reaches down into the road strip,
+    // so DrawMaskAfterCar draws it once the mask is down.
+    if (activeDialog && activeDialog->IsVisible() && !IsHoodViewOpen()) {
         activeDialog->Draw();
     }
 
@@ -370,10 +393,27 @@ void Diner::DrawMaskAfterCar() {
 
     CarScene::DrawMaskAfterCar();
 
+    // The bay window's bottom rows overlap the road strip, so it goes on after
+    // the mask rather than with the other dialogs in DrawScene.
+    if (IsHoodViewOpen()) hoodView->GetDialog()->Draw();
+
     // Last of all, so nothing draws over them - this runs from DrawExtra,
     // after DrawScene has finished. Everything in the diner is behind the
     // bars: the challengers keep arriving and leaving, you just watch.
     if (state.IsJailed()) jailBars->Draw();
+}
+
+bool Diner::IsHoodViewOpen() const {
+    return hoodView && hoodView->GetDialog()->IsVisible();
+}
+
+// Not hoodView.reset(): this also runs from inside the view's own dialog
+// callback, which would delete the object being iterated.
+void Diner::CloseHoodView() {
+    if (!hoodView) return;
+    hoodView->GetDialog()->Hide();
+    SetActiveDialog(nullptr);
+    hoodTimer = 0.0f;
 }
 
 std::string Diner::GetOpponentText(Opponent *opponent) {
@@ -409,7 +449,15 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
                                                   currentOpponent->car->GetModel().height);
     this->cary = carYOffset;
 
+    // The hood hotspot follows the car: sprite widths and heights differ per
+    // model, so anchor it on the air-scoop offset at the idle position.
+    const SDL_Point idle = GetCarIdlePosition();
+    const BitmapOffset_t hoodOffsets = currentOpponent->car->GetModel().offsets;
+    SetZoneRect("pop_hood", {idle.x + hoodOffsets.offsetXAirScoop - 24,
+                             idle.y + hoodOffsets.offsetYAirScoop - 4, 64, 26});
+
     // Reset state for new opponent
+    hoodPopped = false;
     exitingCar = false;
     debugWaitTimer = 0;
     engineSoundStarted = false;
@@ -632,6 +680,13 @@ void Diner::OnSceneExit() {
     carx = 0;
     cary = 0;
     currentOpponent = nullptr;
+
+    if (hoodView) {
+        SetActiveDialog(nullptr);
+        hoodView.reset();
+    }
+    hoodPopped = false;
+    hoodTimer = 0.0f;
 
     challenge->Reset();
 
