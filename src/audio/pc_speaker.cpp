@@ -309,6 +309,8 @@ void PCSpeaker::Stop()
     playing_.store(false);
     gate_      = false;
     frequency_ = 0.0f;
+    Resume();  // AmigaMusic::Stop clears its pause too; without this a paused
+               // speaker stays dead across a music-source switch.
 }
 
 void PCSpeaker::Pause()

@@ -244,6 +244,14 @@ public:
     int  CalculateScore() const;
 
     Car* GetCurrentCar();
+    // Takes fuel off the current car, floored at empty. The original burns it
+    // in two places (see docs/driving/cop.md): 2 tenths per drive leg between
+    // locations, in RunRoadRaceWithMode, and 5 (drag) / 15 (road) tenths per
+    // race, in ProcessRaceOutcome.
+    static constexpr int FUEL_PER_TRIP_TENTHS = 2;
+    static constexpr int FUEL_PER_DRAG_RACE_TENTHS = 5;
+    static constexpr int FUEL_PER_ROAD_RACE_TENTHS = 15;
+    void BurnFuel(int tenths);
     const CarPtr& GetCurrentCarPtr() const { return currentCar; }
     void SetCurrentCar(CarPtr car);
     const std::vector<CarPtr>& GetOwnedCars() const { return ownedCars; }

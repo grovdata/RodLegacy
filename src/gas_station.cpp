@@ -115,11 +115,12 @@ void GasStation::Init(bool initialDebugMode) {
     // Create a mask for gas pump
     auto maskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
+    const SDL_Rect maskRect = {0, 107, 312, 69};
     maskedBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
-    background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), {0, 107, 312, 69});
+    background->CreateMask(maskBitmap->GetSurface(), maskedBackground.get(), maskRect);
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
-    
+
     // Create road mask to hide car wheels below y=175 (similar to diner scene)
     roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 15, 32, 0, 0, 0, 0));
     if (roadMaskSurface) {
@@ -133,15 +134,31 @@ void GasStation::Init(bool initialDebugMode) {
         LOG_INFO("Failed to create road mask surface");
     }
 
-    // Asset-owned, non-owning refs. 338 only shows while the handle is off the
-    // pump - the background already has the handle in place.
+    // Asset-owned, non-owning ref. 338 is the background slice with the pump's
+    // hanging handle painted out; it draws behind the car while the handle is
+    // off, since the background bitmap itself still has the handle in place.
     pumpNoHandle = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
     pumpNoHandle->SetPosition(PUMP_POS.x, PUMP_POS.y);
     pumpNoHandle->SetVisible(false);
 
+    // Handle-off foreground. Mask 341's pump region covers the hanging handle
+    // too, so with the handle off it painted what is behind the handle (the
+    // brick wall) over the car's nose. Asset 339 is the pump's front edge
+    // without the handle, so inside the pump rect it replaces the mask's
+    // output outright - art and alpha both.
     pumpSideMask = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP3_MASK});
-    pumpSideMask->SetPosition(PUMP_POS.x, PUMP_POS.y);
-    pumpSideMask->SetVisible(true);
+    maskedBackgroundNoHandle.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
+    SDL_SetSurfaceBlendMode(maskedBackground.get(), SDL_BLENDMODE_NONE);
+    SDL_BlitSurface(maskedBackground.get(), nullptr, maskedBackgroundNoHandle.get(), nullptr);
+    SDL_SetSurfaceBlendMode(maskedBackground.get(), SDL_BLENDMODE_BLEND);
+    SDL_Surface* pumpFront = pumpSideMask->GetSurface();
+    SDL_Rect frontDst = {PUMP_POS.x, PUMP_POS.y - maskRect.y, PUMP_SIZE.x, PUMP_SIZE.y};
+    SDL_SetSurfaceBlendMode(pumpFront, SDL_BLENDMODE_NONE);
+    SDL_BlitSurface(pumpFront, nullptr, maskedBackgroundNoHandle.get(), &frontDst);
+    SDL_SetSurfaceBlendMode(pumpFront, SDL_BLENDMODE_BLEND);
+    maskedBackgroundNoHandleTexture.reset(
+        SDL_CreateTextureFromSurface(renderer, maskedBackgroundNoHandle.get()));
+    SDL_SetTextureBlendMode(maskedBackgroundNoHandleTexture.get(), SDL_BLENDMODE_BLEND);
 
     Bitmap* attendantSheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, GUS_GAS_ATTENDANT});
     SDL_Rect attendantRect = {200, 90, 47, 47};
@@ -220,8 +237,13 @@ void GasStation::DrawScene() {
 
 void GasStation::DrawMaskAfterCar() {
     // Draw the gas pump mask
+    const bool handleOff = pumpNoHandle && pumpNoHandle->IsVisible();
     SDL_Rect rect = {0, 107, 312, 69};
-    SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
+    SDL_RenderCopy(renderer,
+                   (handleOff && maskedBackgroundNoHandleTexture)
+                       ? maskedBackgroundNoHandleTexture.get()
+                       : maskedBackgroundTexture.get(),
+                   NULL, &rect);
 
     if (roadMaskSurface && roadMaskTexture) {
         SDL_BlitSurface(surface.get(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
@@ -232,9 +254,9 @@ void GasStation::DrawMaskAfterCar() {
 
     CarScene::DrawMaskAfterCar();
 
-    if (pumpSideMask) {
-        pumpSideMask->Draw();
-    }
+    // Asset 306 (the pump front with the handle) used to be drawn here; it is
+    // pixel-identical to the background it covers, so the masked overlay above
+    // already puts it in front of the car.
 
     if (pumpFilling && pumpFilling->IsVisible()) {
         pumpFilling->Draw();

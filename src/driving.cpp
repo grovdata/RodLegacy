@@ -684,6 +684,11 @@ void Driving::DrawScene() {
                     const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
                     raceEndPendingKing = state.OnRaceFinished(raceType, won);
                     racing->ResetRaceOutcome();
+                    // Running the race itself costs fuel, on top of the drive
+                    // legs State::MoveToScene charges.
+                    state.BurnFuel(raceType == RaceType::Drag
+                                       ? State::FUEL_PER_DRAG_RACE_TENTHS
+                                       : State::FUEL_PER_ROAD_RACE_TENTHS);
                     // King races advance the clock 600/1050 ticks (@150/hr =
                     // 4h/7h) instead of the usual flat 2h - see king.md.
                     if (wasKingRace) {

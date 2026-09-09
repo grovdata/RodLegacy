@@ -18,6 +18,11 @@ class GasStation : public CarScene {
    private:
     sdl2::SurfacePtr maskedBackground;
     sdl2::TexturePtr maskedBackgroundTexture;
+    // Same strip, built from a background with asset 338 blitted over the pump
+    // so the handle is gone. Without this the strip repaints the handle from
+    // the original background over everything, every frame.
+    sdl2::SurfacePtr maskedBackgroundNoHandle;
+    sdl2::TexturePtr maskedBackgroundNoHandleTexture;
     sdl2::SurfacePtr roadMaskSurface;
     sdl2::TexturePtr roadMaskTexture;
     SDL_Rect roadMaskSrcRect  = {0, 175, 320, 15}; // Mask from y=175 down, 15 pixels high
@@ -31,14 +36,16 @@ class GasStation : public CarScene {
     // car's position gets covered. Both are drawn manually in
     // DrawMaskAfterCar instead.
     Bitmap* pumpFilling = nullptr;
-    // The pump is a sandwich around the car, all three assets 24x62 at the
-    // same (56,114): 338 (pump with the handle taken off it) behind the car,
-    // then the car, then 339 (pump side with the background baked in) on top,
-    // which is what makes the pump occlude the car correctly.
-    // 338 only shows while the handle is off the pump; 339 always draws.
-    Bitmap* pumpNoHandle = nullptr;   // asset 338
-    Bitmap* pumpSideMask = nullptr;   // asset 339
+    // The pump is a sandwich around the car, both assets 24x62 at (56,114):
+    // 338 (the background slice with the handle erased) behind the car, then
+    // the car, then the masked background on top, which is what makes the pump
+    // occlude the car. 339 is the pump's front edge without the handle and is
+    // baked into maskedBackgroundNoHandle rather than drawn. Asset 306 (front
+    // edge with the handle) is unused: it is identical to the background.
+    Bitmap* pumpNoHandle = nullptr;         // asset 338
+    Bitmap* pumpSideMask = nullptr;         // asset 339
     static constexpr SDL_Point PUMP_POS = {56, 114};
+    static constexpr SDL_Point PUMP_SIZE = {24, 62};
     // Owned by the shared `bubbles` vector (see constructor); kept here too
     // so UpdatePumping can trigger it without indexing into that vector.
     Bubble* attendantBubble = nullptr;

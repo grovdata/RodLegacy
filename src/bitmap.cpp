@@ -159,14 +159,12 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     uint8_t maskG = maskColor.g;
     uint8_t maskB = maskColor.b;
 
-    LOG_INFO("Looking for mask color RGB(%d,%d,%d)", maskR, maskG, maskB);
-    LOG_INFO("First pixel comparison: Mask RGB(128,16,0) == Target RGB(%d,%d,%d): %s",
-            maskR, maskG, maskB,
-            (128 == maskR && 16 == maskG && 0 == maskB) ? "true" : "false");
-
-    if (target->format != surface->format) {
-        LOG_WARN("Target surface format differs from source format - this might cause issues");
-        LOG_WARN("Source BPP: %d, Target BPP: %d", surface->format->BitsPerPixel, target->format->BitsPerPixel);
+    // Pixels are accessed as Uint32; conversion between formats is handled by SDL_GetRGB/SDL_MapRGBA.
+    if (surface->format->BytesPerPixel != 4 || mask->format->BytesPerPixel != 4 ||
+        target->format->BytesPerPixel != 4) {
+        LOG_ERROR("CreateMask requires 32bpp surfaces (src %d, mask %d, target %d)",
+                  surface->format->BitsPerPixel, mask->format->BitsPerPixel, target->format->BitsPerPixel);
+        return;
     }
 
     // Ensure the rect does not exceed the bounds of the surfaces
@@ -192,6 +190,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     Uint32 *targetPixels = (Uint32 *)target->pixels;
 
     SDL_PixelFormat *maskFormat = mask->format;
+    int matched = 0;
 
     for (int y = 0; y < rect.h; y++) {
         for (int x = 0; x < rect.w; x++) {
@@ -207,6 +206,7 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
                 Uint8 bgR, bgG, bgB;
                 SDL_GetRGB(bgPixels[bgIdx], surface->format, &bgR, &bgG, &bgB);
                 targetPixels[targetIdx] = SDL_MapRGBA(target->format, bgR, bgG, bgB, 255);
+                matched++;
             } else {
                 targetPixels[targetIdx] = SDL_MapRGBA(target->format, 0, 0, 0, 0);
             }
@@ -217,6 +217,11 @@ void Bitmap::CreateMask(SDL_Surface *mask, SDL_Surface *target, SDL_Rect rect) {
     if (SDL_MUSTLOCK(surface.get())) SDL_UnlockSurface(surface.get());
     if (SDL_MUSTLOCK(mask)) SDL_UnlockSurface(mask);
     if (SDL_MUSTLOCK(target)) SDL_UnlockSurface(target);
+
+    if (matched == 0) {
+        LOG_WARN("CreateMask: no mask-coloured pixels in %dx%d mask - result is fully transparent",
+                 mask->w, mask->h);
+    }
 }
 
 

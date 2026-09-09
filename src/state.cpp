@@ -218,7 +218,15 @@ void State::SetCurrentScene(Scene *scene) {
 
 void State::MoveToScene(SrLibGameScene scene) {
     const SrLibGameScene previousScene = currentGameScene;
-    (void)previousScene;  // only read by the non-debug SCENE_CAR_DEBUG path
+    // Every leg between two places you drive to costs fuel; the garage's
+    // newspaper, save/load and the rest are not drives.
+    auto isDriveTo = [](SrLibGameScene s) {
+        return s == SCENE_GARAGE || s == SCENE_DINER || s == SCENE_GAS_STATION ||
+               s == SCENE_DRIVING || s == SCENE_CRUISING;
+    };
+    if (scene != previousScene && isDriveTo(previousScene) && isDriveTo(scene)) {
+        BurnFuel(FUEL_PER_TRIP_TENTHS);
+    }
     if (currentScene) {
         currentScene->OnSceneExit();
     }
@@ -283,6 +291,12 @@ void State::StartNewGame() {
 
 Car* State::GetCurrentCar() {
     return this->currentCar.get();
+}
+
+void State::BurnFuel(int tenths) {
+    Car* car = GetCurrentCar();
+    if (!car) return;
+    car->SetFuelTenths(std::max(0, car->GetFuelTenths() - tenths));
 }
 
 void State::SetCurrentCar(CarPtr car) {
