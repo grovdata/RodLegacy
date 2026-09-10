@@ -57,14 +57,7 @@ int Car::GetEngineClass() const {
 // union field reads back as whichever enum bit-pattern TRANS_4SPD_UNIVERSAL
 // happens to be), so resolve from the spec class instead.
 ManifoldType Car::GetManifoldType() const {
-    switch (specManifoldClass) {
-        case 0: return MANIFOLD_2BARREL;
-        case 1: return MANIFOLD_4BARREL;
-        case 2: return MANIFOLD_DUAL_QUAD;
-        case 3: return MANIFOLD_TRIPLE_2BARREL;
-        case 4: return MANIFOLD_RACING;
-        default: break;
-    }
+    if (specManifoldClass >= 0) return ManifoldTypeForClass(specManifoldClass);
     return manifold.partType.manifoldType;
 }
 
@@ -193,10 +186,6 @@ void Car::SetTires(CarWheelType type, int wear, int cost) {
     RecalculatePerformance();
 }
 
-void Car::SetScoop(CarScoopType type) {
-    this->scoop = type;
-}
-
 // ============================================================================
 // Top speed
 // The original derives it from one number: ComputeBasePerformance scores the
@@ -253,14 +242,7 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     if (car.GetSpecManifoldClass() >= 0) {
         setup.manifoldClass = car.GetSpecManifoldClass();
     } else {
-        switch (car.GetManifold().partType.manifoldType) {
-            case MANIFOLD_2BARREL: setup.manifoldClass = 0; break;
-            case MANIFOLD_4BARREL: setup.manifoldClass = 1; break;
-            case MANIFOLD_DUAL_QUAD: setup.manifoldClass = 2; break;
-            case MANIFOLD_TRIPLE_2BARREL: setup.manifoldClass = 3; break;
-            case MANIFOLD_RACING: setup.manifoldClass = 4; break;
-            default: setup.manifoldClass = 0; break;
-        }
+        setup.manifoldClass = ManifoldClass(car.GetManifold().partType.manifoldType);
     }
 
     switch (car.GetWheelType()) {

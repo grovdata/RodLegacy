@@ -1241,6 +1241,14 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         result[i].offsets = newEntry;
     }
 
+    // Hood scoop: the sprite-ref table names one of CAR_SCOOP1..4 per car
+    // body. Sprite numbers there are one-based, 0 meaning "no such part".
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {
+        const uint8_t* rec = data + SR_DATA_CAR_SPRITES_START + i * 10 + 4;
+        const uint16_t raw = (uint16_t(rec[0]) << 8) | rec[1];
+        result[i].airScoop = raw ? int(raw) - 1 : -1;
+    }
+
     // Parse Classifieds
     ptr = data + CLASSIFIEDS_START;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; i++) {

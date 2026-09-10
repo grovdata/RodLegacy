@@ -1432,6 +1432,10 @@ struct CarMetadata_t {
     BitmapOffset_t offsets;
     ClassifiedEntry_t classified;
     CarClickBoxes_t clickBoxes;
+    // lib.p hood-scoop asset for this car, -1 if it has none. One of
+    // CAR_SCOOP1..4, picked per car body by the sprite-ref table - see
+    // RodLegacyResearch/docs/garage/car_asset_table.md.
+    int airScoop = -1;
 };
 
 struct PartMetadata_t {

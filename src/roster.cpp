@@ -171,10 +171,7 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
         state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor);
     }
 
-    std::uniform_int_distribution<> wearDist(0, 30);
     std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
-    std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
-    std::uniform_int_distribution<> scoopDist(0, (int)CarScoopType::SCOOP_NONE - 1);
 
     // Set random customization and wear
     // Introduce a 25% chance to set CarDecal to CarDecalNone
@@ -205,47 +202,34 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
         car->SetTuneLevel(tuningDist(gen));
     }
 
-    car->SetTires((CarWheelType)tireDist(gen));
-    car->SetScoop((CarScoopType)scoopDist(gen));
-    // Introduce a 50% chance to not have a scoop at all
-    if (chanceDist(gen) == 0) {
-        car->SetScoop(CarScoopType::SCOOP_NONE);
-    } else {
-        car->SetScoop((CarScoopType)scoopDist(gen));
-    }
-    // Randomize drivetrain and engine parts
-    // Wear 0-30% similar to other parts
-    int wearManifold = wearDist(gen);
-    int wearCarb = wearDist(gen);
-
-    // Vendor for this model. CAR_VENDOR_LOOKUP is a 26-row {asset, vendor}
-    // table to be searched, not indexed - model.index is a lib.p asset id in
-    // the 179..272 range (and higher still for Street Rod SE cars), so
-    // subscripting it read past the end. CarModel::vendor is already resolved.
-    CarVendor_t vendor = model.vendor;
-
-    // Transmission is already set by CarBuilder with vendor-appropriate logic
-
-    // Random manifold among vendor-sensible choices (map 1..6 to vendor)
-    // For now, assume all manifolds fit vendor engines; keep asset range
-    std::uniform_int_distribution<> maniDist(ENGINE_MANIFOLD1, ENGINE_MANIFOLD6);
-    Part manifoldPart(wearManifold, 0, vendor, static_cast<AmigaLibAsset>(maniDist(gen)), MANIFOLD_2BARREL);
-    car->SetManifold(manifoldPart);
-
-    // Random carb (2-barrel / 4-barrel / racing 4-barrel) - all vendor variants are universal in assets
-    std::uniform_int_distribution<> carbPick(0, 2);
-    AmigaLibAsset carbAsset = ENGINE_CARB_2BARREL;
-    switch (carbPick(gen)) {
-        case 0: carbAsset = ENGINE_CARB_2BARREL; break;
-        case 1: carbAsset = ENGINE_CARB_4BARREL; break;
-        case 2: carbAsset = ENGINE_CARB_4BARREL_RACING; break;
-    }
-    Part carbPart(wearCarb, 0, vendor, carbAsset, CARB_2BARREL);
-    car->SetCarburator(carbPart);
-
-    // Engine is already set by CarBuilder::BuildRandomCar(), no need to override it
+    // Drivetrain is not random: the original reads it straight off the car's
+    // own SR_data spec config word (GenerateOpponentCar 0x23bd6a - engine
+    // variant = brand + (cfg & 7) * 3, carb = ((cfg & 0xc0) >> 6) + 0x16), and
+    // its pool record carries only the spec index, a paint and appearance
+    // flags. Rolling one here gave every opponent the vendor's V6, because
+    // CarModel::compatibleEngines is never populated and
+    // CarBuilder::SelectCompatibleEngine falls through to the default - so a
+    // 1952 Olds 88 whose ad says V-8 327 turned up at the diner as a V6.
+    // Must come last: SetManifold/SetCarburator clear the spec classes.
+    ApplyCarSpecFor(car.get(), model);
 
     return car;
+}
+
+// Finds the car's row in the merged spec table (keyed by CarModel::index) and
+// fits the drivetrain it describes. No row - a TOML-only custom car - leaves
+// whatever CarBuilder put in.
+void Roster::ApplyCarSpecFor(Car* car, const CarModel& model) {  // NOLINT
+
+    const std::vector<SrCarSpecEntry>& specs = state.GetMergedCarSpecs();
+    const std::vector<int>& specModel = state.GetCarSpecModelIndex();
+    const size_t count = std::min(specs.size(), specModel.size());
+    for (size_t i = 0; i < count; ++i) {
+        if (specModel[i] == model.index) {
+            CarBuilder::ApplySpec(car, specs[i], model.vendor);
+            return;
+        }
+    }
 }
 
 void Roster::SetDriverTable(const std::vector<SrDriverData>& drivers,
@@ -395,7 +379,6 @@ Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSp
     car->SetRoofChopped(false);
     car->SetBumpersStripped(false);
     car->SetDecal(SrLibCarDecalNone);
-    car->SetScoop(CarScoopType::SCOOP_NONE);
     CarBuilder::ApplySpec(car.get(), kingSpec, model.vendor);
     kingOpponent.car = car;
 

@@ -52,6 +52,8 @@ class Roster {
         Roster();
         void Initialize(CarData& carData);
         CarPtr GenerateRandomCar(const CarModel& model);
+        // Fits the drivetrain the car's SR_data spec describes, if it has one.
+        static void ApplyCarSpecFor(Car* car, const CarModel& model);
         Opponent* GetNextOpponent();
         Opponent* GetCurrentOpponent();
         bool HasMoreOpponents() const;

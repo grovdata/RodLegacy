@@ -149,7 +149,6 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
             car->SetRoofChopped(false);
             car->SetBumpersStripped(false);
             car->SetDecal(SrLibCarDecalNone);
-            car->SetScoop(SCOOP_NONE);
             // ...and the drivetrain the car is actually advertised with.
             CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
             classifiedCars.push_back(car);

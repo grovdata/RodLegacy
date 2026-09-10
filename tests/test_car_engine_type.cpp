@@ -28,6 +28,17 @@ TEST_CASE("out-of-range spec classes clamp into the brand's own row") {
     CHECK(SpecEngineType(CarVendorFord, -1) == CarEngineFord_V6);
 }
 
+// The scoop follows the same resolved type, not the placeholder EnginePart.
+// Reading the part directly is what showed every spec-built car without a
+// scoop, including the V8s.
+TEST_CASE("the scoop follows the tier, in every brand") {
+    for (CarVendor_t v : {CarVendorGM, CarVendorFord, CarVendorChrysler}) {
+        CHECK(EngineTypeHasScoop(SpecEngineType(v, 0)) == false);
+        CHECK(EngineTypeHasScoop(SpecEngineType(v, 1)) == true);
+        CHECK(EngineTypeHasScoop(SpecEngineType(v, 2)) == true);
+    }
+}
+
 TEST_CASE("the resolved tier matches what the engine bay draws") {
     // EngineBodyAsset picks the body off the tier, so tier and displacement
     // have to agree for every brand - a V6 class must never yield a V8.

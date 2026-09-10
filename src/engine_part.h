@@ -15,6 +15,18 @@ inline CarEngine_t SpecEngineType(CarVendor_t vendor, int engineClass) {
     return static_cast<CarEngine_t>(base + std::clamp(engineClass, 0, 2));
 }
 
+// The hood scoop comes with a V8. Reads the engine type rather than a fitted
+// EnginePart so a car still on its spec answers correctly too - see
+// Car::HasScoop.
+inline bool EngineTypeHasScoop(CarEngine_t engineType) {
+    return engineType == CarEngineGM_V8_282 ||
+           engineType == CarEngineGM_V8_327 ||
+           engineType == CarEngineFord_V8_292 ||
+           engineType == CarEngineFord_V8_351 ||
+           engineType == CarEngineChrysler_V8_285 ||
+           engineType == CarEngineChrysler_V8_340;
+}
+
 struct EnginePart {
     CarEngine_t engineType;
     int wear;
@@ -113,14 +125,7 @@ struct EnginePart {
     }
     
     // Scoop comes automatically with V8s
-    bool HasScoop() const {
-        return engineType == CarEngineGM_V8_282 || 
-               engineType == CarEngineGM_V8_327 ||
-               engineType == CarEngineFord_V8_292 || 
-               engineType == CarEngineFord_V8_351 ||
-               engineType == CarEngineChrysler_V8_285 || 
-               engineType == CarEngineChrysler_V8_340;
-    }
+    bool HasScoop() const { return EngineTypeHasScoop(engineType); }
     
     // Get vendor from engine type
     CarVendor_t GetVendor() const {

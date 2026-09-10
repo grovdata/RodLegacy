@@ -14,7 +14,6 @@ class AnimatedBitmap;
 //extern SDL_Renderer *renderer;
 
 // CarWheelType now lives in car_system.h (part.h needs it and can't include car.h).
-enum CarScoopType { SCOOP1, SCOOP2, SCOOP3, SCOOP4, SCOOP_NONE };
 
 // Cars are shared-owned: State holds the player's roster and the classifieds,
 // but the Garage caches a rendered CarBitmap per car and scenes hold onto the
@@ -45,7 +44,6 @@ class Car {
         CarModel model;
         SrLibCarDecal decal;
         std::string customDecalPath;
-        CarScoopType scoop;
         // Initialised here: a car built by CarBuilder (save loading) has no
         // colour set until its caller supplies one, and an unset colour used
         // to reach GetStandardCarColor as a garbage value.
@@ -142,7 +140,6 @@ class Car {
         CarModel GetModel();
         const CarModel& GetModelRef() const { return model; }
         SrLibCarDecal GetDecal();
-        CarScoopType GetScoop() const { return scoop; }
         StandardCarColor GetColor() const { return color; }
 
         // Top speed in mph, the number the original prints as "Max speed".
@@ -169,8 +166,11 @@ class Car {
         bool CanStripBumpers() const { return model.constraints.canStripBumpers; }
         bool CanAddDecal() const { return model.constraints.canAddDecal; }
 
-        // Scoop is automatic with V8 engines
-        bool HasScoop() const { return engine.HasScoop(); }
+        // Scoop is automatic with V8 engines. Goes through GetEngineType() so
+        // a car still on its SR_data spec answers from its spec class - the
+        // `engine` member is CarBuilder's placeholder V6 until a part is
+        // actually fitted.
+        bool HasScoop() const { return EngineTypeHasScoop(GetEngineType()); }
 
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; gearboxFitted = true; RecalculatePerformance(); }
         void SetTires(CarWheelType type) { SetTires(type, 0, PartCatalogPrice(type)); }
@@ -203,7 +203,6 @@ class Car {
         const std::string& GetCustomDecalPath() const { return customDecalPath; }
         void SetCustomDecalPath(const std::string& path) { customDecalPath = path; }
         void SetColor(StandardCarColor color) { this->color = color; }
-        void SetScoop(CarScoopType type);
         void SetTuneLevel(const int level) { this->tuneLevel = level; RecalculatePerformance(); }
 
         // --- Worth, in dollars ---

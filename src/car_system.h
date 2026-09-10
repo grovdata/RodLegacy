@@ -41,6 +41,11 @@ enum CarburetorType {
 // has triple 2-barrel at class 2 and dual quad at class 3.
 int ManifoldClass(ManifoldType type);
 
+// Its inverse, for reading a class back out of SR_data. Keep the two together:
+// hand-rolling this mapping is what put a V6-only triple-2barrel on the big
+// V8s, whose spec manifold class is 3 (dual quad), not 2.
+ManifoldType ManifoldTypeForClass(int manifoldClass);
+
 // How many carburetors a manifold mounts (A4-0x3b9c: 1, 1, 3, 2, 2). Each is
 // a part in its own right - the car struct carries three separate carburetor
 // pointers, see RodLegacyResearch/docs/garage/engine_bay_layout.md.

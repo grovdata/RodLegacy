@@ -1,5 +1,6 @@
 #include "car_builder.h"
 #include "car.h"
+#include "engine_bay.h"
 #include "parsers/libp.h"
 #include "car_system.h"
 #include "utils.h"
@@ -177,18 +178,14 @@ Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendo
     return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
-// Kept in sync with engine_bay.cpp's ManifoldBodyAsset - see its comment for
-// how this mapping was reconstructed from the actual lib.p art (not
-// Ghidra-confirmed).
 Part CarBuilder::CreateManifoldPart(ManifoldType type, CarVendor_t vendor) {
-    AmigaLibAsset assetId;
-    switch (type) {
-        case MANIFOLD_2BARREL: assetId = ENGINE_MANIFOLD4; break;
-        case MANIFOLD_4BARREL: assetId = ENGINE_MANIFOLD3; break;
-        case MANIFOLD_DUAL_QUAD: assetId = ENGINE_MANIFOLD1; break;
-        case MANIFOLD_TRIPLE_2BARREL: assetId = ENGINE_MANIFOLD6; break;
-        case MANIFOLD_RACING: assetId = ENGINE_MANIFOLD3; break;
-    }
+    // ManifoldBodyAsset is the one manifold-to-art table (engine_bay.cpp says
+    // how it was read off the lib.p art). This used to keep a second copy of
+    // it, which had drifted on two entries. Every site that actually draws a
+    // manifold calls ManifoldBodyAsset itself with the car's real engine, so
+    // the V8 passed here only picks the wide 2-barrel body over the V6's
+    // narrow one for the part's own stored id.
+    const AmigaLibAsset assetId = ManifoldBodyAsset(type, CarEngineGM_V8_327);
     return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 

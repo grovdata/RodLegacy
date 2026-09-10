@@ -21,6 +21,23 @@ TEST_CASE("manifold class order is the binary's, not ManifoldType's") {
     CHECK(ManifoldClass(MANIFOLD_RACING) == 4);
 }
 
+// Car::GetManifoldType reads a spec's class back through this. Hand-rolling
+// the inverse got classes 2 and 3 the wrong way round, which put the V6-only
+// triple 2-barrel (and its three carbs) on every big V8 whose spec says dual
+// quad - specs 2, 10 and 21 in the shipped table.
+TEST_CASE("class to type is the exact inverse of type to class") {
+    const ManifoldType all[] = {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD,
+                                MANIFOLD_TRIPLE_2BARREL, MANIFOLD_RACING};
+    for (ManifoldType m : all) {
+        CHECK(ManifoldTypeForClass(ManifoldClass(m)) == m);
+    }
+    CHECK(ManifoldTypeForClass(2) == MANIFOLD_TRIPLE_2BARREL);
+    CHECK(ManifoldTypeForClass(3) == MANIFOLD_DUAL_QUAD);
+    // ApplySpec clamps to 0..4, but anything else must not fall off the enum.
+    CHECK(ManifoldTypeForClass(-1) == MANIFOLD_2BARREL);
+    CHECK(ManifoldTypeForClass(9) == MANIFOLD_2BARREL);
+}
+
 TEST_CASE("carb count matches the A4-0x3b9c table 1,1,3,2,2") {
     CHECK(CarburetorsPerManifold(MANIFOLD_2BARREL) == 1);
     CHECK(CarburetorsPerManifold(MANIFOLD_4BARREL) == 1);

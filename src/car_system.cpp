@@ -23,6 +23,16 @@ int ManifoldClass(ManifoldType type) {
     return 0;
 }
 
+ManifoldType ManifoldTypeForClass(int manifoldClass) {
+    switch (manifoldClass) {
+        case 1: return MANIFOLD_4BARREL;
+        case 2: return MANIFOLD_TRIPLE_2BARREL;
+        case 3: return MANIFOLD_DUAL_QUAD;
+        case 4: return MANIFOLD_RACING;
+        default: return MANIFOLD_2BARREL;
+    }
+}
+
 int CarburetorsPerManifold(ManifoldType type) {
     static const int kPerClass[5] = {1, 1, 3, 2, 2};
     return kPerClass[ManifoldClass(type)];

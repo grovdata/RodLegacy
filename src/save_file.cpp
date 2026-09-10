@@ -137,7 +137,6 @@ SaveValue CarToToml(Car& c) {
     v["model_index"]         = c.GetModelRef().index;
     v["color"]               = static_cast<int>(c.GetColor());
     v["decal"]               = static_cast<int>(c.GetDecal());
-    v["scoop"]               = static_cast<int>(c.GetScoop());
     v["tune_level"]          = c.GetTuneLevel();
     v["fuel_tenths"]         = c.GetFuelTenths();
     v["weight_class"]        = c.GetWeightClass();
@@ -197,7 +196,6 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
         car->SetTires(t.partType.tireType, t.wear, t.cost);
     }
     if (v.contains("engine"))     car->SetEngine(EngineFromToml(toml::find(v, "engine")));
-    car->SetScoop(static_cast<CarScoopType>(toml::find_or(v, "scoop", 0)));
 
     // Last: SetEngine/SetManifold each reset the spec classes to -1, so the
     // car's own SR_data classes have to go back on after the parts.
@@ -469,7 +467,6 @@ Snapshot TakeSnapshot() {
         o << "\n  car model=" << c->GetModelRef().index
           << " color=" << (int)c->GetColor()
           << " decal=" << (int)c->GetDecal()
-          << " scoop=" << (int)c->GetScoop()
           << " tune=" << c->GetTuneLevel()
           << " fuel=" << c->GetFuelTenths()
           << " weight=" << c->GetWeightClass()

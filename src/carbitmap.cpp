@@ -335,6 +335,14 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
     // Load wheels
     LoadWheelForModel(model, car->GetWheelType(), wheels);
 
+    // Hood scoop: which one is fixed per car body, whether it shows is the
+    // engine's business (V8s come with one).
+    auto* scoopAsset = LoadCarModelSprite(model, model.sprites.airScoop, carPalette);
+    if (scoopAsset) {
+        hoodScoop = *scoopAsset;
+    }
+    hoodScoop.SetVisible(scoopAsset != nullptr);
+
     auto* gasCapAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
     if (gasCapAsset) {
         gasCap = *gasCapAsset;
@@ -463,7 +471,7 @@ void CarBitmap::Draw() {
         gasCap.Draw();
     }
 
-    if (hoodScoop.IsVisible()) {
+    if (hoodScoop.IsVisible() && car && car->HasScoop()) {
         hoodScoop.Draw();
     }
 
@@ -766,6 +774,12 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         if (isRoofChopped) {
             bodyChopped.ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
         }
+    }
+
+    auto* scoopAsset = LoadCarModelSprite(model, model.sprites.airScoop, carPalette);
+    if (scoopAsset) {
+        hoodScoop = *scoopAsset;
+        hoodScoop.SetVisible(true);
     }
 
     // Reload wheelhouse with new palette

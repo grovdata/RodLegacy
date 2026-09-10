@@ -57,6 +57,7 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     }
     m.carSet = kAmigaCarSet;
     m.sprites = AmigaCarSprites(m.index);
+    m.sprites.airScoop = metadata.airScoop;
     m.baseSpeed = 100;
     m.filename = "";
     m.height = bitmap.height;

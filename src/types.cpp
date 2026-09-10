@@ -18,7 +18,7 @@ CarSprites AmigaCarSprites(int bodyAsset) {
         if (rear > 0) sprites.rearBumperStripped = rear;
         if (front > 0) sprites.frontBumperStripped = front;
     }
-    // The hood scoop is one shared lib.p asset rather than a per-car sprite,
-    // and CarBitmap loads it by name, so it stays unset here.
+    // The hood scoop is not derivable from the body asset - the sprite-ref
+    // table names one of CAR_SCOOP1..4 per car - so the caller fills it in.
     return sprites;
 }

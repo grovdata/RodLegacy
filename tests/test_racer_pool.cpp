@@ -516,6 +516,36 @@ TEST_CASE("Amiga gas cap visual offset matches the gas station click box") {
     free(meta);
 }
 
+// The hood scoop is picked per car body by the SR_data sprite-ref table, not
+// by engine or vendor - see RodLegacyResearch/docs/garage/car_asset_table.md.
+TEST_CASE("Amiga hood scoop is one of CAR_SCOOP1..4 per car body") {
+    const std::vector<uint8_t> data = LoadRealSrData();
+    if (data.empty()) {
+        MESSAGE("shipped SR_data not found next to the build; skipping");
+        return;
+    }
+
+    DataParser parser;
+    int count = 0;
+    CarMetadata_t* meta = parser.SrLibDataReadDataFromBuffer(data.data(), data.size(), &count);
+    REQUIRE(meta != nullptr);
+    REQUIRE(count == CAR_PLAYER_MODEL_COUNT);
+
+    for (int i = 0; i < count; ++i) {
+        CHECK(meta[i].airScoop >= CAR_SCOOP1);
+        CHECK(meta[i].airScoop <= CAR_SCOOP4);
+    }
+    // Spot checks against the table: the 1963 Corvette's scoop was read off
+    // the original game, the rest off the live per-car asset table.
+    CHECK(meta[2].airScoop == CAR_SCOOP1);
+    CHECK(meta[3].airScoop == CAR_SCOOP2);
+    CHECK(meta[5].airScoop == CAR_SCOOP3);
+    CHECK(meta[7].airScoop == CAR_SCOOP4);
+
+    for (int i = 0; i < count; i++) SrLibDataFreeClassified(&meta[i].classified);
+    free(meta);
+}
+
 // Garage, Diner and GasStation are all bottom-aligned against each car's
 // real sprite height (from lib.p), live-verified with Copperline against
 // the Amiga binary - see RodLegacyResearch/docs/driving/gas_station.md.
