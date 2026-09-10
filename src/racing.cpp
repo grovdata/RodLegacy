@@ -1929,6 +1929,7 @@ std::vector<DebugRow> Racing::GetOpponentDebugRows() const {
         case srrace::NpcBranch::CruisingAhead: branch = "clear ahead, cruising"; break;
         case srrace::NpcBranch::CopClosingCap: branch = "cop cap (player +32)"; break;
         case srrace::NpcBranch::CorneringHold: branch = "in a curve, holding"; break;
+        case srrace::NpcBranch::CorneringCap:  branch = "braked for the curve"; break;
         case srrace::NpcBranch::Accelerating:  break;
     }
 

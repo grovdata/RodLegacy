@@ -159,6 +159,7 @@ enum class NpcBranch : uint8_t {
     CruisingAhead,  // eased off to its cruise, well clear of the player
     CopClosingCap,  // cop holding station at player speed + 32
     CorneringHold,  // in a curve, rpm untouched
+    CorneringCap,   // entering a curve, backed off to perf - aggression
 };
 
 struct NpcState {
@@ -173,6 +174,9 @@ struct NpcState {
     bool preferLeft = false;
     bool wasDroppedBack = false;
     bool swervedToBlock = false;
+    // "Already braked for this corner" latch (original A4-0x39a6): the cornering
+    // cap fires on the first curve segment and is re-armed by the next straight.
+    bool corneringCapped = false;
 
     // Render view state (original A4-0x1388) and the two contact flags derived
     // from it (A4-0x1386, A4-0x1384). 0/1 = alongside to our left, 2..8 = ahead

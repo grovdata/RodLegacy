@@ -444,6 +444,39 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
                    static_cast<int>(sim.Npc().segPos)) < 40);
 }
 
+// UpdateNPCEngine 0x2444c2: the curve branch caps the opponent once, at
+// perfScore - aggression, and re-arms on the next straight.
+TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") {
+    TrackData track = MakeFlatTrack();
+    // A one-segment kink: 500 and 501 both read as "not straight", and the
+    // curve is back to 0 straight after, so neither car is dragged off the road.
+    track.curve[501] = 1;
+
+    CarSetup setup = CopTestSetup();
+    setup.aggression = 12;   // 0x0c, the worst driver: the biggest penalty
+
+    RaceSim sim;
+    sim.Init(&track, 1, setup, setup, SeedWithoutCop(track, setup));
+    RunOutCountdown(sim);
+
+    const int perf = sim.NpcTables().perfScore;
+    int caps = 0;
+    int cappedTo = -1;
+    for (int i = 0; i < 8000 && sim.Npc().segPos < 505; ++i) {
+        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);   // keep the pair apart
+        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        if (sim.NpcAi().branch == NpcBranch::CorneringCap) {
+            ++caps;
+            cappedTo = sim.Npc().speed;
+        }
+    }
+
+    REQUIRE(caps > 0);
+    CHECK(caps == 1);   // the latch: one brake for the corner, not one per tick
+    // Full penalty while it is ahead of the player, half while it is not.
+    CHECK((cappedTo == perf - 12 || cappedTo == perf - 6));
+}
+
 TEST_CASE("Steering input counteracts curve drift") {
     TrackData track = MakeFlatTrack();
     // The road-direction array that pushes the car sideways is curve[] (A4+0x1098),

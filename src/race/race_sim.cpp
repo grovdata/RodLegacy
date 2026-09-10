@@ -1210,6 +1210,8 @@ void RaceSim::NpcEngine() {
     npcAi.branchTarget = 0;
 
     if (onStraight) {
+        npcAi.corneringCapped = false;   // re-arm the corner brake
+
         // The King never eases off for being far ahead in a road race: it stays
         // in the level branch whatever the gap, so nothing throttles it back.
         if (segDiff < 13 || (raceType == 1 && kingRace)) {
@@ -1264,12 +1266,25 @@ void RaceSim::NpcEngine() {
                 EngineTick(npc, npcTables, throttle, false, shift);
             }
         }
+    } else if (!npcAi.corneringCapped) {
+        // Entering a curve the opponent brakes once, to its performance score
+        // minus the driver's aggression byte (0x04 best .. 0x0c worst), and the
+        // latch above keeps it from braking again before the next straight.
+        // The penalty is HALVED while the opponent is not ahead of the player
+        // (`asr.w #1` on the ble branch at 0x244536), so the car chasing you
+        // corners harder than the one defending a lead.
+        npcAi.corneringCapped = true;
+        int penalty = ClampValue(npcSetup.aggression, 0, 120);
+        if (npc.segPos <= player.segPos) {
+            penalty /= 2;
+        }
+        const int cap = npcTables.perfScore - penalty;
+        if (cap < npc.speed) {
+            NpcSettleAtSpeed(cap);
+            npcAi.branch = NpcBranch::CorneringCap;
+            npcAi.branchTarget = static_cast<int16_t>(cap);
+        }
     }
-
-    // NOT PORTED: through a curve the original also caps the opponent once, at
-    // perfScore minus its driver skill byte (halved when it is behind). Our
-    // CarSetup::driverSkill is on a different scale to that byte, so the cap
-    // would be a guess; the opponent currently holds its speed through curves.
 
     // Past the line the opponent sheds a flat 5 mph a tick, or 10 while it is
     // still close to the player, applied to the speed it had coming in.
