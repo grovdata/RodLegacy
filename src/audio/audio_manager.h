@@ -15,7 +15,7 @@ class AmigaMusic;
 
 // Audio sample types
 enum class AudioSampleType {
-    ENGINE_LOOP,        // Racing engine sound (srs0.wave offset 0x0000, 480 bytes)
+    ENGINE_LOOP,        // Racing engine sound (srl0.wave offset 0x1D8, 512 bytes)
     ENGINE_START,       // Engine startup sound (srl0.wave offset 0x0000, 2000 bytes)
     IGNITION,          // Startup sound (srl0.wave)
     TIRE_SCREECH,      // Tire skid sound (srl0.wave)
@@ -186,9 +186,6 @@ private:
 
     // Convert sample to SDL_AudioStream for playback
     SDL_AudioStream* CreateAudioStream(const AudioSample& sample, float pitchMultiplier = 1.0f);
-
-    // Extract specific samples from srs0.wave (racing engine)
-    void ExtractSRS0Samples(const uint8_t* data, size_t size);
 
     // Extract specific samples from srl0.wave
     void ExtractSRL0Samples(const uint8_t* data, size_t size);

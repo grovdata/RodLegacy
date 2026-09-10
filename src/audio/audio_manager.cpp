@@ -41,11 +41,8 @@ bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) 
 
     // Load audio files from ADF image
     if (disk1AdfData && disk1AdfSize > 0) {
-        if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srs0.wave")) {
-            LOG_INFO("Warning: Failed to load srs0.wave (racing engine sound)");
-        }
         if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srl0.wave")) {
-            LOG_INFO("Warning: Failed to load srl0.wave (other racing sounds)");
+            LOG_INFO("Warning: Failed to load srl0.wave (engine loop and effects)");
         }
         if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srl1.wave")) {
             LOG_INFO("Warning: Failed to load srl1.wave (music samples)");
@@ -226,13 +223,8 @@ bool AudioManager::LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, cons
 
     bool success = false;
 
-    // Check if this is srs0.wave (racing engine sound)
-    if (strcmp(filename, "srs0.wave") == 0) {
-        ExtractSRS0Samples(fileData->data, fileData->size);
-        success = true;
-    }
-    // Check if this is srl0.wave (other racing sounds)
-    else if (strcmp(filename, "srl0.wave") == 0) {
+    // Check if this is srl0.wave (engine loop and effects)
+    if (strcmp(filename, "srl0.wave") == 0) {
         ExtractSRL0Samples(fileData->data, fileData->size);
         success = true;
     }
@@ -255,29 +247,22 @@ bool AudioManager::LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, cons
     return success;
 }
 
-void AudioManager::ExtractSRS0Samples(const uint8_t* data, size_t size) {
-    LOG_INFO("AudioManager: Extracting samples from srs0.wave (%zu bytes)", size);
-
-    // Racing engine sound - LOOPED and pitch-modulated based on RPM
-    // Periods: idle=252 (~14204 Hz), max=193 (~18548 Hz)
-    // Audio is SIGNED 8-bit
-    if (size >= static_cast<size_t>(SRS0_ENGINE_LOOP_OFFSET + SRS0_ENGINE_LOOP_LENGTH)) {
-        AudioSample engineSample;
-        LoadRawAudio(data + SRS0_ENGINE_LOOP_OFFSET, SRS0_ENGINE_LOOP_LENGTH,
-                     engineSample, SRS0_ENGINE_BASE_RATE);
-        engineSample.isLooped = true;
-        engineSample.loopStart = 0;
-        engineSample.loopLength = SRS0_ENGINE_LOOP_LENGTH;
-        samples[AudioSampleType::ENGINE_LOOP] = engineSample;
-        LOG_INFO("  - Racing engine sound: %u bytes (looped) at %u Hz base",
-                SRS0_ENGINE_LOOP_LENGTH, SRS0_ENGINE_BASE_RATE);
-    }
-
-    // TODO: Extract other samples from srs0.wave if needed
-}
-
 void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
     LOG_INFO("AudioManager: Extracting samples from srl0.wave (%zu bytes)", size);
+
+    // Racing engine loop - LOOPED and pitch-modulated per tick.
+    // Periods: idle=252 (~14204 Hz), redline=193 (~18548 Hz). SIGNED 8-bit.
+    if (size >= size_t{SRL0_ENGINE_LOOP_OFFSET} + SRL0_ENGINE_LOOP_LENGTH) {
+        AudioSample engineSample;
+        LoadRawAudio(data + SRL0_ENGINE_LOOP_OFFSET, SRL0_ENGINE_LOOP_LENGTH,
+                     engineSample, SRL0_ENGINE_BASE_RATE);
+        engineSample.isLooped = true;
+        engineSample.loopStart = 0;
+        engineSample.loopLength = SRL0_ENGINE_LOOP_LENGTH;
+        samples[AudioSampleType::ENGINE_LOOP] = engineSample;
+        LOG_INFO("  - Racing engine loop: %u bytes (looped) from offset 0x%X",
+                SRL0_ENGINE_LOOP_LENGTH, SRL0_ENGINE_LOOP_OFFSET);
+    }
 
     // Engine starting sound - for car startup in garage/gas station
     // Amiga period 320 = 3579545 / 320 = 11186 Hz

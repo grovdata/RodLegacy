@@ -1173,8 +1173,7 @@ constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for match
 // ============================================================================
 //
 // Street Rod uses three main audio files containing raw 8-bit signed PCM samples:
-// - srs0.wave: Racing engine sounds
-// - srl0.wave: General game sounds (engine start, effects)
+// - srl0.wave: Racing engine loop and general game sounds (engine start, effects)
 // - srl1.wave: Music samples (California Dreams custom format)
 //
 // All samples are 8-bit SIGNED audio (-128 to 127), NOT unsigned!
@@ -1183,16 +1182,25 @@ constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for match
 //
 // ============================================================================
 
-// srs0.wave - Racing Engine Sound
-// Empirically this matches original game timbre best.
-constexpr uint32_t SRS0_ENGINE_LOOP_OFFSET = 0x0000;  // Racing engine loop
-constexpr uint32_t SRS0_ENGINE_LOOP_LENGTH = 0x0200;  // Bytes (looped)
-constexpr uint16_t SRS0_ENGINE_IDLE_PERIOD = 252;     // Period at idle RPM (~14204 Hz)
-constexpr uint16_t SRS0_ENGINE_MAX_PERIOD = 193;      // Period at max RPM (~18548 Hz)
-constexpr uint32_t SRS0_ENGINE_BASE_RATE = 16000;     // Base sample rate (Hz), pitch-modulated by RPM
+// srl0.wave - Racing engine loop and general game sounds
+// Total file size: 37748 bytes. Raw signed 8-bit PCM after an 8-byte prefix
+// (e1 f7 0e 22 31 3c 3d 34), which srs0/srl1 carry too.
+//
+// The engine loop is NOT in srs0.wave. srs0.wave is 2558 bytes holding a few
+// small IFF 8SVX FORMs (first one: VHDR 210 one-shot samples, ANNO, BODY) - it
+// has no 512-byte drone in it, and reading it as raw PCM from offset 0 feeds
+// the literal ASCII "FORM....8SVX VHDR" header to the audio device. That is
+// what the engine used to play. Corroborating the file choice: the audio loader
+// allocates 64948 bytes = srl0 (37748) + srl1 (27200) exactly.
+//
+// Racing engine loop: a steady-state slice of the ignition sample, looped on
+// two channels with the period recomputed every tick (docs/audio.md).
+constexpr uint32_t SRL0_ENGINE_LOOP_OFFSET = 0x01D8;  // Racing engine loop
+constexpr uint32_t SRL0_ENGINE_LOOP_LENGTH = 0x0200;  // Bytes (looped)
+constexpr uint16_t SRL0_ENGINE_IDLE_PERIOD = 252;     // Period at idle RPM (~14204 Hz)
+constexpr uint16_t SRL0_ENGINE_MAX_PERIOD = 193;      // Period at redline (~18548 Hz)
+constexpr uint32_t SRL0_ENGINE_BASE_RATE = 16000;     // Nominal rate; pitch is set from the period
 
-// srl0.wave - General Game Sounds
-// Total file size: ~12KB+
 constexpr uint32_t SRL0_ENGINE_START_OFFSET = 0x0000;  // Offset in bytes
 constexpr uint16_t SRL0_ENGINE_START_PERIOD = 325;    // Amiga period (3579545 / 325 ≈ 11014 Hz)
 constexpr uint32_t SRL0_ENGINE_START_LENGTH = 7827;  // Length in bytes

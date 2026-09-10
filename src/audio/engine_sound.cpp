@@ -5,6 +5,21 @@
 #include <cstring>
 #include <algorithm>
 
+// Tuning knobs for how close the engine drone sits to the Amiga. None of these
+// are confirmed against the binary - they are ear-matched, so expect to nudge
+// them.
+//
+// kLowpassHz: stands in for Paula's output RC filter. The A500's fixed filter
+// is around 4.4 kHz, but that is much brighter than what the game actually
+// sounds like, and bright reads as "higher pitched" even at an identical
+// fundamental. 700 Hz reproduces the long-standing hand-tuned value.
+//
+// kStereoOffsetFraction: the engine loop runs on two Paula channels, one
+// panned left and one right. Playing both from the same position is just mono;
+// offsetting the right voice within the loop is what gives the drone width.
+static constexpr float kLowpassHz = 700.0f;
+static constexpr float kStereoOffsetFraction = 0.25f;
+
 EngineSound::EngineSound() {
 }
 
@@ -81,8 +96,11 @@ void EngineSound::Start() {
     LOG_INFO("EngineSound::Start - freqMult=%.3f", currentFreqMultiplier);
     playing = true;
     samplePositionL = 0.0f;
-    // Tiny initial skew between channels better matches sequential channel trigger timing.
-    samplePositionR = baseSample.size() > 1 ? 1.0f : 0.0f;
+    // Both Paula voices run the same loop at the same period, so they hold
+    // whatever offset they start with. A one-sample skew is inaudible - the two
+    // sides stay near-identical and the drone collapses to mono - so start the
+    // right voice a real fraction of the loop in.
+    samplePositionR = static_cast<float>(baseSample.size()) * kStereoOffsetFraction;
     filterStateL = 0.0f;
     filterStateR = 0.0f;
     SDL_PauseAudioDevice(audioDevice, 0);  // Unpause
@@ -105,57 +123,18 @@ void EngineSound::UpdateRPM(int16_t rpm) {
 void EngineSound::UpdatePeriod(int16_t period) {
     if (period <= 0) return;
 
-    // Decompiled Amiga engine path applies a small positive offset here.
-    const int16_t amigaAdjustedPeriod = static_cast<int16_t>(period + 6);
-
-    // Calculate frequency from Amiga period: freq = 3579545 / period
-    // Then calculate multiplier relative to base sample rate (16000 Hz)
-    float frequency = 3579545.0f / static_cast<float>(amigaAdjustedPeriod);
+    // This used to add 6 to the period. The +6 in the original (0x227c8c,
+    // `addq.w #$6, d1`) is on the VOLUME argument, not the period - the mute
+    // flag at 0x22c30e zeroes that same argument, which is what identifies it.
+    // The period argument gets `addi.w #$190` = +400 instead, and callers here
+    // already pass final periods.
+    float frequency = 3579545.0f / static_cast<float>(period);
     currentFreqMultiplier = frequency / 16000.0f;
     // LOG_INFO("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
 }
 
 void EngineSound::SetVolume(float volume) {
     currentVolume = std::max(0.0f, std::min(1.0f, volume));
-}
-
-float EngineSound::RPMToFrequencyMultiplier(int16_t rpm) {
-    // Amiga engine levels mapped to Paula periods (idle->redline).
-    static const int periods[17] = {
-        252, 249, 245, 241, 238, 234, 230, 227, 223,
-        219, 216, 212, 208, 205, 201, 197, 193
-    };
-
-    // Convert game RPM (1500-7000) to Amiga velocity (0-130)
-    // Linear mapping
-    const float MIN_RPM = 1500.0f;
-    const float MAX_RPM = 7000.0f;
-    float clampedRPM = std::clamp(static_cast<float>(rpm), MIN_RPM, MAX_RPM);
-    int velocity = static_cast<int>((clampedRPM - MIN_RPM) / (MAX_RPM - MIN_RPM) * 130.0f);
-
-    // Map velocity to audio level (0-16) using Amiga's thresholds from LAB_1392
-    int level = 0;
-    if (velocity > 130) level = 16;
-    else if (velocity > 125) level = 15;
-    else if (velocity > 121) level = 14;
-    else if (velocity > 117) level = 13;
-    else if (velocity > 113) level = 12;
-    else if (velocity > 109) level = 11;
-    else if (velocity > 105) level = 10;
-    else if (velocity > 101) level = 9;
-    else if (velocity > 97) level = 8;
-    else if (velocity > 83) level = 7;
-    else if (velocity > 69) level = 6;
-    else if (velocity > 55) level = 5;
-    else if (velocity > 41) level = 4;
-    else if (velocity > 27) level = 3;
-    else if (velocity > 13) level = 2;
-    else if (velocity > 0) level = 1;
-
-    // Match the decompiled path that applies a +6 period bias.
-    const int adjustedPeriod = periods[level] + 6;
-    const float frequency = 3579545.0f / static_cast<float>(adjustedPeriod);
-    return frequency / 16000.0f;
 }
 
 void EngineSound::AudioCallback(void* userdata, Uint8* stream, int len) {
@@ -189,8 +168,10 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
         return s0 + (s1 - s0) * frac;
     };
 
-    // Mild low-pass to better match Paula's less-bright output.
-    const float lowpassAlpha = 0.18f;
+    // One-pole low-pass standing in for Paula's output filter. Expressed in Hz
+    // so it stays put if the device rate changes; see kLowpassHz.
+    const float lowpassAlpha = 1.0f - std::exp(-2.0f * static_cast<float>(M_PI) * kLowpassHz /
+                                               static_cast<float>(audioSpec.freq));
 
     for (int frame = 0; frame < numFrames; frame++) {
         // Linear interpolation reduces aliasing compared to nearest-neighbor lookup.
