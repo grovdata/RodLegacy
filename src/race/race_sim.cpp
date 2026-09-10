@@ -989,9 +989,46 @@ void RaceSim::NpcAiUpdate() {
     int16_t aheadRight = 3300;
     RoadEdges(track->flags[aheadSeg], aheadLeft, aheadRight);
     const int center = (aheadLeft + aheadRight) / 2;
-    int target = center;
+
+    // Most of UpdateNPCAI's segDiff bands leave the target where it was and only
+    // a few write it. Defaulting it to the road centre every tick is what let the
+    // opponent be walked across the player's lane off the line.
+    int target = npcAi.lateralTarget;
 
     const int segDiff = npc.segPos - player.segPos;
+    const int longGap = segDiff * 8 + (npc.scrollAcc - player.scrollAcc);
+    const int latGap = npc.lateral - player.lateral;
+
+    // Stand-ins for the two render view states UpdateNPCAI gates on. States 0 and
+    // 2 are the "level with the player" pair (RenderNPCCarAndUpdateCopState
+    // 0x237ea8 assigns them across longGap in [-7, 8]); state 0 is that with the
+    // opponent clear to our left. We do not carry the smoothed state in the sim,
+    // so these are the same tests without its one-frame lag.
+    const bool level = (longGap >= -7 && longGap <= 8);
+    const bool stateZero = level && latGap <= -180;
+
+    // The offset lane every band outside +-3 segments uses. The side comes from a
+    // sticky preference flipped by the road's curvature (A4-0x39a8), NOT from
+    // which side of the centre line the player is on - the original never steers
+    // the opponent at the player, and doing so parked it inside the 180 units
+    // CheckNpcContact reads as overlapping. A narrowed road cancels the offset.
+    const int curveHere = track->curve[ClampTrackIndex(player.segPos + 4)];
+    const int curveNext = track->curve[ClampTrackIndex(player.segPos + 5)];
+    const bool straight = (curveHere == curveNext);
+    const bool narrow = (track->flags[ClampTrackIndex(npc.segPos + 4)] & 0xe0) != 0;
+    auto offsetLane = [&]() {
+        if (narrow) {
+            target = center;
+        } else if (straight) {
+            target = center + (npcAi.preferLeft ? -200 : 300);
+        } else if (curveHere < curveNext) {
+            npcAi.preferLeft = true;
+            target = center - 200;
+        } else {
+            npcAi.preferLeft = false;
+            target = center + 300;
+        }
+    };
 
     // The two cars never collide in the original: nothing anywhere in the Amiga
     // binary compares the two laterals for overlap, and END_WALL_HIT comes only
@@ -1002,42 +1039,61 @@ void RaceSim::NpcAiUpdate() {
     // up a pass; if it is behind and no side has room it aborts and locks itself
     // one or two segments behind the player, so it sits on your bumper and cannot
     // get by. Original: UpdateNPCAI 0x244870.
-    if (segDiff >= -3 && segDiff < 3 &&
-        SpeedToScrollStep(player.speed) < SpeedToScrollStep(npc.speed)) {
-        if (segDiff < 0) {
-            // Behind and quicker: commit to a side, or give the pass up. (The
-            // original gates this on the render view state being 9..12, which is
-            // exactly "NPC is behind"; segDiff < 0 is the same test without the
-            // one-frame smoothing lag that state carries.)
-            const int leftLane = player.lateral - 330;
-            if (edgeLeft + 480 < leftLane) {
-                target = leftLane;
-                if (player.lateral - npc.lateral < 280) {
-                    npc.segPos = player.segPos - 1;
-                }
-            } else if (player.lateral + 430 < edgeRight - 30) {
-                target = player.lateral + 630;
-                if (npc.lateral - player.lateral < 580) {
-                    npc.segPos = player.segPos - 2;
-                }
-            } else {
-                // Neither side has room at all.
-                npc.segPos = player.segPos - 2;
+    if (segDiff >= 13) {
+        // Gone; the target is left alone.
+    } else if (segDiff >= 7) {
+        offsetLane();
+    } else if (segDiff >= 3) {
+        // Coming back up past the player after having been dropped: one lane
+        // swap, then the latch is spent.
+        if (straight && !narrow) {
+            if (npcAi.wasDroppedBack) {
+                target = center + (npcAi.preferLeft ? 300 : -200);
+                npcAi.wasDroppedBack = false;
+                npcAi.preferLeft = !npcAi.preferLeft;
             }
         } else {
-            // Level or a touch ahead: hold a lane clear of the player's line.
-            target = (npc.lateral < player.lateral) ? (player.lateral - 330)
-                                                    : (player.lateral + 530);
+            offsetLane();
         }
-    } else if (std::abs(segDiff) <= 5) {
-        // Block the player's line when ahead, swing to the open side when behind
-        // (UpdateNPCAI swerves +300 to block / -200 to give room).
-        const bool playerLeft = player.lateral < center;
-        if (segDiff >= 0) {
-            target = center + (playerLeft ? -200 : 300);
-        } else {
-            target = center + (playerLeft ? 300 : -200);
+    } else if (segDiff >= -3) {
+        if (SpeedToScrollStep(player.speed) < SpeedToScrollStep(npc.speed)) {
+            if (segDiff < 0) {
+                // Behind and quicker: commit to a side, or give the pass up. (The
+                // original gates this on the render view state being 9..12, which
+                // is exactly "NPC is behind".)
+                const int leftLane = player.lateral - 330;
+                if (edgeLeft + 480 < leftLane) {
+                    npcAi.preferLeft = true;
+                    target = leftLane;
+                    if (player.lateral - npc.lateral < 280) {
+                        npc.segPos = player.segPos - 1;
+                    }
+                } else if (player.lateral + 430 < edgeRight - 30) {
+                    npcAi.preferLeft = false;
+                    target = player.lateral + 630;
+                    if (npc.lateral - player.lateral < 580) {
+                        npc.segPos = player.segPos - 2;
+                    }
+                } else {
+                    // Neither side has room at all.
+                    npc.segPos = player.segPos - 2;
+                }
+            } else if (level) {
+                // Level and quicker: hold a lane clear of the player's line.
+                target = (npc.lateral < player.lateral) ? (player.lateral - 330)
+                                                        : (player.lateral + 530);
+            }
+        } else if (stateZero) {
+            // Level, no quicker, and sitting off our left: move further away.
+            // Every other case here leaves the target untouched, which is what
+            // keeps the opponent in its starting lane off the line.
+            target = player.lateral - 330;
         }
+    } else if (segDiff >= -5) {
+        offsetLane();
+    } else {
+        npcAi.wasDroppedBack = true;
+        target = center;
     }
 
     npcAi.lateralTarget = static_cast<int16_t>(target);

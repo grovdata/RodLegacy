@@ -157,6 +157,10 @@ struct NpcState {
     int16_t targetSpeedRisky = 0;   // perf*80/100
     int16_t stallTicks = 0;
     bool gaveUp = false;
+    // Sticky lane preference (original A4-0x39a8) and the "fell a long way
+    // behind" latch (A4+0x4cb2) that arms one lane swap on the way back up.
+    bool preferLeft = false;
+    bool wasDroppedBack = false;
 
     NpcBranch branch = NpcBranch::Accelerating;
     bool throttle = false;

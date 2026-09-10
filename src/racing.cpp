@@ -1243,7 +1243,6 @@ void Racing::DrawNpcCar(int lastVisible) {
     const int longDist = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8
                        + (np.scrollAcc - p.scrollAcc);
 
-    int k = 0;
     bool flipX = false;
     Bitmap* sprite = nullptr;
     // Only while genuinely level; switch to the rear LOD frames as soon as the
@@ -1261,16 +1260,14 @@ void Racing::DrawNpcCar(int lastVisible) {
             case 6: sprite = opponentFordFrontSide.get(); break;
             default: sprite = opponentChevyFrontSide.get(); break;
         }
-        k = 0;  // nearest depth, beside the player
         // The side sprite faces one way; mirror it when the NPC is on our right.
         flipX = np.lateral > p.lateral;
     } else {
         // Pulled ahead: pre-drawn rear LOD frames (distance = which frame).
         const int delta = static_cast<int>(np.segPos - p.segPos);
-        if (delta < 0 || delta > 14) {
-            return;  // behind -> handled by the rear-view mirror
+        if (delta < 0 || delta > std::min(lastVisible, 14)) {
+            return;  // behind -> handled by the rear-view mirror; or past the horizon
         }
-        k = ClampInt(delta, 0, std::min(lastVisible, 14));
         // LOD frame, damped the way RenderNPCCar 0x237ea8 does it: compute a
         // target view state `((longGap + 8) >> 4) + 2` - the +8 makes it
         // round-to-nearest - then move the stored state by at most one step per
@@ -1311,12 +1308,30 @@ void Racing::DrawNpcCar(int lastVisible) {
         return;
     }
 
-    const RowProjection& row = rows[k];
     SDL_Surface* src = sprite->GetSurface();
-    const int x = ProjectX(p, row.distance, row.roadDelta, np.lateral);
+
+    // The opponent is NOT projected through the forward row table. The original
+    // derives its distance straight from the fine gap (0x0023808e..0x002380fa):
+    //
+    //   d = longGap;  if (state == 0) d += 16;  if (state < 9) d += 4;
+    //
+    // which is continuous in longGap. Picking rows[k] instead threw away the
+    // sub-segment part of the gap and re-introduced the PLAYER's scroll
+    // accumulator, since the row table's distance is 4 + 8k - p.scrollAcc. That
+    // accumulator cycles 0..7 every few ticks, so at close range the same lateral
+    // gap projected anywhere from x = -42 to x = +93 - the start-of-race jitter.
+    // It settles at speed only because k grows and the +-7 stops mattering.
+    const int d = std::max(4, longDist + 4);
+    // Same segment the row table would have used for this distance
+    // (rows[k].seg = playerSeg + k + 1, and k*8 ~ longDist).
+    const int npcSeg = ClampInt(static_cast<int>(np.segPos) + 1, 0, kTrackSegments - 1);
+    const int roadDelta = p.heading - track.curve[npcSeg];
+    const int elevDelta = p.elevAtCar - track.elev[npcSeg];
+    const int x = ProjectX(p, d, roadDelta, np.lateral);
+    const int y = ClampInt(kHorizonY + 400 / d + 4 * elevDelta, kClipTop, kClipBottom + 30);
     // Blit at native size (no scaling between frames); distance is conveyed by
     // which frame is picked, not by resizing one bitmap.
-    DrawNearestNeighborScaled(sprite, x - src->w / 2, row.y, src->w, src->h, false, true, 0, 0, -1, -1, flipX);
+    DrawNearestNeighborScaled(sprite, x - src->w / 2, y, src->w, src->h, false, true, 0, 0, -1, -1, flipX);
 }
 
 void Racing::DrawRearviewMirror() {
