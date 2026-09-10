@@ -14,6 +14,10 @@ CrashOutcome ClassifyCrash(const RaceEndContext& ctx) {
     return CrashOutcome::RepairOrJunk;
 }
 
+bool SettlesBet(const RaceEndContext& ctx) {
+    return (ctx.endFlags & END_COP_CAUGHT) == 0;
+}
+
 std::string BuildRaceEndReason(const RaceEndContext& ctx) {
     // Pulled over for speeding. Checked before the other failures because the
     // ticket is added on top of whatever else ended the race (a crash while

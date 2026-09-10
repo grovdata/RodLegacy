@@ -45,6 +45,12 @@ enum class CrashOutcome {
 
 CrashOutcome ClassifyCrash(const RaceEndContext& ctx);
 
+// Whether the stake changes hands at all. ProcessRaceOutcome's cop branch shows
+// the fine and returns before the bet, the reputation and the racer pool are
+// touched, so a ticket costs you the fine and nothing else - being pulled over
+// in a pink-slip race does not cost you the car. See docs/driving/cop.md.
+bool SettlesBet(const RaceEndContext& ctx);
+
 // Wreck payouts, straight off the original's arithmetic. Scrapping strips the
 // car first, so it is paid on DismantleCar's return; junking it after a repair
 // quote is paid on the car's full value, parts and all.

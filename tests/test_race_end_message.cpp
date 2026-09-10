@@ -225,6 +225,30 @@ TEST_CASE("payout and quote arithmetic") {
 
 } // TEST_SUITE
 
+TEST_SUITE("SettlesBet - the cop branch returns before the stake") {
+
+using srrace::SettlesBet;
+
+TEST_CASE("a ticket in a pink-slip race does not cost the car") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_COP_CAUGHT | srrace::END_FINISHED;
+    ctx.isPinkSlip = true;
+    ctx.playerLost = true;
+    CHECK(SettlesBet(ctx) == false);
+}
+
+TEST_CASE("every other loss settles normally") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_WALL_HIT;
+    ctx.isPinkSlip = true;
+    CHECK(SettlesBet(ctx) == true);
+    ctx.endFlags = 0;
+    ctx.playerWon = true;
+    CHECK(SettlesBet(ctx) == true);
+}
+
+} // TEST_SUITE
+
 TEST_SUITE("BuildRaceEndReason - fallback") {
 
 TEST_CASE("no flags, not won, not lost -> generic fallback") {

@@ -682,7 +682,13 @@ void Driving::DrawScene() {
                     // Read before OnRaceFinished, which does not clear it, but
                     // checking first is one less thing to get wrong later.
                     const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
-                    raceEndPendingKing = state.OnRaceFinished(raceType, won);
+                    // A ticket is the whole outcome (srrace::SettlesBet): the
+                    // stake, the reputation and the racer pool are left alone,
+                    // so being pulled over in a pink-slip race no longer takes
+                    // the car with it.
+                    raceEndPendingKing = srrace::SettlesBet(endCtx)
+                                             ? state.OnRaceFinished(raceType, won)
+                                             : false;
                     racing->ResetRaceOutcome();
                     // Running the race itself costs fuel, on top of the drive
                     // legs State::MoveToScene charges.
@@ -914,12 +920,11 @@ void Driving::LeaveAfterRace() {
     } else if (state.IsJailed()) {
         // Not the garage: you are in a cell, watching the diner.
         state.MoveToScene(SCENE_DINER);
-    } else if (state.GetCurrentCar() == nullptr) {
-        // Nothing left in the garage - a forfeited pink slip, or a car that was
-        // totaled or junked. The paper is the only way back into the game, and
-        // if there is no buying your way back the garage ends the run instead.
-        state.MoveToScene(state.IsOutOfDough() ? SCENE_GARAGE : SCENE_NEWSPAPER);
     } else {
+        // Always the garage, even with the car gone (a forfeited pink slip, or
+        // one totaled or junked): the original comes back to the garage loop,
+        // and that loop is what runs the out-of-dough check and ends the run
+        // (Garage::OnSceneEnter). With money left, the paper is a click away.
         state.MoveToScene(SCENE_GARAGE);
     }
 }
