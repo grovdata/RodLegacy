@@ -1,6 +1,19 @@
 #pragma once
 #include "parsers/libp.h"
 #include "part.h"
+#include <algorithm>
+
+// The engine a car has by virtue of its SR_data spec class alone. CarEngine_t
+// is brand-major with the three tiers (V6, small V8, big V8) in order, so the
+// class picks the tier within the car's own brand row. A car still on its
+// spec never had a concrete EnginePart fitted - CarBuilder leaves a
+// placeholder V6 in place - so the class, not the part, is the truth.
+inline CarEngine_t SpecEngineType(CarVendor_t vendor, int engineClass) {
+    const int base = vendor == CarVendorFord       ? CarEngineFord_V6
+                     : vendor == CarVendorChrysler ? CarEngineChrysler_V6
+                                                   : CarEngineGM_V6;
+    return static_cast<CarEngine_t>(base + std::clamp(engineClass, 0, 2));
+}
 
 struct EnginePart {
     CarEngine_t engineType;

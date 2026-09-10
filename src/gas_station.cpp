@@ -61,7 +61,7 @@ GasStation::GasStation()
             Car* car = state.GetCurrentCar();
             if (car && car->GetFuelTenths() < TANK_CAP_TENTHS &&
                 state.GetBankroll() >= pricePerTick) {
-                ShowPumpMessage("  It's not full, speedy`!");
+                ShowPumpMessage("It's not full, speedy`!");
             }
             // Handle back on the pump: cap closes, asset 307 overlay hides.
             sceneState = GAS_STATION_IDLE;
@@ -83,7 +83,7 @@ GasStation::GasStation()
     // Gus himself, which had no handler at all before this. See gas_station.md.
     GetZone("attendant").onClick = [this] {
         if (!CanInteract()) return;
-        ShowPumpMessage("  Get out of my face, dummy`!");
+        ShowPumpMessage("Get out of my face, dummy`!");
     };
 
     carx = -GAME_WIDTH;

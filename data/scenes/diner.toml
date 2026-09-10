@@ -8,6 +8,13 @@ id = "call"
 text = "Look for opponent"
 rect = [194, 65, 29, 59]
 
+# Must come before challenge_opponent, which covers the whole car. The rect is
+# re-anchored on the arriving car's hood in Diner::StartAnimateCar.
+[[zones]]
+id = "pop_hood"
+text = "Pop the hood"
+rect = [228, 99, 64, 26]
+
 [[zones]]
 id = "challenge_opponent"
 text = "Click to race"

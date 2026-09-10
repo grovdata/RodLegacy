@@ -436,11 +436,19 @@ void Garage::ShowCarInfoDialog() {
         }
         const char* vendorStr = vendorToStr(vendor);
 
-        // Engine line
-        EnginePart engine = car->GetEngine();
+        // Engine line. Read the type through GetEngineType(), not off the
+        // stored EnginePart: a car still on its SR_data spec never had a
+        // concrete engine fitted, so its part is CarBuilder's placeholder V6
+        // no matter what the spec says - which is how a '56 Corvette came to
+        // read "V-6" next to a V8 in the engine bay.
+        const CarEngine_t engineType = car->GetEngineType();
+        const EnginePart engine = car->GetEngine();
+        const int displacement = car->GetSpecEngineClass() >= 0
+            ? EnginePart(engineType, 0, 0, vendor, ENGINE_V8).displacement
+            : engine.displacement;
         char engineBuf[64];
         snprintf(engineBuf, sizeof(engineBuf), "%s %s engine. %d cu.in.",
-                 vendorStr, cylinderLabel(engine.engineType), engine.displacement);
+                 vendorStr, cylinderLabel(engineType), displacement);
         addRightNote(engineBuf, wearNote(engine.wear).c_str());
         // Manifold line
         const Part manifold = car->GetManifold();
