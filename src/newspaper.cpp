@@ -39,6 +39,7 @@ PartCatalogEntry Tire(CarWheelType t) {
 // exact order they appear in the Street_Rod executable at offset 0xA4CE.
 // Name and price are NOT hardcoded here -- they come from the parsed
 // ClassifiedEntry_t in Newspaper::partMetadata, index-aligned with this table.
+// TODO: Move this knowledge to libp.h
 const PartCatalogEntry kPartCatalog[40] = {
     // Engines (6): "GM/Ford/Chrysler V-8 engine ..."
     Engine(CarVendorGM,       CarEngineGM_V8_282),

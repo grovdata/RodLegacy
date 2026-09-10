@@ -4,11 +4,13 @@
 #include "SFont.h"
 
 namespace {
-constexpr int kNameTextX = 128;
-constexpr int kNameTextY = 60;
-constexpr SDL_Rect kOldGameRect = {70, 150, 80, 18};
-constexpr SDL_Rect kOkRect      = {170, 150, 80, 18};
-constexpr uint32_t kBlack = 0x00000000;
+    constexpr int kBackgroundX = 19;
+    constexpr int kBackgroundY = 6;
+    constexpr int kNameTextX = 143;
+    constexpr int kNameTextY = 65;
+    constexpr SDL_Rect kOldGameRect = {150, 162, 66, 16};
+    constexpr SDL_Rect kOkRect      = {222, 162, 66, 16};
+    constexpr uint32_t kBlack = 0x00000000;
 }
 
 NameEntry::NameEntry()
@@ -16,6 +18,8 @@ NameEntry::NameEntry()
 
 void NameEntry::Init(bool debugMode) {
     Scene::Init(debugMode);
+
+    background->SetPosition(kBackgroundX, kBackgroundY);
 
     typedName.clear();
 

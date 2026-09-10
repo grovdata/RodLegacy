@@ -15,16 +15,15 @@ inline CarEngine_t SpecEngineType(CarVendor_t vendor, int engineClass) {
     return static_cast<CarEngine_t>(base + std::clamp(engineClass, 0, 2));
 }
 
-// The hood scoop comes with a V8. Reads the engine type rather than a fitted
-// EnginePart so a car still on its spec answers correctly too - see
-// Car::HasScoop.
+// The hood scoop comes with the top-tier engine only - class 2, i.e. the
+// 327/351/340 - not with any V8. The original reads the fitted engine part's
+// class off the master parts table and ORs bit 3 of the car's body byte when
+// it is 2 (LAB_109A, feeding the car draw routine's mods argument); the racer
+// pool does the same from the spec's config word. Reads the engine type
+// rather than a fitted EnginePart so a car still on its spec answers too -
+// see Car::HasScoop.
 inline bool EngineTypeHasScoop(CarEngine_t engineType) {
-    return engineType == CarEngineGM_V8_282 ||
-           engineType == CarEngineGM_V8_327 ||
-           engineType == CarEngineFord_V8_292 ||
-           engineType == CarEngineFord_V8_351 ||
-           engineType == CarEngineChrysler_V8_285 ||
-           engineType == CarEngineChrysler_V8_340;
+    return static_cast<int>(engineType) % 3 == 2;
 }
 
 struct EnginePart {

@@ -145,7 +145,7 @@ enum SrLibCarDecal {
 //
 //   bit 0+1  bumpers stripped (the original sets both together)
 //   bit 2    roof chopped
-//   bit 3    set when the car spec's config word has (word & 7) == 2
+//   bit 3    hood scoop - set when the engine class is 2 (the 327/351/340)
 //   bits 4-7 sticker, ONE-BASED: 0 = no sticker, 1..8 = the eight Amiga decals
 //
 // The one-based sticker matters: the original rolls random(9) for it, and

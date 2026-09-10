@@ -30,11 +30,12 @@ TEST_CASE("out-of-range spec classes clamp into the brand's own row") {
 
 // The scoop follows the same resolved type, not the placeholder EnginePart.
 // Reading the part directly is what showed every spec-built car without a
-// scoop, including the V8s.
+// scoop. Only class 2 gets one: the 1957 Fairlane 500 2-dr is class 1 and has
+// no scoop in the original.
 TEST_CASE("the scoop follows the tier, in every brand") {
     for (CarVendor_t v : {CarVendorGM, CarVendorFord, CarVendorChrysler}) {
         CHECK(EngineTypeHasScoop(SpecEngineType(v, 0)) == false);
-        CHECK(EngineTypeHasScoop(SpecEngineType(v, 1)) == true);
+        CHECK(EngineTypeHasScoop(SpecEngineType(v, 1)) == false);
         CHECK(EngineTypeHasScoop(SpecEngineType(v, 2)) == true);
     }
 }

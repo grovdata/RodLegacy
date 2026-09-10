@@ -97,18 +97,21 @@ TEST_CASE("wear and cost are preserved by constructor") {
 } // TEST_SUITE
 
 // ---------------------------------------------------------------------------
-// HasScoop: true for all V8s, false for all V6s
+// HasScoop: true only for the class-2 (big V8) engines
 // ---------------------------------------------------------------------------
 
 TEST_SUITE("EnginePart::HasScoop") {
 
-TEST_CASE("all 6 V8 engines have a scoop") {
-    CHECK(EnginePart(CarEngineGM_V8_282,       0, 0, CarVendorGM,       ENGINE_V8).HasScoop() == true);
+TEST_CASE("only the 3 class-2 engines have a scoop") {
     CHECK(EnginePart(CarEngineGM_V8_327,       0, 0, CarVendorGM,       ENGINE_V8).HasScoop() == true);
-    CHECK(EnginePart(CarEngineFord_V8_292,     0, 0, CarVendorFord,     ENGINE_V8).HasScoop() == true);
     CHECK(EnginePart(CarEngineFord_V8_351,     0, 0, CarVendorFord,     ENGINE_V8).HasScoop() == true);
-    CHECK(EnginePart(CarEngineChrysler_V8_285, 0, 0, CarVendorChrysler, ENGINE_V8).HasScoop() == true);
     CHECK(EnginePart(CarEngineChrysler_V8_340, 0, 0, CarVendorChrysler, ENGINE_V8).HasScoop() == true);
+}
+
+TEST_CASE("the small V8s have no scoop") {
+    CHECK(EnginePart(CarEngineGM_V8_282,       0, 0, CarVendorGM,       ENGINE_V8).HasScoop() == false);
+    CHECK(EnginePart(CarEngineFord_V8_292,     0, 0, CarVendorFord,     ENGINE_V8).HasScoop() == false);
+    CHECK(EnginePart(CarEngineChrysler_V8_285, 0, 0, CarVendorChrysler, ENGINE_V8).HasScoop() == false);
 }
 
 TEST_CASE("all 3 V6 engines have no scoop") {
