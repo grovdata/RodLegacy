@@ -218,6 +218,7 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npc.endFlags = 0;
 
     npcContactTicks = 0;
+    npcScrapeAlt = false;
     bumpStunTicks = 0;
     npcBumpEvent = false;
     finishSnapshot = false;
@@ -385,9 +386,85 @@ void RaceSim::Tick(uint16_t inputBits) {
     CheckFinish();
     ApplyCopRaceEnd();
 
+    // Last, so the AI and the contact test above read the state the original's
+    // render pass left behind on the PREVIOUS frame - RaceLogicUpdate 0x244d50
+    // acts on its flags one frame after RenderNPCCarAndUpdateCopState sets them.
+    UpdateNpcViewState();
+
     if ((player.endFlags & END_FAILURE_MASK) != 0) {
         phase = RacePhase::Ended;
     }
+}
+
+// The state half of RenderNPCCarAndUpdateCopState 0x237ea8. A raw state is read
+// off the fine gap, then walked toward - at most one step per frame - through a
+// transition table. The rate limit is the whole point: the states pick both the
+// sprite and its projected distance, so snapping to the raw value makes the
+// opponent jump between sizes and positions whenever the gap crosses a boundary.
+void RaceSim::UpdateNpcViewState() {
+    const int longGap = (static_cast<int>(npc.segPos) - static_cast<int>(player.segPos)) * 8 +
+                        (npc.scrollAcc - player.scrollAcc);
+    const int latGap = npc.lateral - player.lateral;
+
+    int raw = 0;
+    if (longGap >= 0x78) {
+        raw = -1;                                   // too far up the road to draw
+    } else if (longGap >= 0x10) {
+        raw = std::min(((longGap + 8) >> 4) + 2, 8);  // ahead, one frame per 16 units
+    } else if (longGap >= 9) {
+        raw = (latGap < -180) ? 1 : 3;
+    } else if (longGap >= -7) {
+        // Level. Overlapping laterally reads as 2 unless we are already behind,
+        // and only a clear gap to our LEFT gets the alongside view.
+        if (std::abs(latGap) < 180) {
+            raw = (npcAi.viewState < 9) ? 2 : 9;
+        } else {
+            raw = (latGap >= 0) ? 2 : 0;
+        }
+    } else {
+        raw = ((0x10 - longGap) >> 4) + 8;          // behind us: 9 and up
+    }
+
+    const int cur = npcAi.viewState;
+    int next = raw;
+    if (cur != raw) {
+        if (raw < 0) {
+            if (cur == 8) {                          // walked out the far end
+                npcAi.viewHidden = true;
+                return;
+            }
+            next = cur + 1;
+        } else if (raw > 12) {
+            if (cur == 12) {                         // walked out the mirror end
+                npcAi.viewHidden = true;
+                return;
+            }
+            next = cur + 1;
+        } else if (npcAi.prevViewState != raw) {
+            // prevViewState == raw means the gap has come straight back to where
+            // it was two frames ago, and the original snaps rather than crawling.
+            if ((raw <= 8 && cur > 9) || (raw >= 9 && cur <= 8 && cur > 0)) {
+                next = cur - 1;
+            } else if (cur == 0) {
+                next = (raw >= 9) ? 9 : 1;
+            } else if (cur == 9) {
+                next = (raw >= 9) ? 10 : ((latGap < 0) ? 0 : 2);
+            } else if (cur == 1) {
+                next = (raw < 1) ? 0 : 3;
+            } else if (cur == 3 && raw == 1) {
+                next = raw;
+            } else {
+                next = (raw > cur) ? cur + 1 : cur - 1;
+            }
+        }
+    }
+
+    npcAi.viewHidden = false;
+    npcAi.inContactRange = (next == 0) || (next == 2 && longGap < 11);
+    npcAi.rearEnding = (next == 2 && longGap < 11 && std::abs(latGap) < 180 &&
+                        SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed));
+    npcAi.prevViewState = static_cast<int16_t>(cur);
+    npcAi.viewState = static_cast<int16_t>(next);
 }
 
 // The opponent slot becomes the police car (SpawnCopCar 0x244ca2). The original
@@ -890,94 +967,83 @@ void RaceSim::CheckEdgeCollision() {
     }
 }
 
-// Car-to-car contact. The original splits this across two functions: the NPC
-// render pass (RenderNPCCarAndUpdateCopState 0x237ea8) measures the gap between
-// the cars and leaves two flags behind, and RaceLogicUpdate (0x244d50) acts on
-// them the next time round. Both gaps come out of the same numbers we already
-// have:
+// Car-to-car contact (RaceLogicUpdate 0x244d50). Nothing here measures the gap
+// itself: the whole thing runs off the two flags the view-state pass leaves
+// behind, `inContactRange` (A4-0x1386) and `rearEnding` (A4-0x1384). That matters
+// because the view state is rate-limited, so it has to SETTLE on 2 before a
+// rear-end can fire - a gap that flicks through the window for one frame does
+// not total your car.
 //
-//   longGap = (npc.seg - player.seg)*8 + (npc.scroll - player.scroll)
-//   latGap  = npc.lateral - player.lateral
-//
-//   A4-0x1386 "in contact range" = alongside, or just ahead with longGap < 11
-//   A4-0x1384 "rear-ending it"   = just ahead, longGap < 11, |latGap| < 180,
-//                                  and the player closing (npc step < player step)
-//
-// Rear-ending sets endFlags |= 3 - bit 0 ends the race, bit 1 is the crash - and
-// that is the wreck-with-blood screen. Otherwise, running alongside while
-// steering into the opponent eventually shoves the player: lateral +300, heading
-// kicked +-15, throttle cut for two ticks, and the impact sound.
-//
-// The original gates the side-swipe on its smoothed render view state being 0
-// (alongside-left) and on an AI proximity flag; we do not carry that state in the
-// sim, so the geometric window below stands in for it.
+// Rear-ending sets endFlags |= 3 (bit 0 ends the race, bit 1 is the crash) - the
+// wreck screen. Otherwise the opponent has to be in view state 0, alongside and
+// clear to our LEFT, and then it splits on which way we are steering:
+//   steering left into it -> it scrapes and, every other tick, loses a segment
+//   otherwise             -> if it swerved into a blocking lane, it eventually
+//                            shoves us right: lateral +300, heading +-15,
+//                            throttle cut for two ticks.
 void RaceSim::CheckNpcContact() {
-    if ((player.endFlags & END_FAILURE_MASK) != 0 || (npc.endFlags & END_GAVE_UP) != 0) {
+    if ((player.endFlags & END_FAILURE_MASK) != 0) {
         npcContactTicks = 0;
         return;
     }
-
-    const int longGap = (static_cast<int>(npc.segPos) - static_cast<int>(player.segPos)) * 8 +
-                        (npc.scrollAcc - player.scrollAcc);
-    const int latGap = npc.lateral - player.lateral;
-    const int latAbs = std::abs(latGap);
-
-    // Both outcomes require the pair to be level, which in the original means the
-    // render view state is 0 or 2, and those are only assigned for longGap in
-    // [-7, 9). The rear-end test additionally checks longGap < 11, but that never
-    // widens anything - state 2 has already capped it at 9. Reading that 11 as
-    // the window instead let the crash fire a whole segment further back than the
-    // original allows, which is enough to catch a blocking NPC you never touched.
-    const bool level = (longGap > -8 && longGap < 9);
-    if (!level) {
-        npcContactTicks = 0;
+    if (!npcAi.inContactRange) {
         return;
     }
 
     // While the cop is chasing you cannot total yourself on it: the original
     // gates the rear-end branch on `copState <= 1` and falls through to the
-    // side-contact path instead (RaceLogicUpdate 0x244d50).
-    const bool copChasing = copState >= 2;
-
-    // Rear-ended it: laterally overlapping (state 2) and closing.
-    if (!copChasing && latAbs < 180 &&
-        SpeedToScrollStep(npc.speed) < SpeedToScrollStep(player.speed)) {
+    // side-contact path instead.
+    if (npcAi.rearEnding && copState < 2) {
         AddPlayerEndFlags(END_FINISHED | END_HIT_NPC);
-        npcContactTicks = 0;
         return;
     }
 
-    // Running alongside with the opponent clear of our line (state 0 is level
-    // with the NPC off to the side, not overlapping) - this is the side-swipe.
-    if (latAbs < 180 || player.scrollStep <= 1) {
+    if (npcAi.viewState != 0) {
         npcContactTicks = 0;
         return;
     }
-
+    if (player.scrollStep <= 1) {
+        npcContactTicks = 0;   // crawling does not count as contact
+        return;
+    }
     npcContactTicks = static_cast<int16_t>(npcContactTicks + 1);
 
-    // Steering into the opponent rather than away from it. latGap > 0 puts the
-    // NPC to our right, so steering right (steerVel > 0) is leaning on it.
-    // The cop never shoves you off the road either (same gate, `copState < 2`).
-    const bool leaningOnIt = (latGap > 0) ? (player.steerVel > 0) : (player.steerVel < 0);
-    if (!leaningOnIt || npcContactTicks <= 3 || copChasing) {
+    if (player.steerVel < 0) {
+        // Leaning left onto it. Only bites if the road is not already carrying us
+        // away from it - the bend must not be turning right, or we must be left
+        // of the road centre.
+        const int seg = ClampTrackIndex(player.segPos);
+        const int segNext = ClampTrackIndex(player.segPos + 1);
+        const int center = (edgeLeft + edgeRight) >> 1;
+        if (track->curve[segNext] <= track->curve[seg] || player.lateral <= center) {
+            npcBumpEvent = true;
+            if (!npcScrapeAlt) {
+                npc.segPos -= 1;   // every other scrape costs it a segment
+                npcScrapeAlt = true;
+            } else {
+                npcScrapeAlt = false;
+            }
+        }
         return;
     }
 
-    // The original rolls for it rather than bumping every tick.
-    if (rng.Next(2) != 0) {
-        npcContactTicks = 0;
+    // The cop never shoves you off the road (same `copState < 2` gate).
+    if (!npcAi.swervedToBlock || npcContactTicks <= 3 || copState >= 2) {
         return;
     }
-
-    // Shoved away from the opponent, not blindly to the right: the original only
-    // ever has the NPC on one side when this fires, so its +300 is "away".
-    player.lateral = static_cast<int16_t>(player.lateral + ((latGap > 0) ? -300 : 300));
-    player.heading = static_cast<int16_t>(player.heading + ((rng.Next(2) == 0) ? -15 : 15));
-    if (player.speed > 20) {
-        bumpStunTicks = 2;
+    // Rolled rather than bumped every tick, against the driver's aggression byte
+    // (0x00244f96: rand(rec[2] / 4 + 2)). Lower is a better driver, so the good
+    // ones lean on you roughly a third of the time and the worst a fifth.
+    if (rng.Next(ClampValue(npcSetup.aggression, 0, 120) / 4 + 2) == 0) {
+        // Always +300: view state 0 only ever has the opponent on our left.
+        player.lateral = static_cast<int16_t>(player.lateral + 300);
+        if (player.speed > 20) {
+            bumpStunTicks = 2;
+        }
+        npcAi.swervedToBlock = false;
+        player.heading = static_cast<int16_t>(player.heading + ((rng.Next(2) == 0) ? -15 : 15));
+        npcBumpEvent = true;
     }
-    npcBumpEvent = true;
     npcContactTicks = 0;
 }
 
@@ -996,16 +1062,10 @@ void RaceSim::NpcAiUpdate() {
     int target = npcAi.lateralTarget;
 
     const int segDiff = npc.segPos - player.segPos;
-    const int longGap = segDiff * 8 + (npc.scrollAcc - player.scrollAcc);
-    const int latGap = npc.lateral - player.lateral;
-
-    // Stand-ins for the two render view states UpdateNPCAI gates on. States 0 and
-    // 2 are the "level with the player" pair (RenderNPCCarAndUpdateCopState
-    // 0x237ea8 assigns them across longGap in [-7, 8]); state 0 is that with the
-    // opponent clear to our left. We do not carry the smoothed state in the sim,
-    // so these are the same tests without its one-frame lag.
-    const bool level = (longGap >= -7 && longGap <= 8);
-    const bool stateZero = level && latGap <= -180;
+    // The render view state, from the previous frame - the same one-frame lag the
+    // original carries by reading A4-0x1388 here. 0/1 = alongside to our left,
+    // 2..8 = ahead, 9..12 = behind.
+    const int view = npcAi.viewState;
 
     // The offset lane every band outside +-3 segments uses. The side comes from a
     // sticky preference flipped by the road's curvature (A4-0x39a8), NOT from
@@ -1042,6 +1102,7 @@ void RaceSim::NpcAiUpdate() {
     if (segDiff >= 13) {
         // Gone; the target is left alone.
     } else if (segDiff >= 7) {
+        npcAi.swervedToBlock = true;
         offsetLane();
     } else if (segDiff >= 3) {
         // Coming back up past the player after having been dropped: one lane
@@ -1057,10 +1118,8 @@ void RaceSim::NpcAiUpdate() {
         }
     } else if (segDiff >= -3) {
         if (SpeedToScrollStep(player.speed) < SpeedToScrollStep(npc.speed)) {
-            if (segDiff < 0) {
-                // Behind and quicker: commit to a side, or give the pass up. (The
-                // original gates this on the render view state being 9..12, which
-                // is exactly "NPC is behind".)
+            if (view >= 9) {
+                // Behind and quicker: commit to a side, or give the pass up.
                 const int leftLane = player.lateral - 330;
                 if (edgeLeft + 480 < leftLane) {
                     npcAi.preferLeft = true;
@@ -1078,18 +1137,19 @@ void RaceSim::NpcAiUpdate() {
                     // Neither side has room at all.
                     npc.segPos = player.segPos - 2;
                 }
-            } else if (level) {
+            } else if (view == 0 || view == 2) {
                 // Level and quicker: hold a lane clear of the player's line.
                 target = (npc.lateral < player.lateral) ? (player.lateral - 330)
                                                         : (player.lateral + 530);
             }
-        } else if (stateZero) {
+        } else if (view == 0) {
             // Level, no quicker, and sitting off our left: move further away.
             // Every other case here leaves the target untouched, which is what
             // keeps the opponent in its starting lane off the line.
             target = player.lateral - 330;
         }
     } else if (segDiff >= -5) {
+        npcAi.swervedToBlock = true;
         offsetLane();
     } else {
         npcAi.wasDroppedBack = true;

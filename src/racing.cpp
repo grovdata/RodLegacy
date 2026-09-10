@@ -428,6 +428,11 @@ void Racing::InitializeRaceSimulation() {
         npcSetup = playerSetup;
         npcSetup.driverSkill = 100;
     }
+    // SR_data driver byte [2]. The side-swipe roll is rand(aggression/4 + 2), so
+    // the best drivers (4) lean on you most and the worst (0x0c) least.
+    if (const SrDriverData* driverData = state.GetCurrentDriverData()) {
+        npcSetup.aggression = driverData->aggression;
+    }
 
     // A previous race may have ended with the cop's sprites swapped into the
     // opponent slot; put the real opponent back before this one starts.
@@ -456,8 +461,6 @@ void Racing::InitializeRaceSimulation() {
     bShowCrashOverlay = false;
     crashHandled = false;
     startLightHeight = 32;  // full; retracts once the car launches
-    npcRearFrame = 0;
-    npcRearFrameLastTick = -1;
     // Per-race presentation and audio timers. The scene object outlives a race
     // (see ResetForNewRace), so these are cleared here rather than by construction.
     tireScreechCooldownTicks = 0;
@@ -1226,6 +1229,45 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     }
 }
 
+// The opponent's 13 sprites are one contiguous asset run per car (Chevy 83..95):
+// front-side, rear-side, 7 rear LOD frames, 4 mirror frames. That is exactly the
+// original's A4-0x14a0 pointer table indexed by the view state, so index it the
+// same way instead of switching on distance.
+Bitmap* Racing::OpponentSpriteForState(int state) const {
+    if (state < 0 || state > 12) {
+        return nullptr;
+    }
+    const std::unique_ptr<Bitmap>* frontSide = &opponentChevyFrontSide;
+    const std::unique_ptr<Bitmap>* rearSide = &opponentChevyRearSide;
+    const std::unique_ptr<Bitmap>* rear = opponentChevyRear;
+    const std::unique_ptr<Bitmap>* behind = opponentChevyBehind;
+    switch (opponentCarType) {
+        case 1:
+            frontSide = &opponentChryslerFrontSide; rearSide = &opponentChryslerRearSide;
+            rear = opponentChryslerRear; behind = opponentChryslerBehind; break;
+        case 2:
+            frontSide = &opponentCopFrontSide; rearSide = &opponentCopRearSide;
+            rear = opponentCopRear; behind = opponentCopBehind; break;
+        case 3:
+            frontSide = &opponentOldsmobileFrontSide; rearSide = &opponentOldsmobileRearSide;
+            rear = opponentOldsmobileRear; behind = opponentOldsmobileBehind; break;
+        case 4:
+            frontSide = &opponentChevy2FrontSide; rearSide = &opponentChevy2RearSide;
+            rear = opponentChevy2Rear; behind = opponentChevy2Behind; break;
+        case 5:
+            frontSide = &opponentCorvette63FrontSide; rearSide = &opponentCorvette63RearSide;
+            rear = opponentCorvette63Rear; behind = opponentCorvette63Behind; break;
+        case 6:
+            frontSide = &opponentFordFrontSide; rearSide = &opponentFordRearSide;
+            rear = opponentFordRear; behind = opponentFordBehind; break;
+        default: break;
+    }
+    if (state == 0) return frontSide->get();
+    if (state == 1) return rearSide->get();
+    if (state < 9) return rear[state - 2].get();
+    return behind[state - 9].get();
+}
+
 void Racing::DrawNpcCar(int lastVisible) {
     if (flybyMode) {
         if (!flybyNpcVisible) {
@@ -1237,101 +1279,57 @@ void Racing::DrawNpcCar(int lastVisible) {
 
     const srrace::CarState& p = sim.Player();
     const srrace::CarState& np = sim.Npc();
+    const srrace::NpcState& ai = sim.NpcAi();
 
-    // Fine longitudinal gap in scroll units (original view-state distance
-    // 0x237ea8: (npc.seg - player.seg)*8 + (npc.scroll - player.scroll)).
-    const int longDist = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8
-                       + (np.scrollAcc - p.scrollAcc);
-
-    bool flipX = false;
-    Bitmap* sprite = nullptr;
-    // Only while genuinely level; switch to the rear LOD frames as soon as the
-    // NPC pulls ahead, so the near-size side view doesn't linger up the road.
-    if (longDist > -4 && longDist < 2) {
-        // Alongside: the NPC is level with the player, so it starts BESIDE the
-        // car with the front-side view (original states 0/1; e.g. Chevy asset
-        // 83), chosen by the opponent's car class, not the rear LOD frames.
-        switch (opponentCarType) {
-            case 1: sprite = opponentChryslerFrontSide.get(); break;
-            case 2: sprite = opponentCopFrontSide.get(); break;
-            case 3: sprite = opponentOldsmobileFrontSide.get(); break;
-            case 4: sprite = opponentChevy2FrontSide.get(); break;
-            case 5: sprite = opponentCorvette63FrontSide.get(); break;
-            case 6: sprite = opponentFordFrontSide.get(); break;
-            default: sprite = opponentChevyFrontSide.get(); break;
-        }
-        // The side sprite faces one way; mirror it when the NPC is on our right.
-        flipX = np.lateral > p.lateral;
-    } else {
-        // Pulled ahead: pre-drawn rear LOD frames (distance = which frame).
-        const int delta = static_cast<int>(np.segPos - p.segPos);
-        if (delta < 0 || delta > std::min(lastVisible, 14)) {
-            return;  // behind -> handled by the rear-view mirror; or past the horizon
-        }
-        // LOD frame, damped the way RenderNPCCar 0x237ea8 does it: compute a
-        // target view state `((longGap + 8) >> 4) + 2` - the +8 makes it
-        // round-to-nearest - then move the stored state by at most one step per
-        // game frame toward it (the `prev < target ? prev+1 : prev-1` fallback
-        // closing its transition table). The rate limit is what keeps the LOD
-        // smooth: at 100 mph the scroll step is ~14 units a tick against a 16
-        // unit frame spacing, so the gap can cross most of a boundary in one
-        // tick, and only bounding the change per tick contains that.
-        //
-        // Stepped per SIM TICK, not per rendered frame: on the Amiga render and
-        // physics were one loop, so its frame is our tick. Per rendered frame
-        // would advance it about 4x too fast at 60 Hz.
-        //
-        // The original gates this damping on detail level >= 4 (A4-0x4160 > 3,
-        // the same detail field that widens the contact test's lateral window)
-        // and snaps below it. We have no detail setting, so always damp.
-        const int targetFrame = ClampInt((longDist + 8) / 16, 0, 6);
-        if (simTickCounter != npcRearFrameLastTick) {
-            npcRearFrameLastTick = simTickCounter;
-            if (npcRearFrame < targetFrame) {
-                ++npcRearFrame;
-            } else if (npcRearFrame > targetFrame) {
-                --npcRearFrame;
-            }
-        }
-        const int frameIndex = npcRearFrame;
-        switch (opponentCarType) {
-            case 1: sprite = opponentChryslerRear[frameIndex].get(); break;
-            case 2: sprite = opponentCopRear[frameIndex].get(); break;
-            case 3: sprite = opponentOldsmobileRear[frameIndex].get(); break;
-            case 4: sprite = opponentChevy2Rear[frameIndex].get(); break;
-            case 5: sprite = opponentCorvette63Rear[frameIndex].get(); break;
-            case 6: sprite = opponentFordRear[frameIndex].get(); break;
-            default: sprite = opponentChevyRear[frameIndex].get(); break;
-        }
+    if (ai.viewHidden) {
+        return;   // walked off the end of the range
     }
+    const int state = ai.viewState;
+    if (state >= 9) {
+        return;   // behind us: DrawRearviewMirror has it
+    }
+    Bitmap* sprite = OpponentSpriteForState(state);
     if (!sprite || !sprite->GetSurface()) {
         return;
     }
-
     SDL_Surface* src = sprite->GetSurface();
 
-    // The opponent is NOT projected through the forward row table. The original
-    // derives its distance straight from the fine gap (0x0023808e..0x002380fa):
-    //
-    //   d = longGap;  if (state == 0) d += 16;  if (state < 9) d += 4;
-    //
-    // which is continuous in longGap. Picking rows[k] instead threw away the
-    // sub-segment part of the gap and re-introduced the PLAYER's scroll
-    // accumulator, since the row table's distance is 4 + 8k - p.scrollAcc. That
-    // accumulator cycles 0..7 every few ticks, so at close range the same lateral
-    // gap projected anywhere from x = -42 to x = +93 - the start-of-race jitter.
-    // It settles at speed only because k grows and the +-7 stops mattering.
-    const int d = std::max(4, longDist + 4);
-    // Same segment the row table would have used for this distance
+    // Distance comes straight from the fine gap (0x0023808e..0x002380fa), NOT
+    // from the forward row table. rows[k] threw away the sub-segment part of the
+    // gap and re-introduced the PLAYER's scroll accumulator, since the row
+    // distance is 4 + 8k - p.scrollAcc; that accumulator cycles 0..7 every few
+    // ticks, so the same lateral gap projected anywhere from x = -42 to x = +93.
+    const int longDist = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8
+                       + (np.scrollAcc - p.scrollAcc);
+    const int d = std::max(4, longDist + (state == 0 ? 20 : 4));
+    // Same segment the row table would use at this distance
     // (rows[k].seg = playerSeg + k + 1, and k*8 ~ longDist).
     const int npcSeg = ClampInt(static_cast<int>(np.segPos) + 1, 0, kTrackSegments - 1);
     const int roadDelta = p.heading - track.curve[npcSeg];
     const int elevDelta = p.elevAtCar - track.elev[npcSeg];
     const int x = ProjectX(p, d, roadDelta, np.lateral);
-    const int y = ClampInt(kHorizonY + 400 / d + 4 * elevDelta, kClipTop, kClipBottom + 30);
-    // Blit at native size (no scaling between frames); distance is conveyed by
-    // which frame is picked, not by resizing one bitmap.
-    DrawNearestNeighborScaled(sprite, x - src->w / 2, y, src->w, src->h, false, true, 0, 0, -1, -1, flipX);
+    int y = kHorizonY + 400 / d + 4 * elevDelta;
+
+    if (state == 0) {
+        // Right alongside, off to our left. Anchored by its RIGHT edge 64 px left
+        // of the projected x and never drawn to the right of the screen edge
+        // (original: srcXoff = w - x + 0x40, dstX = 0). The one state that hangs
+        // DOWN from the road row instead of standing on it.
+        DrawNearestNeighborScaled(sprite, std::min(0, x - 64 - src->w), y, src->w, src->h,
+                                  false, false);
+        return;
+    }
+    if (state == 1) {
+        // Just ahead and well left: right edge on x, baseline 17 px low.
+        DrawNearestNeighborScaled(sprite, x, y + 0x11, src->w, src->h, true, true);
+        return;
+    }
+    // Ahead: centred, standing on the road, never above the horizon row.
+    y = std::max(rows[static_cast<size_t>(lastVisible)].y, y);
+    if (state == 2) {
+        y = std::min(y, kClipBottom);   // the nearest frame stops at the viewport floor
+    }
+    DrawNearestNeighborScaled(sprite, x - src->w / 2, y, src->w, src->h, false, true);
 }
 
 void Racing::DrawRearviewMirror() {
@@ -1866,7 +1864,8 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     out.push_back({"speed", std::to_string(static_cast<int>(npc.speed)) + " mph"});
     out.push_back({"lateral", std::to_string(static_cast<int>(npc.lateral))});
     out.push_back({"lateral gap", std::to_string(npc.lateral - player.lateral)});
-    out.push_back({"rear LOD frame", std::to_string(npcRearFrame)});
+    out.push_back({"view state", std::to_string(static_cast<int>(sim.NpcAi().viewState)) +
+                                 (sim.NpcAi().viewHidden ? " (hidden)" : "")});
 
     // Cop. State 0 means the spawn roll did not arm one, so none can appear at
     // all this race - see RodLegacyResearch/docs/driving/cop.md.

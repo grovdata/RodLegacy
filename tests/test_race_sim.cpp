@@ -1266,7 +1266,11 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     int16_t speedAtLine = 0;
     int rollOutTicks = 0;
     for (int i = 0; i < 4000; ++i) {
-        sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
+        // Hold the opponent well behind, out of the view states that can touch
+        // the player. Parking it in the next lane does NOT do that: level and
+        // 180+ to our left IS view state 0, the one the side-swipe runs in, and
+        // a player who never steers back gets shoved off the road.
+        sim.SetNpcDebugPose(sim.Player().segPos - 40, 1550);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
         if (!crossed && sim.Player().segPos >= ROAD_FINISH_SEG) {
             crossed = true;

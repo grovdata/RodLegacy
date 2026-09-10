@@ -26,8 +26,14 @@ constexpr uint16_t END_FINISHED = 0x01;
 constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
 // NPC-only, and not an original flag: our own "the opponent conceded in the last
-// quarter" marker (NpcAiUpdate). It sits on the bit the original spends on its
-// crash-damage marker, which we do not implement.
+// quarter" marker (NpcAiUpdate). The original spends 0x08 on a crash-damage
+// marker, but nothing can ever set it: ProcessRaceOutcome ORs it in only when
+// A4+0x4ccc is set, and the one place that writes A4+0x4ccc needs A4+0x4b14 to
+// be non-zero - an address the whole binary only ever reads (`tst.w (0x4b14,A4)`
+// at 0x26104 and `cmp.w (0x4b14,A4),D0w` at 0x2610e, no third reference). So the
+// bit is dead, the five `& 8` tests that gate an extra ApplyCrashDamage() call
+// always take the false branch, and there is no collision and nothing missing
+// here. See docs/driving/npc_ai_and_view_state.md.
 constexpr uint16_t END_GAVE_UP = 0x08;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
@@ -70,6 +76,10 @@ struct CarSetup {
     bool rearBumperRemoved = false;   // +1
     bool supercharger = false;
     int driverSkill = 130;  // 0..130 (0x82); player uses 130
+    // SR_data driver record byte [2]: 0x04 (best driver) .. 0x0c (worst). The
+    // original reads it straight off the challenger record (A4+0x19ce + 2) for
+    // the side-swipe roll and the cornering speed cap. 8 is mid-pack.
+    int aggression = 8;
 };
 
 struct PowerRow {
@@ -157,10 +167,23 @@ struct NpcState {
     int16_t targetSpeedRisky = 0;   // perf*80/100
     int16_t stallTicks = 0;
     bool gaveUp = false;
-    // Sticky lane preference (original A4-0x39a8) and the "fell a long way
-    // behind" latch (A4+0x4cb2) that arms one lane swap on the way back up.
+    // Sticky lane preference (original A4-0x39a8), the "fell a long way behind"
+    // latch (A4+0x4cb2) that arms one lane swap on the way back up, and the
+    // "swerved into a blocking lane" latch (A4+0x4cb4) that arms one side-swipe.
     bool preferLeft = false;
     bool wasDroppedBack = false;
+    bool swervedToBlock = false;
+
+    // Render view state (original A4-0x1388) and the two contact flags derived
+    // from it (A4-0x1386, A4-0x1384). 0/1 = alongside to our left, 2..8 = ahead
+    // in 16 gap-unit steps, 9..12 = behind us, drawn in the mirror. It moves at
+    // most one step per frame, which is what keeps the sprite from snapping
+    // between sizes. See docs/driving/npc_ai_and_view_state.md.
+    int16_t viewState = 0;
+    int16_t prevViewState = 0;
+    bool viewHidden = false;    // walked off the end of the range: draw nothing
+    bool inContactRange = false;
+    bool rearEnding = false;
 
     NpcBranch branch = NpcBranch::Accelerating;
     bool throttle = false;
@@ -295,6 +318,10 @@ private:
     void NpcSettleAtSpeed(int targetSpeed);
     void NpcEngine();
     void NpcAiUpdate();
+    // RenderNPCCarAndUpdateCopState 0x237ea8's state half. Lives in the sim
+    // because the AI and the contact test both read it; the original shares it
+    // through A4-0x1388 for the same reason.
+    void UpdateNpcViewState();
     void EngineTick(CarState& car, const CarTables& tables, bool throttle,
                     bool brake, bool shift);
 
@@ -307,6 +334,7 @@ private:
     NpcState npcAi;
     // Side-swipe bookkeeping (original A4-0x39a4 / A4-0x39a2 / A4-0x1386).
     int16_t npcContactTicks = 0;   // consecutive ticks running alongside the NPC
+    bool npcScrapeAlt = false;     // A4-0x39aa: only every other scrape costs it a segment
     int16_t bumpStunTicks = 0;     // throttle cut for a couple of ticks after an impact
     bool npcBumpEvent = false;     // one-shot for the audio layer
     // Finish bookkeeping. `finishSnapshot` is the original's A4-0x3994 latch,

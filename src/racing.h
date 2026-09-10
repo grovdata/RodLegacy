@@ -106,13 +106,6 @@ private:
     std::array<RowProjection, 15> rows {};
 
     float cloudOffsetAccum = 0.0f;
-    // Currently shown NPC rear LOD frame. Moves by at most one step per sim tick
-    // toward the distance-derived target (RenderNPCCar 0x237ea8).
-    int npcRearFrame = 0;
-    // Last sim tick on which npcRearFrame was allowed to step, so the LOD
-    // advances at the sim rate (the original's frame rate) rather than the
-    // render rate. -1 = not yet stepped.
-    int npcRearFrameLastTick = -1;
     // Sprite-space row where the mountain silhouette meets the foothill green
     // band it is drawn on. Cached on first use; this row is what sits on the
     // horizon, not the bitmap's lowest opaque row. -1 = uncomputed.
@@ -207,6 +200,7 @@ private:
                                    int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1, bool flipX = false);
     void DrawRoadsideAndArchSprites(int lastVisible);
     void DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr);
+    Bitmap* OpponentSpriteForState(int state) const;
     void DrawNpcCar(int lastVisible);
     void DrawHud();
     void DrawFlybyHud(int lastVisible);
