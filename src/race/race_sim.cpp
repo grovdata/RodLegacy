@@ -639,12 +639,22 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     // of against 5700 blew automatics the instant they hit the governor - the
     // exact opposite of the original.
     constexpr int kRedlineRpm = 5700;
-    const int rpmCap = tables.automatic ? 5690 : kRedlineRpm;
-    if (car.rpm > rpmCap) {
-        car.rpm = static_cast<int16_t>(rpmCap);
+    if (tables.automatic && car.rpm > 5690) {
+        car.rpm = 5690;
     }
 
-    if (throttle && car.rpm >= kRedlineRpm) {
+    // The original (0x23c708) tests `rpm > 5700` BEFORE clamping, so a tick that
+    // lands exactly on the limiter costs nothing, and the counter only advances
+    // on a tick that actually overshot. Clamping first and then testing `>=`
+    // armed it a tick early on every rev. The reset at 0x23c75c is a separate
+    // test that keeps the counter while rpm >= 5700, so sitting pinned on the
+    // limiter holds the count without adding to it.
+    const bool overRevved = (car.rpm > kRedlineRpm);
+    if (car.rpm > kRedlineRpm) {
+        car.rpm = static_cast<int16_t>(kRedlineRpm);
+    }
+
+    if (throttle && overRevved) {
         car.redlineTicks++;
         int wearNow = 0;
         if (&car == &player) {
@@ -652,15 +662,17 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         } else {
             wearNow = ClampValue(npcSetup.engineWear + static_cast<int>(car.engineWearDelta), 0, 10000);
         }
+        // 0x23c724: `moveq #$f` then `divs.w #$3e8`, and the blow at 0x23c730
+        // is `cmp/ble` - strictly greater, so the limit-th tick still survives.
         const int blowLimit = std::max(1, 15 - (wearNow / 1000));
-        if (car.redlineTicks >= blowLimit) {
+        if (car.redlineTicks > blowLimit) {
             if (&car == &player) {
                 AddPlayerEndFlags(END_ENGINE_BLOWN);
             } else {
                 car.endFlags |= END_ENGINE_BLOWN;
             }
         }
-    } else {
+    } else if (car.rpm < kRedlineRpm) {
         car.redlineTicks = 0;
     }
 
@@ -672,8 +684,11 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         car.engineWearDelta += 1;
     }
 
-    // Engine grenades once total wear passes 0x26ab (PlayerCarPhysics 0x23c5d6
-    // checks this every tick, independent of the redline-hold blow above).
+    // Engine grenades once its wear passes 0x26ab (0x23c6da, `cmpi.w #$26ac` on
+    // the part at car+0xa, then `moveq #$5`). This is the ENGINE part and the
+    // 0x05 outcome; the transmission is the part at car+0x6 and fails with 0x11
+    // in the shift block below. Checked every tick, independent of the
+    // redline-hold blow above.
     const int baseEngineWear = (&car == &player) ? playerSetup.engineWear : npcSetup.engineWear;
     if (baseEngineWear + static_cast<int>(car.engineWearDelta) > 0x26ab) {
         if (&car == &player) {
@@ -700,12 +715,16 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
 
         // Transmission drops (PlayerCarPhysics 0x23c5d6): worn past 0x26ab, or a
         // money-shift - a manual box banged under throttle above 5000 rpm, at a
-        // wear-scaled random chance. The original rolls a 15-bit random against
-        // wear/100+100, so it is rare when fresh (~0.3%/shift) and grows with wear.
+        // wear-scaled random chance.
+        //
+        // The bound is 0x23c80c `move.w #$ccd` = 3277, so this is ~3% a shift
+        // when fresh and grows with wear. A 15-bit roll made it ~0.3%, ten times
+        // rarer, which is why the "dropped your transmission" bubble effectively
+        // never fired.
         const int baseTransWear = (&car == &player) ? playerSetup.transWear : npcSetup.transWear;
         const int totalTransWear = baseTransWear + static_cast<int>(car.transWearDelta);
         const bool moneyShift = !tables.automatic && throttle && car.rpm > 5000 &&
-                                rng.Next(32768) < (totalTransWear / 100 + 100);
+                                rng.Next(3277) < (totalTransWear / 100 + 100);
         if (totalTransWear > 0x26ab || moneyShift) {
             car.endFlags |= END_TRANS_DROPPED;
         }

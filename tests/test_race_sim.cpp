@@ -23,13 +23,21 @@ TrackData MakeFlatTrack() {
     return track;
 }
 
+// Shifts early enough that the gear change lands at or under 5000 rpm. Above
+// that a manual box rolls the money-shift (PlayerCarPhysics 0x23c80a, ~3% a
+// shift), which drops the transmission and ends the race - fine as a mechanic,
+// but it is not what any of the callers below are testing, and it made them
+// fail at random. Tests that WANT a dropped box should power-shift explicitly.
 uint16_t ThrottleWithShiftIfNeeded(const RaceSim& sim) {
     const CarState& player = sim.Player();
     const CarTables& tables = sim.PlayerTables();
     const bool canShiftUp = player.gear < tables.numGears - 1;
+    // Low gears gain ~500 rpm a tick, so the trigger has to sit well under 5000
+    // for the post-gain rpm at the shift to stay under it.
+    const int shiftRpm = std::min<int>(tables.autoShiftRpm, 3600);
     uint16_t input = 0;
-    if (canShiftUp && player.rpm >= tables.autoShiftRpm) {
-        input |= INPUT_SHIFT | INPUT_THROTTLE;  // bang the next gear under power
+    if (canShiftUp && player.rpm >= shiftRpm) {
+        input |= INPUT_SHIFT | INPUT_THROTTLE;
     } else if (player.rpm >= 5600) {
         // Top gear near redline: lift off so we don't grenade the engine by
         // sitting on the limiter (the original blows after ~15 ticks held there).
@@ -1405,6 +1413,55 @@ TEST_CASE("Losing at the line still runs the roll-out and reports a loss") {
     REQUIRE(sim.RaceOver());
     CHECK_FALSE(sim.PlayerWonAtLine());
     CHECK(sim.Player().speed == 0);
+}
+
+// Shifts with the throttle pinned, which is what rolls the money-shift.
+uint16_t PowerShift(const RaceSim& sim) {
+    const CarState& player = sim.Player();
+    const CarTables& tables = sim.PlayerTables();
+    if (player.gear < tables.numGears - 1 && player.rpm >= tables.autoShiftRpm) {
+        return INPUT_SHIFT | INPUT_THROTTLE;
+    }
+    return INPUT_THROTTLE;
+}
+
+int CountDroppedBoxes(int transClass, int seeds) {
+    int dropped = 0;
+    for (int s = 0; s < seeds; ++s) {
+        CarSetup setup{};
+        setup.transClass = transClass;
+        setup.carbClass = 1;
+        setup.engineClass = 1;
+        setup.manifoldClass = 1;
+        setup.tireClass = 1;
+        setup.weightClass = 4;
+        setup.driverSkill = 130;
+
+        TrackData track = MakeFlatTrack();
+        RaceSim sim;
+        sim.Init(&track, 0, setup, setup, 0x1000u + static_cast<uint32_t>(s) * 7919u);
+        RunOutCountdown(sim);
+        for (int i = 0; i < 4000; ++i) {
+            sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
+            sim.Tick(PowerShift(sim));
+            if (sim.RaceOver()) break;
+        }
+        if (sim.Player().endFlags & END_TRANS_DROPPED) dropped++;
+    }
+    return dropped;
+}
+
+TEST_CASE("Power-shifting a manual above 5000 rpm drops the transmission") {
+    // PlayerCarPhysics 0x23c80a: manual, throttle held, rpm > 5000, then
+    // PRNG(3277) < transWear/100 + 100. Fresh that is ~3% a shift, so over a
+    // race with several power-shifts it lands often enough to be a real risk -
+    // this is what puts the "dropped your transmission, klutz" bubble on screen.
+    const int dropped = CountDroppedBoxes(2, 60);
+    CHECK(dropped > 0);
+    CHECK(dropped < 60);  // and not so likely that every race ends this way
+
+    // 0x23c7f8 skips the roll entirely on an automatic.
+    CHECK(CountDroppedBoxes(0, 60) == 0);
 }
 
 }  // namespace srrace
