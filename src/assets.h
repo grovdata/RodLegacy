@@ -129,8 +129,14 @@ public:
     // it, same as other DebugToggle usages.
     bool& GetDebugShowZoneOverlaysRef() { return debugShowZoneOverlays; }
 
+    // Hills hide the opponent instead of the original's clamp-to-the-ridge
+    // (Racing::DrawNpcCar). A deviation, so it is off by default and has no UI:
+    // set hill_occlusion=1 in config.txt.
+    bool& GetHillOcclusionRef() { return hillOcclusion; }
+
 private:
     bool debugShowZoneOverlays = false;
+    bool hillOcclusion = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

@@ -1325,7 +1325,25 @@ void Racing::DrawNpcCar(int lastVisible) {
         return;
     }
     // Ahead: centred, standing on the road, never above the horizon row.
-    y = std::max(rows[static_cast<size_t>(lastVisible)].y, y);
+    // Optional deviation (Options > Hill cover): rows past the crest are not
+    // drawn, so neither is what stands on them. rows[lastVisible] IS the
+    // silhouette - .seg is the last segment in view, .y the ridge scanline -
+    // so clipping the sprite to the sky above that line hides a car in the dip
+    // and brings it back roof-first. The lastVisible < kForwardRows-1 clause
+    // keeps flat road out of it: there the furthest row is the minimum, and the
+    // opponent can be further out than the 14-row table reaches.
+    const RowProjection& crest = rows[static_cast<size_t>(lastVisible)];
+    if (state != 0 && lastVisible < kForwardRows - 1 && npcSeg > crest.seg &&
+        ::state.GetAssets().GetHillOcclusionRef()) {   // local `state` is the view state
+        const int visible = crest.y - (y - src->h);
+        if (visible <= 0) {
+            return;
+        }
+        DrawNearestNeighborScaled(sprite, x - src->w / 2, y - src->h, src->w, visible,
+                                  false, false, 0, 0, src->w, visible);
+        return;
+    }
+    y = std::max(crest.y, y);
     if (state == 2) {
         y = std::min(y, kClipBottom);   // the nearest frame stops at the viewport floor
     }
