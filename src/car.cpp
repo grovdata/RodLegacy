@@ -256,10 +256,19 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // |distance from perfect|, which over the original's -8..+4 knob is just
     // |knob| - see car_system.h's kPerfectTuneLevel.
     setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - kPerfectTuneLevel), 0, 8);
-    setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 10000);
-    setup.engineWear = std::clamp(car.GetEngine().wear, 0, 10000);
-    setup.transWear = std::clamp(car.GetGearbox().wear, 0, 10000);
-    setup.tireWear = std::clamp(car.GetTires().wear, 0, 10000);
+    // Part::wear is RodLegacy's 0..100 percent (state.cpp divides the save
+    // file's raw value by 100 on load); the race sim works in the original's
+    // 0..10000, which is what every threshold in PlayerCarPhysics is written
+    // against - `divs.w #$3e8` for the redline hold limit, `cmpi.w #$26ac` for
+    // the wear blow, `divs.w #$64` for the money-shift odds. Passing the
+    // percentage straight through left all three effectively pinned at the
+    // healthiest end: 15 - wear/1000 was always 15, and neither 9,900 test
+    // could ever be reached. Scale it back up.
+    constexpr int kWearPercentToRaw = 100;
+    setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 100) * kWearPercentToRaw;
+    setup.engineWear = std::clamp(car.GetEngine().wear, 0, 100) * kWearPercentToRaw;
+    setup.transWear = std::clamp(car.GetGearbox().wear, 0, 100) * kWearPercentToRaw;
+    setup.tireWear = std::clamp(car.GetTires().wear, 0, 100) * kWearPercentToRaw;
 
     // A body that cannot take a mod at all scores as if the mod were done: the
     // original checks the model's sprite table and hands out the points when

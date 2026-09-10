@@ -118,6 +118,12 @@ void EngineSound::Stop() {
 void EngineSound::UpdateRPM(int16_t rpm) {
     currentRPM = rpm;
     currentFreqMultiplier = RPMToFrequencyMultiplier(rpm);
+    // Paula 11 at idle, 28 at the redline. Normalise against 28 rather than
+    // Paula's full 0..64 so the loudest point stays at the caller's level and
+    // only the ramp below it is added.
+    constexpr float kRedlinePaulaVolume = 28.0f;
+    const float v = static_cast<float>(RPMToPaulaVolume(rpm)) / kRedlinePaulaVolume;
+    rpmVolumeScale = std::min(1.0f, v);
 }
 
 void EngineSound::UpdatePeriod(int16_t period) {
@@ -181,8 +187,9 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
         filterStateL += lowpassAlpha * (leftSample - filterStateL);
         filterStateR += lowpassAlpha * (rightSample - filterStateR);
 
-        const int16_t left16 = static_cast<int16_t>(filterStateL * 256.0f * currentVolume);
-        const int16_t right16 = static_cast<int16_t>(filterStateR * 256.0f * currentVolume);
+        const float gain = 256.0f * currentVolume * rpmVolumeScale;
+        const int16_t left16 = static_cast<int16_t>(filterStateL * gain);
+        const int16_t right16 = static_cast<int16_t>(filterStateR * gain);
 
         if (channels >= 2) {
             output[frame * channels + 0] = left16;

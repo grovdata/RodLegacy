@@ -155,24 +155,41 @@ void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
     }
 }
 
-void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue) {
+// Both dials share one 82-entry table of needle endpoints, at 0x231e94 in the
+// Amiga binary: {x0, y0, x1, y1} signed byte offsets from the dial origin, inner
+// end first. The needle is not swept with trig - it is these precomputed lines,
+// which is why it is longer across the horizontal (out to 21px) than over the
+// top (14px) and why the sweep is 276.7 degrees, from down-left round to
+// down-right. The 240-degree constant-radius arc this replaces left the needle
+// around 60 degrees short of the stop at full scale.
+static const int8_t kNeedleLine[82][4] = {
+    { -2,  4,-10, 13}, { -3,  4,-11, 13}, { -3,  4,-12, 12}, { -3,  4,-13, 12}, { -3,  3,-14, 11}, { -3,  3,-15, 11},
+    { -3,  3,-16, 10}, { -4,  3,-17,  9}, { -4,  3,-18,  8}, { -4,  2,-19,  7}, { -4,  2,-19,  6}, { -4,  2,-20,  5},
+    { -4,  2,-20,  4}, { -4,  1,-21,  3}, { -4,  1,-21,  2}, { -4,  1,-21,  1}, { -4,  0,-21,  0}, { -4,  0,-21, -1},
+    { -4,  0,-21, -2}, { -4, -1,-20, -3}, { -4, -1,-20, -4}, { -4, -1,-19, -5}, { -4, -1,-19, -6}, { -4, -2,-18, -7},
+    { -4, -2,-17, -8}, { -3, -2,-16, -9}, { -3, -2,-15,-10}, { -3, -2,-14,-10}, { -3, -3,-13,-11}, { -3, -3,-12,-11},
+    { -3, -3,-11,-12}, { -2, -3,-10,-12}, { -2, -3, -9,-13}, { -2, -3, -8,-13}, { -2, -3, -7,-13}, { -1, -3, -6,-13},
+    { -1, -3, -5,-13}, { -1, -3, -4,-14}, { -1, -3, -3,-14}, {  0, -3, -2,-14}, {  0, -3, -1,-14}, {  0, -3,  0,-14},
+    {  0, -3,  1,-14}, {  0, -3,  2,-14}, {  1, -3,  3,-14}, {  1, -3,  4,-14}, {  1, -3,  5,-13}, {  1, -3,  6,-13},
+    {  2, -3,  7,-13}, {  2, -3,  8,-13}, {  2, -3,  9,-13}, {  2, -3, 10,-12}, {  3, -3, 11,-12}, {  3, -3, 12,-11},
+    {  3, -3, 13,-11}, {  3, -2, 14,-10}, {  3, -2, 15,-10}, {  3, -2, 16, -9}, {  4, -2, 17, -8}, {  4, -2, 18, -7},
+    {  4, -1, 19, -6}, {  4, -1, 19, -5}, {  4, -1, 20, -4}, {  4, -1, 20, -3}, {  4,  0, 21, -2}, {  4,  0, 21, -1},
+    {  4,  0, 21,  0}, {  4,  1, 21,  1}, {  4,  1, 21,  2}, {  4,  1, 21,  3}, {  4,  2, 20,  4}, {  4,  2, 20,  5},
+    {  4,  2, 19,  6}, {  4,  2, 19,  7}, {  4,  3, 18,  8}, {  4,  3, 17,  9}, {  3,  3, 16, 10}, {  3,  3, 15, 11},
+    {  3,  3, 14, 11}, {  3,  4, 13, 12}, {  3,  4, 12, 12}, {  3,  4, 11, 13},
+};
+
+// gaugeValue is the dial's own 0..130 input, not the raw rpm or mph - see the
+// two callers. 0x2316ec / 0x23178e clamp it, then index = value * 63 / 100.
+void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue) {
     if (!renderer) {
         return;
     }
-    constexpr int kNeedleRadius = 14;
-    constexpr int kCenterRadius = 5;
-    constexpr float kPi = 3.14159265358979323846f;
-    constexpr float kStartAngle = 240.0f * kPi / 180.0f;
-    constexpr float kSweepAngle = -240.0f * kPi / 180.0f;
-    float t = (value - minValue) / (maxValue - minValue);
-    t = std::max(0.0f, std::min(1.0f, t));
-    const float angle = kStartAngle + kSweepAngle * t;
-    const int startX = centerX + static_cast<int>(kCenterRadius * std::cos(angle));
-    const int startY = centerY - static_cast<int>(kCenterRadius * std::sin(angle));
-    const int endX = centerX + static_cast<int>(kNeedleRadius * std::cos(angle));
-    const int endY = centerY - static_cast<int>(kNeedleRadius * std::sin(angle));
+    const int clamped = std::max(0, std::min(130, gaugeValue));
+    const int8_t* e = kNeedleLine[clamped * 63 / 100];
     SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
-    SDL_RenderDrawLine(renderer, startX, startY, endX, endY);
+    SDL_RenderDrawLine(renderer, originX + e[0], originY + e[1],
+                                 originX + e[2], originY + e[3]);
 }
 
 void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
@@ -2236,11 +2253,19 @@ void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
     // so the needle spans 0..6000 rpm. It used to start at 1500 (idle), which put
     // the needle on the printed 0 while the engine idled and left every reading
     // 1500 rpm high - the redline band was impossible to judge against the dial.
-    DrawGaugeNeedle(renderer, 145, 129, static_cast<float>(sim.Player().rpm), 0.0f, 6000.0f);
+    // RoadRaceMainLoop 0x23633e feeds the dial `rpm / 43` (0x231ab0
+    // `divs.w #$2b`), and the dial clamps its input at 130. So full scale is
+    // 130 * 43 = 5590 rpm: the needle reaches the stop just BEFORE the 5700
+    // redline and sits pegged there. That is the visual over-rev warning, and
+    // the old 0..6000 span threw it away - at 5700 the needle was still 5% shy
+    // of the end, so being on the limiter looked like being near it.
+    DrawGaugeNeedle(renderer, 145, 129, sim.Player().rpm / 43);
 }
 
 void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
-    DrawGaugeNeedle(renderer, 196, 129, static_cast<float>(sim.Player().speed), 0.0f, 140.0f);
+    // 0x2361f4 passes the speed straight in; the dial clamps at 130 (0x2316ec
+    // `cmpi.w #$82`), so full scale is 130 mph, not the 140 used before.
+    DrawGaugeNeedle(renderer, 196, 129, sim.Player().speed);
 }
 
 SDL_Surface* Racing::GetSurface() {

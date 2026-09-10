@@ -180,7 +180,7 @@ private:
     int lastVisibleRow = -1;
 
     void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
-    void DrawGaugeNeedle(SDL_Renderer* renderer, int centerX, int centerY, float value, float minValue, float maxValue);
+    void DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue);
     void LoadSpriteBitmaps();
     void DrawRearviewMirror();
     void DrawSideMirror();
