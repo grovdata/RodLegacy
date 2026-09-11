@@ -31,6 +31,26 @@ public:
     // Update engine pitch directly using Amiga period (for car animations)
     void UpdatePeriod(int16_t period);
 
+    // Run the two voices at different Paula periods. 0x227de8 does this - the
+    // same loop on channels 0 and 1 at 3550 and 3650, so the copies drift
+    // through phase and sweep a comb filter, one full pass every ~18.5s.
+    //
+    // That routine is NOT the engine bay drone, which is the ordinary loop at
+    // period 600 (see EngineBay). It accompanies part mounting, and is toggled
+    // on and off around a single animated action rather than held - at period
+    // 3550 the loop repeats about twice a second, which is a brief low chug
+    // under an animation and pure boom if you sustain it.
+    // ponytail: unused until the part install/remove path wants it.
+    void UpdatePeriodPair(int16_t leftPeriod, int16_t rightPeriod);
+
+    // Swap the looped sample. The racing drone and the engine bay use different
+    // slices of srl0, so whoever starts a loop sets the one it wants.
+    void SetSample(const std::vector<int8_t>& sampleData);
+
+    static constexpr int16_t kPartMountPeriodLeft = 3550;
+    static constexpr int16_t kPartMountPeriodRight = 3650;
+    static constexpr int kPartMountPaulaVolume = 28;
+
     // Set volume (0.0-1.0)
     void SetVolume(float volume);
 
@@ -49,12 +69,38 @@ public:
     // (volume). So the period runs 594 at idle down to 462 at the redline,
     // which sits right beside the garage idle of 605.
     //
+    // The version above is the plain path. The one that actually runs during a
+    // live race is 0x2363ae, which has a second branch:
+    //
+    //     cmpi.w  #$157c, d0      ; rpm >= 5500 ?
+    //     bge.b   $2363d4
+    //     move.w  #$f0, d2        ; normal:   240 - rpm/32,  (rpm+14)/256
+    //     ...
+    // $2363d4:
+    //     move.w  #$b4, d2        ; over-rev: 180 - rpm/32,  (rpm+19)/256
+    //
+    // Crossing 5,500 drops the base from 240 to 180, so the period falls by 60
+    // in a single step and the drone jumps about 2.4 semitones with no ramp.
+    // THAT is the "engine is about to let go" warning: it arrives ~200 rpm
+    // before the 5,700 limiter, and lifting off drops back under 5,500 and
+    // takes it away. It is a discrete state, not the top of a ramp, which is
+    // why rescaling the ramp never produced it.
+    //
+    // Applied unconditionally here. The original picks this path over the plain
+    // one on A4+0x4b08, which is set at race init (0x2442ac) and cleared at
+    // teardown (0x23c5c0) and is only ever tst.b'd elsewhere - i.e. "a race is
+    // live". The scene drive-in/out cutscenes take the plain path, and they
+    // reach us through UpdateEnginePeriod with literal periods rather than
+    // through here, so they are unaffected.
+    //
     // This replaces a 17-entry period table that exists nowhere in the Amiga
     // binary, plus a velocity ladder that fed it. Header-inline so the SDL-free
     // unit tests can reach it.
+    static constexpr int kOverRevRpm = 5500;
+
     static int RPMToPeriod(int16_t rpm) {
         const int r = rpm > 0 ? static_cast<int>(rpm) : 0;
-        return 640 - r / 32;
+        return (r >= kOverRevRpm ? 580 : 640) - r / 32;
     }
 
     static float RPMToFrequencyMultiplier(int16_t rpm) {
@@ -62,11 +108,11 @@ public:
     }
 
     // Paula's own 0..64 volume: 11 at idle, 28 at the redline. The engine
-    // getting louder as it revs is half of the over-rev cue, and we had none
+    // getting louder as it revs is the other half of the cue, and we had none
     // of it - the drone played at one flat level whatever the rpm.
     static int RPMToPaulaVolume(int16_t rpm) {
         const int r = rpm > 0 ? static_cast<int>(rpm) : 0;
-        return (r + 14) / 256 + 6;
+        return (r + (r >= kOverRevRpm ? 19 : 14)) / 256 + 6;
     }
 
 private:
@@ -77,7 +123,8 @@ private:
 
     bool playing = false;
     int16_t currentRPM = 1500;
-    float currentFreqMultiplier = 1.0f;  // Current frequency multiplier (updated by RPM or period)
+    float currentFreqMultiplier = 1.0f;   // left voice (updated by RPM or period)
+    float currentFreqMultiplierR = 1.0f;  // right voice; equal unless a pair was set
     float currentVolume = 0.5f;
     // Rev-dependent gain, normalised so the redline (Paula 28) plays at the
     // volume the caller asked for and idle sits proportionally below it.

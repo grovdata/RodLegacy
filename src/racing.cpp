@@ -61,6 +61,42 @@ constexpr SDL_Color kArchColor = {180, 32, 32, 255};  // overhead gantry: red
 // RodLegacyResearch/docs/driving/roadside_sprite_table.md (all 20 records,
 // including loadHandle == lib.p id + 1 for each).
 constexpr size_t kSpriteScaleTableOffset = 0x28024;
+
+// The speedo and tacho share one table of needle endpoints: 82 entries of
+// {x0, y0, x1, y1} signed bytes, inner end first, relative to the dial origin.
+// Runtime address 0x231e94, which is the first thing in DATA_30 and lands at
+// file offset 0x12430 in Street_Rod. See docs/driving/gauges.md.
+//
+// The needle is not swept with trig in the original - these lines are why it
+// reaches 21px across the horizontal but only 14px over the top, and why the
+// sweep is 276.7 degrees rather than a tidy round number.
+constexpr size_t kNeedleTableOffset = 0x12430;
+constexpr size_t kNeedleTableEntries = 82;
+
+std::vector<NeedleLine> LoadNeedleTable(const byte_vector& exe) {
+    const size_t needed = kNeedleTableOffset + kNeedleTableEntries * 4;
+    if (exe.size() < needed) {
+        LOG_ERROR("LoadNeedleTable: Street_Rod exe too small (%zu < %zu)", exe.size(), needed);
+        return {};
+    }
+    std::vector<NeedleLine> table(kNeedleTableEntries);
+    for (size_t i = 0; i < kNeedleTableEntries; ++i) {
+        const uint8_t* e = exe.data() + kNeedleTableOffset + i * 4;
+        table[i] = {static_cast<int8_t>(e[0]), static_cast<int8_t>(e[1]),
+                    static_cast<int8_t>(e[2]), static_cast<int8_t>(e[3])};
+    }
+    // Cheap guard against reading the wrong build: entry 0 is the bottom-left
+    // stop and entry 81 its mirror, and no needle offset exceeds 24px.
+    const NeedleLine& lo = table.front();
+    const NeedleLine& hi = table.back();
+    if (lo.x0 != -2 || lo.y0 != 4 || lo.x1 != -10 || lo.y1 != 13 ||
+        hi.x0 != 3 || hi.y0 != 4 || hi.x1 != 11 || hi.y1 != 13) {
+        LOG_ERROR("LoadNeedleTable: unexpected needle data at 0x%zx - gauges disabled",
+                  kNeedleTableOffset);
+        return {};
+    }
+    return table;
+}
 constexpr size_t kSpriteScaleRecordSize = 0x36;
 constexpr int kSpriteScaleFrameCount = 11;
 
@@ -155,41 +191,17 @@ void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
     }
 }
 
-// Both dials share one 82-entry table of needle endpoints, at 0x231e94 in the
-// Amiga binary: {x0, y0, x1, y1} signed byte offsets from the dial origin, inner
-// end first. The needle is not swept with trig - it is these precomputed lines,
-// which is why it is longer across the horizontal (out to 21px) than over the
-// top (14px) and why the sweep is 276.7 degrees, from down-left round to
-// down-right. The 240-degree constant-radius arc this replaces left the needle
-// around 60 degrees short of the stop at full scale.
-static const int8_t kNeedleLine[82][4] = {
-    { -2,  4,-10, 13}, { -3,  4,-11, 13}, { -3,  4,-12, 12}, { -3,  4,-13, 12}, { -3,  3,-14, 11}, { -3,  3,-15, 11},
-    { -3,  3,-16, 10}, { -4,  3,-17,  9}, { -4,  3,-18,  8}, { -4,  2,-19,  7}, { -4,  2,-19,  6}, { -4,  2,-20,  5},
-    { -4,  2,-20,  4}, { -4,  1,-21,  3}, { -4,  1,-21,  2}, { -4,  1,-21,  1}, { -4,  0,-21,  0}, { -4,  0,-21, -1},
-    { -4,  0,-21, -2}, { -4, -1,-20, -3}, { -4, -1,-20, -4}, { -4, -1,-19, -5}, { -4, -1,-19, -6}, { -4, -2,-18, -7},
-    { -4, -2,-17, -8}, { -3, -2,-16, -9}, { -3, -2,-15,-10}, { -3, -2,-14,-10}, { -3, -3,-13,-11}, { -3, -3,-12,-11},
-    { -3, -3,-11,-12}, { -2, -3,-10,-12}, { -2, -3, -9,-13}, { -2, -3, -8,-13}, { -2, -3, -7,-13}, { -1, -3, -6,-13},
-    { -1, -3, -5,-13}, { -1, -3, -4,-14}, { -1, -3, -3,-14}, {  0, -3, -2,-14}, {  0, -3, -1,-14}, {  0, -3,  0,-14},
-    {  0, -3,  1,-14}, {  0, -3,  2,-14}, {  1, -3,  3,-14}, {  1, -3,  4,-14}, {  1, -3,  5,-13}, {  1, -3,  6,-13},
-    {  2, -3,  7,-13}, {  2, -3,  8,-13}, {  2, -3,  9,-13}, {  2, -3, 10,-12}, {  3, -3, 11,-12}, {  3, -3, 12,-11},
-    {  3, -3, 13,-11}, {  3, -2, 14,-10}, {  3, -2, 15,-10}, {  3, -2, 16, -9}, {  4, -2, 17, -8}, {  4, -2, 18, -7},
-    {  4, -1, 19, -6}, {  4, -1, 19, -5}, {  4, -1, 20, -4}, {  4, -1, 20, -3}, {  4,  0, 21, -2}, {  4,  0, 21, -1},
-    {  4,  0, 21,  0}, {  4,  1, 21,  1}, {  4,  1, 21,  2}, {  4,  1, 21,  3}, {  4,  2, 20,  4}, {  4,  2, 20,  5},
-    {  4,  2, 19,  6}, {  4,  2, 19,  7}, {  4,  3, 18,  8}, {  4,  3, 17,  9}, {  3,  3, 16, 10}, {  3,  3, 15, 11},
-    {  3,  3, 14, 11}, {  3,  4, 13, 12}, {  3,  4, 12, 12}, {  3,  4, 11, 13},
-};
-
 // gaugeValue is the dial's own 0..130 input, not the raw rpm or mph - see the
 // two callers. 0x2316ec / 0x23178e clamp it, then index = value * 63 / 100.
 void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue) {
-    if (!renderer) {
+    if (!renderer || needleLines.empty()) {
         return;
     }
     const int clamped = std::max(0, std::min(130, gaugeValue));
-    const int8_t* e = kNeedleLine[clamped * 63 / 100];
+    const NeedleLine& e = needleLines[static_cast<size_t>(clamped) * 63 / 100];
     SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
-    SDL_RenderDrawLine(renderer, originX + e[0], originY + e[1],
-                                 originX + e[2], originY + e[3]);
+    SDL_RenderDrawLine(renderer, originX + e.x0, originY + e.y0,
+                                 originX + e.x1, originY + e.y1);
 }
 
 void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
@@ -254,6 +266,7 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
 
 void Racing::LoadSpriteBitmaps() {
     spriteScale = LoadSpriteScaleTable(state.GetAssets().GetSrExeData());
+    needleLines = LoadNeedleTable(state.GetAssets().GetSrExeData());
     for (int slot = 0; slot < 20; ++slot) {
         // slot is the roadside_sprite_table record index (0 = palm); record N =
         // lib.p asset id 21 + N (see roadside_sprite_table.md).

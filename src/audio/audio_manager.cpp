@@ -292,6 +292,34 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
     }
 
+    // Engine bay drone - a long slice of the engine sample, looped on two
+    // voices at independently randomised periods (see StartEngineBayDrone).
+    if (size >= size_t{SRL0_BAY_IGNITION_OFFSET} + SRL0_BAY_IGNITION_LENGTH) {
+        AudioSample baySample;
+        LoadRawAudio(data + SRL0_BAY_IGNITION_OFFSET, SRL0_BAY_IGNITION_LENGTH, baySample,
+                     3579545u / SRL0_BAY_IGNITION_PERIOD_BASE);
+        baySample.isLooped = false;   // ioa_Cycles = 1 at 0x2281b4: plays once
+        baySample.loopStart = 0;
+        baySample.loopLength = 0;
+        samples[AudioSampleType::BAY_IGNITION] = baySample;
+        LOG_INFO("  - Engine bay drone: %u bytes (looped) from offset 0x%X",
+                SRL0_BAY_IGNITION_LENGTH, SRL0_BAY_IGNITION_OFFSET);
+    }
+
+    // Part mounting - the short sound the original re-pitches on every press
+    // (0x2287a8). The stored rate is the un-rolled base; callers override it.
+    if (size >= size_t{SRL0_PART_MOUNT_OFFSET} + SRL0_PART_MOUNT_LENGTH) {
+        AudioSample toolSample;
+        LoadRawAudio(data + SRL0_PART_MOUNT_OFFSET, SRL0_PART_MOUNT_LENGTH, toolSample,
+                     3579545u / SRL0_PART_MOUNT_PERIOD_BASE);
+        toolSample.isLooped = false;
+        toolSample.loopStart = 0;
+        toolSample.loopLength = 0;
+        samples[AudioSampleType::PART_MOUNT] = toolSample;
+        LOG_INFO("  - Part mount sound: %u bytes (one-shot) at period %u",
+                SRL0_PART_MOUNT_LENGTH, SRL0_PART_MOUNT_PERIOD_BASE);
+    }
+
     // Car jack sound - for raising/lowering car during tire change
     if (size >= SRL0_CAR_JACK_OFFSET + SRL0_CAR_JACK_LENGTH) {
         AudioSample carJackSample;
@@ -475,7 +503,7 @@ AudioSample* AudioManager::GetSample(AudioSampleType type) {
     return nullptr;
 }
 
-void AudioManager::PlaySound(AudioSampleType type, float volume) {
+void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateOverride) {
     // A missing sample or a dead device is a standing condition, and callers
     // retrigger sounds every few ticks, so report each of these once rather
     // than on every call.
@@ -503,7 +531,7 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
     // Create an audio stream to convert the sample to device format
     // One-shot device is 22050 Hz, stereo, 16-bit (see Initialize)
     SDL_AudioStream* stream = SDL_NewAudioStream(
-        AUDIO_S8, 1, static_cast<int>(sample.sampleRate),  // Source: signed 8-bit mono
+        AUDIO_S8, 1, sampleRateOverride > 0 ? sampleRateOverride : static_cast<int>(sample.sampleRate),
         AUDIO_S16SYS, 2, 22050                              // Dest: 16-bit stereo at 22050 Hz
     );
 
@@ -543,6 +571,10 @@ void AudioManager::PlaySound(AudioSampleType type, float volume) {
 
 int AudioManager::StartLoop(AudioSampleType type, float volume) {
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
+        // The bay swaps in its own, longer slice, so put the racing loop back.
+        if (AudioSample* loop = GetSample(AudioSampleType::ENGINE_LOOP)) {
+            engineSound->SetSample(loop->data);
+        }
         engineSound->SetVolume(volume * (sfxVolume_ / 10.0f));
         engineSound->Start();
         LOG_INFO("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
@@ -572,6 +604,40 @@ void AudioManager::UpdateEnginePeriod(int16_t period) {
         engineSound->UpdatePeriod(period);
     }
 }
+
+void AudioManager::PlayBayIgnition() {
+    // 0x22818e plays 6912 bytes of srl0 ONCE (ioa_Cycles = 1, against the
+    // racing drone's 0 = loop forever). Reading Copperline's live memory in the
+    // bay shows no channel playing it, so it is not the bay's engine sound -
+    // left here unhooked rather than guessed at again.
+}
+
+void AudioManager::StartEngineBayDrone(int tuneOffset) {
+    if (!engineSound) {
+        return;
+    }
+    SetEngineBayTune(tuneOffset);
+    StartLoop(AudioSampleType::ENGINE_LOOP, BayDroneVolume(tuneOffset) / 64.0f);
+}
+
+void AudioManager::SetEngineBayTune(int tuneOffset) {
+    if (!engineSound) {
+        return;
+    }
+    // All four channels meet at 670 at perfect tune, and the gap - so the
+    // phasing - widens with the mistune. The two directions use different
+    // multipliers (Retard 10/11, Advance 13/12), so advancing detunes faster.
+    // We render two voices rather than two pairs, so give one each.
+    const int left  = BayDronePeriodA(tuneOffset);
+    const int right = BayDronePeriodB(tuneOffset);
+    engineSound->UpdatePeriodPair(static_cast<int16_t>(left), static_cast<int16_t>(right));
+    engineSound->SetVolume((BayDroneVolume(tuneOffset) / 64.0f) * (sfxVolume_ / 10.0f));
+}
+
+void AudioManager::StopEngineBayDrone() {
+    StopLoop(0);
+}
+
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
     // not yet implemented

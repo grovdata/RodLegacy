@@ -33,6 +33,11 @@ private:
     std::unique_ptr<ListDialog> partsDialog;
     State* state;
     EngineBayState currentState;
+
+    // Engine bay drone (0x22818e), running while the tuning view is open. The
+    // periods live in libp.h; the two voices are rolled independently.
+    bool bayDronePlaying = false;
+    void UpdateBayDrone(bool wanted);
     int tuneLevel = 0;
     float engineSpeed = 0.0f;
 

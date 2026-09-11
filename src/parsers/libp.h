@@ -1227,6 +1227,84 @@ constexpr uint32_t SRL0_DEBRIS_LENGTH = 4782;  // Length in bytes
 constexpr uint32_t SRL0_DEBRIS_RATE = 11025;  // Sample rate in Hz
 // Duration: 0.434 seconds
 
+// Engine bay drone. 0x22818e plays 0x1b00 bytes from srl0 + 0x408 on channels
+// 0 and 1 at volume 0x24, rolling `320 + random % 50` SEPARATELY for each
+// channel - so left and right sit at slightly different rates, drift against
+// each other and phase, and the detune differs every time it is started. That
+// per-channel roll is the whole character of the sound; one shared period is
+// centred mono and sounds nothing like it.
+constexpr uint32_t SRL0_BAY_IGNITION_OFFSET = 0x0408;   // Offset in bytes
+constexpr uint32_t SRL0_BAY_IGNITION_LENGTH = 0x1B00;   // 6912 bytes
+constexpr uint16_t SRL0_BAY_IGNITION_PERIOD_BASE = 320;
+constexpr uint16_t SRL0_BAY_IGNITION_PERIOD_SPREAD = 50;
+constexpr int SRL0_BAY_IGNITION_VOLUME = 0x24;          // Paula 36
+
+// The engine bay drone, measured live in Copperline (period array at A4-0x44ec,
+// volume array at A4-0x44e4 - the arrays 0x22c32e / 0x22c326 write):
+//
+//   all four channels play srl0 + 0x1D8, length 512 - the racing loop
+//   at perfect tune ALL FOUR sit at period 670
+//   one knob press moves channels 0/1 by 10 and channels 2/3 by 11
+//
+// The two pairs are just two voices of the same engine, deliberately detuned
+// against each other. (They get started by the routines racing uses for the
+// player's car and the opponent's - 0x227c2e on channels 0/1 at volume 20 and
+// 0x227d1c on 2/3 at volume 30 - but there is no second car in the bay, so do
+// not read anything into those names.)
+//
+// That one-step difference is the whole effect: at perfect tune the pairs are
+// identical and there is no phasing at all, and every step away widens the
+// split by one period, so the beating gets faster the worse the tune is. Paula
+// puts channels 0+3 left and 1+2 right, so the split is heard as a stereo
+// sweep rather than a simple beat.
+//
+// Sweeping the knob end to end gave pair A 618..761 against pair B 622..758.
+//
+// The two buttons are NOT symmetric - 0x241972 / 0x2419fa / 0x241a56 share one
+// function and pick their multipliers per branch, against the tune byte at
+// car+0x2b (clamped -8..+4):
+//
+//   Retard   subq.b #1  clamp $f8 (-8)   muls #10 (ch 0/1) / #11 (ch 2/3)
+//   Advance  addq.b #1  clamp #4         muls #13 (ch 0/1) / #12 (ch 2/3)
+//
+// so period = centre - tune*step, and advancing detunes faster than retarding.
+//
+// And perfect tune is marked twice over: 0x241a1a `tst.b $2b(a3)` picks volume
+// 16 when the tune byte is zero and 25 otherwise, so the drone goes quiet as
+// well as clean at centre.
+constexpr uint16_t SRL0_BAY_DRONE_PERIOD_CENTRE = 670;
+constexpr int SRL0_BAY_DRONE_STEP_A_RETARD  = 10;  // channels 0/1, tune < 0
+constexpr int SRL0_BAY_DRONE_STEP_B_RETARD  = 11;  // channels 2/3, tune < 0
+constexpr int SRL0_BAY_DRONE_STEP_A_ADVANCE = 13;  // channels 0/1, tune > 0
+constexpr int SRL0_BAY_DRONE_STEP_B_ADVANCE = 12;  // channels 2/3, tune > 0
+constexpr int SRL0_BAY_DRONE_VOLUME = 25;          // Paula, off centre
+constexpr int SRL0_BAY_DRONE_VOLUME_TUNED = 16;    // Paula, at perfect tune
+
+// period = centre - tune*step, matching `sub.w d0,d1` at 0x241a18 / 0x241a3c.
+// Advancing therefore SHORTENS the period (higher pitch) and retarding
+// lengthens it (lower pitch) - the sign was inverted here at first, which made
+// retarding speed the engine up.
+inline int BayDronePeriodA(int tuneOffset) {
+    return SRL0_BAY_DRONE_PERIOD_CENTRE - tuneOffset *
+        (tuneOffset > 0 ? SRL0_BAY_DRONE_STEP_A_ADVANCE : SRL0_BAY_DRONE_STEP_A_RETARD);
+}
+inline int BayDronePeriodB(int tuneOffset) {
+    return SRL0_BAY_DRONE_PERIOD_CENTRE - tuneOffset *
+        (tuneOffset > 0 ? SRL0_BAY_DRONE_STEP_B_ADVANCE : SRL0_BAY_DRONE_STEP_B_RETARD);
+}
+inline int BayDroneVolume(int tuneOffset) {
+    return tuneOffset == 0 ? SRL0_BAY_DRONE_VOLUME_TUNED : SRL0_BAY_DRONE_VOLUME;
+}
+
+// Part-mounting sound effect. 0x2287a8 plays 0x320 bytes from srl0 + 0x5dc8 on
+// channels 1 and 3 at `param + 0xdc`, and the two callers roll the param as
+// `random % 50 + 400` (volume 60) and `random % 50 + 600` (volume 40). So the
+// period lands in 620..669 or 820..869 - a fresh pitch on every use.
+constexpr uint32_t SRL0_PART_MOUNT_OFFSET = 0x5DC8;   // Offset in bytes
+constexpr uint32_t SRL0_PART_MOUNT_LENGTH = 0x0320;   // 800 bytes
+constexpr uint16_t SRL0_PART_MOUNT_PERIOD_BASE = 620; // 400 + 0xdc, before the roll
+constexpr uint16_t SRL0_PART_MOUNT_PERIOD_SPREAD = 50;
+
 constexpr uint32_t SRL0_CAR_JACK_OFFSET = 0x5DCA;  // Offset in bytes
 constexpr uint32_t SRL0_CAR_JACK_LENGTH = 3972;  // Length in bytes
 constexpr uint32_t SRL0_CAR_JACK_RATE = 11025;  // Sample rate in Hz

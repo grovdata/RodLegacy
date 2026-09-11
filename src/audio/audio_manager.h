@@ -24,6 +24,8 @@ enum class AudioSampleType {
     COP_SIREN,         // Police siren (srl0.wave)
     CAR_BASH,          // Car bash/impact sound (srl0.wave)
     CAR_JACK,          // Car jack sound (srl0.wave)
+    BAY_IGNITION,          // Engine bay engine sound (srl0.wave 0x408, 6912 bytes, looped)
+    PART_MOUNT,         // Part mounted into engine, re-pitched per use (srl0.wave 0x5DC8, 800 bytes)
     MUSIC_TONE,        // Music samples (srl1.wave)
     MUSIC_BASS,
     MUSIC_BASSDRUM,
@@ -74,8 +76,9 @@ public:
     // Get a loaded sample by type
     AudioSample* GetSample(AudioSampleType type);
 
-    // Play a one-shot sound effect
-    void PlaySound(AudioSampleType type, float volume = 1.0f);
+    // Play a one-shot sound effect. sampleRateOverride replaces the sample's own
+    // rate for this one call, for the effects the original re-pitches per shot.
+    void PlaySound(AudioSampleType type, float volume = 1.0f, int sampleRateOverride = 0);
 
     // Start looping sound (returns channel ID)
     int StartLoop(AudioSampleType type, float volume = 1.0f);
@@ -86,6 +89,13 @@ public:
     // Update engine sound pitch based on RPM
     void UpdateEnginePitch(int16_t rpm);
     void UpdateEnginePeriod(int16_t period);  // For car animations using Amiga periods
+
+    // Engine bay: the ignition plays once, then the idle drone loops.
+    void PlayBayIgnition();     // one-shot, re-pitched
+    // tuneOffset is knob position minus perfect; 0 means no detune, no phasing.
+    void StartEngineBayDrone(int tuneOffset);
+    void SetEngineBayTune(int tuneOffset);
+    void StopEngineBayDrone();
 
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);

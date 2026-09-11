@@ -1,5 +1,6 @@
 #include "state.h"
 #include "engine_bay.h"
+#include <cstdlib>
 #include "engine_bay_layout.h"
 #include "animated_bitmap.h"
 
@@ -479,20 +480,49 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 }
 
 EngineBay::~EngineBay() {
-    // Don't delete dialogs - they're owned by the Garage class
+    // Don't delete dialogs - they're owned by the Garage class.
+    // Do stop the drone, or it outlives the screen.
+    UpdateBayDrone(false);
+}
+
+// 0x00233c10's opening sequence: play the ignition once (0x22818e, 6912 bytes
+// of srl0, ioa_Cycles = 1), wait Delay(32) for it to finish, then hold the
+// ordinary engine loop as the idle. Re-rolls the idle's small period wobble
+// whenever the tune level moves.
+void EngineBay::UpdateBayDrone(bool wanted) {
+    AudioManager* audio = state ? state->GetAssets().GetAudioManager() : nullptr;
+    if (!audio) {
+        return;
+    }
+    if (!wanted) {
+        if (bayDronePlaying) {
+            audio->StopEngineBayDrone();
+            bayDronePlaying = false;
+        }
+        return;
+    }
+    const int off = tuneLevel - kPerfectTuneLevel;
+    if (bayDronePlaying) {
+        audio->SetEngineBayTune(off);
+    } else {
+        audio->StartEngineBayDrone(off);
+        bayDronePlaying = true;
+    }
 }
 
 void EngineBay::SwitchToState(EngineBayState newState) {
     if (currentState == newState) {
         return; // Already in this state
     }
-    
+
     LOG_INFO("EngineBay::SwitchToState: %d -> %d", currentState, newState);
     currentState = newState;
+    UpdateBayDrone(currentState == ENGINE_BAY_TUNING);
 }
 
 void EngineBay::ResetToOverview() {
     currentState = ENGINE_BAY_OVERVIEW;
+    UpdateBayDrone(false);
     LOG_INFO("EngineBay::ResetToOverview: Reset to overview state");
 }
 
@@ -653,7 +683,15 @@ void EngineBay::RefreshPartsForCurrentCar() {
 void EngineBay::SetKnobPosition(int level) {
     if (level < 0) level = 0;
     if (level > 12) level = 12;
-    
+
+    // Re-roll the drone's jitter on a real change, which is what makes the
+    // engine note shift as you work the knobs. Hooked here rather than in the
+    // button callback because Retard/Advance exist both as invisible buttons
+    // and as zones, so a click can arrive by either route.
+    if (level != tuneLevel) {
+        UpdateBayDrone(true);
+    }
+
     tuneLevel = level;
     engineSpeed = level * 0.0625f;
 

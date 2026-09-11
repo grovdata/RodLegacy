@@ -45,6 +45,11 @@ inline constexpr SideMirrorRow kSideMirrorGlass[] = {
 };
 inline constexpr int kSideMirrorRows = static_cast<int>(std::size(kSideMirrorGlass));
 
+// One entry of the shared speedo/tacho needle table in Street_Rod: the two
+// endpoints of the drawn line, inner end first, as offsets from the dial
+// origin. Read at race start, not baked in - see LoadNeedleTable.
+struct NeedleLine { int8_t x0, y0, x1, y1; };
+
 enum class RaceOutcome {
     Ongoing,
     PlayerWon,
@@ -178,6 +183,9 @@ private:
     int16_t flybyLateral = 2560;
     bool opponentActiveBeforeFlyby = false;
     int lastVisibleRow = -1;
+
+    // Needle endpoints for both dials, read out of Street_Rod at race start.
+    std::vector<NeedleLine> needleLines;
 
     void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
     void DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue);

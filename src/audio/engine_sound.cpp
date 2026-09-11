@@ -9,15 +9,22 @@
 // are confirmed against the binary - they are ear-matched, so expect to nudge
 // them.
 //
-// kLowpassHz: stands in for Paula's output RC filter. The A500's fixed filter
-// is around 4.4 kHz, but that is much brighter than what the game actually
-// sounds like, and bright reads as "higher pitched" even at an identical
-// fundamental. 700 Hz reproduces the long-standing hand-tuned value.
+// kLowpassHz: stands in for Paula's output RC filter, whose fixed stage on an
+// A500 is around 4.4 kHz.
+//
+// This sat at 700 Hz for a while, because 4.4 kHz was tried once and judged too
+// bright. That test was confounded: at the time the race period was 258 instead
+// of 594, so the drone was running about fifteen semitones sharp and the extra
+// harmonics made an already-wrong pitch sound worse. With the period fixed, the
+// 700 Hz corner is the problem instead - the engine tone is only 140 Hz at idle
+// and 180 Hz at the redline, so a 700 Hz roof leaves about five harmonics and
+// the rev change happens in a dull hum you have to strain to hear. Paula's real
+// corner keeps roughly thirty, which is what makes the revs obvious.
 //
 // kStereoOffsetFraction: the engine loop runs on two Paula channels, one
 // panned left and one right. Playing both from the same position is just mono;
 // offsetting the right voice within the loop is what gives the drone width.
-static constexpr float kLowpassHz = 700.0f;
+static constexpr float kLowpassHz = 4400.0f;
 static constexpr float kStereoOffsetFraction = 0.25f;
 
 EngineSound::EngineSound() {
@@ -118,6 +125,9 @@ void EngineSound::Stop() {
 void EngineSound::UpdateRPM(int16_t rpm) {
     currentRPM = rpm;
     currentFreqMultiplier = RPMToFrequencyMultiplier(rpm);
+    // Racing runs both player voices at one period (0x227c8c writes the same
+    // value to channels 0 and 1); only the bay detunes them.
+    currentFreqMultiplierR = currentFreqMultiplier;
     // Paula 11 at idle, 28 at the redline. Normalise against 28 rather than
     // Paula's full 0..64 so the loudest point stays at the caller's level and
     // only the ramp below it is added.
@@ -135,8 +145,32 @@ void EngineSound::UpdatePeriod(int16_t period) {
     // The period argument gets `addi.w #$190` = +400 instead, and callers here
     // already pass final periods.
     float frequency = 3579545.0f / static_cast<float>(period);
+    // Callers on this path (garage, diner, gas station) set an absolute level,
+    // so clear any rev-dependent gain left over from a race - otherwise the
+    // scene drone inherits the quiet end of the racing ramp.
+    rpmVolumeScale = 1.0f;
+    currentFreqMultiplierR = frequency / 16000.0f;
     currentFreqMultiplier = frequency / 16000.0f;
     // LOG_INFO("EngineSound::UpdatePeriod - period=%d, freq=%.1f Hz, mult=%.3f", period, frequency, currentFreqMultiplier);
+}
+
+void EngineSound::SetSample(const std::vector<int8_t>& sampleData) {
+    if (sampleData.empty() || sampleData == baseSample) {
+        return;
+    }
+    baseSample = sampleData;
+    // Restart both voices inside the new sample rather than leaving positions
+    // that may be past its end.
+    samplePositionL = 0.0f;
+    samplePositionR = 0.0f;
+}
+
+void EngineSound::UpdatePeriodPair(int16_t leftPeriod, int16_t rightPeriod) {
+    if (leftPeriod <= 0 || rightPeriod <= 0) return;
+    currentFreqMultiplier  = (3579545.0f / static_cast<float>(leftPeriod)) / 16000.0f;
+    currentFreqMultiplierR = (3579545.0f / static_cast<float>(rightPeriod)) / 16000.0f;
+    // The bay runs at Paula 28, the same level the rev ramp treats as full.
+    rpmVolumeScale = 1.0f;
 }
 
 void EngineSound::SetVolume(float volume) {
@@ -162,7 +196,10 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
     // Sample step accounts for:
     // - The pitch multiplier (set by UpdateRPM or UpdatePeriod)
     // - The ratio between sample rate (16000 Hz) and device rate (22050 Hz)
-    float sampleStep = currentFreqMultiplier * (16000.0f / audioSpec.freq);
+    // One step per voice: equal everywhere except the engine bay, which detunes
+    // them so the two copies drift through phase and sweep a comb filter.
+    const float sampleStepL = currentFreqMultiplier * (16000.0f / audioSpec.freq);
+    const float sampleStepR = currentFreqMultiplierR * (16000.0f / audioSpec.freq);
 
     const float sampleCount = static_cast<float>(baseSample.size());
     auto sampleAt = [&](float pos) -> float {
@@ -202,8 +239,8 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
         }
 
         // Advance through sample with pitch shifting.
-        samplePositionL += sampleStep;
-        samplePositionR += sampleStep;
+        samplePositionL += sampleStepL;
+        samplePositionR += sampleStepR;
         if (samplePositionL >= sampleCount) {
             samplePositionL = std::fmod(samplePositionL, sampleCount);
         }
