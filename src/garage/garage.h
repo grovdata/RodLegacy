@@ -172,6 +172,9 @@ class Garage : public CarScene {
     void OnEngineBayZoneClicked(Zone& zone);
     void UpdateEngineBayInstallAnimation(double deltaTime);
     void OnEngineBayScrewClicked(int screwIndex);
+    // seating = the part dropping into its mount (low, loud); otherwise a
+    // screw being turned (high, quieter). Re-pitched on every use.
+    void PlayBayToolSound(bool seating);
     void UpdateEngineBayScrewVisual(int screwIndex);
     void ApplyEngineBayScrewGeometry(int screwIndex, int bottomY);
     void StartEngineBayScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);

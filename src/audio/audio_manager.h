@@ -97,6 +97,10 @@ public:
     void SetEngineBayTune(int tuneOffset);
     void StopEngineBayDrone();
 
+    // Gas station: the pump chugs for as long as fuel is going in.
+    void StartGasPumpLoop();
+    void StopGasPumpLoop();
+
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);
 

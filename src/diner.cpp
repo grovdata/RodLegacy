@@ -460,6 +460,7 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     hoodPopped = false;
     exitingCar = false;
     debugWaitTimer = 0;
+    exitCrankTimer = -1.0;
     engineSoundStarted = false;
     LOG_INFO("Diner::StartAnimateCar - Reset state: exitingCar=0, debugWaitTimer=0, engineSoundStarted=0");
 
@@ -605,17 +606,31 @@ void Diner::UpdateCarAnimation(double deltaTime) {
 
     // Debug and fix the wait timer for OPPONENT_CONTINUOUS
     if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && !exitingCar && carBitmap) {
-        debugWaitTimer += deltaTime;
+        if (exitCrankTimer >= 0.0) {
+            // Cranking. The car stays put until the starter sample has run, the
+            // same order CarScene uses for the player reversing out - a car
+            // that pulls away silently and then starts its engine is backwards.
+            exitCrankTimer += deltaTime;
+            if (exitCrankTimer >= CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE)) {
+                exitCrankTimer = -1.0;
+                exitingCar = true;
+            }
+        } else {
+            debugWaitTimer += deltaTime;
 
-        // Hold the timer while a challenge dialog is in progress
-        if (!CanStartCarExit()) {
-            debugWaitTimer = 0;
-        }
-        // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
-        else if (debugWaitTimer >= 3.0) {
-            LOG_DEBUG("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
-            exitingCar = true;
-            debugWaitTimer = 0;  // Reset for next cycle
+            // Hold the timer while a challenge dialog is in progress
+            if (!CanStartCarExit()) {
+                debugWaitTimer = 0;
+            }
+            // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
+            else if (debugWaitTimer >= 3.0) {
+                LOG_DEBUG("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
+                }
+                exitCrankTimer = 0.0;
+                debugWaitTimer = 0;  // Reset for next cycle
+            }
         }
     } else if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && exitingCar && carBitmap) {
         // Log when we're in exit state

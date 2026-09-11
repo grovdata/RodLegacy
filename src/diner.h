@@ -81,6 +81,9 @@ class Diner: public CarScene {
     static constexpr float ROLL_SECONDS = 1.0f;
     bool engineSoundStarted = false;
     double debugWaitTimer = 0.0;
+    // >= 0 while the leaving car is cranking; it holds still until the
+    // starter sample has run. -1 = not cranking.
+    double exitCrankTimer = -1.0;
 
     std::unique_ptr<ListDialog> callListDialog;
     void ShowCallListDialog();

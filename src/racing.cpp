@@ -2097,23 +2097,16 @@ void Racing::HandleOutcomeAfterTicks() {
             crashHandled = true;
             if (sim.PlayerWrecked()) {
                 bShowCrashOverlay = true;
-            }
-            // A blown engine takes the whole assembly with it. The original's
-            // StripAllDrivetrain nulls all five part pointers on the car
-            // struct (engine, manifold, carb 0-2), takes their value back off
-            // the car and zeroes the six engine bay screws - see
-            // ProcessRaceOutcome's `bVar5` branch and
-            // RodLegacyResearch/docs/garage/engine_bay_layout.md. Nothing is
-            // salvaged, so the car has to be rebuilt from bought parts.
-            // A dropped transmission is the same routine one branch over
-            // (StripTransmission), clearing the single pointer at car+0x06.
-            if (Car* car = state.GetCurrentCar()) {
-                if (sim.Player().endFlags & srrace::END_ENGINE_BLOWN) {
-                    car->StripEngineAssembly();
-                } else if (sim.Player().endFlags & srrace::END_TRANS_DROPPED) {
-                    car->RemoveGearbox();
+                // The wreck itself. Same srl0 slice the sideswipe bash uses,
+                // but the whole 0x254c of it - the original stacks it on all
+                // four channels at 0x2284a8, we play the one low voice.
+                if (audioManager) {
+                    audioManager->PlaySound(AudioSampleType::CRASH);
                 }
             }
+            // The drivetrain damage itself is applied by Driving, with the
+            // rest of the outcome (bankroll, fuel, reputation, scrap) - see
+            // Driving::ApplyDrivetrainDamage.
         }
         raceOutcome = RaceOutcome::PlayerLost;
         return;
@@ -2177,7 +2170,11 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             // Side-swiping the opponent bashes metal (original plays the impact
             // sound three times as the player is shoved clear).
             if (sim.ConsumeNpcBump() && audioManager) {
-                audioManager->PlaySound(AudioSampleType::CAR_BASH);
+                // 0x22854e rolls `random % 40 + 310` per shot, so no two hits
+                // ring the same.
+                const int period = SRL0_CAR_BASH_PERIOD_BASE +
+                                   (std::rand() % SRL0_CAR_BASH_PERIOD_SPREAD);
+                audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f, 3579545 / period);
             }
 
             // The cop has taken over the opponent slot, so swap the opponent's

@@ -292,6 +292,23 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
     }
 
+    // The wreck. Same sample start as the bash, but the whole 0x254c of it -
+    // the original lays it across all four channels at once at four fixed
+    // periods (0x2284a8). We play one voice, at the lowest of the four, so it
+    // reads as the same longer, deeper version of the bash rather than a
+    // second copy of it.
+    if (size >= size_t{SRL0_CRASH_OFFSET} + SRL0_CRASH_LENGTH) {
+        AudioSample crashSample;
+        LoadRawAudio(data + SRL0_CRASH_OFFSET, SRL0_CRASH_LENGTH, crashSample,
+                     3579545u / SRL0_CRASH_PERIODS[3]);
+        crashSample.isLooped = false;
+        crashSample.loopStart = 0;
+        crashSample.loopLength = 0;
+        samples[AudioSampleType::CRASH] = crashSample;
+        LOG_INFO("  - Crash sound: %u bytes (one-shot) at period %u",
+                SRL0_CRASH_LENGTH, SRL0_CRASH_PERIODS[3]);
+    }
+
     // Engine bay drone - a long slice of the engine sample, looped on two
     // voices at independently randomised periods (see StartEngineBayDrone).
     if (size >= size_t{SRL0_BAY_IGNITION_OFFSET} + SRL0_BAY_IGNITION_LENGTH) {
@@ -635,6 +652,23 @@ void AudioManager::SetEngineBayTune(int tuneOffset) {
 }
 
 void AudioManager::StopEngineBayDrone() {
+    StopLoop(0);
+}
+
+// The pump. GasStationPumpLoop runs 0x227e6e for as long as fuel is going in:
+// the racing loop at periods 2850 and 1850, which is far too slow to be an
+// engine note - it comes out as a slow mechanical chug. Same two-voice
+// EngineSound the bay drone borrows, so starting this stops that and vice versa.
+void AudioManager::StartGasPumpLoop() {
+    if (!engineSound) {
+        return;
+    }
+    engineSound->UpdatePeriodPair(SRL0_GAS_PUMP_PERIOD_LEFT, SRL0_GAS_PUMP_PERIOD_RIGHT);
+    StartLoop(AudioSampleType::ENGINE_LOOP, SRL0_GAS_PUMP_VOLUME / 64.0f);
+    engineSound->UpdatePeriodPair(SRL0_GAS_PUMP_PERIOD_LEFT, SRL0_GAS_PUMP_PERIOD_RIGHT);
+}
+
+void AudioManager::StopGasPumpLoop() {
     StopLoop(0);
 }
 

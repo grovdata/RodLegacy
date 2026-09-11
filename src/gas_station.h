@@ -94,6 +94,9 @@ class GasStation : public CarScene {
     // GasPumpDisplayBlink modes 1 and 3: start (counter cleared) and stop.
     void StartPumpDisplay();
     void StopPumpDisplay();
+    // The pump's own chug, on for exactly as long as fuel is moving.
+    bool pumpSoundOn = false;
+    void SetPumpSound(bool on);
     void ShowPumpMessage(const std::string& text);
 
    public:

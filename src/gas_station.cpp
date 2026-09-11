@@ -66,6 +66,7 @@ GasStation::GasStation()
             // Handle back on the pump: cap closes, asset 307 overlay hides.
             sceneState = GAS_STATION_IDLE;
             StopPumpDisplay();
+            SetPumpSound(false);
             carBitmap->SetGasCapRemoved(false);
             if (pumpFilling) pumpFilling->SetVisible(false);
             if (pumpNoHandle) pumpNoHandle->SetVisible(false);
@@ -345,6 +346,7 @@ void GasStation::UpdatePumping(double deltaTime) {
             }
 
             if (pumpFilling) pumpFilling->SetVisible(true);
+            SetPumpSound(true);
 
             loopTimer += deltaTime;
             if (loopTimer < LOOP_ITERATION_SEC) return;
@@ -369,6 +371,7 @@ void GasStation::UpdatePumping(double deltaTime) {
                 // Tank full or out of money
                 sceneState = GAS_STATION_IDLE;
                 StopPumpDisplay();
+                SetPumpSound(false);
                 carBitmap->SetGasCapRemoved(false);
                 if (pumpFilling) pumpFilling->SetVisible(false);
                 if (pumpNoHandle) pumpNoHandle->SetVisible(false);  // handle back on the pump
@@ -377,6 +380,16 @@ void GasStation::UpdatePumping(double deltaTime) {
             }
             break;
         }
+    }
+}
+
+void GasStation::SetPumpSound(bool on) {
+    if (on == pumpSoundOn || !audioManager) return;
+    pumpSoundOn = on;
+    if (on) {
+        audioManager->StartGasPumpLoop();
+    } else {
+        audioManager->StopGasPumpLoop();
     }
 }
 
@@ -536,6 +549,7 @@ void GasStation::OnSceneExit() {
     leaveTimer = -1.0;
     pricePerTick = 1;
     hasPumpedAnyFuel = false;
+    SetPumpSound(false);
     StartPumpDisplay();
     waitingForAttendant = false;
 

@@ -20,6 +20,18 @@ static constexpr float kScrewFallDuration = 0.35f;
 static constexpr float kSlideUpDuration = 1.1f;
 static constexpr float kSlideRightDuration = 0.4f;
 
+// The bay's tool sound (0x2287a8 - srl0 + 0x5dc8, 800 bytes). Its two callers
+// roll different bands: `random % 50 + 400` at volume 60 and `random % 50 +
+// 600` at volume 40, both +0xdc. A fresh pitch every time, never the same
+// twice. See RodLegacyResearch/docs/audio.md, "The part-mount tool sound".
+void Garage::PlayBayToolSound(bool seating) {
+    if (!audioManager) return;
+    const int period = (seating ? SRL0_PART_MOUNT_PERIOD_BASE : SRL0_PART_MOUNT_PERIOD_HIGH) +
+                       (std::rand() % SRL0_PART_MOUNT_PERIOD_SPREAD);
+    const int volume = seating ? SRL0_PART_MOUNT_VOLUME_LOW : SRL0_PART_MOUNT_VOLUME_HIGH;
+    audioManager->PlaySound(AudioSampleType::PART_MOUNT, volume / 64.0f, 3579545 / period);
+}
+
 // screwIndex 0=engine, 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
 static EngineBaySlot ScrewSlot(int screwIndex) {
     if (screwIndex == 0) return EngineBaySlot::ENGINE;
@@ -249,6 +261,7 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
     if (engineBaySlotPhase[slotIdx] == PartInstallPhase::UNSCREWING) {
         if (engineBayScrewState[screwIndex] < 2) engineBayScrewState[screwIndex]++;
         UpdateEngineBayScrewVisual(screwIndex);
+        PlayBayToolSound(false);
         if (engineBayScrewState[screwIndex] == 2) {
             StartEngineBayScrewFall(screwIndex, /*fallingOut=*/true);
         }
@@ -257,6 +270,7 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN) {
         if (engineBayScrewState[screwIndex] > 0) engineBayScrewState[screwIndex]--;
         UpdateEngineBayScrewVisual(screwIndex);
+        PlayBayToolSound(false);
 
         if (IsEngineBaySlotFullySeated(slot)) {
             CommitEngineBaySwap(slot);
@@ -535,6 +549,8 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
                 continue;
             }
 
+            // The part is home: the low, loud roll of the tool sound.
+            PlayBayToolSound(true);
             engineBaySlotPhase[idx] = PartInstallPhase::SCREWING_IN;
             int first = SlotFirstScrew(slot);
             int count = SlotScrewCount(slot);

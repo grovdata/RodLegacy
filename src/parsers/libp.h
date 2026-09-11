@@ -1217,10 +1217,27 @@ constexpr uint32_t SRL0_HONK_LENGTH = 1718;  // Length in bytes
 constexpr uint32_t SRL0_HONK_RATE = 11025;  // Sample rate in Hz
 // Duration: 0.156 seconds
 
-constexpr uint32_t SRL0_CAR_BASH_OFFSET = 0x3877;  // Offset in bytes
-constexpr uint32_t SRL0_CAR_BASH_LENGTH = 4773;  // Length in bytes
-constexpr uint32_t SRL0_CAR_BASH_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.433 seconds
+// Impact. CONFIRMED from the binary (0x22854e, reached from the sideswipe block
+// in RaceLogicUpdate at 0x244fb0/0x244fb4/0x244fe8 - the three hits the player
+// gets shoved with): srl0 + 0x3888, 0x1010 bytes, period `random % 40 + 310`
+// rolled per channel, volume 0x34, on channels 2 and 3, played once.
+// The 0x3877/4773/11025 recorded here before was ear-tuned, not read off the
+// binary, and sat 17 bytes early into the sample.
+constexpr uint32_t SRL0_CAR_BASH_OFFSET = 0x3888;
+constexpr uint32_t SRL0_CAR_BASH_LENGTH = 0x1010;  // 4112 bytes
+constexpr uint16_t SRL0_CAR_BASH_PERIOD_BASE = 310;
+constexpr uint16_t SRL0_CAR_BASH_PERIOD_SPREAD = 40;
+constexpr int SRL0_CAR_BASH_VOLUME = 0x34;         // Paula 52
+constexpr uint32_t SRL0_CAR_BASH_RATE = 3579545u / SRL0_CAR_BASH_PERIOD_BASE;
+
+// The full wreck. Same sample start, but the whole 0x254c of it on ALL FOUR
+// channels at four fixed periods at once (0x2284a8, reached from the race
+// outcome screen at 0x245240) - a four-voice chord, not a single bang. The
+// bash above is just the head of this sample.
+constexpr uint32_t SRL0_CRASH_OFFSET = 0x3888;
+constexpr uint32_t SRL0_CRASH_LENGTH = 0x254c;     // 9548 bytes
+constexpr uint16_t SRL0_CRASH_PERIODS[4] = {280, 340, 390, 480};
+constexpr int SRL0_CRASH_VOLUME = 0x40;            // Paula 64
 
 constexpr uint32_t SRL0_DEBRIS_OFFSET = 0x4B1C;  // Offset in bytes
 constexpr uint32_t SRL0_DEBRIS_LENGTH = 4782;  // Length in bytes
@@ -1300,10 +1317,24 @@ inline int BayDroneVolume(int tuneOffset) {
 // channels 1 and 3 at `param + 0xdc`, and the two callers roll the param as
 // `random % 50 + 400` (volume 60) and `random % 50 + 600` (volume 40). So the
 // period lands in 620..669 or 820..869 - a fresh pitch on every use.
+// Gas pump. CONFIRMED: 0x227e6e, reached from GasStationPumpLoop (0x246212)
+// through its module thunk at 0x246836 and the on/off wrapper 0x22e19e - the
+// "no findable callers" note in docs/audio.md is now settled. Four looping
+// voices: the racing loop (srl0 + 0x1d8, 0x200 bytes) at periods 2850 and 1850
+// at volume 0x19, plus srl0 + 0x60f4 (0xc80 bytes) at 550 and 565 at volume 5.
+// At those periods the loop is a slow chug, not an engine note. RodLegacy plays
+// the loud pair; the volume-5 voices are a garnish it leaves out.
+constexpr uint16_t SRL0_GAS_PUMP_PERIOD_LEFT = 2850;
+constexpr uint16_t SRL0_GAS_PUMP_PERIOD_RIGHT = 1850;
+constexpr int SRL0_GAS_PUMP_VOLUME = 0x19;            // Paula 25
+
 constexpr uint32_t SRL0_PART_MOUNT_OFFSET = 0x5DC8;   // Offset in bytes
 constexpr uint32_t SRL0_PART_MOUNT_LENGTH = 0x0320;   // 800 bytes
 constexpr uint16_t SRL0_PART_MOUNT_PERIOD_BASE = 620; // 400 + 0xdc, before the roll
+constexpr uint16_t SRL0_PART_MOUNT_PERIOD_HIGH = 820; // 600 + 0xdc, the second caller
 constexpr uint16_t SRL0_PART_MOUNT_PERIOD_SPREAD = 50;
+constexpr int SRL0_PART_MOUNT_VOLUME_LOW = 60;        // the 620..669 roll
+constexpr int SRL0_PART_MOUNT_VOLUME_HIGH = 40;       // the 820..869 roll
 
 constexpr uint32_t SRL0_CAR_JACK_OFFSET = 0x5DCA;  // Offset in bytes
 constexpr uint32_t SRL0_CAR_JACK_LENGTH = 3972;  // Length in bytes
