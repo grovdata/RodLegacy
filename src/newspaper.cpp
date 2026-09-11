@@ -93,6 +93,23 @@ const PartCatalogEntry kPartCatalog[40] = {
     Tire(RACING),
 };
 
+// Newsprint, not paper white: the side-page art (lib.p 177) is a flat
+// 240,240,240, so the ads column between them has to match or it reads as a
+// lit panel stuck on the page.
+constexpr Uint8 kPaperR = 240;
+constexpr Uint8 kPaperG = 240;
+constexpr Uint8 kPaperB = 240;
+
+// The five front pages, in lib.p order.
+constexpr AmigaLibAsset kHeadlineAssets[] = {
+    NEWSPAPER_DODGERS_MALIBU,
+    NEWSPAPER_YOUTH_KILLED,
+    NEWSPAPER_OSCAR_NOMINATION,
+    NEWSPAPER_GM_FORD_LAUGH_AT_JAPAN,
+    NEWSPAPER_NO_SOLDIERS_IN_VIETNAM,
+};
+constexpr int kHeadlineCount = sizeof(kHeadlineAssets) / sizeof(kHeadlineAssets[0]);
+
 } // namespace
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
@@ -155,6 +172,11 @@ Newspaper::~Newspaper() {
 void Newspaper::ResetToFrontPage() {
     currentPage = 0;
     smoothScrollOffset = 0;
+    // A fresh edition every time the paper is picked up. Which of the five
+    // front pages the original prints is NOT confirmed from the disassembly -
+    // it just must not be the same one forever, so this walks them in order.
+    headlineIndex = (headlineIndex + 1) % kHeadlineCount;
+    SetHeadline(kHeadlineAssets[headlineIndex]);
     Update();
 }
 
@@ -189,39 +211,23 @@ void Newspaper::InitPageOne() {
     next.UpdateFromSurface();
     next.SetVisible(false);
 
-    // Set headline based on date?
-    AmigaLibAsset headlineAsset = NEWSPAPER_NO_SOLDIERS_IN_VIETNAM;
-    headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, headlineAsset});
-    headline.SetPosition(0, 136);
-    headline.SetVisible(true);
-
-    const SDL_Rect masks[5][2] = {
-        {{0, 0, 144, 16}, {146, 0, 175, 30}},
-        {{0, 0, 144, 30}, {146, 0, 175, 30}},
-        {{0, 0, 144, 30}, {146, 0, 175, 30}},
-        {{0, 0, 145, 24}, {146, 0, 175, 24}},
-        {{0, 0, 145, 32}, {146, 0, 175, 32}}
-    };
-
-    // Temp
-    SDL_Rect headlineMaskRect[2];
-    headlineMaskRect[0] = masks[headlineAsset - NEWSPAPER_DODGERS_MALIBU][0];
-    headlineMaskRect[1] = masks[headlineAsset - NEWSPAPER_DODGERS_MALIBU][1];
-    // SDL_Rect headlineMaskRect = {0, 0, 175, 30};
-    SDL_FillRect(headline.GetSurface(), &headlineMaskRect[0], SDL_MapRGBA(headline.GetSurface()->format, 240, 240, 240, 255));
-    SDL_FillRect(headline.GetSurface(), &headlineMaskRect[1], SDL_MapRGBA(headline.GetSurface()->format, 240, 240, 240, 255));
-    headline.UpdateFromSurface();
+    SetHeadline(kHeadlineAssets[0]);
 
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
     date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
     lastDateText = state.GetGameDateString();
     date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
+}
 
-    headingLeft.Init(state.GetAssets().GetNewspaperFont(), 10, 138, dateColor);
-    headingLeft.SetText("  President insists: ", true, GAME_WIDTH);
-
-    headingRight.Init(state.GetAssets().GetNewspaperFont(), 10, 138 + 15, dateColor);
-    headingRight.SetText("  \"No U.S. soldiers in Viet Nam\". ", true, GAME_WIDTH);
+// The five headline assets are 320x54 slabs of finished newsprint - both
+// columns of text are part of the art, so there is nothing to mask out and
+// nothing to re-render on top. (The code used to blank the top of the Viet Nam
+// one and draw that single headline back over it with the newspaper font, which
+// is why the paper only ever carried one story.)
+void Newspaper::SetHeadline(AmigaLibAsset asset) {
+    headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+    headline.SetPosition(0, 136);
+    headline.SetVisible(true);
 }
 
 void Newspaper::LoadClassifiedsData() {
@@ -272,7 +278,7 @@ void Newspaper::InitPageAds() {
     SDL_Rect textAreaRect = {64, 0, 192, 190};
 
     adsArea = Bitmap(textAreaRect.w, textAreaRect.h, 32);
-    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, 255, 255, 255, 255));
+    SDL_FillRect(adsArea.GetSurface(), NULL, SDL_MapRGBA(adsArea.GetSurface()->format, kPaperR, kPaperG, kPaperB, 255));
     adsArea.UpdateFromSurface();
     adsArea.SetPosition(textAreaRect.x, textAreaRect.y);
     adsArea.SetVisible(false);
@@ -350,8 +356,6 @@ void Newspaper::DrawScene() {
 
     headline.Draw();
     date.Draw();
-    headingLeft.Draw();
-    headingRight.Draw();
 
     previous.Draw();
     adsArea.Draw();
@@ -411,8 +415,6 @@ void Newspaper::Update() {
 
     background->SetVisible(currentPage == 0);
     headline.SetVisible(currentPage == 0);
-    headingLeft.SetVisible(currentPage == 0);
-    headingRight.SetVisible(currentPage == 0);
     date.SetVisible(currentPage == 0);
     previous.SetVisible(currentPage > 0);
     next.SetVisible(currentPage > 0);
@@ -506,7 +508,7 @@ void Newspaper::CreateAllAdsSurface() {
         allAdsSurfaceHeight = 0;
         return;
     }
-    SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 255, 255, 255, 255));
+    SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, kPaperR, kPaperG, kPaperB, 255));
 
     // Clear ad positions
     adPositions.clear();
@@ -797,7 +799,7 @@ void Newspaper::UpdateViewport() {
     adsViewport = {0, viewportY, 192, 190};
 
     // Clear the ads area
-    SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, 255, 255, 255, 255));
+    SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, kPaperR, kPaperG, kPaperB, 255));
 
         // Blit the viewport from the large surface
         if (viewportY < allAdsSurfaceHeight) {

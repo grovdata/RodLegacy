@@ -477,10 +477,14 @@ void Garage::ShowTransmissionInstallDialog() {
 
     transmissionInstallDialog = std::make_unique<Dialog>(cfg);
 
+    // SetActiveDialog first: Dialog::Show() turns every bitmap in the dialog
+    // back on, so anything this car hasn't got has to be hidden AFTER it. Doing
+    // it the other way round put the transmission back on screen for a car that
+    // dropped its box in a race.
+    SetActiveDialog(transmissionInstallDialog.get());
+
     // Derive the opening state from the car rather than assuming a mounted
     // gearbox: one dropped in a race leaves the window empty and waiting for
     // a replacement.
     ResetTransmissionInstallToMounted();
-
-    SetActiveDialog(transmissionInstallDialog.get());
 }

@@ -565,6 +565,9 @@ void Garage::DrawScene() {
         if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             const CarPtr& current = state.GetCurrentCarPtr();
+            // Repaint the sign first: with no car left (totaled, sold) nothing
+            // below runs, and the wreck's name would stay up on the board.
+            UpdateSign();
             // Nothing to drive in before the player's bought their first car.
             if (current) {
                 if (current == lastParkedCar) {

@@ -39,8 +39,8 @@ private:
     // Page 0
     Label date;
     std::string lastDateText;  // detects a changed game date (e.g. after loading a save) to refresh `date`
-    Label headingLeft;
-    Label headingRight;
+    // Which of the five front-page slabs is on the paper right now.
+    int headlineIndex = 0;
 
     // Headers are now part of the large surface, no individual labels needed
 
@@ -87,6 +87,7 @@ private:
     int lastClickY = 0;
 
     void InitPageOne();
+    void SetHeadline(AmigaLibAsset asset);
     void InitPageAds();
     void LoadClassifiedsData();
     void CreateClassifiedAds();
