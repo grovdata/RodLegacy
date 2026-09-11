@@ -520,6 +520,20 @@ void Garage::UpdateSign() {
 
 
 void Garage::DrawScene() {
+    // Re-run the end-of-run check every pass, the way the original does at the
+    // top of its garage loop (FUN_0023fe24) - not just on the way in. Getting
+    // broke does not need a scene change: repairing a wreck and then selling
+    // the car to cover it, or selling the last spare part, both empty the
+    // player out while they are standing here, and checking only in
+    // OnSceneEnter left them in a garage with nothing to click and no game
+    // over. Held off while a dialog, an animation or the spare-parts sell
+    // chain is mid-flight, so it can't fire between two halves of a trade.
+    if (!outOfDough && GetActiveDialog() == nullptr && !animatingCar &&
+        !sparePartsNeedsReopen && state.IsOutOfDough()) {
+        outOfDough = true;
+        bubbles[kOutOfDoughBubble]->SetVisible(true);
+        LOG_INFO("Garage: out of dough - the run is over");
+    }
     if (rebuildOptions_) {
         rebuildOptions_ = false;
         InitOptionsDialog();
