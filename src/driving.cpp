@@ -712,6 +712,15 @@ void Driving::DrawScene() {
                         state.AdvanceGameHours(2);
                     }
 
+                    ApplyDrivetrainDamage(endCtx.endFlags);
+
+                    // Only a wreck that cost money - repaired (outcome 1) or
+                    // totaled (outcome 2) - sends the player home; see
+                    // LeaveAfterRace.
+                    raceEndLeftTheDiner = (crash == srrace::CrashOutcome::Totaled ||
+                                           crash == srrace::CrashOutcome::RepairOrJunk ||
+                                           crash == srrace::CrashOutcome::Forfeited);
+
                     // What the wreck costs, after the bet has been settled -
                     // the order ProcessRaceOutcome uses.
                     if (crash == srrace::CrashOutcome::Totaled) {
@@ -907,6 +916,25 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
     SetActiveDialog(wreckDialog.get());
 }
 
+// A blown engine takes the whole assembly with it. The original's
+// StripAllDrivetrain (0x2453ca) nulls all five part pointers on the car struct
+// (engine, manifold, carb 0-2), takes their value back off the car and zeroes
+// the six engine bay screws at car+0x24. A dropped transmission is the same
+// routine one branch over (0x24540a), clearing the single pointer at car+0x06.
+// Both leave the car unable to move until it is rebuilt from bought parts -
+// Car::IsRunning goes false, and the garage refuses to drive it anywhere.
+void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
+    if (endFlags & srrace::END_ENGINE_BLOWN) {
+        car->StripEngineAssembly();
+        LOG_INFO("Driving: engine blown - engine, manifold and carburetors stripped");
+    } else if (endFlags & srrace::END_TRANS_DROPPED) {
+        car->RemoveGearbox();
+        LOG_INFO("Driving: transmission dropped - gearbox gone");
+    }
+}
+
 // Called from the wreck dialog's own button callback, so the dialog is hidden
 // rather than destroyed here - OnSceneEnter clears it for the next race.
 void Driving::LeaveAfterRace() {
@@ -920,12 +948,21 @@ void Driving::LeaveAfterRace() {
     } else if (state.IsJailed()) {
         // Not the garage: you are in a cell, watching the diner.
         state.MoveToScene(SCENE_DINER);
-    } else {
-        // Always the garage, even with the car gone (a forfeited pink slip, or
-        // one totaled or junked): the original comes back to the garage loop,
-        // and that loop is what runs the out-of-dough check and ends the run
+    } else if (state.GetCurrentCar() == nullptr || raceEndLeftTheDiner) {
+        // The garage, and the out-of-dough check that lives in its loop
         // (Garage::OnSceneEnter). With money left, the paper is a click away.
         state.MoveToScene(SCENE_GARAGE);
+    } else {
+        // Back to the diner for the next challenger. CONFIRMED: ChallengeRaceLoop
+        // (0x23e60c) switches on ProcessRaceOutcome's (0x2454c2) return and only
+        // breaks out of the diner loop for 1 (the wreck was repaired, 0x245a8e),
+        // 2 (totaled - 40% of value for scrap and the car pointer nulled,
+        // 0x245aa8) and 4 (the end-game branch at 0x23e904). Every other
+        // outcome - an ordinary win or loss, a blown engine, a dropped
+        // transmission, a speeding ticket - falls through to `bra 0x23e65c`,
+        // the top of the loop, and the next racer walks in. Racing always
+        // returning to the garage was RodLegacy's own invention.
+        state.MoveToScene(SCENE_DINER);
     }
 }
 

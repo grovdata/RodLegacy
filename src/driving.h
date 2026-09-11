@@ -44,6 +44,10 @@ class Driving: public Scene {
     // any key to return to the garage.
     bool raceEnded = false;
     bool raceEndPendingKing = false;  // King beaten in a drag -> end-game screen instead
+    // The wreck was bad enough to end the evening: ProcessRaceOutcome's 1
+    // (repaired) or 2 (totaled), the only two ordinary outcomes that break out
+    // of the original's diner loop. See Driving::LeaveAfterRace.
+    bool raceEndLeftTheDiner = false;
     std::unique_ptr<Bubble> raceEndBubble;
     // Earliest tick at which a keypress may dismiss the race-end screen. A crash
     // holds the screen for a minimum time so the crash view is actually seen.
@@ -54,6 +58,9 @@ class Driving: public Scene {
     void ShowWreckDialog(const srrace::RaceEndContext& ctx);
     // Leaves the driving scene once the race-end screen is done with.
     void LeaveAfterRace();
+    // Strips whatever the race broke off the car: the whole engine assembly
+    // on a blown engine, the gearbox on a dropped transmission.
+    void ApplyDrivetrainDamage(uint16_t endFlags);
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;
