@@ -85,11 +85,14 @@ jobs:
         with:
           submodules: recursive
 
-      - run: meson setup builddir --cross-file /cross-mingw.txt
+      # Release, not the project's default debug: a static mingw debug build is
+      # ~70 MB of symbols.
+      - run: meson setup builddir --cross-file /cross-mingw.txt --buildtype=release
 
       # Only the game target. The doctest suite cannot cross-compile: mingw's
       # win32 threads model has no std::mutex, and it is run natively in `test`.
       - run: ninja -C builddir rodlegacy.exe
+      - run: i686-w64-mingw32-strip builddir/rodlegacy.exe
 
       - uses: actions/upload-artifact@v3
         with:

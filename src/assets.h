@@ -60,9 +60,10 @@ public:
     static fs::path FindGameDirectory();
     static void SaveGamePath(const fs::path& path);
 
-    // Where RodLegacy's own .toml saves live: the same per-user preferences
-    // directory config.txt already uses, so saving works even when the game
-    // directory is read-only or the assets came out of a zip.
+    // Per-user preferences directory: config.txt, hall_dat and the saves
+    // subdirectory live here, so writing works even when the game directory is
+    // read-only or the assets came out of a zip.
+    static fs::path GetPrefDir();
     static fs::path GetSavesDir();
 
     // Instance methods

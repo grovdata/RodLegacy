@@ -133,7 +133,7 @@ TEST_CASE("road race, loss with tire wear") {
     RaceEndContext ctx;
     ctx.playerLost = true;
     ctx.isDragRace = false;
-    ctx.tireWearIncreased = true;
+    ctx.tiresBlown = true;
     CHECK(BuildRaceEndReason(ctx) ==
           "Lucky you're so slow. You only lost`the race. But you need new tires.");
 }
@@ -151,7 +151,7 @@ TEST_CASE("drag race loss ignores tire wear (that variant is road-only)") {
     RaceEndContext ctx;
     ctx.playerLost = true;
     ctx.isDragRace = true;
-    ctx.tireWearIncreased = true;
+    ctx.tiresBlown = true;
     CHECK(BuildRaceEndReason(ctx) == "You lose, sucker.");
 }
 

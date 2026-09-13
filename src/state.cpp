@@ -17,8 +17,6 @@
 #include "racing.h"
 #include "debug_overlay.h"
 #include "parsers/libp.h"
-#include "parsers/adf.h"
-#include "zip_utils.h"
 #include "car_builder.h"
 #include "save_loader.h"
 #include "bet_acceptance.h"
@@ -806,40 +804,27 @@ static std::vector<State::HallEntry> ParseHallDat(const uint8_t* data, size_t si
     return entries;
 }
 
+// Where the hall of fame is kept. Neither Amiga disk ships a hall_dat - the
+// original creates it on first save - so the pref dir is the only copy, and
+// the game directory is only read as a fallback (a DOS install has HALL_DAT
+// next to SR.EXE, and older RodLegacy builds wrote it there).
+static std::vector<fs::path> HallDatPaths(const fs::path& gameBase) {
+    std::vector<fs::path> paths;
+    fs::path pref = AssetManager::GetPrefDir();
+    if (!pref.empty()) paths.push_back(pref / "hall_dat");
+    paths.push_back(gameBase / "hall_dat");
+    paths.push_back(gameBase / "HALL_DAT");
+    return paths;
+}
+
 std::vector<State::HallEntry> State::LoadHallDat() const {
-    // 1. Try local hall_dat file
-    fs::path localPath = assets.GetBasePath() / "hall_dat";
-    if (fs::exists(localPath)) {
-        std::ifstream f(localPath, std::ios::binary);
-        if (f) {
-            std::vector<uint8_t> buf(HALL_DAT_FILE_SIZE, 0);
-            f.read(reinterpret_cast<char*>(buf.data()), HALL_DAT_FILE_SIZE);
-            auto entries = ParseHallDat(buf.data(), (size_t)f.gcount());
-            LOG_INFO("LoadHallDat: loaded %zu entries from local hall_dat", entries.size());
-            return entries;
-        }
-    }
-
-    // 2. Fall back to ADF disk2 (direct file or inside sr1amiga.zip)
-    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
-    fs::path disk2Path = assets.GetBasePath() / disk2Name;
-    AdfFileData* adfData = nullptr;
-
-    if (fs::exists(disk2Path)) {
-        adfData = extract_adf_file_to_memory(disk2Path.string().c_str(), "hall_dat");
-    } else {
-        fs::path zipPath = assets.GetBasePath() / "sr1amiga.zip";
-        if (fs::exists(zipPath)) {
-            std::vector<uint8_t> disk2Buf = ZipExtractToMemory(zipPath, disk2Name);
-            if (!disk2Buf.empty())
-                adfData = extract_adf_file_from_buffer(disk2Buf.data(), disk2Buf.size(), "hall_dat");
-        }
-    }
-
-    if (adfData) {
-        auto entries = ParseHallDat(adfData->data, adfData->size);
-        free_adf_file_data(adfData);
-        LOG_INFO("LoadHallDat: loaded %zu entries from ADF disk2", entries.size());
+    for (const fs::path& path : HallDatPaths(assets.GetBasePath())) {
+        std::ifstream f(path, std::ios::binary);
+        if (!f) continue;
+        std::vector<uint8_t> buf(HALL_DAT_FILE_SIZE, 0);
+        f.read(reinterpret_cast<char*>(buf.data()), HALL_DAT_FILE_SIZE);
+        auto entries = ParseHallDat(buf.data(), (size_t)f.gcount());
+        LOG_INFO("LoadHallDat: loaded %zu entries from %s", entries.size(), path.string().c_str());
         return entries;
     }
 
@@ -877,13 +862,15 @@ void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
             buf[offset + b] = HALL_DAT_XOR_KEY;
     }
 
-    fs::path localPath = assets.GetBasePath() / "hall_dat";
-    std::ofstream f(localPath, std::ios::binary | std::ios::trunc);
+    fs::path target = HallDatPaths(assets.GetBasePath()).front();
+    std::error_code ec;
+    fs::create_directories(target.parent_path(), ec);
+    std::ofstream f(target, std::ios::binary | std::ios::trunc);
     if (f) {
         f.write(reinterpret_cast<const char*>(buf), HALL_DAT_FILE_SIZE);
-        LOG_INFO("SaveHallDat: saved %d entries to %s", count, localPath.string().c_str());
+        LOG_INFO("SaveHallDat: saved %d entries to %s", count, target.string().c_str());
     } else {
-        LOG_INFO("SaveHallDat: failed to write %s", localPath.string().c_str());
+        LOG_INFO("SaveHallDat: failed to write %s", target.string().c_str());
     }
 }
 

@@ -783,12 +783,18 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
 // Unified config.txt  (key=value, one per line)
 // ---------------------------------------------------------------------------
 
-static fs::path GetConfigPath() {
+fs::path AssetManager::GetPrefDir() {
     char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
     if (!p) return {};
-    fs::path result = fs::path(p) / "config.txt";
+    fs::path result = fs::path(p);
     SDL_free(p);
     return result;
+}
+
+static fs::path GetConfigPath() {
+    fs::path dir = AssetManager::GetPrefDir();
+    if (dir.empty()) return {};
+    return dir / "config.txt";
 }
 
 static std::map<std::string, std::string> ReadConfigFile() {
@@ -824,11 +830,9 @@ fs::path AssetManager::LoadSavedGamePath() {
 }
 
 fs::path AssetManager::GetSavesDir() {
-    char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
-    if (!p) return {};
-    fs::path result = fs::path(p) / "saves";
-    SDL_free(p);
-    return result;
+    fs::path dir = GetPrefDir();
+    if (dir.empty()) return {};
+    return dir / "saves";
 }
 
 void AssetManager::SaveGamePath(const fs::path& path) {

@@ -1464,4 +1464,70 @@ TEST_CASE("Power-shifting a manual above 5000 rpm drops the transmission") {
     CHECK(CountDroppedBoxes(0, 60) == 0);
 }
 
+
+// Per-race tire wear (InitRaceState 0x244250 / DOS 1000:b0d8). Stock tires wear
+// about twice as fast as brand-name or slicks, and the 2.5-mile road course
+// wears more than the quarter mile. See docs/driving/tires.md.
+TEST_CASE("TireWearForRace: stock tires wear fastest, road more than drag") {
+    CHECK(TireWearForRace(0, true,  0) == 700);   // stock, road
+    CHECK(TireWearForRace(0, false, 0) == 300);   // stock, drag
+    CHECK(TireWearForRace(1, true,  0) == 400);   // brand name, road
+    CHECK(TireWearForRace(2, true,  0) == 400);   // slicks score the same as brand
+    CHECK(TireWearForRace(2, false, 0) == 200);   // slicks, drag
+    // The roll is added on top, so a race is never worse than base + 299.
+    CHECK(TireWearForRace(0, true, 299) == 999);
+}
+
+// A fresh set never blows; a worn one can, and only in the back half of the
+// course, never past the line.
+TEST_CASE("tire blowout is rolled once and lands before the finish") {
+    TrackData track = MakeFlatTrack();
+    CarSetup fresh;
+    CarSetup worn;
+    worn.tireWear = 10000;
+
+    RaceSim sim;
+    sim.Init(&track, 1, fresh, fresh, 12345u);
+    CHECK(sim.TireBlowSegment() == 0);
+
+    int blowouts = 0;
+    for (uint32_t seed = 1; seed <= 200; ++seed) {
+        sim.Init(&track, 1, worn, fresh, seed);
+        const int32_t seg = sim.TireBlowSegment();
+        if (seg != 0) {
+            ++blowouts;
+            CHECK(seg >= 610);
+            CHECK(seg < sim.FinishSegment());
+        }
+    }
+    CHECK(blowouts > 0);
+}
+
+// Blown tires replace the curve drift with a flat pull, so the car walks
+// sideways at a fixed rate no matter what the road is doing.
+TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
+    TrackData track = MakeFlatTrack();
+    CarSetup worn;
+    worn.tireWear = 10000;
+
+    RaceSim sim;
+    uint32_t seed = 0;
+    for (uint32_t s = 1; s <= 500 && seed == 0; ++s) {
+        sim.Init(&track, 1, worn, worn, s);
+        if (sim.TireBlowSegment() != 0) seed = s;
+    }
+    REQUIRE(seed != 0);
+
+    sim.Init(&track, 1, worn, worn, seed);
+    // Put the car just past the blowout segment rather than driving the whole
+    // course to it - the trip there is not what this is testing.
+    sim.SetCameraState(sim.TireBlowSegment() + 1, 0, 0, 2560, 0);
+    sim.Tick(0);
+    REQUIRE(sim.PlayerTiresBlown());
+
+    const int16_t before = sim.Player().lateral;
+    sim.Tick(0);
+    CHECK(sim.Player().lateral - before == 25);
+}
+
 }  // namespace srrace

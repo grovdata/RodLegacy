@@ -24,6 +24,7 @@ public:
     ~NameEntry() = default;
 
     void Init(bool debugMode) override;
+    void OnSceneEnter() override;
     void DrawScene() override;
     bool PushEvent(SDL_Event* event) override;
     void OnSceneExit() override;

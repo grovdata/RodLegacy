@@ -45,7 +45,12 @@ void NameEntry::Init(bool debugMode) {
     okConfig.defaultChoice = true;
     okConfig.onClick = [this]() { HandleOk(); };
     okButton = std::make_unique<Button>(okConfig);
+}
 
+// Init runs once, but the scene is re-entered when "Old Game" is cancelled,
+// and leaving it stopped text input.
+void NameEntry::OnSceneEnter() {
+    Scene::OnSceneEnter();
     SDL_StartTextInput();
 }
 
