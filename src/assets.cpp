@@ -539,8 +539,16 @@ std::unique_ptr<Bitmap> AssetManager::DecodeDosSprite(byte_vector& libData,
 }
 
 void AssetManager::InitDosAssets() {
-    lib2Data_vec = LoadDosDataFile(gameBasePath / "LIB2", gameBasePath / "sr1pc.zip",
-                                   "SR1/LIB2", "DOS decals");
+    // The 8 stickers are the Street Rod SE redraws (SRSE/LIB2 shares stock
+    // DOS LIB2's 268-entry index, and 186-193 are among the sprites it
+    // replaces - see libp.h's SrseLib2Asset). Stock SR1 LIB2 is the fallback
+    // for an install that has no SE data disk.
+    lib2Data_vec = LoadDosDataFile(gameBasePath / "SRSE" / "LIB2", gameBasePath / "srsepc.zip",
+                                   "SRSE/LIB2", "SE decals");
+    if (lib2Data_vec.empty()) {
+        lib2Data_vec = LoadDosDataFile(gameBasePath / "LIB2", gameBasePath / "sr1pc.zip",
+                                       "SR1/LIB2", "DOS decals");
+    }
     if (lib2Data_vec.empty()) {
         return;
     }

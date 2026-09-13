@@ -32,7 +32,10 @@ class Garage : public CarScene {
 
     TireChangePhase tireChangePhase = TireChangePhase::IDLE;
     float tireChangeTimer = 0.0f;
-    CarWheelType pendingTireType = STOCK;
+    // The whole set going on, not just its type: a spare carries the wear and
+    // the classified-ad name it was bought with, and fitting it must not hand
+    // the player a fresh set.
+    Part pendingTire;
     std::unique_ptr<ListDialog> tireDialog;
     std::unique_ptr<ListDialog> transmissionDialog;
     std::unique_ptr<AnimatedBitmap> jackAnim;
@@ -51,7 +54,7 @@ class Garage : public CarScene {
     static constexpr int JACK_CRANKS = 7;
 
     void ShowTireDialog();
-    void StartTireChangeAnimation(CarWheelType newType);
+    void StartTireChangeAnimation(const Part& newTire);
     void UpdateTireChangeAnimation(double deltaTime);
 
     // Transmission install animation (garage/garage_transmission_install.cpp).

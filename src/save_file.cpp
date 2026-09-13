@@ -191,10 +191,9 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     // an assembled car and for saves written before mounts were tracked;
     // carburetor_mounts then narrows it to the ones really fitted.
     if (v.contains("carburetor")) car->SetCarburator(CarburetorFromToml(toml::find(v, "carburetor")));
-    if (v.contains("tires")) {
-        const Part t = TireFromToml(toml::find(v, "tires"));
-        car->SetTires(t.partType.tireType, t.wear, t.cost);
-    }
+    // The whole Part, not just its type/wear/cost: the tires carry the
+    // classified-ad name the garage lists them under.
+    if (v.contains("tires")) car->SetTires(TireFromToml(toml::find(v, "tires")));
     if (v.contains("engine"))     car->SetEngine(EngineFromToml(toml::find(v, "engine")));
 
     // Last: SetEngine/SetManifold each reset the spec classes to -1, so the

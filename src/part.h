@@ -35,6 +35,21 @@ inline int PartSalePrice(PartCategory category, int value, int wear, int roll20)
     return price / 5 * 5;
 }
 
+// Adds one race's worth of wear to a part. The race sim counts in the
+// original's 0..10000 units (PlayerCarPhysics: +1 per tick above 5000 rpm,
+// +1 on the engine every 16 ticks, +3/+15 on the gearbox per shift) while
+// Part::wear is RodLegacy's 0..100 percent, so `remainder` carries what is
+// left under a whole percent through to the next race - truncating it would
+// throw away a third of a drag race's wear every time.
+inline void ApplyWearRaw(int& wearPercent, int& remainder, int raw) {
+    if (raw <= 0) return;
+    remainder += raw;
+    wearPercent += remainder / 100;
+    remainder %= 100;
+    if (wearPercent < 0) wearPercent = 0;
+    if (wearPercent > 100) wearPercent = 100;
+}
+
 // Catalog price of a part, in dollars. The original keeps one master parts
 // table (Amiga A4-0x48ec, 44 records of 14 bytes, price at +0) and every part
 // it ever creates - a car's stock drivetrain, a newspaper ad, a replacement

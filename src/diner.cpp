@@ -371,8 +371,7 @@ void Diner::DrawScene() {
         // 1/100 chance of being The King, win or lose reputation-wise.
         if (challenge->WasOpponentRefusal()) state.RequestKingCameoRoll();
         challenge->Reset();
-        TriggerCarExit();
-        debugWaitTimer = 0;
+        StartOpponentExit();
     }
 
     if (debugMode && debugOverlay) {
@@ -543,6 +542,16 @@ bool Diner::PushEvent(SDL_Event *event) {
 
     if (challenge->HandleEvent(event)) return true;
 
+    // An encounter in progress owns the screen. Once a bet is on the table -
+    // and above all once it has been accepted and the car is about to pull
+    // away - a stray click must not walk out to the garage on a race that is
+    // already happening.
+    const bool dialogUp = activeDialog && activeDialog->IsVisible();
+    if (challenge->IsActive() && !dialogUp &&
+        (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP)) {
+        return true;
+    }
+
     bool consumed = CarScene::PushEvent(event);
     if (!debugMode) return consumed;
 
@@ -625,11 +634,7 @@ void Diner::UpdateCarAnimation(double deltaTime) {
             // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
             else if (debugWaitTimer >= 3.0) {
                 LOG_DEBUG("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
-                if (audioManager) {
-                    audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
-                }
-                exitCrankTimer = 0.0;
-                debugWaitTimer = 0;  // Reset for next cycle
+                StartOpponentExit();
             }
         }
     } else if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && exitingCar && carBitmap) {
@@ -670,6 +675,15 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         LOG_DEBUG("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
     }
 
+}
+
+void Diner::StartOpponentExit() {
+    if (!carBitmap || exitingCar || exitCrankTimer >= 0.0) return;
+    if (audioManager) {
+        audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
+    }
+    exitCrankTimer = 0.0;
+    debugWaitTimer = 0;
 }
 
 void Diner::OnCarAnimationComplete() {

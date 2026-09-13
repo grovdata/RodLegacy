@@ -13,9 +13,9 @@
 #include <SDL_image.h>
 #include <algorithm>
 
-void Garage::StartTireChangeAnimation(CarWheelType newType) {
+void Garage::StartTireChangeAnimation(const Part& newTire) {
     if (!carBitmap) return;
-    pendingTireType = newType;
+    pendingTire = newTire;
     tireChangePhase = TireChangePhase::JACK_SLIDE_UP;
     tireChangeTimer = 0.0f;
     initialFrontWheelPos = carBitmap->GetFrontWheelPos();
@@ -138,7 +138,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             }
             if (tireChangeTimer >= WHEEL_DROP_DUR + frontRollDur) {
                 if (carBitmap) {
-                    carBitmap->LoadNewTireSprite(pendingTireType);
+                    carBitmap->LoadNewTireSprite(pendingTire.partType.tireType);
                 }
                 animRearWheelX  = (float)-wheelSize;
                 animRearWheelY  = (float)initialRearWheelPos.y;
@@ -239,7 +239,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             animFrontWheelY = (float)initialFrontWheelPos.y;
 
             if (tireChangeTimer >= JACK_SLIDE_DUR) {
-                if (state.GetCurrentCar()) state.GetCurrentCar()->SetTires(pendingTireType);
+                if (state.GetCurrentCar()) state.GetCurrentCar()->SetTires(pendingTire);
                 if (carBitmap) carBitmap->SetWheelsVisible(true);
                 tireChangeLiftY = 0;
                 tireChangePhase = TireChangePhase::IDLE;

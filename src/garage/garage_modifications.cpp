@@ -1556,7 +1556,10 @@ void Garage::ShowTireDialog() {
 
     std::vector<std::string> labels;
     for (const Part& p : spareTires) {
-        labels.push_back(WheelTypeName(p.partType.tireType));
+        // Same row wording as the spare-parts list: the ad name it was bought
+        // under, then how worn it is.
+        const std::string name = p.name.empty() ? WheelTypeName(p.partType.tireType) : p.name;
+        labels.push_back(name + " " + WearNote(p.wear));
     }
 
     SDL_Rect bounds = {36, 26, 260, 136};
@@ -1619,17 +1622,19 @@ void Garage::ShowTireDialog() {
                 const auto& spareTires = state.GetSpareTires();
                 if (selectedIndex >= (int)spareTires.size()) break;
                 Part newTire = spareTires[selectedIndex];
+                // Drop the row the player picked before adding the old set
+                // back - by type it would match the set just added when both
+                // are the same kind, and keep the worn one.
+                state.RemoveSpareAt(PartCategory::Tire, static_cast<size_t>(selectedIndex));
                 // The set coming off goes back in the parts box, like any
                 // other part swap. (DetachPart 0x242b16 frees a tire instead
                 // of listing it only in the two places where it is gone for
                 // good: blown tires replaced after a race, 0x245066, and
                 // DismantleCar taking a whole car apart, 0x242b88.)
-                Part oldTire = state.GetCurrentCar()->GetTires();
-                state.AddSpareTire(oldTire);
-                state.RemoveSpareTire(newTire.partType.tireType);
+                state.AddSpareTire(state.GetCurrentCar()->GetTires());
                 tireDialog->Hide();
                 SetActiveDialog(nullptr);
-                StartTireChangeAnimation(newTire.partType.tireType);
+                StartTireChangeAnimation(newTire);
                 break;
             }
             case 1: // Forget it

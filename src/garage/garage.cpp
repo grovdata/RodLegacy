@@ -331,8 +331,21 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                         previewColor = selectedCar->GetColor();
                         originalColor = previewColor;
                         UpdatePaintCanPreview();
-                        pendingCar = selectedCar;
-                        StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                        if (state.GetCurrentCar() == nullptr) {
+                            // Nothing parked here to back out first - selling
+                            // the car you were driving leaves the rest of the
+                            // garage sitting there. Take one straight away, or
+                            // StartAnimateCar's "no current car" guard would
+                            // drop the switch and keep the player carless.
+                            state.SetCurrentCar(selectedCar);
+                            needsNewAnimation = true;
+                            UpdateSign();
+                            RefreshEngineBayGeometry();
+                            StartAnimateCar(selectedCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
+                        } else {
+                            pendingCar = selectedCar;
+                            StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
+                        }
                     }
                 }
                 carSelectDialog->Hide();

@@ -258,6 +258,10 @@ public:
     bool PlayerBusted() const { return sim.PlayerBusted(); }
     int SpeedingFine() const { return sim.SpeedingFine(); }
     bool IsTransmissionDamaged() const;
+    // Wear the race put on the player's parts, in the original's 0..10000
+    // units. Driving writes these back onto the car once the race is settled.
+    int PlayerEngineWearDelta() const { return sim.Player().engineWearDelta; }
+    int PlayerTransWearDelta() const { return sim.Player().transWearDelta; }
     bool IsAutomatic() const;
     // For the dashboard shifter: which gate plate to show, and where an
     // automatic's selector sits (it shows N/D, not the gear).

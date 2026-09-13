@@ -138,4 +138,9 @@ class Diner: public CarScene {
 
         // The challenger waits while his hood is up, same as during a challenge.
         bool CanStartCarExit() const override { return !challenge->IsActive() && !IsHoodViewOpen(); }
+
+        // The one way the challenger leaves: crank the starter, then pull out
+        // once the sample has run. Both the idle timeout and a finished
+        // challenge go through here, so neither can drive off silently.
+        void StartOpponentExit();
 };

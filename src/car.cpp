@@ -121,6 +121,9 @@ void Car::StripEngineAssembly() {
     RecalculatePerformance();
 }
 
+void Car::AddEngineWearRaw(int raw) { ApplyWearRaw(engine.wear, engineWearRemainder, raw); }
+void Car::AddGearboxWearRaw(int raw) { ApplyWearRaw(gearbox.wear, gearboxWearRemainder, raw); }
+
 int Car::GetPartsValue() const {
     int total = tires.cost;
     if (gearboxFitted) total += gearbox.cost;

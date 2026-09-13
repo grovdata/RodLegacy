@@ -91,6 +91,11 @@ class Car {
         // The car's worth with nothing bolted on - see SetValue/GetValue.
         int bodyValue = 0;
 
+        // Sub-percent race wear not yet rolled into the parts' own wear.
+        // Deliberately not saved: it is worth less than 1%.
+        int engineWearRemainder = 0;
+        int gearboxWearRemainder = 0;
+
     public:
 
         Car();
@@ -175,6 +180,9 @@ class Car {
         void SetGearbox(Part gearbox) { this->gearbox = gearbox; gearboxFitted = true; RecalculatePerformance(); }
         void SetTires(CarWheelType type) { SetTires(type, 0, PartCatalogPrice(type)); }
         void SetTires(CarWheelType type, int wear, int cost);
+        // Fits a set that already exists (a spare off the parts box), keeping
+        // its wear and its classified-ad name.
+        void SetTires(const Part& tire) { tires = tire; RecalculatePerformance(); }
         // Fitting a part supersedes whatever the car's spec said about it.
         void SetEngine(EnginePart engine) { this->engine = engine; engineFitted = true; specEngineClass = -1; RecalculatePerformance(); }
         void SetEngine(Part engine) { SetEngine(EnginePart::FromPart(engine)); }
@@ -186,6 +194,14 @@ class Car {
         // spec-built car and a save's slot-3 entry both arrive.
         void SetCarburator(Part carburator);
         void SetCarburetor(int slot, Part carburator);
+
+        // Racing wears the engine and the gearbox. The sim counts in the
+        // original's 0..10000 units while Part::wear is RodLegacy's 0..100
+        // percent, so the sub-percent remainder is carried here rather than
+        // truncated away every race - otherwise a drag race (~150 raw) would
+        // round down to 1% and lose a third of the wear each time.
+        void AddEngineWearRaw(int raw);
+        void AddGearboxWearRaw(int raw);
 
         // Pulling a part in the engine bay: the car loses it for real, and
         // IsRunning() goes false until something is put back. The part's own

@@ -61,6 +61,7 @@ class Driving: public Scene {
     // Strips whatever the race broke off the car: the whole engine assembly
     // on a blown engine, the gearbox on a dropped transmission.
     void ApplyDrivetrainDamage(uint16_t endFlags);
+    void ApplyRaceWear();
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;

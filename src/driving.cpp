@@ -712,6 +712,10 @@ void Driving::DrawScene() {
                         state.AdvanceGameHours(2);
                     }
 
+                    // Wear first, damage second: a race that blew the engine
+                    // strips it straight after, so the order only matters for
+                    // the races that end intact - which is all of them.
+                    ApplyRaceWear();
                     ApplyDrivetrainDamage(endCtx.endFlags);
 
                     // Only a wreck that cost money - repaired (outcome 1) or
@@ -923,6 +927,21 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
 // routine one branch over (0x24540a), clearing the single pointer at car+0x06.
 // Both leave the car unable to move until it is rebuilt from bought parts -
 // Car::IsRunning goes false, and the garage refuses to drive it anywhere.
+// The sim counts wear on the player's engine and gearbox all race long
+// (PlayerCarPhysics: +1 each per tick above 5000 rpm, +1 on the engine every
+// 16 ticks, +3/+15 on the box per shift) but it works on a copy of the setup,
+// so without this the car left every race as fresh as it arrived and no part
+// ever wore out.
+void Driving::ApplyRaceWear() {
+    Car* car = state.GetCurrentCar();
+    if (!car || !racing) return;
+    car->AddEngineWearRaw(racing->PlayerEngineWearDelta());
+    car->AddGearboxWearRaw(racing->PlayerTransWearDelta());
+    LOG_INFO("Driving: race wear engine +%d raw (now %d%%), trans +%d raw (now %d%%)",
+             racing->PlayerEngineWearDelta(), car->GetEngine().wear,
+             racing->PlayerTransWearDelta(), car->GetGearbox().wear);
+}
+
 void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
     Car* car = state.GetCurrentCar();
     if (!car) return;

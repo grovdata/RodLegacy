@@ -24,6 +24,35 @@ TEST_CASE("PartSalePrice: tires always fetch nothing") {
     CHECK(PartSalePrice(PartCategory::Tire, 150, 0, 19) == 0);
 }
 
+// Race wear: the sim hands back raw 0..10000 units, Part::wear is percent.
+TEST_CASE("ApplyWearRaw: carries the sub-percent remainder between races") {
+    int wear = 0, rem = 0;
+    // A drag race's worth. On its own it is 1%, but the leftover 65 is kept.
+    ApplyWearRaw(wear, rem, 165);
+    CHECK(wear == 1);
+    CHECK(rem == 65);
+    // Three more of the same reach 6%, not the 4% plain truncation would give.
+    ApplyWearRaw(wear, rem, 165);
+    ApplyWearRaw(wear, rem, 165);
+    ApplyWearRaw(wear, rem, 165);
+    CHECK(wear == 6);
+    CHECK(rem == 60);
+}
+
+TEST_CASE("ApplyWearRaw: a race that wore nothing changes nothing") {
+    int wear = 42, rem = 7;
+    ApplyWearRaw(wear, rem, 0);
+    ApplyWearRaw(wear, rem, -5);
+    CHECK(wear == 42);
+    CHECK(rem == 7);
+}
+
+TEST_CASE("ApplyWearRaw: clamps at worn out") {
+    int wear = 95, rem = 0;
+    ApplyWearRaw(wear, rem, 10000);
+    CHECK(wear == 100);
+}
+
 // The master parts table the whole economy is priced from (Amiga A4-0x48ec,
 // 44 records of 14 bytes, price at +0). Read straight out of the binary, so
 // these are the values, not a balance choice - a wrong one moves every car's
