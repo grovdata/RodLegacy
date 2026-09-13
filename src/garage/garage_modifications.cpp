@@ -1619,6 +1619,11 @@ void Garage::ShowTireDialog() {
                 const auto& spareTires = state.GetSpareTires();
                 if (selectedIndex >= (int)spareTires.size()) break;
                 Part newTire = spareTires[selectedIndex];
+                // The set coming off goes back in the parts box, like any
+                // other part swap. (DetachPart 0x242b16 frees a tire instead
+                // of listing it only in the two places where it is gone for
+                // good: blown tires replaced after a race, 0x245066, and
+                // DismantleCar taking a whole car apart, 0x242b88.)
                 Part oldTire = state.GetCurrentCar()->GetTires();
                 state.AddSpareTire(oldTire);
                 state.RemoveSpareTire(newTire.partType.tireType);

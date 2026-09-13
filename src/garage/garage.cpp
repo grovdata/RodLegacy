@@ -528,8 +528,12 @@ void Garage::DrawScene() {
     // OnSceneEnter left them in a garage with nothing to click and no game
     // over. Held off while a dialog, an animation or the spare-parts sell
     // chain is mid-flight, so it can't fire between two halves of a trade.
-    if (!outOfDough && GetActiveDialog() == nullptr && !animatingCar &&
-        !sparePartsNeedsReopen && state.IsOutOfDough()) {
+    // A hidden-but-still-assigned activeDialog is the normal resting state here
+    // (several paths call Hide() without clearing the pointer), so test what is
+    // on screen, not what the pointer holds.
+    const bool dialogUp = GetActiveDialog() != nullptr && GetActiveDialog()->IsVisible();
+    if (!outOfDough && !dialogUp && !animatingCar && !sparePartsNeedsReopen &&
+        state.IsOutOfDough()) {
         outOfDough = true;
         bubbles[kOutOfDoughBubble]->SetVisible(true);
         LOG_INFO("Garage: out of dough - the run is over");
@@ -747,6 +751,14 @@ void Garage::OnFadeComplete() {
 void Garage::OnSceneEnter() {
     CarScene::OnSceneEnter();
     outOfDough = state.IsOutOfDough();
+    LOG_INFO("Garage: enter - car=%d owned=%zu spares(t/x/m/c/e)=%zu/%zu/%zu/%zu/%zu "
+             "bank=%d -> outOfDough=%d",
+             state.GetCurrentCar() != nullptr ? 1 : 0,
+             state.GetOwnedCars().size(),
+             state.GetSpareTires().size(), state.GetSpareTransmissions().size(),
+             state.GetSpareManifolds().size(), state.GetSpareCarburetors().size(),
+             state.GetSpareEngines().size(),
+             state.GetBankroll(), outOfDough ? 1 : 0);
     if (outOfDough) {
         bubbles[kOutOfDoughBubble]->SetVisible(true);
         LOG_INFO("Garage: out of dough - the run is over");
