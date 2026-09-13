@@ -27,6 +27,11 @@
 static constexpr float kLowpassHz = 4400.0f;
 static constexpr float kStereoOffsetFraction = 0.25f;
 
+// M_PI is POSIX, not standard C++, and MinGW/MSVC only expose it when
+// _USE_MATH_DEFINES is defined before <cmath> - which breaks on whichever
+// header pulls <cmath> in first.
+static constexpr float kPi = 3.14159265358979323846f;
+
 EngineSound::EngineSound() {
 }
 
@@ -213,7 +218,7 @@ void EngineSound::FillAudioBuffer(Uint8* stream, int len) {
 
     // One-pole low-pass standing in for Paula's output filter. Expressed in Hz
     // so it stays put if the device rate changes; see kLowpassHz.
-    const float lowpassAlpha = 1.0f - std::exp(-2.0f * static_cast<float>(M_PI) * kLowpassHz /
+    const float lowpassAlpha = 1.0f - std::exp(-2.0f * kPi * kLowpassHz /
                                                static_cast<float>(audioSpec.freq));
 
     for (int frame = 0; frame < numFrames; frame++) {
