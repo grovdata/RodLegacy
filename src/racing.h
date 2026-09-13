@@ -262,6 +262,9 @@ public:
     // units. Driving writes these back onto the car once the race is settled.
     int PlayerEngineWearDelta() const { return sim.Player().engineWearDelta; }
     int PlayerTransWearDelta() const { return sim.Player().transWearDelta; }
+    // Tires wear by the race, not the tick - see srrace::TireWearForRace.
+    int32_t PlayerSegment() const { return sim.PlayerSegment(); }
+    bool PlayerTiresBlown() const { return sim.PlayerTiresBlown(); }
     bool IsAutomatic() const;
     // For the dashboard shifter: which gate plate to show, and where an
     // automatic's selector sits (it shows N/D, not the gear).

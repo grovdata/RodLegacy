@@ -716,6 +716,9 @@ void Driving::DrawScene() {
                     // strips it straight after, so the order only matters for
                     // the races that end intact - which is all of them.
                     ApplyRaceWear();
+                    if (endCtx.tiresBlown) {
+                        ApplyBlownTires();
+                    }
                     ApplyDrivetrainDamage(endCtx.endFlags);
 
                     // Only a wreck that cost money - repaired (outcome 1) or
@@ -884,7 +887,7 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
                          {0x00, 0x00, 0x00, 0xFF}, true},
         DialogTextConfig{SDL_Rect{38, 104, 248, 10}, quote, {0x00, 0x00, 0x00, 0xFF}, true}
     };
-    if (ctx.tireWearIncreased) {
+    if (ctx.tiresBlown) {
         texts.push_back(DialogTextConfig{SDL_Rect{38, 114, 248, 10}, "Plus tires !",
                                          {0x00, 0x00, 0x00, 0xFF}, true});
     }
@@ -937,9 +940,51 @@ void Driving::ApplyRaceWear() {
     if (!car || !racing) return;
     car->AddEngineWearRaw(racing->PlayerEngineWearDelta());
     car->AddGearboxWearRaw(racing->PlayerTransWearDelta());
-    LOG_INFO("Driving: race wear engine +%d raw (now %d%%), trans +%d raw (now %d%%)",
+
+    // Tires are the odd one out: one lump at the end of the race, and only if
+    // the car actually went anywhere (InitRaceState's `200 < playerSeg` gate,
+    // and the line starts at segment 200).
+    const int32_t endSeg = racing->PlayerSegment();
+    const bool isRoad = (racing->GetTrackType() != SR_TRACK_DRAG_RACE);
+    int tireRaw = 0;
+    if (endSeg > srrace::TIRE_WEAR_MIN_SEGMENTS) {
+        std::uniform_int_distribution<int> roll300(0, 299);
+        tireRaw = srrace::TireWearForRace(static_cast<int>(car->GetWheelType()), isRoad,
+                                          roll300(RandomEngine()));
+        car->AddTireWearRaw(tireRaw);
+    }
+
+    LOG_INFO("Driving: race wear [%s seg=%d car=%p tireClass=%d] engine +%d raw (now %d%%), "
+             "trans +%d raw (now %d%%), tires +%d raw (now %d%%)",
+             isRoad ? "road" : "drag", endSeg, (void*)car,
+             static_cast<int>(car->GetWheelType()),
              racing->PlayerEngineWearDelta(), car->GetEngine().wear,
-             racing->PlayerTransWearDelta(), car->GetGearbox().wear);
+             racing->PlayerTransWearDelta(), car->GetGearbox().wear,
+             tireRaw, car->GetTires().wear);
+}
+
+// A blowout is not damage you pay to repair - the original just fits a new set
+// on the spot (ApplyCrashDamage 0x245044 / DOS 1000:ba3b): the blown tires come
+// off the car and off its value, a spare goes on if there is one, and if there
+// is not you are billed $50 for a fresh set (bankroll floored at zero).
+void Driving::ApplyBlownTires() {
+    Car* car = state.GetCurrentCar();
+    if (!car) return;
+
+    const auto& spares = state.GetSpareTires();
+    if (!spares.empty()) {
+        const Part fresh = spares.front();
+        state.RemoveSpareAt(PartCategory::Tire, 0);
+        car->SetTires(fresh);
+        LOG_INFO("Driving: tires blown - fitted a spare (%d%% worn)", fresh.wear);
+        return;
+    }
+
+    constexpr int kNewTireCharge = 50;
+    state.SetBankroll(std::max(0, state.GetBankroll() - kNewTireCharge));
+    car->SetTires(car->GetWheelType());   // a brand-new set of the same kind
+    LOG_INFO("Driving: tires blown - no spare, charged $%d, bankroll now $%d",
+             kNewTireCharge, state.GetBankroll());
 }
 
 void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {

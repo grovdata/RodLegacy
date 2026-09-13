@@ -22,7 +22,7 @@ struct RaceEndContext {
     bool isPinkSlip = false;
     int betAmount = 0;
     bool isDragRace = false;      // currentTrackType == SR_TRACK_DRAG_RACE
-    bool tireWearIncreased = false; // sim.Player().tireWearDelta > 0
+    bool tiresBlown = false; // endFlags & END_TIRES_BLOWN
     int speedingFine = 0;         // sim.SpeedingFine()
     int bankroll = 0;             // state.GetBankroll()
     int crashSpeed = 0;           // sim.Player().speed, frozen at the impact

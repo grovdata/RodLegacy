@@ -95,6 +95,7 @@ class Car {
         // Deliberately not saved: it is worth less than 1%.
         int engineWearRemainder = 0;
         int gearboxWearRemainder = 0;
+        int tireWearRemainder = 0;
 
     public:
 
@@ -202,6 +203,9 @@ class Car {
         // round down to 1% and lose a third of the wear each time.
         void AddEngineWearRaw(int raw);
         void AddGearboxWearRaw(int raw);
+        // Tires wear by the race rather than the tick, but through the same
+        // remainder carry - see srrace::TireWearForRace.
+        void AddTireWearRaw(int raw);
 
         // Pulling a part in the engine bay: the car loses it for real, and
         // IsRunning() goes false until something is put back. The part's own

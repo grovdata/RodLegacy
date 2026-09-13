@@ -278,6 +278,22 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
         copTriggerSeg = 510 + copRng.Next(255);
     }
 
+    // Tire blowout roll (ResetCarPhysicsState, Amiga 0x243fd0 / DOS 1000:ae7d,
+    // byte-for-byte the same on both). Tires under 80% worn always hold; past
+    // that it is `wear + rand(2000) > 9500` once per race, and the blowout is
+    // placed halfway down what is left of the course:
+    //   blowSeg = 200 + (finish-200)/2 + rand((finish-200)/4)
+    // which is 610..814 on the road course and 290..334 on the strip. Own RNG
+    // stream, same reasoning as the cop above.
+    tireBlowSeg = 0;
+    if (playerSetup.tireWear >= 8000) {
+        RaceRng tireRng(rngSeed ^ 0x71235u);
+        if (playerSetup.tireWear + static_cast<int>(tireRng.Next(2000)) > 9500) {
+            const int half = (finishSeg - 200) / 2;
+            tireBlowSeg = 200 + half + static_cast<int>(tireRng.Next(std::max(1, half / 2)));
+        }
+    }
+
     if (track != nullptr) {
         int seg = ClampTrackIndex(player.segPos);
         player.elevAtCar = track->elev[seg];
@@ -368,6 +384,12 @@ void RaceSim::Tick(uint16_t inputBits) {
 
     UpdateScroll(player);
     UpdateScroll(npc);
+
+    // The tires go the moment the car passes the rolled segment (RaceLogicUpdate
+    // 0x244d50 / DOS 1000:b9bf: `blowSeg != 0 && blowSeg < playerSeg`).
+    if (tireBlowSeg != 0 && player.segPos > tireBlowSeg) {
+        player.endFlags |= END_TIRES_BLOWN;
+    }
 
     ApplyLateralDrift(player, playerTables.handling);
 
@@ -860,6 +882,13 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
 }
 
 void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
+    // Blown tires replace the curve drift outright with a flat pull to one side
+    // (RenderTrackFrame's `A4+0x4ccc` branch: `lateral += 25` every frame, the
+    // bend ignored). You can still steer against it, and you have to.
+    if (&car == &player && (player.endFlags & END_TIRES_BLOWN) != 0) {
+        car.lateral = static_cast<int16_t>(car.lateral + 25);
+        return;
+    }
     const int seg = ClampTrackIndex(car.segPos);
     // Lateral drift uses the road-direction array curve[] (A4+0x1098), NOT elev[]
     // - physics.md had this backwards. This is the same array the horizontal road

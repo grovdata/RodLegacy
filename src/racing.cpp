@@ -675,7 +675,7 @@ srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     ctx.isPinkSlip = raceIsPinkSlip;
     ctx.betAmount = raceBetAmount;
     ctx.isDragRace = (currentTrackType == SR_TRACK_DRAG_RACE);
-    ctx.tireWearIncreased = sim.Player().tireWearDelta > 0;
+    ctx.tiresBlown = sim.PlayerTiresBlown();
     ctx.speedingFine = sim.SpeedingFine();
     ctx.bankroll = state.GetBankroll();
     // The car freezes on the failure bit, so this is still the impact speed -

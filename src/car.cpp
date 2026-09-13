@@ -123,6 +123,10 @@ void Car::StripEngineAssembly() {
 
 void Car::AddEngineWearRaw(int raw) { ApplyWearRaw(engine.wear, engineWearRemainder, raw); }
 void Car::AddGearboxWearRaw(int raw) { ApplyWearRaw(gearbox.wear, gearboxWearRemainder, raw); }
+void Car::AddTireWearRaw(int raw) {
+    ApplyWearRaw(tires.wear, tireWearRemainder, raw);
+    RecalculatePerformance();
+}
 
 int Car::GetPartsValue() const {
     int total = tires.cost;

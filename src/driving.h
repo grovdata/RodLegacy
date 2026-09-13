@@ -62,6 +62,7 @@ class Driving: public Scene {
     // on a blown engine, the gearbox on a dropped transmission.
     void ApplyDrivetrainDamage(uint16_t endFlags);
     void ApplyRaceWear();
+    void ApplyBlownTires();
 
     // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;

@@ -34,7 +34,7 @@ std::string BuildRaceEndReason(const RaceEndContext& ctx) {
         case CrashOutcome::Forfeited:
             // The car goes with the bet either way, so there is no repair bill
             // and no scrap money - just the short line (message 0x5a / 0x5b).
-            if (ctx.tireWearIncreased) {
+            if (ctx.tiresBlown) {
                 return "Blew your tires again`?`You lose. Take a walk, sucker.";
             }
             return "You lose. Take a walk, sucker.";
@@ -42,7 +42,7 @@ std::string BuildRaceEndReason(const RaceEndContext& ctx) {
             return "Lucky you weren't killed, 'cause the car`is totaled. You get $" +
                    std::to_string(ScrapPayout(ctx.carStrippedValue)) + " for scrap.";
         case CrashOutcome::DroveAway:
-            if (ctx.tireWearIncreased) {
+            if (ctx.tiresBlown) {
                 return "Lucky you're so slow. You only lost`the race. But you need new tires.";
             }
             return "Lucky you're so slow. You only lost`the race.";
@@ -78,7 +78,7 @@ std::string BuildRaceEndReason(const RaceEndContext& ctx) {
         // The original splits this over two lines ("...You only lost" / "the
         // race."); the bubble is single-line, so join with the ` the font
         // renders as a space, the same way the failure lines above do.
-        if (ctx.tireWearIncreased) {
+        if (ctx.tiresBlown) {
             return "Lucky you're so slow. You only lost`the race. But you need new tires.";
         }
         return "Lucky you're so slow. You only lost`the race.";

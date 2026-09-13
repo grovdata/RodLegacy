@@ -25,16 +25,12 @@ constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
 constexpr uint16_t END_FINISHED = 0x01;
 constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
-// NPC-only, and not an original flag: our own "the opponent conceded in the last
-// quarter" marker (NpcAiUpdate). The original spends 0x08 on a crash-damage
-// marker, but nothing can ever set it: ProcessRaceOutcome ORs it in only when
-// A4+0x4ccc is set, and the one place that writes A4+0x4ccc needs A4+0x4b14 to
-// be non-zero - an address the whole binary only ever reads (`tst.w (0x4b14,A4)`
-// at 0x26104 and `cmp.w (0x4b14,A4),D0w` at 0x2610e, no third reference). So the
-// bit is dead, the five `& 8` tests that gate an extra ApplyCrashDamage() call
-// always take the false branch, and there is no collision and nothing missing
-// here. See docs/driving/npc_ai_and_view_state.md.
-constexpr uint16_t END_GAVE_UP = 0x08;
+// The tires let go mid-race (original A4+0x4ccc -> `A4+0x4bc7 |= 8`). NOT a
+// failure bit: the car keeps going, it just pulls hard to one side for the rest
+// of the race (see ApplyLateralDrift). At the finish it selects the "Blew your
+// tires again?" / "But you need new tires." wordings and makes the garage fit a
+// fresh set. See RodLegacyResearch/docs/driving/tires.md.
+constexpr uint16_t END_TIRES_BLOWN = 0x08;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
 // Pulled over for speeding. The original's own bit: the `| 0x41` in
@@ -42,6 +38,9 @@ constexpr uint16_t END_WALL_HIT = 0x20;
 // means this and nothing else. See RodLegacyResearch/docs/driving/cop.md.
 constexpr uint16_t END_COP_CAUGHT = 0x40;
 constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false start
+// NPC-only, and not an original flag: our own "the opponent conceded in the
+// last quarter" marker (NpcAiUpdate), kept clear of the original's 8 bits.
+constexpr uint16_t END_GAVE_UP = 0x0100;
 
 // Player failure states that freeze the car and end the race as a loss.
 constexpr uint16_t END_FAILURE_MASK =
@@ -50,6 +49,19 @@ constexpr uint16_t END_FAILURE_MASK =
 
 // The two impacts that bend metal and put the wrecked interior on screen.
 constexpr uint16_t END_WRECK_MASK = END_WALL_HIT | END_HIT_NPC;
+
+// Tires wear once per race, not per tick: InitRaceState (Amiga 0x244250,
+// DOS 1000:b0d8) applies this on return from the race, and only if the player
+// covered more than TIRE_WEAR_MIN_SEGMENTS. Stock tires wear roughly twice as
+// fast as brand-name or slicks, and the road course wears more than the strip.
+// `roll300` is rand(300). Units are the original's 0..10000.
+// See RodLegacyResearch/docs/driving/tires.md.
+constexpr int TIRE_WEAR_MIN_SEGMENTS = 200;
+inline int TireWearForRace(int tireClass, bool isRoadRace, int roll300) {
+    const int base = (tireClass == 0) ? (isRoadRace ? 700 : 300)
+                                      : (isRoadRace ? 400 : 200);
+    return base + roll300;
+}
 
 // Race phase: staging countdown -> running -> ended (matches the UpdatePhysics
 // 0x2364e8 state machine: launch light, then the race, then a frozen car).
@@ -215,6 +227,7 @@ public:
     const NpcState& NpcAi() const { return npcAi; }
     int RaceType() const { return raceType; }
     int FinishSegment() const { return finishSeg; }
+    int32_t PlayerSegment() const { return player.segPos; }
     RacePhase Phase() const { return phase; }
     bool InCountdown() const { return phase == RacePhase::Countdown; }
     int CountdownTicks() const { return countdownTicks; }
@@ -280,6 +293,10 @@ public:
     // 3 = close enough that the siren is going.
     int CopState() const { return copState; }
     int32_t CopTriggerSegment() const { return copTriggerSeg; }
+    // Where the tires are rolled to go this race (0 = they hold), and whether
+    // they already have. See RodLegacyResearch/docs/driving/tires.md.
+    int32_t TireBlowSegment() const { return tireBlowSeg; }
+    bool PlayerTiresBlown() const { return (player.endFlags & END_TIRES_BLOWN) != 0; }
     // The opponent car IS the cop from state 2 on, so the renderer should be
     // drawing the police sprites.
     bool CopChasing() const { return copState >= 2; }
@@ -349,6 +366,9 @@ private:
     // Cop pursuit (original A4+0x4cb6 state / A4+0x4cb8 trigger segment).
     int16_t copState = 0;
     int32_t copTriggerSeg = 0;
+    // Segment the tires are set to let go at, 0 = they hold this race. Rolled
+    // once at Init; crossing it sets END_TIRES_BLOWN and the flat drift.
+    int32_t tireBlowSeg = 0;
     bool copSpawnEvent = false;
     bool copSirenOn = false;
     int16_t copCaughtSpeed = 0;   // speed at capture; sets the fine tier
