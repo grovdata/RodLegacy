@@ -1,9 +1,9 @@
 // Street Rod (Amiga) music player - SDL3
 // Goal: mirror MusicTick/MusicControlByte behavior from Street_Rod.c.
 
-#include "amiga_music_player.h"
+#include "tools/music_player/amiga_music_player.h"
 
-#include "../../parsers/adf.h"
+#include "parsers/adf.h"
 
 #include <SDL3/SDL.h>
 

@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iterator>
-#include "racer_pool.h"
+#include "race/racer_pool.h"
 #include "parsers/libp.h"
 
 // ============================================================================

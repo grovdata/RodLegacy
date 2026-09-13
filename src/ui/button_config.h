@@ -3,8 +3,8 @@
 #include <functional>
 #include <string>
 #include <SDL.h>
-#include "../global.h"
-#include "../SFont.h"
+#include "core/global.h"
+#include "gfx/SFont.h"
 
 // Forward declaration
 class Bitmap;

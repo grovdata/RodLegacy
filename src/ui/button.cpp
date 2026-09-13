@@ -1,10 +1,10 @@
-#include "../log.h"
-#include "button.h"
-#include "rectangle.h"
-#include "../state.h"
-#include "../bitmap.h"
-#include "zone.h"
-#include "../SFont.h"
+#include "core/log.h"
+#include "ui/button.h"
+#include "ui/rectangle.h"
+#include "core/state.h"
+#include "gfx/bitmap.h"
+#include "ui/zone.h"
+#include "gfx/SFont.h"
 
 Button::Button(const ButtonConfig& config)
     : config(config), pressed(false), visible(true)

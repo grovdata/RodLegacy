@@ -1,5 +1,5 @@
-#include "rectangle.h"
-#include "../log.h"
+#include "ui/rectangle.h"
+#include "core/log.h"
 
 Rectangle::Rectangle(RectangleConfig config) : config(config) {
     Fill();

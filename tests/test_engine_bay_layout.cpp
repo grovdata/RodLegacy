@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include "engine_bay_layout.h"
+#include "car/engine_bay_layout.h"
 
 // Pins the positions transcribed from the Amiga binary's tables. The
 // class 4 / V8_BIG case is measured pixel-exact off

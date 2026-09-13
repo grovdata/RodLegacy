@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
-#include "save_loader.h"
+#include "core/save_loader.h"
 
 // Builds a minimal but structurally complete synthetic .sav file matching
 // RodLegacyResearch/docs/formats/save_game.md exactly, so the parser can be

@@ -1,6 +1,6 @@
-#include "main_font.h"
+#include "ui/main_font.h"
 
-#include "log.h"
+#include "core/log.h"
 
 SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
     // Amiga embedded font offsets in the Street_Rod binary.

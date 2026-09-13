@@ -9,7 +9,7 @@
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-#include "adf.h"
+#include "parsers/adf.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

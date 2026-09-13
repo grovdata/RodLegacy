@@ -1,8 +1,8 @@
-#include "dialog.h"
-#include "../ui/rectangle.h"
-#include "../ui/button.h"
-#include "../bitmap.h"
-#include "../animated_bitmap.h"
+#include "dialogs/dialog.h"
+#include "ui/rectangle.h"
+#include "ui/button.h"
+#include "gfx/bitmap.h"
+#include "gfx/animated_bitmap.h"
 #include "ui/zone.h"
 #include <vector>
 #include <algorithm>  // std::sort

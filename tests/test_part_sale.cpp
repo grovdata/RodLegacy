@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "part.h"
+#include "car/part.h"
 
 // SellSparePartsLoop (Amiga 0x0024284a); see docs/gameplay.md "Selling".
 TEST_CASE("PartSalePrice: engines and gearboxes are priced on wear") {

@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "diner_actors.h"
+#include "scenes/diner_actors.h"
 
 using namespace srdiner;
 

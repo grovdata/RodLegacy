@@ -1,7 +1,7 @@
-#include "checkbox.h"
-#include "../bitmap.h"
-#include "../embedded_loader.h"
-#include "../state.h"
+#include "ui/checkbox.h"
+#include "gfx/bitmap.h"
+#include "core/embedded_loader.h"
+#include "core/state.h"
 
 extern "C" {
     extern const unsigned char embedded_checkbox_on_png[];

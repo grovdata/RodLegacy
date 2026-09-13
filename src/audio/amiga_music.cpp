@@ -1,5 +1,5 @@
-#include "amiga_music.h"
-#include "utils.h"
+#include "audio/amiga_music.h"
+#include "core/utils.h"
 
 #include <algorithm>
 #include <cmath>

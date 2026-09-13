@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "car_haggle.h"
+#include "car/car_haggle.h"
 
 // A $1000 car with roll20 = 0 has an opening ceiling of exactly $750, which
 // keeps the numbers below easy to check by hand:

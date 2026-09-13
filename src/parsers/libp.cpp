@@ -1,4 +1,4 @@
-#include "libp.h"
+#include "parsers/libp.h"
 
 
 
@@ -10,8 +10,8 @@
 #include <algorithm>
 #include <map>
 
-#include "carcolor.h"
-#include "../car_set.h"
+#include "parsers/carcolor.h"
+#include "car/car_set.h"
 
 static void WriteUint16BE(std::vector<uint8_t>& out, uint16_t value) {
     out.push_back((value >> 8) & 0xFF);

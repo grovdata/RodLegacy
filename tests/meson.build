@@ -38,19 +38,19 @@ test_sources = [
     'test_diner_actors.cpp',
     'test_car_engine_type.cpp',
     'test_engine_pitch.cpp',
-    '../src/engine_bay_layout.cpp',
+    '../src/car/engine_bay_layout.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',
     '../src/race/race_end_message.cpp',
     '../src/parsers/libp.cpp',
-    '../src/car_set.cpp',   # libp.cpp reads the measured wheel Y from here
-    '../src/car_system.cpp',
-    '../src/racer_pool.cpp',
-    '../src/bet_acceptance.cpp',
-    '../src/car_haggle.cpp',
-    '../src/game_clock.cpp',
-    '../src/save_loader.cpp',
-    '../src/gas_station_pump.cpp',
+    '../src/car/car_set.cpp',   # libp.cpp reads the measured wheel Y from here
+    '../src/car/car_system.cpp',
+    '../src/race/racer_pool.cpp',
+    '../src/race/bet_acceptance.cpp',
+    '../src/car/car_haggle.cpp',
+    '../src/core/game_clock.cpp',
+    '../src/core/save_loader.cpp',
+    '../src/scenes/gas_station_pump.cpp',
     # carcolor.cpp intentionally excluded: libp.cpp never calls GetStandardCarColor
     # and carcolor.cpp unnecessarily includes <SDL.h>
     # types.cpp intentionally excluded: operator<(CarModel) is not called by any test

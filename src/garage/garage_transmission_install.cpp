@@ -1,7 +1,7 @@
-#include "garage.h"
-#include "state.h"
+#include "garage/garage.h"
+#include "core/state.h"
 #include "ui/hud.h"
-#include "assets.h"
+#include "core/assets.h"
 #include "parsers/libp.h"
 #include <algorithm>
 #include <map>

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "gas_station_pump.h"
+#include "scenes/gas_station_pump.h"
 
 TEST_CASE("ApplyGasPumpTick adds fuel and deducts bankroll") {
     GasPumpTick tick = ApplyGasPumpTick(/*fuel=*/0, /*bankroll=*/100, /*price=*/1,

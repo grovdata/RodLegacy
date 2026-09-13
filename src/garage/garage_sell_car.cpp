@@ -7,11 +7,11 @@
 // reused across prompts and only cleared, and a counter-offer can never
 // directly follow a counter-offer.
 
-#include "garage.h"
-#include "state.h"
+#include "garage/garage.h"
+#include "core/state.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
-#include "utils.h"
+#include "core/utils.h"
 
 #include <random>
 

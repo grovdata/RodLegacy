@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../global.h"
-#include "../bitmap.h"
-#include "../utils.h"
-#include "zone.h"
+#include "core/global.h"
+#include "gfx/bitmap.h"
+#include "core/utils.h"
+#include "ui/zone.h"
 
 // TODO: More flexible speech bubbles with 9-patch?
 

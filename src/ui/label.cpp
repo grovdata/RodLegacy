@@ -1,5 +1,5 @@
-#include "label.h"
-#include "../utils.h"
+#include "ui/label.h"
+#include "core/utils.h"
 #include <sstream>
 
 Label::Label() : Bitmap() {

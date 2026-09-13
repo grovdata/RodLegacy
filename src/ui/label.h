@@ -1,7 +1,7 @@
 #pragma once
 
-#include "bitmap.h"
-#include "../SFont.h"
+#include "gfx/bitmap.h"
+#include "gfx/SFont.h"
 #include <SDL.h>
 #include <vector>
 

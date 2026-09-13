@@ -1,6 +1,6 @@
-#include "number_entry_dialog.h"
+#include "dialogs/number_entry_dialog.h"
 
-#include "../bitmap.h"
+#include "gfx/bitmap.h"
 
 #include <cstdlib>
 

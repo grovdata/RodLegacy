@@ -1,8 +1,8 @@
-#include "list_dialog.h"
-#include "../state.h"
-#include "../SFont.h"
-#include "../ui/main_font.h"
-#include "../ui/button.h"
+#include "dialogs/list_dialog.h"
+#include "core/state.h"
+#include "gfx/SFont.h"
+#include "ui/main_font.h"
+#include "ui/button.h"
 
 ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     : Dialog(config),         

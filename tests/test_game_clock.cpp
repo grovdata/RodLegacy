@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include "game_clock.h"
+#include "core/game_clock.h"
 
 // Values here are the confirmed findings from RodLegacyResearch/docs/formats/
 // save_game.md's "Chunk 7 fully decoded" section: code-level confirmation

@@ -1,10 +1,10 @@
-#include "../log.h"
-#include "audio_manager.h"
-#include "amiga_music.h"
-#include "engine_sound.h"
-#include "pc_speaker.h"
-#include "../parsers/adf.h"
-#include "../parsers/libp.h"
+#include "core/log.h"
+#include "audio/audio_manager.h"
+#include "audio/amiga_music.h"
+#include "audio/engine_sound.h"
+#include "audio/pc_speaker.h"
+#include "parsers/adf.h"
+#include "parsers/libp.h"
 #include <SDL2/SDL.h>
 #include <cstring>
 #include <algorithm>

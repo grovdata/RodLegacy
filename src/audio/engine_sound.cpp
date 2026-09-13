@@ -1,5 +1,5 @@
-#include "../log.h"
-#include "engine_sound.h"
+#include "core/log.h"
+#include "audio/engine_sound.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>

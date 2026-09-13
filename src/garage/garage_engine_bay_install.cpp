@@ -1,10 +1,10 @@
-#include "garage.h"
-#include "engine_bay_layout.h"
-#include "state.h"
+#include "garage/garage.h"
+#include "car/engine_bay_layout.h"
+#include "core/state.h"
 #include "ui/hud.h"
-#include "assets.h"
+#include "core/assets.h"
 #include "parsers/libp.h"
-#include "car_builder.h"
+#include "car/car_builder.h"
 #include <algorithm>
 
 using EngineBaySlot = Garage::EngineBaySlot;

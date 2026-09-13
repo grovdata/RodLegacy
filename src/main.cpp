@@ -1,24 +1,24 @@
 #include "SDL_log.h"
-#include "log.h"
-#include "global.h"
+#include "core/log.h"
+#include "core/global.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
-#include "mouse.h"
+#include "core/mouse.h"
 #include "parsers/libp.h"
-#include "state.h"
-#include "save_file.h"
-#include "scene.h"
-#include "debug_overlay.h"
-#include "debug_ui.h"
-#include "main_debug.h"
+#include "core/state.h"
+#include "core/save_file.h"
+#include "scenes/scene.h"
+#include "debug/debug_overlay.h"
+#include "debug/debug_ui.h"
+#include "debug/main_debug.h"
 #include "tinyfiledialogs.h"
-#include "embedded_loader.h"
-#include "config_screen.h"
+#include "core/embedded_loader.h"
+#include "scenes/config_screen.h"
 #include "race/race_sim.h"
-#include "utils.h"
+#include "core/utils.h"
 #include <filesystem>
 #include <fstream>
 #include <cstring>

@@ -2,9 +2,9 @@
 
 #include <functional>
 #include <memory>
-#include "../global.h"
-#include "../ui/forward_declarations.h"
-#include "button_config.h"
+#include "core/global.h"
+#include "ui/forward_declarations.h"
+#include "ui/button_config.h"
 #include <string>
 
 

@@ -1,6 +1,6 @@
-#include "bubble.h"
-#include "../state.h"
-#include "../parsers/libp.h"
+#include "ui/bubble.h"
+#include "core/state.h"
+#include "parsers/libp.h"
 #include <algorithm>
 #include <sstream>
 #include <vector>

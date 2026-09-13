@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SFont.h"
+#include "gfx/SFont.h"
 
 // Special glyphs in the Amiga main font (see LoadMainFontFromExe) used as
 // scroll-list button icons in dialogs instead of ordinary letters/digits.

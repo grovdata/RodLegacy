@@ -1,5 +1,5 @@
 #pragma once
-#include "dialog.h"
+#include "dialogs/dialog.h"
 #include <functional>
 
 // Zeroed by default: a caller that wants no scroll buttons (SaveLoadScene)

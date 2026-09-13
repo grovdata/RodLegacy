@@ -1,6 +1,6 @@
-#include "hud.h"
-#include "../parsers/libp.h"
-#include "../state.h"
+#include "ui/hud.h"
+#include "parsers/libp.h"
+#include "core/state.h"
 
 const int HUD_YPOS = GAME_HEIGHT - GAME_STATUSBAR_HEIGHT;
 

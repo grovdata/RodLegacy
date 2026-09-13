@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../global.h"
+#include "core/global.h"
 #include <string>
 #include <functional>
 

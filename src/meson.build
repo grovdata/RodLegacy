@@ -128,33 +128,33 @@ endif
 
 # C sources
 c_sources = files(
-    'SFont.c'
+    'gfx/SFont.c'
 )
 
 # C++ sources
 cpp_sources = files(
     'main.cpp',
-    'main_debug.cpp',
-    'mouse.cpp',
+    'debug/main_debug.cpp',
+    'core/mouse.cpp',
     'parsers/adf.c',
-    'state.cpp',
-    'types.cpp',
-    'bitmap.cpp',
-    'animated_bitmap.cpp',
-    'scene.cpp',
-    'car.cpp',
-    'car_builder.cpp',
-    'car_system.cpp',
-    'cardata.cpp',
-    'car_set.cpp',
-    'carbitmap.cpp',
-    'diner.cpp',
-    'driving.cpp',
-    'racing.cpp',
+    'core/state.cpp',
+    'core/types.cpp',
+    'gfx/bitmap.cpp',
+    'gfx/animated_bitmap.cpp',
+    'scenes/scene.cpp',
+    'car/car.cpp',
+    'car/car_builder.cpp',
+    'car/car_system.cpp',
+    'car/cardata.cpp',
+    'car/car_set.cpp',
+    'car/carbitmap.cpp',
+    'scenes/diner.cpp',
+    'race/driving.cpp',
+    'race/racing.cpp',
     'race/track_gen.cpp',
     'race/race_sim.cpp',
     'race/race_end_message.cpp',
-    'challenge.cpp',
+    'race/challenge.cpp',
     'garage/garage.cpp',
     'garage/garage_menus.cpp',
     'garage/garage_modifications.cpp',
@@ -162,27 +162,27 @@ cpp_sources = files(
     'garage/garage_transmission_install.cpp',
     'garage/garage_engine_bay_install.cpp',
     'garage/garage_sell_car.cpp',
-    'car_haggle.cpp',
-    'engine_bay.cpp',
-    'engine_bay_layout.cpp',
-    'scene_layout.cpp',
-    'newspaper.cpp',
-    'gas_station.cpp',
-    'gas_station_pump.cpp',
-    'king_of_county.cpp',
-    'name_entry.cpp',
-    'save_load_scene.cpp',
-    'game_over_menu.cpp',
-    'assets.cpp',
+    'car/car_haggle.cpp',
+    'car/engine_bay.cpp',
+    'car/engine_bay_layout.cpp',
+    'scenes/scene_layout.cpp',
+    'scenes/newspaper.cpp',
+    'scenes/gas_station.cpp',
+    'scenes/gas_station_pump.cpp',
+    'race/king_of_county.cpp',
+    'scenes/name_entry.cpp',
+    'scenes/save_load_scene.cpp',
+    'scenes/game_over_menu.cpp',
+    'core/assets.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',
-    'roster.cpp',
-    'racer_pool.cpp',
-    'save_loader.cpp',
-    'save_file.cpp',
-    'game_clock.cpp',
-    'bet_acceptance.cpp',
-    'debug_overlay.cpp',
+    'race/roster.cpp',
+    'race/racer_pool.cpp',
+    'core/save_loader.cpp',
+    'core/save_file.cpp',
+    'core/game_clock.cpp',
+    'race/bet_acceptance.cpp',
+    'debug/debug_overlay.cpp',
     'audio/audio_manager.cpp',
     'audio/amiga_music.cpp',
     'audio/engine_sound.cpp',
@@ -197,8 +197,8 @@ cpp_sources = files(
     'dialogs/list_dialog.cpp',
     'dialogs/number_entry_dialog.cpp',
     'ui/rectangle.cpp',
-    'zip_utils.cpp',
-    'config_screen.cpp',
+    'core/zip_utils.cpp',
+    'scenes/config_screen.cpp',
 )
 
 # Windows resource compilation
@@ -301,9 +301,9 @@ debug_ui_enabled = get_option('debug_ui')
 if debug_ui_enabled
     imgui_proj = subproject('imgui')
     imgui_dep = imgui_proj.get_variable('imgui_dep')
-    cpp_sources += files('debug_ui.cpp')
+    cpp_sources += files('debug/debug_ui.cpp')
     # Car/wheel-offset inspector scene, debug builds only.
-    cpp_sources += files('car_debug.cpp')
+    cpp_sources += files('debug/car_debug.cpp')
     cpp_args += ['-DRODLEGACY_DEBUG_UI']
     game_extra_deps = [imgui_dep]
 else

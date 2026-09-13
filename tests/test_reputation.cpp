@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include "reputation.h"
+#include "race/reputation.h"
 
 TEST_SUITE("Reputation::RecordWin") {
 

@@ -1,10 +1,10 @@
 #pragma once
 
 // Include essential types that are needed everywhere
-#include "../types.h"
-#include "../ui/zone.h"
-#include "../assets.h"   // For Asset struct
-#include "button_config.h"  // For ButtonConfig struct
+#include "core/types.h"
+#include "ui/zone.h"
+#include "core/assets.h"   // For Asset struct
+#include "ui/button_config.h"  // For ButtonConfig struct
 
 // Forward declarations for UI classes
 class Rectangle;

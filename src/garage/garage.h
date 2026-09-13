@@ -1,18 +1,18 @@
 #pragma once
 
-#include "global.h"
-#include "scene.h"
-#include "mouse.h"
+#include "core/global.h"
+#include "scenes/scene.h"
+#include "core/mouse.h"
 #include "ui/zone.h"
 #include "ui/bubble.h"
 #include "dialogs/list_dialog.h"
 #include "dialogs/number_entry_dialog.h"
-#include "car_haggle.h"
-#include "carbitmap.h"
-#include "engine_bay.h"
-#include "animated_bitmap.h"
+#include "car/car_haggle.h"
+#include "car/carbitmap.h"
+#include "car/engine_bay.h"
+#include "gfx/animated_bitmap.h"
 #include "parsers/carcolor.h"
-#include "part.h"
+#include "car/part.h"
 #include <functional>
 #include <filesystem>
 

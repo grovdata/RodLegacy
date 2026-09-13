@@ -1,9 +1,9 @@
 #pragma once
 
 #include <SDL.h>
-#include "../global.h"
-#include "../parsers/libp.h"
-#include "../bitmap.h"
+#include "core/global.h"
+#include "parsers/libp.h"
+#include "gfx/bitmap.h"
 
 #include <string>
 

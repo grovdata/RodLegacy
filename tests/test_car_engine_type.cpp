@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "engine_part.h"
+#include "car/engine_part.h"
 
 // A car still on its SR_data spec has no concrete EnginePart - CarBuilder
 // leaves the vendor's placeholder V6 in place - so Car::GetEngineType()

@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include "bet_acceptance.h"
+#include "race/bet_acceptance.h"
 
 // strength[carClassTier][engineClass], lower = faster:
 //   210 180 150 / 175 150 125 / 140 120 100

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../bitmap.h"
+#include "gfx/bitmap.h"
 #include <memory>
 
 struct RectangleConfig {

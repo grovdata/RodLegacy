@@ -1,10 +1,10 @@
 #pragma once
-#include "../global.h"
-#include "../SFont.h"
-#include "../ui/zone.h"
-#include "../ui/rectangle.h"
-#include "../assets.h"   // For Asset
-#include "../ui/button_config.h"  // For ButtonConfig
+#include "core/global.h"
+#include "gfx/SFont.h"
+#include "ui/zone.h"
+#include "ui/rectangle.h"
+#include "core/assets.h"   // For Asset
+#include "ui/button_config.h"  // For ButtonConfig
 #include <vector>
 #include <map>
 #include <string>

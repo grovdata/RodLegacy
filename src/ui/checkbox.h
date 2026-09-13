@@ -2,8 +2,8 @@
 
 #include <functional>
 #include <memory>
-#include "../global.h"
-#include "button.h"
+#include "core/global.h"
+#include "ui/button.h"
 
 struct CheckboxConfig {
     SDL_Rect bounds;

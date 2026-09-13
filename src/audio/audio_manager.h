@@ -7,7 +7,7 @@
 #include <memory>
 #include <cstdint>
 
-#include "pc_speaker.h"
+#include "audio/pc_speaker.h"
 
 // Forward declarations
 class EngineSound;
