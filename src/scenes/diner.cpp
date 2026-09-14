@@ -423,8 +423,18 @@ std::string Diner::GetOpponentText(Opponent *opponent) {
 void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     if (animatingCar && carBitmap) return;
 
+    // Every challenger that drives in comes through here - the first one after
+    // the fade, and each one the OPPONENT_CONTINUOUS loop in Scene brings in
+    // afterwards. Picking here is what keeps the racer pool, the reputation
+    // tier and The King's unlock in play for more than the diner's first car.
+    state.PickNextOpponent();
+
     this->currentOpponent = state.GetNextOpponent();
-    if (!currentOpponent) return;
+    // Everything below reads currentOpponent->car without checking.
+    if (!currentOpponent || !currentOpponent->car) {
+        currentOpponent = nullptr;
+        return;
+    }
 
     state.AddKnownOpponent(currentOpponent);
 
@@ -840,13 +850,10 @@ void Diner::ShowCallListDialog() {
 
 void Diner::OnFadeComplete() {
     if (initialDelay) {
-        // Pick the next opponent from the pool before the car drives in.
-        state.PickNextOpponent();
         fadeCompleteTime = SDL_GetTicks64();
     } else {
         // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !carBitmap) {
-            state.PickNextOpponent();
             StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }
     }

@@ -354,7 +354,9 @@ Opponent* Roster::GetOpponentByIndex(int index) {
 }
 
 Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec) {
-    if (kingOpponentBuilt) return &kingOpponent;
+    // Rebuild if his car was taken in a pink-slip race - cached but carless
+    // is the one state callers cannot handle.
+    if (kingOpponentBuilt && kingOpponent.car) return &kingOpponent;
 
     if (SR_DATA_KING_DRIVER_INDEX < static_cast<int>(srDrivers.size()) &&
         SR_DATA_KING_DRIVER_INDEX < static_cast<int>(srDriverNames.size())) {

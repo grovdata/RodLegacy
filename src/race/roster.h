@@ -64,6 +64,7 @@ class Roster {
         const std::vector<Opponent*>& GetKnownOpponents() const;
         Opponent* FindOpponentByName(const std::string& name);
         void SetNextOpponent(Opponent* opp);
+        bool HasForcedOpponent() const { return forcedNextOpponent != nullptr; }
         Opponent* GetOpponentByIndex(int index);
 
         // The King, built lazily on first request. His car is mechanically

@@ -192,6 +192,10 @@ public:
     // Diner code continues to work unchanged via GetNextOpponent().
     void PickNextOpponent();
 
+    // Builds the car an SR_data spec index describes, drivetrain and all.
+    // Null when the index has no buyable car behind it (The King's slot).
+    CarPtr BuildCarForSpec(int specIndex);
+
     // Ported from ShowOpponentRefusal (Amiga 0x0023e904): after an opponent
     // turns down a bet, the very next reroll has a flat 1/100 chance of
     // being The King, independent of reputation. Call once, right when the

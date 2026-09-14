@@ -640,9 +640,29 @@ int State::GetChallengerScore() const {
     return racerPool.GetEntryScore(lastChallengerPoolIndex);
 }
 
+CarPtr State::BuildCarForSpec(int specIndex) {
+    if (specIndex < 0 || specIndex >= (int)mergedCarSpecs.size() ||
+        specIndex >= (int)mergedCarSpecModelIndex.size()) {
+        return nullptr;
+    }
+    const int modelIdx = mergedCarSpecModelIndex[specIndex];
+    if (modelIdx < 0) return nullptr;  // The King's slot, no buyable car
+    CarModel model = carData.GetModelFromIndex(modelIdx);
+    CarPtr car = CarBuilder::BuildCar(model);
+    if (!car) return nullptr;
+    CarBuilder::ApplySpec(car.get(), mergedCarSpecs[specIndex], model.vendor);
+    return car;
+}
+
 void State::PickNextOpponent() {
     // Fall back to Roster shuffle if pool is not initialised.
     if (racerPool.pool.empty()) {
+        return;
+    }
+
+    // Somebody already queued a specific challenger (the diner's phone list),
+    // so leave their pick alone.
+    if (roster.HasForcedOpponent()) {
         return;
     }
 
@@ -684,6 +704,18 @@ void State::PickNextOpponent() {
     int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
     Opponent* opp = roster.GetOpponentByIndex(driverIdx);
     if (opp) {
+        // Carless: the player took this driver's car in a pink-slip race
+        // (OnRaceFinished resets it). RacerPool::OnRaceWon already dropped
+        // them to a lower-classification spec, so build that car - a driver
+        // with no car at all crashes everything downstream that reads it.
+        if (!opp->car) {
+            opp->car = BuildCarForSpec(entry.car_spec_index);
+            if (!opp->car) {
+                LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d has no car, skipping",
+                         poolIdx, entry.driver_index);
+                return;
+            }
+        }
         // Give the opponent the look the pool rolled for this slot, so the
         // same rival always turns up in the same paint and body trim. The
         // car itself still comes from the Roster - wiring the pool's
