@@ -173,6 +173,7 @@ public:
 
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();
+    bool IsKingOpponent(const Opponent* opp) const { return roster.IsKing(opp); }
 
     void AddKnownOpponent(Opponent* opp);
     const std::vector<Opponent*>& GetKnownOpponents() const;

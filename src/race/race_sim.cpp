@@ -161,6 +161,19 @@ void BuildCarTables(const CarSetup& setup, CarTables& tables) {
     tables.handling = static_cast<int16_t>(kHandling[tireClass][wearBucket]);
 }
 
+// Where the opponent upshifts (UpdateNPCEngine, A4+0x4cac). The car's band-end
+// rpm, docked 100 per point of the driver's reaction byte - so even the best
+// driver in the game (0x0a) leaves 1000 rpm of the power band unused, and the
+// worst (0x14) leaves 2000. Automatics are exempt: the original computes this
+// only under `automatic == 0` and shifts them on their own threshold.
+int16_t NpcShiftRpm(const CarSetup& setup, const CarTables& tables) {
+    if (tables.automatic) {
+        return tables.autoShiftRpm;
+    }
+    const int drop = ClampValue(setup.reaction, 0, 40) * 100;
+    return static_cast<int16_t>(std::max(1500, tables.autoShiftRpm - drop));
+}
+
 int SpeedToScrollStep(int speedMph) {
     if (speedMph <= 0) {
         return 0;
@@ -247,6 +260,7 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
         npcAi = NpcState{};
         npcAi.lateralTarget = npcStart;
     }
+    npcShiftRpm = NpcShiftRpm(npcSetup, npcTables);
     npcAi.targetSpeedNormal = static_cast<int16_t>((npcTables.perfScore * 70) / 100);
     npcAi.targetSpeedRisky = static_cast<int16_t>((npcTables.perfScore * 80) / 100);
     npcAi.stallTicks = 0;
@@ -526,6 +540,7 @@ void RaceSim::SpawnCop() {
 
     // Keep the speed it was carrying; the gear is re-derived from the new tables.
     npc.speed = speedBefore;
+    npcShiftRpm = NpcShiftRpm(npcSetup, npcTables);
     copSpawnEvent = true;
 }
 
@@ -1313,7 +1328,7 @@ void RaceSim::NpcEngine() {
                 const bool shift =
                     throttle && ((npc.gear == 0) ||
                                  (npc.gear < npcTables.numGears &&
-                                  npc.rpm >= npcTables.autoShiftRpm));
+                                  npc.rpm >= npcShiftRpm));
                 npcAi.throttle = throttle;
                 npcAi.shifted = shift;
                 EngineTick(npc, npcTables, throttle, false, shift);

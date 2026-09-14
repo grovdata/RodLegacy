@@ -71,4 +71,10 @@ class Roster {
         // the stock '63 Corvette (kingSpec) wearing his own paint job - see
         // king.md's "His car is mechanically a stock '63 Corvette".
         Opponent* GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec);
+
+        // Identity, not a pool index. lastChallengerPoolIndex moves whenever
+        // anything re-picks a challenger (a phoned opponent forces a pick and
+        // leaves it alone entirely), so it cannot be trusted to say who is
+        // standing in the diner right now.
+        bool IsKing(const Opponent* opp) const { return opp == &kingOpponent; }
 };

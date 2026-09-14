@@ -318,18 +318,22 @@ std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
     std::vector<uint8_t> data = bp.ReadImage(libFile, entry, spriteId, imageEntries.first);
 
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, spriteId);
-    std::vector<uint16_t> opponentCarPalette = GetStandardCarColor(opponentColor);
-    if (opponentCarPalette.size() > 7) {
-        // Recolor the car body. Index 7 is the documented recolor slot, but some
-        // sprites (e.g. the front-side view, asset 83) also carry the magenta
-        // placeholder (#f000c0 = Amiga RGB4 0x0F0C) at other palette indices, so
-        // replace every occurrence or those body pixels render as raw magenta.
-        const uint16_t carColor = opponentCarPalette[7];
-        palData[7] = carColor;
-        for (uint16_t& c : palData) {
-            if (c == 0x0F0C) {
-                c = carColor;
-            }
+    // Recolor the car body. Slot 7 is the register the road screens load the
+    // car colour into, but some sprites (e.g. the front-side view, asset 83)
+    // also carry the magenta placeholder (#f000c0 = Amiga RGB4 0x0F0C) at other
+    // palette indices, so replace every occurrence or those body pixels render
+    // as raw magenta.
+    //
+    // The value is the original's own single-colour-per-paint table, NOT a
+    // shade picked out of the 9-entry ramp. This used to take ramp[7], a
+    // highlight near the light end: wrong but close enough in hue for the
+    // player's 13 paints, and badly wrong for The King, whose ramp runs from
+    // near-black up to pale cyan - his car raced teal.
+    const uint16_t carColor = GetCarRaceColor(opponentColor);
+    palData[7] = carColor;
+    for (uint16_t& c : palData) {
+        if (c == 0x0F0C) {
+            c = carColor;
         }
     }
 
@@ -462,6 +466,10 @@ void Racing::InitializeRaceSimulation() {
     // the best drivers (4) lean on you most and the worst (0x0c) least.
     if (const SrDriverData* driverData = state.GetCurrentDriverData()) {
         npcSetup.aggression = driverData->aggression;
+        // Driver byte [1], the opponent's upshift point - see CarSetup::reaction.
+        // Left unread until now, which had every opponent shifting dead on the
+        // band end: better than the best driver the data describes.
+        npcSetup.reaction = driverData->reaction;
     }
 
     // A previous race may have ended with the cop's sprites swapped into the
@@ -472,12 +480,11 @@ void Racing::InitializeRaceSimulation() {
         LoadOpponentCarSprites();
     }
 
-    // TODO: the last argument suppresses the cop for the King's race
-    // (InitRaceState gates its spawn roll on that), but there is no "the
-    // current opponent is the King" accessor on State to pass yet, so a King
-    // road race can currently draw a cop.
+    // A4+0x19da. Suppresses the cop spawn roll (InitRaceState) and picks the
+    // King's two UpdateNPCEngine branches - see docs/driving/king.md.
+    const bool kingRace = state.IsKingOpponent(opponent);
     sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup,
-             static_cast<uint32_t>(SDL_GetTicks()));
+             static_cast<uint32_t>(SDL_GetTicks()), kingRace);
     simInitialized = true;
     raceBetAmount = state.GetPendingBetAmount();
     raceIsPinkSlip = state.GetPendingIsPinkSlip();
@@ -617,7 +624,14 @@ void Racing::InitializeOpponent() {
     opponentActive = true;
     opponentColor = opponent->car->GetColor();
     const CarModel& model = opponent->car->GetModel();
-    const int mappedType = NpcCarTypeForBodyAsset(model.index);
+    // sprites.body, not index: they are the same number for every Amiga car
+    // except The King, whose model borrows the plain '63 Corvette's row and
+    // only overrides the body art. Keying on index handed him the chevy2 LOD
+    // set instead of his own. Other car sets number their sprites from zero,
+    // where a lib.p body id means nothing, so those still go by index and fall
+    // through to the vendor guess below.
+    const int bodyAsset = (model.carSet == kAmigaCarSet) ? model.sprites.body : model.index;
+    const int mappedType = NpcCarTypeForBodyAsset(bodyAsset);
     if (mappedType >= 0) {
         opponentCarType = mappedType;
         LoadOpponentCarSprites();

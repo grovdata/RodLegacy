@@ -378,10 +378,17 @@ Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSp
     // Corvette's.
     CarModel model = carData.GetModelFromIndex(CHEVROLET_CORVETTE_1963);
     model.sprites.body = THE_KING_CHEVROLET_CORVETTE_1963_BODY;
+    // His body art is drawn with the scoop already on it, unlike the plain
+    // Corvette's, so the separate overlay would give him two.
+    model.sprites.airScoop = -1;
     CarPtr car = CarBuilder::BuildCar(model);
     car->SetRoofChopped(false);
     car->SetBumpersStripped(false);
     car->SetDecal(SrLibCarDecalNone);
+    // Paint 13, straight out of his pool record (InitRacerPool writes
+    // `A4-0x2b8e = 0xd`). It is the 14th ramp in the colour table and no other
+    // car ever gets it.
+    car->SetColor(CarColorKing);
     CarBuilder::ApplySpec(car.get(), kingSpec, model.vendor);
     kingOpponent.car = car;
 

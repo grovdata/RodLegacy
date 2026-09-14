@@ -53,7 +53,12 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     GetZone("challenge_opponent").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         if (!carBitmap || animatingCar || exitingCar || !currentOpponent) return;
-        if (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT) {
+        // Who is actually on screen, not which pool slot was picked last: a
+        // phoned opponent forces a pick without touching the index, and any
+        // re-pick moves it, so the index can say King while someone else is
+        // parked outside and vice versa. The King never gets the bet dialog -
+        // he only ever refuses or accepts.
+        if (state.IsKingOpponent(currentOpponent)) {
             challenge->OpenKing(state.GetAssets().GetMainFont());
         } else {
             challenge->Open(state.GetAssets().GetMainFont());

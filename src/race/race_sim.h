@@ -92,6 +92,15 @@ struct CarSetup {
     // original reads it straight off the challenger record (A4+0x19ce + 2) for
     // the side-swipe roll and the cornering speed cap. 8 is mid-pack.
     int aggression = 8;
+    // SR_data driver record byte [1]: 0x0a (best) .. 0x14 (worst). It is the
+    // opponent's SHIFT POINT, not a start-line delay:
+    // BuildCarPhysicsTables 0x2437f0 writes the car's band-end rpm to the
+    // physics struct at +0x1e (the table at A4-0x3a3a is {4500, 5000, 5200},
+    // the same kBandEnd this port indexes by carbClass), and UpdateNPCEngine
+    // shifts at `that - reaction * 100`. So the best driver in the game still
+    // gives up 1000 rpm of the power band and the worst gives up 2000. Only
+    // manuals: the original guards the whole thing on `automatic == 0`.
+    int reaction = 10;
 };
 
 struct PowerRow {
@@ -363,6 +372,10 @@ private:
     // is A4+0x4cc4, the win/loss verdict taken at that instant.
     bool finishSnapshot = false;
     bool playerAheadAtFinish = false;
+    // Where the opponent upshifts (original A4+0x4bf0 minus its driver's
+    // reaction, latched into A4+0x4cac). Derived at Init and again when the cop
+    // takes the slot over, since the swap brings a different car and driver.
+    int16_t npcShiftRpm = 0;
     // Cop pursuit (original A4+0x4cb6 state / A4+0x4cb8 trigger segment).
     int16_t copState = 0;
     int32_t copTriggerSeg = 0;

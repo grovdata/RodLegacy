@@ -1,6 +1,30 @@
 #include "parsers/carcolor.h"
 #include <SDL.h>
 
+uint16_t GetCarRaceColor(StandardCarColor col) {
+    static const uint16_t kRaceColors[] = {
+        0x0810,  // red
+        0x0188,  // cyan
+        0x0180,  // light green
+        0x0F0F,  // magenta   - not the ramp's 0x0818
+        0x0018,  // navy
+        0x0888,  // grey      - not the ramp's 0x0666
+        0x0539,  // purple
+        0x0066,  // teal
+        0x0640,  // golden brown
+        0x0633,  // maroon
+        0x0830,  // orange
+        0x0060,  // dark green
+        0x0063,  // turquoise
+        0x0023,  // The King
+    };
+    const int i = static_cast<int>(col);
+    if (i < 0 || i >= static_cast<int>(std::size(kRaceColors))) {
+        return kRaceColors[CarColorRed];
+    }
+    return kRaceColors[i];
+}
+
  std::vector<uint16_t> GetStandardCarColor(StandardCarColor col) {
     switch (col) {
         case CarColorRed:
@@ -29,6 +53,8 @@
             return std::vector<uint16_t>(PAL_CAR_COLOR_DARK_GREEN);
         case CarColorTurquoise:
             return std::vector<uint16_t>(PAL_CAR_COLOR_TURQUOISE);
+        case CarColorKing:
+            return std::vector<uint16_t>(PAL_CAR_COLOR_KING);
         default:
             // Never an empty palette: every caller indexes the result
             // directly (BitmapParser::PrepareCarPalette reads 9 entries), so

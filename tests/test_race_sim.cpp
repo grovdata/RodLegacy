@@ -456,21 +456,27 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 // perfScore - aggression, and re-arms on the next straight.
 TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") {
     TrackData track = MakeFlatTrack();
-    // A one-segment kink: 500 and 501 both read as "not straight", and the
+    // A one-segment kink: 800 and 801 both read as "not straight", and the
     // curve is back to 0 straight after, so neither car is dragged off the road.
-    track.curve[501] = 1;
+    // It sits this far down the course because the brake only bites once the
+    // opponent is above `perfScore - aggression`, and the opponent upshifts well
+    // short of the band end (CarSetup::reaction), so it needs room to get there.
+    track.curve[801] = 1;
 
     CarSetup setup = CopTestSetup();
     setup.aggression = 12;   // 0x0c, the worst driver: the biggest penalty
+    // A slower player, so the opponent is clear ahead at the kink and takes the
+    // full penalty rather than the halved one it gets while being chased.
+    CarSetup slowPlayer;
 
     RaceSim sim;
-    sim.Init(&track, 1, setup, setup, SeedWithoutCop(track, setup));
+    sim.Init(&track, 1, slowPlayer, setup, SeedWithoutCop(track, setup));
     RunOutCountdown(sim);
 
     const int perf = sim.NpcTables().perfScore;
     int caps = 0;
     int cappedTo = -1;
-    for (int i = 0; i < 8000 && sim.Npc().segPos < 505; ++i) {
+    for (int i = 0; i < 8000 && sim.Npc().segPos < 805; ++i) {
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);   // keep the pair apart
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
         if (sim.NpcAi().branch == NpcBranch::CorneringCap) {
@@ -483,6 +489,40 @@ TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") 
     CHECK(caps == 1);   // the latch: one brake for the corner, not one per tick
     // Full penalty while it is ahead of the player, half while it is not.
     CHECK((cappedTo == perf - 12 || cappedTo == perf - 6));
+}
+
+// UpdateNPCEngine upshifts at the car's band-end rpm minus 100 per point of the
+// driver's reaction byte, so no opponent ever uses the top of its power band.
+// The port read the band end straight, making every NPC shift better than the
+// best driver in the data - most obvious against The King in a drag race, which
+// is nothing but shift points.
+TEST_CASE("The opponent upshifts short of the band end, by its driver's reaction") {
+    TrackData track = MakeFlatTrack();
+    CarSetup setup = CopTestSetup();   // carb class 1 -> band end 5000
+
+    auto peakRpmBeforeShift = [&](int reaction) {
+        CarSetup npc = setup;
+        npc.reaction = reaction;
+        RaceSim sim;
+        sim.Init(&track, 1, setup, npc, SeedWithoutCop(track, npc));
+        RunOutCountdown(sim);
+        int peak = 0;
+        const int startGear = sim.Npc().gear;
+        for (int i = 0; i < 400 && sim.Npc().gear <= startGear + 1; ++i) {
+            sim.Tick(ThrottleWithShiftIfNeeded(sim));
+            if (sim.Npc().gear <= startGear + 1) peak = std::max(peak, int(sim.Npc().rpm));
+        }
+        return peak;
+    };
+
+    const int best = peakRpmBeforeShift(0x0a);   // The King
+    const int worst = peakRpmBeforeShift(0x14);  // the slowest driver in SR_data
+
+    // 5000 - 1000 and 5000 - 2000, reached on the tick the shift fires.
+    CHECK(best >= 4000);
+    CHECK(best < 5000);
+    CHECK(worst < best);
+    CHECK(worst >= 3000);
 }
 
 TEST_CASE("Steering input counteracts curve drift") {

@@ -16,7 +16,12 @@ enum StandardCarColor {
     CarColorOrange,
     CarColorDarkGreen,
     CarColorTurquoise,
-    CarColorCount
+    CarColorCount,
+    // Paint 13. The ramp table in the Amiga binary has 14 entries, not 13, and
+    // InitRacerPool writes this one straight into The King's pool record
+    // (`A4-0x2b8e = 0xd`, byte 2 of entry 21). Nothing rolls it, so it stays
+    // outside CarColorCount.
+    CarColorKing = CarColorCount
 };
 
 #define PAL_CAR_COLOR_RED          {0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98}
@@ -32,7 +37,21 @@ enum StandardCarColor {
 #define PAL_CAR_COLOR_ORANGE       {0x0830, 0x0A30, 0x0D40, 0x0F40, 0x0F60, 0x0F70, 0x0F90, 0x0FD0, 0x0FFD}
 #define PAL_CAR_COLOR_DARK_GREEN   {0x0060, 0x0171, 0x0281, 0x0492, 0x05A3, 0x07C4, 0x08D6, 0x0AE7, 0x0CF9}
 #define PAL_CAR_COLOR_TURQUOISE    {0x0063, 0x0064, 0x0085, 0x0096, 0x00B7, 0x00C8, 0x00D9, 0x00FB, 0x00FD}
-// TODO: The King colors
+// The King's, read out of the ramp table at 0x29D36 + 13*18 in the Amiga
+// binary. Near-black with a blue cast at the dark end - the shade the car
+// actually reads as - climbing to a pale highlight.
+#define PAL_CAR_COLOR_KING         {0x0023, 0x0034, 0x0245, 0x0256, 0x0267, 0x0389, 0x06BC, 0x07DD, 0x09FF}
 
 
 std::vector<uint16_t> GetStandardCarColor(StandardCarColor col);
+
+// The single body colour the racing views paint a car with. The road screens do
+// not splice in the whole 9-shade ramp the way the garage and diner bitmaps do -
+// they load one colour register from a 14-word table at `A4-0x3d04`, indexed by
+// the same paint index (`A4+0x1aee`), for the opponent's sprites and for the
+// player's own hood and interior.
+//
+// It is NOT the ramp's first shade, though it equals it for 12 of the 14:
+// magenta is 0x0F0F against a ramp starting 0x0818, and grey is 0x0888 against
+// 0x0666. Read straight out of the binary at file offset 0x2C764.
+uint16_t GetCarRaceColor(StandardCarColor col);
