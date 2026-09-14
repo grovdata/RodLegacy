@@ -79,6 +79,7 @@ uint8_t RollBodyByte(const SrCarSpecEntry& spec, uint8_t mods, std::mt19937& rng
 void RacerPool::Init(const std::vector<SrCarSpecEntry>& car_specs,
                      const std::vector<uint8_t>& spec_mods) {
     car_specs_ = car_specs;
+    spec_mods_ = spec_mods;   // kept for the appearance re-roll in OnRaceWon
     pool.clear();
     pool.reserve(RACER_POOL_SIZE);
 
@@ -190,21 +191,22 @@ int RacerPool::SelectNextChallenger(int player_score, int last_chosen_index) {
     return idx;
 }
 
-int RacerPool::FindReplacementCarSpec(int beaten_classification) const {
-    // Collect spec indices currently in pool (non-eliminated).
-    std::vector<int> used;
-    for (const auto& e : pool) {
-        if (e.status != -1) used.push_back(e.car_spec_index);
-    }
+int RacerPool::FindReplacementCarSpec(int beaten_classification) {
+    // ProcessRaceOutcome walks all 25 specs and collects every one whose class
+    // byte is strictly below the class the beaten car was, then hands the list
+    // to FUN_0023eac0, which picks from it at random. It does not care whether
+    // another racer already drives that car - the only "already taken" rule in
+    // that function applies within one list as it is dealt, which is what stops
+    // InitRacerPool handing the same car out twice.
+    std::vector<int> candidates;
     for (int i = 0; i < static_cast<int>(car_specs_.size()); ++i) {
         if (!car_specs_[i].ForSale()) continue;
         if (static_cast<int>(car_specs_[i].car_class) < beaten_classification) {
-            if (std::find(used.begin(), used.end(), i) == used.end()) {
-                return i;
-            }
+            candidates.push_back(i);
         }
     }
-    return -1;
+    if (candidates.empty()) return -1;
+    return candidates[std::uniform_int_distribution<size_t>(0, candidates.size() - 1)(rng_)];
 }
 
 void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
@@ -215,22 +217,95 @@ void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
         return;
     }
 
-    int beaten_class = (pool[winner_pool_index].car_spec_index < static_cast<int>(car_specs_.size()))
-                       ? car_specs_[pool[winner_pool_index].car_spec_index].car_class
+    RacerEntry& entry = pool[winner_pool_index];
+
+    // One downgrade per driver. ProcessRaceOutcome gates the whole search on
+    // `record + 7 == 0` and sets that byte on the way out, so the second pink
+    // slip drops straight through to `record + 3 = 0xff` - eliminated.
+    if (entry.downgraded) {
+        entry.status = -1;
+        return;
+    }
+
+    int beaten_class = (entry.car_spec_index < static_cast<int>(car_specs_.size()))
+                       ? car_specs_[entry.car_spec_index].car_class
                        : 0;
 
     int replacement = FindReplacementCarSpec(beaten_class);
     if (replacement >= 0) {
-        pool[winner_pool_index].car_spec_index = replacement;
-        pool[winner_pool_index].status = 0;
+        entry.car_spec_index = replacement;
+        // FUN_0023eac0 rewrites the record around the new car rather than just
+        // swapping the spec: fresh paint and a fresh appearance roll, plus it
+        // zeroes the record's race and win counters. So a driver who loses
+        // their pink slip comes back in a different-looking car, not their old
+        // colours on a new body.
+        const uint8_t mods = (replacement < static_cast<int>(spec_mods_.size()))
+                             ? spec_mods_[replacement] : 0;
+        entry.body_byte = RollBodyByte(car_specs_[replacement], mods, rng_);
+        entry.color_index = static_cast<uint8_t>(
+            std::uniform_int_distribution<int>(0, 12)(rng_));
+        // A new car starts a new rivalry: the record's race and win counters
+        // go back to zero with it.
+        entry.races = 0;
+        entry.opp_wins = 0;
+        entry.downgraded = true;
+        entry.status = 0;
     } else {
-        pool[winner_pool_index].status = -1;
+        // Nothing cheaper left to put them in: they are out for good.
+        entry.status = -1;
     }
 }
 
 void RacerPool::OnRaceLost(int challenger_pool_index) {
     if (challenger_pool_index >= 0 && challenger_pool_index < static_cast<int>(pool.size())) {
         pool[challenger_pool_index].status = 0;
+    }
+}
+
+void RacerPool::RecordRace(int pool_index, bool opponent_won) {
+    if (pool_index < 0 || pool_index >= static_cast<int>(pool.size())) return;
+    RacerEntry& entry = pool[pool_index];
+    if (entry.races < 255) entry.races += 1;
+    if (opponent_won && entry.opp_wins < 255) entry.opp_wins += 1;
+}
+
+int RacerPool::RivalryMargin(int pool_index) const {
+    if (pool_index < 0 || pool_index >= static_cast<int>(pool.size())) return 0;
+    return pool[pool_index].opp_wins * 2 - pool[pool_index].races;
+}
+
+void RacerPool::ApplyRivalryUpgrades(int pool_index) {
+    if (pool_index < 0 || pool_index >= static_cast<int>(pool.size())) return;
+    RacerEntry& entry = pool[pool_index];
+    if (entry.car_spec_index < 0 ||
+        entry.car_spec_index >= static_cast<int>(car_specs_.size())) {
+        return;
+    }
+    const SrCarSpecEntry& spec = car_specs_[entry.car_spec_index];
+    const int races = entry.races;
+    const int threshold = (spec.car_class >> 1) + 1;
+    auto roll = [this](int n) {
+        return static_cast<int>(std::uniform_int_distribution<int>(0, n - 1)(rng_));
+    };
+
+    // Sticker: a bare car gets one past 5 races, and past 10 an existing one
+    // can be swapped for a different design. Same roll(9) into the high nibble
+    // the initial appearance roll uses, one-based so 0 stays "no sticker".
+    const int sticker = (entry.body_byte & 0xF0) >> 4;
+    if ((sticker == 0 && races > 5) || (sticker != 0 && races > 10)) {
+        if (roll(20) < threshold) {
+            entry.body_byte = static_cast<uint8_t>((entry.body_byte & 0x0F) |
+                                                   (roll(9) << 4));
+        }
+    }
+
+    const uint8_t mods = (entry.car_spec_index < static_cast<int>(spec_mods_.size()))
+                         ? spec_mods_[entry.car_spec_index] : 0;
+    if (races > 8 && (mods & SPEC_CAN_STRIP_BUMPERS)) {
+        if (roll(25) < threshold) entry.body_byte |= CAR_BODY_BUMPERS_STRIPPED;
+    }
+    if (races > 8 && (mods & SPEC_CAN_CHOP_ROOF)) {
+        if (roll(30) < threshold) entry.body_byte |= CAR_BODY_ROOF_CHOPPED;
     }
 }
 

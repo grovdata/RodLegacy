@@ -203,6 +203,13 @@ public:
     // consumes and clears it.
     void RequestKingCameoRoll() { pendingKingCameoRoll = true; }
 
+    // One race against the current challenger is over. Call for every finished
+    // race, a speeding ticket included - ChallengeRaceLoop bumps the pool
+    // record's race counter outside its win/loss test. The King has no pool
+    // record, so he is skipped. opponentWon is false for a win and for a
+    // ticket, which voids the race.
+    void RecordChallengerRace(bool opponentWon);
+
     // Call after a race finishes. won=true means the player crossed first.
     // Whether the stake was a pink slip is taken from the pending bet.
     // Updates Reputation, RacerPool, and bankroll as appropriate.

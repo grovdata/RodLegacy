@@ -746,6 +746,39 @@ TEST_CASE("Crashing while chased gets you a ticket on top") {
     CHECK_FALSE(sim.CopSirenOn());
 }
 
+// END_TIRES_BLOWN is not one of the original's in-race outcome bits - it lives
+// in A4+0x4ccc until ProcessRaceOutcome folds it into the word after the race.
+// Reading it as "the race has ended" handed out a ticket the instant the tires
+// let go, with the cop still far behind and never seen.
+TEST_CASE("Blowing the tires while a cop is out is not a bust") {
+    TrackData track = MakeFlatTrack();
+    CarSetup worn = CopTestSetup();
+    worn.tireWear = 10000;
+
+    uint32_t seed = 0;
+    for (uint32_t s = 1; s <= 2000 && seed == 0; ++s) {
+        RaceSim probe;
+        probe.Init(&track, 1, worn, worn, s);
+        if (probe.CopState() == 1 && probe.TireBlowSegment() != 0 &&
+            probe.TireBlowSegment() > probe.CopTriggerSegment()) {
+            seed = s;
+        }
+    }
+    REQUIRE(seed != 0);
+
+    RaceSim sim;
+    StartCopPursuit(sim, track, worn, seed);
+    REQUIRE(sim.CopState() == 2);
+
+    // Jump the car past the blowout segment, leaving the cop where it spawned.
+    sim.SetCameraState(sim.TireBlowSegment() + 1, 0, 0, 2400, 0);
+    sim.Tick(0);
+
+    REQUIRE(sim.PlayerTiresBlown());
+    CHECK_FALSE(sim.PlayerBusted());
+    CHECK_FALSE(sim.RaceOver());
+}
+
 TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
     TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();

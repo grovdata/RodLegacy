@@ -41,6 +41,9 @@ struct BetContext {
     int oppEngineClass   = 0;
     int driverTier       = 0;  // SrDriverData::tier, 0..2
     int stickerIndex     = 0;  // car body byte high nibble: 0 = none, 1..8
+    // opp_wins * 2 - races against this driver, from their pool record's
+    // bytes 4 and 5. Positive when they are ahead on the rivalry.
+    int rivalryMargin    = 0;
 };
 
 // Populates the three tables from the raw SR_data asset bytes

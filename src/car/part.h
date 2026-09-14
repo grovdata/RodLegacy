@@ -1,7 +1,17 @@
 #pragma once
 #include "parsers/libp.h"
 #include "car/car_system.h"
+#include <algorithm>
 #include <string>
+
+// Part wear is the original's own unit: 0..10000, where 10000 is scrap. The
+// race sim counts in it, the original's save file stores it as one word per
+// part (save_loader.h, "wear% = wearRaw/100"), and PlayerCarPhysics writes
+// every threshold against it - `cmpi.w #$26ac` to blow an engine, `divs.w
+// #$3e8` for the redline-hold limit. Only the screen divides by 100.
+constexpr int WEAR_MAX = 10000;
+constexpr int WEAR_PER_PERCENT = 100;
+inline int WearPercent(int wear) { return std::clamp(wear, 0, WEAR_MAX) / WEAR_PER_PERCENT; }
 
 // Which spare-parts category a part belongs to. Used to route a newspaper
 // purchase to the matching State::AddSpare* accessor, and to pick the sale
@@ -14,10 +24,9 @@ enum class PartCategory { Engine, Transmission, Carburetor, Manifold, Tire };
 // always worthless. Full write-up in RodLegacyResearch/docs/gameplay.md
 // ("Selling").
 //
-// wear is RodLegacy's 0..100 percent, where the original keeps 0..10000 and
-// divides by 100 to get the same number.
+// wear is the original's 0..10000; the percentage it prints is wear / 100.
 inline int PartSalePrice(PartCategory category, int value, int wear, int roll20) {
-    const int condition = 100 - wear;
+    const int condition = 100 - WearPercent(wear);
     int price = value;
     switch (category) {
         case PartCategory::Engine:
@@ -35,19 +44,14 @@ inline int PartSalePrice(PartCategory category, int value, int wear, int roll20)
     return price / 5 * 5;
 }
 
-// Adds one race's worth of wear to a part. The race sim counts in the
-// original's 0..10000 units (PlayerCarPhysics: +1 per tick above 5000 rpm,
-// +1 on the engine every 16 ticks, +3/+15 on the gearbox per shift) while
-// Part::wear is RodLegacy's 0..100 percent, so `remainder` carries what is
-// left under a whole percent through to the next race - truncating it would
-// throw away a third of a drag race's wear every time.
-inline void ApplyWearRaw(int& wearPercent, int& remainder, int raw) {
+// Adds one race's worth of wear to a part. Part::wear is the original's own
+// 0..10000 unit, the same one the race sim counts in (PlayerCarPhysics: +1 per
+// tick above 5000 rpm, +1 on the engine every 16 ticks, +3/+15 on the gearbox
+// per shift) and the same one its save file stores, so nothing is converted
+// and no sub-unit remainder can be lost.
+inline void ApplyWearRaw(int& wear, int raw) {
     if (raw <= 0) return;
-    remainder += raw;
-    wearPercent += remainder / 100;
-    remainder %= 100;
-    if (wearPercent < 0) wearPercent = 0;
-    if (wearPercent > 100) wearPercent = 100;
+    wear = std::clamp(wear + raw, 0, WEAR_MAX);
 }
 
 // Catalog price of a part, in dollars. The original keeps one master parts

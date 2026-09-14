@@ -314,6 +314,118 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     }
 }
 
+// ProcessRaceOutcome gates the whole replacement search on `record + 7 == 0`
+// and sets that byte after a successful downgrade, so a second pink slip falls
+// through to `record + 3 = 0xff`.
+TEST_CASE("pink-slip win: a driver is downgraded once, then eliminated") {
+    RacerPool rp;
+    auto specs = MakeCarSpecTable();
+    rp.Init(specs);
+    int class2_spec = -1;
+    for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
+        if (specs[i].car_class == 6) { class2_spec = i; break; }
+    }
+    REQUIRE(class2_spec >= 0);
+    rp.pool[0].car_spec_index = class2_spec;
+    rp.pool[0].status = 1;
+
+    rp.OnRaceWon(0, true);
+    REQUIRE(rp.pool[0].status == 0);      // still racing, in a cheaper car
+    CHECK(rp.pool[0].downgraded);
+
+    const int downgraded_spec = rp.pool[0].car_spec_index;
+    rp.pool[0].status = 1;
+    rp.OnRaceWon(0, true);
+    CHECK(rp.pool[0].status == -1);                        // out for good
+    CHECK(rp.pool[0].car_spec_index == downgraded_spec);   // not downgraded twice
+}
+
+TEST_CASE("a fresh entry has not been downgraded") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    CHECK_FALSE(rp.pool[0].downgraded);
+}
+
+TEST_CASE("a new car starts the rivalry over") {
+    RacerPool rp;
+    auto specs = MakeCarSpecTable();
+    rp.Init(specs);
+    int class2_spec = -1;
+    for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
+        if (specs[i].car_class == 6) { class2_spec = i; break; }
+    }
+    REQUIRE(class2_spec >= 0);
+    rp.pool[0].car_spec_index = class2_spec;
+    rp.pool[0].races = 9;
+    rp.pool[0].opp_wins = 4;
+
+    rp.OnRaceWon(0, true);
+    REQUIRE(rp.pool[0].status == 0);
+    CHECK(rp.pool[0].races == 0);
+    CHECK(rp.pool[0].opp_wins == 0);
+}
+
+} // TEST_SUITE
+
+// ============================================================================
+// RacerPool rivalry counters - the original's pool record bytes 4 and 5
+// ============================================================================
+
+TEST_SUITE("RacerPool rivalry") {
+
+TEST_CASE("races counts every meeting, opp_wins only the losses") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    rp.RecordRace(0, false);   // player won
+    rp.RecordRace(0, true);    // opponent won
+    rp.RecordRace(0, true);
+    CHECK(rp.pool[0].races == 3);
+    CHECK(rp.pool[0].opp_wins == 2);
+    // opp_wins * 2 - races
+    CHECK(rp.RivalryMargin(0) == 1);
+}
+
+TEST_CASE("margin is negative while the player is ahead") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    for (int i = 0; i < 4; ++i) rp.RecordRace(0, false);
+    CHECK(rp.RivalryMargin(0) == -4);
+}
+
+TEST_CASE("an unknown slot has no rivalry") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    CHECK(rp.RivalryMargin(-1) == 0);
+    CHECK(rp.RivalryMargin(RACER_POOL_SIZE) == 0);
+    CHECK_NOTHROW(rp.RecordRace(-1, true));
+}
+
+// SetupChallengerEncounter gates the sticker roll on more than 5 races, so a
+// new rival never turns up with one no matter how the dice fall.
+TEST_CASE("no sticker before the rivalry is 5 races old") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    for (int attempt = 0; attempt < 400; ++attempt) {
+        rp.pool[0].body_byte = 0;
+        rp.pool[0].races = 5;
+        rp.ApplyRivalryUpgrades(0);
+        REQUIRE((rp.pool[0].body_byte & 0xF0) == 0);
+    }
+}
+
+TEST_CASE("a long-standing rival eventually puts a sticker on") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    bool stickered = false;
+    for (int attempt = 0; attempt < 400 && !stickered; ++attempt) {
+        rp.pool[0].body_byte = 0;
+        rp.pool[0].races = 6;
+        rp.ApplyRivalryUpgrades(0);
+        stickered = (rp.pool[0].body_byte & 0xF0) != 0;
+    }
+    CHECK(stickered);
+}
+
 TEST_CASE("out-of-range index is safely ignored") {
     RacerPool rp;
     rp.Init(MakeCarSpecTable());

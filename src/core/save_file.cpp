@@ -308,15 +308,17 @@ bool State::SaveGameToml(const fs::path& path) {
     root["spares"] = spares;
 
     // Each racer is one inline row, which keeps 21 opponents to 21 readable
-    // lines: [driver_index, car_spec_index, status, color_index, body_byte].
-    // The last two are the appearance the pool rolled; a file written before
-    // they existed has 3-element rows and still loads.
+    // lines: [driver_index, car_spec_index, status, color_index, body_byte,
+    // downgraded, races, opp_wins].
     SaveArray racers;
     for (const RacerEntry& e : racerPool.pool) {
         racers.push_back(SaveArray{e.driver_index, e.car_spec_index,
                                    static_cast<int>(e.status),
                                    static_cast<int>(e.color_index),
-                                   static_cast<int>(e.body_byte)});
+                                   static_cast<int>(e.body_byte),
+                                   e.downgraded ? 1 : 0,
+                                   static_cast<int>(e.races),
+                                   static_cast<int>(e.opp_wins)});
     }
     SaveValue pool;
     pool["racers"] = racers;
@@ -415,16 +417,15 @@ bool State::LoadGameToml(const fs::path& path) {
             const SaveArray racers = toml::find<SaveArray>(pool, "racers");
             for (size_t i = 0; i < racers.size() && i < racerPool.pool.size(); ++i) {
                 const auto row = toml::get<std::vector<int>>(racers[i]);
-                if (row.size() < 3) continue;
+                if (row.size() < 8) continue;
                 racerPool.pool[i].driver_index   = row[0];
                 racerPool.pool[i].car_spec_index = row[1];
                 racerPool.pool[i].status         = static_cast<int8_t>(row[2]);
-                // Appearance is optional: rows from before it was stored keep
-                // whatever the pool rolled at startup rather than resetting.
-                if (row.size() >= 5) {
-                    racerPool.pool[i].color_index = static_cast<uint8_t>(row[3]);
-                    racerPool.pool[i].body_byte   = static_cast<uint8_t>(row[4]);
-                }
+                racerPool.pool[i].color_index    = static_cast<uint8_t>(row[3]);
+                racerPool.pool[i].body_byte      = static_cast<uint8_t>(row[4]);
+                racerPool.pool[i].downgraded     = row[5] != 0;
+                racerPool.pool[i].races          = static_cast<uint8_t>(row[6]);
+                racerPool.pool[i].opp_wins       = static_cast<uint8_t>(row[7]);
             }
         }
     }
@@ -508,7 +509,9 @@ Snapshot TakeSnapshot() {
     o << "\n  pool=";
     for (const RacerEntry& e : state.GetRacerPool().pool) {
         o << e.driver_index << "/" << e.car_spec_index << "/" << (int)e.status
-          << "/" << (int)e.color_index << "/" << (int)e.body_byte << ";";
+          << "/" << (int)e.color_index << "/" << (int)e.body_byte
+          << "/" << (int)e.downgraded << "/" << (int)e.races
+          << "/" << (int)e.opp_wins << ";";
     }
     return Snapshot{o.str()};
 }
@@ -528,15 +531,20 @@ void ScrambleState() {
         c->SetFuelTenths(77);
         c->SetColor(static_cast<StandardCarColor>(3));
         c->SetRoofChopped(true);
-        c->SetTires(RACING, 33, 210);
+        c->SetTires(RACING, 3317, 210);
         Part trans = CarBuilder::CreateTransmissionPart(TRANS_4SPD_UNIVERSAL, CarVendorFord);
-        trans.wear = 17; trans.cost = 555; trans.name = "Trnsmsn 4-spd. Ford.";
+        trans.wear = 1737; trans.cost = 555; trans.name = "Trnsmsn 4-spd. Ford.";
         c->SetGearbox(trans);
-        c->SetEngine(EnginePart(CarEngineFord_V8_351, 11, 800, CarVendorFord, ENGINE_V8_BIG));
+        c->SetEngine(EnginePart(CarEngineFord_V8_351, 1183, 800, CarVendorFord, ENGINE_V8_BIG));
     }
-    state.AddSpareTire(Part(4, 60, CarVendorGM, TireAssetForType(BRAND), BRAND));
-    state.AddSpareEngine(EnginePart(CarEngineFord_V8_351, 11, 800, CarVendorFord, ENGINE_V8_BIG));
-    if (!state.GetRacerPool().pool.empty()) state.GetRacerPool().pool[3].status = -1;
+    state.AddSpareTire(Part(407, 60, CarVendorGM, TireAssetForType(BRAND), BRAND));
+    state.AddSpareEngine(EnginePart(CarEngineFord_V8_351, 1183, 800, CarVendorFord, ENGINE_V8_BIG));
+    if (!state.GetRacerPool().pool.empty()) {
+        state.GetRacerPool().pool[3].status = -1;
+        state.GetRacerPool().pool[4].downgraded = true;
+        state.GetRacerPool().pool[5].races = 12;
+        state.GetRacerPool().pool[5].opp_wins = 7;
+    }
 }
 
 } // namespace

@@ -31,12 +31,10 @@ TEST_SUITE("Reputation::RecordLoss") {
 TEST_CASE("loss decrements both reps") {
     Reputation r;
     r.RecordLoss();
-    // Penalties per the Amiga original (ChallengeRaceLoop 0023e60c): road
-    // standing costs more than drag standing on any loss. These assertions
-    // were the other way round, and never ran - the file was missing from
-    // tests/meson.build.
-    CHECK(r.road_rep == -3);
-    CHECK(r.drag_rep == -2);
+    // ChallengeRaceLoop 0023e60c: drag standing costs more than road standing
+    // on any loss.
+    CHECK(r.drag_rep == -3);
+    CHECK(r.road_rep == -2);
 }
 
 TEST_CASE("loss increments races_completed and clears last_race_won") {
@@ -51,8 +49,8 @@ TEST_CASE("reps can go negative") {
     Reputation r;
     r.RecordLoss();
     r.RecordLoss();
-    CHECK(r.road_rep == -6);
-    CHECK(r.drag_rep == -4);
+    CHECK(r.drag_rep == -6);
+    CHECK(r.road_rep == -4);
 }
 
 } // TEST_SUITE
@@ -97,23 +95,37 @@ TEST_CASE("tier 2: 3 <= total < 7, both reps below 6") {
     CHECK(r.GetOpponentTier(5) == 2);
 }
 
-TEST_CASE("tier 3: 3 <= total < 7, one rep >= 6") {
+TEST_CASE("tier 3: total >= 7, neither rep at 6 yet") {
     Reputation r;
-    for (int i = 0; i < 6; i++) r.RecordWin(RaceType::Road); // road=6
-    // total=6 < 7, road_rep >= 6 → tier 3
+    for (int i = 0; i < 5; i++) r.RecordWin(RaceType::Drag);
+    for (int i = 0; i < 5; i++) r.RecordWin(RaceType::Road); // 5/5 total=10
     CHECK(r.GetOpponentTier(5) == 3);
 }
 
-TEST_CASE("tier 4: total >= 7, road_rep < 6") {
+TEST_CASE("tier 4: drag_rep short of 6") {
     Reputation r;
-    for (int i = 0; i < 7; i++) r.RecordWin(RaceType::Drag); // drag=7 road=0 total=7
+    for (int i = 0; i < 7; i++) r.RecordWin(RaceType::Road); // road=7 drag=0
     CHECK(r.GetOpponentTier(5) == 4);
+    Reputation s;
+    for (int i = 0; i < 6; i++) s.RecordWin(RaceType::Road); // road=6 total=6 < 7
+    CHECK(s.GetOpponentTier(5) == 4);
 }
 
-TEST_CASE("tier 5: total >= 7, drag_rep < 6 (road_rep >= 6)") {
+TEST_CASE("tier 5: drag_rep at 6, road_rep short") {
     Reputation r;
-    for (int i = 0; i < 7; i++) r.RecordWin(RaceType::Road); // road=7 drag=0 total=7
+    for (int i = 0; i < 7; i++) r.RecordWin(RaceType::Drag); // drag=7 road=0
     CHECK(r.GetOpponentTier(5) == 5);
+}
+
+TEST_CASE("tier 3: both reps at 6 but wins lag races completed") {
+    Reputation r;
+    for (int i = 0; i < 15; i++) r.RecordWin(RaceType::Drag);
+    for (int i = 0; i < 12; i++) r.RecordWin(RaceType::Road);
+    for (int i = 0; i < 3; i++) r.RecordLoss();
+    // drag=6 road=6 total=12 races=30 -> 12 < 15
+    CHECK(r.GetOpponentTier(5) == 3);
+    r.RecordWin(RaceType::Drag); // total=13 races=31 -> 13 < 15
+    CHECK(r.GetOpponentTier(5) == 3);
 }
 
 } // TEST_SUITE

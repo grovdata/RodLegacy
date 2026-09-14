@@ -579,7 +579,12 @@ void RaceSim::ApplyCopRaceEnd() {
     if (copState < 2) {
         return;
     }
-    const bool playerEnded = player.endFlags != 0;
+    // END_TIRES_BLOWN is ours to carry mid-race; the original's outcome word
+    // does not have it yet. Its tire flag lives in A4+0x4ccc during the race and
+    // is only ORed into the word (`A4+0x4bc7 |= 8`) by ProcessRaceOutcome after
+    // it. Testing it here handed the player a ticket the moment the tires let
+    // go, with the cop still hundreds of segments back.
+    const bool playerEnded = (player.endFlags & ~END_TIRES_BLOWN) != 0;
     const bool playerWon = (npc.endFlags & END_FINISHED) != 0;
     if (!playerEnded && !playerWon) {
         return;   // race still running

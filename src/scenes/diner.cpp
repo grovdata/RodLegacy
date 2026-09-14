@@ -439,19 +439,25 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     state.AddKnownOpponent(currentOpponent);
 
     std::string oppoText = GetOpponentText(currentOpponent);
-    std::string opponentId = currentOpponent->driver.name;
 
     hud->SetText(oppoText.c_str());
     SetZoneText("background", oppoText);
 
-    auto existingBitmap = opponentCarBitmaps.find(opponentId);
+    // Keyed on the car, not the driver's name: a driver does not keep one car.
+    // PickNextOpponent repaints the roster Opponent for whichever pool slot it
+    // just drew, and several pool slots share one Opponent, so the same name
+    // turns up in different paint; losing a pink slip takes the car away
+    // entirely and the next pick builds a new one from the pool's car spec.
+    // Keying by name drew the first car that name ever had, which is not the
+    // car the race renders or the pink slip hands over.
+    auto existingBitmap = opponentCarBitmaps.find(currentOpponent->car);
     if (existingBitmap != opponentCarBitmaps.end()) {
         carBitmap = existingBitmap->second.get();
     } else {
         StandardCarColor carColor = static_cast<StandardCarColor>(currentOpponent->car->GetColor());
         auto newBitmap = std::make_unique<CarBitmap>(currentOpponent->car, &currentOpponent->driver, carColor);
         carBitmap = newBitmap.get();
-        opponentCarBitmaps[opponentId] = std::move(newBitmap);
+        opponentCarBitmaps[currentOpponent->car] = std::move(newBitmap);
     }
 
     int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(),

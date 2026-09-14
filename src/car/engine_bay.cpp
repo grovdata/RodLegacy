@@ -494,7 +494,12 @@ void EngineBay::UpdateBayDrone(bool wanted) {
     if (!audio) {
         return;
     }
-    if (!wanted) {
+    // The drone belongs to the tuning window and nothing else. Gating on the
+    // state here rather than at the call sites makes that true by
+    // construction: the level also moves from the parts view (ShakeTuning on
+    // every install and unscrew, RefreshPartsForCurrentCar after a swap), and
+    // none of that may start the engine running.
+    if (!wanted || currentState != ENGINE_BAY_TUNING) {
         if (bayDronePlaying) {
             audio->StopEngineBayDrone();
             bayDronePlaying = false;
@@ -687,7 +692,8 @@ void EngineBay::SetKnobPosition(int level) {
     // Re-roll the drone's jitter on a real change, which is what makes the
     // engine note shift as you work the knobs. Hooked here rather than in the
     // button callback because Retard/Advance exist both as invisible buttons
-    // and as zones, so a click can arrive by either route.
+    // and as zones, so a click can arrive by either route. UpdateBayDrone
+    // ignores this outside the tuning view.
     if (level != tuneLevel) {
         UpdateBayDrone(true);
     }

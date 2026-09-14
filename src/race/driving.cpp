@@ -666,19 +666,17 @@ void Driving::DrawScene() {
                     const srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
                     std::string reason = srrace::BuildRaceEndReason(endCtx);
                     const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
-                    // Speeding ticket. Read before ResetRaceOutcome so the
-                    // sim's cop state is still current.
-                    if (racing->PlayerBusted()) {
-                        const int fine = racing->SpeedingFine();
-                        if (state.GetBankroll() >= fine) {
-                            state.SetBankroll(state.GetBankroll() - fine);
-                        } else {
-                            // Short of the fine: hauled off to the slammer and
-                            // the run is over. The diner draws itself behind
-                            // bars from here on - docs/diner.md ("Jail").
-                            state.SetJailed(true);
-                        }
-                    }
+                    // Speeding ticket. Read here because ResetRaceOutcome below
+                    // clears the sim's cop state; it is charged further down,
+                    // after the tires, because what the player still owes for
+                    // those is added to the fine.
+                    const bool busted = racing->PlayerBusted();
+                    const int speedingFine = busted ? racing->SpeedingFine() : 0;
+
+                    // The rivalry with this driver, tallied whatever the
+                    // outcome - a ticket voids the race for everything else
+                    // but still counts as a meeting.
+                    state.RecordChallengerRace(!won && !busted);
                     // Read before OnRaceFinished, which does not clear it, but
                     // checking first is one less thing to get wrong later.
                     const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
@@ -716,17 +714,47 @@ void Driving::DrawScene() {
                     // strips it straight after, so the order only matters for
                     // the races that end intact - which is all of them.
                     ApplyRaceWear();
+                    // What a fresh set of tires left unpaid, if the player could
+                    // not cover the $50. The original returns it from
+                    // ReplaceBlownTires (0x245044, named ApplyCrashDamage until
+                    // the evidence said otherwise) and both its callers spend it.
+                    int tireDebt = 0;
                     if (endCtx.tiresBlown) {
-                        ApplyBlownTires();
+                        tireDebt = ApplyBlownTires();
                     }
                     ApplyDrivetrainDamage(endCtx.endFlags);
 
-                    // Only a wreck that cost money - repaired (outcome 1) or
-                    // totaled (outcome 2) - sends the player home; see
+                    // Charged here rather than where it is read: ProcessRaceOutcome's
+                    // cop-caught block runs `sVar8 = ApplyCrashDamage()` and then
+                    // adds the speed-tiered fine to it, so the tires come out of
+                    // the bankroll first and whatever they could not cover is
+                    // billed on top of the ticket.
+                    if (busted) {
+                        const int owed = speedingFine + tireDebt;
+                        if (state.GetBankroll() >= owed) {
+                            state.SetBankroll(state.GetBankroll() - owed);
+                        } else {
+                            // Short of it: hauled off to the slammer and the run
+                            // is over (outcome 4). The diner draws itself behind
+                            // bars from here on - docs/diner.md ("Jail").
+                            state.SetJailed(true);
+                        }
+                    }
+
+                    // Anything ProcessRaceOutcome answers 2 to sends the player
+                    // home: a wreck that cost money (repaired or totaled), a
+                    // drivetrain that let go, and still owing for the tires -
+                    // its ticket branch reads `(sVar8 = ApplyCrashDamage(),
+                    // sVar8 == 0)` and falls to 2 when it is not. See
                     // LeaveAfterRace.
+                    const bool drivetrainFailed =
+                        (endCtx.endFlags &
+                         (srrace::END_ENGINE_BLOWN | srrace::END_TRANS_DROPPED)) != 0;
                     raceEndLeftTheDiner = (crash == srrace::CrashOutcome::Totaled ||
                                            crash == srrace::CrashOutcome::RepairOrJunk ||
-                                           crash == srrace::CrashOutcome::Forfeited);
+                                           crash == srrace::CrashOutcome::Forfeited ||
+                                           drivetrainFailed ||
+                                           tireDebt > 0);
 
                     // What the wreck costs, after the bet has been settled -
                     // the order ProcessRaceOutcome uses.
@@ -967,24 +995,29 @@ void Driving::ApplyRaceWear() {
 // on the spot (ApplyCrashDamage 0x245044 / DOS 1000:ba3b): the blown tires come
 // off the car and off its value, a spare goes on if there is one, and if there
 // is not you are billed $50 for a fresh set (bankroll floored at zero).
-void Driving::ApplyBlownTires() {
+// Returns what the player still owes for the new set - 0 unless the $50 ran
+// the bankroll below zero. ReplaceBlownTires (0x245044) returns the same number
+// and its callers add it to the speeding fine or send the player home with it.
+int Driving::ApplyBlownTires() {
     Car* car = state.GetCurrentCar();
-    if (!car) return;
+    if (!car) return 0;
 
     const auto& spares = state.GetSpareTires();
     if (!spares.empty()) {
         const Part fresh = spares.front();
         state.RemoveSpareAt(PartCategory::Tire, 0);
         car->SetTires(fresh);
-        LOG_INFO("Driving: tires blown - fitted a spare (%d%% worn)", fresh.wear);
-        return;
+        LOG_INFO("Driving: tires blown - fitted a spare (%d%% worn)", WearPercent(fresh.wear));
+        return 0;
     }
 
     constexpr int kNewTireCharge = 50;
+    const int owed = std::max(0, kNewTireCharge - state.GetBankroll());
     state.SetBankroll(std::max(0, state.GetBankroll() - kNewTireCharge));
     car->SetTires(car->GetWheelType());   // a brand-new set of the same kind
-    LOG_INFO("Driving: tires blown - no spare, charged $%d, bankroll now $%d",
-             kNewTireCharge, state.GetBankroll());
+    LOG_INFO("Driving: tires blown - no spare, charged $%d, bankroll now $%d, still owed $%d",
+             kNewTireCharge, state.GetBankroll(), owed);
+    return owed;
 }
 
 void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
@@ -1017,15 +1050,17 @@ void Driving::LeaveAfterRace() {
         // (Garage::OnSceneEnter). With money left, the paper is a click away.
         state.MoveToScene(SCENE_GARAGE);
     } else {
-        // Back to the diner for the next challenger. CONFIRMED: ChallengeRaceLoop
-        // (0x23e60c) switches on ProcessRaceOutcome's (0x2454c2) return and only
-        // breaks out of the diner loop for 1 (the wreck was repaired, 0x245a8e),
-        // 2 (totaled - 40% of value for scrap and the car pointer nulled,
-        // 0x245aa8) and 4 (the end-game branch at 0x23e904). Every other
-        // outcome - an ordinary win or loss, a blown engine, a dropped
-        // transmission, a speeding ticket - falls through to `bra 0x23e65c`,
-        // the top of the loop, and the next racer walks in. Racing always
-        // returning to the garage was RodLegacy's own invention.
+        // Back to the diner for the next challenger. CONFIRMED against
+        // ChallengeRaceLoop (0x23e60c): it switches on ProcessRaceOutcome's
+        // (0x23eaa2) return, and 1, 2 and 4 all leave the diner loop - 1 and 2
+        // via `RunRoadRaceWithMode()` (the drive-away cutscene) and a plain
+        // `return`, 4 via ShowOpponentRefusal. Only 3 falls through to the top
+        // of the loop, so the next racer walks in after an ordinary win or
+        // loss. A blown engine or a dropped transmission is NOT one of those:
+        // ProcessRaceOutcome's `else if (bVar5)` branch - taken when the
+        // outcome word A4+0x4bc6 is 0x05, 0x11 or 0x15 - strips the drivetrain
+        // and returns 2, so the player goes home. That is what
+        // raceEndLeftTheDiner covers above.
         state.MoveToScene(SCENE_DINER);
     }
 }

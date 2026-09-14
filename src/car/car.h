@@ -7,6 +7,7 @@
 #include "car/engine_part.h"
 #include "car/car_system.h"
 #include "race/race_sim.h"
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -90,12 +91,6 @@ class Car {
 
         // The car's worth with nothing bolted on - see SetValue/GetValue.
         int bodyValue = 0;
-
-        // Sub-percent race wear not yet rolled into the parts' own wear.
-        // Deliberately not saved: it is worth less than 1%.
-        int engineWearRemainder = 0;
-        int gearboxWearRemainder = 0;
-        int tireWearRemainder = 0;
 
     public:
 

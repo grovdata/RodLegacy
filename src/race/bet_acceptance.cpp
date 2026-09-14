@@ -75,9 +75,14 @@ bool OpponentAcceptsBet(const BetContext& ctx, BetType bet, int roll) {
     const int threshold = kThreshold[static_cast<int>(bet)][rel];
     const int bonus = ctx.stickerIndex == 0 ? 0 : (ctx.stickerIndex & 1) ? 4 : 6;
 
-    // Skipped: the original also adds (record[5] * 2 - record[4]) * threshold / 4
-    // from the challenger's 8-byte pool record. Both bytes are 0 in every
-    // observed Amiga save (save_game.md, chunk 6) and RodLegacy keeps no such
-    // counters, so the term is always 0.
-    return roll <= bonus + threshold;
+    // The rivalry with this one driver, from bytes 4 and 5 of their pool
+    // record: (opp_wins * 2 - races) * threshold / 4. A driver who keeps
+    // beating the player is readier to take the bet; one the player keeps
+    // beating starts turning them down. The original divides by shifting, so
+    // it adds 3 first to round a negative product toward zero rather than down.
+    int rivalry = ctx.rivalryMargin * threshold;
+    if (rivalry < 0) rivalry += 3;
+    rivalry >>= 2;
+
+    return roll <= bonus + rivalry + threshold;
 }

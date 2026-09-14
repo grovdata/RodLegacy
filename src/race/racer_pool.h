@@ -19,6 +19,24 @@ struct RacerEntry {
     // rival in the same car every time.
     uint8_t color_index = 0;  // 0..12, the 13 standard paints
     uint8_t body_byte = 0;    // roof/bumper/sticker bitfield, see libp.h
+
+    // Byte 7 of the original's pool record: set once the driver has been
+    // knocked down to a cheaper car after losing a pink slip. A second pink
+    // slip finds it already set and eliminates them instead of downgrading
+    // again - see OnRaceWon.
+    bool downgraded = false;
+
+    // Bytes 4 and 5 of the record, the rivalry with this one driver.
+    // ChallengeRaceLoop bumps `races` after every race against them and
+    // `opp_wins` only when the player did not win (a speeding ticket voids the
+    // race and bumps neither). Two things read them: RecordRace's caller uses
+    // `races` to let a long-standing rival customise their car
+    // (ApplyRivalryUpgrades), and OpponentAcceptsBet weighs
+    // `opp_wins * 2 - races` - their win margin over the player - when
+    // deciding whether to take a bet. FUN_0023eac0 zeroes both when the
+    // driver is put in a new car.
+    uint8_t races = 0;
+    uint8_t opp_wins = 0;
 };
 
 // Which appearance changes a given car spec is even capable of, parallel to
@@ -67,6 +85,23 @@ public:
     // Call after player loses. Resets challenger status to 0.
     void OnRaceLost(int challenger_pool_index);
 
+    // One race against this driver is over. opponent_won is false for a win
+    // and for a race voided by a speeding ticket, matching the original's
+    // `if (A4+0x4cbe == 0) record[5]++` next to its unconditional record[4]++.
+    void RecordRace(int pool_index, bool opponent_won);
+
+    // The rival's own car creeps upmarket the longer the rivalry runs:
+    // SetupChallengerEncounter (0x23d3f4) rolls for a sticker past 5 races, a
+    // different sticker past 10, and stripped bumpers or a chopped roof past
+    // 8 - each against the same (car_class >> 1) + 1 threshold the initial
+    // appearance roll uses, and only where the model has the sprites. Call
+    // before handing the entry's look to the Roster.
+    void ApplyRivalryUpgrades(int pool_index);
+
+    // opp_wins * 2 - races: how far ahead this driver is on the rivalry, the
+    // term OpponentAcceptsBet scales by its threshold. 0 for an unknown slot.
+    int RivalryMargin(int pool_index) const;
+
     int  CountActive() const;
     bool IsEliminated(int pool_index) const;
     int  GetEntryScore(int pool_index) const;
@@ -85,8 +120,11 @@ public:
 
 private:
     std::vector<SrCarSpecEntry> car_specs_;
+    std::vector<uint8_t>        spec_mods_;
     std::mt19937                rng_;
 
     int ComputeEntryScore(int pool_index) const;
-    int FindReplacementCarSpec(int beaten_classification) const;
+    // Picks at random from every for-sale spec of a lower class - not const,
+    // it draws from rng_.
+    int FindReplacementCarSpec(int beaten_classification);
 };

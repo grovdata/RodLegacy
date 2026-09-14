@@ -121,10 +121,10 @@ void Car::StripEngineAssembly() {
     RecalculatePerformance();
 }
 
-void Car::AddEngineWearRaw(int raw) { ApplyWearRaw(engine.wear, engineWearRemainder, raw); }
-void Car::AddGearboxWearRaw(int raw) { ApplyWearRaw(gearbox.wear, gearboxWearRemainder, raw); }
+void Car::AddEngineWearRaw(int raw) { ApplyWearRaw(engine.wear, raw); }
+void Car::AddGearboxWearRaw(int raw) { ApplyWearRaw(gearbox.wear, raw); }
 void Car::AddTireWearRaw(int raw) {
-    ApplyWearRaw(tires.wear, tireWearRemainder, raw);
+    ApplyWearRaw(tires.wear, raw);
     RecalculatePerformance();
 }
 
@@ -271,11 +271,10 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // percentage straight through left all three effectively pinned at the
     // healthiest end: 15 - wear/1000 was always 15, and neither 9,900 test
     // could ever be reached. Scale it back up.
-    constexpr int kWearPercentToRaw = 100;
-    setup.carbWear = std::clamp(car.GetCarburator().wear, 0, 100) * kWearPercentToRaw;
-    setup.engineWear = std::clamp(car.GetEngine().wear, 0, 100) * kWearPercentToRaw;
-    setup.transWear = std::clamp(car.GetGearbox().wear, 0, 100) * kWearPercentToRaw;
-    setup.tireWear = std::clamp(car.GetTires().wear, 0, 100) * kWearPercentToRaw;
+    setup.carbWear = std::clamp(car.GetCarburator().wear, 0, WEAR_MAX);
+    setup.engineWear = std::clamp(car.GetEngine().wear, 0, WEAR_MAX);
+    setup.transWear = std::clamp(car.GetGearbox().wear, 0, WEAR_MAX);
+    setup.tireWear = std::clamp(car.GetTires().wear, 0, WEAR_MAX);
 
     // A body that cannot take a mod at all scores as if the mod were done: the
     // original checks the model's sprite table and hands out the points when

@@ -7,16 +7,16 @@ TEST_CASE("PartSalePrice: engines and gearboxes are priced on wear") {
     CHECK(PartSalePrice(PartCategory::Engine, 500, 0, 0) == 450);
     CHECK(PartSalePrice(PartCategory::Transmission, 500, 0, 19) == 450);
     // Half worn, half the money.
-    CHECK(PartSalePrice(PartCategory::Engine, 500, 50, 0) == 225);
+    CHECK(PartSalePrice(PartCategory::Engine, 500, 5000, 0) == 225);
     // Worn out is worthless.
-    CHECK(PartSalePrice(PartCategory::Engine, 500, 100, 0) == 0);
+    CHECK(PartSalePrice(PartCategory::Engine, 500, WEAR_MAX, 0) == 0);
     // Rounding is down, never up: 100*100*9/1000 = 90.
     CHECK(PartSalePrice(PartCategory::Engine, 103, 0, 0) == 90);
 }
 
 TEST_CASE("PartSalePrice: carbs and manifolds are priced on the roll, not wear") {
     CHECK(PartSalePrice(PartCategory::Carburetor, 100, 0, 0) == 70);
-    CHECK(PartSalePrice(PartCategory::Carburetor, 100, 90, 0) == 70);
+    CHECK(PartSalePrice(PartCategory::Carburetor, 100, 9000, 0) == 70);
     CHECK(PartSalePrice(PartCategory::Manifold, 100, 0, 19) == 85);
 }
 
@@ -24,33 +24,38 @@ TEST_CASE("PartSalePrice: tires always fetch nothing") {
     CHECK(PartSalePrice(PartCategory::Tire, 150, 0, 19) == 0);
 }
 
-// Race wear: the sim hands back raw 0..10000 units, Part::wear is percent.
-TEST_CASE("ApplyWearRaw: carries the sub-percent remainder between races") {
-    int wear = 0, rem = 0;
-    // A drag race's worth. On its own it is 1%, but the leftover 65 is kept.
-    ApplyWearRaw(wear, rem, 165);
-    CHECK(wear == 1);
-    CHECK(rem == 65);
-    // Three more of the same reach 6%, not the 4% plain truncation would give.
-    ApplyWearRaw(wear, rem, 165);
-    ApplyWearRaw(wear, rem, 165);
-    ApplyWearRaw(wear, rem, 165);
-    CHECK(wear == 6);
-    CHECK(rem == 60);
+// Race wear. Part::wear is the original's own 0..10000 unit - the same one the
+// sim counts in and the same one its save file stores - so a race's worth goes
+// on as-is, with nothing to convert and no remainder to lose.
+TEST_CASE("ApplyWearRaw: adds a race's worth straight on") {
+    int wear = 0;
+    // Four drag races' worth. Under the old percent field this needed a
+    // carried remainder or it truncated to 4% instead of 6.6%.
+    for (int i = 0; i < 4; ++i) ApplyWearRaw(wear, 165);
+    CHECK(wear == 660);
+    CHECK(WearPercent(wear) == 6);
 }
 
 TEST_CASE("ApplyWearRaw: a race that wore nothing changes nothing") {
-    int wear = 42, rem = 7;
-    ApplyWearRaw(wear, rem, 0);
-    ApplyWearRaw(wear, rem, -5);
-    CHECK(wear == 42);
-    CHECK(rem == 7);
+    int wear = 4207;
+    ApplyWearRaw(wear, 0);
+    ApplyWearRaw(wear, -5);
+    CHECK(wear == 4207);
 }
 
 TEST_CASE("ApplyWearRaw: clamps at worn out") {
-    int wear = 95, rem = 0;
-    ApplyWearRaw(wear, rem, 10000);
-    CHECK(wear == 100);
+    int wear = 9500;
+    ApplyWearRaw(wear, 10000);
+    CHECK(wear == WEAR_MAX);
+    CHECK(WearPercent(wear) == 100);
+}
+
+TEST_CASE("WearPercent: what the screen shows") {
+    CHECK(WearPercent(0) == 0);
+    CHECK(WearPercent(99) == 0);      // under 1% still reads as new
+    CHECK(WearPercent(4850) == 48);
+    CHECK(WearPercent(WEAR_MAX) == 100);
+    CHECK(WearPercent(-1) == 0);      // clamped, never negative
 }
 
 // The master parts table the whole economy is priced from (Amiga A4-0x48ec,

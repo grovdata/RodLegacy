@@ -26,23 +26,25 @@ struct Reputation {
         last_race_won = true;
     }
 
-    // Penalties confirmed against the Amiga original (ChallengeRaceLoop
-    // 0023e60c): a loss costs road standing more than drag standing,
-    // whichever kind of race it was. These were the other way round here.
+    // ChallengeRaceLoop 0023e60c: a loss costs drag standing more than road
+    // standing, whichever kind of race it was. A4-0x4678 (drag, -3) and
+    // A4-0x4676 (road, -2) were labelled the wrong way round in the
+    // decompile; the race-type flag A4+0x19de is 1 for road (it is the branch
+    // that burns 15 fuel and rolls for a cop), 0 for drag.
     void RecordLoss() {
-        road_rep -= 3;
-        drag_rep -= 2;
+        drag_rep -= 3;
+        road_rep -= 2;
         races_completed += 1;
         last_race_won = false;
     }
 
-    // Returns opponent difficulty tier:
-    //   0 = The King (pool exhausted, or both reps maxed)
-    //   1 = novice  (total < 3)
-    //   2 = easy    (3 <= total < 7, both reps < 6)
-    //   3 = mid     (3 <= total < 7, one rep >= 6)
-    //   4 = hard    (total >= 7, drag_rep >= 6, road_rep < 6)
-    //   5 = hardest (total >= 7, drag_rep < 6)
+    // GetOpponentDifficulty (0023d03a), transcribed branch for branch.
+    //   0 = The King will race you
+    //   1 = novice, no line from The King at all
+    //   2 = "I don't got time for amateurs like you!"
+    //   3 = "You're doing OK kid, but you're gonna need to win more races!"
+    //   4 = "You're gonna hafta win more drag races!"
+    //   5 = "You're gonna hafta win more road races!"
     // pool_remaining: number of unbeaten regular opponents still in pool
     int GetOpponentTier(int pool_remaining) const {
         if (pool_remaining == 0)
@@ -50,22 +52,23 @@ struct Reputation {
 
         int total = drag_rep + road_rep;
 
-        if (drag_rep >= 6 && road_rep >= 6 && total >= races_completed / 2)
-            return 0;
-
         if (total < 3)
             return 1;
 
-        if (total < 7) {
-            if (drag_rep < 6 && road_rep < 6)
-                return 2;
+        if (total >= 7 && drag_rep < 6 && road_rep < 6)
             return 3;
-        }
 
-        // total >= 7
-        if (road_rep < 6)
+        if (total < 7 && drag_rep < 6 && road_rep < 6)
+            return 2;
+        if (drag_rep < 6)
             return 4;
-        return 5;
+        if (road_rep < 6)
+            return 5;
+        // Both reps clear 6: the King still wants wins to outnumber the races
+        // you have spent getting them.
+        if (total < races_completed / 2)
+            return 3;
+        return 0;
     }
 
     bool IsKingUnlocked(int pool_remaining) const {

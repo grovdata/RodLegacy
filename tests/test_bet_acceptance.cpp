@@ -139,6 +139,45 @@ TEST_CASE("the bonus can beat a zero threshold") {
 
 }  // TEST_SUITE
 
+// ============================================================================
+// The rivalry term: (opp_wins * 2 - races) * threshold / 4, from bytes 4 and 5
+// of the challenger's pool record.
+// ============================================================================
+
+TEST_SUITE("OpponentAcceptsBet - rivalry") {
+
+TEST_CASE("no history leaves the threshold alone") {
+    BetContext ctx = Even();           // evenly matched slips: threshold 35
+    CHECK(ctx.rivalryMargin == 0);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 35) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 36) == false);
+}
+
+TEST_CASE("a driver who keeps beating the player is readier to bet") {
+    BetContext ctx = Even();
+    ctx.rivalryMargin = 4;             // 4 * 35 / 4 = +35
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 70) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 71) == false);
+}
+
+TEST_CASE("a driver the player keeps beating starts refusing") {
+    BetContext ctx = Even();
+    ctx.rivalryMargin = -4;            // -4 * 35 = -140, +3 then >>2 = -35
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 0) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 1) == false);
+}
+
+// The original divides by shifting and adds 3 first, so a negative product
+// rounds toward zero. -1 * 35 = -35; (-35 + 3) >> 2 = -8, not -9.
+TEST_CASE("a negative term rounds toward zero, not down") {
+    BetContext ctx = Even();
+    ctx.rivalryMargin = -1;
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 27) == true);
+    CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 28) == false);
+}
+
+}  // TEST_SUITE
+
 TEST_SUITE("LoadBetTables") {
 
 TEST_CASE("decodes big-endian words from offset 0x728") {

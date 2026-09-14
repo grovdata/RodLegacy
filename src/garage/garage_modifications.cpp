@@ -356,9 +356,9 @@ void Garage::ShowCarInfoDialog() {
             }
         };
         auto wearNote = [](int wear) {
-            if (wear <= 0) return std::string("(new)");
+            if (WearPercent(wear) <= 0) return std::string("(new)");
             char buf[32];
-            snprintf(buf, sizeof(buf), "(%d%% worn)", wear);
+            snprintf(buf, sizeof(buf), "(%d%% worn)", WearPercent(wear));
             return std::string(buf);
         };
         auto transName = [vendorToStr](AmigaLibAsset aid, CarVendor_t vendor) -> std::string {
@@ -441,32 +441,45 @@ void Garage::ShowCarInfoDialog() {
         // concrete engine fitted, so its part is CarBuilder's placeholder V6
         // no matter what the spec says - which is how a '56 Corvette came to
         // read "V-6" next to a V8 in the engine bay.
-        const CarEngine_t engineType = car->GetEngineType();
-        const EnginePart engine = car->GetEngine();
-        const int displacement = car->GetSpecEngineClass() >= 0
-            ? EnginePart(engineType, 0, 0, vendor, ENGINE_V8).displacement
-            : engine.displacement;
-        char engineBuf[64];
-        snprintf(engineBuf, sizeof(engineBuf), "%s %s engine. %d cu.in.",
-                 vendorStr, cylinderLabel(engineType), displacement);
-        addRightNote(engineBuf, wearNote(engine.wear).c_str());
+        // Each line is listed only while the part is actually bolted in: the
+        // Part structs survive a RemoveEngine/StripEngineAssembly (a blown
+        // engine leaves engine, manifold and carbs behind, unfitted), so
+        // printing them unconditionally claimed a full engine on a car whose
+        // bay is visibly empty.
+        if (car->HasEngine()) {
+            const CarEngine_t engineType = car->GetEngineType();
+            const EnginePart engine = car->GetEngine();
+            const int displacement = car->GetSpecEngineClass() >= 0
+                ? EnginePart(engineType, 0, 0, vendor, ENGINE_V8).displacement
+                : engine.displacement;
+            char engineBuf[64];
+            snprintf(engineBuf, sizeof(engineBuf), "%s %s engine. %d cu.in.",
+                     vendorStr, cylinderLabel(engineType), displacement);
+            addRightNote(engineBuf, wearNote(engine.wear).c_str());
+        }
         // Manifold line
-        const Part manifold = car->GetManifold();
-        std::string maniText = std::string("  ") + manifoldName(manifold.partType.manifoldType, vendorStr);
-        addIndented(maniText.c_str());
+        if (car->HasManifold()) {
+            const Part manifold = car->GetManifold();
+            std::string maniText = std::string("  ") + manifoldName(manifold.partType.manifoldType, vendorStr);
+            addIndented(maniText.c_str());
+        }
         // Carb line - a dual-quad or triple manifold carries more than one,
         // and the original's classifieds name them as a set ("2-4brl carbs").
-        const Part carb = car->GetCarburator();
-        int carbCount = car->FittedCarburetorCount();
-        std::string carbText = std::string("  ");
-        if (carbCount > 1) carbText += std::to_string(carbCount) + "-";
-        carbText += carbName(carb.partType.carburetorType);
-        if (carbCount > 1) carbText += "s";
-        addIndented(carbText.c_str());
+        const int carbCount = car->FittedCarburetorCount();
+        if (carbCount > 0) {
+            const Part carb = car->GetCarburator();
+            std::string carbText = std::string("  ");
+            if (carbCount > 1) carbText += std::to_string(carbCount) + "-";
+            carbText += carbName(carb.partType.carburetorType);
+            if (carbCount > 1) carbText += "s";
+            addIndented(carbText.c_str());
+        }
         // Transmission line
-        const Part trans = car->GetGearbox();
-        std::string transText = transName(trans.assetId, vendor);
-        addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
+        if (car->HasGearbox()) {
+            const Part trans = car->GetGearbox();
+            std::string transText = transName(trans.assetId, vendor);
+            addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
+        }
         // Tires line
         addRightNote(tireName(car->GetWheelType()), wearNote(car->GetTires().wear).c_str());
 
@@ -1012,9 +1025,9 @@ static std::string EngineDisplayName(const EnginePart& p) {
 
 // Same convention ShowCarInfoDialog uses for a car's installed parts.
 static std::string WearNote(int wear) {
-    if (wear <= 0) return "(new)";
+    if (WearPercent(wear) <= 0) return "(new)";
     char buf[32];
-    snprintf(buf, sizeof(buf), "(%d%% worn)", wear);
+    snprintf(buf, sizeof(buf), "(%d%% worn)", WearPercent(wear));
     return std::string(buf);
 }
 

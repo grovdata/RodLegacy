@@ -30,7 +30,9 @@ class Diner: public CarScene {
     std::string GetOpponentText(Opponent *opponent);
 
     // Add a map to store opponent car bitmaps
-    std::map<std::string, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
+    // Keyed by car, not by driver - see StartAnimateCar. Same shape the Garage
+    // uses for its own cache.
+    std::map<CarPtr, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
 
     // Scene-owned animated drawables (asset sheets are owned by AssetManager).
     // Both actors are table-driven one-shots, not free-running loops - see

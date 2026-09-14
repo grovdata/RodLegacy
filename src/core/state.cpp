@@ -390,7 +390,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 TransmissionType type;
                 if (!CarBuilder::TransmissionTypeFromSaveVariant(p.variant, type)) type = TRANS_4SPD_UNIVERSAL;
                 Part part = CarBuilder::CreateTransmissionPart(type, model.vendor);
-                part.wear = p.wearRaw / 100;
+                part.wear = p.wearRaw;
                 part.cost = p.value;
                 car->SetGearbox(part);
                 break;
@@ -399,10 +399,10 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 CarEngine_t type;
                 AmigaLibAsset asset;
                 if (CarBuilder::EngineTypeFromSaveVariant(p.variant, type, asset)) {
-                    EnginePart enginePart(type, p.wearRaw / 100, p.value, model.vendor, asset);
+                    EnginePart enginePart(type, p.wearRaw, p.value, model.vendor, asset);
                     car->SetEngine(enginePart);
                 } else {
-                    Part enginePart(p.wearRaw / 100, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
+                    Part enginePart(p.wearRaw, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
                     car->SetEngine(enginePart); // EnginePart::FromPart picks a vendor-appropriate type
                 }
                 break;
@@ -432,7 +432,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
             case 6: { // Tires - decode owned by CarBuilder::TireTypeFromSaveVariant
                 CarWheelType type;
                 if (!CarBuilder::TireTypeFromSaveVariant(p.variant, type)) type = STOCK;
-                car->SetTires(type, p.wearRaw / 100, p.value);
+                car->SetTires(type, p.wearRaw, p.value);
                 break;
             }
             default:
@@ -604,6 +604,7 @@ BetContext State::GetBetContext() {
 
     const SrDriverData* driver = GetCurrentDriverData();
     if (driver != nullptr) ctx.driverTier = driver->tier;
+    ctx.rivalryMargin = racerPool.RivalryMargin(lastChallengerPoolIndex);
     return ctx;
 }
 
@@ -699,6 +700,11 @@ void State::PickNextOpponent() {
     }
     lastChallengerPoolIndex = poolIdx;
 
+    // A rival who has been turning up for a while has been spending money on
+    // their own car - see RacerPool::ApplyRivalryUpgrades. Runs before the
+    // look is handed to the Roster below.
+    racerPool.ApplyRivalryUpgrades(poolIdx);
+
     // Map pool entry → Roster Opponent so existing Diner code works unchanged.
     RacerEntry& entry = racerPool.pool[poolIdx];
     int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
@@ -734,6 +740,11 @@ void State::PickNextOpponent() {
         LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d car_spec=%d score=%d",
                  poolIdx, entry.driver_index, entry.car_spec_index, playerScore);
     }
+}
+
+void State::RecordChallengerRace(bool opponentWon) {
+    if (lastChallengerPoolIndex < 0 || lastChallengerPoolIndex >= RACER_POOL_SIZE) return;
+    racerPool.RecordRace(lastChallengerPoolIndex, opponentWon);
 }
 
 bool State::OnRaceFinished(RaceType raceType, bool won) {
