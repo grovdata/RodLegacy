@@ -34,10 +34,12 @@ constexpr int kPhysicsHz = 15;
 // The rpm the drive cutscene shifts at and then holds in top gear
 // (UpdatePhysics 0x2364e8 compares against 0x1194).
 constexpr int kCruiseRpm = 4500;
-// How far ahead the arriving car starts pulling over, and the speed it stops
-// braking at so it still rolls into the segment that ends the drive.
-constexpr int kCruiseArrivalSegs = 4;
-constexpr int kCruiseArrivalMph = 25;
+// How far ahead the arriving car turns in towards its building. At cruise
+// speed a segment is only a tick or two, and the steer integrator builds at 2
+// of 24 per tick, so one segment never develops a visible turn and twelve
+// drifts across the road long before the stop. Three is "the turn has just
+// started" when the scene cuts - tune here if it reads wrong.
+constexpr int kCruiseArrivalSegs = 3;
 constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
 
 // Driving composites this road-view surface into the 320x200 frame at screen
@@ -1385,9 +1387,11 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
     };
 
-    // The destination sign, placed the way the original places a town bit-0
-    // sprite: centred on the road, anchored to the side the flag came from, so
-    // it hangs over the street rather than standing at the kerb.
+    // The destination sign: at the roadside, on the side its flag came from.
+    // (The original's town bit-0 path goes through RenderCenteredSprite, whose
+    // first argument is the midpoint of the row y and the elevated y - a
+    // height, not the road centre. Reading it as an x put the sign over the
+    // middle of the road, which is not where it stands.)
     auto drawCruiseSign = [&](int k, int side) {
         const RowProjection& row = rows[k];
         const int sr = ClampInt(k - 2, 0, 10);
@@ -1395,10 +1399,9 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             return;
         }
         const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
-        const int centre = (row.leftX + row.rightX) / 2;
-        const int x = (side < 0) ? centre - fr.w : centre;
+        const int x = (side < 0) ? row.leftX - 2 : row.rightX + 2;
         DrawNearestNeighborScaled(cruiseSignSprite.get(), x, row.y, fr.w, fr.h,
-                                  false, true, fr.x, fr.y, fr.w, fr.h);
+                                  side < 0, true, fr.x, fr.y, fr.w, fr.h);
     };
 
     for (int k = std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
@@ -1416,10 +1419,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             if (L & 0x0100) drawSlot(4, k, -1, false);
             if (L & 0x0800) drawSlot(3, k, -1, false);
             if (L & 0x1000) drawSlot(6, k, -1, false);
-            // The building flag. In town the original does not put this one at
-            // the roadside: it goes through RenderCenteredSprite, centred on
-            // the road and anchored to its own side, which is the sign hanging
-            // over the street. On a cruise it is the destination's own sign -
+            // The building flag, and on a cruise the destination's own sign -
             // the drive stops at this very segment.
             if (L & 0x0001) {
                 if (cruiseMode && cruiseSignSprite) {
@@ -2460,14 +2460,16 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             baseInput = (topGear && pc.rpm >= kCruiseRpm) ? 0 : srrace::INPUT_THROTTLE;
             pendingShift = !topGear && pc.rpm > kCruiseRpm;
 
-            // Arriving: pull over towards the building the drive stops at and
-            // come off the gas. Braking stops short of a standstill so the car
-            // still rolls into the segment that ends the scene.
+            // Arriving: turn towards the building the drive stops at, and only
+            // in the last segment before it. The original never slows down -
+            // its cutscene physics has no deceleration at all, and the roll-out
+            // that does brake and park is gated on passing the race finish,
+            // which a town drive never reaches. Playtested, all you see is the
+            // car starting to turn in before the scene cuts, so that is all
+            // this does: no braking, one segment of steering.
             const int side = CruiseArrivalSide();
             if (side != 0) {
-                baseInput = (pc.speed > kCruiseArrivalMph) ? srrace::INPUT_BRAKE : 0;
                 baseInput |= (side < 0) ? srrace::INPUT_STEER_LEFT : srrace::INPUT_STEER_RIGHT;
-                pendingShift = false;
             }
         }
 
