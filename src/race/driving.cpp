@@ -659,7 +659,12 @@ void Driving::DrawScene() {
 
             racing->Draw(deltaTime, lastEvent);
 
-            if (!racing->IsFlybyMode()) {
+            if (cruising) {
+                if (racing->CruiseFinished()) {
+                    EndCruise();
+                    return;
+                }
+            } else if (!racing->IsFlybyMode()) {
                 // Race ended: record the result, then pause and show the reason.
                 RaceOutcome outcome = racing->GetRaceOutcome();
                 if (outcome != RaceOutcome::Ongoing) {
@@ -1111,6 +1116,34 @@ void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
 
 // Called from the wreck dialog's own button callback, so the dialog is hidden
 // rather than destroyed here - OnSceneEnter clears it for the next race.
+// Cruising in town. The original runs the whole drive through RunRoadRaceWithMode
+// with the race flag cleared; here it is the same Racing, started back in the
+// approach section - docs/driving/cruising.md.
+void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
+    cruising = true;
+    cruiseDestination = destination;
+    raceEnded = false;
+    raceEndBubble.reset();
+    statsDialog.reset();
+    raceEndDipping = false;
+    mouse.SetVisible(false);
+    if (racing) {
+        // Each destination's sign stands before its own building.
+        int sign = RACING_SIGN_GARAGE;
+        if (destination == SCENE_DINER) {
+            sign = RACING_DRIVE_IN;
+        } else if (destination == SCENE_GAS_STATION) {
+            sign = RACING_SIGN_GUS_GAS;
+        }
+        racing->StartCruise(startSeg, sign);
+    }
+}
+
+void Driving::EndCruise() {
+    cruising = false;
+    state.MoveToScene(cruiseDestination);
+}
+
 void Driving::LeaveAfterRace() {
     raceEnded = false;
     raceEndBubble.reset();
@@ -1147,6 +1180,12 @@ bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
     // to the garage (or the end-game screen if the King was just beaten). The
     // wreck dialog is the exception: it wants a button click, not any key.
+    // "You can skip the cruising by pressing the selector" (manual).
+    if (cruising && (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN)) {
+        EndCruise();
+        return true;
+    }
+
     if (raceEnded && !raceEndDipping && !wreckDialog && event->type == SDL_KEYDOWN) {
         // Hold the crash screen for its minimum display time; ignore keys until then.
         if (SDL_GetTicks() < raceEndDismissAllowedMs) {

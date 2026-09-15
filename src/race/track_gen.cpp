@@ -453,12 +453,17 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
         }
     }
 
-    track.flags[10 + rng.Next(45)] |= 0x0040;
-    track.flags[10 + rng.Next(45)] |= 0x0080;
-    track.flags[65 + rng.Next(55)] |= 0x0040;
-    track.flags[65 + rng.Next(55)] |= 0x0080;
-    track.flags[115 + rng.Next(55)] |= 0x0040;
-    track.flags[115 + rng.Next(55)] |= 0x0080;
+    // Two overhead arches somewhere along each of the three cruises, one with
+    // each banner. The original does these with BSET #6 / #7 on byte +0 of the
+    // word (road_layout_init, IRA LAB_0D5C), which is the HIGH byte - so bits
+    // 14 and 15, not 6 and 7. Ported as 0x0040/0x0080 they landed on roadside
+    // object bits instead and the town had no arches at all.
+    track.flags[10 + rng.Next(45)] |= 0x4000;
+    track.flags[10 + rng.Next(45)] |= 0x8000;
+    track.flags[65 + rng.Next(55)] |= 0x4000;
+    track.flags[65 + rng.Next(55)] |= 0x8000;
+    track.flags[115 + rng.Next(55)] |= 0x4000;
+    track.flags[115 + rng.Next(55)] |= 0x8000;
 
     track.right[44] |= 0x0001;
     track.left[29] |= 0x1000;

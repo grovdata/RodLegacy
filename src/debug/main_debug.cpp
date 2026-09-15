@@ -6,6 +6,7 @@
 #include "core/mouse.h"
 #include "scenes/scene.h"
 #include "core/state.h"
+#include "race/driving.h"
 
 extern Mouse mouse;  // defined in main.cpp
 
@@ -17,6 +18,20 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     scenes.buttons.push_back({"Garage",         [] { state.MoveToScene(SCENE_GARAGE); }});
     scenes.buttons.push_back({"Diner",          [] { state.MoveToScene(SCENE_DINER); }});
     scenes.buttons.push_back({"Driving",        [] { state.MoveToScene(SCENE_DRIVING); }});
+    // The three drives, by their start segment and the building they end at:
+    // 10 -> right[44] garage, 65 -> left[108] diner, 115 -> left[156] gas.
+    scenes.buttons.push_back({"Cruise: garage", [] {
+        state.MoveToScene(SCENE_CRUISING);
+        state.GetDrivingScene()->StartCruise(10, SCENE_GARAGE);
+    }});
+    scenes.buttons.push_back({"Cruise: diner", [] {
+        state.MoveToScene(SCENE_CRUISING);
+        state.GetDrivingScene()->StartCruise(65, SCENE_DINER);
+    }});
+    scenes.buttons.push_back({"Cruise: gas", [] {
+        state.MoveToScene(SCENE_CRUISING);
+        state.GetDrivingScene()->StartCruise(115, SCENE_GAS_STATION);
+    }});
     scenes.buttons.push_back({"Ending",         [] { state.MoveToScene(SCENE_ENDING); }});
     scenes.buttons.push_back({"King of County", [] { state.MoveToScene(SCENE_KING_OF_COUNTY); }});
     scenes.buttons.push_back({"Name Entry",     [] { state.MoveToScene(SCENE_NAME_ENTRY); }});

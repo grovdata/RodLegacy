@@ -134,6 +134,7 @@ public:
     AssetManager& GetAssets() { return assets; }
     Newspaper* GetNewspaper() const { return newspaper.get(); }
     SaveLoadScene* GetSaveLoadScene() const { return saveLoad.get(); }
+    Driving* GetDrivingScene() const { return driving.get(); }
 
     // Every enabled car set's specs in one table, Amiga set first. Parallel
     // to GetCarSpecModelIndex(), which maps each entry back to a pool key.

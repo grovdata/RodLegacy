@@ -236,6 +236,19 @@ public:
     const NpcState& NpcAi() const { return npcAi; }
     int RaceType() const { return raceType; }
     int FinishSegment() const { return finishSeg; }
+    // Drive cutscene: the same sim started further back down the approach
+    // section. InitDriveScene (0x23ab2c) starts a cruise at segment 10, 65 or
+    // 115 instead of 200 and lets it run to the ordinary drag finish at the
+    // arch - see docs/driving/cruising.md.
+    void BeginCruiseAt(int seg) {
+        player.segPos = seg;
+        npc.segPos = seg;
+        // A cruise has no start line, so it must not go through the staging
+        // countdown: that state calls any movement a false start and ends the
+        // race on the spot, which left the car sitting still.
+        phase = RacePhase::Running;
+        countdownTicks = 0;
+    }
     int32_t PlayerSegment() const { return player.segPos; }
     RacePhase Phase() const { return phase; }
     bool InCountdown() const { return phase == RacePhase::Countdown; }

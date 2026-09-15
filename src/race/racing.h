@@ -92,6 +92,9 @@ private:
     int firstPlayerFinishTick = -1;
     int firstNpcFinishTick = -1;
     int simTickCounter = 0;
+    bool cruiseMode = false;   // drive cutscene, not a race
+    std::unique_ptr<Bitmap> cruiseSignSprite;
+    const SpriteAnimationInfo* cruiseSignAnim = nullptr;
     // Sum of the player's mph over every physics tick, for the post-race stats
     // panel's average (original A4+0x4cc8 / A4+0x4bca).
     int32_t speedSumMph = 0;
@@ -193,6 +196,8 @@ private:
     void PutPixel(SDL_Surface* s, int x, int y, SDL_Color c);
     void DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue);
     void LoadSpriteBitmaps();
+    // Cruise-only town pass: the filled building walls along both shoulders.
+    void DrawTownWalls(int lastVisible);
     void DrawRearviewMirror();
     void DrawSideMirror();
     std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);
@@ -264,6 +269,17 @@ public:
     // BuildResultText, values computed at 0x245e5c). Time is in tenths of a
     // second; the distance percentage is the player's share of how far the
     // opponent got, capped at 99 as the original caps it.
+    // Drive cutscene ("cruising in town"): the race renderer with the race
+    // switched off, started back in the approach section and driving itself to
+    // the arch. See RodLegacyResearch/docs/driving/cruising.md.
+    // signAsset is the destination's own overhead sign (RACING_SIGN_GARAGE,
+    // RACING_SIGN_GUS_GAS or RACING_DRIVE_IN), drawn on the approach segments
+    // that carry flag 0x0800 before the building the drive stops at.
+    void StartCruise(int startSeg, int signAsset);
+    bool IsCruising() const { return cruiseMode; }
+    bool CruiseFinished() const;
+    int CruiseArrivalSide() const;
+
     int RaceTimeTenths() const;
     int AverageSpeedMph() const;
     int DistancePercent() const;
