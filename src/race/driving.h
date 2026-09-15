@@ -56,6 +56,27 @@ class Driving: public Scene {
     // and lets you pay it or junk the car - see race/race_end_message.h.
     std::unique_ptr<Dialog> wreckDialog;
     void ShowWreckDialog(const srrace::RaceEndContext& ctx);
+    // The race ends with the whole view fading out and straight back in before
+    // the message appears (RoadRaceMainLoop fades to black, ProcessRaceOutcome
+    // fades back in) - see RodLegacyResearch/docs/palette_fade.md. What the
+    // message needs is held here for the length of the dip.
+    bool raceEndDipping = false;
+    bool raceEndWon = false;
+    bool raceEndWreck = false;
+    std::string raceEndReason;
+    srrace::RaceEndContext raceEndCtx;
+    void ShowRaceEndMessage();
+    // Time / distance / average speed panel across the top of the race-end
+    // screen (original dialog 24, built by BuildResultText 0x2452c6). Only
+    // shown when the race was actually decided at the line; snapshotted when
+    // the race ends because the dip runs before it goes up.
+    std::unique_ptr<Dialog> statsDialog;
+    bool raceEndShowStats = false;
+    int raceEndTimeTenths = 0;
+    int raceEndAvgSpeed = 0;
+    int raceEndPercent = 0;
+    void ShowStatsDialog();
+    void OnFadeComplete() override;
     // Leaves the driving scene once the race-end screen is done with.
     void LeaveAfterRace();
     // Strips whatever the race broke off the car: the whole engine assembly

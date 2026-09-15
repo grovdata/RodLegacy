@@ -494,6 +494,7 @@ void Racing::InitializeRaceSimulation() {
     firstPlayerFinishTick = -1;
     firstNpcFinishTick = -1;
     simTickCounter = 0;
+    speedSumMph = 0;
     raceOutcome = RaceOutcome::Ongoing;
     bShowCrashOverlay = false;
     crashHandled = false;
@@ -698,6 +699,28 @@ srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     ctx.carValue = state.GetCarValue(state.GetCurrentCar());
     ctx.carStrippedValue = state.GetCarStrippedValue(state.GetCurrentCar());
     return ctx;
+}
+
+// The original converts its tick count with `ticks * 10 / 6`, i.e. it takes its
+// own race loop to run at 6 physics steps a second; ours runs at kPhysicsHz, so
+// that is the divisor here.
+int Racing::RaceTimeTenths() const {
+    return simTickCounter * 10 / kPhysicsHz;
+}
+
+int Racing::AverageSpeedMph() const {
+    return simTickCounter > 0 ? speedSumMph / simTickCounter : 0;
+}
+
+// (player - start) * 100 / (opponent - start), capped at 99 so a losing race
+// never reads 100%.
+int Racing::DistancePercent() const {
+    const int player = static_cast<int>(sim.Player().segPos) - srrace::RACE_START_SEG;
+    const int npc = static_cast<int>(sim.Npc().segPos) - srrace::RACE_START_SEG;
+    if (npc <= 0) {
+        return 0;
+    }
+    return std::min(99, player * 100 / npc);
 }
 
 bool Racing::IsTransmissionDamaged() const {
@@ -2180,6 +2203,11 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             }
             sim.Tick(inputBits);
             ++simTickCounter;
+            // The post-race stats panel's average speed: the original sums the
+            // player's mph into A4+0x4cc8 and the ticks into A4+0x4bca on every
+            // physics step, then divides the two. See
+            // docs/driving/race_end_messages.md.
+            speedSumMph += sim.Player().speed;
 
             // Side-swiping the opponent bashes metal (original plays the impact
             // sound three times as the player is shoved clear).

@@ -63,8 +63,9 @@ void Driving::Init(bool debugMode) {
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
-    
-    
+    statsDialog.reset();
+    raceEndDipping = false;
+
     ApplyCarLivery();
 
     Bitmap* dashboard = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
@@ -446,6 +447,8 @@ void Driving::OnSceneEnter() {
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
+    statsDialog.reset();
+    raceEndDipping = false;
     wreckDialog.reset();
     raceEndDismissAllowedMs = 0;
     mouse.SetVisible(false);
@@ -769,21 +772,22 @@ void Driving::DrawScene() {
                     LOG_INFO("Driving: race ended (%s); press any key for garage",
                              reason.c_str());
                     raceEnded = true;
-                    if (crash == srrace::CrashOutcome::RepairOrJunk) {
-                        ShowWreckDialog(endCtx);
-                    } else {
-                        raceEndBubble = std::make_unique<Bubble>(reason, BUBBLE_LEFT, 85, 40, false);
-                        raceEndBubble->SetVisible(true);
-                    }
-                    // Hold every race-end message on screen for a minimum time
-                    // before any key can dismiss it, so a still-held accelerator
-                    // (or other key) can't skip the win/loss/crash message.
-                    raceEndDismissAllowedMs = SDL_GetTicks() + 4000;
-                    // The race-end screen brings the pointer back, thumb up or
-                    // down depending on how it went.
-                    mouse.SetPointerType(won ? SrLibAmigaSpriteAssetMousePointerThumbsUp
-                                             : SrLibAmigaSpriteAssetMousePointerThumbsDown);
-                    mouse.SetVisible(true);
+                    // Dip out and back in first; ShowRaceEndMessage puts the
+                    // message up once that is done.
+                    raceEndReason = reason;
+                    raceEndWon = won;
+                    raceEndWreck = (crash == srrace::CrashOutcome::RepairOrJunk);
+                    raceEndCtx = endCtx;
+                    // The stats panel is only built for a race decided at the
+                    // line: ProcessRaceOutcome calls BuildResultText on the win
+                    // branch and on a loss only when the outcome word is exactly
+                    // 1 (finished, nothing broken, no cop).
+                    raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0;
+                    raceEndTimeTenths = racing->RaceTimeTenths();
+                    raceEndAvgSpeed = racing->AverageSpeedMph();
+                    raceEndPercent = racing->DistancePercent();
+                    raceEndDipping = true;
+                    FadeOut();
                 }
             }
 
@@ -885,6 +889,9 @@ void Driving::DrawScene() {
         DrawLegacyDebugOverlay();
     }
 
+    if (statsDialog && statsDialog->IsVisible()) {
+        statsDialog->Draw();
+    }
     // Race-end reason bubble, drawn on top of the frozen scene.
     if (raceEnded && raceEndBubble) {
         raceEndBubble->Draw();
@@ -892,6 +899,76 @@ void Driving::DrawScene() {
     if (wreckDialog && wreckDialog->IsVisible()) {
         wreckDialog->Draw();
     }
+}
+
+// The race-end dip: the Amiga fades the race view out when the frame loop
+// exits and fades the same view back in at the top of ProcessRaceOutcome, and
+// only then blits the message. See RodLegacyResearch/docs/palette_fade.md.
+void Driving::OnFadeComplete() {
+    Scene::OnFadeComplete();
+    if (!raceEndDipping) {
+        return;
+    }
+    if (sceneTransition == SCENE_BLACK) {
+        FadeIn();
+        return;
+    }
+    raceEndDipping = false;
+    ShowRaceEndMessage();
+}
+
+// Dialog 24: two lines of race stats across the top of the screen, no buttons.
+// The wording is verbatim from the string table (0x24b446..0x24b4b0); the
+// original's backticks are line-break markers it renders as spaces here.
+void Driving::ShowStatsDialog() {
+    char line1[80];
+    char line2[80];
+    if (raceEndWon) {
+        snprintf(line1, sizeof(line1), "Your winning time %d.%d sec., avg. speed %2d mph",
+                 raceEndTimeTenths / 10, raceEndTimeTenths % 10, raceEndAvgSpeed);
+        snprintf(line2, sizeof(line2), "Congratulations !");
+    } else {
+        snprintf(line1, sizeof(line1), "In %d.%d sec you covered only %2d%%",
+                 raceEndTimeTenths / 10, raceEndTimeTenths % 10, raceEndPercent);
+        snprintf(line2, sizeof(line2), "of the distance. Your avg. speed %2d mph.",
+                 raceEndAvgSpeed);
+    }
+
+    const SDL_Rect bounds = {7, 7, 255, 28};
+    DialogConfig cfg;
+    cfg.bounds = bounds;
+    cfg.backgroundColor = {0, 208, 0, 255};
+    cfg.borderColor = {0, 111, 239, 255};
+    cfg.contentAreas = std::vector<SDL_Rect>{bounds};
+    cfg.font = state.GetAssets().GetMainFont();
+    cfg.texts = {
+        DialogTextConfig{SDL_Rect{10, 11, 249, 10}, line1, {0xFF, 0xFF, 0xFF, 0xFF}, true},
+        DialogTextConfig{SDL_Rect{10, 21, 249, 10}, line2, {0xFF, 0xFF, 0xFF, 0xFF}, true},
+    };
+
+    statsDialog = std::make_unique<Dialog>(cfg);
+    statsDialog->Show();
+}
+
+void Driving::ShowRaceEndMessage() {
+    if (raceEndShowStats) {
+        ShowStatsDialog();
+    }
+    if (raceEndWreck) {
+        ShowWreckDialog(raceEndCtx);
+    } else {
+        raceEndBubble = std::make_unique<Bubble>(raceEndReason, BUBBLE_LEFT, 85, 40, false);
+        raceEndBubble->SetVisible(true);
+    }
+    // Hold every race-end message on screen for a minimum time before any key
+    // can dismiss it, so a still-held accelerator (or other key) can't skip the
+    // win/loss/crash message.
+    raceEndDismissAllowedMs = SDL_GetTicks() + 4000;
+    // The race-end screen brings the pointer back, thumb up or down depending
+    // on how it went.
+    mouse.SetPointerType(raceEndWon ? SrLibAmigaSpriteAssetMousePointerThumbsUp
+                                    : SrLibAmigaSpriteAssetMousePointerThumbsDown);
+    mouse.SetVisible(true);
 }
 
 // The repair quote after a wreck at 31..90 mph (ProcessRaceOutcome dialogs 25
@@ -1037,6 +1114,7 @@ void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
 void Driving::LeaveAfterRace() {
     raceEnded = false;
     raceEndBubble.reset();
+    statsDialog.reset();
     if (wreckDialog) wreckDialog->Hide();
     const bool endGame = raceEndPendingKing;
     raceEndPendingKing = false;
@@ -1069,7 +1147,7 @@ bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
     // to the garage (or the end-game screen if the King was just beaten). The
     // wreck dialog is the exception: it wants a button click, not any key.
-    if (raceEnded && !wreckDialog && event->type == SDL_KEYDOWN) {
+    if (raceEnded && !raceEndDipping && !wreckDialog && event->type == SDL_KEYDOWN) {
         // Hold the crash screen for its minimum display time; ignore keys until then.
         if (SDL_GetTicks() < raceEndDismissAllowedMs) {
             return true;

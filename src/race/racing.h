@@ -92,6 +92,9 @@ private:
     int firstPlayerFinishTick = -1;
     int firstNpcFinishTick = -1;
     int simTickCounter = 0;
+    // Sum of the player's mph over every physics tick, for the post-race stats
+    // panel's average (original A4+0x4cc8 / A4+0x4bca).
+    int32_t speedSumMph = 0;
     // Ticks left before the tire screech one-shot can retrigger. The original
     // (RaceLogicUpdate 0x244d50) refires it every tick the skid condition
     // holds, cutting the Paula channel short each time; our audio path only
@@ -257,6 +260,13 @@ public:
     // RodLegacyResearch/docs/driving/cop.md.
     bool PlayerBusted() const { return sim.PlayerBusted(); }
     int SpeedingFine() const { return sim.SpeedingFine(); }
+    // The three numbers on the post-race stats panel (original 0x2452c6
+    // BuildResultText, values computed at 0x245e5c). Time is in tenths of a
+    // second; the distance percentage is the player's share of how far the
+    // opponent got, capped at 99 as the original caps it.
+    int RaceTimeTenths() const;
+    int AverageSpeedMph() const;
+    int DistancePercent() const;
     bool IsTransmissionDamaged() const;
     // Wear the race put on the player's parts, in the original's 0..10000
     // units. Driving writes these back onto the car once the race is settled.
