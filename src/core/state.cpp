@@ -216,16 +216,48 @@ void State::SetCurrentScene(Scene *scene) {
     this->currentScene = scene;
 }
 
+bool State::TakePendingCruise(SrLibGameScene& destination) {
+    if (!pendingCruise) {
+        return false;
+    }
+    pendingCruise = false;
+    destination = pendingCruiseDestination;
+    return true;
+}
+
+void State::ArriveFromCruise(SrLibGameScene destination) {
+    arrivingFromCruise = true;
+    MoveToScene(destination);
+}
+
 void State::MoveToScene(SrLibGameScene scene) {
     const SrLibGameScene previousScene = currentGameScene;
+    // The second half of a drive: the fuel and the cutscene were both dealt
+    // with on the way in, so this leg is neither charged nor driven again.
+    const bool fromCruise = arrivingFromCruise;
+    arrivingFromCruise = false;
+
     // Every leg between two places you drive to costs fuel; the garage's
     // newspaper, save/load and the rest are not drives.
     auto isDriveTo = [](SrLibGameScene s) {
         return s == SCENE_GARAGE || s == SCENE_DINER || s == SCENE_GAS_STATION ||
                s == SCENE_DRIVING || s == SCENE_CRUISING;
     };
-    if (scene != previousScene && isDriveTo(previousScene) && isDriveTo(scene)) {
+    if (!fromCruise && scene != previousScene && isDriveTo(previousScene) && isDriveTo(scene)) {
         BurnFuel(FUEL_PER_TRIP_TENTHS);
+    }
+
+    // Driving between two of the three places is the cruise cutscene. Driving
+    // starts it from its own OnSceneEnter, which runs at the bottom of this
+    // function - starting it here would be undone by that reset.
+    auto isPlace = [](SrLibGameScene s) {
+        return s == SCENE_GARAGE || s == SCENE_DINER || s == SCENE_GAS_STATION;
+    };
+    if (!fromCruise && driving && scene != previousScene && isPlace(previousScene) &&
+        isPlace(scene)) {
+        pendingCruise = true;
+        pendingCruiseDestination = scene;
+        scene = SCENE_CRUISING;
     }
     if (currentScene) {
         currentScene->OnSceneExit();

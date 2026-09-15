@@ -465,6 +465,17 @@ void Driving::OnSceneEnter() {
     // After ResetForNewRace: the gate plate to show depends on this car's box.
     ResetShifter();
 
+    // A drive between two places comes through here as SCENE_CRUISING with the
+    // real destination parked in State. Last, so the reset above cannot undo
+    // it.
+    cruising = false;
+    SrLibGameScene cruiseTo = SCENE_DINER;
+    if (state.TakePendingCruise(cruiseTo)) {
+        StartCruise(CruiseStartSegment(cruiseTo), cruiseTo);
+        LOG_INFO("Driving::OnSceneEnter - cruising to scene %d", static_cast<int>(cruiseTo));
+        return;
+    }
+
     LOG_INFO("Driving::OnSceneEnter - race starting: type=%s bet=%d pinkSlip=%d",
              pendingType == RaceType::Drag ? "Drag" : "Road",
              state.GetPendingBetAmount(),
@@ -1114,8 +1125,19 @@ void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
     }
 }
 
-// Called from the wreck dialog's own button callback, so the dialog is hidden
-// rather than destroyed here - OnSceneEnter clears it for the next race.
+// Where each drive starts, from RoadLayoutInit's three building flags: the
+// garage is right[44], the diner left[108], the gas station left[156], and the
+// original starts the drive to each at 10, 65 and 115.
+int Driving::CruiseStartSegment(SrLibGameScene destination) {
+    if (destination == SCENE_DINER) {
+        return 65;
+    }
+    if (destination == SCENE_GAS_STATION) {
+        return 115;
+    }
+    return 10;   // the garage, and anything else that drives
+}
+
 // Cruising in town. The original runs the whole drive through RunRoadRaceWithMode
 // with the race flag cleared; here it is the same Racing, started back in the
 // approach section - docs/driving/cruising.md.
@@ -1127,6 +1149,9 @@ void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
     statsDialog.reset();
     raceEndDipping = false;
     mouse.SetVisible(false);
+    // The original puts this up on the cutscene's first tick (UpdatePhysics
+    // 0x2364e8 shows the string at A4-0x3ed4, file offset 0x2c594).
+    hud->SetTextOnly("Cruising in town...");
     if (racing) {
         // Each destination's sign stands before its own building.
         int sign = RACING_SIGN_GARAGE;
@@ -1141,9 +1166,12 @@ void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
 
 void Driving::EndCruise() {
     cruising = false;
-    state.MoveToScene(cruiseDestination);
+    hud->Clear();
+    state.ArriveFromCruise(cruiseDestination);
 }
 
+// Called from the wreck dialog's own button callback, so the dialog is hidden
+// rather than destroyed here - OnSceneEnter clears it for the next race.
 void Driving::LeaveAfterRace() {
     raceEnded = false;
     raceEndBubble.reset();

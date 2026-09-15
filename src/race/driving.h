@@ -86,6 +86,7 @@ public:
     // the drive runs to the arch at segment 380 and then enters `destination`.
     // Any key skips it. See RodLegacyResearch/docs/driving/cruising.md.
     void StartCruise(int startSeg, SrLibGameScene destination);
+    static int CruiseStartSegment(SrLibGameScene destination);
 
 private:
     bool cruising = false;

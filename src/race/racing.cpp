@@ -1849,6 +1849,11 @@ void Racing::DrawHud() {
     if (!hud) {
         return;
     }
+    if (cruiseMode) {
+        // A cutscene has no gear readout - the drive shifts for itself, and the
+        // status line is "Cruising in town...", which Driving owns.
+        return;
+    }
     char gearText[16];
     if (IsAutomatic()) {
         std::snprintf(gearText, sizeof(gearText), "Gear: %s",
