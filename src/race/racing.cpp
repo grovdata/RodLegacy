@@ -1431,9 +1431,9 @@ void Racing::DrawRearviewMirror() {
     const int gTop = mirrorY + 1;
     const int gBottom = mirrorY + mirrorH - 2;
     const int centerX = mirrorX + mirrorW / 2;   // 280, matches ProjectMirrorX
+    constexpr int kMirrorRows = 8;               // BuildMirrorRowTables walks 8
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
-    const int laneOff = p.lateral - kRoadCenterLat;   // player offset from road center
 
     // Manual, glass-clipped blit of a sprite frame with its bottom-left anchored
     // at (dstLeft, dstBottom). Sprites in the mirror must never spill outside it.
@@ -1483,30 +1483,77 @@ void Racing::DrawRearviewMirror() {
         }
         horizonY = gTop + hh - 1;
     }
+    // The mirror's horizon is fixed at screen y 36 (rendering.md: the mirror
+    // view is the forward projection with center x 280 and horizon y 36), so
+    // trust that over wherever the backdrop bitmap happens to end.
+    horizonY = ClampInt(36 - kViewOffsetY, gTop, gBottom);
 
-    const int denom = std::max(1, gBottom - horizonY);
-    // Road center x, half-width and behind-segment at a glass scanline y.
-    auto roadAtY = [&](int y, int& cx, int& halfW, int& seg) {
-        const int t = ((y - horizonY) * 256) / denom;          // 0 far .. 256 near
-        const int behind = ClampInt(1 + ((256 - t) * 7) / 256, 1, 8);
-        seg = ClampInt(segBase - behind, 0, kTrackSegments - 1);
-        const int curveBehind = track.curve[seg] - p.heading;
-        halfW = 1 + (t * (mirrorW * 42 / 100)) / 256;
-        cx = centerX - (laneOff * halfW) / 1200 + (curveBehind * t) / 256;
+    // The road behind, projected the way the original projects it rather than
+    // approximated. ProjectMirrorX (0x23aa86) is the forward ProjectX without
+    // its factor of 4 and centred on 280 instead of 160 - the mirror is a
+    // quarter-scale view of the same road - and BuildMirrorRowTables (0x23b016)
+    // walks 8 rows backwards from the player, one segment apart, at depths
+    // scrollAcc + 8*(row+1), taking the same 1500/2000/2800/3300 edges through
+    // the same narrowing test as the forward view.
+    auto projectMirrorX = [&](int d, int roadDelta, int lateral) {
+        const int adjustedLat = lateral + (roadDelta * d) / 4;
+        const int numerator = (d >> 1) + (p.lateral - adjustedLat);
+        return centerX - numerator / d;
     };
 
-    // Road surface + center dashes.
-    for (int y = horizonY; y <= gBottom; ++y) {
-        int cx = 0, halfW = 0, seg = 0;
-        roadAtY(y, cx, halfW, seg);
-        const int rl = std::max(gLeft, cx - halfW);
-        const int rr = std::min(gRight, cx + halfW);
+    struct MirrorRow {
+        int y, left, right, shoulderL, shoulderR, center, seg;
+    };
+    MirrorRow mrows[kMirrorRows];
+    for (int k = 0; k < kMirrorRows; ++k) {     // k 0 = nearest
+        const int d = std::max(1, p.scrollAcc + 8 * (k + 1));
+        const int seg = ClampInt(segBase - (k + 1), 0, kTrackSegments - 1);
+        const int roadDelta = p.heading - track.curve[seg];
+        int16_t edgeLeft = 1500;
+        int16_t edgeRight = 3300;
+        srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
+        MirrorRow& row = mrows[k];
+        row.seg = seg;
+        // ProjectMirrorY (0x23aada) is the forward y projection at quarter
+        // scale: 36 + 100/d + row_c, where 100 is base 2000 minus the constant
+        // camera 1900 (rendering.md) and row_c is the elevation delta.
+        row.y = horizonY + 100 / d + (p.elevAtCar - track.elev[seg]);
+        row.left = projectMirrorX(d, roadDelta, edgeLeft);
+        row.right = projectMirrorX(d, roadDelta, edgeRight);
+        row.shoulderL = projectMirrorX(d, roadDelta, edgeLeft - 400);
+        row.shoulderR = projectMirrorX(d, roadDelta, edgeRight + 400);
+        row.center = projectMirrorX(d, roadDelta, kRoadCenterLat);
+    }
+
+    // Road surface + center dashes, interpolated between the projected rows.
+    auto paintRow = [&](int y, int left, int right, int center, int seg) {
+        if (y < gTop || y > gBottom) return;
+        const int rl = std::max(gLeft, left);
+        const int rr = std::min(gRight, right);
         for (int x = rl; x <= rr; ++x) {
             PutPixel(pixels, x, y, kRoadA);
         }
         // Alternate rows so the center line reads as dashes, not a solid stripe.
-        if ((track.flags[seg] & 0x0008) && (((y - horizonY) & 1) == 0) && cx >= rl && cx <= rr) {
-            PutPixel(pixels, cx, y, (track.flags[seg] & 0x0010) ? kDashWhite : kDashYellow);
+        if ((track.flags[seg] & 0x0008) && ((y & 1) == 0) && center >= rl && center <= rr) {
+            PutPixel(pixels, center, y, (track.flags[seg] & 0x0010) ? kDashWhite : kDashYellow);
+        }
+    };
+    for (int k = kMirrorRows - 1; k >= 0; --k) {
+        const MirrorRow& f = mrows[k];
+        const int yEnd = (k == 0) ? gBottom : mrows[k - 1].y - 1;
+        const int span = std::max(1, yEnd - f.y + 1);
+        for (int y = f.y; y <= yEnd; ++y) {
+            int l = f.left;
+            int r = f.right;
+            int c = f.center;
+            if (k > 0) {
+                const MirrorRow& n = mrows[k - 1];
+                const int t = ((y - f.y) * 256) / span;
+                l += ((n.left - f.left) * t) / 256;
+                r += ((n.right - f.right) * t) / 256;
+                c += ((n.center - f.center) * t) / 256;
+            }
+            paintRow(y, l, r, c, f.seg);
         }
     }
 
@@ -1521,21 +1568,53 @@ void Racing::DrawRearviewMirror() {
         if (f & 0x0008) return 8;
         return -1;
     };
-    for (int behind = 2; behind <= 7; ++behind) {
-        const int t = 256 - ((behind - 1) * 256) / 7;
-        const int y = horizonY + (t * denom) / 256;
-        if (y < horizonY || y > gBottom) continue;
-        int cx = 0, halfW = 0, seg = 0;
-        roadAtY(y, cx, halfW, seg);
+    for (int k = 1; k < kMirrorRows; ++k) {
+        const MirrorRow& row = mrows[k];
+        if (row.y < horizonY || row.y > gBottom) continue;
         for (int side = 0; side < 2; ++side) {
-            const uint16_t f = side ? track.right[seg] : track.left[seg];
+            const uint16_t f = side ? track.right[row.seg] : track.left[row.seg];
             const int slot = slotForFlags(f);
             if (slot < 0 || !roadsideSprites[slot]) continue;
             const SpriteAnimationInfo* anim = roadsideAnim[slot];
             if (!anim || !anim->frames || anim->frameCount <= 0) continue;
             const SpriteRect& fr = anim->frames[anim->frameCount - 1];   // farthest/smallest
-            const int dstLeft = side ? (cx + halfW) : (cx - halfW - fr.w);
-            blitClipped(roadsideSprites[slot].get(), fr, dstLeft, y);
+            const int dstLeft = side ? row.shoulderR : (row.shoulderL - fr.w);
+            blitClipped(roadsideSprites[slot].get(), fr, dstLeft, row.y);
+        }
+    }
+
+    // Overhead arches behind. The mirror row tables carry the same elevated y
+    // the forward view uses (lateral base 1900), which at quarter scale is
+    // row.y - 400/d, and RenderOverheadArch hangs the crossbar four times that
+    // above the road. Posts and crossbar only - the banner art does not read at
+    // 74 px across.
+    auto putGlass = [&](int x, int y) {
+        if (x >= gLeft && x <= gRight && y >= gTop && y <= gBottom) {
+            PutPixel(pixels, x, y, kArchColor);
+        }
+    };
+    for (int k = 0; k < kMirrorRows; ++k) {
+        const MirrorRow& row = mrows[k];
+        if ((track.flags[row.seg] & 0xf000) == 0 || row.right - row.left < 4) {
+            continue;
+        }
+        const int d = std::max(1, p.scrollAcc + 8 * (k + 1));
+        const int yBottom = std::min(row.y, gBottom);
+        const int yTop = std::max(gTop, row.y - 400 / d);
+        if (yBottom <= yTop) {
+            continue;
+        }
+        for (int y = yTop; y <= yBottom; ++y) {
+            putGlass(row.left, y);
+            putGlass(row.left + 1, y);
+            putGlass(row.right, y);
+            putGlass(row.right - 1, y);
+        }
+        const int barHeight = ClampInt((yBottom - yTop) / 6, 1, 3);
+        for (int y = yTop; y < yTop + barHeight; ++y) {
+            for (int x = row.left; x <= row.right; ++x) {
+                putGlass(x, y);
+            }
         }
     }
 
