@@ -262,11 +262,11 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     } else {
         driver.name = stockDriverNames.back();
         if (driver.name == "Erica") {
-            driver.spriteIndex = DRIVER_22;
+            driver.spriteIndex = DRIVER_KINGS_GIRLFRIEND;
         } else {
             do {
                 driver.spriteIndex = spriteIndexDist(gen);
-            } while (driver.spriteIndex == DRIVER_22);
+            } while (driver.spriteIndex == DRIVER_KINGS_GIRLFRIEND);
         }
         stockDriverNames.pop_back();
     }

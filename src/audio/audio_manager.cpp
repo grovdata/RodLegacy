@@ -116,6 +116,18 @@ void AudioManager::Shutdown() {
 
 bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
 
+void AudioManager::PlayVictoryMusic() {
+    if (!amigaMusic_) return;
+    musicSource_ = MusicSource::AMIGA;
+    if (pcSpeaker_) pcSpeaker_->Stop();
+    amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
+    // The two 4-entry tables LAB_0560 copies into the channel state before it
+    // starts: instruments from A4-0x48fc, note volumes from A4-0x48f4.
+    static const int kVictoryInstruments[4] = {0, 5, 1, 2};
+    static const int kVictoryVolumes[4] = {64, 22, 64, 64};
+    amigaMusic_->PlayArrangement(3, 42000, kVictoryInstruments, kVictoryVolumes);
+}
+
 void AudioManager::InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize) {
     LOG_INFO("AmigaMusic: init from %zu byte ADF buffer", disk1AdfSize);
 

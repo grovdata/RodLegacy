@@ -11,6 +11,7 @@
 #include "scenes/name_entry.h"
 #include "scenes/save_load_scene.h"
 #include "scenes/game_over_menu.h"
+#include "scenes/ending.h"
 #ifdef RODLEGACY_DEBUG_UI
 #include "debug/car_debug.h"
 #endif
@@ -166,6 +167,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         nameEntry = std::make_unique<NameEntry>();
         saveLoad = std::make_unique<SaveLoadScene>();
         gameOverMenu = std::make_unique<GameOverMenu>();
+        ending = std::make_unique<Ending>();
 #ifdef RODLEGACY_DEBUG_UI
         carDebug = std::make_unique<CarDebug>();
 #endif
@@ -178,6 +180,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         nameEntry->Init(debugMode);
         saveLoad->Init(debugMode);
         gameOverMenu->Init(debugMode);
+        ending->Init(debugMode);
 #ifdef RODLEGACY_DEBUG_UI
         carDebug->Init(debugMode);
 #endif
@@ -260,6 +263,9 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
         case SCENE_GAME_OVER_MENU:
             this->currentScene = gameOverMenu.get();
+            break;
+        case SCENE_ENDING:
+            this->currentScene = ending.get();
             break;
         case SCENE_CAR_DEBUG:
 #ifdef RODLEGACY_DEBUG_UI
@@ -655,6 +661,13 @@ CarPtr State::BuildCarForSpec(int specIndex) {
     return car;
 }
 
+Opponent* State::GetKingOpponent() {
+    if (SR_DATA_KING_CARSPEC_INDEX >= static_cast<int>(mergedCarSpecs.size())) {
+        return nullptr;
+    }
+    return roster.GetKingOpponent(carData, mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+}
+
 void State::PickNextOpponent() {
     // Fall back to Roster shuffle if pool is not initialised.
     if (racerPool.pool.empty()) {
@@ -686,8 +699,7 @@ void State::PickNextOpponent() {
     if (kingUnlocked || kingCameo) {
         LOG_INFO("State::PickNextOpponent - The King (unlocked=%d cameo=%d)", kingUnlocked, kingCameo);
         lastChallengerPoolIndex = RACER_KING_SLOT;
-        if (SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
-            Opponent* king = roster.GetKingOpponent(carData, mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+        if (Opponent* king = GetKingOpponent()) {
             roster.SetNextOpponent(king);
         }
         return;

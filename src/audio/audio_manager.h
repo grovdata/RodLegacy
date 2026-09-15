@@ -117,6 +117,11 @@ public:
 
     bool HasAmigaMusic() const;
 
+    // The win ending's one-shot piece: arrangement step 3 at CIA period 42000,
+    // which is how ProcessRaceOutcome starts it when the King's road race is
+    // won. Amiga music only; a no-op on the DOS source.
+    void PlayVictoryMusic();
+
     // Initialize PC speaker music from a DOS SR.EXE (optional; called after Initialize()).
     void InitPCSpeaker(const std::string& dosExePath);
 

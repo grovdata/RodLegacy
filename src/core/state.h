@@ -32,6 +32,7 @@ class Racing;
 class NameEntry;
 class SaveLoadScene;
 class GameOverMenu;
+class Ending;
 class CarDebug;
 
 class State {
@@ -112,6 +113,7 @@ private:
     std::unique_ptr<NameEntry> nameEntry;
     std::unique_ptr<SaveLoadScene> saveLoad;
     std::unique_ptr<GameOverMenu> gameOverMenu;
+    std::unique_ptr<Ending> ending;
 #ifdef RODLEGACY_DEBUG_UI
     std::unique_ptr<CarDebug> carDebug;
 #endif
@@ -174,6 +176,9 @@ public:
     Opponent* GetNextOpponent();
     Opponent* GetCurrentOpponent();
     bool IsKingOpponent(const Opponent* opp) const { return roster.IsKing(opp); }
+    // The King as an Opponent, car and driver built. Null if his car spec is
+    // missing. Used by PickNextOpponent and by the win cutscene.
+    Opponent* GetKingOpponent();
 
     void AddKnownOpponent(Opponent* opp);
     const std::vector<Opponent*>& GetKnownOpponents() const;

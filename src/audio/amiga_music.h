@@ -23,6 +23,16 @@ public:
               const uint8_t* env_data, size_t env_size);
 
     void Play();
+    // Start one specific arrangement step at its own tick period, skipping the
+    // random pick Play() does. The win ending is the original's only user of
+    // this path (step 3 at period 42000); that step carries no advance command,
+    // so it plays once and stops. See RodLegacyResearch/docs/audio.md.
+    // channelInstruments / channelVolumes are 4 entries each, or null to leave
+    // the channels at their defaults; the original presets both before it
+    // starts the victory piece.
+    void PlayArrangement(int index, int ciaPeriod,
+                         const int* channelInstruments = nullptr,
+                         const int* channelVolumes = nullptr);
     void Stop();
     void Pause();
     void Resume();

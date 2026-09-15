@@ -115,6 +115,10 @@ enum SrLibGameScene {
     // Same caveat as SCENE_NAME_ENTRY - never passed to the per-scene car
     // tables.
     SCENE_GAME_OVER_MENU = 10,
+    // RodLegacy addition: the win cutscene, between the King's road race and
+    // the hall of fame. Same caveat as SCENE_NAME_ENTRY - never passed to the
+    // per-scene car tables.
+    SCENE_ENDING = 11,
 };
 
 enum SrLibCarDecal {
@@ -588,7 +592,7 @@ enum AmigaLibAsset {
     DRIVER_19 = 360,
     DRIVER_20 = 361,
     DRIVER_21 = 362,
-    DRIVER_22 = 363,
+    DRIVER_KINGS_GIRLFRIEND = 363,
     DRIVER_THE_KING = 364,
     GARAGE_SCREEN = 365,
     CAR_JACK_ANIMATION = 366,

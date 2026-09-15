@@ -592,7 +592,7 @@ TEST_CASE("driver names and portraits come out of SR_data") {
     // Every named driver's portrait is inside the driver sprite range.
     for (int i = 0; i < SR_DATA_KING_DRIVER_INDEX; ++i) {
         CHECK(drivers[i].PortraitAsset() >= DRIVER_01);
-        CHECK(drivers[i].PortraitAsset() <= DRIVER_22);
+        CHECK(drivers[i].PortraitAsset() <= DRIVER_KINGS_GIRLFRIEND);
     }
 }
 

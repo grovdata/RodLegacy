@@ -155,6 +155,9 @@ public:
     SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
+    // For the win cutscene: once she has climbed out, the portrait behind the
+    // windscreen has to go.
+    void SetDriverVisible(bool visible) { driver.SetVisible(visible); }
     void ResetWheelFrame() { wheels.SelectFrame(0); }
     void SetWheelhousesVisible(bool visible);
     void DrawWheelAt(int x, int y, bool spin = true, bool reverse = false);

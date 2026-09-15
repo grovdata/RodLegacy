@@ -111,6 +111,31 @@ void AmigaMusic::Play() {
     SDL_UnlockAudioDevice(device_);
 }
 
+void AmigaMusic::PlayArrangement(int index, int ciaPeriod,
+                                 const int* channelInstruments, const int* channelVolumes) {
+    if (!loaded_.load()) return;
+    SDL_LockAudioDevice(device_);
+    if (ResetState() && index >= 0 && index < static_cast<int>(patterns_.size())) {
+        // ResetState picked a random step; override it with this one. The
+        // modulus (arrangement_len_) is left alone, as the original leaves it.
+        arrangement_index_ = index;
+        cia_timer_period_ = std::clamp(ciaPeriod, 1000, 65535);
+        const auto& start = patterns_[static_cast<size_t>(index)];
+        for (int ch = 0; ch < 4; ch++) {
+            channel_[ch] = ChannelState{};
+            channel_[ch].stream_index = start[ch];
+            channel_[ch].loop_counter.fill(-1);
+            channel_[ch].note_volume =
+                channelVolumes != nullptr ? channelVolumes[ch] : 64;
+            if (channelInstruments != nullptr) {
+                channel_[ch].instrument = channelInstruments[ch];
+            }
+        }
+        playing_.store(true);
+    }
+    SDL_UnlockAudioDevice(device_);
+}
+
 void AmigaMusic::Stop() {
     playing_.store(false);
     paused_.store(false);
