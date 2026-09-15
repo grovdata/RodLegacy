@@ -509,6 +509,10 @@ void Racing::InitializeRaceSimulation() {
     firstNpcFinishTick = -1;
     simTickCounter = 0;
     speedSumMph = 0;
+    // This is the ordinary race path; StartCruise sets these again afterwards.
+    cruiseMode = false;
+    cruiseSignSprite.reset();
+    cruiseSignAnim = nullptr;
     raceOutcome = RaceOutcome::Ongoing;
     bShowCrashOverlay = false;
     crashHandled = false;
@@ -526,11 +530,12 @@ void Racing::InitializeRaceSimulation() {
 // back at segment 10 / 65 / 115. The finish stays the drag finish, segment 380,
 // which is the arch a race starts under.
 void Racing::StartCruise(int startSeg, int signAsset) {
-    cruiseMode = true;
     SetTrackType(SR_TRACK_DRAG_RACE);
+    // After InitializeRaceSimulation, which clears cruiseMode - every ordinary
+    // race init has to, or the first drive would leave every later race in
+    // cruise mode.
     InitializeRaceSimulation();
-    cruiseSignSprite.reset();
-    cruiseSignAnim = nullptr;
+    cruiseMode = true;
     if (signAsset > 0) {
         Bitmap* asset = state.GetAssets().GetBitmapAsset(
             {LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(signAsset)});
@@ -1309,14 +1314,48 @@ void Racing::DrawTownWalls(int lastVisible) {
     for (int k = std::min(lastVisible, kForwardRows - 2); k >= 1; --k) {
         const RowProjection& nearRow = rows[k];
         const RowProjection& farRow = rows[k + 1];
-        // Centre flag bit 2 is "no scenery on this segment" - the same bit that
-        // suppresses the roadside sprites.
-        if (track.flags[farRow.seg] & 0x0004) {
-            continue;
-        }
         // The elevated row is the 1900 projection, y - 400/d (archY is 4x that).
         const int farTop = farRow.y - 400 / std::max(1, farRow.distance);
         const int nearTop = nearRow.y - 400 / std::max(1, nearRow.distance);
+
+        // A cross street: RoadLayoutInit opens a three-segment gap in the
+        // buildings every sixteen segments (centre flag bit 2), and the side
+        // road's surface is drawn into it - the ground is green, so an empty
+        // gap reads as a field, not a street.
+        //
+        // LAB_0C0C/LAB_0C0E, when the nearer row carries the gap:
+        //   rect(clip edge .. xNear, yElevNear .. yRoadNear - 2, shade 4)
+        //   line(clip edge .. xNear, yRoadNear - 1,              shade 10)
+        // both sides using the nearer row (the two call sites swap the order of
+        // their x arguments, which is easy to misread).
+        //
+        // xNear here is the ROAD EDGE, not the 1100/3700 shoulder the wall
+        // stands on: taken from the shoulder the rect clips down to a ~33px
+        // patch at the very edge of the screen. A side road meets the main road
+        // at its edge, which is also where this puts it.
+        if (track.flags[nearRow.seg] & 0x0004) {
+            for (int side = 0; side < 2; ++side) {
+                const int xEdge = side ? nearRow.rightX : nearRow.leftX;
+                const int lo = side ? std::max(0, xEdge) : 0;
+                const int hi = side ? GAME_WIDTH - 1 : std::min(GAME_WIDTH - 1, xEdge);
+                for (int y = std::max(kClipTop, nearTop);
+                     y <= std::min(kClipBottom, nearRow.y - 2); ++y) {
+                    for (int x = lo; x <= hi; ++x) {
+                        PutPixel(pixels, x, y, kTownWallDark);
+                    }
+                }
+                const int kerb = ClampInt(nearRow.y - 1, kClipTop, kClipBottom);
+                for (int x = lo; x <= hi; ++x) {
+                    PutPixel(pixels, x, kerb, kTownUpper);
+                }
+            }
+        }
+        // Either row: a pair with one foot in the gap would otherwise draw a
+        // wall straight across the opening, closing the notch it is supposed
+        // to leave.
+        if (((track.flags[farRow.seg] | track.flags[nearRow.seg]) & 0x0004) != 0) {
+            continue;
+        }
 
         for (int side = 0; side < 2; ++side) {
             const uint16_t f = side ? track.right[farRow.seg] : track.left[farRow.seg];
@@ -1337,6 +1376,22 @@ void Racing::DrawTownWalls(int lastVisible) {
                 const int nearUp = (f & 0x0008) ? nearH : nearH / 2;
                 quad(xFar, farTop - farUp, farTop, xNear, nearTop - nearUp, nearTop,
                      kTownUpper);
+
+                // The end face (LAB_0C10): where this row has a building and
+                // the next row along does not, the block is starting, and the
+                // original caps it with a flat face in shade 4 - mirrored one
+                // row-step past the near edge in x, and the storey's own height
+                // above the elevated line in y. This is what gives a block a
+                // visible end, and so what makes the gap at a cross street read
+                // as a street rather than the wall just stopping.
+                const uint16_t fNear = side ? track.right[nearRow.seg]
+                                            : track.left[nearRow.seg];
+                if ((fNear & 0x0004) == 0) {
+                    const int xOuter = 2 * xNear - xFar;
+                    const int yTop = nearTop - nearUp;
+                    quad(xOuter, yTop, nearTop - 1, xNear - 1, yTop, nearTop - 1,
+                         kTownWallDark);
+                }
             }
         }
     }
