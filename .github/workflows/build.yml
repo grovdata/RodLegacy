@@ -1,16 +1,22 @@
-name: Build Linux Packages
+name: Build
 
 on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   release:
     types: [ published ]
   workflow_dispatch:
 
-# Builds the release binary once, then wraps it four ways: .deb, .rpm,
-# .AppImage and a plain .tar.gz. See build-test.yml for why this runs in a
-# debian:trixie container and apt-installs nodejs before actions/checkout.
+# Builds the shippable binaries for both platforms, and doubles as the compile
+# gate - test.yml builds only the test binary, not the game. Files are named
+# after the release version on a release and after the commit sha otherwise.
+# Both jobs run in a debian container and apt-install nodejs before
+# actions/checkout, since checkout is a JS action.
 
 jobs:
-  packages:
+  linux:
     runs-on: ubuntu-latest
     container:
       image: debian:trixie
@@ -41,8 +47,20 @@ jobs:
       # buildtype=release: the project defaults to debug, which is all symbols.
       - run: meson setup builddir --buildtype=release
 
-      - name: Read project version
-        run: echo "VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")" >> "$GITHUB_ENV"
+      # TAG names the files; DEBVER goes in the package metadata and must
+      # start with a digit, so a sha build is the project version plus the sha
+      # rather than the bare sha.
+      - name: Derive version strings
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=$VERSION
+            DEBVER=$VERSION
+          else
+            TAG=${GITHUB_SHA:0:7}
+            DEBVER="${VERSION}+git${TAG}"
+          fi
+          printf 'TAG=%s\nDEBVER=%s\n' "$TAG" "$DEBVER" >> "$GITHUB_ENV"
 
       - name: Compile
         run: |
@@ -56,7 +74,7 @@ jobs:
           install -Dm644 packaging/rodlegacy.desktop  stage/usr/share/applications/rodlegacy.desktop
           install -Dm644 data/res/icon.png            stage/usr/share/icons/hicolor/512x512/apps/rodlegacy.png
           install -Dm644 data/res/icon.svg            stage/usr/share/icons/hicolor/scalable/apps/rodlegacy.svg
-          install -Dm644 README.md                    stage/usr/share/doc/rodlegacy/README.md
+          # install -Dm644 README.md                  stage/usr/share/doc/rodlegacy/README.md
 
       # SDL2 is linked statically, so the runtime deps are whatever the ELF
       # still pulls in (X11, wayland, pulse, ...). Let dpkg work them out
@@ -74,7 +92,7 @@ jobs:
           mkdir -p stage/DEBIAN
           cat > stage/DEBIAN/control <<EOF
           Package: rodlegacy
-          Version: ${VERSION}
+          Version: ${DEBVER}
           Section: games
           Priority: optional
           Architecture: amd64
@@ -85,13 +103,13 @@ jobs:
            RodLegacy plays the original Street Rod on modern systems. It ships no
            game assets; point it at the Amiga disk images to play.
           EOF
-          fakeroot dpkg-deb --build stage "rodlegacy_${VERSION}_amd64.deb"
+          fakeroot dpkg-deb --build stage "rodlegacy-${TAG}.deb"
 
       # alien converts the deb rather than maintaining a second spec file.
       - name: Build .rpm
         run: |
-          alien --to-rpm --keep-version "rodlegacy_${VERSION}_amd64.deb"
-          mv rodlegacy-${VERSION}*.rpm "rodlegacy-${VERSION}.x86_64.rpm"
+          alien --to-rpm --keep-version "rodlegacy-${TAG}.deb"
+          mv rodlegacy-*.x86_64.rpm "rodlegacy-${TAG}.rpm"
 
       # linuxdeploy copies the shared libs the ELF needs into the AppDir.
       # ponytail: built on trixie, so its glibc is the floor - anything older
@@ -103,7 +121,7 @@ jobs:
           wget -qP /usr/local/bin "$base/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
           chmod +x /usr/local/bin/linuxdeploy*.AppImage
           cp data/res/icon.png rodlegacy.png
-          OUTPUT="RodLegacy-${VERSION}-x86_64.AppImage" \
+          OUTPUT="rodlegacy-${TAG}.AppImage" \
           linuxdeploy-x86_64.AppImage --appdir AppDir \
             -e builddir/rodlegacy \
             -d packaging/rodlegacy.desktop \
@@ -112,19 +130,20 @@ jobs:
 
       - name: Build .tar.gz
         run: |
-          mkdir -p "rodlegacy-${VERSION}"
-          cp builddir/rodlegacy README.md packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${VERSION}/"
-          tar czf "rodlegacy-${VERSION}-linux-x86_64.tar.gz" "rodlegacy-${VERSION}"
+          mkdir -p "rodlegacy-${TAG}"
+          # README.md left out until it is cleaned up for shipping.
+          cp builddir/rodlegacy packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${TAG}/"
+          tar czf "rodlegacy-${TAG}.tar.gz" "rodlegacy-${TAG}"
 
       - uses: actions/upload-artifact@v3
         with:
-          name: rodlegacy-linux-packages-${{ env.VERSION }}
+          name: rodlegacy-linux-packages-${{ env.TAG }}
           path: |
             *.deb
             *.rpm
             *.AppImage
             *.tar.gz
-          retention-days: 30
+          retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
 
       # Forgejo has no GitHub releases API, so attach the assets with its own.
       - name: Attach packages to release
@@ -136,3 +155,63 @@ jobs:
               -F "attachment=@${f}" \
               "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=${f}"
           done
+
+  windows:
+    runs-on: ubuntu-latest
+    # Cross toolchain from Forgejo's built-in registry. See Dockerfile.win32
+    # for how to build it and what the runner host needs.
+    container:
+      image: registry.example:3000/rodlegacy/win32-builder:20260828
+    steps:
+      # node comes from the image - bullseye's apt node is v12 and too old for
+      # the JS actions below. Only zip is missing.
+      - name: Install packaging tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends zip
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Release, not the project's default debug: a static mingw debug build is
+      # ~70 MB of symbols.
+      - run: meson setup builddir --cross-file /cross-mingw.txt --buildtype=release
+
+      - name: Derive version string
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG=$VERSION
+          else
+            TAG=${GITHUB_SHA:0:7}
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      # Only the game target. The doctest suite cannot cross-compile: mingw's
+      # win32 threads model has no std::mutex, and it is run natively in test.yml.
+      - name: Compile
+        run: |
+          ninja -C builddir rodlegacy.exe
+          i686-w64-mingw32-strip builddir/rodlegacy.exe
+
+      - name: Build zip
+        run: zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: rodlegacy-windows-${{ env.TAG }}
+          path: "*.zip"
+          retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
+
+      # Forgejo has no GitHub releases API, so attach the asset with its own.
+      - name: Attach zip to release
+        if: github.event_name == 'release'
+        run: |
+          f="rodlegacy-${TAG}-windows.zip"
+          curl -sSf -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -F "attachment=@${f}" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=${f}"

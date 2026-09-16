@@ -1,0 +1,41 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+# trixie, not bookworm: meson.options needs meson >= 1.1, bookworm ships 1.0.1.
+# apt-installs nodejs + git BEFORE actions/checkout, since a bare debian image
+# has neither and checkout is a JS action. ca-certificates is needed or the
+# ADFlib submodule clone fails cert verification.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            build-essential cmake meson ninja-build pkg-config \
+            libsdl2-dev libogg-dev libvorbis-dev \
+            git ca-certificates nodejs
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - run: meson setup builddir
+
+      # Only the test target: building `all` would drag in the game's X11,
+      # wayland and pulse link deps for no benefit here.
+      - run: ninja -C builddir tests/test_libp
+
+      - run: meson test -C builddir --no-rebuild --print-errorlogs
