@@ -73,9 +73,13 @@ class Diner: public CarScene {
 
     float dinerRollTimer = 0.0f;
 
-    // One pass of the original's animation loops, which wait on the display.
-    // ponytail: eyeballed, one knob each - the guy's table holds each frame
-    // for 2 to 8 of his steps, so his unit is much shorter than hers.
+    // One pass of the original's animation loops. The flip it waits on
+    // (FUN_00223120) spins on graphics.library VBeamPos until the beam hits
+    // line 245, so the code asks for one PAL frame per step - but each step
+    // also restores a 256x41 background patch and blits a 40x41 six-plane
+    // sprite, which overruns that on the hardware and takes the beam round
+    // again. Measured by eye against the original, a step is nearer three
+    // frames, so these stay a tuning knob rather than 20.0f.
     static constexpr float WAITRESS_STEP_MS = 60.0f;
     static constexpr float GUY_STEP_MS = 120.0f;
     // How often the appear/leave/phone rolls are made. The original rolls once
