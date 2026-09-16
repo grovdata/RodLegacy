@@ -87,6 +87,15 @@ class Diner: public CarScene {
     // starter sample has run. -1 = not cranking.
     double exitCrankTimer = -1.0;
 
+    // Is there a challenger out there to talk to? False from the moment the
+    // starter cranks: StartOpponentExit commits the exit and nothing cancels
+    // it, so anything opened during the crank would still be on screen 0.7 s
+    // later with the car gone.
+    bool OpponentPresent() const {
+        return carBitmap && currentOpponent && !animatingCar && !exitingCar &&
+               exitCrankTimer < 0.0;
+    }
+
     std::unique_ptr<ListDialog> callListDialog;
     void ShowCallListDialog();
 

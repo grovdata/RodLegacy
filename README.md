@@ -11,7 +11,30 @@ The Amiga disk images are *required* to run the game. They can be found for free
 
 Start RodLegacy and point it to the folder where `sr1amiga.zip` sits.
 
-If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. Just put `sr1pc.zip` in the same folder.
+If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. Just put `srsepc.zip` in the same folder.
+
+## Street Rod SE cars
+
+The SE cars are off by default and there is no in-game toggle yet. Turn them on
+by adding this line to `config.txt` and restarting:
+
+```
+car_set_srse=1
+```
+
+`config.txt` sits in RodLegacy's settings folder:
+
+| OS | Path |
+| --- | --- |
+| macOS | `~/Library/Application Support/se.grovdata/rodlegacy/config.txt` |
+| Linux | `~/.local/share/se.grovdata/rodlegacy/config.txt` |
+| Windows | `%APPDATA%\se.grovdata\rodlegacy\config.txt` |
+
+With it on, the SE cars are fully playable: they show up in the classifieds, on
+the used car lot, and as opponents. The stock Amiga cars keep their original
+indices, so existing `.SAV` files still load. See
+[docs/cars.md](docs/cars.md) for the remaining gaps (gas cap sprite, per-scene
+car height).
 
 # Building
 

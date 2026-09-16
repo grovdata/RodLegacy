@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "parsers/libp.h"
+#include "car/car_set.h"
 
 #include <cstring>
 #include <fstream>
@@ -159,6 +160,26 @@ TEST_CASE("metadata reader fills offsets, click boxes and classifieds") {
 
     for (int i = 0; i < count; i++) SrLibDataFreeClassified(&meta[i].classified);
     free(meta);
+}
+
+TEST_CASE("wheel Y bottom-aligns the wheel cell to the body sprite") {
+    // The data files carry no wheel Y: the cell is bottom-aligned to the body,
+    // 31 tall on lib.p and 28 in a DOS lib. Numbers checked against the art in
+    // RodLegacyResearch/docs/formats/sr_data.md.
+    int srse = -1;
+    const std::vector<CarSetDef>& defs = GetCarSetDefs();
+    for (int i = 0; i < (int)defs.size(); i++) {
+        if (defs[i].id == "srse") srse = i;
+    }
+    REQUIRE(srse > 0);
+
+    CHECK(CarSetWheelY(kAmigaCarSet, 69) == 38);  // 1940 Chevrolet 2-dr coupe, 232x69
+    CHECK(CarSetWheelY(kAmigaCarSet, 54) == 23);  // 1961 Corvette, 216x54
+    CHECK(CarSetWheelY(srse, 64) == 36);          // SE 1939 Pontiac 2-dr coupe, 240x64
+    CHECK(CarSetWheelY(srse, 52) == 24);          // SE 1961 Chevrolet Impala, 264x52
+
+    CHECK(CarSetWheelY(srse, 10) == 0);           // never negative
+    CHECK(CarSetWheelY(-1, 64) == 0);             // unknown set
 }
 
 TEST_CASE("a truncated file is rejected rather than read out of bounds") {

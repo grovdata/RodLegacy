@@ -6,7 +6,6 @@
 #include "parsers/carcolor.h"
 
 const int wheelSize = 31;
-extern const int kDriverBaseY = 7;
 
 // Where each piece lives is resolved into CarModel::sprites when the model is
 // built; only which lib to read from differs per set. Both sources take the
@@ -211,7 +210,6 @@ CarBitmap::CarBitmap(CarPtr car, Driver* driver, StandardCarColor color)
     , isRoofChopped(false)
     , isFrontBumperStripped(false)
     , isRearBumperStripped(false)
-    , lastWheelUpdateTime(0)
     , wheelsVisible(true)
     , currentColor(color)
     , gasCapRemoved(false) {
@@ -432,6 +430,12 @@ void CarBitmap::UpdatePositions() {
     rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, tiresY, wheelW, wheelH};
     frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire, tiresY, wheelW, wheelH};
 
+    // The shadow lies under the tires, overlapping their last rows. It has to
+    // come off the wheel cell's height, not a constant: a lib.p tire cell is
+    // 31 tall and a DOS one 28, so a fixed number floats the car over its
+    // shadow on every Street Rod SE car.
+    shadow.SetPosition(bodyRect.x, tiresY + wheelH - 3);
+
     // Update other part positions
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
 
@@ -630,8 +634,9 @@ void CarBitmap::MoveDriverOffset(int dx, int dy) {
     UpdateTextures();
 }
 
-SDL_Point CarBitmap::GetDriverOffsetFromBody() const {
-    return {offsets.offsetXDriver + driverOffset.x, kDriverBaseY + driverOffset.y};
+SDL_Point CarBitmap::GetDriverOffsetFromBody() {
+    const int top = offsets.offsetYDriver - driver.GetNaturalSize().h;
+    return {offsets.offsetXDriver + driverOffset.x, top + driverOffset.y};
 }
 
 void CarBitmap::MoveWheelsYOffset(int offset) {
@@ -644,52 +649,37 @@ void CarBitmap::UpdateTextures() {
     // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    // The driver's X comes from the model, but its Y is this constant for
-    // every car. SpriteInfo does carry a per-car y_driver (17..22 across the
-    // Amiga cars) which nothing reads - the CarDebug scene is for working out
-    // whether that field is what belongs here.
+    // SpriteInfo's y_driver is the portrait's BOTTOM edge relative to the body
+    // top, not its top: it lands 1 to 3 px under the window sill on every car
+    // in lib.p, SR1's LIB2 and SRSE's, so the shoulders are cut off by the
+    // door line. Anchoring the top on a constant instead put the taller
+    // portraits too low - DRIVER_15 (356) is 20 px because it draws a hat
+    // above the same head, and all you saw through the window was the hat.
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver + driverOffset.x,
-                       bodyRect.y + kDriverBaseY + driverOffset.y);
+                       bodyRect.y + offsets.offsetYDriver - driver.GetNaturalSize().h +
+                           driverOffset.y);
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
 
     // Note: bumper overlays are positioned in Draw() to match body exactly
-    shadow.SetPosition(bodyRect.x, bodyRect.y + model.height - 6);
     rearWheelhouse.SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
     frontWheelhouse.SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
     // Update black background positions to match wheelhouses
     rearWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXRearTire - 2, bodyRect.y + bodyRect.h - wheelSize);
     frontWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXFrontTire - 2, bodyRect.y + bodyRect.h - wheelSize);
-    UpdateTires();
+    // Wheels and shadow, with the live CarDebug nudge applied.
+    UpdatePositions();
 }
 
-void CarBitmap::UpdateTires() {
-    // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
-    SDL_Rect bodyRect = bodyOriginal.GetPosition();
-    rearWheelPos = {bodyRect.x + this->offsets.offsetXRearTire,
-                    bodyRect.y + this->offsets.offsetYTires,
-                    32, 32};
-    frontWheelPos = {bodyRect.x + this->offsets.offsetXFrontTire,
-                     bodyRect.y + this->offsets.offsetYTires,
-                     32, 32};
-    shadow.SetPosition(bodyRect.x, bodyRect.y + this->offsets.offsetYTires + 32 - 4);
-}
-
-void CarBitmap::UpdateWheelAnimation(float speed) {
-    // Only update wheels if there's enough movement and enough time has passed
-    Uint64 currentTime = SDL_GetTicks64();
-    const Uint64 MIN_FRAME_DELAY = 80;  // Minimum 100ms between frame changes
-
-    if (fabs(speed) > 0.1f && (currentTime - lastWheelUpdateTime) >= MIN_FRAME_DELAY) {
-        if (speed < 0) {
-            wheels.CyclePrevFrame();
-        } else {
-            wheels.CycleNextFrame();
-        }
-        lastWheelUpdateTime = currentTime;
-    }
+void CarBitmap::UpdateWheelRotation(int carX) {
+    // The frame comes off the car's X, never off a clock: DOS
+    // car_animation_tick (SR.EXE 1f38:a5a5) reads the car's X and switches on
+    // (x & 7), so one turn of the tire is 8 px travelled. Driving backwards
+    // walks the frames back with no special case, and a car that crawls in at
+    // 2 px/step spins its wheels a quarter of the speed of one leaving at 8.
+    wheels.SelectFrame(carX >> 1);
 }
 
 BitmapOffset_t CarBitmap::GetOffset() {

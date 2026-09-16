@@ -3,55 +3,57 @@
 Research on the original data: `RodLegacyResearch/docs/formats/sr_data.md`,
 `hot_data_dos.md` and `srse_lib2.md`.
 
-## Wheel Y offsets are hand-measured
+## Wheel Y offsets are derived, not stored
 
 We position a car's wheels at `bodyTop + BitmapOffset_t::offsetYTires`. No car
-data file supplies that number - see the research doc, which rules out both
-data files, rules out deriving it from the sprite, and leaves open whether the
-original holds it in code or in runtime-filled BSS.
+data file supplies that number, because it is not data: the wheel cell is
+bottom-aligned to the body sprite.
 
-So it is measured by hand with the CarDebug scene and kept in `CarSetWheelY`
-(`src/car_set.cpp`), keyed by car set and the set's own body sprite number.
-Cars with no measurement fall back to `kDefaultCarWheelY` (30), which is a
-guess, not a measurement.
-
-Status: 39 cars measured, values 23..40. The rest were checked and left at 30,
-which is correct for them. Three Amiga cars keep pre-existing hand values that
-were never revisited: 187 (40), 191 (24), 216 (39).
-
-The King's car (spec slot 25 in every set) has no `CarModel` - `CarData` only
-builds the 25 that are for sale - so the debug scene synthesises one per set
-from the sprite offset table's last row. Measurable there like any other car,
-but nothing else in the game asks for its wheel line yet.
-
-**Our tables are not transcriptions.** The exact byte sequences of
-`CAR_WHEELS_Y_OFFSETS` and all three scene columns of `CAR_Y_OFFSETS` were
-searched for as bytes, u16-BE and u16-LE across the Amiga `Street_Rod`, `sr512`,
-`libstart.p`, `SR_data`, and DOS `SR.EXE` (unpacked) and `HOT_DATA`. No hits,
-whole table or first eight entries. These are our own hand-measured work.
-
-`CarDebug` is the tool: it pages through every model, nudges the wheel line
-with up/down, and dumps the corrected `offsetYTires` per car.
-
-## The driver portrait ignores its data field
-
-`CarBitmap::UpdateTextures` places the portrait at `bodyTop + kDriverBaseY`, a
-single constant (7) for every car, with the data's own field commented out:
-
-```cpp
-driver.SetPosition(bodyRect.x + offsets.offsetXDriver, bodyRect.y + 7 /*+ model.driverY*/);
+```
+offsetYTires = bodySprite.height - wheelSprite.height   // 31 Amiga, 28 DOS
 ```
 
-The X does come from the model (`x_driver`, 80..134 across the Amiga cars).
-`SpriteInfo` carries a `y_driver` right beside it, 17..22 across the same cars,
-consistently 10 to 15 px below where the portrait is actually drawn.
+That is all `CarSetWheelY` (`src/car/car_set.cpp`) does now. The two
+hand-measured tables it used to carry are gone; they were 0..4 px off, which
+showed up as SE cars floating over their shadow. Every front wheel arch in
+lib.p, SR1's LIB2 and SRSE's LIB2 is cut for the tire at exactly the derived Y
+- derivation, per-car numbers and the script are in
+`RodLegacyResearch/docs/formats/sr_data.md`.
 
-Either the field means something other than a top-left Y, or the constant is
-wrong and every driver sits too high. CarDebug shows a portrait and moves it
-with I/J/K/L, reporting position relative to the body's top-left alongside the
-data's `x_driver` / `y_driver`, so the two can be compared directly. If a car
-looks right once nudged to its `y_driver`, the field is the answer and the
-constant is the bug.
+The shadow follows the same line: `CarBitmap::UpdatePositions` puts it at
+`tiresY + wheelCellHeight - 3`. It used to add a hardcoded 32, the Amiga cell
+height, which left it 2 px under the tires of every DOS car.
+
+`CarDebug` still pages through every model and nudges the wheel line with
+up/down, which is now a way to check the rule rather than to build a table.
+The King's car (spec slot 25 in every set) has no `CarModel` - `CarData` only
+builds the 25 that are for sale - so the debug scene synthesises one per set
+from the sprite offset table's last row.
+
+## The driver portrait hangs off y_driver's bottom edge
+
+`y_driver` is not a top-left Y, which is why it reads 10 to 15 px below where a
+top-anchored portrait ends up. It is the sprite's **bottom** edge relative to
+the body top:
+
+```cpp
+driverTop = bodyTop + offsets.offsetYDriver - driverSprite.height;
+```
+
+Measured across all three car libs: the sill of the side window at the driver's
+own columns sits 1 to 3 px above `y_driver` on every closed car, so the
+portrait's last row is cut by the door line and his shoulders disappear into
+it. The open cars (the Corvettes, the Woodie) read wider only because there is
+no window frame to measure.
+
+The old code used one constant (7) for every car, which is roughly the average
+of `y_driver - height` and looks fine on the 16 to 18 px portraits. It breaks
+on the tall ones: DRIVER_15 (asset 356) is 20 px because it draws a hat above
+the same head, so top-anchoring pushed the face below the sill and left the hat
+filling the window.
+
+CarDebug still shows a portrait and moves it with I/J/K/L, reporting the nudge
+alongside the data's `x_driver` / `y_driver`.
 
 ## Car sets (how SRSE is supported)
 

@@ -241,6 +241,16 @@ protected:
     // left (e.g. past GAME_WIDTH after driving off), which can make
     // UpdateCarAnimation see it as already "done" and skip the animation.
     double carxFloat = 0.0;
+    // The original never puts the car on an in-between pixel: it walks a
+    // {repeat, dx, dy} phase table once per video frame, dx being a whole 2, 4
+    // or 8 (DOS car_anim_advance_frame, SR.EXE 1f38:aa37). Moving by
+    // speed * deltaTime instead lands on pixels it never visits, which at 60+
+    // fps makes the distance-driven wheel frame strobe. StepCarX keeps the
+    // same average speed and puts the car back on the original's grid.
+    static constexpr double SCENE_STEP_HZ = 35.0;
+    double stepAccumulator = 0.0;
+    double StepCarX(double deltaTime, double pxPerSecond);
+
     AudioManager* audioManager = nullptr;
     CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
     bool initialDelay = true;

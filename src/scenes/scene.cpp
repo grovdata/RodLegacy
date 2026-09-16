@@ -491,6 +491,7 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
         carAnimationTime = 0;
         carxFloat = carx;
+        stepAccumulator = 0.0;
         animatingCar = true;
         return;
     }
@@ -511,6 +512,7 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
             carx = -GAME_WIDTH;
         }
         carxFloat = carx;
+        stepAccumulator = 0.0;
         
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
         carBitmap->Move({carx, cary});
@@ -553,6 +555,21 @@ int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
     return 800;
 }
 
+// One tick of the original's animation clock moves the car a whole number of
+// pixels, so a 280 px/s phase is 8 px per tick and nothing in between. Returns
+// how far to move this frame - usually 0, sometimes a whole step.
+double CarScene::StepCarX(double deltaTime, double pxPerSecond) {
+    const double tick = 1.0 / SCENE_STEP_HZ;
+    const double step = std::round(pxPerSecond * tick);
+    stepAccumulator += deltaTime;
+    double moved = 0.0;
+    while (stepAccumulator >= tick) {
+        stepAccumulator -= tick;
+        moved += step;
+    }
+    return moved;
+}
+
 void CarScene::UpdateCarAnimation(double deltaTime) {
     // LOG_INFO("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
     //         isPaused, exitingCar, animatingCar);
@@ -589,11 +606,11 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             } else {
                 exitSpeed = 280.0;
             }
-            carxFloat += exitSpeed * deltaTime;
+            carxFloat += StepCarX(deltaTime, exitSpeed);
             carx = static_cast<int>(carxFloat);
 
             if (carBitmap) {
-                carBitmap->UpdateWheelAnimation(exitSpeed * deltaTime);
+                carBitmap->UpdateWheelRotation(carx);
                 carBitmap->Move({carx, cary});
             }
 
@@ -634,13 +651,13 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 } else {
                     driveSpeed = 70.0;
                 }
-                carxFloat += driveSpeed * deltaTime;
+                carxFloat += StepCarX(deltaTime, driveSpeed);
                 carx = static_cast<int>(carxFloat);
                 done = (carx >= idlePos.x);
                 if (done) carx = idlePos.x;
 
                 if (carBitmap) {
-                    carBitmap->UpdateWheelAnimation(driveSpeed * deltaTime);
+                    carBitmap->UpdateWheelRotation(carx);
                     carBitmap->Move({carx, cary});
                 }
             } else {
@@ -658,12 +675,12 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 } else {
                     reverseSpeed = 280.0;
                 }
-                carxFloat -= reverseSpeed * deltaTime;
+                carxFloat -= StepCarX(deltaTime, reverseSpeed);
                 carx = static_cast<int>(carxFloat);
                 done = (carx <= -GAME_WIDTH);
 
                 if (carBitmap) {
-                    carBitmap->UpdateWheelAnimation(-reverseSpeed * deltaTime);
+                    carBitmap->UpdateWheelRotation(carx);
                     carBitmap->Move({carx, cary});
                 }
             }
@@ -728,6 +745,7 @@ void CarScene::TriggerCarExit() {
         waitTimer = 0;
         carExitAnimationTime = 0;
         carxFloat = carx;
+        stepAccumulator = 0.0;
     }
 }
 

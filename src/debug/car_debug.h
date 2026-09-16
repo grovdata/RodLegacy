@@ -13,15 +13,12 @@
 // Debug-only scene for eyeballing one car model at a time and correcting its
 // wheel line. Built only when -Ddebug_ui=true.
 //
-// The per-model wheel Y (BitmapOffset_t::offsetYTires) has no source in the
-// game data: the Amiga table CAR_WHEELS_Y_OFFSETS was measured by hand and is
-// 30 for most cars, and DOS car sets start at that same 30 for every car
-// because their data file has no equivalent field. This scene is how those
-// numbers get corrected.
+// The per-model wheel Y (BitmapOffset_t::offsetYTires) has no field in the
+// game data: it is derived, bottom-aligning the wheel cell to the body sprite
+// (CarSetWheelY). This scene is how that is checked against the art.
 //
-// It also places a driver portrait, whose Y is a single constant for every car
-// (CarBitmap's kDriverBaseY) even though SpriteInfo carries a per-car y_driver
-// that nothing reads.
+// It also places a driver portrait, anchored by its bottom edge on the
+// per-car y_driver from SpriteInfo.
 //
 //   < >  or Left/Right   previous / next model
 //   Up / Down            raise / lower the wheels by one pixel

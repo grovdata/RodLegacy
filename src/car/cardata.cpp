@@ -109,6 +109,10 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
         
         LOG_INFO("Creating car %d (stock index %d) with bitmap w:%d h: %d", i, stockIndex, bitmap.width, bitmap.height);         
         
+        // SR_data has no wheel Y; the wheel cell is bottom-aligned to the body
+        // sprite, which only the caller knows the height of.
+        carMetadata[i].offsets.offsetYTires = CarSetWheelY(kAmigaCarSet, bitmap.height);
+
         // Create the car model using the stock index
         CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
         metadataByIndex[newModel.index] = carMetadata[i];
@@ -174,8 +178,9 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
         model.name = metadata[i].classified.carName ? metadata[i].classified.carName : "";
         model.year = metadata[i].classified.year;
         model.offsets = metadata[i].offsets;
-        // The data file has no wheel Y, so it comes from the measured table.
-        model.offsets.offsetYTires = CarSetWheelY(carSet, bodySprite);
+        // The data file has no wheel Y; the wheel cell is bottom-aligned to
+        // the body sprite instead.
+        model.offsets.offsetYTires = CarSetWheelY(carSet, bitmap.height);
         metadata[i].offsets.offsetYTires = model.offsets.offsetYTires;
         model.width = bitmap.width;
         model.height = bitmap.height;

@@ -156,7 +156,7 @@ void CarDebug::AppendKingModels() {
 
         // The King's row in the sprite table is all zeros in both files: his
         // car has no chop and no strippable bumpers.
-        model.offsets.offsetYTires = CarSetWheelY(set, model.sprites.body);
+        model.offsets.offsetYTires = CarSetWheelY(set, model.height);
         model.baseSpeed = 100;
         models.push_back(model);
     }
@@ -280,10 +280,9 @@ void CarDebug::DumpAdjustments() const {
         for (const CarModel& model : models) {
             auto it = driverAdjust.find(model.index);
             if (it == driverAdjust.end() || (it->second.x == 0 && it->second.y == 0)) continue;
-            LOG_INFO("  %-38s set=%-6s index=%4d  x %d -> %d   y %d -> %d  (data %d,%d)",
+            LOG_INFO("  %-38s set=%-6s index=%4d  nudged x %+d y %+d  (data %d,%d)",
                      model.name.c_str(), GetCarSetDefs()[model.carSet].id.c_str(), model.index,
-                     model.offsets.offsetXDriver, model.offsets.offsetXDriver + it->second.x,
-                     kDriverBaseY, kDriverBaseY + it->second.y,
+                     it->second.x, it->second.y,
                      model.offsets.offsetXDriver, model.offsets.offsetYDriver);
         }
     }

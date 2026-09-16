@@ -496,6 +496,7 @@ void GasStation::StartAnimateCar(CarPtr car, Driver*, CarAnimationType animType)
         if (carBitmap) {
             carx = -GAME_WIDTH;
             carxFloat = carx;  // else UpdateCarAnimation resumes from wherever the previous visit's exit left it
+            stepAccumulator = 0.0;
             cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
             animatingCar = true;
             currentAnimationType = animType;

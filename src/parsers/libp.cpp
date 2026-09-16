@@ -1230,8 +1230,8 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBuffer(const uint8_t* data, size
         newEntry.offsetXDecal = *ptr++;
         newEntry.offsetYDecal = *ptr++;
 
-        // Add supplemental offsets
-        newEntry.offsetYTires = CarSetWheelY(kAmigaCarSet, kCarIndex[i]);
+        // offsetYTires is filled in by the caller, which knows the body
+        // sprite's height - the wheel cell is bottom-aligned to it.
         // offsetXGasCap/Y are filled in below from CLICKBOX_GASSTATION_START -
         // the same point the click box uses, so the visible removed-cap
         // sprite and the clickable zone never drift apart. See
@@ -2011,13 +2011,11 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBufferDOS(const uint8_t* data, s
         offsets.offsetYDecal = *ptr++;
 
         // The gas cap position is in the gas station table rather than here,
-        // same as on the Amiga. offsetYTires has no DOS counterpart at all;
-        // the Amiga's hand-measured table is 30 for 21 of its 26 cars, so that
-        // is the starting value - it wants checking per car against the art.
+        // same as on the Amiga. offsetYTires has no DOS counterpart either;
+        // the caller fills it in from the body sprite's height.
         const uint8_t* gas = data + HOT_DATA_GASSTATION_START + i * 6;
         offsets.offsetXGasCap = gas[0];
         offsets.offsetYGasCap = gas[1];
-        offsets.offsetYTires = 30;
 
         result[i].offsets = offsets;
     }

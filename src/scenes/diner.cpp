@@ -40,7 +40,7 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     };
     GetZone("pop_hood").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (!carBitmap || animatingCar || exitingCar || !currentOpponent) return;
+        if (!OpponentPresent()) return;
         // One look per challenger; a second try just annoys him.
         if (hoodPopped) { challenge->Taunt(); return; }
         hoodPopped = true;
@@ -52,7 +52,7 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     };
     GetZone("challenge_opponent").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
-        if (!carBitmap || animatingCar || exitingCar || !currentOpponent) return;
+        if (!OpponentPresent()) return;
         // Who is actually on screen, not which pool slot was picked last: a
         // phoned opponent forces a pick without touching the index, and any
         // re-pick moves it, so the index can say King while someone else is
