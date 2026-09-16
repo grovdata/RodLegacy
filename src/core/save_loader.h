@@ -19,7 +19,7 @@
 //    of values (see save_game.md); everything else is an opaque index here.
 //  - The King (opponent slot 21) has no known car-spec source distinct from
 //    the fixed constant already used elsewhere; not populated here.
-//  - Header offset 0x2C counter and trailer chunk 8 are parsed but unused.
+//  - Header offset 0x2C counter is parsed but unused.
 
 struct LoadedPartRecord {
     int value = 0;    // dollars
@@ -71,6 +71,7 @@ struct LoadedSave {
     int opponentCarSpec[22] = {0};
 
     uint32_t elapsedTicks = 0;  // trailer chunk 7, raw
+    int trackVariant = 0;       // trailer chunk 8: road-course template 0-9
 };
 
 struct SaveLoadError : std::runtime_error {

@@ -111,8 +111,10 @@ LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
         save.opponentCarSpec[i] = data[trailerStart + 8 + i * 8 + 1];
     }
     save.elapsedTicks = ReadU32BE(data, trailerStart + 184);
-    // Trailer chunk 8 (2 bytes at trailerStart + 188) is parsed by nothing
-    // here -- no confirmed meaning yet (see save_game.md).
+    // Trailer chunk 8: the road-course template index this profile was
+    // created with. TrackGenerator(100) rolls it once on a new game and it
+    // stays fixed for that profile's life (save_game.md).
+    save.trackVariant = static_cast<int16_t>(ReadU16BE(data, trailerStart + 188));
 
     return save;
 }

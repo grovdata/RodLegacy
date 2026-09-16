@@ -100,6 +100,12 @@ private:
     // game's own VBlank-driven increment code this session.
     uint32_t elapsedTicks = 0;
 
+    // Road-course template 0-9, chosen once per profile and persisted.
+    // The original rolls it in maybeInitSomeGameState via
+    // TrackGenerator(100) and saves it as trailer chunk 8; it is NOT
+    // re-rolled per race (RodLegacyResearch/docs/formats/save_game.md).
+    int trackVariant = 0;
+
     // AssetManager first so it is destroyed last; scenes hold non-owning refs to its assets
     AssetManager assets;
 
@@ -268,6 +274,9 @@ public:
 
     uint32_t GetElapsedTicks() const { return elapsedTicks; }
     void SetElapsedTicks(uint32_t ticks) { elapsedTicks = ticks; }
+
+    int  GetTrackVariant() const { return trackVariant; }
+    void SetTrackVariant(int v) { trackVariant = ((v % 10) + 10) % 10; }
 
     std::string GetGameDateString() const { return GameClock::FormatDate(elapsedTicks); }
     std::string GetGameClockString() const;

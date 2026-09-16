@@ -107,7 +107,7 @@ std::vector<uint8_t> BuildSyntheticSave() {
         for (int b = 0; b < 6; ++b) d.push_back(0); // remaining 6 bytes, undecoded
     }
     AppendU32BE(d, 12345); // elapsed ticks
-    AppendU16BE(d, 4);     // chunk 8, unidentified
+    AppendU16BE(d, 4);     // chunk 8: road-course template index
     REQUIRE(d.size() == trailerStart + 190);
 
     return d;
@@ -174,6 +174,10 @@ TEST_CASE("SaveGameLoader: parses a synthetic save matching save_game.md exactly
     for (int i = 0; i < 22; ++i) CHECK(save.opponentCarSpec[i] == i);
 
     CHECK(save.elapsedTicks == 12345);
+    // Trailer chunk 8: the profile's road-course template. The original
+    // rolls it once in maybeInitSomeGameState (TrackGenerator(100)) and
+    // never per race, so it has to survive the round trip.
+    CHECK(save.trackVariant == 4);
 }
 
 TEST_CASE("SaveGameLoader: throws on a too-small file rather than reading past the end") {

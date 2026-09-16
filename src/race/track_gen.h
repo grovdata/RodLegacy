@@ -13,6 +13,8 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType = 1);
 
 // Regenerates segments 380..1119 (preserving object bits 0x1801) from the
 // 12-shape sequence for variant 0..9, writing curve/elev/flags.
+// The variant is the profile's, picked once at new-game time - see
+// State::trackVariant.
 void GenerateTrackShapes(TrackData& track, int variant);
 
 }  // namespace srrace

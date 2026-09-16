@@ -456,7 +456,9 @@ srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) con
 }
 
 void Racing::InitializeRaceSimulation() {
-    trackVariant = rng.Next(10);
+    // The template belongs to the profile, not the race: the original rolls
+    // it once in maybeInitSomeGameState and persists it as trailer chunk 8.
+    trackVariant = state.GetTrackVariant();
     srrace::RoadLayoutInit(track, rng);
     srrace::GenerateTrackShapes(track, trackVariant);
 

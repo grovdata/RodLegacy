@@ -274,6 +274,7 @@ bool State::SaveGameToml(const fs::path& path) {
     // TOML integers are signed 64-bit; elapsedTicks never approaches the range
     // where the round trip through int64 could lose anything.
     root["elapsed_ticks"] = static_cast<std::int64_t>(elapsedTicks);
+    root["track_variant"] = GetTrackVariant();
 
     SaveValue rep;
     rep["drag_rep"]        = reputation.drag_rep;
@@ -375,6 +376,7 @@ bool State::LoadGameToml(const fs::path& path) {
     SetPlayerName(toml::find_or(root, "name", std::string()));
     SetBankroll(toml::find_or(root, "bankroll", 0));
     SetElapsedTicks(static_cast<uint32_t>(toml::find_or(root, "elapsed_ticks", std::int64_t{0})));
+    SetTrackVariant(toml::find_or(root, "track_variant", 0));
 
     reputation = Reputation();
     if (root.contains("reputation")) {

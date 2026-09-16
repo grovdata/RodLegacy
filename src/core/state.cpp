@@ -322,6 +322,9 @@ void State::StartNewGame() {
     currentCar.reset();
     jailed = false;
     kingQualifierWon = false;
+    // Matches TrackGenerator(100) in maybeInitSomeGameState: one roll per
+    // profile, then fixed for its life.
+    SetTrackVariant(std::uniform_int_distribution<int>(0, 9)(RandomEngine()));
 }
 
 Car* State::GetCurrentCar() {
@@ -496,6 +499,7 @@ bool State::LoadSaveGame(const fs::path& path) {
 
     SetBankroll(loaded.bankroll);
     SetElapsedTicks(loaded.elapsedTicks);
+    SetTrackVariant(loaded.trackVariant);
 
     // Replace the owned-car roster. Anything still showing one of the old
     // cars (a cached CarBitmap, a scene mid-animation) keeps it alive until
