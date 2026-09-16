@@ -30,6 +30,16 @@ constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 // TUNE THIS: lower = slower race, higher = faster. Rendering stays at GAME_FPS
 // and just samples the sim, so this only changes physics speed/feel.
 constexpr int kPhysicsHz = 15;
+
+// The rpm the drive cutscene shifts at and then holds in top gear
+// (UpdatePhysics 0x2364e8 compares against 0x1194).
+constexpr int kCruiseRpm = 4500;
+// How far ahead the arriving car turns in towards its building. At cruise
+// speed a segment is only a tick or two, and the steer integrator builds at 2
+// of 24 per tick, so one segment never develops a visible turn and twelve
+// drifts across the road long before the stop. Three is "the turn has just
+// started" when the scene cuts - tune here if it reads wrong.
+constexpr int kCruiseArrivalSegs = 3;
 constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
 
 // Driving composites this road-view surface into the 320x200 frame at screen
@@ -47,9 +57,13 @@ constexpr int kRoadCenterLat = 2400;
 // baked into the mountain backdrop's foothill band, so backdrop and ground read
 // as one continuous field (see docs/driving/rendering.md).
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
+// Town walls, PAL_DRIVING entries 2, 4 and 10 - the shades FUN_00237480 asks
+// for. Cruise only; see Racing::DrawTownWalls.
+constexpr SDL_Color kTownWallGrey = {0x99, 0x99, 0x99, 255};   // PAL_DRIVING[2]
+constexpr SDL_Color kTownWallDark = {0x33, 0x33, 0x33, 255};   // PAL_DRIVING[4]
+constexpr SDL_Color kTownUpper = {0xEE, 0xEE, 0xEE, 255};      // PAL_DRIVING[10]
 constexpr SDL_Color kGrassA = {0, 112, 0, 255};
 constexpr SDL_Color kRoadA = {0, 0, 0, 255};
-constexpr SDL_Color kRoadCity = {60, 60, 68, 255};
 constexpr SDL_Color kDashWhite = {235, 235, 235, 255};
 constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
 constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
@@ -495,6 +509,10 @@ void Racing::InitializeRaceSimulation() {
     firstNpcFinishTick = -1;
     simTickCounter = 0;
     speedSumMph = 0;
+    // This is the ordinary race path; StartCruise sets these again afterwards.
+    cruiseMode = false;
+    cruiseSignSprite.reset();
+    cruiseSignAnim = nullptr;
     raceOutcome = RaceOutcome::Ongoing;
     bShowCrashOverlay = false;
     crashHandled = false;
@@ -505,6 +523,62 @@ void Racing::InitializeRaceSimulation() {
     copSirenCooldownTicks = 0;
     cloudOffsetAccum = 0.0f;
     lastVisibleRow = -1;
+}
+
+// The drive cutscene. RunRoadRaceWithMode (0x2468a2) clears the race flag and
+// runs the ordinary race loop; InitDriveScene (0x23ab2c) is what puts the car
+// back at segment 10 / 65 / 115. The finish stays the drag finish, segment 380,
+// which is the arch a race starts under.
+void Racing::StartCruise(int startSeg, int signAsset) {
+    SetTrackType(SR_TRACK_DRAG_RACE);
+    // After InitializeRaceSimulation, which clears cruiseMode - every ordinary
+    // race init has to, or the first drive would leave every later race in
+    // cruise mode.
+    InitializeRaceSimulation();
+    cruiseMode = true;
+    if (signAsset > 0) {
+        Bitmap* asset = state.GetAssets().GetBitmapAsset(
+            {LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(signAsset)});
+        if (asset) {
+            cruiseSignSprite = std::make_unique<Bitmap>(*asset);
+        }
+        cruiseSignAnim = GetSpriteAnimationInfo(static_cast<uint16_t>(signAsset));
+    }
+    sim.BeginCruiseAt(ClampInt(startSeg, 0, kTrackSegments - 1));
+    startLightHeight = 0;    // no start light on a cruise
+}
+
+// The cruise does not run to the race finish: UpdatePhysics returns 1 - which
+// is what breaks the frame loop - as soon as the next segment has flag bit 0
+// set on either side, i.e. at the next building. That is why each destination
+// gets its own start segment: the drive stops where its building is.
+bool Racing::CruiseFinished() const {
+    if (!cruiseMode) {
+        return false;
+    }
+    const int seg = ClampInt(static_cast<int>(sim.Player().segPos) + 1, 0, kTrackSegments - 1);
+    return ((track.left[seg] | track.right[seg]) & 0x0001) != 0;
+}
+
+// Which side the building the drive is about to stop at sits on, once it is
+// close enough to pull over for: -1 left, +1 right, 0 not in range yet.
+// RoadLayoutInit puts them at segment 44 (right), 108 (left) and 156 (left),
+// one per cruise.
+int Racing::CruiseArrivalSide() const {
+    if (!cruiseMode) {
+        return 0;
+    }
+    const int from = static_cast<int>(sim.Player().segPos);
+    for (int k = 1; k <= kCruiseArrivalSegs; ++k) {
+        const int seg = ClampInt(from + k, 0, kTrackSegments - 1);
+        if (track.right[seg] & 0x0001) {
+            return +1;
+        }
+        if (track.left[seg] & 0x0001) {
+            return -1;
+        }
+    }
+    return 0;
 }
 
 void Racing::SetTrackType(SrTrackType trackType) {
@@ -1076,7 +1150,9 @@ void Racing::RenderRoad(int lastVisible) {
             const int seg = (fromNear * 2 >= dy) ? nearRow.seg : farRow.seg;
             const uint16_t flags = track.flags[seg];
             const bool city = (flags & 0x0001) != 0;
-            const SDL_Color roadColor = city ? kRoadCity : kRoadA;
+            // The road is black everywhere, town included - playtested. The
+            // city flag still gets its kerb, it just does not tint the asphalt.
+            const SDL_Color roadColor = kRoadA;
             const int drawL = std::max(0, left);
             const int drawR = std::min(GAME_WIDTH - 1, right);
             for (int x = drawL; x <= drawR; ++x) {
@@ -1106,8 +1182,7 @@ void Racing::RenderRoad(int lastVisible) {
         const int yStart = ClampInt(row0.y, kClipTop, GAME_RACING_HEIGHT - 1);
         const int dy = std::max(1, row0.y - row1.y);
         const uint16_t nearFlags = track.flags[row0.seg];
-        const bool nearCity = (nearFlags & 0x0001) != 0;
-        const SDL_Color nearRoadColor = nearCity ? kRoadCity : kRoadA;
+        const SDL_Color nearRoadColor = kRoadA;
         // Extend the near road to the bottom of the surface (visible via the mirror).
         for (int y = yStart; y < GAME_RACING_HEIGHT; ++y) {
             const int extra = y - row0.y;
@@ -1205,6 +1280,123 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
     DrawNearestNeighborScaled(banner, centerX - bannerWidth / 2, yTop + 1, bannerWidth, bannerHeight, false, false);
 }
 
+// The town, drawn only during a cruise. FUN_00237a30 (0x237a30) runs this pass
+// per row when the race flag is clear, once per side, through FUN_00237480
+// (IRA LAB_0C04). Each call gets two shoulder x values and four y values - the
+// road row and the elevated 1900 row, at this row and the next one nearer - and
+// fills the quad between them: a wall panel standing on the shoulder line with
+// its top at the elevated row. See docs/driving/cruising.md.
+void Racing::DrawTownWalls(int lastVisible) {
+    if (!cruiseMode) {
+        return;
+    }
+
+    // Fills the quad between two adjacent rows, interpolating top and bottom.
+    auto quad = [&](int xA, int topA, int botA, int xB, int topB, int botB, SDL_Color c) {
+        const int span = xB - xA;
+        const int lo = std::min(xA, xB);
+        const int hi = std::max(xA, xB);
+        for (int x = std::max(0, lo); x <= std::min(GAME_WIDTH - 1, hi); ++x) {
+            const int t = (span == 0) ? 0 : ((x - xA) * 256) / span;
+            const int top = topA + ((topB - topA) * t) / 256;
+            const int bot = botA + ((botB - botA) * t) / 256;
+            for (int y = std::max(kClipTop, top); y <= std::min(kClipBottom, bot); ++y) {
+                PutPixel(pixels, x, y, c);
+            }
+        }
+    };
+
+    // Far to near, so nearer blocks overdraw the ones behind them. k stops at 1:
+    // row 0 is the extra near row this port adds ahead of the original's 14
+    // (BuildRowTableAndGetLastVisible gives it d=4), and the original's town
+    // pass has no such row. Including it drew a quad 100px tall right at the
+    // camera - a wall in your face rather than a street.
+    for (int k = std::min(lastVisible, kForwardRows - 2); k >= 1; --k) {
+        const RowProjection& nearRow = rows[k];
+        const RowProjection& farRow = rows[k + 1];
+        // The elevated row is the 1900 projection, y - 400/d (archY is 4x that).
+        const int farTop = farRow.y - 400 / std::max(1, farRow.distance);
+        const int nearTop = nearRow.y - 400 / std::max(1, nearRow.distance);
+
+        // A cross street: RoadLayoutInit opens a three-segment gap in the
+        // buildings every sixteen segments (centre flag bit 2), and the side
+        // road's surface is drawn into it - the ground is green, so an empty
+        // gap reads as a field, not a street.
+        //
+        // LAB_0C0C/LAB_0C0E, when the nearer row carries the gap:
+        //   rect(clip edge .. xNear, yElevNear .. yRoadNear - 2, shade 4)
+        //   line(clip edge .. xNear, yRoadNear - 1,              shade 10)
+        // both sides using the nearer row (the two call sites swap the order of
+        // their x arguments, which is easy to misread).
+        //
+        // xNear here is the ROAD EDGE, not the 1100/3700 shoulder the wall
+        // stands on: taken from the shoulder the rect clips down to a ~33px
+        // patch at the very edge of the screen. A side road meets the main road
+        // at its edge, which is also where this puts it.
+        if (track.flags[nearRow.seg] & 0x0004) {
+            for (int side = 0; side < 2; ++side) {
+                const int xEdge = side ? nearRow.rightX : nearRow.leftX;
+                const int lo = side ? std::max(0, xEdge) : 0;
+                const int hi = side ? GAME_WIDTH - 1 : std::min(GAME_WIDTH - 1, xEdge);
+                for (int y = std::max(kClipTop, nearTop);
+                     y <= std::min(kClipBottom, nearRow.y - 2); ++y) {
+                    for (int x = lo; x <= hi; ++x) {
+                        PutPixel(pixels, x, y, kTownWallDark);
+                    }
+                }
+                const int kerb = ClampInt(nearRow.y - 1, kClipTop, kClipBottom);
+                for (int x = lo; x <= hi; ++x) {
+                    PutPixel(pixels, x, kerb, kTownUpper);
+                }
+            }
+        }
+        // Either row: a pair with one foot in the gap would otherwise draw a
+        // wall straight across the opening, closing the notch it is supposed
+        // to leave.
+        if (((track.flags[farRow.seg] | track.flags[nearRow.seg]) & 0x0004) != 0) {
+            continue;
+        }
+
+        for (int side = 0; side < 2; ++side) {
+            const uint16_t f = side ? track.right[farRow.seg] : track.left[farRow.seg];
+            const int xFar = side ? farRow.shoulderRX : farRow.shoulderLX;
+            const int xNear = side ? nearRow.shoulderRX : nearRow.shoulderLX;
+
+            quad(xFar, farTop, farRow.y, xNear, nearTop, nearRow.y,
+                 (f & 0x0010) ? kTownWallDark : kTownWallGrey);
+
+            // Bit 2 is "there is a building on this side here" -
+            // RoadLayoutInit sets it in pairs on three of every sixteen
+            // segments per side - and it stacks a storey above the kerb wall:
+            // full height, or half when bit 3 is clear.
+            if (f & 0x0004) {
+                const int farH = farRow.y - farTop;
+                const int nearH = nearRow.y - nearTop;
+                const int farUp = (f & 0x0008) ? farH : farH / 2;
+                const int nearUp = (f & 0x0008) ? nearH : nearH / 2;
+                quad(xFar, farTop - farUp, farTop, xNear, nearTop - nearUp, nearTop,
+                     kTownUpper);
+
+                // The end face (LAB_0C10): where this row has a building and
+                // the next row along does not, the block is starting, and the
+                // original caps it with a flat face in shade 4 - mirrored one
+                // row-step past the near edge in x, and the storey's own height
+                // above the elevated line in y. This is what gives a block a
+                // visible end, and so what makes the gap at a cross street read
+                // as a street rather than the wall just stopping.
+                const uint16_t fNear = side ? track.right[nearRow.seg]
+                                            : track.left[nearRow.seg];
+                if ((fNear & 0x0004) == 0) {
+                    const int xOuter = 2 * xNear - xFar;
+                    const int yTop = nearTop - nearUp;
+                    quad(xOuter, yTop, nearTop - 1, xNear - 1, yTop, nearTop - 1,
+                         kTownWallDark);
+                }
+            }
+        }
+    }
+}
+
 void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     auto drawSlot = [&](int slot, int k, int side, bool centerInRoad) {
         if (slot < 0 || slot >= 20 || !roadsideSprites[slot]) {
@@ -1250,6 +1442,23 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
     };
 
+    // The destination sign: at the roadside, on the side its flag came from.
+    // (The original's town bit-0 path goes through RenderCenteredSprite, whose
+    // first argument is the midpoint of the row y and the elevated y - a
+    // height, not the road centre. Reading it as an x put the sign over the
+    // middle of the road, which is not where it stands.)
+    auto drawCruiseSign = [&](int k, int side) {
+        const RowProjection& row = rows[k];
+        const int sr = ClampInt(k - 2, 0, 10);
+        if (!cruiseSignAnim || !cruiseSignAnim->frames || cruiseSignAnim->frameCount <= 0) {
+            return;
+        }
+        const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
+        const int x = (side < 0) ? row.leftX - 2 : row.rightX + 2;
+        DrawNearestNeighborScaled(cruiseSignSprite.get(), x, row.y, fr.w, fr.h,
+                                  side < 0, true, fr.x, fr.y, fr.w, fr.h);
+    };
+
     for (int k = std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
         const int seg = rows[k].seg;
         if (seg < 0 || seg >= kTrackSegments) {
@@ -1265,25 +1474,44 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             if (L & 0x0100) drawSlot(4, k, -1, false);
             if (L & 0x0800) drawSlot(3, k, -1, false);
             if (L & 0x1000) drawSlot(6, k, -1, false);
-            if (L & 0x0001) drawSlot(1, k, -1, city);
-            if (L & 0x0004) drawSlot(7, k, -1, false);
-            if (L & 0x0008) drawSlot(8, k, -1, false);
+            // The building flag, and on a cruise the destination's own sign -
+            // the drive stops at this very segment.
+            if (L & 0x0001) {
+                if (cruiseMode && cruiseSignSprite) {
+                    drawCruiseSign(k, -1);
+                } else {
+                    drawSlot(1, k, -1, city);
+                }
+            }
+            // The countryside objects - rocks and the second tree - are in the
+            // original's `centre bit 0 == 0` branch of the sprite dispatch, so
+            // they are not drawn in town. Only the 0x40 object survives there,
+            // and it swaps to a different sprite (the `city ? 2 : 10` below).
+            // See docs/driving/cruising.md.
+            if (!city && (L & 0x0004)) drawSlot(7, k, -1, false);
+            if (!city && (L & 0x0008)) drawSlot(8, k, -1, false);
             if (L & 0x0040) drawSlot(city ? 2 : 10, k, -1, false);
-            if (L & 0x0080) drawSlot(11, k, -1, false);
+            if (!city && (L & 0x0080)) drawSlot(11, k, -1, false);
 
-            if (R & 0x0004) drawSlot(7, k, +1, false);
-            if (R & 0x0008) drawSlot(8, k, +1, false);
+            if (!city && (R & 0x0004)) drawSlot(7, k, +1, false);
+            if (!city && (R & 0x0008)) drawSlot(8, k, +1, false);
             if (R & 0x0040) drawSlot(city ? 2 : 10, k, +1, false);
-            if (R & 0x0080) drawSlot(11, k, +1, false);
+            if (!city && (R & 0x0080)) drawSlot(11, k, +1, false);
             if (R & 0x0020) drawSlot(0, k, +1, false);
             if (R & 0x0100) drawSlot(4, k, +1, false);
             if (R & 0x0800) drawSlot(3, k, +1, false);
             if (R & 0x1000) drawSlot(6, k, +1, false);
             if (R & 0x2000) drawSlot(18, k, +1, false);
             if (R & 0x4000) drawSlot(19, k, +1, false);
-            if (R & 0x0001) drawSlot(1, k, +1, city);
+            if (R & 0x0001) {
+                if (cruiseMode && cruiseSignSprite) {
+                    drawCruiseSign(k, +1);
+                } else {
+                    drawSlot(1, k, +1, city);
+                }
+            }
 
-            if (F & 0x0002) drawSlot(9, k, +1, false);
+            if (!city && (F & 0x0002)) drawSlot(9, k, +1, false);
             if (F & 0x0100) drawSlot(5, k, +1, false);
             if (F & 0x0800) drawSlot(15, k, +1, false);
             if (F & 0x0200) drawSlot(16, k, +1, false);
@@ -1674,6 +1902,11 @@ void Racing::DrawSideMirror() {
 
 void Racing::DrawHud() {
     if (!hud) {
+        return;
+    }
+    if (cruiseMode) {
+        // A cutscene has no gear readout - the drive shifts for itself, and the
+        // status line is "Cruising in town...", which Driving owns.
         return;
     }
     char gearText[16];
@@ -2199,8 +2432,8 @@ void Racing::DrawFlybyHud(int lastVisible) {
 }
 
 void Racing::HandleOutcomeAfterTicks() {
-    if (raceOutcome != RaceOutcome::Ongoing) {
-        return;
+    if (raceOutcome != RaceOutcome::Ongoing || cruiseMode) {
+        return;   // a cruise has no outcome; Driving watches CruiseFinished()
     }
 
     // A crash / blown engine / dropped transmission / false start ends the race
@@ -2273,6 +2506,32 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             pendingShift = true;
         }
         prevSpaceDown = space;
+
+        if (cruiseMode) {
+            // UpdatePhysics (0x2364e8) does not run the race physics for a
+            // cutscene at all: it winds the rpm up by a fixed per-gear step,
+            // upshifts at 4500, and once in top gear sets that step to 0 so the
+            // speed simply holds. We have real physics, so hold the throttle up
+            // to the same point and then feather it - which is a cruise, not a
+            // drag run. Keys are the way out, not a way to drive: Driving turns
+            // any key into "skip".
+            const srrace::CarState& pc = sim.Player();
+            const bool topGear = pc.gear >= sim.PlayerTables().numGears;
+            baseInput = (topGear && pc.rpm >= kCruiseRpm) ? 0 : srrace::INPUT_THROTTLE;
+            pendingShift = !topGear && pc.rpm > kCruiseRpm;
+
+            // Arriving: turn towards the building the drive stops at, and only
+            // in the last segment before it. The original never slows down -
+            // its cutscene physics has no deceleration at all, and the roll-out
+            // that does brake and park is gated on passing the race finish,
+            // which a town drive never reaches. Playtested, all you see is the
+            // car starting to turn in before the scene cuts, so that is all
+            // this does: no braking, one segment of steering.
+            const int side = CruiseArrivalSide();
+            if (side != 0) {
+                baseInput |= (side < 0) ? srrace::INPUT_STEER_LEFT : srrace::INPUT_STEER_RIGHT;
+            }
+        }
 
         if (fixedAccumulator >= kFixedStepSeconds) {
             uint16_t inputBits = baseInput;
@@ -2365,6 +2624,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     lastVisibleRow = BuildRowTableAndGetLastVisible();
     RenderRoad(lastVisibleRow);
     RenderMountains(rows[lastVisibleRow].y);
+    DrawTownWalls(lastVisibleRow);
     DrawRoadsideAndArchSprites(lastVisibleRow);
     DrawNpcCar(lastVisibleRow);
     DrawStartLight();

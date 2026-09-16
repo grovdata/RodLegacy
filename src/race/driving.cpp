@@ -465,6 +465,17 @@ void Driving::OnSceneEnter() {
     // After ResetForNewRace: the gate plate to show depends on this car's box.
     ResetShifter();
 
+    // A drive between two places comes through here as SCENE_CRUISING with the
+    // real destination parked in State. Last, so the reset above cannot undo
+    // it.
+    cruising = false;
+    SrLibGameScene cruiseTo = SCENE_DINER;
+    if (state.TakePendingCruise(cruiseTo)) {
+        StartCruise(CruiseStartSegment(cruiseTo), cruiseTo);
+        LOG_INFO("Driving::OnSceneEnter - cruising to scene %d", static_cast<int>(cruiseTo));
+        return;
+    }
+
     LOG_INFO("Driving::OnSceneEnter - race starting: type=%s bet=%d pinkSlip=%d",
              pendingType == RaceType::Drag ? "Drag" : "Road",
              state.GetPendingBetAmount(),
@@ -659,7 +670,12 @@ void Driving::DrawScene() {
 
             racing->Draw(deltaTime, lastEvent);
 
-            if (!racing->IsFlybyMode()) {
+            if (cruising) {
+                if (racing->CruiseFinished()) {
+                    EndCruise();
+                    return;
+                }
+            } else if (!racing->IsFlybyMode()) {
                 // Race ended: record the result, then pause and show the reason.
                 RaceOutcome outcome = racing->GetRaceOutcome();
                 if (outcome != RaceOutcome::Ongoing) {
@@ -1109,6 +1125,51 @@ void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
     }
 }
 
+// Where each drive starts, from RoadLayoutInit's three building flags: the
+// garage is right[44], the diner left[108], the gas station left[156], and the
+// original starts the drive to each at 10, 65 and 115.
+int Driving::CruiseStartSegment(SrLibGameScene destination) {
+    if (destination == SCENE_DINER) {
+        return 65;
+    }
+    if (destination == SCENE_GAS_STATION) {
+        return 115;
+    }
+    return 10;   // the garage, and anything else that drives
+}
+
+// Cruising in town. The original runs the whole drive through RunRoadRaceWithMode
+// with the race flag cleared; here it is the same Racing, started back in the
+// approach section - docs/driving/cruising.md.
+void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
+    cruising = true;
+    cruiseDestination = destination;
+    raceEnded = false;
+    raceEndBubble.reset();
+    statsDialog.reset();
+    raceEndDipping = false;
+    mouse.SetVisible(false);
+    // The original puts this up on the cutscene's first tick (UpdatePhysics
+    // 0x2364e8 shows the string at A4-0x3ed4, file offset 0x2c594).
+    hud->SetTextOnly("Cruising in town...");
+    if (racing) {
+        // Each destination's sign stands before its own building.
+        int sign = RACING_SIGN_GARAGE;
+        if (destination == SCENE_DINER) {
+            sign = RACING_DRIVE_IN;
+        } else if (destination == SCENE_GAS_STATION) {
+            sign = RACING_SIGN_GUS_GAS;
+        }
+        racing->StartCruise(startSeg, sign);
+    }
+}
+
+void Driving::EndCruise() {
+    cruising = false;
+    hud->Clear();
+    state.ArriveFromCruise(cruiseDestination);
+}
+
 // Called from the wreck dialog's own button callback, so the dialog is hidden
 // rather than destroyed here - OnSceneEnter clears it for the next race.
 void Driving::LeaveAfterRace() {
@@ -1147,6 +1208,12 @@ bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
     // to the garage (or the end-game screen if the King was just beaten). The
     // wreck dialog is the exception: it wants a button click, not any key.
+    // "You can skip the cruising by pressing the selector" (manual).
+    if (cruising && (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN)) {
+        EndCruise();
+        return true;
+    }
+
     if (raceEnded && !raceEndDipping && !wreckDialog && event->type == SDL_KEYDOWN) {
         // Hold the crash screen for its minimum display time; ignore keys until then.
         if (SDL_GetTicks() < raceEndDismissAllowedMs) {

@@ -79,6 +79,19 @@ class Driving: public Scene {
     void OnFadeComplete() override;
     // Leaves the driving scene once the race-end screen is done with.
     void LeaveAfterRace();
+
+public:
+    // Cruising in town: the drive cutscene between locations. startSeg is the
+    // original's per-destination start (10 hub / 65 diner / 115 gas station);
+    // the drive runs to the arch at segment 380 and then enters `destination`.
+    // Any key skips it. See RodLegacyResearch/docs/driving/cruising.md.
+    void StartCruise(int startSeg, SrLibGameScene destination);
+    static int CruiseStartSegment(SrLibGameScene destination);
+
+private:
+    bool cruising = false;
+    SrLibGameScene cruiseDestination = SCENE_DINER;
+    void EndCruise();
     // Strips whatever the race broke off the car: the whole engine assembly
     // on a blown engine, the gearbox on a dropped transmission.
     void ApplyDrivetrainDamage(uint16_t endFlags);

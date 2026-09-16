@@ -114,6 +114,9 @@ private:
     std::unique_ptr<SaveLoadScene> saveLoad;
     std::unique_ptr<GameOverMenu> gameOverMenu;
     std::unique_ptr<Ending> ending;
+    bool pendingCruise = false;
+    SrLibGameScene pendingCruiseDestination = SCENE_DINER;
+    bool arrivingFromCruise = false;
 #ifdef RODLEGACY_DEBUG_UI
     std::unique_ptr<CarDebug> carDebug;
 #endif
@@ -134,6 +137,16 @@ public:
     AssetManager& GetAssets() { return assets; }
     Newspaper* GetNewspaper() const { return newspaper.get(); }
     SaveLoadScene* GetSaveLoadScene() const { return saveLoad.get(); }
+    Driving* GetDrivingScene() const { return driving.get(); }
+
+    // The drive between two places is a cutscene: MoveToScene turns a
+    // garage/diner/gas-station move into SCENE_CRUISING and leaves the real
+    // destination here for Driving to pick up on entry (it cannot be started
+    // before then - OnSceneEnter re-inits the race). ArriveFromCruise is the
+    // way back, and marks the arrival so it is not charged or driven again.
+    // See RodLegacyResearch/docs/driving/cruising.md.
+    bool TakePendingCruise(SrLibGameScene& destination);
+    void ArriveFromCruise(SrLibGameScene destination);
 
     // Every enabled car set's specs in one table, Amiga set first. Parallel
     // to GetCarSpecModelIndex(), which maps each entry back to a pool key.
