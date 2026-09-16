@@ -218,9 +218,24 @@ if host_machine.system() == 'windows'
         build_by_default: true
     )
 
+    # app.rc carries the exe's VERSIONINFO, so it is generated from the
+    # project version. VERSIONINFO wants four integers; pad short versions.
+    vp = meson.project_version().split('.')
+    app_rc = configure_file(
+        input: 'app.rc.in',
+        output: 'app.rc',
+        configuration: {
+            'VERSION_COMMA': '@0@,@1@,@2@,0'.format(
+                vp[0],
+                vp.length() > 1 ? vp[1] : '0',
+                vp.length() > 2 ? vp[2] : '0'),
+            'VERSION_STR': meson.project_version(),
+        },
+    )
+
     # Compile resource file
     app_res = custom_target('app.res',
-        input: 'app.rc',
+        input: app_rc,
         output: 'app.res',
         command: [windres, '-O', 'coff', '@INPUT@', '-o', '@OUTPUT@'],
         depends: icon_ico,
@@ -265,7 +280,8 @@ inc_dirs = include_directories(
 )
 
 # Add compiler flags specific to GCC
-cpp_args = ['-ggdb2', '-O0', '-std=c++17', '-D_HAS_STD_BYTE=0', '-D_GLIBCXX_USE_CXX11_ABI=0']
+cpp_args = ['-ggdb2', '-O0', '-std=c++17', '-D_HAS_STD_BYTE=0', '-D_GLIBCXX_USE_CXX11_ABI=0',
+            '-DRODLEGACY_VERSION="' + meson.project_version() + '"']
 c_args = ['-ggdb2', '-O0']
 
 # miniz (vendored) built as its own library with warnings suppressed, same

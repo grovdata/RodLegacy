@@ -37,7 +37,11 @@ namespace fs = std::filesystem;
 #define ORIGINAL_WINDOW_WIDTH GAME_WIDTH
 #define ORIGINAL_WINDOW_HEIGHT GAME_HEIGHT
 
-#define APP_TITLE "RodLegacy"
+#ifndef RODLEGACY_VERSION
+#define RODLEGACY_VERSION "dev"
+#endif
+
+#define APP_TITLE "RodLegacy " RODLEGACY_VERSION
 
 // speed in pixels/second
 #define SPEED (300)
@@ -194,6 +198,9 @@ int main(int argc, char* argv[]) {
             selfTestSave = true;
         } else if (strcmp(argv[i], "--purist") == 0) {
             purist = true;
+        } else if (strcmp(argv[i], "--version") == 0) {
+            printf("RodLegacy %s\n", RODLEGACY_VERSION);
+            return 0;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
@@ -204,6 +211,7 @@ int main(int argc, char* argv[]) {
             printf("  -config          Show setup screen\n");
             printf("  --purist         Score the engine tune exactly as the original does, so\n");
             printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
+            printf("  --version        Print version and exit\n");
             printf("  --help, -h       Show this help message\n");
             return 0;
         }

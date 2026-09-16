@@ -29,6 +29,13 @@ jobs:
       - name: Configure build
         run: meson setup builddir --cross-file /cross-mingw.txt --buildtype=release
 
+      # meson.build owns the version; read it back out of the configured build
+      # so the zip and the artifact are named with the same string the exe
+      # reports from --version.
+      - name: Read project version
+        run: |
+          echo "VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")" >> "$GITHUB_ENV"
+
       # Only the game target. The doctest suite cannot cross-compile: mingw's
       # win32 threads model has no std::mutex, and it is run natively in build-test.
       - name: Compile project
@@ -45,7 +52,7 @@ jobs:
           mkdir -p release
           cp builddir/rodlegacy.exe release/
           cat > release/README.txt <<'EOF'
-          RodLegacy Windows Build
+          RodLegacy Windows Build ${{ env.VERSION }}
           =================================
 
           To run the game:
@@ -58,12 +65,12 @@ jobs:
           - Ctrl+F: Toggle fullscreen
           - Escape: Exit game
           EOF
-          zip -r rod-legacy-windows.zip release
+          zip -r "rod-legacy-windows-${VERSION}.zip" release
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: streetrod-legacy-windows
+          name: streetrod-legacy-windows-${{ env.VERSION }}
           path: release/
           retention-days: 30
 
@@ -72,5 +79,5 @@ jobs:
         run: |
           curl -sSf -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -F "attachment=@rod-legacy-windows.zip" \
-            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=rod-legacy-windows.zip"
+            -F "attachment=@rod-legacy-windows-${VERSION}.zip" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=rod-legacy-windows-${VERSION}.zip"

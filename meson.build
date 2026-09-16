@@ -1,5 +1,7 @@
 project('streetrod_legacy', ['cpp', 'c'],
-  version : '0.1',
+  # Single source of truth for the version: bump it here and the binary,
+  # the Windows exe resource and the CI artifact names all follow.
+  version : '0.5.0',
   default_options : [
     'warning_level=2',
     'cpp_std=c++17', # needed for fs::path maybe rewrite
