@@ -36,6 +36,15 @@ indices, so existing `.SAV` files still load. See
 [docs/cars.md](docs/cars.md) for the remaining gaps (gas cap sprite, per-scene
 car height).
 
+## Other config.txt keys
+
+Additions and deviations, all off by default, all in the same `config.txt`:
+
+| key | what it does |
+| --- | --- |
+| `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
+| `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
+
 # Building
 
 The game is built using [Meson build system](https://mesonbuild.com/).

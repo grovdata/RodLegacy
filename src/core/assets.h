@@ -135,9 +135,15 @@ public:
     // set hill_occlusion=1 in config.txt.
     bool& GetHillOcclusionRef() { return hillOcclusion; }
 
+    // Small scene animations the original does not have. Additions, not
+    // reconstructions, so they are off by default and have no UI: set
+    // extra_animations=1 in config.txt. See RodLegacyResearch/docs/diner.md.
+    bool& GetExtraAnimationsRef() { return extraAnimations; }
+
 private:
     bool debugShowZoneOverlays = false;
     bool hillOcclusion = false;
+    bool extraAnimations = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

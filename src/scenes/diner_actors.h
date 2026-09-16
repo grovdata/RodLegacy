@@ -40,6 +40,30 @@ inline constexpr int WaitressX(int dir, int step) {
     return x;
 }
 
+// Not the original's: with extra_animations on she stops once on the way in,
+// standing still. She moves 3 px a step, so the stop lands on the nearest step
+// rather than exactly on kWaitressPauseX (129 falls between 128 and 131).
+//
+// The still pose is the last frame of lib.p 335, the left-hand sheet: 336's
+// frame 11 is mid-stride with an arm out, 335's is her stood upright with her
+// feet together. So the stop borrows the other sheet while she is not moving.
+// (The 6x2 grid's twelfth cell is not a spare pose - it is blank on both.)
+inline constexpr int kWaitressPauseX = 129;
+inline constexpr float kWaitressPauseMs = 3000.0f;
+inline constexpr uint8_t kWaitressStandFrame = 11;
+inline constexpr int kWaitressStandSheet = 1;  // sheet order is {336, 335}
+
+inline constexpr int WaitressPauseStep(int targetX) {
+    int best = 0;
+    int bestErr = 1 << 30;
+    for (int s = 0; s < kWaitressSteps; ++s) {
+        int err = WaitressX(0, s) - targetX;
+        if (err < 0) err = -err;
+        if (err < bestErr) { bestErr = err; best = s; }
+    }
+    return best;
+}
+
 // Phone guy: 44 steps over 20 frames, 0-9 on the first sheet and 10-19 on
 // the second, five columns by two rows each.
 inline constexpr uint8_t kGuyFrames[44] = {

@@ -149,7 +149,8 @@ void Diner::LoadActors() {
         const int fh = sheet->GetSurface()->h / 2;
         waitressAnim[d] = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{kWaitressStartX[d], kWaitressY, fw, fh});
         std::vector<SDL_Rect> frames;
-        // 11 frames out of the 6x2 grid; the twelfth cell is never used.
+        // 11 frames out of the 6x2 grid. The twelfth cell is not an unused
+        // pose, it is blank on both sheets - 11 frames simply need two rows.
         for (int i = 0; i < kWaitressFrameCount; ++i) {
             frames.push_back({(i % kWaitressColumns) * fw, (i / kWaitressColumns) * fh, fw, fh});
         }
@@ -163,16 +164,28 @@ void Diner::StartWaitressWalk(int dir) {
     waitressDir = dir;
     waitressStep = 0;
     waitressStepTimer = 0.0f;
+    // She gets one stop per walk in, and only walking in.
+    waitressPauseTimer = -1.0f;
+    waitressPauseDone = (dir != 0) || !state.GetAssets().GetExtraAnimationsRef();
     ApplyWaitressFrame();
 }
 
 void Diner::ApplyWaitressFrame() {
-    for (int d = 0; d < 2; ++d) waitressAnim[d]->SetVisible(waitressStep >= 0 && d == waitressDir);
-    if (waitressStep < 0) return;
-    waitressAnim[waitressDir]->SetFrame(kWaitressFrames[waitressStep] - 1);
-    SDL_Rect r = waitressAnim[waitressDir]->GetPosition();
-    waitressAnim[waitressDir]->SetPosition(WaitressX(waitressDir, waitressStep), kWaitressY);
-    waitressAnim[waitressDir]->SetDimensions(r.w, r.h);
+    if (waitressStep < 0) {
+        for (int d = 0; d < 2; ++d) waitressAnim[d]->SetVisible(false);
+        return;
+    }
+    // Walking uses the sheet for the way she is going. Standing still does
+    // not: only 335 has the upright pose, so the stop borrows it whichever
+    // way she was headed.
+    const bool standing = waitressPauseTimer >= 0.0f;
+    const int sheet = standing ? kWaitressStandSheet : waitressDir;
+    const int frame = standing ? kWaitressStandFrame : kWaitressFrames[waitressStep];
+    for (int d = 0; d < 2; ++d) waitressAnim[d]->SetVisible(d == sheet);
+    waitressAnim[sheet]->SetFrame(frame - 1);
+    SDL_Rect r = waitressAnim[sheet]->GetPosition();
+    waitressAnim[sheet]->SetPosition(WaitressX(waitressDir, waitressStep), kWaitressY);
+    waitressAnim[sheet]->SetDimensions(r.w, r.h);
 }
 
 void Diner::ApplyGuyFrame() {
@@ -206,6 +219,19 @@ void Diner::UpdateActors(double deltaTime) {
 
     // Waitress: one table step per tick, X from the run-length table.
     if (waitressStep >= 0) {
+        // extra_animations: she stands still for a moment partway in.
+        if (waitressPauseTimer >= 0.0f) {
+            waitressPauseTimer += dtMs;
+            if (waitressPauseTimer >= kWaitressPauseMs) waitressPauseTimer = -1.0f;
+            ApplyWaitressFrame();
+            return;
+        }
+        if (!waitressPauseDone && waitressStep >= WaitressPauseStep(kWaitressPauseX)) {
+            waitressPauseDone = true;
+            waitressPauseTimer = 0.0f;
+            ApplyWaitressFrame();
+            return;
+        }
         waitressStepTimer += dtMs;
         while (waitressStepTimer >= WAITRESS_STEP_MS) {
             waitressStepTimer -= WAITRESS_STEP_MS;

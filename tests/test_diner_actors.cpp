@@ -35,6 +35,18 @@ TEST_CASE("waitress: every step names a frame the sheet has") {
     CHECK(kWaitressFrames[kWaitressSteps - 1] == 11);
 }
 
+TEST_CASE("waitress: the extra_animations stop lands on the walk's own grid") {
+    // She moves 3 px a step, so 129 is not on it: 128 and 131 are.
+    const int step = WaitressPauseStep(kWaitressPauseX);
+    CHECK(WaitressX(0, step) == 128);
+    CHECK(step > 0);
+    CHECK(step < kWaitressSteps);
+    // The pose she stands in is one the sheet actually has, and it comes off
+    // 335 - the sheet she is not walking in on the way in.
+    CHECK(kWaitressStandFrame <= kWaitressFrameCount);
+    CHECK(kWaitressStandSheet == 1);
+}
+
 TEST_CASE("phone guy: frames stay inside the two sheets, holds cover them all") {
     for (uint8_t f : kGuyFrames) CHECK(f < 20);
     CHECK(kGuyFrames[0] == 0);

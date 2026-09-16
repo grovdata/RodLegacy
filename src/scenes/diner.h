@@ -62,6 +62,10 @@ class Diner: public CarScene {
     // odds the longer she has been away; this stands in for that.
     int waitressWaits = 0;
     float waitressStepTimer = 0.0f;
+    // extra_animations only: >= 0 while she is standing still partway in,
+    // and one stop per walk. Not the original's - see diner_actors.h.
+    float waitressPauseTimer = -1.0f;
+    bool waitressPauseDone = true;
 
     // Jail: the diner seen from a cell. The scene keeps running behind the
     // bars, nothing can be clicked. See RodLegacyResearch/docs/diner.md.
