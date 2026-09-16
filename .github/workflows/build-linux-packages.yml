@@ -1,0 +1,138 @@
+name: Build Linux Packages
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+# Builds the release binary once, then wraps it four ways: .deb, .rpm,
+# .AppImage and a plain .tar.gz. See build-test.yml for why this runs in a
+# debian:trixie container and apt-installs nodejs before actions/checkout.
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: 1   # no FUSE inside the container
+
+    steps:
+      - name: Install build and packaging dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            build-essential cmake meson ninja-build pkg-config \
+            libsdl2-dev libogg-dev libvorbis-dev \
+            libasound2-dev libpulse-dev \
+            libx11-dev libxext-dev libxcursor-dev libxinerama-dev libxi-dev \
+            libxfixes-dev libxrandr-dev libxss-dev libxxf86vm-dev libxrender-dev \
+            libxcb1-dev libxau-dev libxdmcp-dev \
+            libdrm-dev libgbm-dev libwayland-dev libxkbcommon-dev libdecor-0-dev \
+            git ca-certificates nodejs \
+            dpkg-dev fakeroot alien rpm file patchelf desktop-file-utils wget
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # buildtype=release: the project defaults to debug, which is all symbols.
+      - run: meson setup builddir --buildtype=release
+
+      - name: Read project version
+        run: echo "VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")" >> "$GITHUB_ENV"
+
+      - name: Compile
+        run: |
+          ninja -C builddir rodlegacy
+          strip builddir/rodlegacy
+
+      # One staged tree, reused by every format below.
+      - name: Stage install tree
+        run: |
+          install -Dm755 builddir/rodlegacy           stage/usr/bin/rodlegacy
+          install -Dm644 packaging/rodlegacy.desktop  stage/usr/share/applications/rodlegacy.desktop
+          install -Dm644 data/res/icon.png            stage/usr/share/icons/hicolor/512x512/apps/rodlegacy.png
+          install -Dm644 data/res/icon.svg            stage/usr/share/icons/hicolor/scalable/apps/rodlegacy.svg
+          install -Dm644 README.md                    stage/usr/share/doc/rodlegacy/README.md
+
+      # SDL2 is linked statically, so the runtime deps are whatever the ELF
+      # still pulls in (X11, wayland, pulse, ...). Let dpkg work them out
+      # rather than hand-maintaining the list; it needs a debian/control to
+      # exist, hence the stub.
+      - name: Resolve runtime dependencies
+        run: |
+          mkdir -p shlibdeps/debian
+          printf 'Source: rodlegacy\n\nPackage: rodlegacy\nArchitecture: any\n' > shlibdeps/debian/control
+          DEPS=$(cd shlibdeps && dpkg-shlibdeps -O --ignore-missing-info ../stage/usr/bin/rodlegacy | sed 's/^shlibs:Depends=//')
+          echo "DEPS=$DEPS" >> "$GITHUB_ENV"
+
+      - name: Build .deb
+        run: |
+          mkdir -p stage/DEBIAN
+          cat > stage/DEBIAN/control <<EOF
+          Package: rodlegacy
+          Version: ${VERSION}
+          Section: games
+          Priority: optional
+          Architecture: amd64
+          Depends: ${DEPS}
+          Maintainer: RodLegacy <noreply@grovdata.se>
+          Homepage: https://www.streetrodonline.com/
+          Description: Reimplementation of the classic Street Rod game
+           RodLegacy plays the original Street Rod on modern systems. It ships no
+           game assets; point it at the Amiga disk images to play.
+          EOF
+          fakeroot dpkg-deb --build stage "rodlegacy_${VERSION}_amd64.deb"
+
+      # alien converts the deb rather than maintaining a second spec file.
+      - name: Build .rpm
+        run: |
+          alien --to-rpm --keep-version "rodlegacy_${VERSION}_amd64.deb"
+          mv rodlegacy-${VERSION}*.rpm "rodlegacy-${VERSION}.x86_64.rpm"
+
+      # linuxdeploy copies the shared libs the ELF needs into the AppDir.
+      # ponytail: built on trixie, so its glibc is the floor - anything older
+      # than Debian 13 / Ubuntu 25.04 needs an older build image.
+      - name: Build .AppImage
+        run: |
+          base=https://github.com/linuxdeploy
+          wget -qP /usr/local/bin "$base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          wget -qP /usr/local/bin "$base/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
+          chmod +x /usr/local/bin/linuxdeploy*.AppImage
+          cp data/res/icon.png rodlegacy.png
+          OUTPUT="RodLegacy-${VERSION}-x86_64.AppImage" \
+          linuxdeploy-x86_64.AppImage --appdir AppDir \
+            -e builddir/rodlegacy \
+            -d packaging/rodlegacy.desktop \
+            -i rodlegacy.png \
+            --output appimage
+
+      - name: Build .tar.gz
+        run: |
+          mkdir -p "rodlegacy-${VERSION}"
+          cp builddir/rodlegacy README.md packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${VERSION}/"
+          tar czf "rodlegacy-${VERSION}-linux-x86_64.tar.gz" "rodlegacy-${VERSION}"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: rodlegacy-linux-packages-${{ env.VERSION }}
+          path: |
+            *.deb
+            *.rpm
+            *.AppImage
+            *.tar.gz
+          retention-days: 30
+
+      # Forgejo has no GitHub releases API, so attach the assets with its own.
+      - name: Attach packages to release
+        if: github.event_name == 'release'
+        run: |
+          for f in *.deb *.rpm *.AppImage *.tar.gz; do
+            curl -sSf -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -F "attachment=@${f}" \
+              "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=${f}"
+          done
