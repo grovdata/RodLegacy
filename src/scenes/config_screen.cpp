@@ -4,7 +4,6 @@
 #include "core/log.h"
 #include "core/embedded_loader.h"
 #include "gfx/SFont.h"
-#include "tinyfiledialogs.h"
 #include "ui/button.h"
 
 extern "C" {
@@ -13,6 +12,8 @@ extern "C" {
 
 #include <SDL.h>
 #include <SDL_image.h>
+#include <algorithm>
+#include <cctype>
 
 #define GAME_WIDTH  320
 #define GAME_HEIGHT 200
@@ -57,18 +58,78 @@ std::vector<ZipPackStatus> ScanDirectory(const fs::path& dir) {
 }
 
 // ---------------------------------------------------------------------------
+// Folder browser helpers
+// ---------------------------------------------------------------------------
+
+// Resolve "..", symlinks and any trailing separator, so parent_path() steps up
+// once per press instead of chewing on a trailing slash.
+static fs::path Normalize(const fs::path& p) {
+    std::error_code ec;
+    fs::path c = fs::weakly_canonical(p, ec);
+    return ec ? p : c;
+}
+
+// Subdirectories of dir, name-sorted, dotfiles and unreadable entries skipped.
+static std::vector<fs::path> ListDirs(const fs::path& dir) {
+    std::vector<fs::path> out;
+    std::error_code ec;
+    for (fs::directory_iterator it(dir, fs::directory_options::skip_permission_denied, ec);
+         !ec && it != fs::directory_iterator(); it.increment(ec)) {
+        if (!it->is_directory(ec) || ec) {
+            ec.clear();
+            continue;
+        }
+        const std::string name = it->path().filename().string();
+        if (name.empty() || name[0] == '.') continue;
+        out.push_back(it->path());
+    }
+    auto lower = [](std::string v) {
+        std::transform(v.begin(), v.end(), v.begin(),
+                       [](unsigned char c) { return (char)std::tolower(c); });
+        return v;
+    };
+    std::sort(out.begin(), out.end(), [&](const fs::path& a, const fs::path& b) {
+        return lower(a.filename().string()) < lower(b.filename().string());
+    });
+    return out;
+}
+
+// Cheap "worth looking in here" test for the rows: the mandatory zips exist by
+// name. No zip is opened - that would mean unpacking every sibling folder just
+// to draw a list. The folder the user actually picks is checked properly by
+// ScanDirectory.
+static bool HasMandatoryZips(const fs::path& dir) {
+    bool any = false;
+    for (const ZipPack& pack : GetZipPacks()) {
+        if (!pack.mandatory) continue;
+        any = true;
+        std::error_code ec;
+        if (!fs::exists(dir / pack.filename, ec) || ec) return false;
+    }
+    return any;
+}
+
+// Trim from the left, marking the cut, so a long path still shows its tail.
+static std::string FitLeft(SFont_Font* f, std::string s, int maxW) {
+    if (SFont_TextWidth(f, s.c_str()) <= maxW) return s;
+    while (!s.empty() && SFont_TextWidth(f, ("..." + s).c_str()) > maxW) s.erase(0, 1);
+    return "..." + s;
+}
+
+static std::string FitRight(SFont_Font* f, std::string s, int maxW) {
+    while (!s.empty() && SFont_TextWidth(f, s.c_str()) > maxW) s.pop_back();
+    return s;
+}
+
+// ---------------------------------------------------------------------------
 // ConfigScreen rendering helpers
 // ---------------------------------------------------------------------------
 
-static void DrawScreen(SDL_Surface* surf,
-                       SFont_Font* headingFont, SFont_Font* bodyFont,
-                       const std::vector<ZipPackStatus>& status,
-                       const fs::path& currentDir,
-                       bool canStart) {
-    // Dialog green background (matches in-game dialogs, e.g. engine_bay.cpp)
+// Dialog green background (matches in-game dialogs, e.g. engine_bay.cpp) with
+// a white border.
+static void DrawFrame(SDL_Surface* surf) {
     SDL_FillRect(surf, nullptr, SDL_MapRGB(surf->format, 0, 208, 0));
 
-    // White border around the screen
     const int borderThickness = 1;
     Uint32 white = SDL_MapRGB(surf->format, 255, 255, 255);
     SDL_Rect top    = {1, 1, surf->w - 2, borderThickness};
@@ -79,6 +140,53 @@ static void DrawScreen(SDL_Surface* surf,
     SDL_FillRect(surf, &bottom, white);
     SDL_FillRect(surf, &left, white);
     SDL_FillRect(surf, &right, white);
+}
+
+// The folder browser: a scrolling list of subdirectories, with the accept row
+// pinned at the top so one button does everything.
+static void DrawBrowser(SDL_Surface* surf,
+                        SFont_Font* headingFont, SFont_Font* bodyFont,
+                        const fs::path& dir,
+                        const std::vector<std::string>& labels,
+                        const std::string& status, bool anyMarked,
+                        int sel, int scroll, int top, int rowH, int rows) {
+    DrawFrame(surf);
+
+    SFont_WriteCenter(surf, headingFont, 4, "Select folder");
+    SFont_Write(surf, bodyFont, 5, top - rowH * 2 - 2,
+                FitLeft(bodyFont, dir.string(), GAME_WIDTH - 10).c_str());
+    // The list only shows folders, so say outright what this one holds.
+    SFont_Write(surf, bodyFont, 5, top - rowH - 2,
+                FitRight(bodyFont, status, GAME_WIDTH - 10).c_str());
+
+    const Uint32 yellow = SDL_MapRGB(surf->format, 255, 255, 0);
+    const int last = std::min((int)labels.size(), scroll + rows);
+    for (int i = scroll; i < last; ++i) {
+        const int y = top + (i - scroll) * rowH;
+        if (i == sel) {
+            SDL_Rect box = {3, y - 1, GAME_WIDTH - 6, rowH};
+            SDL_Rect in  = {4, y,     GAME_WIDTH - 8, rowH - 2};
+            SDL_FillRect(surf, &box, yellow);
+            SDL_FillRect(surf, &in, SDL_MapRGB(surf->format, 0, 208, 0));
+        }
+        SFont_Write(surf, bodyFont, 7, y,
+                    FitRight(bodyFont, labels[i], GAME_WIDTH - 14).c_str());
+    }
+
+    if (anyMarked) {
+        SFont_WriteCenter(surf, bodyFont, GAME_HEIGHT - rowH * 2 - 4,
+                          "* folder holds the game files");
+    }
+    SFont_WriteCenter(surf, bodyFont, GAME_HEIGHT - rowH - 3,
+                      "Enter/A open   Esc/B cancel");
+}
+
+static void DrawScreen(SDL_Surface* surf,
+                       SFont_Font* headingFont, SFont_Font* bodyFont,
+                       const std::vector<ZipPackStatus>& status,
+                       const fs::path& currentDir,
+                       bool canStart) {
+    DrawFrame(surf);
 
     int headH = SFont_TextHeight(headingFont) + 2;
     int lineH  = SFont_TextHeight(bodyFont)   + 2;
@@ -204,10 +312,67 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     fs::path result;
     bool running = true;
 
-    auto browseForFolder = [&]() {
-        const char* picked = tinyfd_selectFolderDialog("Select game data folder", nullptr);
-        if (!picked) return;
-        fs::path dir = fs::path(picked);
+    // Folder browser state. Row 0 accepts the folder being shown; the rest are
+    // the parent and the subdirectories, so one button (A / Enter) is the whole
+    // interaction and it drives from a pad, the keyboard or the mouse alike.
+    bool browsing = false;
+    fs::path browseDir;
+    std::vector<std::string> rowLabels;
+    std::vector<fs::path> rowTargets;   // empty = "use browseDir"
+    std::string browseStatus;
+    bool browseAnyMarked = false;
+    int browseSel = 0, browseScroll = 0, browseStickDir = 0;
+
+    const int rowH = SFont_TextHeight(bodyFont) + 2;
+    const int browseTop = 44;
+    const int browseRows = (GAME_HEIGHT - 8 - rowH * 3 - browseTop) / rowH;
+
+    auto refreshBrowse = [&]() {
+        rowLabels.clear();
+        rowTargets.clear();
+        browseAnyMarked = false;
+
+        // Full check (opens the zips) for the folder being shown - it is the
+        // one the user can accept, so it gets the same verdict as the main
+        // screen rather than a guess.
+        browseStatus.clear();
+        for (const ZipPackStatus& ps : ScanDirectory(browseDir)) {
+            if (!browseStatus.empty()) browseStatus += "  ";
+            browseStatus += (ps.zipValid ? "[+] " : "[-] ") + ps.pack.filename;
+        }
+
+        rowLabels.push_back("[ Use this folder ]");
+        rowTargets.push_back({});
+
+        const fs::path parent = browseDir.parent_path();
+        if (!parent.empty() && parent != browseDir) {
+            rowLabels.push_back("..");
+            rowTargets.push_back(parent);
+        } else {
+#ifdef _WIN32
+            // At a drive root there is no parent, so offer the other drives.
+            for (char d = 'A'; d <= 'Z'; ++d) {
+                const fs::path drive = std::string(1, d) + ":\\";
+                std::error_code ec;
+                if (fs::is_directory(drive, ec)) {
+                    rowLabels.push_back(std::string(1, d) + ":");
+                    rowTargets.push_back(drive);
+                }
+            }
+#endif
+        }
+
+        for (const fs::path& d : ListDirs(browseDir)) {
+            const bool marked = HasMandatoryZips(d);
+            browseAnyMarked = browseAnyMarked || marked;
+            rowLabels.push_back(d.filename().string() + (marked ? "  *" : ""));
+            rowTargets.push_back(d);
+        }
+        browseSel = 0;
+        browseScroll = 0;
+    };
+
+    auto useFolder = [&](const fs::path& dir) {
         packStatus = ScanDirectory(dir);
         currentDir = dir;
         canStart = false;
@@ -217,6 +382,31 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                 break;
             }
         }
+        browsing = false;
+    };
+
+    auto browseForFolder = [&]() {
+        browseDir = Normalize(currentDir.empty() ? fs::current_path() : currentDir);
+        refreshBrowse();
+        browsing = true;
+    };
+
+    auto browseMove = [&](int delta) {
+        const int n = (int)rowLabels.size();
+        if (n == 0) return;
+        browseSel = std::max(0, std::min(browseSel + delta, n - 1));
+        if (browseSel < browseScroll) browseScroll = browseSel;
+        if (browseSel >= browseScroll + browseRows) browseScroll = browseSel - browseRows + 1;
+    };
+
+    auto browseActivate = [&]() {
+        if (browseSel < 0 || browseSel >= (int)rowTargets.size()) return;
+        if (rowTargets[browseSel].empty()) {
+            useFolder(browseDir);
+            return;
+        }
+        browseDir = Normalize(rowTargets[browseSel]);
+        refreshBrowse();
     };
 
     auto confirmStart = [&]() {
@@ -293,6 +483,53 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                 running = false;
                 break;
             }
+            gamepad.HandleEvent(e);
+
+            if (browsing) {
+                if (e.type == SDL_KEYDOWN) {
+                    switch (e.key.keysym.scancode) {
+                        case SDL_SCANCODE_UP:       browseMove(-1); break;
+                        case SDL_SCANCODE_DOWN:     browseMove(1); break;
+                        case SDL_SCANCODE_PAGEUP:   browseMove(-browseRows); break;
+                        case SDL_SCANCODE_PAGEDOWN: browseMove(browseRows); break;
+                        case SDL_SCANCODE_HOME:     browseMove(-(int)rowLabels.size()); break;
+                        case SDL_SCANCODE_END:      browseMove((int)rowLabels.size()); break;
+                        case SDL_SCANCODE_RETURN:
+                        case SDL_SCANCODE_KP_ENTER: browseActivate(); break;
+                        case SDL_SCANCODE_ESCAPE:   browsing = false; break;
+                        default: break;
+                    }
+                } else if (e.type == SDL_CONTROLLERBUTTONDOWN) {
+                    switch (e.cbutton.button) {
+                        case SDL_CONTROLLER_BUTTON_DPAD_UP:    browseMove(-1); break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:  browseMove(1); break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:  browseMove(-browseRows); break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: browseMove(browseRows); break;
+                        case SDL_CONTROLLER_BUTTON_A:
+                        case SDL_CONTROLLER_BUTTON_START:      browseActivate(); break;
+                        case SDL_CONTROLLER_BUTTON_B:          browsing = false; break;
+                        default: break;
+                    }
+                } else if (e.type == SDL_CONTROLLERAXISMOTION &&
+                           e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+                    const int dir = e.caxis.value < -Gamepad::DEADZONE ? -1 :
+                                    e.caxis.value >  Gamepad::DEADZONE ?  1 : 0;
+                    if (dir != 0 && dir != browseStickDir) browseMove(dir);
+                    browseStickDir = dir;
+                } else if (e.type == SDL_MOUSEWHEEL) {
+                    browseMove(-e.wheel.y);
+                } else if (e.type == SDL_MOUSEBUTTONDOWN &&
+                           e.button.button == SDL_BUTTON_LEFT) {
+                    const int row = browseScroll + (e.button.y - browseTop) / rowH;
+                    if (e.button.y >= browseTop && row >= 0 &&
+                        row < (int)rowLabels.size() && row < browseScroll + browseRows) {
+                        browseSel = row;
+                        browseActivate();
+                    }
+                }
+                continue;
+            }
+
             if (e.type == SDL_KEYDOWN) {
                 switch (e.key.keysym.scancode) {
                     case SDL_SCANCODE_Q:
@@ -317,7 +554,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                         break;
                 }
             }
-            gamepad.HandleEvent(e);
             if (e.type == SDL_CONTROLLERBUTTONDOWN) {
                 switch (e.cbutton.button) {
                     case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
@@ -363,12 +599,23 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         }
 
         // Render
-        DrawScreen(surf, headingFont, bodyFont, packStatus, currentDir, canStart);
+        if (browsing) {
+            DrawBrowser(surf, headingFont, bodyFont, browseDir, rowLabels,
+                        browseStatus, browseAnyMarked,
+                        browseSel, browseScroll, browseTop, rowH, browseRows);
+        } else {
+            DrawScreen(surf, headingFont, bodyFont, packStatus, currentDir, canStart);
+        }
         SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
         if (tex) {
             SDL_RenderClear(renderer);
             SDL_RenderCopy(renderer, tex, nullptr, nullptr);
             SDL_DestroyTexture(tex);
+        }
+        if (browsing) {
+            SDL_RenderPresent(renderer);
+            SDL_Delay(16);
+            continue;
         }
         browseButton.Draw();
         startButton->Draw();

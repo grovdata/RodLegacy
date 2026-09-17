@@ -27,22 +27,6 @@ lodepng_proj = subproject('lodepng',
 )
 lodepng_dep = lodepng_proj.get_variable('lodepng_dep')
 
-# Build tinyfiledialogs locally
-tinyfiledialogs_sources = [
-    'include/tinyfiledialogs.c'
-]
-
-tinyfiledialogs_lib = static_library('tinyfiledialogs',
-    tinyfiledialogs_sources,
-    c_args: ['-DTINYFD_NOLIB'],
-    pic: true
-)
-
-tinyfiledialogs_dep = declare_dependency(
-    link_with: tinyfiledialogs_lib,
-    include_directories: include_directories('include')
-)
-
 # Platform-specific SDL2 dependencies
 if host_machine.system() == 'linux'
     # Linux: Use subprojects for static linking
