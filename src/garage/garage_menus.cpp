@@ -175,8 +175,9 @@ void Garage::InitGameMenuDialog() {
 void Garage::InitOptionsDialog() {
     const int buttonWidth = 66;
     const int buttonHeight = 16;
-    const int labelWidth = 80;
     const int checkboxSize = 14;
+    const int arrowWidth = 20;
+    const int arrowHeight = 14;
 
     AudioManager* am = state.GetAssets().GetAudioManager();
 
@@ -192,10 +193,23 @@ void Garage::InitOptionsDialog() {
 
     // Rows are laid out top-down as a cursor so any row can be skipped
     // (no audio manager, no music source) without leaving a blank gap.
-    int y = 70;
-    const int rowHeight = 20;
+    // Same rhythm as the game menu dialog: 18px rows of 16px buttons under a
+    // title and a separator. Starting at y 40 keeps all seven rows clear of the
+    // HUD at 190 - at 50 with 20px rows the last row fell off the screen.
+    SDL_Rect optionsDialogRect = {60, 40, 200, 0};  // height fixed up below
 
-    SDL_Rect optionsDialogRect = {60, 50, 200, 0};  // height fixed up below
+    const int pad = 5;
+    const int innerLeft  = optionsDialogRect.x + pad;
+    const int innerRight = optionsDialogRect.x + optionsDialogRect.w - pad;
+    const int labelWidth = innerRight - innerLeft;
+    const int rowHeight = 18;
+    const int fontHeight = SFont_TextHeight(state.GetAssets().GetMainFont());
+
+    int y = optionsDialogRect.y + 17;
+
+    // Every control is right-aligned to innerRight and vertically centred in its
+    // row; labels sit at innerLeft on the same centre line.
+    auto rowY = [&](int h) { return y + (rowHeight - h) / 2; };
 
     std::vector<Zone> dialogZones;
     std::vector<DialogTextConfig> texts = {
@@ -208,29 +222,29 @@ void Garage::InitOptionsDialog() {
     if (hasAudio) {
         int sfxVol = am->GetSfxVolume();
         snprintf(sfxLabel, sizeof(sfxLabel), "Sound: %d%%", sfxVol * 10);
-        SDL_Rect soundVolumeUpRect   = {190, y, 20, buttonHeight - 3};
-        SDL_Rect soundVolumeDownRect = {165, y, 20, buttonHeight - 3};
-        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, sfxLabel, {0xFF,0xFF,0xFF,0xFF}, false});
-        dialogZones.push_back(Zone("sound_up",   "[", soundVolumeUpRect));
-        dialogZones.push_back(Zone("sound_down", "]", soundVolumeDownRect));
+        SDL_Rect soundVolumeUpRect   = {innerRight - arrowWidth, rowY(arrowHeight), arrowWidth, arrowHeight};
+        SDL_Rect soundVolumeDownRect = {soundVolumeUpRect.x - arrowWidth - 4, soundVolumeUpRect.y, arrowWidth, arrowHeight};
+        texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, sfxLabel, {0xFF,0xFF,0xFF,0xFF}, false});
+        dialogZones.push_back(Zone("sound_up",   "Sound louder", soundVolumeUpRect));
+        dialogZones.push_back(Zone("sound_down", "Sound quieter", soundVolumeDownRect));
         buttons.push_back({soundVolumeUpRect,   "[", nullptr, false, 0});
         buttons.push_back({soundVolumeDownRect, "]", nullptr, false, 1});
         y += rowHeight;
 
         int musicVol = am->GetMusicVolume();
         snprintf(musicLabel, sizeof(musicLabel), "Music: %d%%", musicVol * 10);
-        SDL_Rect musicVolumeUpRect   = {190, y, 20, buttonHeight - 3};
-        SDL_Rect musicVolumeDownRect = {165, y, 20, buttonHeight - 3};
-        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, musicLabel, {0xFF,0xFF,0xFF,0xFF}, false});
-        dialogZones.push_back(Zone("music_up",   "]", musicVolumeUpRect));
-        dialogZones.push_back(Zone("music_down", "[", musicVolumeDownRect));
+        SDL_Rect musicVolumeUpRect   = {innerRight - arrowWidth, rowY(arrowHeight), arrowWidth, arrowHeight};
+        SDL_Rect musicVolumeDownRect = {musicVolumeUpRect.x - arrowWidth - 4, musicVolumeUpRect.y, arrowWidth, arrowHeight};
+        texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, musicLabel, {0xFF,0xFF,0xFF,0xFF}, false});
+        dialogZones.push_back(Zone("music_up",   "Music louder", musicVolumeUpRect));
+        dialogZones.push_back(Zone("music_down", "Music quieter", musicVolumeDownRect));
         buttons.push_back({musicVolumeUpRect,   "[", nullptr, false, 2});
         buttons.push_back({musicVolumeDownRect, "]", nullptr, false, 3});
         y += rowHeight;
     }
 
-    SDL_Rect fullscreenCheckboxRect = {optionsDialogRect.x + labelWidth + 10, y - 1, checkboxSize, checkboxSize};
-    texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false});
+    SDL_Rect fullscreenCheckboxRect = {innerRight - checkboxSize, rowY(checkboxSize), checkboxSize, checkboxSize};
+    texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false});
     dialogZones.push_back(Zone("fullscreen", "Toggle Fullscreen", fullscreenCheckboxRect));
     y += rowHeight;
 
@@ -248,37 +262,35 @@ void Garage::InitOptionsDialog() {
     if (showMusicSource) {
         const char* srcName = (am->GetMusicSource() == AudioManager::MusicSource::DOS) ? "DOS" : "Amiga";
         snprintf(srcLabel, sizeof(srcLabel), "%s", srcName);
-        SDL_Rect musicSourceRect = {optionsDialogRect.x + labelWidth + 10, y, 50, buttonHeight};
-        texts.push_back({SDL_Rect{optionsDialogRect.x + 5, y, labelWidth, 10}, "Soundtrack:", {0xFF,0xFF,0xFF,0xFF}, false});
+        SDL_Rect musicSourceRect = {innerRight - buttonWidth, rowY(buttonHeight), buttonWidth, buttonHeight};
+        texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, "Soundtrack:", {0xFF,0xFF,0xFF,0xFF}, false});
         dialogZones.push_back(Zone("music_source", "Switch music version", musicSourceRect));
         buttons.push_back({musicSourceRect, srcLabel, nullptr, false, 6});
         y += rowHeight;
     }
 
     // Full dialog width: "Key bindings" does not fit the narrow button column.
-    SDL_Rect keyBindingsRect = {optionsDialogRect.x + 5, y,
-                                optionsDialogRect.w - 10, buttonHeight};
+    SDL_Rect keyBindingsRect = {innerLeft, rowY(buttonHeight), labelWidth, buttonHeight};
     dialogZones.push_back(Zone("key_bindings", "See every control", keyBindingsRect));
     buttons.push_back({keyBindingsRect, "Key bindings", nullptr, false, 7});
     y += rowHeight;
 
-    SDL_Rect settingsRect = {optionsDialogRect.x + 5, y,
-                             optionsDialogRect.w - 10, buttonHeight};
+    SDL_Rect settingsRect = {innerLeft, rowY(buttonHeight), labelWidth, buttonHeight};
     dialogZones.push_back(Zone("settings", "Settings with no other UI", settingsRect));
     buttons.push_back({settingsRect, "Settings", nullptr, false, 8});
     y += rowHeight;
 
-    SDL_Rect backRect = {165, y, buttonWidth, buttonHeight};
+    SDL_Rect backRect = {innerRight - buttonWidth, rowY(buttonHeight), buttonWidth, buttonHeight};
     dialogZones.push_back(Zone("back", "Forget it", backRect));
     ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 5};
     backButton.cancelChoice = true;  // only real action here - Enter and Escape both go back
     buttons.push_back(backButton);
     y += rowHeight;
 
-    optionsDialogRect.h = y - optionsDialogRect.y;
+    optionsDialogRect.h = y - optionsDialogRect.y + pad - 1;
 
     std::vector<SDL_Rect> lines = {
-        {63, 62, 194, 1},
+        {optionsDialogRect.x + 3, optionsDialogRect.y + 12, optionsDialogRect.w - 6, 1},
     };
 
     DialogConfig optionsDialogConfig;
