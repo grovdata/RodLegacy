@@ -177,8 +177,9 @@ void TakeScreenshot() {
 
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    int argc = 1;
-    char* argv[] = { "rodlegacy.exe", nullptr };
+    // CRT globals, filled in under both the console and windows subsystems.
+    int argc = __argc;
+    char** argv = __argv;
 #else
 
 int main(int argc, char* argv[]) {
