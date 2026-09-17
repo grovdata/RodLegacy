@@ -8,6 +8,7 @@
 #include "gfx/bitmap.h"
 #include "ui/zone.h"
 #include "debug/debug_ui.h"
+#include <climits>
 #include <vector>
 
 extern SDL_Renderer *renderer;
@@ -71,6 +72,14 @@ private:
     // Synthesise input at the cursor and hand it to the scene.
     void SendClick(Scene* scene, Uint8 button);
     void SendKey(Scene* scene, Uint32 type, SDL_Keycode key);
+    // Hover (and so the HUD) is driven by motion events, which the pad never
+    // produces on its own - see UpdateGamepad.
+    void SendMotion(Scene* scene);
+
+    // Last position a motion event was sent for, so one is sent only when the
+    // cursor actually moves. INT_MIN so the first update always reports.
+    int lastMotionX = INT_MIN;
+    int lastMotionY = INT_MIN;
     
 public:
     Mouse() {

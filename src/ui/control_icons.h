@@ -17,10 +17,13 @@ struct Cell {
     int index;
 };
 
-// One row of icons drawn left to right on a fresh transparent surface, tinted
-// to `colour`. Returns null if nothing could be drawn. The caller owns the
-// result and frees it with SDL_FreeSurface.
-SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color colour);
+// One row of icons drawn left to right on a fresh transparent surface.
+//
+// Each icon is drawn in exactly two colours: `body` replaces the white cap or
+// button face, `line` replaces the black lettering and outline. The corners
+// outside the rounded shape stay transparent. Returns null if nothing could be
+// drawn; the caller owns the result and frees it with SDL_FreeSurface.
+SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color body, SDL_Color line);
 
 // Frees the decoded sheets. Safe to call without ever having drawn anything.
 void Shutdown();

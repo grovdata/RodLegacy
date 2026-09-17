@@ -32,16 +32,47 @@ SDL_Surface* SheetFor(Sheet s) {
     return (s == Sheet::Keyboard) ? keyboardSheet : controllerSheet;
 }
 
-// The sheets are 1-bit art: every lit pixel is the same colour. Recolouring is
-// therefore just a colour mod, applied per blit rather than by editing pixels.
 SDL_Rect CellRect(int index) {
     return {(index % kColumns) * kCellSize, (index / kColumns) * kCellSize,
             kCellSize, kCellSize};
 }
 
+// Each icon is exactly three values: white (the cap or button body), black (its
+// lettering and outline) and transparent (outside the rounded corners). A
+// colour mod only multiplies, so it can never lift the black off zero -
+// remapping the two inks independently has to happen per pixel.
+//
+// Repaints a blitted strip: every opaque pixel becomes either `body` or `line`
+// depending on which of the sheet's two inks it came from.
+void Recolour(SDL_Surface* s, SDL_Color body, SDL_Color line) {
+    if (SDL_MUSTLOCK(s) && SDL_LockSurface(s) != 0) {
+        LOG_WARN("control_icons: could not lock a strip: %s", SDL_GetError());
+        return;
+    }
+
+    const Uint32 bodyPx = SDL_MapRGBA(s->format, body.r, body.g, body.b, 0xFF);
+    const Uint32 linePx = SDL_MapRGBA(s->format, line.r, line.g, line.b, 0xFF);
+    const int stride = s->pitch / 4;
+    Uint32* pixels = static_cast<Uint32*>(s->pixels);
+
+    for (int y = 0; y < s->h; ++y) {
+        for (int x = 0; x < s->w; ++x) {
+            Uint32& p = pixels[y * stride + x];
+            Uint8 r, g, b, a;
+            SDL_GetRGBA(p, s->format, &r, &g, &b, &a);
+            if (a == 0) continue;
+            // The sheets hold only white and black ink, so one threshold
+            // separates the body from the line art.
+            p = (r > 127) ? bodyPx : linePx;
+        }
+    }
+
+    if (SDL_MUSTLOCK(s)) SDL_UnlockSurface(s);
+}
+
 }  // namespace
 
-SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color colour) {
+SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color body, SDL_Color line) {
     if (cells.empty()) return nullptr;
 
     const int w = static_cast<int>(cells.size()) * kCellSize;
@@ -69,8 +100,9 @@ SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color colour) {
             continue;
         }
 
-        SDL_SetSurfaceColorMod(sheet, colour.r, colour.g, colour.b);
-        SDL_SetSurfaceBlendMode(sheet, SDL_BLENDMODE_BLEND);
+        // Straight copy, no blending: the two inks have to arrive unmodified so
+        // Recolour can tell them apart.
+        SDL_SetSurfaceBlendMode(sheet, SDL_BLENDMODE_NONE);
         SDL_Rect dst = {static_cast<int>(i) * kCellSize, 0, kCellSize, kCellSize};
         SDL_BlitSurface(sheet, &src, out, &dst);
         drewAnything = true;
@@ -80,6 +112,8 @@ SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color colour) {
         SDL_FreeSurface(out);
         return nullptr;
     }
+
+    Recolour(out, body, line);
     return out;
 }
 

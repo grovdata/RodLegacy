@@ -83,7 +83,11 @@ std::vector<Row> BuildRows() {
 // and freed together.
 std::vector<SDL_Surface*> g_strips;
 
-const SDL_Color kIconColour = {0xFF, 0xFF, 0xFF, 0xFF};
+// The icons are a white cap or button body with the lettering and outline in
+// black. Painting the body the dialog's own grey sinks it into the background,
+// and the line art goes white so it reads on top of that grey.
+const SDL_Color kIconBody = {0x90, 0x90, 0x90, 0xFF};
+const SDL_Color kIconLine = {0x54, 0x54, 0x54, 0xFF};
 
 }  // namespace
 
@@ -116,7 +120,8 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
         }
         strip.insert(strip.end(), r.pad.begin(), r.pad.end());
 
-        SDL_Surface* s = strip.empty() ? nullptr : icons::Strip(strip, kIconColour);
+        SDL_Surface* s = strip.empty() ? nullptr
+                                       : icons::Strip(strip, kIconBody, kIconLine);
         g_strips.push_back(s);
         swatches.push_back(s);
     }
@@ -127,7 +132,7 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
 
     SDL_Rect bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT};
 
-    // Standard green list-dialog geometry: the list on the left, a column of
+    // Standard grey list-dialog geometry: the list on the left, a column of
     // scroll buttons down the right edge, the dismiss button underneath.
     const int kScrollW = 15;
     const int kListTop = 20;
@@ -147,13 +152,13 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
 
     DialogConfig cfg;
     cfg.bounds = bounds;
-    cfg.backgroundColor = {0, 208, 0, 255};
-    cfg.borderColor = {0, 111, 239, 255};
+    cfg.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+    cfg.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
     cfg.contentAreas = std::vector<SDL_Rect>{bounds};
     cfg.font = font;
     cfg.texts = {
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10},
-                         "Controls", {0xFF, 0xFF, 0xFF, 0xFF}, true},
+                         "Controls", {0x00, 0x00, 0x00, 0xFF}, true},
     };
     cfg.lines = {{bounds.x + 4, listBox.y - 2, bounds.w - 8, 1}};
 

@@ -85,6 +85,17 @@ void Mouse::SendClick(Scene* scene, Uint8 button) {
     scene->PushEvent(&e);
 }
 
+void Mouse::SendMotion(Scene* scene) {
+    if (!scene) return;
+    SDL_Event e;
+    SDL_zero(e);
+    e.motion.type = SDL_MOUSEMOTION;
+    e.motion.timestamp = SDL_GetTicks();
+    e.motion.x = rect.x + rect.w / 2;
+    e.motion.y = rect.y + rect.h / 2;
+    scene->PushEvent(&e);
+}
+
 void Mouse::SendKey(Scene* scene, Uint32 type, SDL_Keycode key) {
     if (!scene) return;
     SDL_Event e;
@@ -164,6 +175,15 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
 
     rect.x = std::max(0, std::min(rect.x, GAME_WIDTH - rect.w));
     rect.y = std::max(0, std::min(rect.y, GAME_HEIGHT - rect.h));
+
+    // Zones highlight, and the HUD names what is under the cursor, off motion
+    // events. Moving the cursor by hand produces none, so the pad has to say it
+    // moved or the scene never notices - once per actual move, not per frame.
+    if (rect.x != lastMotionX || rect.y != lastMotionY) {
+        lastMotionX = rect.x;
+        lastMotionY = rect.y;
+        SendMotion(scene);
+    }
 
     gamepadDebug.buttonA = gamepad.Down(SDL_CONTROLLER_BUTTON_A);
     gamepadDebug.buttonB = gamepad.Down(SDL_CONTROLLER_BUTTON_B);
