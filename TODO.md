@@ -16,6 +16,9 @@ main.cpp bugs, #38 input handling, #39 code hygiene, #40 nice-to-haves.
   asset (disk2), not the Street_Rod exe -- confirmed at file offset 0x74C. Now read at runtime via
   LoadBetThresholdTable(assets.GetSrData()), called from State::Init.
 - [x] data/drivers/guybrush.png, Homer.png, mario.png, zak.png — third-party copyrighted characters (LucasArts/Disney, Fox/Disney, Nintendo), unrelated to Street Rod. Remove or replace before any public release.
+- [x] #36 data/snd/*.aiff, s1.wav, sr1_ost.ogg and data/font/sr_font*.png - ripped from the original game, nothing in the build or the source referenced them. Removed from the tree; kept outside the repo in ~/kod/privat/sr/archive.zip.
+- [x] data/mods/mario.png, mario2.png, luigi.png, eddie.png - more third-party characters, same class as the driver portraits above. Went out with the unused-asset sweep below.
+- [x] Unused asset sweep: data/res concept art (6 DALL-E icon drafts, bluebil.svg, ikon2.png), data/mods, data/stickers, stray data/font experiments, and the dormant hand-drawn font pipeline (71 numbered glyph PNGs, font.png, src/build-font.py - the script read the glyphs to build font.png, which nothing embedded). Archived to ~/kod/privat/sr/archive.zip. data/ went 11M -> 1.4M.
 
 ## License background (for #11)
 
