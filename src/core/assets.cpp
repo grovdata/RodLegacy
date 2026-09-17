@@ -701,6 +701,33 @@ bool AssetManager::HasDosDecals() const {
     return !dosDecalBitmaps.empty();
 }
 
+std::vector<AssetManager::GameSearchPath> AssetManager::GameSearchPaths() {
+    std::vector<GameSearchPath> out = {
+        { fs::current_path(),               "current directory" },
+        { fs::current_path() / "..",        "parent directory" },
+        { fs::current_path() / ".." / "..", "grandparent directory" },
+    };
+
+    // Launched from Finder or a file manager the working directory is not the
+    // one the executable sits in, so look around the executable as well.
+    // Three levels up from the binary is the folder holding RodLegacy.app
+    // (Contents/MacOS -> Contents -> RodLegacy.app -> here); elsewhere that
+    // last level is just a harmless miss.
+    if (char* base = SDL_GetBasePath()) {
+        const fs::path dir(base);
+        SDL_free(base);
+        out.push_back({ dir.lexically_normal(),                        "executable directory" });
+        out.push_back({ (dir / "..").lexically_normal(),               "executable parent" });
+        out.push_back({ (dir / ".." / "..").lexically_normal(),        "executable grandparent" });
+        out.push_back({ (dir / ".." / ".." / "..").lexically_normal(), "beside the app bundle" });
+    }
+
+    if (const char* envPath = getenv("STREETROD_DATA")) {
+        out.push_back({ fs::path(envPath), "STREETROD_DATA env var" });
+    }
+    return out;
+}
+
 fs::path AssetManager::FindGameDirectory() {
     // First try loading from saved config
     fs::path savedPath = LoadSavedGamePath();
@@ -709,18 +736,7 @@ fs::path AssetManager::FindGameDirectory() {
         return savedPath;
     }
 
-    struct SearchEntry { fs::path path; const char* source; };
-    std::vector<SearchEntry> searchPaths = {
-        { fs::current_path(),                   "current directory" },
-        { fs::current_path() / "..",            "parent directory" },
-        { fs::current_path() / ".." / "..",     "grandparent directory" },
-    };
-
-    // Add environment variable path if set
-    const char* envPath = getenv("STREETROD_DATA");
-    if (envPath != nullptr) {
-        searchPaths.push_back({ fs::path(envPath), "STREETROD_DATA env var" });
-    }
+    const std::vector<GameSearchPath> searchPaths = GameSearchPaths();
 
     for (const auto& entry : searchPaths) {
         if (ValidateGamePath(entry.path)) {

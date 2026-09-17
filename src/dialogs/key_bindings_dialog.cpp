@@ -45,9 +45,10 @@ constexpr int kPadStick = 17;   // left analog stick
 constexpr int kPadDpad = 18;    // the D-pad as one glyph
 
 struct Row {
-    const char* label;       // nullptr marks a section heading
+    const char* label;
     std::vector<Cell> keys;
     std::vector<Cell> pad;
+    bool heading = false;    // drawn centred between two rules, no icons
 };
 
 Cell K(int i) { return {Sheet::Keyboard, i}; }
@@ -55,7 +56,7 @@ Cell P(int i) { return {Sheet::Controller, i}; }
 
 std::vector<Row> BuildRows() {
     return {
-        {"MENUS", {}, {}},
+        {"MENUS", {}, {}, true},
         {"Move the cursor",     {}, {P(kPadStick)}},
         {"Next button",         {}, {P(kPadDpad)}},
         {"Click",               {}, {P(kPadA)}},
@@ -65,7 +66,7 @@ std::vector<Row> BuildRows() {
         {"Go to the garage",    {K(kKeyG)}, {P(kPadLB)}},
         {"Go to the diner",     {K(kKeyD)}, {P(kPadRB)}},
 
-        {"DRIVING", {}, {}},
+        {"DRIVING", {}, {}, true},
         {"Throttle", {K(kKeyArrowUp)},   {P(kPadRT), P(kPadA)}},
         {"Brake",    {K(kKeyArrowDown)}, {P(kPadLT), P(kPadB)}},
         {"Steer",    {K(kKeyArrowLeft), K(kKeyArrowRight)},
@@ -73,7 +74,7 @@ std::vector<Row> BuildRows() {
         {"Shift",    {K(kKeySpace)},     {P(kPadX), P(kPadRB)}},
         {"Skip the drive", {K(kKeySpace)}, {P(kPadA)}},
 
-        {"WINDOW", {}, {}},
+        {"WINDOW", {}, {}, true},
         {"Fullscreen",   {K(kKeyCtrl), K(kKeyF)}, {}},
         {"Gamepad mode", {K(kKeyCtrl), K(kKeyG)}, {}},
     };
@@ -88,6 +89,34 @@ std::vector<SDL_Surface*> g_strips;
 // and the line art goes white so it reads on top of that grey.
 const SDL_Color kIconBody = {0x90, 0x90, 0x90, 0xFF};
 const SDL_Color kIconLine = {0xd1, 0xd1, 0xd1, 0xFF};
+
+// A section heading: the title centred on the row with a rule running out to
+// each edge. Built as a row-wide surface and handed to ListDialog as the row's
+// swatch, because ListDialog writes every label hard against the left edge and
+// this is the only list that wants anything else.
+SDL_Surface* HeadingStrip(SFont_Font* font, const char* text, int w, int h) {
+    SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA32);
+    if (!s) return nullptr;
+    // Opaque dialog grey, like the icons: the row underneath is that grey, and
+    // an opaque patch avoids blending onto a transparent destination.
+    SDL_FillRect(s, nullptr, SDL_MapRGBA(s->format, kIconBody.r, kIconBody.g,
+                                         kIconBody.b, 0xFF));
+
+    const int textW = SFont_TextWidth(font, text);
+    const int textX = (w - textW) / 2;
+    SFont_Write(s, font, textX, (h - SFont_TextHeight(font)) / 2, text);
+
+    // Same white as the divider under the title.
+    const Uint32 rule = SDL_MapRGBA(s->format, 0xFF, 0xFF, 0xFF, 0xFF);
+    const int ruleY = h / 2;
+    const int gap = 4;
+    const int rightX = textX + textW + gap;
+    SDL_Rect left  = {0, ruleY, textX - gap, 1};
+    SDL_Rect right = {rightX, ruleY, w - rightX, 1};
+    if (left.w > 0) SDL_FillRect(s, &left, rule);
+    if (right.w > 0) SDL_FillRect(s, &right, rule);
+    return s;
+}
 
 }  // namespace
 
@@ -104,28 +133,6 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
 
     const std::vector<Row> rows = BuildRows();
 
-    std::vector<std::string> labels;
-    std::vector<SDL_Surface*> swatches;
-    labels.reserve(rows.size());
-    swatches.reserve(rows.size());
-
-    for (const Row& r : rows) {
-        labels.push_back(r.label);
-
-        // One strip per row: the keyboard icons, then the pad icons after a
-        // blank cell so the two sides read as separate columns.
-        std::vector<Cell> strip = r.keys;
-        if (!r.keys.empty() && !r.pad.empty()) {
-            strip.push_back(K(-1));  // skipped by Strip(), leaves a gap
-        }
-        strip.insert(strip.end(), r.pad.begin(), r.pad.end());
-
-        SDL_Surface* s = strip.empty() ? nullptr
-                                       : icons::Strip(strip, kIconBody, kIconLine);
-        g_strips.push_back(s);
-        swatches.push_back(s);
-    }
-
     // The icons are 16px tall, so the rows have to be taller than the font
     // would otherwise make them or the artwork overlaps the row below.
     const int kRowHeight = 18;
@@ -141,6 +148,37 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
 
     SDL_Rect listBox = {6, kListTop, GAME_WIDTH - 12 - kScrollW - 4,
                         kVisibleRows * kRowHeight};
+
+    std::vector<std::string> labels;
+    std::vector<SDL_Surface*> swatches;
+    labels.reserve(rows.size());
+    swatches.reserve(rows.size());
+
+    for (const Row& r : rows) {
+        if (r.heading) {
+            // The whole heading is the artwork; there is no label to write.
+            labels.push_back("");
+            SDL_Surface* s = HeadingStrip(font, r.label, listBox.w - 2, kRowHeight);
+            g_strips.push_back(s);
+            swatches.push_back(s);
+            continue;
+        }
+
+        labels.push_back(r.label);
+
+        // One strip per row: the keyboard icons, then the pad icons after a
+        // blank cell so the two sides read as separate columns.
+        std::vector<Cell> strip = r.keys;
+        if (!r.keys.empty() && !r.pad.empty()) {
+            strip.push_back(K(-1));  // skipped by Strip(), leaves a gap
+        }
+        strip.insert(strip.end(), r.pad.begin(), r.pad.end());
+
+        SDL_Surface* s = strip.empty() ? nullptr
+                                       : icons::Strip(strip, kIconBody, kIconLine);
+        g_strips.push_back(s);
+        swatches.push_back(s);
+    }
 
     const int scrollX = listBox.x + listBox.w + 4;
     SDL_Rect scrollTopRect    = {scrollX, listBox.y, kScrollW, kScrollW};
@@ -160,7 +198,7 @@ std::unique_ptr<ListDialog> MakeKeyBindingsDialog(SFont_Font* font,
         DialogTextConfig{SDL_Rect{bounds.x + 3, bounds.y + 4, bounds.w - 6, 10},
                          "Controls", {0x00, 0x00, 0x00, 0xFF}, true},
     };
-    cfg.lines = {{bounds.x + 4, listBox.y - 2, bounds.w - 8, 1}};
+    cfg.lines = {{bounds.x + 4, 12, bounds.w - 8, 1}};
 
     ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 0};
     backButton.cancelChoice = true;

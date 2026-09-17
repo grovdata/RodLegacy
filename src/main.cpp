@@ -273,8 +273,6 @@ int main(int argc, char* argv[]) {
         debugUi.Init(win, renderer, GAME_WIDTH, GAME_HEIGHT);
     }
 
-    // tinyfiledialogs doesn't require initialization
-
 #ifndef _WIN32
     // Load icon from embedded data (only on non-Windows platforms)
     sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));

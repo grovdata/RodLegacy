@@ -60,6 +60,15 @@ public:
     static fs::path FindGameDirectory();
     static void SaveGamePath(const fs::path& path);
 
+    // Everywhere the game data is looked for, in order, with a label for the
+    // log. The config screen pre-scans the same list, so the folder it offers
+    // is the one the game would have picked on its own.
+    struct GameSearchPath {
+        fs::path path;
+        const char* source;
+    };
+    static std::vector<GameSearchPath> GameSearchPaths();
+
     // Per-user preferences directory: config.txt, hall_dat and the saves
     // subdirectory live here, so writing works even when the game directory is
     // read-only or the assets came out of a zip.

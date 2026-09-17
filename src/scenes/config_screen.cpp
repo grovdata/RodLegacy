@@ -1,5 +1,6 @@
 #include "scenes/config_screen.h"
 #include "core/zip_utils.h"
+#include "core/assets.h"
 #include "core/gamepad.h"
 #include "core/log.h"
 #include "core/embedded_loader.h"
@@ -226,6 +227,8 @@ static void DrawScreen(SDL_Surface* surf,
     if (!canStart) {
         SFont_WriteCenter(surf, bodyFont, y, "* required to play");
     }
+    y += lineH;
+    SFont_WriteCenter(surf, bodyFont, y, "or drop a folder or zip on this window");
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +237,7 @@ static void DrawScreen(SDL_Surface* surf,
 
 fs::path RunConfigScreen(SDL_Renderer* renderer) {
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     // Heading font: bee.png
     SDL_Surface* beeSurf = LoadSurfaceFromMemory(embedded_bee_png, embedded_bee_png_len);
@@ -277,14 +281,12 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         return {};
     }
 
-    // Pre-scan paths that FindGameDirectory() would have tried
-    std::vector<fs::path> searchDirs = {
-        fs::current_path(),
-        fs::current_path() / "..",
-        fs::current_path() / ".." / "..",
-    };
-    const char* envPath = getenv("STREETROD_DATA");
-    if (envPath) searchDirs.push_back(fs::path(envPath));
+    // The exact list FindGameDirectory() would have tried, so what this screen
+    // offers matches what the game would have found by itself.
+    std::vector<fs::path> searchDirs;
+    for (const auto& entry : AssetManager::GameSearchPaths()) {
+        searchDirs.push_back(entry.path);
+    }
 
     fs::path currentDir;
     std::vector<ZipPackStatus> packStatus;
@@ -484,6 +486,19 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                 break;
             }
             gamepad.HandleEvent(e);
+
+            // Dropping the zip itself is the obvious thing to try, so take a
+            // file to mean its folder. Works in the browser too.
+            if (e.type == SDL_DROPFILE) {
+                fs::path dropped = e.drop.file ? fs::path(e.drop.file) : fs::path();
+                SDL_free(e.drop.file);
+                std::error_code ec;
+                if (!dropped.empty() && (!fs::is_directory(dropped, ec) || ec)) {
+                    dropped = dropped.parent_path();
+                }
+                if (!dropped.empty()) useFolder(Normalize(dropped));
+                continue;
+            }
 
             if (browsing) {
                 if (e.type == SDL_KEYDOWN) {
