@@ -63,6 +63,17 @@ AmigaLibAsset CarbBodyAsset(CarburetorType type) {
     return ENGINE_CARB_2BARREL;
 }
 
+namespace {
+// The button sidebar is drawn immediately right of the engine window frame, at
+// the art's own size. Scaling it even slightly wrecks the 1-bit lettering.
+SDL_Rect SidebarRect(Bitmap* sidebar) {
+    const int x = 225;
+    if (!sidebar) return {x, 0, 71, 190};
+    const SDL_Rect natural = sidebar->GetNaturalSize();
+    return {x, 0, natural.w, natural.h};
+}
+}  // namespace
+
 EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback,
                       ZoneClickCallback zoneClickCallback)
     : state(&state), currentState(ENGINE_BAY_OVERVIEW) {
@@ -321,9 +332,12 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
+    // The sidebar carries the button faces and their lettering. Drawn at its
+    // own size: the art is 72x189, and the 71x190 it used to be squeezed into
+    // resampled every glyph by a fraction of a pixel, which is what made the
+    // labels look jagged against the rest of the screen.
     overviewConfig.bitmaps["button_sidebar"] = {
-        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS}),
-        {225, 0, 71, 190}, 1
+        buttonBitmap, SidebarRect(buttonBitmap), 1
     };
     // Engine/manifold/carb bitmaps track the current car's actual parts.
     // Swapping updates these via GetBitmap() rather than rebuilding the
@@ -379,9 +393,9 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
+    // Same art, Done-only variant, so the same 1:1 rule applies.
     tuningConfig.bitmaps["button_sidebar_done"] = {
-        state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE}),
-        {225, 0, 71, 190}, 1
+        buttonBitmapDone, SidebarRect(buttonBitmapDone), 1
     };
     tuningConfig.bitmaps["tuning_gadget"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNE_GADGET}),
