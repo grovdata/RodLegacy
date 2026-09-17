@@ -51,6 +51,8 @@ executable('rodlegacy',
     cpp_args: cpp_args,
     c_args: c_args,
     link_args: game_link_args,
+    # No console window on Windows. Ignored on other platforms.
+    win_subsystem: 'windows',
 )
 
 executable('pc_speaker_test',
