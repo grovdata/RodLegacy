@@ -45,6 +45,33 @@ Additions and deviations, all off by default, all in the same `config.txt`:
 | `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
 | `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
 
+# Controls
+
+Keyboard and gamepad both work at any time; whichever you touch last takes over
+the cursor. Any pad SDL recognises as a game controller is picked up
+automatically, hotplug included.
+
+Menus and scenes:
+
+| Gamepad | Action |
+| --- | --- |
+| Left stick | Move the cursor |
+| D-pad | Jump to the next button or hotspot in that direction |
+| A | Click |
+| B | Close the dialog, otherwise right click |
+| X | Snap the cursor to the nearest button or hotspot |
+| LB / RB | Straight to the garage / the diner |
+| Start | Enter |
+
+Driving:
+
+| Gamepad | Keyboard | Action |
+| --- | --- | --- |
+| Right trigger or A | Up | Throttle |
+| Left trigger or B | Down | Brake |
+| Left stick or D-pad | Left / Right | Steer |
+| X or RB | Space | Shift |
+
 # Building
 
 The game is built using [Meson build system](https://mesonbuild.com/).

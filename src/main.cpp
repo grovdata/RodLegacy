@@ -7,6 +7,7 @@
 #endif
 
 #include "core/mouse.h"
+#include "core/gamepad.h"
 #include "parsers/libp.h"
 #include "core/state.h"
 #include "core/save_file.h"
@@ -48,7 +49,7 @@ namespace fs = std::filesystem;
 
 SDL_Window *win = nullptr;
 SDL_Renderer *renderer = nullptr;
-SDL_Joystick *controller = NULL;
+Gamepad gamepad;
 Uint64 startTime = SDL_GetTicks64();
 
 Mouse mouse;
@@ -103,11 +104,14 @@ bool IsSteamDeck() {
         }
     }
 
-    // Method 7: Check for Steam Deck specific joystick/gamepad
-    if (SDL_NumJoysticks() > 0) {
-        const char* joystickName = SDL_JoystickNameForIndex(0);
-        if (joystickName && strstr(joystickName, "Steam Deck") != nullptr) {
-            return true;
+    // Method 7: Check for Steam Deck specific joystick/gamepad. Only meaningful
+    // once the joystick subsystem is up, so this runs after SDL_Init.
+    if (SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
+        for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+            const char* joystickName = SDL_JoystickNameForIndex(i);
+            if (joystickName && strstr(joystickName, "Steam Deck") != nullptr) {
+                return true;
+            }
         }
     }
 
@@ -218,23 +222,14 @@ int main(int argc, char* argv[]) {
     }
     srrace::SetPuristScoring(purist);
 
-    // Check if running on Steam Deck
-    bool isSteamDeck = IsSteamDeck();
-    if (isSteamDeck) {
-        LOG_INFO("Steam Deck detected - optimizing for handheld experience");
-        // Enable gamepad mode by default on Steam Deck
-        mouse.SetGamepadActive(true);
-    } else {
-        LOG_INFO("Running on desktop/laptop system");
-    }
-
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
     LOG_INFO("Tune scoring: %s", purist ? "purist (matches the original, 122 mph max)"
                                         : "default (130 mph max)");
     LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO |
+                 SDL_INIT_GAMECONTROLLER) != 0) {
         LOG_INFO("error initializing SDL: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
@@ -314,13 +309,16 @@ int main(int argc, char* argv[]) {
     //Mix_Music *music = Mix_LoadMUS(TUNE);
     //Mix_PlayMusic(music, 1);
 
-    // Gamepad / joystick
-    if (SDL_NumJoysticks() > 0) {
-        // Load joystick
-        controller = SDL_JoystickOpen(0);
-        if (controller == NULL) {
-            LOG_WARN("Unable to open game controller! SDL Error: %s", SDL_GetError());
-        }
+    // Gamepad
+    gamepad.OpenFirst();
+
+    // Check if running on Steam Deck (needs the joystick subsystem, so not earlier)
+    if (IsSteamDeck()) {
+        LOG_INFO("Steam Deck detected - optimizing for handheld experience");
+        // Enable gamepad mode by default on Steam Deck
+        mouse.SetGamepadActive(true);
+    } else {
+        LOG_INFO("Running on desktop/laptop system");
     }
 
 
@@ -335,11 +333,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (needsConfig) {
-        gamePath = RunConfigScreen(renderer, controller);
+        gamePath = RunConfigScreen(renderer);
         if (gamePath.empty()) {
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
-            SDL_JoystickClose(controller);
             Mix_CloseAudio();
             SDL_Quit();
             return 0;
@@ -360,8 +357,7 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(win);
-        SDL_JoystickClose(controller);
-        Mix_CloseAudio();
+            Mix_CloseAudio();
         SDL_Quit();
         return 1;
     }
@@ -412,6 +408,7 @@ int main(int argc, char* argv[]) {
             if (debugUi.Active()) {
                 RemapMouseToGameViewport(event, debugUi.GameViewportRect());
             }
+            gamepad.HandleEvent(event);
             bool consumed = state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
                 case SDL_QUIT:
@@ -459,10 +456,9 @@ int main(int argc, char* argv[]) {
                     break;
                 case SDL_MOUSEMOTION:
                 case SDL_MOUSEBUTTONUP:
-                case SDL_JOYAXISMOTION:
-                case SDL_JOYBUTTONDOWN:
-                case SDL_JOYBUTTONUP:
-                case SDL_JOYHATMOTION:
+                case SDL_CONTROLLERAXISMOTION:
+                case SDL_CONTROLLERBUTTONDOWN:
+                case SDL_CONTROLLERBUTTONUP:
                     mouse.Update(&event, state.GetCurrentScene());
                     break;
                 default:
@@ -470,16 +466,15 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Update gamepad input (separate from event polling)
-        mouse.UpdateGamepad(state.GetCurrentScene());
+        // Calculate delta-time properly
+        Uint64 now = SDL_GetTicks64();
+        Uint64 delta = now - prevTicks;
+        prevTicks = now;
 
-        // Add gamepad debug info to scene
-        // if (state.GetCurrentScene()) {
-        //     LOG_INFO("Adding gamepad debug info to scene");
-        //     state.GetCurrentScene()->AddGamepadDebugInfo(mouse);
-        // } else {
-        //     LOG_INFO("No current scene available for gamepad debug info");
-        // }
+        // Snapshot the pad once per frame, before anything reads it: the cursor
+        // here and the driving scene below both see the same button edges.
+        gamepad.Update();
+        mouse.UpdateGamepad(state.GetCurrentScene(), delta);
 
         // Clear to black. Scenes (e.g. racing gauges/dot) leave the draw color
         // set to their last color, so reset it here or the clear tints everything.
@@ -487,11 +482,6 @@ int main(int argc, char* argv[]) {
         SDL_RenderClear(renderer);
 
         Scene *scene = state.GetCurrentScene();
-
-        // Calculate delta-time properly
-        Uint64 now = SDL_GetTicks64();
-        Uint64 delta = now - prevTicks;
-        prevTicks = now;
 
         // Update state with delta-time in milliseconds
         state.SetElapsedTime(delta);
@@ -539,7 +529,6 @@ int main(int argc, char* argv[]) {
     debugUi.Shutdown();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
-    SDL_JoystickClose(controller);
     Mix_CloseAudio();
     SDL_Quit();
 

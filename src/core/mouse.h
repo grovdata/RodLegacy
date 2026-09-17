@@ -4,6 +4,7 @@
 
 #include "core/log.h"
 #include "core/global.h"
+#include "core/gamepad.h"
 #include "gfx/bitmap.h"
 #include "ui/zone.h"
 #include "debug/debug_ui.h"
@@ -23,12 +24,12 @@ private:
     // When false, the custom cursor is not drawn (e.g. in the driving scene).
     bool visible = true;
 
-    // Gamepad support
-    SDL_Joystick* joystickHandle = nullptr;
+    // Gamepad support. The pad itself lives in the global Gamepad; this only
+    // holds what the cursor needs to remember between frames.
     bool gamepadActive = false;
     Uint32 lastDPadTime = 0;
-    const Uint32 DPAD_REPEAT_DELAY = 200; // ms between D-pad repeats
-    
+    static const Uint32 DPAD_REPEAT_DELAY = 200; // ms between D-pad repeats
+
     // D-pad navigation
     enum class DPadDirection {
         NONE,
@@ -38,13 +39,17 @@ private:
         RIGHT
     };
     DPadDirection lastDPadDirection = DPadDirection::NONE;
-    
+
+    // Sub-pixel carry for analog cursor movement: at 320x200 a slow stick would
+    // otherwise truncate to zero pixels every frame and never move.
+    float subPixelX = 0.0f;
+    float subPixelY = 0.0f;
+
     // Gamepad debug info
     struct GamepadDebugInfo {
         bool connected = false;
-        Sint16 leftX = 0;
-        Sint16 leftY = 0;
-        Uint8 hatState = 0;
+        float leftX = 0.0f;
+        float leftY = 0.0f;
         bool buttonA = false;
         bool buttonB = false;
         bool buttonX = false;
@@ -54,15 +59,18 @@ private:
         std::string lastAction = "";
     };
     GamepadDebugInfo gamepadDebug;
-    
-    // Find closest zone to current mouse position, returns nullptr if none
-    const Zone* FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY);
-    
-    // Calculate distance between two points
-    float CalculateDistance(int x1, int y1, int x2, int y2);
-    
+
+    // What the D-pad can jump between: the active dialog's buttons when one is
+    // up, otherwise the scene's enabled zones.
+    std::vector<SDL_Rect> NavTargets(Scene* scene) const;
+    void MoveCursorTo(const SDL_Rect& target);
+
     // Jump to closest zone in specified direction
     void JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction);
+
+    // Synthesise input at the cursor and hand it to the scene.
+    void SendClick(Scene* scene, Uint8 button);
+    void SendKey(Scene* scene, Uint32 type, SDL_Keycode key);
     
 public:
     Mouse() {
@@ -71,9 +79,6 @@ public:
 
     ~Mouse() {
         unloadAllPointers();
-        if (joystickHandle) {
-            SDL_JoystickClose(joystickHandle);
-        }
     }
 
     void loadPointers(const std::map<SrLibAmigaSpriteAsset, std::unique_ptr<Bitmap>>& mousePointers) {
@@ -105,7 +110,7 @@ public:
     }
 
     void Update(SDL_Event *event, Scene* scene = nullptr);
-    void UpdateGamepad(Scene* scene);
+    void UpdateGamepad(Scene* scene, Uint64 deltaMs);
 
     void Draw() {
         if (!visible) return;

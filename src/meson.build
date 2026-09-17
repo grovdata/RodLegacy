@@ -136,6 +136,7 @@ cpp_sources = files(
     'main.cpp',
     'debug/main_debug.cpp',
     'core/mouse.cpp',
+    'core/gamepad.cpp',
     'parsers/adf.c',
     'core/state.cpp',
     'core/types.cpp',

@@ -99,4 +99,7 @@ public:
     DialogBitmap* GetBitmap(const std::string& id);
     /** Live zone, so a caller can move a hotspot that tracks a bitmap. */
     Zone* GetZone(const std::string& id);
+
+    /** Rects a gamepad cursor can jump between: visible buttons, then zones. */
+    std::vector<SDL_Rect> NavTargets() const;
 }; 

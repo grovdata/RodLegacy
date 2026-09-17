@@ -33,4 +33,5 @@ public:
     bool MatchesHotkey(SDL_Keycode key) const { return config.hotkey != SDLK_UNKNOWN && config.hotkey == key; }
     void SimulateClick();
     bool IsPointInside(int x, int y) const;
+    SDL_Rect GetBounds() const { return config.bounds; }
 };

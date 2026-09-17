@@ -1,8 +1,23 @@
 #include "core/log.h"
 #include "core/mouse.h"
+#include "core/zone_nav.h"
+#include "dialogs/dialog.h"
 #include "scenes/scene.h"
-#include <cmath>
 #include <algorithm>
+
+namespace {
+// A stick this far over counts as "the player reached for the pad".
+constexpr Sint16 ACTIVATE_AXIS = 12000;
+// Cursor speed in pixels per second at full stick deflection.
+constexpr float CURSOR_SPEED = 160.0f;
+
+std::vector<nav::Rect> ToNavRects(const std::vector<SDL_Rect>& in) {
+    std::vector<nav::Rect> out;
+    out.reserve(in.size());
+    for (const SDL_Rect& r : in) out.push_back({r.x, r.y, r.w, r.h});
+    return out;
+}
+}  // namespace
 
 void Mouse::Update(SDL_Event *event, Scene*) {
     if (event->type == SDL_MOUSEMOTION) {
@@ -12,208 +27,202 @@ void Mouse::Update(SDL_Event *event, Scene*) {
         gamepadActive = false;
     }
 
-    // Handle gamepad events
-    if (event->type == SDL_JOYAXISMOTION) {
-        // Activate gamepad mode when joystick is used
+    // Reaching for the pad switches back to gamepad mode. Axis events fire on
+    // resting-stick jitter too, so they only count past a generous deadzone.
+    if (event->type == SDL_CONTROLLERAXISMOTION &&
+        abs(event->caxis.value) > ACTIVATE_AXIS) {
         gamepadActive = true;
     }
-    
-    if (event->type == SDL_JOYBUTTONDOWN) {
+
+    if (event->type == SDL_CONTROLLERBUTTONDOWN) {
         gamepadActive = true;
     }
 }
 
-void Mouse::UpdateGamepad(Scene* scene) {
+std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
+    std::vector<SDL_Rect> out;
+    if (!scene) return out;
 
-    Uint32 currentTime = SDL_GetTicks();
-
-    // Open the joystick once and keep it open across frames; only reopen if
-    // it was disconnected (avoids opening/closing the device every frame).
-    if (joystickHandle && !SDL_JoystickGetAttached(joystickHandle)) {
-        SDL_JoystickClose(joystickHandle);
-        joystickHandle = nullptr;
-    }
-    if (!joystickHandle) {
-        joystickHandle = SDL_JoystickOpen(0);
-        if (joystickHandle) {
-            LOG_INFO("Joystick opened successfully: %s", SDL_JoystickName(joystickHandle));
+    // A dialog is modal: its buttons are the only thing worth jumping to, and
+    // the scene zones underneath are not clickable while it is up. A dialog
+    // with nothing to aim at falls through to the scene rather than trapping
+    // the cursor.
+    if (Dialog* dialog = scene->GetActiveDialog()) {
+        if (dialog->IsVisible()) {
+            std::vector<SDL_Rect> targets = dialog->NavTargets();
+            if (!targets.empty()) return targets;
         }
     }
 
-    SDL_Joystick* joystick = joystickHandle;
-    if (!joystick) {
-        gamepadDebug.connected = false;
+    for (const Zone& z : scene->GetZones()) {
+        if (z.IsEnabled()) out.push_back(z.GetRect());
+    }
+    return out;
+}
+
+void Mouse::MoveCursorTo(const SDL_Rect& target) {
+    rect.x = std::max(0, std::min(target.x + target.w / 2 - rect.w / 2, GAME_WIDTH - rect.w));
+    rect.y = std::max(0, std::min(target.y + target.h / 2 - rect.h / 2, GAME_HEIGHT - rect.h));
+    subPixelX = 0.0f;
+    subPixelY = 0.0f;
+}
+
+void Mouse::SendClick(Scene* scene, Uint8 button) {
+    if (!scene) return;
+    SDL_Event e;
+    SDL_zero(e);
+    e.button.type = SDL_MOUSEBUTTONDOWN;
+    e.button.timestamp = SDL_GetTicks();
+    e.button.button = button;
+    e.button.clicks = 1;
+    e.button.state = SDL_PRESSED;
+    e.button.x = rect.x + rect.w / 2;
+    e.button.y = rect.y + rect.h / 2;
+    scene->PushEvent(&e);
+
+    e.button.type = SDL_MOUSEBUTTONUP;
+    e.button.state = SDL_RELEASED;
+    scene->PushEvent(&e);
+}
+
+void Mouse::SendKey(Scene* scene, Uint32 type, SDL_Keycode key) {
+    if (!scene) return;
+    SDL_Event e;
+    SDL_zero(e);
+    e.key.type = type;
+    e.key.timestamp = SDL_GetTicks();
+    e.key.state = (type == SDL_KEYDOWN) ? SDL_PRESSED : SDL_RELEASED;
+    e.key.keysym.sym = key;
+    e.key.keysym.scancode = SDL_GetScancodeFromKey(key);
+    scene->PushEvent(&e);
+}
+
+void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
+    gamepadDebug.connected = gamepad.Connected();
+    if (!gamepad.Connected() || !gamepadActive) {
         return;
     }
 
-    gamepadDebug.connected = true;
-    
+    // The driving scene reads the pad itself (throttle, brake, steering); a
+    // cursor there would only fight it.
+    if (scene && !scene->WantsPointer()) {
+        return;
+    }
+
+    const Uint32 currentTime = SDL_GetTicks();
+
     DPadDirection currentDirection = DPadDirection::NONE;
-    
-    // Check D-pad hat
-    Uint8 hatState = SDL_JoystickGetHat(joystick, 0);
-    gamepadDebug.hatState = hatState;
-    
-    if (hatState & SDL_HAT_UP) {
+    if (gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
         currentDirection = DPadDirection::UP;
         gamepadDebug.lastAction = "D-pad UP";
-    } else if (hatState & SDL_HAT_DOWN) {
+    } else if (gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
         currentDirection = DPadDirection::DOWN;
         gamepadDebug.lastAction = "D-pad DOWN";
-    } else if (hatState & SDL_HAT_LEFT) {
+    } else if (gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
         currentDirection = DPadDirection::LEFT;
         gamepadDebug.lastAction = "D-pad LEFT";
-    } else if (hatState & SDL_HAT_RIGHT) {
+    } else if (gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
         currentDirection = DPadDirection::RIGHT;
         gamepadDebug.lastAction = "D-pad RIGHT";
     }
-    
-    // Handle D-pad input for zone jumping
+
+    // Move on the press, then on a repeat delay while it is held.
     if (currentDirection != DPadDirection::NONE) {
-        if (currentDirection != lastDPadDirection || 
+        if (currentDirection != lastDPadDirection ||
             (currentTime - lastDPadTime) > DPAD_REPEAT_DELAY) {
-            
             JumpToClosestZoneInDirection(scene, currentDirection);
             lastDPadTime = currentTime;
         }
     }
-    
     lastDPadDirection = currentDirection;
-    
-    // Handle left analog stick for mouse movement
-    Sint16 leftX = SDL_JoystickGetAxis(joystick, 0); // Left stick X
-    Sint16 leftY = SDL_JoystickGetAxis(joystick, 1); // Left stick Y
-    
+
+    // Left stick moves the cursor freely, in pixels per second so the speed
+    // does not follow the frame rate.
+    const float leftX = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
+    const float leftY = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTY);
     gamepadDebug.leftX = leftX;
     gamepadDebug.leftY = leftY;
-    
-    const Sint16 DEADZONE = 8192; // 25% of max value for more responsive movement
-    const float MOVEMENT_SPEED = 2.0f; // Pixels per frame
-    
-    // Apply deadzone
-    if (abs(leftX) > DEADZONE) {
-        float normalizedX = (float)(leftX - (leftX > 0 ? DEADZONE : -DEADZONE)) / (32767 - DEADZONE);
-        rect.x += (int)(normalizedX * MOVEMENT_SPEED);
-        gamepadDebug.lastAction = "Analog X: " + std::to_string((int)(normalizedX * 100));
+
+    if (leftX != 0.0f || leftY != 0.0f) {
+        const float seconds = (float)deltaMs / 1000.0f;
+        subPixelX += leftX * CURSOR_SPEED * seconds;
+        subPixelY += leftY * CURSOR_SPEED * seconds;
+
+        const int stepX = (int)subPixelX;
+        const int stepY = (int)subPixelY;
+        subPixelX -= (float)stepX;
+        subPixelY -= (float)stepY;
+        rect.x += stepX;
+        rect.y += stepY;
+
+        gamepadDebug.lastAction = "Analog " + std::to_string((int)(leftX * 100)) +
+                                  "," + std::to_string((int)(leftY * 100));
+    } else {
+        subPixelX = 0.0f;
+        subPixelY = 0.0f;
     }
-    
-    if (abs(leftY) > DEADZONE) {
-        float normalizedY = (float)(leftY - (leftY > 0 ? DEADZONE : -DEADZONE)) / (32767 - DEADZONE);
-        rect.y += (int)(normalizedY * MOVEMENT_SPEED);
-        gamepadDebug.lastAction = "Analog Y: " + std::to_string((int)(normalizedY * 100));
+
+    rect.x = std::max(0, std::min(rect.x, GAME_WIDTH - rect.w));
+    rect.y = std::max(0, std::min(rect.y, GAME_HEIGHT - rect.h));
+
+    gamepadDebug.buttonA = gamepad.Down(SDL_CONTROLLER_BUTTON_A);
+    gamepadDebug.buttonB = gamepad.Down(SDL_CONTROLLER_BUTTON_B);
+    gamepadDebug.buttonX = gamepad.Down(SDL_CONTROLLER_BUTTON_X);
+    gamepadDebug.buttonY = gamepad.Down(SDL_CONTROLLER_BUTTON_Y);
+    gamepadDebug.buttonLB = gamepad.Down(SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+    gamepadDebug.buttonRB = gamepad.Down(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+
+    // Everything below acts on the press, not on the hold, or one tap would
+    // fire once per frame for as long as the button is down.
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_A)) {
+        gamepadDebug.lastAction = "A (click)";
+        SendClick(scene, SDL_BUTTON_LEFT);
     }
-    
-    // Clamp mouse position to screen bounds
-    rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
-    rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
-    
-    // Handle gamepad button presses
-    gamepadDebug.buttonA = SDL_JoystickGetButton(joystick, 0);
-    gamepadDebug.buttonB = SDL_JoystickGetButton(joystick, 1);
-    gamepadDebug.buttonX = SDL_JoystickGetButton(joystick, 2);
-    gamepadDebug.buttonY = SDL_JoystickGetButton(joystick, 3);
-    gamepadDebug.buttonLB = SDL_JoystickGetButton(joystick, 4);
-    gamepadDebug.buttonRB = SDL_JoystickGetButton(joystick, 5);
-    
-    if (gamepadDebug.buttonA) { // A button (usually)
-        gamepadDebug.lastAction = "Button A (Click)";
-        // Simulate left click at current position
-        SDL_Event clickEvent;
-        clickEvent.type = SDL_MOUSEBUTTONDOWN;
-        clickEvent.button.button = SDL_BUTTON_LEFT;
-        clickEvent.button.x = rect.x + rect.w / 2;
-        clickEvent.button.y = rect.y + rect.h / 2;
-        clickEvent.button.clicks = 1;
-        clickEvent.button.state = SDL_PRESSED;
-        scene->PushEvent(&clickEvent);
-        
-        // Also send button up event
-        clickEvent.type = SDL_MOUSEBUTTONUP;
-        clickEvent.button.state = SDL_RELEASED;
-        scene->PushEvent(&clickEvent);
-    }
-    
-    if (gamepadDebug.buttonB) { // B button (usually)
-        gamepadDebug.lastAction = "Button B (Right Click)";
-        
-        // Check if there's an active dialog - if so, try to dismiss it
-        Dialog* activeDialog = scene->GetActiveDialog();
-        if (activeDialog) {
-            // Try to dismiss dialog with B button
-            SDL_Event keyEvent;
-            keyEvent.type = SDL_KEYDOWN;
-            keyEvent.key.keysym.sym = SDLK_ESCAPE;
-            scene->PushEvent(&keyEvent);
+
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_B)) {
+        if (scene && scene->GetActiveDialog()) {
+            gamepadDebug.lastAction = "B (dismiss dialog)";
+            SendKey(scene, SDL_KEYDOWN, SDLK_ESCAPE);
+            SendKey(scene, SDL_KEYUP, SDLK_ESCAPE);
         } else {
-            // Forward a right click to the scene (e.g. the garage radio)
-            SDL_Event clickEvent;
-            clickEvent.type = SDL_MOUSEBUTTONDOWN;
-            clickEvent.button.button = SDL_BUTTON_RIGHT;
-            clickEvent.button.x = rect.x + rect.w / 2;
-            clickEvent.button.y = rect.y + rect.h / 2;
-            clickEvent.button.clicks = 1;
-            clickEvent.button.state = SDL_PRESSED;
-            scene->PushEvent(&clickEvent);
-            
-            // Also send button up event
-            clickEvent.type = SDL_MOUSEBUTTONUP;
-            clickEvent.button.state = SDL_RELEASED;
-            scene->PushEvent(&clickEvent);
+            // Right click: the garage radio and friends listen for it.
+            gamepadDebug.lastAction = "B (right click)";
+            SendClick(scene, SDL_BUTTON_RIGHT);
         }
     }
-    
-    // Additional button mappings
-    if (gamepadDebug.buttonX) { // X button (usually)
-        gamepadDebug.lastAction = "Button X (Jump to Zone)";
-        // Jump to closest zone
+
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_X)) {
+        gamepadDebug.lastAction = "X (snap to zone)";
         JumpToClosestZone(scene);
     }
-    
-    if (gamepadDebug.buttonY) { // Y button (usually)
-        gamepadDebug.lastAction = "Button Y (Toggle Gamepad)";
-        // Toggle gamepad mode
-        gamepadActive = !gamepadActive;
+
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) {
+        gamepadDebug.lastAction = "LB (garage)";
+        SendKey(scene, SDL_KEYUP, SDLK_g);
     }
-    
-    // Shoulder buttons for scene navigation
-    if (gamepadDebug.buttonLB) { // Left shoulder (usually)
-        gamepadDebug.lastAction = "Button LB (Garage)";
-        // Go to garage
-        SDL_Event keyEvent;
-        keyEvent.type = SDL_KEYUP;
-        keyEvent.key.keysym.sym = SDLK_g;
-        scene->PushEvent(&keyEvent);
+
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+        gamepadDebug.lastAction = "RB (diner)";
+        SendKey(scene, SDL_KEYUP, SDLK_d);
     }
-    
-    if (gamepadDebug.buttonRB) { // Right shoulder (usually)
-        gamepadDebug.lastAction = "Button RB (Diner)";
-        // Go to diner
-        SDL_Event keyEvent;
-        keyEvent.type = SDL_KEYUP;
-        keyEvent.key.keysym.sym = SDLK_d;
-        scene->PushEvent(&keyEvent);
-    }
-    
-    // Add Enter key simulation for dialog confirmation
-    if (SDL_JoystickGetButton(joystick, 6)) { // Start button (usually)
-        gamepadDebug.lastAction = "Start Button (Enter)";
-        SDL_Event keyEvent;
-        keyEvent.type = SDL_KEYDOWN;
-        keyEvent.key.keysym.sym = SDLK_RETURN;
-        scene->PushEvent(&keyEvent);
+
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_START)) {
+        gamepadDebug.lastAction = "Start (enter)";
+        SendKey(scene, SDL_KEYDOWN, SDLK_RETURN);
+        SendKey(scene, SDL_KEYUP, SDLK_RETURN);
     }
 }
 
 std::vector<DebugRow> Mouse::GetGamepadDebugRows() const {
     std::vector<DebugRow> rows;
-    rows.push_back({"connected", gamepadDebug.connected ? "yes" : "no"});
+    rows.push_back({"connected", gamepadDebug.connected ? gamepad.Name() : "no"});
     rows.push_back({"active", gamepadActive ? "yes" : "no"});
     rows.push_back({"mouse", std::to_string(rect.x) + ", " + std::to_string(rect.y)});
 
     if (gamepadDebug.connected) {
-        rows.push_back({"left stick", "X=" + std::to_string(gamepadDebug.leftX) +
-                                      " Y=" + std::to_string(gamepadDebug.leftY)});
-        rows.push_back({"hat", std::to_string(gamepadDebug.hatState)});
+        rows.push_back({"left stick",
+                        "X=" + std::to_string((int)(gamepadDebug.leftX * 100)) +
+                        "% Y=" + std::to_string((int)(gamepadDebug.leftY * 100)) + "%"});
 
         std::string buttons;
         if (gamepadDebug.buttonA) buttons += "A ";
@@ -240,144 +249,42 @@ std::vector<std::string> Mouse::GetGamepadDebugLines() const {
     return lines;
 }
 
-float Mouse::CalculateDistance(int x1, int y1, int x2, int y2) {
-    int dx = x2 - x1;
-    int dy = y2 - y1;
-    return sqrt(dx * dx + dy * dy);
-}
-
-const Zone* Mouse::FindClosestZone(const std::vector<Zone>& zones, int mouseX, int mouseY) {
-    const Zone* closest = nullptr;
-    float closestDistance = std::numeric_limits<float>::max();
-
-    for (const auto& zone : zones) {
-        if (!zone.IsInsideZone(mouseX, mouseY)) continue;
-
-        SDL_Rect zoneRect = zone.GetRect();
-        int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-        int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-
-        float distance = CalculateDistance(mouseX, mouseY, zoneCenterX, zoneCenterY);
-        if (distance < closestDistance) {
-            closestDistance = distance;
-            closest = &zone;
-        }
-    }
-
-    return closest;
-}
-
 void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) {
-    if (!scene) return;
-    
-    const std::vector<Zone>& zones = scene->GetZones();
-    if (zones.empty()) return;
-    
-    int currentX = rect.x + rect.w / 2;
-    int currentY = rect.y + rect.h / 2;
-    
-    const Zone* best = nullptr;
-    float bestScore = std::numeric_limits<float>::max();
+    const std::vector<SDL_Rect> targets = NavTargets(scene);
+    if (targets.empty()) return;
+    const std::vector<nav::Rect> rects = ToNavRects(targets);
 
-    for (const auto& zone : zones) {
-        if (!zone.IsInsideZone(currentX, currentY)) continue;
-
-        SDL_Rect zoneRect = zone.GetRect();
-        int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-        int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-
-        int dx = zoneCenterX - currentX;
-        int dy = zoneCenterY - currentY;
-
-        bool inDirection = false;
-        switch (direction) {
-            case DPadDirection::UP:
-                inDirection = (dy < 0);
-                break;
-            case DPadDirection::DOWN:
-                inDirection = (dy > 0); // Zone is below current position
-                break;
-            case DPadDirection::LEFT:
-                inDirection = (dx < 0); // Zone is to the left of current position
-                break;
-            case DPadDirection::RIGHT:
-                inDirection = (dx > 0); // Zone is to the right of current position
-                break;
-            default:
-                continue;
-        }
-        
-        if (!inDirection) continue;
-        
-        // Calculate distance
-        float distance = CalculateDistance(currentX, currentY, zoneCenterX, zoneCenterY);
-        
-        // Prefer zones that are more aligned with the direction
-        float alignmentScore = 0;
-        switch (direction) {
-            case DPadDirection::UP:
-            case DPadDirection::DOWN:
-                alignmentScore = abs(dx); // Prefer zones with less horizontal offset
-                break;
-            case DPadDirection::LEFT:
-            case DPadDirection::RIGHT:
-                alignmentScore = abs(dy); // Prefer zones with less vertical offset
-                break;
-            case DPadDirection::NONE:
-                break;
-        }
-        
-        // Combined score: distance + alignment penalty
-        float score = distance + alignmentScore * 0.5f;
-        
-        if (score < bestScore) {
-            bestScore = score;
-            best = &zone;
-        }
+    nav::Dir dir;
+    switch (direction) {
+        case DPadDirection::UP:    dir = nav::Dir::Up; break;
+        case DPadDirection::DOWN:  dir = nav::Dir::Down; break;
+        case DPadDirection::LEFT:  dir = nav::Dir::Left; break;
+        case DPadDirection::RIGHT: dir = nav::Dir::Right; break;
+        default: return;
     }
 
-    if (!best) {
-        JumpToClosestZone(scene);
+    const int currentX = rect.x + rect.w / 2;
+    const int currentY = rect.y + rect.h / 2;
+
+    const int pick = nav::PickDirectional(rects, currentX, currentY, dir);
+    if (pick < 0) {
+        // Nothing that way: stay put rather than teleporting somewhere
+        // unrelated, so holding a direction settles on the last target.
         return;
     }
-
-    {
-        SDL_Rect zoneRect = best->GetRect();
-        int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-        int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-        rect.x = zoneCenterX - rect.w / 2;
-        rect.y = zoneCenterY - rect.h / 2;
-        rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
-        rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
-    }
+    MoveCursorTo(targets[pick]);
 }
 
 void Mouse::JumpToClosestZone(Scene* scene) {
-    if (!scene) return;
-
-    const std::vector<Zone>& zones = scene->GetZones();
-    if (zones.empty()) {
+    const std::vector<SDL_Rect> targets = NavTargets(scene);
+    if (targets.empty()) {
         rect.x = (GAME_WIDTH - rect.w) / 2;
         rect.y = (GAME_HEIGHT - rect.h) / 2;
         return;
     }
 
-    int currentX = rect.x + rect.w / 2;
-    int currentY = rect.y + rect.h / 2;
-
-    const Zone* closest = FindClosestZone(zones, currentX, currentY);
-
-    if (!closest) {
-        rect.x = (GAME_WIDTH - rect.w) / 2;
-        rect.y = (GAME_HEIGHT - rect.h) / 2;
-        return;
-    }
-
-    SDL_Rect zoneRect = closest->GetRect();
-    int zoneCenterX = zoneRect.x + zoneRect.w / 2;
-    int zoneCenterY = zoneRect.y + zoneRect.h / 2;
-    rect.x = zoneCenterX - rect.w / 2;
-    rect.y = zoneCenterY - rect.h / 2;
-    rect.x = std::max(0, std::min(rect.x, 320 - rect.w));
-    rect.y = std::max(0, std::min(rect.y, 200 - rect.h));
+    const std::vector<nav::Rect> rects = ToNavRects(targets);
+    const int pick = nav::PickNearest(rects, rect.x + rect.w / 2, rect.y + rect.h / 2);
+    if (pick < 0) return;
+    MoveCursorTo(targets[pick]);
 }
