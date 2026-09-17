@@ -466,6 +466,10 @@ bool State::LoadGameToml(const fs::path& path) {
         }
     }
 
+    // A fresh newspaper for the loaded game. The ads are not saved, and the
+    // sold-out slots left by the previous game would otherwise carry over.
+    GenerateClassifieds();
+
     LOG_INFO("LoadGameToml: loaded '%s', bankroll=%d, %d owned car(s)",
              playerName.c_str(), bankroll, (int)ownedCars.size());
     return true;

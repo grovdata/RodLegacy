@@ -38,6 +38,10 @@ private:
 
     // Page 0
     Label date;
+    // Generation of state.classifiedCars this page was built from. The ad list
+    // here has to stay index-aligned with that one, so a new or loaded game
+    // rebuilding it means rebuilding this too.
+    uint32_t lastClassifiedsGeneration = 0;
     std::string lastDateText;  // detects a changed game date (e.g. after loading a save) to refresh `date`
     // Which of the five front-page slabs is on the paper right now.
     int headlineIndex = 0;
@@ -96,6 +100,8 @@ private:
     void Update();
     void Update(Uint64 deltaTime) override; // the real per-frame entry point (fade + date refresh)
     void UpdatePageContent();
+    // Rebuilds the ad list and its rendered page from the current classifieds.
+    void RefreshClassifieds();
     void AddDivider(int y);
     void HandleAdClick(int adIndex);
     void CreateAllAdsSurface();

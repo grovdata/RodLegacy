@@ -183,13 +183,7 @@ void Newspaper::ResetToFrontPage() {
 void Newspaper::Init(bool debugMode) {
     Scene::Init(debugMode);
     InitPageOne();
-    LoadClassifiedsData();
-    InitPageAds();
-
-    // Create the large surface with all ads after data is loaded
-    CreateAllAdsSurface();
-
-    Update();
+    RefreshClassifieds();
     // Common
 
 }
@@ -230,7 +224,22 @@ void Newspaper::SetHeadline(AmigaLibAsset asset) {
     headline.SetVisible(true);
 }
 
+void Newspaper::RefreshClassifieds() {
+    LoadClassifiedsData();
+    InitPageAds();
+    CreateAllAdsSurface();
+    lastClassifiedsGeneration = state.GetClassifiedsGeneration();
+    Update();
+}
+
 void Newspaper::LoadClassifiedsData() {
+    // Rebuilt, not appended to: this runs again whenever a new or loaded game
+    // regenerates the classifieds, and the lists below must stay the same
+    // length as state.classifiedCars for the buy handler to index them.
+    carMetadata.clear();
+    carAssetIds.clear();
+    partMetadata.clear();
+
     // Classified cars are already generated in State::Init
     // Just load the metadata and asset IDs to match
     // Walks the merged car-spec table in the same order and with the same skip
@@ -441,6 +450,10 @@ void Newspaper::Update(Uint64 deltaTime) {
     // time-advancing actions). Cheap: a string compare every frame: the
     // actual re-render (date.SetText, which rebuilds a surface) only runs
     // when the text actually changed.
+    if (lastClassifiedsGeneration != state.GetClassifiedsGeneration()) {
+        RefreshClassifieds();
+    }
+
     std::string currentDateText = state.GetGameDateString();
     if (currentDateText != lastDateText) {
         lastDateText = currentDateText;
@@ -459,7 +472,16 @@ void Newspaper::HandleAdClick(int adIndex) {
         if (adPos.adIndex < 0 || adPos.adIndex >= (int)carMetadata.size()) {
             return;
         }
-        // Don't open dialog for already-sold cars
+        // Don't open dialog for already-sold cars. The bounds check is not
+        // redundant with the one above: carMetadata and classifiedCars are
+        // separate lists that are only the same length while they agree on the
+        // enabled car sets.
+        if (adPos.adIndex >= (int)state.GetClassifiedCars().size()) {
+            LOG_WARN("Newspaper: ad %d has no classified car (%zu ads, %zu cars)",
+                     adPos.adIndex, carMetadata.size(),
+                     state.GetClassifiedCars().size());
+            return;
+        }
         if (!state.GetClassifiedCars()[adPos.adIndex]) {
             return;
         }

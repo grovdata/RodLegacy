@@ -11,9 +11,10 @@ namespace {
     constexpr int kNameTextY = 65;
     constexpr SDL_Rect kOldGameRect = {150, 162, 66, 16};
     constexpr SDL_Rect kOkRect      = {222, 162, 66, 16};
-    constexpr SDL_Rect kSeCheckRect = {32, 163, 14, 14};
-    constexpr int kSeLabelX = 50;
-    constexpr int kSeLabelY = 165;
+    constexpr SDL_Rect kSeCheckRect = {114, 112, 14, 14};
+    // Label sits just right of the box, derived so moving the box moves both.
+    constexpr int kSeLabelX = kSeCheckRect.x + kSeCheckRect.w + 4;
+    constexpr int kSeLabelY = kSeCheckRect.y + 2;
     constexpr uint32_t kBlack = 0x00000000;
 
     // Index of the optional Street Rod SE set in GetCarSetDefs(), or -1.

@@ -80,28 +80,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
-        // Generate classified cars for the newspaper: every buyable car from
-        // every enabled set, in merged-table order. Newspaper::LoadClassifieds
-        // walks the same table with the same skip condition, because the buy
-        // handler indexes classifiedCars by the newspaper's list position.
-        for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
-            const int carAssetId = mergedCarSpecModelIndex[spec];
-            if (carAssetId < 0) continue;  // The King's slot, not for sale
-            CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
-            if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
-                continue;
-            }
-            CarModel model = carData.GetModelFromIndex(carAssetId);
-            CarPtr car = roster.GenerateRandomCar(model);
-            // Stock appearance for classifieds...
-            car->SetRoofChopped(false);
-            car->SetBumpersStripped(false);
-            car->SetDecal(SrLibCarDecalNone);
-            // ...and the drivetrain the car is actually advertised with.
-            CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
-            classifiedCars.push_back(car);
-        }
-        LOG_INFO("Generated %zu classified cars", classifiedCars.size());
+        GenerateClassifieds();
 
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
@@ -327,10 +306,44 @@ void State::RebuildCarSets() {
     }
 }
 
+// Fills the newspaper's used-car ads. Buying one nulls its slot (that is how
+// the ad shows as sold), so the list has to be rebuilt for every new or loaded
+// game - otherwise a car bought once stays sold for the rest of the session.
+// Rebuilt rather than reset in place because the merged spec table it walks
+// changes with the enabled car sets.
+void State::GenerateClassifieds() {
+    classifiedCars.clear();
+    ++classifiedsGeneration;
+
+    // Generate classified cars for the newspaper: every buyable car from
+    // every enabled set, in merged-table order. Newspaper::LoadClassifieds
+    // walks the same table with the same skip condition, because the buy
+    // handler indexes classifiedCars by the newspaper's list position.
+    for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
+        const int carAssetId = mergedCarSpecModelIndex[spec];
+        if (carAssetId < 0) continue;  // The King's slot, not for sale
+        CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
+        if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
+            continue;
+        }
+        CarModel model = carData.GetModelFromIndex(carAssetId);
+        CarPtr car = roster.GenerateRandomCar(model);
+        // Stock appearance for classifieds...
+        car->SetRoofChopped(false);
+        car->SetBumpersStripped(false);
+        car->SetDecal(SrLibCarDecalNone);
+        // ...and the drivetrain the car is actually advertised with.
+        CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
+        classifiedCars.push_back(car);
+    }
+    LOG_INFO("Generated %zu classified cars", classifiedCars.size());
+}
+
 void State::StartNewGame() {
     // The car sets chosen for this game decide the spec table, so rebuild
     // before anything generates a car against it.
     RebuildCarSets();
+    GenerateClassifieds();
     ownedCars.clear();
     currentCar.reset();
     jailed = false;
