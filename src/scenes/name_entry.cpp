@@ -1,6 +1,7 @@
 #include "scenes/name_entry.h"
 #include "core/state.h"
 #include "scenes/save_load_scene.h"
+#include "car/car_set.h"
 #include "gfx/SFont.h"
 
 namespace {
@@ -10,7 +11,20 @@ namespace {
     constexpr int kNameTextY = 65;
     constexpr SDL_Rect kOldGameRect = {150, 162, 66, 16};
     constexpr SDL_Rect kOkRect      = {222, 162, 66, 16};
+    constexpr SDL_Rect kSeCheckRect = {114, 112, 14, 14};
+    // Label sits just right of the box, derived so moving the box moves both.
+    constexpr int kSeLabelX = kSeCheckRect.x + kSeCheckRect.w + 4;
+    constexpr int kSeLabelY = kSeCheckRect.y + 2;
     constexpr uint32_t kBlack = 0x00000000;
+
+    // Index of the optional Street Rod SE set in GetCarSetDefs(), or -1.
+    int SeCarSetIndex() {
+        const std::vector<CarSetDef>& defs = GetCarSetDefs();
+        for (size_t i = 0; i < defs.size(); ++i) {
+            if (!defs[i].mandatory && defs[i].id == "srse") return (int)i;
+        }
+        return -1;
+    }
 }
 
 NameEntry::NameEntry()
@@ -45,6 +59,22 @@ void NameEntry::Init(bool debugMode) {
     okConfig.defaultChoice = true;
     okConfig.onClick = [this]() { HandleOk(); };
     okButton = std::make_unique<Button>(okConfig);
+
+    // Offer the SE cars only when their data is actually installed - switching
+    // on a set with nothing behind it would add no cars and just look broken.
+    seCarsCheckbox.reset();
+    const int seSet = SeCarSetIndex();
+    if (seSet >= 0 && state.GetAssets().HasCarSetData(seSet)) {
+        seCarsEnabled = state.GetAssets().IsCarSetEnabled(seSet);
+
+        seCarsLabel.Init(font, kSeLabelX, kSeLabelY, kBlack);
+        seCarsLabel.SetText("Street Rod SE cars");
+
+        CheckboxConfig seConfig;
+        seConfig.bounds = kSeCheckRect;
+        seConfig.value = &seCarsEnabled;
+        seCarsCheckbox = std::make_unique<Checkbox>(seConfig);
+    }
 }
 
 // Init runs once, but the scene is re-entered when "Old Game" is cancelled,
@@ -59,6 +89,14 @@ void NameEntry::RefreshNameLabel() {
 }
 
 void NameEntry::HandleOk() {
+    // Settle the car sets before StartNewGame, which rebuilds the spec table
+    // this game's cars and opponents are generated from.
+    const int seSet = SeCarSetIndex();
+    if (seCarsCheckbox && seSet >= 0) {
+        state.GetAssets().SetCarSetEnabled(seSet, seCarsEnabled);
+        state.GetAssets().SaveSettings();
+    }
+
     state.SetPlayerName(typedName);
     state.SetBankroll(750);
     state.StartNewGame();
@@ -70,6 +108,10 @@ void NameEntry::DrawScene() {
     nameLabel.Draw();    
     oldGameButton->Draw();
     okButton->Draw();
+    if (seCarsCheckbox) {
+        seCarsLabel.Draw();
+        seCarsCheckbox->Draw();
+    }
 }
 
 bool NameEntry::PushEvent(SDL_Event* event) {
@@ -101,6 +143,7 @@ bool NameEntry::PushEvent(SDL_Event* event) {
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         oldGameButton->HandleEvent(event);
         okButton->HandleEvent(event);
+        if (seCarsCheckbox) seCarsCheckbox->HandleEvent(event);
         return true;
     }
 

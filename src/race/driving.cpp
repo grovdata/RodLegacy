@@ -1042,6 +1042,11 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
 
     wreckDialog = std::make_unique<Dialog>(cfg);
     SetActiveDialog(wreckDialog.get());
+    // The race hid the pointer (WantsPointer is false while driving) and the
+    // scene is not re-entered, so bring it back by hand and park it on a button
+    // - the quote has to be clicked, by mouse or by pad.
+    mouse.SetVisible(true);
+    mouse.JumpToClosestZone(this);
 }
 
 // A blown engine takes the whole assembly with it. The original's
@@ -1204,17 +1209,25 @@ void Driving::LeaveAfterRace() {
     }
 }
 
+namespace {
+// "Any key" has to mean the pad's buttons too, or a player on a controller is
+// stuck on the cruise and race-end screens.
+bool IsDismissEvent(const SDL_Event* e) {
+    return e->type == SDL_KEYDOWN || e->type == SDL_CONTROLLERBUTTONDOWN;
+}
+}  // namespace
+
 bool Driving::PushEvent(SDL_Event *event) {
     // Once the race has ended, any key dismisses the reason bubble and returns
     // to the garage (or the end-game screen if the King was just beaten). The
     // wreck dialog is the exception: it wants a button click, not any key.
     // "You can skip the cruising by pressing the selector" (manual).
-    if (cruising && (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN)) {
+    if (cruising && (IsDismissEvent(event) || event->type == SDL_MOUSEBUTTONDOWN)) {
         EndCruise();
         return true;
     }
 
-    if (raceEnded && !raceEndDipping && !wreckDialog && event->type == SDL_KEYDOWN) {
+    if (raceEnded && !raceEndDipping && !wreckDialog && IsDismissEvent(event)) {
         // Hold the crash screen for its minimum display time; ignore keys until then.
         if (SDL_GetTicks() < raceEndDismissAllowedMs) {
             return true;

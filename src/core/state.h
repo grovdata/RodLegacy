@@ -75,6 +75,9 @@ private:
     std::vector<CarPtr> carRoster;
     std::vector<CarPtr> ownedCars;
     std::vector<CarPtr> classifiedCars; // Cars for sale in the newspaper
+    // Bumped every time classifiedCars is rebuilt. The newspaper keeps its own
+    // index-aligned copy of the ad list and watches this to know it went stale.
+    uint32_t classifiedsGeneration = 0;
     CarPtr currentCar;
 
     // Spare-parts inventory (segment 4 of the save format -- not attached to
@@ -177,6 +180,11 @@ public:
     // NameEntry::HandleOk, so it applies whether the flow started at launch
     // or via Garage's "New Game" button.
     void StartNewGame();
+    // Rebuilds the merged car spec table and the racer pool from whichever car
+    // sets are enabled. Call after changing which sets are on.
+    void RebuildCarSets();
+    // Rebuilds the newspaper's used-car ads from the current spec table.
+    void GenerateClassifieds();
 
     // Nothing left to race and nothing left to sell: no car anywhere, no
     // spare parts, and less than the cheapest car in the paper. The original
@@ -393,6 +401,7 @@ public:
 
     Roster& GetRoster() { return roster; }
     std::vector<CarPtr>& GetClassifiedCars() { return classifiedCars; }
+    uint32_t GetClassifiedsGeneration() const { return classifiedsGeneration; }
     CarData carData;
 
 };

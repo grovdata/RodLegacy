@@ -15,8 +15,16 @@ If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/
 
 ## Street Rod SE cars
 
-The SE cars are off by default and there is no in-game toggle yet. Turn them on
-by adding this line to `config.txt` and restarting:
+The SE cars are off by default. Tick "Street Rod SE cars" on the new game
+screen to play with them; the checkbox only appears once the SE data is
+installed.
+
+It is chosen there rather than in Options because the set decides the merged
+car spec table a game is generated against, and every car in a save is stored
+as an index into that table. Each save records the sets it was made with and
+restores them on load, so an SE game and a stock game can sit side by side.
+
+The equivalent `config.txt` line, applied at startup, is:
 
 ```
 car_set_srse=1
@@ -38,12 +46,50 @@ car height).
 
 ## Other config.txt keys
 
-Additions and deviations, all off by default, all in the same `config.txt`:
+Additions and deviations, all off by default, all in the same `config.txt`.
+They are also togglable in the game under Options -> Settings, which writes the
+same file:
 
 | key | what it does |
 | --- | --- |
 | `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
 | `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
+| `analog_steering=1` | How far the analog stick is pushed sets how far the wheel goes over, instead of the original's ramp to full lock. Keyboard and D-pad are unaffected. |
+| `purist_scoring=1` | Score the engine tune the way the original does, so top speeds match the real game (best car 122 mph, not 130). |
+
+# Controls
+
+The same list is in the game under Options -> Key bindings.
+
+Keyboard and gamepad both work at any time; whichever you touch last takes over
+the cursor. Any pad SDL recognises as a game controller is picked up
+automatically, hotplug included.
+
+Menus and scenes:
+
+| Gamepad | Action |
+| --- | --- |
+| Left stick | Move the cursor |
+| D-pad | Jump to the next button or hotspot in that direction |
+| A | Click |
+| B | Close the dialog, otherwise right click |
+| X | Snap the cursor to the nearest button or hotspot |
+| LB / RB | Straight to the garage / the diner |
+| Start | Enter |
+
+Driving:
+
+| Gamepad | Keyboard | Action |
+| --- | --- | --- |
+| Right trigger or A | Up | Throttle |
+| Left trigger or B | Down | Brake |
+| Left stick or D-pad | Left / Right | Steer |
+| X or RB | Space | Shift |
+
+Steering is the original's: a held direction that ramps the wheel to full lock.
+Set `analog_steering=1` in `config.txt` to have the left stick's deflection set
+how far the wheel goes over instead. The keyboard and the D-pad stay original
+either way.
 
 # Building
 
@@ -120,6 +166,7 @@ RodLegacy use these fine libraries:
  - [tinyfiledialogs](http://tinyfiledialogs.sourceforge.net)
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
+ - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
 
  # Legal
  

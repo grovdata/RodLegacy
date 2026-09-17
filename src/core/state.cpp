@@ -45,58 +45,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
         LoadBetTables(assets.GetSrData());
 
-        // The Amiga set always goes in first, so its specs keep indices 0..25
-        // - the range original .SAV files store - whatever else is switched on.
-        mergedCarSpecs = srCarSpecData;
-        mergedCarSpecModelIndex.assign(srCarSpecData.size(), -1);
-        for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < (int)srCarSpecData.size(); i++) {
-            mergedCarSpecModelIndex[i] = kCarIndex[i];
-        }
-
-        // Then each optional set the player switched on. Everything a set
-        // needs - stats, sprite numbers, pixel offsets - comes out of its own
-        // data file; see RodLegacyResearch/docs/formats/hot_data_dos.md.
-        const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
-        for (int set = 0; set < (int)carSetDefs.size(); set++) {
-            if (carSetDefs[set].mandatory || !assets.IsCarSetEnabled(set)) continue;
-
-            const byte_vector& setData = assets.GetCarSetData(set);
-            const int added = carData.ReadCarSet(set, setData, assets.GetCarSetImageEntries(set));
-            if (added <= 0) continue;
-
-            const std::vector<SrCarSpecEntry> specs = dataParser.ParseCarSpecTableDOS(setData);
-            const std::vector<DosCarSprites> sprites = dataParser.ParseCarSpritesDOS(setData);
-            for (int i = 0; i < (int)specs.size(); i++) {
-                mergedCarSpecs.push_back(specs[i]);
-                // The King's slot in each set has no buyable car behind it.
-                const bool buyable = i < CAR_PLAYER_MODEL_COUNT && i < (int)sprites.size();
-                mergedCarSpecModelIndex.push_back(
-                    buyable ? set * HOT_DATA_SPRITE_BASE + sprites[i].body : -1);
-            }
-            LOG_INFO("Car set '%s': %d cars, %zu specs", carSetDefs[set].id.c_str(), added, specs.size());
-        }
-        LOG_INFO("Merged car spec table: %zu entries across all enabled sets", mergedCarSpecs.size());
-
-        if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
-            srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
-            // Which cars can wear which modifications, so the pool only
-            // rolls appearance changes the model actually has sprites for -
-            // the same gate the original applies.
-            std::vector<uint8_t> specMods(mergedCarSpecs.size(), 0);
-            for (size_t i = 0; i < mergedCarSpecs.size(); ++i) {
-                if (i >= mergedCarSpecModelIndex.size()) break;
-                const int modelIdx = mergedCarSpecModelIndex[i];
-                if (modelIdx < 0) continue;  // The King's slot, no buyable car
-                const CarModel model = carData.GetModelFromIndex(modelIdx);
-                if (CarModelCanChopRoof(model))     specMods[i] |= SPEC_CAN_CHOP_ROOF;
-                if (CarModelCanStripBumpers(model)) specMods[i] |= SPEC_CAN_STRIP_BUMPERS;
-            }
-            racerPool.Init(mergedCarSpecs, specMods);
-            LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
-        } else {
-            LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
-                     srDriverData.size(), srCarSpecData.size());
-        }
+        RebuildCarSets();
 
         // Give the roster the real driver table before it builds opponents, so
         // names and portraits come from the data rather than a random sprite.
@@ -131,28 +80,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
 
-        // Generate classified cars for the newspaper: every buyable car from
-        // every enabled set, in merged-table order. Newspaper::LoadClassifieds
-        // walks the same table with the same skip condition, because the buy
-        // handler indexes classifiedCars by the newspaper's list position.
-        for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
-            const int carAssetId = mergedCarSpecModelIndex[spec];
-            if (carAssetId < 0) continue;  // The King's slot, not for sale
-            CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
-            if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
-                continue;
-            }
-            CarModel model = carData.GetModelFromIndex(carAssetId);
-            CarPtr car = roster.GenerateRandomCar(model);
-            // Stock appearance for classifieds...
-            car->SetRoofChopped(false);
-            car->SetBumpersStripped(false);
-            car->SetDecal(SrLibCarDecalNone);
-            // ...and the drivetrain the car is actually advertised with.
-            CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
-            classifiedCars.push_back(car);
-        }
-        LOG_INFO("Generated %zu classified cars", classifiedCars.size());
+        GenerateClassifieds();
 
         // FIXME: Until we can buy a car
         this->currentCar = ownedCars.at(0);
@@ -317,7 +245,105 @@ void State::MoveToScene(SrLibGameScene scene) {
     this->currentScene->FadeIn();
 }
 
+// Merges the car spec tables of every enabled set and re-seeds the racer pool
+// from the result. Init calls it once; starting a new game calls it again,
+// because the set the player picked on the way in changes the table - and the
+// table's layout is what saved model indices are resolved against.
+void State::RebuildCarSets() {
+    DataParser dataParser;
+
+    // The Amiga set always goes in first, so its specs keep indices 0..25
+    // - the range original .SAV files store - whatever else is switched on.
+    mergedCarSpecs = srCarSpecData;
+    mergedCarSpecModelIndex.assign(srCarSpecData.size(), -1);
+    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < (int)srCarSpecData.size(); i++) {
+        mergedCarSpecModelIndex[i] = kCarIndex[i];
+    }
+
+    // Then each optional set the player switched on. Everything a set
+    // needs - stats, sprite numbers, pixel offsets - comes out of its own
+    // data file; see RodLegacyResearch/docs/formats/hot_data_dos.md.
+    const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
+    for (int set = 0; set < (int)carSetDefs.size(); set++) {
+        if (carSetDefs[set].mandatory || !assets.IsCarSetEnabled(set)) continue;
+
+        const byte_vector& setData = assets.GetCarSetData(set);
+        const int added = carData.ReadCarSet(set, setData, assets.GetCarSetImageEntries(set));
+        if (added <= 0) continue;
+
+        const std::vector<SrCarSpecEntry> specs = dataParser.ParseCarSpecTableDOS(setData);
+        const std::vector<DosCarSprites> sprites = dataParser.ParseCarSpritesDOS(setData);
+        for (int i = 0; i < (int)specs.size(); i++) {
+            mergedCarSpecs.push_back(specs[i]);
+            // The King's slot in each set has no buyable car behind it.
+            const bool buyable = i < CAR_PLAYER_MODEL_COUNT && i < (int)sprites.size();
+            mergedCarSpecModelIndex.push_back(
+                buyable ? set * HOT_DATA_SPRITE_BASE + sprites[i].body : -1);
+        }
+        LOG_INFO("Car set '%s': %d cars, %zu specs", carSetDefs[set].id.c_str(), added, specs.size());
+    }
+    LOG_INFO("Merged car spec table: %zu entries across all enabled sets", mergedCarSpecs.size());
+
+    if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
+        srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
+        // Which cars can wear which modifications, so the pool only
+        // rolls appearance changes the model actually has sprites for -
+        // the same gate the original applies.
+        std::vector<uint8_t> specMods(mergedCarSpecs.size(), 0);
+        for (size_t i = 0; i < mergedCarSpecs.size(); ++i) {
+            if (i >= mergedCarSpecModelIndex.size()) break;
+            const int modelIdx = mergedCarSpecModelIndex[i];
+            if (modelIdx < 0) continue;  // The King's slot, no buyable car
+            const CarModel model = carData.GetModelFromIndex(modelIdx);
+            if (CarModelCanChopRoof(model))     specMods[i] |= SPEC_CAN_CHOP_ROOF;
+            if (CarModelCanStripBumpers(model)) specMods[i] |= SPEC_CAN_STRIP_BUMPERS;
+        }
+        racerPool.Init(mergedCarSpecs, specMods);
+        LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
+    } else {
+        LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
+                 srDriverData.size(), srCarSpecData.size());
+    }
+}
+
+// Fills the newspaper's used-car ads. Buying one nulls its slot (that is how
+// the ad shows as sold), so the list has to be rebuilt for every new or loaded
+// game - otherwise a car bought once stays sold for the rest of the session.
+// Rebuilt rather than reset in place because the merged spec table it walks
+// changes with the enabled car sets.
+void State::GenerateClassifieds() {
+    classifiedCars.clear();
+    ++classifiedsGeneration;
+
+    // Generate classified cars for the newspaper: every buyable car from
+    // every enabled set, in merged-table order. Newspaper::LoadClassifieds
+    // walks the same table with the same skip condition, because the buy
+    // handler indexes classifiedCars by the newspaper's list position.
+    for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
+        const int carAssetId = mergedCarSpecModelIndex[spec];
+        if (carAssetId < 0) continue;  // The King's slot, not for sale
+        CarMetadata_t metadata = carData.GetCarMetadata(carAssetId);
+        if (!metadata.classified.carName || strlen(metadata.classified.carName) == 0) {
+            continue;
+        }
+        CarModel model = carData.GetModelFromIndex(carAssetId);
+        CarPtr car = roster.GenerateRandomCar(model);
+        // Stock appearance for classifieds...
+        car->SetRoofChopped(false);
+        car->SetBumpersStripped(false);
+        car->SetDecal(SrLibCarDecalNone);
+        // ...and the drivetrain the car is actually advertised with.
+        CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
+        classifiedCars.push_back(car);
+    }
+    LOG_INFO("Generated %zu classified cars", classifiedCars.size());
+}
+
 void State::StartNewGame() {
+    // The car sets chosen for this game decide the spec table, so rebuild
+    // before anything generates a car against it.
+    RebuildCarSets();
+    GenerateClassifieds();
     ownedCars.clear();
     currentCar.reset();
     jailed = false;

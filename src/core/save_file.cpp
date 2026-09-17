@@ -6,6 +6,7 @@
 #include "car/car.h"
 #include "car/car_builder.h"
 #include "car/engine_bay.h"  // EngineBodyAsset
+#include "car/car_set.h"
 #include "core/game_clock.h"
 
 #include "toml.hpp"
@@ -276,6 +277,19 @@ bool State::SaveGameToml(const fs::path& path) {
     root["elapsed_ticks"] = static_cast<std::int64_t>(elapsedTicks);
     root["track_variant"] = GetTrackVariant();
 
+    // Which car sets this game was generated against. Every model_index below
+    // is an index into the spec table those sets produce, so a save loaded with
+    // a different set switched on would resolve its cars to the wrong models or
+    // to nothing at all - see State::RebuildCarSets.
+    std::vector<std::string> enabledSets;
+    const std::vector<CarSetDef>& saveDefs = GetCarSetDefs();
+    for (size_t i = 0; i < saveDefs.size(); ++i) {
+        if (assets.IsCarSetEnabled(static_cast<int>(i))) {
+            enabledSets.push_back(saveDefs[i].id);
+        }
+    }
+    root["car_sets"] = enabledSets;
+
     SaveValue rep;
     rep["drag_rep"]        = reputation.drag_rep;
     rep["road_rep"]        = reputation.road_rep;
@@ -356,6 +370,26 @@ bool State::LoadGameToml(const fs::path& path) {
         return false;
     }
 
+    // Put the car sets back before a single car is resolved: CarFromToml turns
+    // model_index into a model through carData, and a set's models only exist
+    // there once RebuildCarSets has read it. Saves written before this key
+    // existed leave the current selection alone.
+    if (root.contains("car_sets")) {
+        const std::vector<std::string> ids =
+            toml::find_or(root, "car_sets", std::vector<std::string>{});
+        const std::vector<CarSetDef>& defs = GetCarSetDefs();
+        for (size_t i = 0; i < defs.size(); ++i) {
+            if (defs[i].mandatory) continue;
+            const bool wanted = std::find(ids.begin(), ids.end(), defs[i].id) != ids.end();
+            if (wanted && !assets.HasCarSetData(static_cast<int>(i))) {
+                LOG_WARN("Save wants car set '%s' but its data is not installed; "
+                         "its cars will not load", defs[i].id.c_str());
+            }
+            assets.SetCarSetEnabled(static_cast<int>(i), wanted);
+        }
+        RebuildCarSets();
+    }
+
     // Everything below only reads the document, so a malformed field throws
     // before any of State has been touched -- except the car rebuild, which
     // is why that runs into a local list first.
@@ -431,6 +465,10 @@ bool State::LoadGameToml(const fs::path& path) {
             }
         }
     }
+
+    // A fresh newspaper for the loaded game. The ads are not saved, and the
+    // sold-out slots left by the previous game would otherwise carry over.
+    GenerateClassifieds();
 
     LOG_INFO("LoadGameToml: loaded '%s', bankroll=%d, %d owned car(s)",
              playerName.c_str(), bankroll, (int)ownedCars.size());

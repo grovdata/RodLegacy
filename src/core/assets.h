@@ -140,10 +140,25 @@ public:
     // extra_animations=1 in config.txt. See RodLegacyResearch/docs/diner.md.
     bool& GetExtraAnimationsRef() { return extraAnimations; }
 
+    // Analog stick steering: how far the stick is pushed sets how far the wheel
+    // turns, instead of the original's held-direction ramp to full lock. The
+    // keyboard and the D-pad are unaffected either way. A deviation, so it is
+    // off by default and has no UI: set analog_steering=1 in config.txt.
+    bool& GetAnalogSteeringRef() { return analogSteering; }
+
+    // Score the engine tune the way the 68k does, (1 - |tune|) * 20/8, so top
+    // speeds match the real game (best car 122 mph, not 130). Off by default;
+    // set purist_scoring=1 in config.txt. Pushed into the race sim by
+    // LoadSettings and by the settings screen, since race_sim keeps its own
+    // copy - see RodLegacyResearch/docs/driving/top_speed.md.
+    bool& GetPuristScoringRef() { return puristScoring; }
+
 private:
     bool debugShowZoneOverlays = false;
     bool hillOcclusion = false;
     bool extraAnimations = false;
+    bool analogSteering = false;
+    bool puristScoring = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

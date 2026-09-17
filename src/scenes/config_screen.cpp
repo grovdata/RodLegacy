@@ -1,5 +1,6 @@
 #include "scenes/config_screen.h"
 #include "core/zip_utils.h"
+#include "core/gamepad.h"
 #include "core/log.h"
 #include "core/embedded_loader.h"
 #include "gfx/SFont.h"
@@ -123,7 +124,7 @@ static void DrawScreen(SDL_Surface* surf,
 // ConfigScreen::Run
 // ---------------------------------------------------------------------------
 
-fs::path RunConfigScreen(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
+fs::path RunConfigScreen(SDL_Renderer* renderer) {
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
 
     // Heading font: bee.png
@@ -292,18 +293,24 @@ fs::path RunConfigScreen(SDL_Renderer* renderer, SDL_Joystick* /*joystick*/) {
                         break;
                 }
             }
-            if (e.type == SDL_JOYBUTTONDOWN) {
-                int btn = e.jbutton.button;
-                if (btn == 0 || btn == 7 || btn == 9) {
-                    // A / Start button: start if possible, else browse
-                    if (canStart) confirmStart();
-                    else browseForFolder();
-                } else if (btn == 1) {
-                    // B button: quit
-                    running = false;
-                } else if (btn == 2 || btn == 3) {
-                    // X / Y button: browse
-                    browseForFolder();
+            gamepad.HandleEvent(e);
+            if (e.type == SDL_CONTROLLERBUTTONDOWN) {
+                switch (e.cbutton.button) {
+                    case SDL_CONTROLLER_BUTTON_A:
+                    case SDL_CONTROLLER_BUTTON_START:
+                        // Start if possible, else browse
+                        if (canStart) confirmStart();
+                        else browseForFolder();
+                        break;
+                    case SDL_CONTROLLER_BUTTON_B:
+                        running = false;
+                        break;
+                    case SDL_CONTROLLER_BUTTON_X:
+                    case SDL_CONTROLLER_BUTTON_Y:
+                        browseForFolder();
+                        break;
+                    default:
+                        break;
                 }
             }
             browseButton.HandleEvent(&e);

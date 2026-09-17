@@ -227,7 +227,12 @@ public:
               uint32_t rngSeed, bool kingRace = false);
 
     // Advances one frame. inputBits = INPUT_* mask.
-    void Tick(uint16_t inputBits);
+    //
+    // steerAmount scales how far the wheel is turned, 0..1. The original has no
+    // such thing: its steering is a held direction, so 1.0 reproduces it exactly
+    // and is what the keyboard and the D-pad pass. Only an analog stick passes
+    // anything else, and only with analog_steering=1 - see UpdateSteering.
+    void Tick(uint16_t inputBits, float steerAmount = 1.0f);
 
     const CarState& Player() const { return player; }
     const CarState& Npc() const { return npc; }
@@ -346,7 +351,7 @@ private:
     void UpdateScroll(CarState& car);
     void PostFinishAutopilot();
     void CheckFinish();
-    void UpdateSteering(uint16_t inputBits);
+    void UpdateSteering(uint16_t inputBits, float steerAmount);
     void ApplyLateralDrift(CarState& car, int16_t handling);
     // All player end flags go through here so the invulnerable toggle has one
     // place to filter them.

@@ -180,6 +180,7 @@ private:
         void SetState(DrivingState state);
         void OnSceneEnter() override;
         void OnSceneExit() override;
-        // Driven with the wheel/pedals; no pointer cursor in this scene.
-        bool WantsPointer() const override { return false; }
+        // Driven with the wheel/pedals; no pointer cursor in this scene, except
+        // for the wreck quote, whose buttons have to be clicked.
+        bool WantsPointer() const override { return wreckDialog != nullptr; }
 };

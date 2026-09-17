@@ -1603,4 +1603,116 @@ TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
     CHECK(sim.Player().lateral - before == 25);
 }
 
+
+TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
+    TrackData track = MakeFlatTrack();
+
+    CarSetup setup{};
+    setup.transClass = 2;
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.manifoldClass = 1;
+    setup.tireClass = 1;
+    setup.weightClass = 4;
+    setup.driverSkill = 130;
+
+    CarSetup npcSetup = setup;
+    npcSetup.transClass = 0;
+
+    // Rolling and straight. Steering is then applied in short bursts: held hard
+    // over for long enough the car leaves the road and the sim freezes, which
+    // would make every later tick a no-op.
+    auto rolling = [&](RaceSim& sim) {
+        sim.Init(&track, 1, setup, npcSetup, 0x5566u);
+        RunOutCountdown(sim);
+        sim.SetNpcDebugPose(900, 2200);
+        for (int i = 0; i < 200 && sim.Player().speed <= 25; ++i) {
+            sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        }
+        REQUIRE(sim.Player().speed > 20);
+        REQUIRE(sim.Phase() == RacePhase::Running);
+    };
+
+    // steerVel ramps 2/tick, so 12 ticks is exactly full lock from centre.
+    const int kTicksToFullLock = 12;
+
+    SUBCASE("full deflection is the original's ramp to +-24") {
+        RaceSim full, original;
+        rolling(full);
+        rolling(original);
+        for (int i = 0; i < kTicksToFullLock; ++i) {
+            full.Tick(INPUT_STEER_RIGHT, 1.0f);
+            original.Tick(INPUT_STEER_RIGHT);
+        }
+        REQUIRE(full.Phase() == RacePhase::Running);
+        CHECK(full.Player().steerVel == 24);
+        // The defaulted argument has to be exactly the old behaviour.
+        CHECK(full.Player().steerVel == original.Player().steerVel);
+        CHECK(full.Player().slideVel == original.Player().slideVel);
+        CHECK(full.Player().heading == original.Player().heading);
+    }
+
+    SUBCASE("half a stick settles at half lock and holds there") {
+        RaceSim sim;
+        rolling(sim);
+        for (int i = 0; i < kTicksToFullLock; ++i) {
+            sim.Tick(INPUT_STEER_RIGHT, 0.5f);
+        }
+        REQUIRE(sim.Phase() == RacePhase::Running);
+        CHECK(sim.Player().steerVel == 12);
+        // Still held: it stays put rather than creeping on to full lock.
+        for (int i = 0; i < 5; ++i) {
+            sim.Tick(INPUT_STEER_RIGHT, 0.5f);
+            CHECK(sim.Player().steerVel == 12);
+        }
+    }
+
+    SUBCASE("a lighter touch turns the car less") {
+        RaceSim light, hard;
+        rolling(light);
+        rolling(hard);
+        const int16_t start = light.Player().heading;
+        REQUIRE(hard.Player().heading == start);
+        for (int i = 0; i < kTicksToFullLock; ++i) {
+            light.Tick(INPUT_STEER_RIGHT, 0.25f);
+            hard.Tick(INPUT_STEER_RIGHT, 1.0f);
+        }
+        CHECK(light.Player().steerVel == 6);
+        CHECK(hard.Player().steerVel == 24);
+        // Heading counts down as the car turns, so less lock = less travelled.
+        CHECK(std::abs(light.Player().heading - start) <
+              std::abs(hard.Player().heading - start));
+    }
+
+    SUBCASE("easing the stick back unwinds instead of snapping") {
+        RaceSim sim;
+        rolling(sim);
+        for (int i = 0; i < kTicksToFullLock; ++i) {
+            sim.Tick(INPUT_STEER_RIGHT, 1.0f);
+        }
+        REQUIRE(sim.Phase() == RacePhase::Running);
+        REQUIRE(sim.Player().steerVel == 24);
+
+        // Down by 2 a tick, the same rate it wound on, not straight to 12.
+        sim.Tick(INPUT_STEER_RIGHT, 0.5f);
+        CHECK(sim.Player().steerVel == 22);
+        sim.Tick(INPUT_STEER_RIGHT, 0.5f);
+        CHECK(sim.Player().steerVel == 20);
+
+        for (int i = 0; i < 5 && sim.Phase() == RacePhase::Running; ++i) {
+            sim.Tick(INPUT_STEER_RIGHT, 0.5f);
+        }
+        CHECK(sim.Player().steerVel == 12);
+    }
+
+    SUBCASE("a centred stick is no steering at all") {
+        RaceSim sim;
+        rolling(sim);
+        for (int i = 0; i < kTicksToFullLock; ++i) {
+            sim.Tick(INPUT_STEER_RIGHT, 0.0f);
+        }
+        CHECK(sim.Player().steerVel == 0);
+    }
+}
+
 }  // namespace srrace

@@ -267,6 +267,8 @@ class Garage : public CarScene {
 
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> optionsDialog;
+    std::unique_ptr<ListDialog> keyBindingsDialog;
+    std::unique_ptr<ListDialog> settingsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;
     std::unique_ptr<Dialog> rearBumperDialog;
     std::unique_ptr<Dialog> roofDialog;
@@ -294,6 +296,8 @@ class Garage : public CarScene {
     SDL_Rect signRect;
     void InitGameMenuDialog();
     void InitOptionsDialog();
+    void ShowKeyBindingsDialog();
+    void ShowSettingsDialog();
     void InitBumperDialogs();
     void ShowBumperDialog(bool isFront);
     void ShowRoofDialog();

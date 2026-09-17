@@ -31,4 +31,4 @@ std::vector<ZipPackStatus> ScanDirectory(const fs::path& dir);
 // Config/setup screen shown when game files are missing.
 // Runs its own SDL event loop. Returns chosen game directory,
 // or empty path if the user quit.
-fs::path RunConfigScreen(SDL_Renderer* renderer, SDL_Joystick* joystick);
+fs::path RunConfigScreen(SDL_Renderer* renderer);

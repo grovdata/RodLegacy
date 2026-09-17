@@ -11,6 +11,7 @@
 #include "car/car.h"
 #include "car/car_system.h"
 #include "car/engine_part.h"
+#include "core/gamepad.h"
 #include "core/global.h"
 #include "core/log.h"
 #include "car/part.h"
@@ -2494,20 +2495,52 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         // As above: consult the debug UI before reading raw key state.
         const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
         uint16_t baseInput = 0;
-        const bool up = keyboard && keyboard[SDL_SCANCODE_UP];
-        const bool down = keyboard && keyboard[SDL_SCANCODE_DOWN];
-        const bool left = keyboard && keyboard[SDL_SCANCODE_LEFT];
-        const bool right = keyboard && keyboard[SDL_SCANCODE_RIGHT];
+
+        // Pad and keyboard drive the same four sim inputs; either can be used at
+        // any time. Steering is a bit pair, so the stick only has to clear its
+        // deadzone to register; how far it is pushed matters only to
+        // steerAmount below.
+        const float padSteer = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
+        const bool padThrottle = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) ||
+                                 gamepad.Down(SDL_CONTROLLER_BUTTON_A);
+        const bool padBrake = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERLEFT) ||
+                              gamepad.Down(SDL_CONTROLLER_BUTTON_B);
+        const bool padShift = gamepad.Pressed(SDL_CONTROLLER_BUTTON_X) ||
+                              gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+
+        const bool up = (keyboard && keyboard[SDL_SCANCODE_UP]) || padThrottle;
+        const bool down = (keyboard && keyboard[SDL_SCANCODE_DOWN]) || padBrake;
+        const bool left = (keyboard && keyboard[SDL_SCANCODE_LEFT]) ||
+                          padSteer < 0.0f ||
+                          gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+        const bool right = (keyboard && keyboard[SDL_SCANCODE_RIGHT]) ||
+                           padSteer > 0.0f ||
+                           gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
         const bool space = keyboard && keyboard[SDL_SCANCODE_SPACE];
 
         if (up) baseInput |= srrace::INPUT_THROTTLE;
         if (down && !up) baseInput |= srrace::INPUT_BRAKE;
         if (left) baseInput |= srrace::INPUT_STEER_LEFT;
         if (right) baseInput |= srrace::INPUT_STEER_RIGHT;
-        if (space && !prevSpaceDown) {
+        if ((space && !prevSpaceDown) || padShift) {
             pendingShift = true;
         }
         prevSpaceDown = space;
+
+        // How far the wheel is turned. The original has no such thing, so this
+        // is 1.0 (full lock, the original ramp) unless analog_steering is on and
+        // the analog stick is what is steering: the keyboard and the D-pad are
+        // held directions and stay original either way.
+        float steerAmount = 1.0f;
+        if (state.GetAssets().GetAnalogSteeringRef()) {
+            const bool digitalSteer =
+                (keyboard && (keyboard[SDL_SCANCODE_LEFT] || keyboard[SDL_SCANCODE_RIGHT])) ||
+                gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
+                gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            if (!digitalSteer) {
+                steerAmount = std::fabs(padSteer);
+            }
+        }
 
         if (cruiseMode) {
             // UpdatePhysics (0x2364e8) does not run the race physics for a
@@ -2533,6 +2566,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             if (side != 0) {
                 baseInput |= (side < 0) ? srrace::INPUT_STEER_LEFT : srrace::INPUT_STEER_RIGHT;
             }
+            // The cutscene drives itself; a stick resting off centre must not
+            // soften its turn-in.
+            steerAmount = 1.0f;
         }
 
         if (fixedAccumulator >= kFixedStepSeconds) {
@@ -2541,7 +2577,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 inputBits |= srrace::INPUT_SHIFT;
                 pendingShift = false;
             }
-            sim.Tick(inputBits);
+            sim.Tick(inputBits, steerAmount);
             ++simTickCounter;
             // The post-race stats panel's average speed: the original sums the
             // player's mph into A4+0x4cc8 and the ticks into A4+0x4bca on every

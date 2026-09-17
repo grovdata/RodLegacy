@@ -168,7 +168,10 @@ void Ending::OnFadeComplete() {
 }
 
 bool Ending::PushEvent(SDL_Event* event) {
-    const bool pressed = event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN;
+    // The cutscene has no cursor, so a pad has only its buttons to advance with.
+    const bool pressed = event->type == SDL_KEYDOWN ||
+                         event->type == SDL_MOUSEBUTTONDOWN ||
+                         event->type == SDL_CONTROLLERBUTTONDOWN;
     if (pressed && phase == Phase::Win) {
         phase = Phase::DriveIn;
         phaseStart = SDL_GetTicks64();
