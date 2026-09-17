@@ -269,6 +269,23 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     quitCfg.textColor = {255, 255, 255, 255};
     Button quitButton(quitCfg);
 
+    // Focus for keyboard/gamepad: 0 Browse, 1 Start game, 2 Quit. Start is
+    // skipped while it is disabled, so focus never lands on a dead button.
+    int focus = canStart ? 1 : 0;
+    auto focusEnabled = [&](int i) { return i != 1 || canStart; };
+    auto moveFocus = [&](int delta) {
+        for (int i = 0; i < 3; ++i) {
+            focus = (focus + delta + 3) % 3;
+            if (focusEnabled(focus)) return;
+        }
+    };
+    auto activateFocus = [&]() {
+        if (focus == 0) browseButton.SimulateClick();
+        else if (focus == 1) startButton->SimulateClick();
+        else quitButton.SimulateClick();
+    };
+    int stickDir = 0;  // latched, so one stick push moves focus one step
+
     while (running) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -285,9 +302,16 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                     case SDL_SCANCODE_F:
                         browseForFolder();
                         break;
+                    case SDL_SCANCODE_LEFT:
+                        moveFocus(-1);
+                        break;
+                    case SDL_SCANCODE_RIGHT:
+                    case SDL_SCANCODE_TAB:
+                        moveFocus(1);
+                        break;
                     case SDL_SCANCODE_RETURN:
                     case SDL_SCANCODE_KP_ENTER:
-                        confirmStart();
+                        activateFocus();
                         break;
                     default:
                         break;
@@ -296,11 +320,17 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
             gamepad.HandleEvent(e);
             if (e.type == SDL_CONTROLLERBUTTONDOWN) {
                 switch (e.cbutton.button) {
+                    case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+                    case SDL_CONTROLLER_BUTTON_DPAD_UP:
+                        moveFocus(-1);
+                        break;
+                    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+                    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+                        moveFocus(1);
+                        break;
                     case SDL_CONTROLLER_BUTTON_A:
                     case SDL_CONTROLLER_BUTTON_START:
-                        // Start if possible, else browse
-                        if (canStart) confirmStart();
-                        else browseForFolder();
+                        activateFocus();
                         break;
                     case SDL_CONTROLLER_BUTTON_B:
                         running = false;
@@ -313,6 +343,14 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
                         break;
                 }
             }
+            // Pads that map the stick instead of a d-pad still navigate.
+            if (e.type == SDL_CONTROLLERAXISMOTION &&
+                e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+                const int dir = e.caxis.value < -Gamepad::DEADZONE ? -1 :
+                                e.caxis.value >  Gamepad::DEADZONE ?  1 : 0;
+                if (dir != 0 && dir != stickDir) moveFocus(dir);
+                stickDir = dir;
+            }
             browseButton.HandleEvent(&e);
             startButton->HandleEvent(&e);
             quitButton.HandleEvent(&e);
@@ -321,6 +359,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         if (canStart != startButtonWasEnabled) {
             startButton = makeStartButton();
             startButtonWasEnabled = canStart;
+            focus = canStart ? 1 : 0;  // point at whatever now matters
         }
 
         // Render
@@ -334,6 +373,16 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         browseButton.Draw();
         startButton->Draw();
         quitButton.Draw();
+
+        const SDL_Rect bounds[3] = {browseButton.GetBounds(),
+                                    startButton->GetBounds(),
+                                    quitButton.GetBounds()};
+        SDL_Rect ring = bounds[focus];
+        ring.x -= 2; ring.y -= 2; ring.w += 4; ring.h += 4;
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+        SDL_RenderDrawRect(renderer, &ring);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
         SDL_RenderPresent(renderer);
         SDL_Delay(16);  // ~60 fps, no vsync needed here
     }

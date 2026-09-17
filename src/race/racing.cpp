@@ -826,11 +826,14 @@ bool Racing::ShouldShowCrashOverlay() const {
 // Blood on the windscreen. The original only shows it on a hard enough hit -
 // normally none, a few red pixels on a middling one - but the draw itself is not
 // something I could find in the decompilation, so the trigger below is INFERRED,
-// not verified: ProcessRaceOutcome (0x244d50 region) tiers the crash outcome off
+// not verified: ProcessRaceOutcome (thunk 0x23eaa2, body 0x2454c2) tiers the crash outcome off
 // the speed at impact (A4+0x4b0a) at 0x1f (31), 0x3c (60) and 0x5b (91) mph, and
 // those tiers line up with "no blood / some / lots". The car freezes on the
 // failure bit, so Player().speed still holds the impact speed here.
-// TUNE THIS once the real condition is known.
+// TUNE THIS once the real condition is known. See
+// RodLegacyResearch/docs/driving/crash_blood.md: lib.p handle 5 (asset 4) is
+// loaded by no call site in the Amiga binary, so the draw is not statically
+// findable - it needs checking live.
 bool Racing::ShouldShowCrashBlood() const {
     return bShowCrashOverlay && sim.PlayerWrecked() && sim.Player().speed >= 60;
 }
