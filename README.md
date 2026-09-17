@@ -54,6 +54,17 @@ meson setup build
 ninja -C build
 ```
 
+## macOS app bundle
+
+```
+./scripts/build_macos_app.sh
+```
+
+Builds a release `RodLegacy.app` and a `.dmg` in `build-macos/`, with the
+Homebrew dylibs copied in and ad-hoc signed, so it runs on a Mac without
+Homebrew. Needs `brew install dylibbundler`. Homebrew's `sdl2` is sdl2-compat,
+which loads SDL3 at run time, so the bundle carries `libSDL3.dylib` too.
+
 ## Debug UI
 
 An optional Dear ImGui debug UI docks the game alongside inspector panels. It is

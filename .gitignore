@@ -74,3 +74,4 @@ venv
 
 # Dear ImGui debug UI layout (per-developer, not shared)
 debug_ui.ini
+build-macos/
