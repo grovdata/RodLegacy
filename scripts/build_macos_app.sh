@@ -60,6 +60,28 @@ if [ -f "$SDL2_LIB" ] && strings -a "$SDL2_LIB" | grep -q '@loader_path/libSDL3.
     install_name_tool -id @loader_path/libSDL3.dylib "$APP/Contents/Frameworks/libSDL3.dylib"
 fi
 
+# dylibbundler runs install_name_tool -add_rpath once per library it rewrites,
+# so the same LC_RPATH lands in the binary several times over. dyld on macOS 15
+# refuses to launch that ("duplicate LC_RPATH '@executable_path/../Frameworks/'")
+# where older versions just ignored the repeats. Keep one of each. Must happen
+# before codesign, which this invalidates.
+dedupe_rpaths() {
+    local bin=$1
+    otool -l "$bin" | awk '/LC_RPATH/{r=1; next} r && $1=="path"{print $2; r=0}' |
+        sort | uniq -c | while read -r count path; do
+            while [ "$count" -gt 1 ]; do
+                install_name_tool -delete_rpath "$path" "$bin"
+                count=$((count - 1))
+            done
+        done
+}
+
+dedupe_rpaths "$APP/Contents/MacOS/rodlegacy"
+for lib in "$APP"/Contents/Frameworks/*.dylib; do
+    [ -e "$lib" ] || continue
+    dedupe_rpaths "$lib"
+done
+
 # Ad-hoc signature: unsigned arm64 binaries are killed on launch.
 codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict "$APP"
