@@ -139,6 +139,7 @@ cpp_sources = files(
     'core/gamepad.cpp',
     'ui/control_icons.cpp',
     'dialogs/key_bindings_dialog.cpp',
+    'dialogs/settings_dialog.cpp',
     'parsers/adf.c',
     'core/state.cpp',
     'core/types.cpp',

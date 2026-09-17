@@ -187,7 +187,6 @@ int main(int argc, char* argv[]) {
     bool debugMode = false;
     bool muteAudio = false;
     bool forceConfig = false;
-    bool purist = false;
     bool selfTestSave = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--debug") == 0) {
@@ -200,8 +199,6 @@ int main(int argc, char* argv[]) {
             forceConfig = true;
         } else if (strcmp(argv[i], "--selftest-save") == 0) {
             selfTestSave = true;
-        } else if (strcmp(argv[i], "--purist") == 0) {
-            purist = true;
         } else if (strcmp(argv[i], "--version") == 0) {
             printf("RodLegacy %s\n", RODLEGACY_VERSION);
             return 0;
@@ -213,18 +210,12 @@ int main(int argc, char* argv[]) {
             printf("  --mute           Mute all audio\n");
             printf("  --selftest-save  Save/load round-trip check, then exit (0 = pass)\n");
             printf("  -config          Show setup screen\n");
-            printf("  --purist         Score the engine tune exactly as the original does, so\n");
-            printf("                   top speeds match the real game (best car 122 mph, not 130)\n");
             printf("  --version        Print version and exit\n");
             printf("  --help, -h       Show this help message\n");
             return 0;
         }
     }
-    srrace::SetPuristScoring(purist);
-
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
-    LOG_INFO("Tune scoring: %s", purist ? "purist (matches the original, 122 mph max)"
-                                        : "default (130 mph max)");
     LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     // Attempt to initialize graphics and timer system

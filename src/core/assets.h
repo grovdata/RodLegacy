@@ -146,11 +146,19 @@ public:
     // off by default and has no UI: set analog_steering=1 in config.txt.
     bool& GetAnalogSteeringRef() { return analogSteering; }
 
+    // Score the engine tune the way the 68k does, (1 - |tune|) * 20/8, so top
+    // speeds match the real game (best car 122 mph, not 130). Off by default;
+    // set purist_scoring=1 in config.txt. Pushed into the race sim by
+    // LoadSettings and by the settings screen, since race_sim keeps its own
+    // copy - see RodLegacyResearch/docs/driving/top_speed.md.
+    bool& GetPuristScoringRef() { return puristScoring; }
+
 private:
     bool debugShowZoneOverlays = false;
     bool hillOcclusion = false;
     bool extraAnimations = false;
     bool analogSteering = false;
+    bool puristScoring = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

@@ -1,5 +1,6 @@
 #include "garage/garage.h"
 #include "dialogs/key_bindings_dialog.h"
+#include "dialogs/settings_dialog.h"
 #include "core/state.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
@@ -261,6 +262,12 @@ void Garage::InitOptionsDialog() {
     buttons.push_back({keyBindingsRect, "Key bindings", nullptr, false, 7});
     y += rowHeight;
 
+    SDL_Rect settingsRect = {optionsDialogRect.x + 5, y,
+                             optionsDialogRect.w - 10, buttonHeight};
+    dialogZones.push_back(Zone("settings", "Settings with no other UI", settingsRect));
+    buttons.push_back({settingsRect, "Settings", nullptr, false, 8});
+    y += rowHeight;
+
     SDL_Rect backRect = {165, y, buttonWidth, buttonHeight};
     dialogZones.push_back(Zone("back", "Forget it", backRect));
     ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 5};
@@ -312,6 +319,10 @@ void Garage::InitOptionsDialog() {
                 optionsDialog->Hide();
                 ShowKeyBindingsDialog();
                 break;
+            case 8:
+                optionsDialog->Hide();
+                ShowSettingsDialog();
+                break;
             case 6:
                 if (am && canCycleMusicSource) {
                     AudioManager::MusicSource next =
@@ -339,6 +350,18 @@ void Garage::ShowKeyBindingsDialog() {
             SetActiveDialog(optionsDialog.get());
         });
     SetActiveDialog(keyBindingsDialog.get());
+}
+
+void Garage::ShowSettingsDialog() {
+    settingsDialog.reset();
+    FreeSettingsIcons();
+    settingsDialog = MakeSettingsDialog(
+        state.GetAssets().GetMainFont(), [this]() {
+            settingsDialog->Hide();
+            InitOptionsDialog();
+            SetActiveDialog(optionsDialog.get());
+        });
+    SetActiveDialog(settingsDialog.get());
 }
 
 void Garage::InitBumperDialogs() {

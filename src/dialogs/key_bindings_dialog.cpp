@@ -87,7 +87,7 @@ std::vector<SDL_Surface*> g_strips;
 // black. Painting the body the dialog's own grey sinks it into the background,
 // and the line art goes white so it reads on top of that grey.
 const SDL_Color kIconBody = {0x90, 0x90, 0x90, 0xFF};
-const SDL_Color kIconLine = {0x54, 0x54, 0x54, 0xFF};
+const SDL_Color kIconLine = {0xd1, 0xd1, 0xd1, 0xFF};
 
 }  // namespace
 

@@ -35,6 +35,12 @@ struct ListDialogConfig {
     // the rest.
     SDL_Color selectionBoxColor = {0, 0, 0, 0};
 
+    // Also last, for the same reason. When true a click on a row acts on it
+    // immediately instead of only highlighting it. Off by default: every other
+    // list here is select-then-confirm, where a click that acted at once would
+    // fit a transmission or sell a part on the first tap.
+    bool activateOnClick = false;
+
     // Also last, for the same reason. Row pitch in pixels: 0 (the default)
     // follows the font's height, which is what a plain text list wants; a list
     // with taller artwork per row sets it so the rows do not overlap.
@@ -64,6 +70,9 @@ public:
     bool HandleEvent(SDL_Event* event) override;
 
     void OnItemSelected(int index);
+    /** Acts on a row: dismisses the list, or with activateOnClick leaves it
+     *  open so a toggle list can be worked through in one visit. */
+    void ActivateRow(int index);
     int GetSelectedIndex() const { return selectedIndex; }
     /** Highlights a row without acting on it, scrolling it into view. */
     void SetSelectedIndex(int index);
@@ -71,4 +80,7 @@ public:
     SDL_Rect GetRowRect(int index) const;
     int GetIndexAtPosition(int x, int y) const;
     void SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches = {});
+    /** Swaps one row's swatch, keeping the selection and scroll position -
+     *  SetLabels resets both, which a live toggle list cannot afford. */
+    void SetSwatch(int index, SDL_Surface* swatch);
 }; 

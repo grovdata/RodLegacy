@@ -156,6 +156,11 @@ void ListDialog::PopulateList() {
 
 }
 
+void ListDialog::SetSwatch(int index, SDL_Surface* swatch) {
+    if (index < 0 || index >= static_cast<int>(listConfig.swatches.size())) return;
+    listConfig.swatches[index] = swatch;
+}
+
 void ListDialog::SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches) {
     listConfig.labels = labels;
     listConfig.swatches = swatches;
@@ -188,6 +193,17 @@ SDL_Rect ListDialog::GetRowRect(int index) const {
     return {listConfig.listBoxRect.x,
             listConfig.listBoxRect.y + (index - scrollOffset) * rowHeight,
             listConfig.listBoxRect.w, rowHeight};
+}
+
+void ListDialog::ActivateRow(int index) {
+    if (index < 0) return;
+    if (listConfig.activateOnClick) {
+        // A list whose rows toggle in place has nothing to confirm, so acting
+        // on one must not dismiss the screen.
+        if (listConfig.onItemSelected) listConfig.onItemSelected(index);
+        return;
+    }
+    OnItemSelected(index);
 }
 
 void ListDialog::OnItemSelected(int index) {
@@ -240,6 +256,9 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
             int clickedIndex = GetIndexAtPosition(event->button.x, event->button.y);
             if (clickedIndex >= 0) {
                 selectedIndex = clickedIndex;
+                if (listConfig.activateOnClick) {
+                    ActivateRow(clickedIndex);
+                }
             }
         }
     }
@@ -251,7 +270,7 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
         }
         else if (event->key.keysym.sym == SDLK_RETURN && selectedIndex >= 0) {
             // If Enter is pressed and an item is selected, trigger the selection
-            OnItemSelected(selectedIndex);
+            ActivateRow(selectedIndex);
         }
         else if (event->key.keysym.sym == SDLK_UP) {
             // Move selection up

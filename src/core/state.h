@@ -177,6 +177,9 @@ public:
     // NameEntry::HandleOk, so it applies whether the flow started at launch
     // or via Garage's "New Game" button.
     void StartNewGame();
+    // Rebuilds the merged car spec table and the racer pool from whichever car
+    // sets are enabled. Call after changing which sets are on.
+    void RebuildCarSets();
 
     // Nothing left to race and nothing left to sell: no car anywhere, no
     // spare parts, and less than the cheapest car in the paper. The original

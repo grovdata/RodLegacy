@@ -11,6 +11,7 @@
 #include "core/embedded_loader.h"
 #include "ui/main_font.h"
 #include "core/zip_utils.h"
+#include "race/race_sim.h"
 #include <functional>
 #include <fstream>
 
@@ -883,6 +884,11 @@ void AssetManager::LoadSettings() {
         auto analogSteeringIt = kv.find("analog_steering");
         if (analogSteeringIt != kv.end()) analogSteering = std::stoi(analogSteeringIt->second) != 0;
 
+        auto puristIt = kv.find("purist_scoring");
+        if (puristIt != kv.end()) puristScoring = std::stoi(puristIt->second) != 0;
+        // race_sim is standalone (no assets, no SDL), so it holds its own copy.
+        srrace::SetPuristScoring(puristScoring);
+
         // Optional car sets, stored by id ("car_set_srse=1") so adding or
         // reordering sets in the registry cannot flip what is enabled.
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
@@ -925,5 +931,6 @@ void AssetManager::SaveSettings() {
     kv["hill_occlusion"] = hillOcclusion ? "1" : "0";
     kv["extra_animations"] = extraAnimations ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
+    kv["purist_scoring"] = puristScoring ? "1" : "0";
     WriteConfigFile(kv);
 }
