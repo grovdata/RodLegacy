@@ -2497,8 +2497,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         uint16_t baseInput = 0;
 
         // Pad and keyboard drive the same four sim inputs; either can be used at
-        // any time. The sim takes bits, not an analog steering angle, so the
-        // stick only has to clear its deadzone.
+        // any time. Steering is a bit pair, so the stick only has to clear its
+        // deadzone to register; how far it is pushed matters only to
+        // steerAmount below.
         const float padSteer = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
         const bool padThrottle = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) ||
                                  gamepad.Down(SDL_CONTROLLER_BUTTON_A);
@@ -2526,6 +2527,21 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         }
         prevSpaceDown = space;
 
+        // How far the wheel is turned. The original has no such thing, so this
+        // is 1.0 (full lock, the original ramp) unless analog_steering is on and
+        // the analog stick is what is steering: the keyboard and the D-pad are
+        // held directions and stay original either way.
+        float steerAmount = 1.0f;
+        if (state.GetAssets().GetAnalogSteeringRef()) {
+            const bool digitalSteer =
+                (keyboard && (keyboard[SDL_SCANCODE_LEFT] || keyboard[SDL_SCANCODE_RIGHT])) ||
+                gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
+                gamepad.Down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            if (!digitalSteer) {
+                steerAmount = std::fabs(padSteer);
+            }
+        }
+
         if (cruiseMode) {
             // UpdatePhysics (0x2364e8) does not run the race physics for a
             // cutscene at all: it winds the rpm up by a fixed per-gear step,
@@ -2550,6 +2566,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             if (side != 0) {
                 baseInput |= (side < 0) ? srrace::INPUT_STEER_LEFT : srrace::INPUT_STEER_RIGHT;
             }
+            // The cutscene drives itself; a stick resting off centre must not
+            // soften its turn-in.
+            steerAmount = 1.0f;
         }
 
         if (fixedAccumulator >= kFixedStepSeconds) {
@@ -2558,7 +2577,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 inputBits |= srrace::INPUT_SHIFT;
                 pendingShift = false;
             }
-            sim.Tick(inputBits);
+            sim.Tick(inputBits, steerAmount);
             ++simTickCounter;
             // The post-race stats panel's average speed: the original sums the
             // player's mph into A4+0x4cc8 and the ticks into A4+0x4bca on every

@@ -44,6 +44,7 @@ Additions and deviations, all off by default, all in the same `config.txt`:
 | --- | --- |
 | `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
 | `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
+| `analog_steering=1` | How far the analog stick is pushed sets how far the wheel goes over, instead of the original's ramp to full lock. Keyboard and D-pad are unaffected. |
 
 # Controls
 
@@ -71,6 +72,11 @@ Driving:
 | Left trigger or B | Down | Brake |
 | Left stick or D-pad | Left / Right | Steer |
 | X or RB | Space | Shift |
+
+Steering is the original's: a held direction that ramps the wheel to full lock.
+Set `analog_steering=1` in `config.txt` to have the left stick's deflection set
+how far the wheel goes over instead. The keyboard and the D-pad stay original
+either way.
 
 # Building
 

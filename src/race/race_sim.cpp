@@ -1,6 +1,7 @@
 #include "race/race_sim.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace srrace {
@@ -352,7 +353,7 @@ void RaceSim::SetNpcDebugPose(int32_t segPos, int16_t lateral) {
     npc.lateral = lateral;
 }
 
-void RaceSim::Tick(uint16_t inputBits) {
+void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
     if (track == nullptr) {
         return;
     }
@@ -368,7 +369,7 @@ void RaceSim::Tick(uint16_t inputBits) {
         // the green it is a false start (UpdatePhysics 0x2364e8 state 1).
         if ((player.endFlags & END_FAILURE_MASK) == 0) {
             PlayerPhysics(inputBits);
-            UpdateSteering(inputBits);
+            UpdateSteering(inputBits, steerAmount);
             UpdateScroll(player);
             if (player.speed > 0 || player.segPos > RACE_START_SEG) {
                 player.endFlags |= END_STALLED;  // jumped the start
@@ -386,7 +387,7 @@ void RaceSim::Tick(uint16_t inputBits) {
 
     if ((player.endFlags & END_FAILURE_MASK) == 0) {
         PlayerPhysics(inputBits);
-        UpdateSteering(inputBits);
+        UpdateSteering(inputBits, steerAmount);
     }
 
     NpcAiUpdate();
@@ -848,7 +849,7 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     car.tick += 1;
 }
 
-void RaceSim::UpdateSteering(uint16_t inputBits) {
+void RaceSim::UpdateSteering(uint16_t inputBits, float steerAmount) {
     int steer = 0;
     if ((inputBits & INPUT_STEER_LEFT) != 0) {
         steer -= 1;
@@ -866,6 +867,14 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
     // Steer/slide velocity model (PlayerCarPhysics 0x23c5d6). steerVel is the
     // input integrator (+-24); slideVel carries the momentum and decays, so the
     // car keeps drifting briefly after the stick is released or reversed.
+    //
+    // steerAmount moves the +-24 clamp in instead of the ramp rate: half a stick
+    // settles at half lock and holds there, which is what an analog wheel does.
+    // At 1.0 the limit is 24 and every step below is the original's.
+    const int steerLimit = ClampValue<int>(
+        static_cast<int>(std::lround(24.0f * ClampValue<float>(steerAmount, 0.0f, 1.0f))),
+        0, 24);
+
     int sv = player.steerVel;
     int pv = player.slideVel;
     if (steer != 0 && (Sign(sv) == 0 || Sign(sv) == steer)) {
@@ -873,7 +882,14 @@ void RaceSim::UpdateSteering(uint16_t inputBits) {
         if (Sign(pv) == steer && std::abs(sv) < std::abs(pv)) {
             sv = pv;
         }
-        sv = ClampValue<int>(sv + 2 * steer, -24, 24);
+        int target = sv + 2 * steer;
+        // Past what the stick is asking for, unwind at the same rate it wound
+        // on instead of dropping straight to the new limit. At steerLimit 24
+        // this is exactly the original's clamp.
+        if (std::abs(target) > steerLimit) {
+            target = Sign(sv) * std::max(steerLimit, std::abs(sv) - 2);
+        }
+        sv = ClampValue<int>(target, -24, 24);
         pv = sv;
     } else {
         sv = 0;  // released, or reversed direction

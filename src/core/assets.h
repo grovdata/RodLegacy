@@ -140,10 +140,17 @@ public:
     // extra_animations=1 in config.txt. See RodLegacyResearch/docs/diner.md.
     bool& GetExtraAnimationsRef() { return extraAnimations; }
 
+    // Analog stick steering: how far the stick is pushed sets how far the wheel
+    // turns, instead of the original's held-direction ramp to full lock. The
+    // keyboard and the D-pad are unaffected either way. A deviation, so it is
+    // off by default and has no UI: set analog_steering=1 in config.txt.
+    bool& GetAnalogSteeringRef() { return analogSteering; }
+
 private:
     bool debugShowZoneOverlays = false;
     bool hillOcclusion = false;
     bool extraAnimations = false;
+    bool analogSteering = false;
     fs::path gameBasePath;
     fs::path dataPath;
 
