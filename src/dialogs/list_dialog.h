@@ -34,6 +34,11 @@ struct ListDialogConfig {
     // applies to the entire list texture, so one row cannot differ from
     // the rest.
     SDL_Color selectionBoxColor = {0, 0, 0, 0};
+
+    // Also last, for the same reason. Row pitch in pixels: 0 (the default)
+    // follows the font's height, which is what a plain text list wants; a list
+    // with taller artwork per row sets it so the rows do not overlap.
+    int rowHeight = 0;
 };
 
 class ListDialog : public Dialog {

@@ -11,7 +11,8 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     // The rows are written into mainBitmap, so it has to be blitted even for
     // a list whose config carries no text, content areas or lines of its own.
     mainBitmapHasContent = true;
-    rowHeight = SFont_TextHeight(config.font);
+    rowHeight = listConfig.rowHeight > 0 ? listConfig.rowHeight
+                                        : SFont_TextHeight(config.font);
     // How many rows actually fit, rather than a fixed 10 - a taller list box
     // used to draw 10 rows and leave the rest of itself blank, and a shorter
     // one used to overflow its own border.

@@ -1,4 +1,5 @@
 #include "garage/garage.h"
+#include "dialogs/key_bindings_dialog.h"
 #include "core/state.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
@@ -253,6 +254,13 @@ void Garage::InitOptionsDialog() {
         y += rowHeight;
     }
 
+    // Full dialog width: "Key bindings" does not fit the narrow button column.
+    SDL_Rect keyBindingsRect = {optionsDialogRect.x + 5, y,
+                                optionsDialogRect.w - 10, buttonHeight};
+    dialogZones.push_back(Zone("key_bindings", "See every control", keyBindingsRect));
+    buttons.push_back({keyBindingsRect, "Key bindings", nullptr, false, 7});
+    y += rowHeight;
+
     SDL_Rect backRect = {165, y, buttonWidth, buttonHeight};
     dialogZones.push_back(Zone("back", "Forget it", backRect));
     ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 5};
@@ -300,6 +308,10 @@ void Garage::InitOptionsDialog() {
                 optionsDialog->Hide();
                 SetActiveDialog(gameMenuDialog.get());
                 break;
+            case 7:
+                optionsDialog->Hide();
+                ShowKeyBindingsDialog();
+                break;
             case 6:
                 if (am && canCycleMusicSource) {
                     AudioManager::MusicSource next =
@@ -315,6 +327,18 @@ void Garage::InitOptionsDialog() {
     };
 
     optionsDialog = std::make_unique<Dialog>(optionsDialogConfig);
+}
+
+void Garage::ShowKeyBindingsDialog() {
+    keyBindingsDialog.reset();
+    FreeKeyBindingsIcons();
+    keyBindingsDialog = MakeKeyBindingsDialog(
+        state.GetAssets().GetMainFont(), [this]() {
+            keyBindingsDialog->Hide();
+            InitOptionsDialog();
+            SetActiveDialog(optionsDialog.get());
+        });
+    SetActiveDialog(keyBindingsDialog.get());
 }
 
 void Garage::InitBumperDialogs() {

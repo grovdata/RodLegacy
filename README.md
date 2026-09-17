@@ -48,6 +48,8 @@ Additions and deviations, all off by default, all in the same `config.txt`:
 
 # Controls
 
+The same list is in the game under Options -> Key bindings.
+
 Keyboard and gamepad both work at any time; whichever you touch last takes over
 the cursor. Any pad SDL recognises as a game controller is picked up
 automatically, hotplug included.
@@ -153,6 +155,7 @@ RodLegacy use these fine libraries:
  - [tinyfiledialogs](http://tinyfiledialogs.sourceforge.net)
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
+ - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
 
  # Legal
  
