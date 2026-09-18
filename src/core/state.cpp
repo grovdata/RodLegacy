@@ -306,11 +306,7 @@ void State::RebuildCarSets() {
     }
 }
 
-// Fills the newspaper's used-car ads. Buying one nulls its slot (that is how
-// the ad shows as sold), so the list has to be rebuilt for every new or loaded
-// game - otherwise a car bought once stays sold for the rest of the session.
-// Rebuilt rather than reset in place because the merged spec table it walks
-// changes with the enabled car sets.
+// Fills the newspaper's used-car ads
 void State::GenerateClassifieds() {
     classifiedCars.clear();
     ++classifiedsGeneration;

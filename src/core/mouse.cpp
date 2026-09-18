@@ -60,9 +60,12 @@ std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
     return out;
 }
 
+// The hotspot is the top-left pixel of the sprite, as it is for a real mouse
+// (SDL_MOUSEMOTION sets rect.x/y straight from the event), so snapping puts
+// that pixel on the target centre and the sprite hangs down-right of it.
 void Mouse::MoveCursorTo(const SDL_Rect& target) {
-    rect.x = std::max(0, std::min(target.x + target.w / 2 - rect.w / 2, GAME_WIDTH - rect.w));
-    rect.y = std::max(0, std::min(target.y + target.h / 2 - rect.h / 2, GAME_HEIGHT - rect.h));
+    rect.x = std::max(0, std::min(target.x + target.w / 2, GAME_WIDTH - 1));
+    rect.y = std::max(0, std::min(target.y + target.h / 2, GAME_HEIGHT - 1));
     subPixelX = 0.0f;
     subPixelY = 0.0f;
 }
@@ -76,8 +79,8 @@ void Mouse::SendClick(Scene* scene, Uint8 button) {
     e.button.button = button;
     e.button.clicks = 1;
     e.button.state = SDL_PRESSED;
-    e.button.x = rect.x + rect.w / 2;
-    e.button.y = rect.y + rect.h / 2;
+    e.button.x = rect.x;
+    e.button.y = rect.y;
     scene->PushEvent(&e);
 
     e.button.type = SDL_MOUSEBUTTONUP;
@@ -91,8 +94,8 @@ void Mouse::SendMotion(Scene* scene) {
     SDL_zero(e);
     e.motion.type = SDL_MOUSEMOTION;
     e.motion.timestamp = SDL_GetTicks();
-    e.motion.x = rect.x + rect.w / 2;
-    e.motion.y = rect.y + rect.h / 2;
+    e.motion.x = rect.x;
+    e.motion.y = rect.y;
     scene->PushEvent(&e);
 }
 
@@ -173,8 +176,8 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         subPixelY = 0.0f;
     }
 
-    rect.x = std::max(0, std::min(rect.x, GAME_WIDTH - rect.w));
-    rect.y = std::max(0, std::min(rect.y, GAME_HEIGHT - rect.h));
+    rect.x = std::max(0, std::min(rect.x, GAME_WIDTH - 1));
+    rect.y = std::max(0, std::min(rect.y, GAME_HEIGHT - 1));
 
     // Zones highlight, and the HUD names what is under the cursor, off motion
     // events. Moving the cursor by hand produces none, so the pad has to say it
@@ -199,16 +202,12 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         SendClick(scene, SDL_BUTTON_LEFT);
     }
 
+    // B is back. Not a right click: scene zones fire onClick for any mouse
+    // button, so a right click there is indistinguishable from A.
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_B)) {
-        if (scene && scene->GetActiveDialog()) {
-            gamepadDebug.lastAction = "B (dismiss dialog)";
-            SendKey(scene, SDL_KEYDOWN, SDLK_ESCAPE);
-            SendKey(scene, SDL_KEYUP, SDLK_ESCAPE);
-        } else {
-            // Right click: the garage radio and friends listen for it.
-            gamepadDebug.lastAction = "B (right click)";
-            SendClick(scene, SDL_BUTTON_RIGHT);
-        }
+        gamepadDebug.lastAction = "B (back)";
+        SendKey(scene, SDL_KEYDOWN, SDLK_ESCAPE);
+        SendKey(scene, SDL_KEYUP, SDLK_ESCAPE);
     }
 
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_X)) {
@@ -283,8 +282,8 @@ void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) 
         default: return;
     }
 
-    const int currentX = rect.x + rect.w / 2;
-    const int currentY = rect.y + rect.h / 2;
+    const int currentX = rect.x;
+    const int currentY = rect.y;
 
     const int pick = nav::PickDirectional(rects, currentX, currentY, dir);
     if (pick < 0) {
@@ -298,13 +297,13 @@ void Mouse::JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction) 
 void Mouse::JumpToClosestZone(Scene* scene) {
     const std::vector<SDL_Rect> targets = NavTargets(scene);
     if (targets.empty()) {
-        rect.x = (GAME_WIDTH - rect.w) / 2;
-        rect.y = (GAME_HEIGHT - rect.h) / 2;
+        rect.x = GAME_WIDTH / 2;
+        rect.y = GAME_HEIGHT / 2;
         return;
     }
 
     const std::vector<nav::Rect> rects = ToNavRects(targets);
-    const int pick = nav::PickNearest(rects, rect.x + rect.w / 2, rect.y + rect.h / 2);
+    const int pick = nav::PickNearest(rects, rect.x, rect.y);
     if (pick < 0) return;
     MoveCursorTo(targets[pick]);
 }

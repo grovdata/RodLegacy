@@ -2504,11 +2504,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         // deadzone to register; how far it is pushed matters only to
         // steerAmount below.
         const float padSteer = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
-        const bool padThrottle = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) ||
-                                 gamepad.Down(SDL_CONTROLLER_BUTTON_A);
-        const bool padBrake = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERLEFT) ||
-                              gamepad.Down(SDL_CONTROLLER_BUTTON_B);
-        const bool padShift = gamepad.Pressed(SDL_CONTROLLER_BUTTON_X) ||
+        const bool padThrottle = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+        const bool padBrake = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+        const bool padShift = gamepad.Pressed(SDL_CONTROLLER_BUTTON_A) ||
                               gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 
         const bool up = (keyboard && keyboard[SDL_SCANCODE_UP]) || padThrottle;

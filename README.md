@@ -1,9 +1,9 @@
 # RodLegacy
 
 RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
-It aims to stay true to the original, with some light enhancements.
+It aims to stay true to the original, with some enhancements to make gameplay more enjoyable.
 
-# Running the game
+# Playing the game
 
 Download the latest RodLegacy binaries from the release page.
 
@@ -16,19 +16,7 @@ If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/
 ## Street Rod SE cars
 
 The SE cars are off by default. Tick "Street Rod SE cars" on the new game
-screen to play with them; the checkbox only appears once the SE data is
-installed.
-
-It is chosen there rather than in Options because the set decides the merged
-car spec table a game is generated against, and every car in a save is stored
-as an index into that table. Each save records the sets it was made with and
-restores them on load, so an SE game and a stock game can sit side by side.
-
-The equivalent `config.txt` line, applied at startup, is:
-
-```
-car_set_srse=1
-```
+screen to play with them.
 
 `config.txt` sits in RodLegacy's settings folder:
 
@@ -37,12 +25,6 @@ car_set_srse=1
 | macOS | `~/Library/Application Support/se.grovdata/rodlegacy/config.txt` |
 | Linux | `~/.local/share/se.grovdata/rodlegacy/config.txt` |
 | Windows | `%APPDATA%\se.grovdata\rodlegacy\config.txt` |
-
-With it on, the SE cars are fully playable: they show up in the classifieds, on
-the used car lot, and as opponents. The stock Amiga cars keep their original
-indices, so existing `.SAV` files still load. See
-[docs/cars.md](docs/cars.md) for the remaining gaps (gas cap sprite, per-scene
-car height).
 
 ## Other config.txt keys
 
@@ -72,7 +54,7 @@ Menus and scenes:
 | Left stick | Move the cursor |
 | D-pad | Jump to the next button or hotspot in that direction |
 | A | Click |
-| B | Close the dialog, otherwise right click |
+| B | Back (closes a dialog, leaves a screen) |
 | X | Snap the cursor to the nearest button or hotspot |
 | LB / RB | Straight to the garage / the diner |
 | Start | Enter |
@@ -81,10 +63,10 @@ Driving:
 
 | Gamepad | Keyboard | Action |
 | --- | --- | --- |
-| Right trigger or A | Up | Throttle |
-| Left trigger or B | Down | Brake |
+| Right trigger | Up | Throttle |
+| Left trigger | Down | Brake |
 | Left stick or D-pad | Left / Right | Steer |
-| X or RB | Space | Shift |
+| A or RB | Space | Shift |
 
 Steering is the original's: a held direction that ramps the wheel to full lock.
 Set `analog_steering=1` in `config.txt` to have the left stick's deflection set
@@ -169,6 +151,6 @@ RodLegacy use these fine libraries:
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
 
  # Legal
- 
+
 RodLegacy make no claim for Street Rod copyright, it contains no assets or original code from the game.
 The copyright sits solely with the owner of [streetrodonline.com](https://www.streetrodonline.com/about/).

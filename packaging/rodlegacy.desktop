@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=RodLegacy
-GenericName=Street Rod
+GenericName=RodLegacy
 Comment=Reimplementation of the classic Street Rod game
 Exec=rodlegacy
 Icon=rodlegacy
 Terminal=false
 Categories=Game;ArcadeGame;
-Keywords=street;rod;racing;amiga;
+Keywords=racing

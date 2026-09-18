@@ -63,7 +63,7 @@ id = "goto_diner"
 text = "Hit the street"
 rect = [0, 42, 40, 62]
 
-# Dynamic zones - rects are updated at runtime based on car position
+# Updated at runtime based on car position
 [[zones]]
 id = "rear_bumper"
 text = "Rear bumper"

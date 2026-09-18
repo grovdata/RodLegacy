@@ -269,7 +269,8 @@ bool Scene::PushEvent(SDL_Event *event) {
         return false;
     }
 
-    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+    if ((event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) &&
+        event->button.button == SDL_BUTTON_LEFT) {
         Uint32 t = event->common.timestamp;
         if (lastActionTimestamp == 0 || static_cast<Uint32>(t - lastActionTimestamp) >= 200) {
             Zone* z = FindZone(event->button.x, event->button.y);

@@ -87,8 +87,7 @@ jobs:
                   Priority: optional
                   Architecture: amd64
                   Depends: ${DEPS}
-                  Maintainer: RodLegacy <noreply@grovdata.se>
-                  Homepage: https://www.streetrodonline.com/
+                  Maintainer: RodLegacy Project <noreply@grovdata.se>
                   Description: Reimplementation of the classic Street Rod game
                    RodLegacy plays the original Street Rod on modern systems.
 
