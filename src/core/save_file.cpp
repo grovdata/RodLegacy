@@ -16,8 +16,6 @@
 #include <map>
 #include <sstream>
 
-// std::map as the table type so keys come out alphabetically rather than in
-// hash order - this is a file people are meant to read, edit and diff.
 using SaveValue = toml::basic_value<toml::discard_comments, std::map, std::vector>;
 using SaveArray = SaveValue::array_type;
 
@@ -477,12 +475,6 @@ bool State::LoadGameToml(const fs::path& path) {
 
 // --------------------------------------------------------------------------
 // Round-trip self-test (--selftest-save).
-//
-// This format serialises live game objects, so it cannot be checked from the
-// SDL-free unit-test binary: a real State, real CarBuilder and real lib.p
-// assets are all needed to build a Car. Running it against the real game is
-// also the only way to catch the failure that actually matters - a new field
-// on Car that nobody added to the writer.
 
 namespace {
 

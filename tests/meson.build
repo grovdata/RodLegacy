@@ -9,7 +9,7 @@ lodepng_test_dep = lodepng_test_proj.get_variable('lodepng_dep')
 test_inc = include_directories(
     'include',          # doctest/doctest.h
     '../src',           # parsers/libp.h, parsers/carcolor.h
-    '../src/include',   # tinyfiledialogs, toml.hpp
+    '../src/include',   # toml.hpp
 )
 
 test_sources = [
