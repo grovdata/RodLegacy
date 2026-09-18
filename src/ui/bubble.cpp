@@ -5,27 +5,16 @@
 #include <sstream>
 #include <vector>
 
-Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss) {
-    std::string filename = "";
+namespace {
+// Text layout inside a box, from SetupMessageBox (0x00222742-0x002227aa):
+// first row at box.y + 6, every row centred across the box's full width,
+// 9 pixels apart.
+constexpr int kTextTopInset = 6;
+constexpr int kRowHeight = 9;
+}
 
-    AmigaLibAsset bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
-    switch (style) {
-        case BUBBLE_LEFT:
-            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
-            break;
-        case BUBBLE_RIGHT:
-            bubbleAssetId = SPEECH_BUBBLE_ARROW_RIGHT;
-            break;
-        case BUBBLE_RIGHT_TWO_LINES:
-            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS;
-            break;
-    }
-
-    Asset bubbleAsset = {LibAssetRegular, SrLibFileAmigaLibP, bubbleAssetId};
-    bubble = state.GetAssets().GetBitmapAsset(bubbleAsset);
-    bubble->SetVisible(true);
-    bubble->SetPosition(xPos, yPos);
-
+Bubble::Bubble(std::string text, BubbleStyle style, bool autoDismiss) {
+    ApplyStyle(style);
     UpdateText(text);
 
     if (autoDismiss) {
@@ -35,6 +24,32 @@ Bubble::Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool aut
 
 Bubble::~Bubble() {
     // bubble is owned by AssetManager; fontSurface/fontTexture are managed by smart pointers
+}
+
+void Bubble::ApplyStyle(BubbleStyle style) {
+    this->style = style;
+
+    AmigaLibAsset bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
+    int xPos = 80, yPos = 30;
+    switch (style) {
+        case BUBBLE_LEFT:
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT;
+            xPos = 80; yPos = 30;
+            break;
+        case BUBBLE_RIGHT:
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_RIGHT;
+            xPos = 72; yPos = 30;
+            break;
+        case BUBBLE_RIGHT_TWO_LINES:
+            bubbleAssetId = SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS;
+            xPos = 80; yPos = 20;
+            break;
+    }
+
+    Asset bubbleAsset = {LibAssetRegular, SrLibFileAmigaLibP, bubbleAssetId};
+    bubble = state.GetAssets().GetBitmapAsset(bubbleAsset);
+    bubble->SetVisible(true);
+    bubble->SetPosition(xPos, yPos);
 }
 
 void Bubble::SetVisible(bool visible) {
@@ -62,10 +77,7 @@ void Bubble::Draw() {
 
 void Bubble::UpdateText(std::string& text) {
     SFont_Font* font = state.GetAssets().GetMainFont();
-    int lineHeight = SFont_TextHeight(font);
 
-    // Split on \n (same convention as Label::splitIntoLines) so callers can
-    // request a multi-line bubble (e.g. paired with BUBBLE_RIGHT_TWO_LINES).
     std::vector<std::string> lines;
     std::istringstream stream(text);
     std::string line;
@@ -74,35 +86,36 @@ void Bubble::UpdateText(std::string& text) {
     }
     if (lines.empty()) lines.push_back("");
 
-    // Size the surface to the widest line so nothing is clipped. Previously a
-    // fixed 256x64 surface (and a 50-char buffer) cropped longer text.
-    // kSFontClipPad avoids SFont clipping the last glyph (same workaround as Label).
-    int textW = 0;
-    for (const auto& l : lines) {
-        textW = std::max(textW, SFont_TextWidth(font, l.c_str()));
-    }
-    textW += kSFontClipPad;
-    int textH = lineHeight * (int)lines.size();
-    fontSurface.reset(SDL_CreateRGBSurface(0, textW, textH, 32,
-                                           0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+    SDL_Rect box = bubble->GetNaturalSize();
 
-    SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
-    int y = 0;
+    // A line wider than the box would be clipped by the surface, so grow the
+    // surface and keep it centred on the box: overflow then spills evenly to
+    // both sides instead of vanishing.
+    int widest = 0;
     for (const auto& l : lines) {
-        SFont_Write(fontSurface.get(), font, 0, y, l.c_str());
-        y += lineHeight;
+        widest = std::max(widest, SFont_TextWidth(font, l.c_str()) + kSFontClipPad);
+    }
+    int surfaceW = std::max(box.w, widest);
+    int pad = (surfaceW - box.w) / 2;
+    int surfaceH = kTextTopInset + kRowHeight * (int)lines.size();
+
+    fontSurface.reset(SDL_CreateRGBSurface(0, surfaceW, surfaceH, 32,
+                                           0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+    SDL_FillRect(fontSurface.get(), NULL, SDL_MapRGBA(fontSurface->format, 0, 0, 0, 0));
+
+    int y = kTextTopInset;
+    for (const auto& l : lines) {
+        int w = SFont_TextWidth(font, l.c_str());
+        SFont_Write(fontSurface.get(), font, pad + (box.w - w) / 2, y, l.c_str());
+        y += kRowHeight;
     }
 
     fontTexture.reset(SDL_CreateTextureFromSurface(renderer, fontSurface.get()));
     SDL_SetTextureColorMod(fontTexture.get(), 0, 0, 0);
 
-    // Inset the text from the bubble's left/top edge so it doesn't butt against
-    // the border.
-    constexpr int kTextPadX = 8;
-    constexpr int kTextPadY = 6;
     SDL_Rect rect = bubble->GetPosition();
-    fontRect.x = rect.x + kTextPadX;
-    fontRect.y = rect.y + kTextPadY;
+    fontRect.x = rect.x - pad;
+    fontRect.y = rect.y;
     fontRect.w = fontSurface->w;
     fontRect.h = fontSurface->h;
 }

@@ -80,7 +80,7 @@ private:
     void ShowRaceTypeDialog();
     void ShowDragBetDialog();
     void ShowRoadBetDialog();
-    void ShowSpeech(const std::string& text);
+    void ShowSpeech(const std::string& text, BubbleStyle style = BUBBLE_RIGHT);
     void Accept();
     void Reject();
     void OpponentRejectsBet();

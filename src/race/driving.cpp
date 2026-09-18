@@ -683,7 +683,7 @@ void Driving::DrawScene() {
                     RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
                                         ? RaceType::Drag : RaceType::Road;
                     const srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
-                    std::string reason = srrace::BuildRaceEndReason(endCtx);
+                    srrace::RaceEndMessage reason = srrace::BuildRaceEndReason(endCtx);
                     const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
                     // Speeding ticket. Read here because ResetRaceOutcome below
                     // clears the sim's cop state; it is charged further down,
@@ -722,8 +722,11 @@ void Driving::DrawScene() {
                         // generic crash/lose reason below.
                         if (won) {
                             reason = raceType == RaceType::Drag
-                                ? "Beginner's luck, punk!"
-                                : "You ran a good race. You deserve to be King of the County!";
+                                ? srrace::RaceEndMessage{"Beginner's luck, punk`!",
+                                                         srrace::MessageBox::Wide}   // 78
+                                : srrace::RaceEndMessage{"You ran a good race.\n"
+                                                         "You deserve to be King of the County`!",
+                                                         srrace::MessageBox::TwoRow};  // 79
                         }
                     } else {
                         state.AdvanceGameHours(2);
@@ -786,7 +789,7 @@ void Driving::DrawScene() {
                     }
 
                     LOG_INFO("Driving: race ended (%s); press any key for garage",
-                             reason.c_str());
+                             reason.text.c_str());
                     raceEnded = true;
                     // Dip out and back in first; ShowRaceEndMessage puts the
                     // message up once that is done.
@@ -972,8 +975,14 @@ void Driving::ShowRaceEndMessage() {
     }
     if (raceEndWreck) {
         ShowWreckDialog(raceEndCtx);
-    } else {
-        raceEndBubble = std::make_unique<Bubble>(raceEndReason, BUBBLE_LEFT, 85, 40, false);
+    } else if (!raceEndReason.text.empty()) {
+        BubbleStyle style = BUBBLE_LEFT;
+        switch (raceEndReason.box) {
+            case srrace::MessageBox::Narrow: style = BUBBLE_RIGHT; break;
+            case srrace::MessageBox::Wide:   style = BUBBLE_LEFT; break;
+            case srrace::MessageBox::TwoRow: style = BUBBLE_RIGHT_TWO_LINES; break;
+        }
+        raceEndBubble = std::make_unique<Bubble>(raceEndReason.text, style, false);
         raceEndBubble->SetVisible(true);
     }
     // Hold every race-end message on screen for a minimum time before any key

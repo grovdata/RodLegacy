@@ -77,7 +77,7 @@ void Diner::Init(bool debugMode) {
     roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
     SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
 
-    auto guyBubble = std::make_unique<Bubble>("  What\'s his name?", BUBBLE_LEFT, 79, 30, true);
+    auto guyBubble = std::make_unique<Bubble>("What's his name`?", BUBBLE_RIGHT, true);
     guyBubble->SetVisible(false);
     bubbles.push_back(std::move(guyBubble));
 

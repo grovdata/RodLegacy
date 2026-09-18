@@ -44,7 +44,7 @@ GasStation::GasStation()
             bool tankFull = car && car->GetFuelTenths() >= TANK_CAP_TENTHS;
             bool cantAfford = state.GetBankroll() < pricePerTick;
             if (tankFull || cantAfford) {
-                ShowPumpMessage("  Pay attention, dummy`!");
+                ShowPumpMessage("Pay attention, dummy`!");
             } else {
                 sceneState = GAS_STATION_PUMPING;
                 StartPumpDisplay();
@@ -90,15 +90,15 @@ GasStation::GasStation()
     carx = -GAME_WIDTH;
     cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height);
 
-    // Arrow points right, toward the attendant sitting at x=200.
+    // Message 68, box 1 (the wide bubble); the box fixes where it lands.
     auto attendantLine = std::make_unique<Bubble>(
-        "Yo, you need full service, dummy`!", BUBBLE_RIGHT, 90, 30, true);
+        "Yo, you need full service, dummy`!", BUBBLE_LEFT, true);
     attendantBubble = attendantLine.get();
     bubbles.push_back(std::move(attendantLine));
 
-    // Text set per-trigger by ShowPumpMessage; a separate y so it never
-    // stacks visually with attendantBubble above.
-    auto pumpMsg = std::make_unique<Bubble>("", BUBBLE_RIGHT, 90, 45, true);
+    // Text set per-trigger by ShowPumpMessage. Messages 69-71 all use box 0,
+    // the narrow bubble.
+    auto pumpMsg = std::make_unique<Bubble>("", BUBBLE_RIGHT, true);
     pumpMsg->SetVisible(false);
     pumpMessageBubble = pumpMsg.get();
     bubbles.push_back(std::move(pumpMsg));

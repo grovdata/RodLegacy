@@ -385,9 +385,17 @@ TEST_SUITE("BitmapParser::GetPalette") {
 
 TEST_CASE("index < 45 returns driving low") {
     BitmapParser p;
-    auto result = p.GetPalette(SrLibFileAmigaLibP, SPEECH_BUBBLE_ARROW_RIGHT); // index 0
+    auto result = p.GetPalette(SrLibFileAmigaLibP, RACING_CLOUDS); // index 12
     auto expected = BitmapParser::GetStockPalette(StockPaletteAmigaDrivingLow);
     CHECK(result == expected);
+}
+
+TEST_CASE("speech bubbles return PAL1, not the driving palette") {
+    BitmapParser p;
+    auto pal1 = BitmapParser::GetStockPalette(StockPaletteAmigaDiner);
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SPEECH_BUBBLE_ARROW_RIGHT) == pal1);
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SPEECH_BUBBLE_ARROW_LEFT) == pal1);
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS) == pal1);
 }
 
 TEST_CASE("index 45-80 returns driving-low palette (differs from PAL1)") {

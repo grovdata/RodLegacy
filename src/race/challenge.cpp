@@ -21,22 +21,24 @@ int Roll(int n) {
 // String tables
 // ---------------------------------------------------------------------------
 
+// Messages 43-47 and 66, all box 0 (the narrow bubble).
 const std::vector<std::string> Challenge::kInsults = {
-    "  Get lost!",
-    "  Give me a break!",
-    "  Get outta my face!",
-    "  Buzz off!",
-    "  Whadda loser!",
-    "  Chicken!"
+    "Get lost`!",
+    "Give me a break`!",
+    "Get outta my face`!",
+    "Buzz off`!",
+    "Whadda loser`!",
+    "Chicken`!"
 };
 
+// Messages 48-50 and 55-57, all box 0.
 const std::vector<std::string> Challenge::kAcceptances = {
-    "You're on!",
-    "Alright!",
-    "Let's go!",
-    "Cool!",
-    "O.K.!",
-    "Let's hit it!"
+    "You're on`!",
+    "Alright`!",
+    "Let's go`!",
+    "Cool !",
+    "O.K. !",
+    "Let's hit it`!"
 };
 
 // ---------------------------------------------------------------------------
@@ -135,16 +137,20 @@ void Challenge::OpenKing(SFont_Font* f) {
     const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive());
     if (tier != 0) {
         const char* line = nullptr;
+        BubbleStyle style = BUBBLE_LEFT;
         switch (tier) {
-            case 2: line = "  I don't got time for amateurs like you!"; break;
-            case 3: line = "  You're doing OK kid, but you're gonna need to win more races!"; break;
-            case 4: line = "  You're gonna hafta win more drag races!"; break;
-            case 5: line = "  You're gonna hafta win more road races!"; break;
+            case 2: line = "I don't got time for amateurs like you`!"; break;
+            case 3:
+                line = "You're doing OK kid, but you're gonna\nneed to win more races`!";
+                style = BUBBLE_RIGHT_TWO_LINES;
+                break;
+            case 4: line = "You're gonna hafta win more drag races`!"; break;
+            case 5: line = "You're gonna hafta win more road races`!"; break;
             default: break;  // tier 1: silent
         }
         if (line) {
             step = Step::None;
-            ShowSpeech(line);
+            ShowSpeech(line, style);
             insultTimer = 0.0f;
             insultFromOpponent = false;
         }
@@ -157,7 +163,8 @@ void Challenge::OpenKing(SFont_Font* f) {
         Car* car = state.GetCurrentCar();
         if (!car || car->GetFuelTenths() < 22) {
             step = Step::None;
-            ShowSpeech("  You're gonna hafta get more gas before you race.");
+            ShowSpeech("You're gonna hafta get more gas\nbefore you race.",
+                       BUBBLE_RIGHT_TWO_LINES);
             insultTimer = 0.0f;
             insultFromOpponent = false;
             LOG_INFO("Challenge::OpenKing - refused, not enough fuel");
@@ -172,8 +179,12 @@ void Challenge::OpenKing(SFont_Font* f) {
     dialog.reset();
     // Confirmed against RaceSetupLoop (Amiga 0x0023d954/0x0023d96e) and its
     // string table (messages 0x3e/0x3f, LAB_153F and LAB_1540+LAB_1541).
-    ShowSpeech(qualified ? "  Cool, dude! Get your pink slip out, and let's go!"
-                         : "  You're on! Let's hit the drag race!");
+    if (qualified) {
+        ShowSpeech("Cool, dude`! Get your pink slip out,\nand let's go`!",
+                   BUBBLE_RIGHT_TWO_LINES);
+    } else {
+        ShowSpeech("You're on! Let's hit the drag race`!", BUBBLE_LEFT);
+    }
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::OpenKing - race pending, qualified=%d", qualified);
 }
@@ -293,9 +304,8 @@ void Challenge::ShowRoadBetDialog() {
     ));
 }
 
-void Challenge::ShowSpeech(const std::string& text) {
-    // TODO: Should adjust depending on car model
-    bubble = std::make_unique<Bubble>(text, BUBBLE_RIGHT, 85, 70, false);
+void Challenge::ShowSpeech(const std::string& text, BubbleStyle style) {
+    bubble = std::make_unique<Bubble>(text, style, false);
     bubble->SetVisible(true);
 }
 

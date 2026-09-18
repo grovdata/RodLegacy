@@ -5,31 +5,32 @@
 #include "core/utils.h"
 #include "ui/zone.h"
 
-// TODO: More flexible speech bubbles with 9-patch?
-
+// The original's three message boxes, table at A4-0x7fd6. The box fixes the
+// bitmap, the position and how many rows of text fit; see
+// RodLegacyResearch/docs/speech_bubbles.md.
 typedef enum {
-    BUBBLE_LEFT,
-    BUBBLE_RIGHT,
-    BUBBLE_RIGHT_TWO_LINES
+    BUBBLE_LEFT,            // box 1: wide, tail down-left,  at (80,30)
+    BUBBLE_RIGHT,           // box 0: narrow, tail down-right, at (72,30)
+    BUBBLE_RIGHT_TWO_LINES  // box 2: wide, two rows,         at (80,20)
 } BubbleStyle;
-
-
 
 class Bubble: public IDrawable {
     private:
         uint64_t timerStart;
+        BubbleStyle style;
         sdl2::SurfacePtr fontSurface;
         sdl2::TexturePtr fontTexture;
         SDL_Rect fontRect;
         Bitmap *bubble;
 
+        void ApplyStyle(BubbleStyle style);
         void UpdateText(std::string& text);
 
-
     public:
-        Bubble(std::string text, BubbleStyle style, int xPos, int yPos, bool autoDismiss);
+        Bubble(std::string text, BubbleStyle style, bool autoDismiss);
         ~Bubble();
         virtual void Draw() override;
         virtual void SetVisible(bool visible) override;
         void SetText(std::string text) { UpdateText(text); }
+        void SetText(std::string text, BubbleStyle style) { ApplyStyle(style); UpdateText(text); }
 };

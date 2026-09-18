@@ -161,7 +161,7 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
         Update();
     };
 
-    auto cantAffordBubble = std::make_unique<Bubble>("  No go, hot shot.", BUBBLE_LEFT, 90, 95, true);
+    auto cantAffordBubble = std::make_unique<Bubble>("No go, hot shot.", BUBBLE_LEFT, true);
     cantAffordBubble->SetVisible(false);
     bubbles.push_back(std::move(cantAffordBubble));
 }

@@ -140,77 +140,75 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         SetActiveDialog((Dialog*)engineBay->GetDialog());
     };
 
-    auto bubbleDrink = std::make_unique<Bubble>("  Don\'t drink and drive, bub!", BUBBLE_LEFT, 103, 30, true);
+    auto bubbleDrink = std::make_unique<Bubble>("Don't drink and drive, bub`!", BUBBLE_LEFT, true);
     bubbleDrink->SetVisible(false);
     bubbles.push_back(std::move(bubbleDrink));
-    auto partsBubble = std::make_unique<Bubble>("  You\'ve got no spare parts, dummy!", BUBBLE_LEFT, 93, 30, true);
+    auto partsBubble = std::make_unique<Bubble>("You've got no spare parts, dummy`!", BUBBLE_LEFT, true);
     partsBubble->SetVisible(false);
     bubbles.push_back(std::move(partsBubble));
-    auto tiresBubble = std::make_unique<Bubble>("  You\'ve got no spare tires, dummy!", BUBBLE_LEFT, 79, 30, true);
+    auto tiresBubble = std::make_unique<Bubble>("You've got no spare tires, dummy`!", BUBBLE_LEFT, true);
     tiresBubble->SetVisible(false);
     bubbles.push_back(std::move(tiresBubble));
-    auto paintBubble = std::make_unique<Bubble>("  Paint ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    auto paintBubble = std::make_unique<Bubble>("Paint ain't free`!", BUBBLE_RIGHT, true);
     paintBubble->SetVisible(false);
     bubbles.push_back(std::move(paintBubble));
-    auto customizationBubble = std::make_unique<Bubble>("  Customization ain\'t free!", BUBBLE_RIGHT, 103, 30, true);
+    auto customizationBubble = std::make_unique<Bubble>("Customization ain't free`!", BUBBLE_RIGHT, true);
     customizationBubble->SetVisible(false);
     bubbles.push_back(std::move(customizationBubble));
     // Original string, 0x247226. The backtick renders as a space.
-    auto roofConstraintBubble = std::make_unique<Bubble>("  Ya can\'t chop this roof, dummy`!", BUBBLE_RIGHT, 103, 30, true);
+    auto roofConstraintBubble = std::make_unique<Bubble>("Ya can't chop this roof, dummy`!", BUBBLE_LEFT, true);
     roofConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(roofConstraintBubble));
-    auto bumperConstraintBubble = std::make_unique<Bubble>("  This car can\'t be stripped!", BUBBLE_RIGHT, 103, 30, true);
+    // Message 33, shown when the clicked bumper has no entry in the car's
+    // modification record (0x2403b4).
+    auto bumperConstraintBubble = std::make_unique<Bubble>("You've already lost your bumper`!", BUBBLE_LEFT, true);
     bumperConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(bumperConstraintBubble));
-    auto noCarBubble = std::make_unique<Bubble>("  You\'ve got no car, dummy!", BUBBLE_LEFT, 103, 30, true);
+    auto noCarBubble = std::make_unique<Bubble>("You've got no car, dummy`!", BUBBLE_LEFT, true);
     noCarBubble->SetVisible(false);
     bubbles.push_back(std::move(noCarBubble));
     // The backtick renders as a space (see roofConstraintBubble above).
-    auto transNotEmptyBubble = std::make_unique<Bubble>("Where will you put it, speedy`?\nMake some room first !", BUBBLE_RIGHT_TWO_LINES, 80, 30, true);
+    auto transNotEmptyBubble = std::make_unique<Bubble>("Where will you put it, speedy`?\nMake some room first !", BUBBLE_RIGHT_TWO_LINES, true);
     transNotEmptyBubble->SetVisible(false);
     bubbles.push_back(std::move(transNotEmptyBubble));
-    auto noSpareEngineBubble = std::make_unique<Bubble>("  You\'ve got no spare engines, dummy!", BUBBLE_LEFT, 93, 30, true);
+    auto noSpareEngineBubble = std::make_unique<Bubble>("You've got no spare engine`!", BUBBLE_LEFT, true);
     noSpareEngineBubble->SetVisible(false);
     bubbles.push_back(std::move(noSpareEngineBubble));
-    auto noSpareManifoldBubble = std::make_unique<Bubble>("  You\'ve got no spare manifolds, dummy!", BUBBLE_LEFT, 93, 30, true);
+    auto noSpareManifoldBubble = std::make_unique<Bubble>("You've got no spare manifold`!", BUBBLE_LEFT, true);
     noSpareManifoldBubble->SetVisible(false);
     bubbles.push_back(std::move(noSpareManifoldBubble));
-    auto noSpareCarbBubble = std::make_unique<Bubble>("  You\'ve got no spare carburetors, dummy!", BUBBLE_LEFT, 93, 30, true);
+    auto noSpareCarbBubble = std::make_unique<Bubble>("You've got no spare carburator`!", BUBBLE_LEFT, true);
     noSpareCarbBubble->SetVisible(false);
     bubbles.push_back(std::move(noSpareCarbBubble));
-    auto partIncompatibleBubble = std::make_unique<Bubble>("  Pay attention, dummy! That won\'t fit!", BUBBLE_LEFT, 93, 30, true);
+    auto partIncompatibleBubble = std::make_unique<Bubble>("Pay attention, dummy`! That won't fit`!", BUBBLE_LEFT, true);
     partIncompatibleBubble->SetVisible(false);
     bubbles.push_back(std::move(partIncompatibleBubble));
     // bubbles[13] - shown when the player tries to leave with the engine apart.
-    auto notRunningBubble = std::make_unique<Bubble>("  Your car\'s not running, speedy`!", BUBBLE_LEFT, 93, 30, true);
+    auto notRunningBubble = std::make_unique<Bubble>("Your car's not running, speedy`!", BUBBLE_LEFT, true);
     notRunningBubble->SetVisible(false);
     bubbles.push_back(std::move(notRunningBubble));
     // bubbles[kSellerBubble] - every line a buyer says, car or part; the text
     // is set per message by ShowHaggleMessage (garage_sell_car.cpp) and by the
     // spare-parts sell-out above.
-    // Placed for its longest line ("You must be crazy. I'll take it`!"), the
-    // same way the other bubbles here are nudged left as their text grows.
-    auto haggleBubble = std::make_unique<Bubble>("  No thanks`!", BUBBLE_LEFT, 93, 30, true);
+    auto haggleBubble = std::make_unique<Bubble>("No thanks`!", BUBBLE_RIGHT, true);
     haggleBubble->SetVisible(false);
     bubbles.push_back(std::move(haggleBubble));
     // bubbles[kOutOfDoughBubble] - both lines of the original's message 0x15.
     auto outOfDoughBubble = std::make_unique<Bubble>(
         "You're outta dough.\nLooks like you're done for the summer`!",
-        BUBBLE_RIGHT_TWO_LINES, 80, 30, false);
+        BUBBLE_RIGHT_TWO_LINES, false);
     outOfDoughBubble->SetVisible(false);
     bubbles.push_back(std::move(outOfDoughBubble));
     // bubbles[kNotEnoughGasBubble/kFullTankBubble/kGasNotFreeBubble] - see
     // garage.h for the confirmed fuel thresholds.
     auto notEnoughGasBubble = std::make_unique<Bubble>(
-        "  You don't got enough gas to cruise down to Bob's.", BUBBLE_LEFT, 93, 30, true);
+        "You don't got enough gas to cruise down\nto Bob's.", BUBBLE_RIGHT_TWO_LINES, true);
     notEnoughGasBubble->SetVisible(false);
     bubbles.push_back(std::move(notEnoughGasBubble));
-    auto fullTankBubble = std::make_unique<Bubble>(
-        "  You've got a full tank`!", BUBBLE_LEFT, 93, 30, true);
+    auto fullTankBubble = std::make_unique<Bubble>("You've got a full tank`!", BUBBLE_RIGHT, true);
     fullTankBubble->SetVisible(false);
     bubbles.push_back(std::move(fullTankBubble));
-    auto gasNotFreeBubble = std::make_unique<Bubble>(
-        "  Gas ain't free`!", BUBBLE_LEFT, 93, 30, true);
+    auto gasNotFreeBubble = std::make_unique<Bubble>("Gas ain't free`!", BUBBLE_RIGHT, true);
     gasNotFreeBubble->SetVisible(false);
     bubbles.push_back(std::move(gasNotFreeBubble));
 
@@ -567,7 +565,7 @@ void Garage::DrawScene() {
         if (CollectSpares().empty()) {
             // Selling out closes the screen with this, not the "no spare
             // parts, dummy" line - that one is for opening it empty.
-            bubbles[kSellerBubble]->SetText("  All parts gone`!");
+            bubbles[kSellerBubble]->SetText("All parts gone`!", BUBBLE_RIGHT);
             bubbles[kSellerBubble]->SetVisible(true);
         } else {
             ShowSparePartsDialog();

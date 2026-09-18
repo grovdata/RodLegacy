@@ -30,7 +30,21 @@ struct RaceEndContext {
     int carStrippedValue = 0;     // state.GetCarStrippedValue(current car)
 };
 
-std::string BuildRaceEndReason(const RaceEndContext& ctx);
+// Which of the original's three message boxes the line is shown in; the box
+// fixes the bubble bitmap, its position and how many rows it holds. See
+// RodLegacyResearch/docs/speech_bubbles.md.
+enum class MessageBox {
+    Narrow,  // box 0: 152x37, tail down-right
+    Wide,    // box 1: 232x37, tail down-left
+    TwoRow,  // box 2: 232x46, two rows
+};
+
+struct RaceEndMessage {
+    std::string text;                    // empty = no bubble at all
+    MessageBox box = MessageBox::Wide;
+};
+
+RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx);
 
 // What a wreck costs you. ProcessRaceOutcome (0x23eaa2) tiers this on the
 // speed at the moment of impact (A4+0x4b0a), the same 31 / 61 / 91 mph

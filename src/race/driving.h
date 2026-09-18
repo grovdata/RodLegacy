@@ -63,7 +63,7 @@ class Driving: public Scene {
     bool raceEndDipping = false;
     bool raceEndWon = false;
     bool raceEndWreck = false;
-    std::string raceEndReason;
+    srrace::RaceEndMessage raceEndReason;
     srrace::RaceEndContext raceEndCtx;
     void ShowRaceEndMessage();
     // Time / distance / average speed panel across the top of the race-end

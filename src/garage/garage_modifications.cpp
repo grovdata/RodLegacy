@@ -21,14 +21,14 @@ void Garage::ShowBumperDialog(bool isFront) {
         bubbles[4]->SetVisible(false);
     }
 
-    // Check if car can strip bumpers
+    // The original checks the clicked bumper on its own (0x24039c-0x2403b2):
+    // a car with no record for that end gets message 33 instead of the dialog.
     if (state.GetCurrentCar()) {
-        CarModel model = state.GetCurrentCar()->GetModel();
-
-        // If trying to strip bumpers, check if car supports it
+        const CarSprites& sprites = state.GetCurrentCar()->GetModelRef().sprites;
         bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
-        if (!isStripped && !CarModelCanStripBumpers(model)) {
-            // Show constraint bubble instead of dialog
+        bool hasBumper = isFront ? sprites.frontBumperStripped >= 0
+                                 : sprites.rearBumperStripped >= 0;
+        if (!isStripped && !hasBumper) {
             if (bubbles.size() > 6) {
                 bubbles[6]->SetVisible(true);  // bumperConstraintBubble
             }

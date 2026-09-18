@@ -834,6 +834,15 @@ std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
                     break; // Continue to general logic below
             }
 
+            // Speech bubbles are drawn over every scene, not just the driving
+            // one. Their two colours are lib indices 10 and 22, which are
+            // 0xEEE/0x555 (grey) in PAL_DRIVING_LOW but 0xFFF/0x005B in PAL1 -
+            // the white body and blue frame the Amiga shows.
+            if (a == SPEECH_BUBBLE_ARROW_RIGHT || a == SPEECH_BUBBLE_ARROW_LEFT ||
+                a == SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS) {
+                return PAL1;
+            }
+
             // Roadside objects and signs use the full driving palette; the LOW
             // palette gave the signs wrong colors. (Backdrop/interior 11..20 and
             // the rest of the <45 range stay on PAL_DRIVING_LOW.)

@@ -198,19 +198,24 @@ void Garage::ShowHaggleMessage(HaggleMessage message) {
     if (message == HaggleMessage::None) return;
     if (bubbles.size() <= kSellerBubble) return;
 
-    // Original strings; the backtick renders as a space (see the bubbles in
-    // Garage's constructor).
+    // Original strings and the box each one uses (messages 10-16, see
+    // RodLegacyResearch/docs/speech_bubbles.md). The backtick renders as a
+    // narrow space.
     const char* text = "";
+    BubbleStyle style = BUBBLE_RIGHT;
     switch (message) {
-        case HaggleMessage::MustBeKidding: text = "  You must be kidding`!"; break;
-        case HaggleMessage::NoWay:         text = "  No way`!"; break;
-        case HaggleMessage::GetLost:       text = "  Get lost`!"; break;
-        case HaggleMessage::NoThanks:      text = "  No thanks`!"; break;
-        case HaggleMessage::IllTakeIt:     text = "  I'll take it`!"; break;
-        case HaggleMessage::MustBeCrazy:   text = "  You must be crazy. I'll take it`!"; break;
+        case HaggleMessage::MustBeKidding: text = "You must be kidding`!"; break;
+        case HaggleMessage::NoWay:         text = "No way`!"; break;
+        case HaggleMessage::GetLost:       text = "Get lost`!"; break;
+        case HaggleMessage::NoThanks:      text = "No thanks`!"; break;
+        case HaggleMessage::IllTakeIt:     text = "I'll take it`!"; break;
+        case HaggleMessage::MustBeCrazy:
+            text = "You must be crazy. I'll take it`!";
+            style = BUBBLE_LEFT;
+            break;
         case HaggleMessage::None:          return;
     }
-    bubbles[kSellerBubble]->SetText(text);
+    bubbles[kSellerBubble]->SetText(text, style);
     bubbles[kSellerBubble]->SetVisible(true);
 }
 
