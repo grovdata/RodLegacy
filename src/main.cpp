@@ -8,6 +8,8 @@
 
 #include "core/mouse.h"
 #include "core/gamepad.h"
+#include "gfx/bitmap.h"
+#include "ui/control_icons.h"
 #include "parsers/libp.h"
 #include "core/state.h"
 #include "core/save_file.h"
@@ -174,6 +176,124 @@ void TakeScreenshot() {
     // RAII handles cleanup automatically
 }
 
+// Pause is global and owned by the loop, not by any scene: P on the keyboard,
+// Start (Menu) on the pad. The frozen frame stays on screen under a dim.
+bool paused = false;
+Uint64 pausedTicks = 0;   // total time spent paused
+Uint64 pauseStarted = 0;  // when the current pause began
+
+Uint64 GameTicks() {
+    if (paused) return pauseStarted - pausedTicks;
+    return SDL_GetTicks64() - pausedTicks;
+}
+
+bool IsPauseEvent(const SDL_Event& event) {
+    if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
+        // P is a letter: while a name or an amount is being typed it belongs to
+        // the field. Unpausing with it always works, because nothing can be
+        // typed while paused.
+        return event.key.keysym.sym == SDLK_p &&
+               (paused || SDL_IsTextInputActive() == SDL_FALSE);
+    }
+    if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERBUTTONUP) {
+        return event.cbutton.button == SDL_CONTROLLER_BUTTON_START;
+    }
+    return false;
+}
+
+void SetPaused(bool value) {
+    if (value == paused) return;
+    paused = value;
+    if (paused) {
+        pauseStarted = SDL_GetTicks64();
+    } else {
+        pausedTicks += SDL_GetTicks64() - pauseStarted;
+    }
+    if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+        if (paused) {
+            am->PauseAll();
+        } else {
+            am->ResumeAll();
+        }
+    }
+    LOG_INFO("Pause: %s", paused ? "ON" : "OFF");
+}
+
+// "PAUSED" over a hint line that spells out the way back, with the pad's Menu
+// button drawn as its icon between the two halves of the sentence.
+SDL_Surface* BuildPauseSurface(SFont_Font* font) {
+    const char* kTitle = "PAUSED";
+    const char* kHintHead = "Press P or ";
+    const char* kHintTail = " to unpause";
+
+    // Menu (Start) on the controller sheet, as a white cap with black lettering
+    // so it reads against the dim.
+    SDL_Surface* icon = icons::Strip({{icons::Sheet::Controller, 14}},
+                                     SDL_Color{0xFF, 0xFF, 0xFF, 0xFF},
+                                     SDL_Color{0x00, 0x00, 0x00, 0xFF});
+
+    const int lineH = SFont_TextHeight(font);
+    const int iconW = icon ? icon->w : 0;
+    const int iconH = icon ? icon->h : 0;
+    const int hintH = std::max(lineH, iconH);
+    const int hintW = SFont_TextWidth(font, kHintHead) + iconW +
+                      SFont_TextWidth(font, kHintTail);
+    const int gap = 6;
+
+    // Same masks as Label uses, so SFont maps its colours the way it does there.
+    SDL_Surface* s = SDL_CreateRGBSurface(0, GAME_WIDTH, lineH + gap + hintH, 32,
+                                          0x00FF0000, 0x0000FF00, 0x000000FF,
+                                          0xFF000000);
+    if (!s) {
+        if (icon) SDL_FreeSurface(icon);
+        return nullptr;
+    }
+    SDL_FillRect(s, nullptr, SDL_MapRGBA(s->format, 0, 0, 0, 0));
+
+    SFont_Write(s, font, (GAME_WIDTH - SFont_TextWidth(font, kTitle)) / 2, 0, kTitle);
+
+    const int textY = lineH + gap + (hintH - lineH) / 2;
+    int x = (GAME_WIDTH - hintW) / 2;
+    SFont_Write(s, font, x, textY, kHintHead);
+    x += SFont_TextWidth(font, kHintHead);
+    if (icon) {
+        SDL_Rect dst = {x, lineH + gap + (hintH - iconH) / 2, iconW, iconH};
+        // Copy the icon verbatim, alpha included: blending it onto a fully
+        // transparent surface is what loses the rounded corners.
+        SDL_SetSurfaceBlendMode(icon, SDL_BLENDMODE_NONE);
+        SDL_BlitSurface(icon, nullptr, s, &dst);
+        SDL_FreeSurface(icon);
+        x += iconW;
+    }
+    SFont_Write(s, font, x, textY, kHintTail);
+    SDL_SetSurfaceBlendMode(s, SDL_BLENDMODE_NONE);  // LoadSurface copies by blit
+    return s;
+}
+
+void DrawPauseOverlay() {
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 160);
+    const SDL_Rect full = {0, 0, GAME_WIDTH, GAME_HEIGHT};
+    SDL_RenderFillRect(renderer, &full);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    // Built on first pause, when the font is certainly loaded, and never freed:
+    // its texture must not outlive the renderer.
+    static Bitmap* overlay = nullptr;
+    if (!overlay) {
+        SFont_Font* font = state.GetAssets().GetMainFont();
+        if (!font) return;
+        SDL_Surface* s = BuildPauseSurface(font);
+        if (!s) return;
+        overlay = new Bitmap();
+        overlay->LoadSurface(s);
+        overlay->SetPosition(0, (GAME_HEIGHT - s->h) / 2);
+        overlay->SetVisible(true);
+        SDL_FreeSurface(s);
+    }
+    overlay->Draw();
+}
+
 
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -302,6 +422,11 @@ int main(int argc, char* argv[]) {
     // Gamepad
     gamepad.OpenFirst();
 
+    // SDL enables text input by default on desktop. The pause key asks SDL
+    // whether a field is being typed into, so start from a known-off state and
+    // let the name entry, the save screen and the entry dialogs turn it on.
+    SDL_StopTextInput();
+
     // Check if running on Steam Deck (needs the joystick subsystem, so not earlier)
     if (IsSteamDeck()) {
         LOG_INFO("Steam Deck detected - optimizing for handheld experience");
@@ -399,6 +524,20 @@ int main(int argc, char* argv[]) {
                 RemapMouseToGameViewport(event, debugUi.GameViewportRect());
             }
             gamepad.HandleEvent(event);
+
+            // Pause swallows its own key and button so no scene sees them, and
+            // while paused only quitting gets through.
+            if (IsPauseEvent(event)) {
+                if ((event.type == SDL_KEYDOWN && event.key.repeat == 0) ||
+                    event.type == SDL_CONTROLLERBUTTONDOWN) {
+                    SetPaused(!paused);
+                }
+                continue;
+            }
+            if (paused && event.type != SDL_QUIT) {
+                continue;
+            }
+
             bool consumed = state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
                 case SDL_QUIT:
@@ -464,7 +603,9 @@ int main(int argc, char* argv[]) {
         // Snapshot the pad once per frame, before anything reads it: the cursor
         // here and the driving scene below both see the same button edges.
         gamepad.Update();
-        mouse.UpdateGamepad(state.GetCurrentScene(), delta);
+        if (!paused) {
+            mouse.UpdateGamepad(state.GetCurrentScene(), delta);
+        }
 
         // Clear to black. Scenes (e.g. racing gauges/dot) leave the draw color
         // set to their last color, so reset it here or the clear tints everything.
@@ -474,13 +615,15 @@ int main(int argc, char* argv[]) {
         Scene *scene = state.GetCurrentScene();
 
         // Update state with delta-time in milliseconds
-        state.SetElapsedTime(delta);
+        state.SetElapsedTime(paused ? 0 : delta);
 
         // Update scene (handles fade transitions and other per-frame logic)
-        scene->Update(delta);
+        if (!paused) {
+            scene->Update(delta);
 
-        if (AudioManager* am = state.GetAssets().GetAudioManager()) {
-            am->UpdateMusic();
+            if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+                am->UpdateMusic();
+            }
         }
 
         // With the debug UI up the game renders into an offscreen texture that
@@ -491,6 +634,10 @@ int main(int argc, char* argv[]) {
         }
 
         scene->Draw();
+
+        if (paused) {
+            DrawPauseOverlay();
+        }
 
         mouse.Draw();
 

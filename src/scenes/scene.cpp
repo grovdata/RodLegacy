@@ -285,7 +285,7 @@ bool Scene::PushEvent(SDL_Event *event) {
 
 void Scene::FadeIn() {
     fadeLevel = 0;
-    fadeStartTime = SDL_GetTicks64();
+    fadeStartTime = GameTicks();
     sceneTransition = SCENE_FADE_IN;
     // Scene entry owns the cursor: each scene declares whether it wants the
     // pointer and which one, so the next scene entered always sets both. Type and
@@ -303,7 +303,7 @@ void Scene::SetPointer(SrLibAmigaSpriteAsset type) {
 
 void Scene::FadeOut() {
     fadeLevel = FADE_LEVELS;
-    fadeStartTime = SDL_GetTicks64();
+    fadeStartTime = GameTicks();
     sceneTransition = SCENE_FADE_OUT;
 }
 
@@ -314,7 +314,7 @@ void Scene::UpdateFade(Uint64) {
 
     // The Amiga moves the ceiling exactly one level per vblank, so step off
     // wall clock rather than off our own frame rate.
-    Uint64 step = (SDL_GetTicks64() - fadeStartTime) / FADE_STEP_MS;
+    Uint64 step = (GameTicks() - fadeStartTime) / FADE_STEP_MS;
 
     if (sceneTransition == SCENE_FADE_IN) {
         fadeLevel = static_cast<Uint8>(std::min<Uint64>(step, FADE_LEVELS));

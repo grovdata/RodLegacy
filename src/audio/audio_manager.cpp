@@ -864,6 +864,22 @@ void AudioManager::ResumeMusic() {
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Resume();
 }
 
+void AudioManager::PauseAll() {
+    if (allPaused_) return;
+    allPaused_ = true;
+    musicWasPlaying_ = HasActiveMusic() && !IsMusicPaused();
+    engineWasPlaying_ = engineSound && engineSound->IsPlaying();
+    if (musicWasPlaying_) PauseMusic();
+    if (engineWasPlaying_) engineSound->Stop();
+}
+
+void AudioManager::ResumeAll() {
+    if (!allPaused_) return;
+    allPaused_ = false;
+    if (musicWasPlaying_) ResumeMusic();
+    if (engineWasPlaying_ && engineSound) engineSound->Start();
+}
+
 bool AudioManager::IsMusicPaused() const {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  return pcSpeaker_->IsPaused();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return amigaMusic_->IsPaused();

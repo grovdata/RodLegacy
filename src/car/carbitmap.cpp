@@ -204,7 +204,7 @@ CarBitmap::CarBitmap(CarPtr car, Driver* driver, StandardCarColor color)
     , shadow(car->GetModel().width)
     , wheels()
     , decal()
-    , t(SDL_GetTicks64())
+    , t(GameTicks())
     , offsets{}
     , wheelsYOffset(0)
     , isRoofChopped(false)
@@ -807,7 +807,7 @@ void CarBitmap::DrawWheelAt(int x, int y, bool spin, bool reverse) {
     int totalFrames = wheels.FrameCount();
     if (totalFrames <= 0) return;
     if (spin) {
-        Uint64 now = SDL_GetTicks64();
+        Uint64 now = GameTicks();
         if (now - lastDrawWheelTime >= 55) {
             if (reverse) {
                 rollingFrame = (rollingFrame - 1 + totalFrames) % totalFrames;

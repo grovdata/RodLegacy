@@ -56,8 +56,17 @@ Menus and scenes:
 | A | Click |
 | B | Back (closes a dialog, leaves a screen) |
 | X | Snap the cursor to the nearest button or hotspot |
-| LB / RB | Straight to the garage / the diner |
-| Start | Enter |
+| LB / Y | Straight to the garage / the diner |
+| RB | Enter |
+
+Anywhere, driving included:
+
+| Gamepad | Keyboard | Action |
+| --- | --- | --- |
+| Start (Menu) | P | Pause |
+
+Pausing freezes the scene and the audio and dims the frame; nothing but quitting
+reaches the game until it is unpaused.
 
 Driving:
 

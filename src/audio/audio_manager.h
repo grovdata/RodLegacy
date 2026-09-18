@@ -167,6 +167,11 @@ public:
     int  GetCurrentSongIndex() const;
     int  GetSongCount() const;
 
+    // Silence every voice at once, for the global pause. Resume brings back
+    // only what was actually playing when it was paused.
+    void PauseAll();
+    void ResumeAll();
+
     // Get engine sound for external management
     AudioSample* GetEngineSound() { return GetSample(AudioSampleType::ENGINE_LOOP); }
 
@@ -193,6 +198,11 @@ private:
     std::unique_ptr<EngineSound> engineSound;
     int engineChannelId = -1;
     int16_t currentRPM = 1500;
+
+    // What PauseAll stopped, so ResumeAll restarts no more than that.
+    bool allPaused_ = false;
+    bool musicWasPlaying_ = false;
+    bool engineWasPlaying_ = false;
 
     // Load raw audio file (unsigned 8-bit)
     bool LoadRawAudio(const uint8_t* data, size_t size, AudioSample& sample, uint32_t sampleRate = 22050);

@@ -20,7 +20,7 @@ double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
 
 Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN}) {
-    lastFrameTime = SDL_GetTicks64() / 1000.0;
+    lastFrameTime = GameTicks() / 1000.0;
     carBitmap = nullptr;
     isPaused = false;
     challenge = std::make_unique<Challenge>();
@@ -98,7 +98,7 @@ void Diner::Init(bool debugMode) {
 
     hud->SetVisible(true);
 
-    initStartTime = SDL_GetTicks64();
+    initStartTime = GameTicks();
 }
 
 Diner::~Diner() {
@@ -300,7 +300,7 @@ void Diner::DrawScene() {
     // No status bar in a cell.
     hud->SetVisible(!state.IsJailed());
 
-    currentTime = SDL_GetTicks64() / 1000.0;
+    currentTime = GameTicks() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
 
@@ -326,7 +326,7 @@ void Diner::DrawScene() {
 
     // Handle initial delay
     if (initialDelay) {
-        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
+        if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }
@@ -887,7 +887,7 @@ void Diner::ShowCallListDialog() {
 
 void Diner::OnFadeComplete() {
     if (initialDelay) {
-        fadeCompleteTime = SDL_GetTicks64();
+        fadeCompleteTime = GameTicks();
     } else {
         // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !carBitmap) {

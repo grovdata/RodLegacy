@@ -29,3 +29,8 @@
 extern SDL_Window *win;
 extern SDL_Renderer *renderer;
 extern bool isFullScreen;
+
+// Milliseconds since start, minus every millisecond spent paused. Scenes time
+// their animations, fades and bubbles against this rather than SDL_GetTicks64,
+// so a pause freezes them wherever they are driven from.
+Uint64 GameTicks();

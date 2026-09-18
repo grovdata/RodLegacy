@@ -25,6 +25,7 @@ using icons::Sheet;
 // ---------------------------------------------------------------------------
 
 // Keyboard letters.
+constexpr int kKeyP = 9;
 constexpr int kKeyD = 12, kKeyF = 13, kKeyG = 14;
 
 // Keyboard modifiers and specials (row 4), then backspace and the F-keys.
@@ -36,7 +37,7 @@ constexpr int kKeyArrowLeft = 55, kKeyArrowRight = 56;
 constexpr int kKeyArrowUp = 57,   kKeyArrowDown = 58;
 
 // Controller, row 0.
-constexpr int kPadA = 0, kPadB = 1, kPadX = 2;
+constexpr int kPadA = 0, kPadB = 1, kPadX = 2, kPadY = 3;
 constexpr int kPadLB = 4, kPadRB = 5, kPadLT = 6, kPadRT = 7;
 
 // Controller, row 1. Start is the Menu button on an Xbox-style pad.
@@ -62,19 +63,20 @@ std::vector<Row> BuildRows() {
         {"Click",               {}, {P(kPadA)}},
         {"Back / close dialog", {K(kKeyEscape)}, {P(kPadB)}},
         {"Snap to nearest",     {}, {P(kPadX)}},
-        {"Confirm",             {K(kKeyEnter)}, {P(kPadStart)}},
+        {"Confirm",             {K(kKeyEnter)}, {P(kPadRB)}},
         {"Go to the garage",    {K(kKeyG)}, {P(kPadLB)}},
-        {"Go to the diner",     {K(kKeyD)}, {P(kPadRB)}},
+        {"Go to the diner",     {K(kKeyD)}, {P(kPadY)}},
 
         {"DRIVING", {}, {}, true},
-        {"Throttle", {K(kKeyArrowUp)},   {P(kPadRT), P(kPadA)}},
-        {"Brake",    {K(kKeyArrowDown)}, {P(kPadLT), P(kPadB)}},
+        {"Throttle", {K(kKeyArrowUp)},   {P(kPadRT)}},
+        {"Brake",    {K(kKeyArrowDown)}, {P(kPadLT)}},
         {"Steer",    {K(kKeyArrowLeft), K(kKeyArrowRight)},
                      {P(kPadStick), P(kPadDpad)}},
-        {"Shift",    {K(kKeySpace)},     {P(kPadX), P(kPadRB)}},
+        {"Shift",    {K(kKeySpace)},     {P(kPadA), P(kPadRB)}},
         {"Skip the drive", {K(kKeySpace)}, {P(kPadA)}},
 
-        {"WINDOW", {}, {}, true},
+        {"ANYWHERE", {}, {}, true},
+        {"Pause",        {K(kKeyP)},              {P(kPadStart)}},
         {"Fullscreen",   {K(kKeyCtrl), K(kKeyF)}, {}},
         {"Gamepad mode", {K(kKeyCtrl), K(kKeyG)}, {}},
     };

@@ -572,7 +572,7 @@ void Garage::DrawScene() {
         }
     }
 
-    currentTime = SDL_GetTicks64() / 1000.0;
+    currentTime = GameTicks() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
 
@@ -591,7 +591,7 @@ void Garage::DrawScene() {
 
     // Handle initial delay
     if (initialDelay) {
-        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
+        if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             const CarPtr& current = state.GetCurrentCarPtr();
             // Repaint the sign first: with no car left (totaled, sold) nothing

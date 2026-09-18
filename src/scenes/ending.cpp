@@ -65,7 +65,7 @@ void Ending::OnSceneEnter() {
     CarScene::OnSceneEnter();
     phase = Phase::Win;
     frame = 1;
-    phaseStart = SDL_GetTicks64();
+    phaseStart = GameTicks();
 
     // The original starts this back in ProcessRaceOutcome, on the result
     // screen; the scene opening is the closest point we have to that.
@@ -92,7 +92,7 @@ void Ending::OnCarAnimationComplete() {
     if (phase == Phase::DriveIn) {
         phase = Phase::Girl;
         frame = 1;
-        phaseStart = SDL_GetTicks64();
+        phaseStart = GameTicks();
         // She is the one getting out, so the portrait behind the windscreen
         // goes the moment her animation starts.
         if (kingCarBitmap) {
@@ -102,7 +102,7 @@ void Ending::OnCarAnimationComplete() {
 }
 
 void Ending::DrawScene() {
-    currentTime = SDL_GetTicks64() / 1000.0;
+    currentTime = GameTicks() / 1000.0;
     const double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
 
@@ -121,7 +121,7 @@ void Ending::DrawScene() {
     }
 
     // Frame pacing for whichever animation is running.
-    const Uint64 now = SDL_GetTicks64();
+    const Uint64 now = GameTicks();
     if (phase == Phase::Girl || phase == Phase::Kiss) {
         Uint64 due = kFrameMs;
         if (phase == Phase::Girl && frame == kBeatFrame) {
@@ -174,7 +174,7 @@ bool Ending::PushEvent(SDL_Event* event) {
                          event->type == SDL_CONTROLLERBUTTONDOWN;
     if (pressed && phase == Phase::Win) {
         phase = Phase::DriveIn;
-        phaseStart = SDL_GetTicks64();
+        phaseStart = GameTicks();
         Opponent* king = state.GetKingOpponent();
         if (king != nullptr && king->car) {
             girlfriendDriver = king->driver;

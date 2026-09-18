@@ -176,7 +176,7 @@ void GasStation::Init(bool initialDebugMode) {
     // redrawn on every charge.
     hud->SetVisible(true);
 
-    initStartTime = SDL_GetTicks64();
+    initStartTime = GameTicks();
 }
 
 
@@ -187,7 +187,7 @@ SDL_Point GasStation::GetCarIdlePosition() {
 }
 
 void GasStation::DrawScene() {
-    currentTime = SDL_GetTicks64() / 1000.0;
+    currentTime = GameTicks() / 1000.0;
     double deltaTime = currentTime - lastFrameTime;
     lastFrameTime = currentTime;
 
@@ -205,7 +205,7 @@ void GasStation::DrawScene() {
 
     // Wait 2s
     if (initialDelay) {
-        if (SDL_GetTicks64() - fadeCompleteTime >= 2000) {
+        if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
         }
@@ -583,7 +583,7 @@ void GasStation::FadeOut() {
 
 void GasStation::OnFadeComplete() {
     if (initialDelay) {
-        fadeCompleteTime = SDL_GetTicks64();
+        fadeCompleteTime = GameTicks();
     }
     hud->Refresh();  // bankroll may have changed since the last visit
 }

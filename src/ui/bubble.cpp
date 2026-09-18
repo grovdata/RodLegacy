@@ -18,7 +18,7 @@ Bubble::Bubble(std::string text, BubbleStyle style, bool autoDismiss) {
     UpdateText(text);
 
     if (autoDismiss) {
-        timerStart = SDL_GetTicks64();
+        timerStart = GameTicks();
     }
 }
 
@@ -55,7 +55,7 @@ void Bubble::ApplyStyle(BubbleStyle style) {
 void Bubble::SetVisible(bool visible) {
     // Restart animation timer
     if (!this->visible && visible) {
-        timerStart = SDL_GetTicks64();
+        timerStart = GameTicks();
     }
     this->visible = visible;
     //bubble->SetVisible(visible);
@@ -63,7 +63,7 @@ void Bubble::SetVisible(bool visible) {
 
 void Bubble::Draw() {
 
-    uint64_t ticks = SDL_GetTicks64();
+    uint64_t ticks = GameTicks();
 
     if (ticks - timerStart > 5000)
         SetVisible(false);

@@ -220,13 +220,14 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         SendKey(scene, SDL_KEYUP, SDLK_g);
     }
 
-    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
-        gamepadDebug.lastAction = "RB (diner)";
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_Y)) {
+        gamepadDebug.lastAction = "Y (diner)";
         SendKey(scene, SDL_KEYUP, SDLK_d);
     }
 
-    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_START)) {
-        gamepadDebug.lastAction = "Start (enter)";
+    // Start is the global pause, handled by the main loop, so Enter sits on RB.
+    if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+        gamepadDebug.lastAction = "RB (enter)";
         SendKey(scene, SDL_KEYDOWN, SDLK_RETURN);
         SendKey(scene, SDL_KEYUP, SDLK_RETURN);
     }
