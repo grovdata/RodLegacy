@@ -1,7 +1,16 @@
 # RodLegacy
 
 RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
-It aims to stay true to the original, with some enhancements to make gameplay more enjoyable.
+It aims to stay true to the original, with some enhancements to make gameplay more enjoyable:
+
+# New features
+
+- Fluid framerate, compared to the quite sluggish Amiga version
+- Hill occlusion in races
+- Some extra animation from unused graphics
+- Gamepad Support
+- Pause button
+- Play with cars from Street Rod SE
 
 # Playing the game
 

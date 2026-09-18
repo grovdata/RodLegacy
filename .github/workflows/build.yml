@@ -122,7 +122,7 @@ jobs:
                   cp builddir/rodlegacy packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${TAG}/"
                   tar czf "rodlegacy-${TAG}.tar.gz" "rodlegacy-${TAG}"
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
               with:
                   name: rodlegacy-linux-packages-${{ env.TAG }}
                   path: |
@@ -182,7 +182,7 @@ jobs:
             - name: Build zip
               run: zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
               with:
                   name: rodlegacy-windows-${{ env.TAG }}
                   path: "*.zip"
