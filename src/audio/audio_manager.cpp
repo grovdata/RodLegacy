@@ -194,12 +194,13 @@ AudioManager::MusicSource AudioManager::GetMusicSource() const {
     return musicSource_;
 }
 
-void AudioManager::SetMusicSource(MusicSource src) {
+void AudioManager::SetMusicSource(MusicSource src, bool start) {
     // Stop whatever is currently playing.
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
 
     musicSource_ = src;
+    if (!start) return;
 
     // Muting is a gain control, not a reason to skip starting the source.
     // Returning early here used to leave the player never started: LoadSettings
@@ -347,6 +348,13 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
         samples[AudioSampleType::PART_MOUNT] = toolSample;
         LOG_INFO("  - Part mount sound: %u bytes (one-shot) at period %u",
                 SRL0_PART_MOUNT_LENGTH, SRL0_PART_MOUNT_PERIOD_BASE);
+    }
+
+    if (size >= size_t{SRL0_CUTSCENE_HIT_OFFSET} + SRL0_CUTSCENE_HIT_LENGTH) {
+        AudioSample hitSample;
+        LoadRawAudio(data + SRL0_CUTSCENE_HIT_OFFSET, SRL0_CUTSCENE_HIT_LENGTH, hitSample,
+                     3579545u / SRL0_CUTSCENE_HIT_PERIOD_BIAS);
+        samples[AudioSampleType::CUTSCENE_HIT] = hitSample;
     }
 
     // Car jack sound - for raising/lowering car during tire change
@@ -684,6 +692,17 @@ void AudioManager::StopGasPumpLoop() {
     StopLoop(0);
 }
 
+
+void AudioManager::PlayInstrumentNote(int channel, int instrument, int period, int volume) {
+    if (!amigaMusic_) return;
+    amigaMusic_->SetVolume(sfxVolume_ / 10.0f);
+    amigaMusic_->PlayEffectNote(channel, instrument, period, volume);
+}
+
+void AudioManager::StopMusicPlayback() {
+    if (pcSpeaker_) pcSpeaker_->Stop();
+    if (amigaMusic_) amigaMusic_->Stop();
+}
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
     // not yet implemented

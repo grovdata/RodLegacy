@@ -39,6 +39,8 @@ test_sources = [
     'test_car_engine_type.cpp',
     'test_engine_pitch.cpp',
     'test_zone_nav.cpp',
+    'test_intro_player.cpp',
+    '../src/scenes/intro_player.cpp',
     '../src/car/engine_bay_layout.cpp',
     '../src/race/track_gen.cpp',
     '../src/race/race_sim.cpp',

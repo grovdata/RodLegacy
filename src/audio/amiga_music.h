@@ -2,6 +2,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "audio/amiga_envelope.h"
+
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -33,6 +35,10 @@ public:
     void PlayArrangement(int index, int ciaPeriod,
                          const int* channelInstruments = nullptr,
                          const int* channelVolumes = nullptr);
+    // One instrument note outside the arrangement, at a Paula period rather
+    // than a note number. Plays even while no song is running; MusicTick
+    // does not touch it. The intro chimes (0x22c83a) are the only user.
+    void PlayEffectNote(int channel, int instrument, int period, int volume);
     void Stop();
     void Pause();
     void Resume();
@@ -57,14 +63,18 @@ private:
         int wait_ticks = 0;
         int instrument = 0;
         int note_volume = 64;
-        int env_step = 0;
-        int env_volume = 0;
 
         bool sample_active = false;
         const int8_t* sample_ptr = nullptr;
         int sample_len = 0;
         double sample_pos = 0.0;
         double sample_step = 0.0;
+
+        // Volume comes from env when the instrument has one, else it stays
+        // at noteVolume * master / 15. loop: audio.device cycles 0.
+        bool loop = false;
+        bool has_env = false;
+        AmigaEnvelope env;
 
         std::array<size_t, 5> slot_ptr = {};
         std::array<bool, 5> slot_valid = {};
@@ -77,6 +87,7 @@ private:
     void MusicTick();
     void HandleControlByte(int ch_index, uint8_t cmd);
     void StartNote(int ch_index, int note_byte);
+    void StartSample(int ch_index, int period, int master);
     void AdvanceArrangement();
     bool ResetState();
 

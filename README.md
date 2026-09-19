@@ -46,6 +46,7 @@ same file:
 | `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
 | `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
 | `analog_steering=1` | How far the analog stick is pushed sets how far the wheel goes over, instead of the original's ramp to full lock. Keyboard and D-pad are unaffected. |
+| `skip_intro=1` | Start at the name entry instead of the California Dreams intro. |
 | `purist_scoring=1` | Score the engine tune the way the original does, so top speeds match the real game (best car 122 mph, not 130). |
 
 # Controls

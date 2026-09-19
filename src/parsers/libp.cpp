@@ -303,6 +303,20 @@ std::vector<uint8_t> BitmapParser::UnpackData(const std::vector<std::pair<int, u
     return flat_bp;
 }
 
+std::vector<uint8_t> BitmapParser::PlanarToIndices(const std::vector<uint8_t>& data, BitmapEntry_t entry) {
+    std::vector<uint8_t> out(entry.width * entry.height, 0);
+    const int planeSize = (entry.width / 8) * entry.height;
+    for (int i = 0; i < entry.width * entry.height; ++i) {
+        const uint8_t bit = 0x80 >> (i % 8);
+        for (int p = 0; p < entry.depth; ++p) {
+            if (data[p * planeSize + i / 8] & bit) {
+                out[i] |= 1 << p;
+            }
+        }
+    }
+    return out;
+}
+
 std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data,
     BitmapEntry_t entry, const Palette& palette, const Palette& carPalette, int assetIndex) {
     std::vector<SrLibColor> chunkyData(entry.width * entry.height);

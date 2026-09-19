@@ -884,7 +884,8 @@ void AssetManager::LoadSettings() {
     auto kv = ReadConfigFile();
     if (kv.empty()) {
         // No saved settings: pick the best available music source and start it.
-        if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager));
+        // The intro starts the music itself, partway in.
+        if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager), skipIntro);
         return;
     }
     try {
@@ -893,6 +894,9 @@ void AssetManager::LoadSettings() {
 
         auto hillOcclusionIt = kv.find("hill_occlusion");
         if (hillOcclusionIt != kv.end()) hillOcclusion = std::stoi(hillOcclusionIt->second) != 0;
+
+        auto skipIntroIt = kv.find("skip_intro");
+        if (skipIntroIt != kv.end()) skipIntro = std::stoi(skipIntroIt->second) != 0;
 
         auto extraAnimationsIt = kv.find("extra_animations");
         if (extraAnimationsIt != kv.end()) extraAnimations = std::stoi(extraAnimationsIt->second) != 0;
@@ -925,7 +929,7 @@ void AssetManager::LoadSettings() {
             AudioManager::MusicSource src = (it != kv.end())
                 ? ParseMusicSource(it->second, audioManager)
                 : DefaultMusicSource(audioManager);
-            audioManager->SetMusicSource(src);
+            audioManager->SetMusicSource(src, skipIntro);
         }
     } catch (...) {}
 }
@@ -946,6 +950,7 @@ void AssetManager::SaveSettings() {
     kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";
     kv["hill_occlusion"] = hillOcclusion ? "1" : "0";
     kv["extra_animations"] = extraAnimations ? "1" : "0";
+    kv["skip_intro"] = skipIntro ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
     kv["purist_scoring"] = puristScoring ? "1" : "0";
     WriteConfigFile(kv);

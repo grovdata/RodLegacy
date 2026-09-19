@@ -155,6 +155,10 @@ public:
     // off by default and has no UI: set analog_steering=1 in config.txt.
     bool& GetAnalogSteeringRef() { return analogSteering; }
 
+    // Start at the name entry instead of the Amiga intro. Off by default;
+    // skip_intro=1 in config.txt or Options -> Settings.
+    bool& GetSkipIntroRef() { return skipIntro; }
+
     // Score the engine tune the way the 68k does, (1 - |tune|) * 20/8, so top
     // speeds match the real game (best car 122 mph, not 130). Off by default;
     // set purist_scoring=1 in config.txt. Pushed into the race sim by
@@ -168,6 +172,7 @@ private:
     bool extraAnimations = false;
     bool analogSteering = false;
     bool puristScoring = false;
+    bool skipIntro = false;
     fs::path gameBasePath;
     fs::path dataPath;
 

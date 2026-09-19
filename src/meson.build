@@ -162,6 +162,8 @@ cpp_sources = files(
     'scenes/save_load_scene.cpp',
     'scenes/game_over_menu.cpp',
     'scenes/ending.cpp',
+    'scenes/intro.cpp',
+    'scenes/intro_player.cpp',
     'core/assets.cpp',
     'parsers/libp.cpp',
     'parsers/carcolor.cpp',
