@@ -63,8 +63,6 @@ private:
         int wait_ticks = 0;
         int instrument = 0;
         int note_volume = 64;
-        int env_step = 0;
-        int env_volume = 0;
 
         bool sample_active = false;
         const int8_t* sample_ptr = nullptr;
@@ -72,10 +70,11 @@ private:
         double sample_pos = 0.0;
         double sample_step = 0.0;
 
-        // Effect notes (PlayEffectNote) run the decoded envelope and may loop.
-        bool effect = false;
+        // Volume comes from env when the instrument has one, else it stays
+        // at noteVolume * master / 15. loop: audio.device cycles 0.
         bool loop = false;
-        AmigaEnvelope effect_env;
+        bool has_env = false;
+        AmigaEnvelope env;
 
         std::array<size_t, 5> slot_ptr = {};
         std::array<bool, 5> slot_valid = {};
@@ -88,7 +87,7 @@ private:
     void MusicTick();
     void HandleControlByte(int ch_index, uint8_t cmd);
     void StartNote(int ch_index, int note_byte);
-    void StartSample(int ch_index, int period);
+    void StartSample(int ch_index, int period, int master);
     void AdvanceArrangement();
     bool ResetState();
 

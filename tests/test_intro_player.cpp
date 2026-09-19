@@ -99,3 +99,19 @@ TEST_CASE("srl.env entry 3 under the intro chime: volume per CIA tick") {
     }
     CHECK_FALSE(e.Active());
 }
+
+TEST_CASE("music note on srl.env entry 0: up in one tick, then down 1 per tick") {
+    const int16_t env0[16] = {64, 0, 0, 0, 0, 0, 0, 0, 16384, 256, 0, 0, 0, 0, 0, 0};
+    AmigaEnvelope e;
+    e.Start(env0, 0, 64, 9);
+    e.volume = 0;   // MusicTick zeroes it after MusicPlayNote
+    e.Tick();
+    CHECK(e.volume == 38);   // 64 * 9 / 15
+    int ticks = 1;
+    while (e.Active() && ticks < 100) {
+        e.Tick();
+        ticks++;
+    }
+    CHECK(e.volume == 0);
+    CHECK(ticks == 39);
+}
