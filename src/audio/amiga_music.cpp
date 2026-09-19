@@ -20,6 +20,11 @@ constexpr int kArrangementSteps = 3;
 // Master volume while music plays. The game sets 0xF at audio init but drops
 // to 9 on every music start, and the envelope curve is scaled by it.
 constexpr int kMusicMasterVolume = 9;
+
+// Before any music has started: master volume and CIA-A period as audio init
+// leaves them (0x227a42, 0x227a62). The intro chimes play under these.
+constexpr int kIdleMasterVolume = 15;
+constexpr int kIdleCiaPeriod = 43000;
 }  // namespace
 
 AmigaMusic::AmigaMusic() = default;
@@ -143,6 +148,17 @@ void AmigaMusic::PlayEffectNote(int channel, int instrument, int period, int vol
     c.instrument = instrument;
     c.note_volume = std::clamp(volume, 0, 64);
     StartSample(channel, period);
+    if (c.sample_active) {
+        const InstrumentDef& inst = instruments_[static_cast<size_t>(instrument)];
+        if (inst.env_index < envelopes_.size()) {
+            const int prevLast = inst.env_index > 0 ? envelopes_[inst.env_index - 1].points[15] : 0;
+            c.effect = true;
+            c.loop = inst.unknown == 0;   // audio.device cycles: 0 = repeat until stopped
+            c.effect_env.Start(envelopes_[inst.env_index].points, prevLast, c.note_volume,
+                               kIdleMasterVolume);
+            c.env_volume = c.effect_env.volume;
+        }
+    }
     SDL_UnlockAudioDevice(device_);
 }
 
@@ -190,7 +206,8 @@ void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
     for (int i = 0; i < frames; i++) {
         sample_tick_accum_ += 1.0;
 
-        double irq_hz = kCiaClockHz / static_cast<double>(std::max(1, cia_timer_period_));
+        const int period = playing_.load() ? cia_timer_period_ : kIdleCiaPeriod;
+        double irq_hz = kCiaClockHz / static_cast<double>(std::max(1, period));
         if (irq_hz < 1.0) irq_hz = 1.0;
         double samples_per_irq = static_cast<double>(sample_rate_) / irq_hz;
 
@@ -203,7 +220,8 @@ void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
             }
             speed_counter_++;
 
-            irq_hz = kCiaClockHz / static_cast<double>(std::max(1, cia_timer_period_));
+            irq_hz = kCiaClockHz / static_cast<double>(
+                std::max(1, playing_.load() ? cia_timer_period_ : kIdleCiaPeriod));
             if (irq_hz < 1.0) irq_hz = 1.0;
             samples_per_irq = static_cast<double>(sample_rate_) / irq_hz;
         }
@@ -222,7 +240,11 @@ void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
             mix += s * v;
             c.sample_pos += c.sample_step;
             if (static_cast<int>(c.sample_pos) >= c.sample_len) {
-                c.sample_active = false;
+                if (c.loop) {
+                    c.sample_pos = std::fmod(c.sample_pos, static_cast<double>(c.sample_len));
+                } else {
+                    c.sample_active = false;
+                }
             }
         }
 
@@ -236,6 +258,12 @@ void AmigaMusic::EnvelopeTick() {
     for (int ch = 0; ch < 4; ch++) {
         ChannelState& c = channel_[ch];
         if (!c.sample_active) continue;
+        if (c.effect) {
+            c.effect_env.Tick();
+            c.env_volume = c.effect_env.volume;
+            if (!c.effect_env.Active()) c.sample_active = false;
+            continue;
+        }
         if (c.instrument < 0 || static_cast<size_t>(c.instrument) >= instruments_.size()) continue;
         uint16_t env_idx = instruments_[static_cast<size_t>(c.instrument)].env_index;
         if (env_idx >= envelopes_.size()) continue;
@@ -457,6 +485,8 @@ void AmigaMusic::StartSample(int ch_index, int period) {
     if (off >= bank.size()) return;
     if (off + len > bank.size()) len = bank.size() - off;
 
+    c.effect = false;
+    c.loop = false;
     c.sample_ptr = bank.data() + off;
     c.sample_len = static_cast<int>(len);
     c.sample_pos = 0.0;

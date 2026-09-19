@@ -46,9 +46,9 @@ TEST_CASE("intro runs its full length and ends on the credits plate palette") {
     IntroPlayer p;
     p.Start(imgs);
     std::vector<IntroSound> sounds;
-    // logo 96 + 150 + 28*3, fade out 15, sepia 96, colour 96, title 169*2,
+    // logo 96 + 150 + 28*3, fade out 15, sepia 96, colour 96, title 169*3,
     // fade out 15, plate 16
-    CHECK(RunToEnd(p, sounds) == 906);
+    CHECK(RunToEnd(p, sounds) == 1075);
     const std::vector<IntroSound> expected = {
         IntroSound::ChimeA, IntroSound::ChimeB, IntroSound::ChimeC,
         IntroSound::ChimeB, IntroSound::ChimeC, IntroSound::ChimeA,
@@ -66,7 +66,7 @@ TEST_CASE("skip is ignored before the title animation") {
     IntroPlayer p;
     p.Start(imgs);
     std::vector<IntroSound> sounds;
-    CHECK(RunToEnd(p, sounds, 10) == 906);
+    CHECK(RunToEnd(p, sounds, 10) == 1075);
 }
 
 TEST_CASE("skipping the title animation still starts the music once") {
@@ -76,7 +76,26 @@ TEST_CASE("skipping the title animation still starts the music once") {
     std::vector<IntroSound> sounds;
     // Title starts at tick 330 + 15 + 96 + 96 = 537; skip on its 3rd step.
     const int ticks = RunToEnd(p, sounds, 541);
-    CHECK(ticks < 906);
+    CHECK(ticks < 1075);
     CHECK(std::count(sounds.begin(), sounds.end(), IntroSound::StartMusic) == 1);
     CHECK(std::count(sounds.begin(), sounds.end(), IntroSound::Ignition) == 0);
+}
+
+#include "audio/amiga_envelope.h"
+
+TEST_CASE("srl.env entry 3 under the intro chime: volume per CIA tick") {
+    // Levels then rates, as in srl.env. Entry 2's last word (0) precedes it.
+    const int16_t env3[16] = {64, 48, 53, 42, 48, 0, 0, 0,
+                              14336, 2048, 1024, 1792, 2048, 1024, 0, 0};
+    AmigaEnvelope e;
+    e.Start(env3, 0, 0x32, 15);
+    CHECK(e.volume == 43);
+    const int expected[] = {50, 43, 37, 40, 41, 36, 32, 37, 34, 31, 28, 25, 22,
+                            19, 16, 13, 10, 7, 4, 1, 0};
+    for (int v : expected) {
+        REQUIRE(e.Active());
+        e.Tick();
+        CHECK(e.volume == v);
+    }
+    CHECK_FALSE(e.Active());
 }

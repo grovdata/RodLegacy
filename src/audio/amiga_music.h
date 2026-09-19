@@ -2,6 +2,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "audio/amiga_envelope.h"
+
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -69,6 +71,11 @@ private:
         int sample_len = 0;
         double sample_pos = 0.0;
         double sample_step = 0.0;
+
+        // Effect notes (PlayEffectNote) run the decoded envelope and may loop.
+        bool effect = false;
+        bool loop = false;
+        AmigaEnvelope effect_env;
 
         std::array<size_t, 5> slot_ptr = {};
         std::array<bool, 5> slot_valid = {};
