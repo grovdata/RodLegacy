@@ -33,6 +33,10 @@ public:
     void PlayArrangement(int index, int ciaPeriod,
                          const int* channelInstruments = nullptr,
                          const int* channelVolumes = nullptr);
+    // One instrument note outside the arrangement, at a Paula period rather
+    // than a note number. Plays even while no song is running; MusicTick
+    // does not touch it. The intro chimes (0x22c83a) are the only user.
+    void PlayEffectNote(int channel, int instrument, int period, int volume);
     void Stop();
     void Pause();
     void Resume();
@@ -77,6 +81,7 @@ private:
     void MusicTick();
     void HandleControlByte(int ch_index, uint8_t cmd);
     void StartNote(int ch_index, int note_byte);
+    void StartSample(int ch_index, int period);
     void AdvanceArrangement();
     bool ResetState();
 

@@ -26,6 +26,7 @@ enum class AudioSampleType {
     CAR_JACK,          // Car jack sound (srl0.wave)
     BAY_IGNITION,          // Engine bay engine sound (srl0.wave 0x408, 6912 bytes, looped)
     PART_MOUNT,         // Part mounted into engine, re-pitched per use (srl0.wave 0x5DC8, 800 bytes)
+    CUTSCENE_HIT,       // Intro bangs, re-pitched per use (srl0.wave 0x3108, 1920 bytes)
     MUSIC_TONE,        // Music samples (srl1.wave)
     MUSIC_BASS,
     MUSIC_BASSDRUM,
@@ -100,6 +101,15 @@ public:
     // Gas station: the pump chugs for as long as fuel is going in.
     void StartGasPumpLoop();
     void StopGasPumpLoop();
+
+    // One Amiga instrument note at a Paula period, outside any song. SFX
+    // volume. No-op without Amiga music data.
+    void PlayInstrumentNote(int channel, int instrument, int period, int volume);
+
+    // Silence the current music source without switching it, and start it
+    // again from a fresh random arrangement.
+    void StopMusicPlayback();
+    void RestartMusic() { SetMusicSource(musicSource_); }
 
     // Set volume for a specific channel
     void SetChannelVolume(int channelId, float volume);

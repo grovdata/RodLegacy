@@ -894,6 +894,9 @@ void AssetManager::LoadSettings() {
         auto hillOcclusionIt = kv.find("hill_occlusion");
         if (hillOcclusionIt != kv.end()) hillOcclusion = std::stoi(hillOcclusionIt->second) != 0;
 
+        auto skipIntroIt = kv.find("skip_intro");
+        if (skipIntroIt != kv.end()) skipIntro = std::stoi(skipIntroIt->second) != 0;
+
         auto extraAnimationsIt = kv.find("extra_animations");
         if (extraAnimationsIt != kv.end()) extraAnimations = std::stoi(extraAnimationsIt->second) != 0;
 
@@ -946,6 +949,7 @@ void AssetManager::SaveSettings() {
     kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";
     kv["hill_occlusion"] = hillOcclusion ? "1" : "0";
     kv["extra_animations"] = extraAnimations ? "1" : "0";
+    kv["skip_intro"] = skipIntro ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
     kv["purist_scoring"] = puristScoring ? "1" : "0";
     WriteConfigFile(kv);

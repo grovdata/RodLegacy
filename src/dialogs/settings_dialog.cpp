@@ -39,6 +39,7 @@ const Setting kSettings[] = {
     {"Hill occlusion",      &AssetManager::GetHillOcclusionRef,    false, nullptr},
     {"Extra animations",    &AssetManager::GetExtraAnimationsRef,  false, nullptr},
     {"Analog steering",     &AssetManager::GetAnalogSteeringRef,   false, nullptr},
+    {"Skip intro",          &AssetManager::GetSkipIntroRef,        false, nullptr},
     {"Purist tune scoring", &AssetManager::GetPuristScoringRef,    false,
      [](bool on) { srrace::SetPuristScoring(on); }},
 };

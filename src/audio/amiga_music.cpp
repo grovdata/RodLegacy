@@ -136,9 +136,24 @@ void AmigaMusic::PlayArrangement(int index, int ciaPeriod,
     SDL_UnlockAudioDevice(device_);
 }
 
+void AmigaMusic::PlayEffectNote(int channel, int instrument, int period, int volume) {
+    if (!loaded_.load() || channel < 0 || channel >= 4) return;
+    SDL_LockAudioDevice(device_);
+    ChannelState& c = channel_[channel];
+    c.instrument = instrument;
+    c.note_volume = std::clamp(volume, 0, 64);
+    StartSample(channel, period);
+    SDL_UnlockAudioDevice(device_);
+}
+
 void AmigaMusic::Stop() {
+    SDL_LockAudioDevice(device_);
     playing_.store(false);
     paused_.store(false);
+    for (ChannelState& c : channel_) {
+        c.sample_active = false;
+    }
+    SDL_UnlockAudioDevice(device_);
 }
 
 void AmigaMusic::Pause() {
@@ -165,7 +180,9 @@ void AmigaMusic::AudioCallback(void* userdata, uint8_t* stream, int len) {
 }
 
 void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
-    if (!loaded_.load() || !playing_.load() || paused_.load()) {
+    const bool anyActive = std::any_of(channel_.begin(), channel_.end(),
+                                       [](const ChannelState& c) { return c.sample_active; });
+    if (!loaded_.load() || paused_.load() || (!playing_.load() && !anyActive)) {
         std::memset(buffer, 0, static_cast<size_t>(frames) * sizeof(int16_t));
         return;
     }
@@ -180,7 +197,8 @@ void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
         while (sample_tick_accum_ >= samples_per_irq) {
             sample_tick_accum_ -= samples_per_irq;
             EnvelopeTick();
-            if ((speed_counter_ % static_cast<uint64_t>(std::max(1, speed_ticks_))) == 0) {
+            if (playing_.load() &&
+                (speed_counter_ % static_cast<uint64_t>(std::max(1, speed_ticks_))) == 0) {
                 MusicTick();
             }
             speed_counter_++;
@@ -423,6 +441,10 @@ void AmigaMusic::HandleControlByte(int ch_index, uint8_t cmd) {
 }
 
 void AmigaMusic::StartNote(int ch_index, int note_byte) {
+    StartSample(ch_index, NoteToPeriod(note_byte + global_transpose_));
+}
+
+void AmigaMusic::StartSample(int ch_index, int period) {
     ChannelState& c = channel_[ch_index];
     if (c.instrument < 0 || static_cast<size_t>(c.instrument) >= instruments_.size()) return;
 
@@ -435,8 +457,6 @@ void AmigaMusic::StartNote(int ch_index, int note_byte) {
     if (off >= bank.size()) return;
     if (off + len > bank.size()) len = bank.size() - off;
 
-    int note = note_byte + global_transpose_;
-    int period = NoteToPeriod(note);
     c.sample_ptr = bank.data() + off;
     c.sample_len = static_cast<int>(len);
     c.sample_pos = 0.0;

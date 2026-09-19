@@ -33,6 +33,7 @@ class NameEntry;
 class SaveLoadScene;
 class GameOverMenu;
 class Ending;
+class Intro;
 class CarDebug;
 
 class State {
@@ -123,6 +124,7 @@ private:
     std::unique_ptr<SaveLoadScene> saveLoad;
     std::unique_ptr<GameOverMenu> gameOverMenu;
     std::unique_ptr<Ending> ending;
+    std::unique_ptr<Intro> intro;
     bool pendingCruise = false;
     SrLibGameScene pendingCruiseDestination = SCENE_DINER;
     bool arrivingFromCruise = false;

@@ -465,7 +465,8 @@ int main(int argc, char* argv[]) {
         state.Init(debugMode, gamePath, muteAudio);
         mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
-        state.MoveToScene(SCENE_NAME_ENTRY);
+        state.MoveToScene(state.GetAssets().GetSkipIntroRef() || selfTestSave
+                              ? SCENE_NAME_ENTRY : SCENE_INTRO);
         if (selfTestSave) return RunSaveRoundTripSelfTest() ? 0 : 1;
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());

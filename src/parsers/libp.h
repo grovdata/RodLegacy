@@ -119,6 +119,9 @@ enum SrLibGameScene {
     // the hall of fame. Same caveat as SCENE_NAME_ENTRY - never passed to the
     // per-scene car tables.
     SCENE_ENDING = 11,
+    // RodLegacy addition: the Amiga intro, shown once at launch. Same caveat
+    // as SCENE_NAME_ENTRY - never passed to the per-scene car tables.
+    SCENE_INTRO = 12,
 };
 
 enum SrLibCarDecal {
@@ -1221,6 +1224,13 @@ constexpr uint32_t SRL0_HONK_LENGTH = 1718;  // Length in bytes
 constexpr uint32_t SRL0_HONK_RATE = 11025;  // Sample rate in Hz
 // Duration: 0.156 seconds
 
+// The intro's three bangs (0x228208): srl0 + 0x3108, 0x780 bytes, period
+// param + 250, volume 0x40, channels 2 and 3, played once.
+constexpr uint32_t SRL0_CUTSCENE_HIT_OFFSET = 0x3108;
+constexpr uint32_t SRL0_CUTSCENE_HIT_LENGTH = 0x0780;
+constexpr uint16_t SRL0_CUTSCENE_HIT_PERIOD_BIAS = 250;
+constexpr int SRL0_CUTSCENE_HIT_VOLUME = 0x40;
+
 // Impact. CONFIRMED from the binary (0x22854e, reached from the sideswipe block
 // in RaceLogicUpdate at 0x244fb0/0x244fb4/0x244fe8 - the three hits the player
 // gets shoved with): srl0 + 0x3888, 0x1010 bytes, period `random % 40 + 310`
@@ -1716,6 +1726,9 @@ class BitmapParser {
     std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::vector<uint8_t>& data);
 	std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::string& filename);
     std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1);
+    // Raw palette indices, for images whose colours change after decode
+    // (palette fades on an indexed buffer).
+    std::vector<uint8_t>                                 PlanarToIndices(const std::vector<uint8_t>& data, BitmapEntry_t entry);
     std::vector<uint8_t>                                 ChunkyToPlanar(const std::vector<SrLibColor>& pixels, BitmapEntry_t entry, const Palette& palette, std::string* error = nullptr);
     std::vector<uint8_t>                                 GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
     std::vector<uint8_t>                                 GetPackedData(const std::string& filename, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);

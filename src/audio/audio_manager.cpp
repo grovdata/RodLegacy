@@ -349,6 +349,13 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_PART_MOUNT_LENGTH, SRL0_PART_MOUNT_PERIOD_BASE);
     }
 
+    if (size >= size_t{SRL0_CUTSCENE_HIT_OFFSET} + SRL0_CUTSCENE_HIT_LENGTH) {
+        AudioSample hitSample;
+        LoadRawAudio(data + SRL0_CUTSCENE_HIT_OFFSET, SRL0_CUTSCENE_HIT_LENGTH, hitSample,
+                     3579545u / SRL0_CUTSCENE_HIT_PERIOD_BIAS);
+        samples[AudioSampleType::CUTSCENE_HIT] = hitSample;
+    }
+
     // Car jack sound - for raising/lowering car during tire change
     if (size >= SRL0_CAR_JACK_OFFSET + SRL0_CAR_JACK_LENGTH) {
         AudioSample carJackSample;
@@ -684,6 +691,17 @@ void AudioManager::StopGasPumpLoop() {
     StopLoop(0);
 }
 
+
+void AudioManager::PlayInstrumentNote(int channel, int instrument, int period, int volume) {
+    if (!amigaMusic_) return;
+    amigaMusic_->SetVolume(sfxVolume_ / 10.0f);
+    amigaMusic_->PlayEffectNote(channel, instrument, period, volume);
+}
+
+void AudioManager::StopMusicPlayback() {
+    if (pcSpeaker_) pcSpeaker_->Stop();
+    if (amigaMusic_) amigaMusic_->Stop();
+}
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
     // not yet implemented
