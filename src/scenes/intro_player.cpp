@@ -44,7 +44,7 @@ constexpr int kPhotoImage = 5;
 // FlipBuffers waits for one raster line and nothing else, so the real rate is
 // whatever the blits cost. ponytail: guessed at 2 vblanks a step, measure it
 // in Copperline and change this one number.
-constexpr int kTitleExtraTicks = 1;
+constexpr int kTitleExtraTicks = 2;
 
 // Where each step starts in a -1 terminated step list.
 std::vector<int> StepStarts(const int16_t* steps, int stepCount) {
