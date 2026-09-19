@@ -884,7 +884,8 @@ void AssetManager::LoadSettings() {
     auto kv = ReadConfigFile();
     if (kv.empty()) {
         // No saved settings: pick the best available music source and start it.
-        if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager));
+        // The intro starts the music itself, partway in.
+        if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager), skipIntro);
         return;
     }
     try {
@@ -928,7 +929,7 @@ void AssetManager::LoadSettings() {
             AudioManager::MusicSource src = (it != kv.end())
                 ? ParseMusicSource(it->second, audioManager)
                 : DefaultMusicSource(audioManager);
-            audioManager->SetMusicSource(src);
+            audioManager->SetMusicSource(src, skipIntro);
         }
     } catch (...) {}
 }

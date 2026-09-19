@@ -78,7 +78,6 @@ void IntroPlayer::Start(const std::array<IntroImage, 6>& imgs) {
     pc = 0;
     wait = 0;
     fadeStep = -1;
-    skipRequested = false;
     Build();
 }
 
@@ -124,9 +123,7 @@ void IntroPlayer::Build() {
         add(OpKind::TitleCels, k);
         add(OpKind::Flip);
         add(OpKind::Wait, kTitleExtraTicks);
-        add(OpKind::SkipCheck, k);
     }
-    afterTitle = ops.size();
 
     add(OpKind::FadeToBlack);
     add(OpKind::Clear);
@@ -243,7 +240,6 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
         case OpKind::TitleSetup: {
             // Keep only the car out of the photo: two rects to the cleared
             // back buffer, then the whole back buffer to the front.
-            skipRequested = false;
             std::vector<uint8_t>& back = buffers[1 - front];
             const std::vector<uint8_t>& shown = buffers[front];
             std::fill(back.begin(), back.end(), 0);
@@ -270,14 +266,6 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
             front = 1 - front;
             pc++;
             return true;
-
-        case OpKind::SkipCheck:
-            if (skipRequested) {
-                if (op.a + 1 < 51) sounds.push_back(IntroSound::StartMusic);
-                pc = afterTitle;
-                return false;
-            }
-            break;
     }
     pc++;
     return false;

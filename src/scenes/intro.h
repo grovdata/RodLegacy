@@ -28,4 +28,5 @@ private:
     Uint64 tickAccumMs = 0;
     int plateTicks = 0;
     bool leaving = false;
+    bool musicStarted = false;
 };

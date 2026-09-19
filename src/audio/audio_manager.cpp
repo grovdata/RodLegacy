@@ -194,12 +194,13 @@ AudioManager::MusicSource AudioManager::GetMusicSource() const {
     return musicSource_;
 }
 
-void AudioManager::SetMusicSource(MusicSource src) {
+void AudioManager::SetMusicSource(MusicSource src, bool start) {
     // Stop whatever is currently playing.
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
 
     musicSource_ = src;
+    if (!start) return;
 
     // Muting is a gain control, not a reason to skip starting the source.
     // Returning early here used to leave the player never started: LoadSettings

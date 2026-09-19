@@ -37,6 +37,7 @@ void Intro::OnSceneEnter() {
     tickAccumMs = 0;
     plateTicks = 0;
     leaving = false;
+    musicStarted = false;
     // Music starts at step 50 of the title animation, not before.
     if (AudioManager* am = state.GetAssets().GetAudioManager()) {
         am->StopMusicPlayback();
@@ -90,7 +91,10 @@ void Intro::PlaySound(IntroSound sound) {
         case IntroSound::Hit200: hit(200); break;
         case IntroSound::Hit150: hit(150); break;
         case IntroSound::Screech: am->PlaySound(AudioSampleType::TIRE_SCREECH, 0x30 / 64.0f); break;
-        case IntroSound::StartMusic: am->RestartMusic(); break;
+        case IntroSound::StartMusic:
+            musicStarted = true;
+            am->RestartMusic();
+            break;
     }
 }
 
@@ -115,6 +119,7 @@ void Intro::DrawScene() {
 void Intro::Leave() {
     if (leaving) return;
     leaving = true;
+    if (!musicStarted) PlaySound(IntroSound::StartMusic);
     FadeOut();
 }
 
@@ -126,20 +131,18 @@ void Intro::OnFadeComplete() {
 }
 
 bool Intro::PushEvent(SDL_Event* event) {
-    const bool key = event->type == SDL_KEYDOWN && event->key.repeat == 0;
-    // Escape and the function keys keep their global meaning.
-    if (key && (event->key.keysym.sym == SDLK_ESCAPE ||
-                (event->key.keysym.sym >= SDLK_F1 && event->key.keysym.sym <= SDLK_F12))) {
+    const bool isKey = event->type == SDL_KEYDOWN || event->type == SDL_KEYUP;
+    // Escape and the function keys keep their global meaning, down and up
+    // (F5 screenshots on release).
+    const SDL_Keycode sym = event->key.keysym.sym;
+    if (isKey && (sym == SDLK_ESCAPE || (sym >= SDLK_F1 && sym <= SDLK_F12))) {
         return false;
     }
+    const bool key = event->type == SDL_KEYDOWN && event->key.repeat == 0;
     const bool pressed = key || event->type == SDL_MOUSEBUTTONDOWN ||
                          event->type == SDL_CONTROLLERBUTTONDOWN;
-    if (pressed) {
-        if (player.Done()) {
-            Leave();
-        } else {
-            player.RequestSkip();
-        }
-    }
-    return event->type == SDL_KEYDOWN || event->type == SDL_KEYUP || pressed;
+    // Any press skips the rest of the intro. A deviation: the original only
+    // lets you skip the title animation.
+    if (pressed) Leave();
+    return isKey || pressed;
 }

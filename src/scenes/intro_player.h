@@ -38,9 +38,6 @@ public:
     // One PAL vblank. Sounds due on this tick are appended.
     void Tick(std::vector<IntroSound>& sounds);
 
-    // Honoured only while the title animation runs, as in the original.
-    void RequestSkip() { skipRequested = true; }
-
     // The credits plate is up and fully faded in.
     bool Done() const { return pc >= ops.size(); }
 
@@ -50,7 +47,7 @@ public:
 private:
     enum class OpKind {
         Clear, DrawImage, Fade, FadeToBlack, Wait, Sound,
-        LogoCels, TitleSetup, TitleCels, Flip, SkipCheck,
+        LogoCels, TitleSetup, TitleCels, Flip,
     };
     struct Op {
         OpKind kind;
@@ -68,7 +65,6 @@ private:
     const std::array<IntroImage, 6>* images = nullptr;
     std::vector<Op> ops;
     size_t pc = 0;
-    size_t afterTitle = 0;
     int wait = 0;
 
     // Steps done in the running FadePalette, -1 when none is running.
@@ -78,5 +74,4 @@ private:
     std::array<std::vector<uint8_t>, 2> buffers;
     int front = 0;
     std::array<uint16_t, 32> palette = {};
-    bool skipRequested = false;
 };

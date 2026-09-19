@@ -122,7 +122,8 @@ public:
     void InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize);
 
     // Select and start a music source. Stops the previous one.
-    void SetMusicSource(MusicSource src);
+    // start = false only selects it; RestartMusic starts it later (the intro).
+    void SetMusicSource(MusicSource src, bool start = true);
     MusicSource GetMusicSource() const;
 
     bool HasAmigaMusic() const;
