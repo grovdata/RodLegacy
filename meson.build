@@ -77,6 +77,17 @@ if sdl3_dep.found()
         cpp_args: cpp_args,
         c_args: c_args,
     )
+
+    executable('sr2_dos_player',
+        sources: [
+            'src/tools/sr2_dos_player/sr2_dos_player.cpp',
+            'src/include/opl3/opl3.c',
+        ],
+        include_directories: [inc_dirs],
+        dependencies: [sdl3_dep],
+        cpp_args: cpp_args,
+        c_args: c_args,
+    )
 endif
 
 subdir('tests')

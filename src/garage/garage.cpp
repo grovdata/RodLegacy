@@ -531,17 +531,6 @@ void Garage::UpdateSign() {
 
 
 void Garage::DrawScene() {
-    // Re-run the end-of-run check every pass, the way the original does at the
-    // top of its garage loop (FUN_0023fe24) - not just on the way in. Getting
-    // broke does not need a scene change: repairing a wreck and then selling
-    // the car to cover it, or selling the last spare part, both empty the
-    // player out while they are standing here, and checking only in
-    // OnSceneEnter left them in a garage with nothing to click and no game
-    // over. Held off while a dialog, an animation or the spare-parts sell
-    // chain is mid-flight, so it can't fire between two halves of a trade.
-    // A hidden-but-still-assigned activeDialog is the normal resting state here
-    // (several paths call Hide() without clearing the pointer), so test what is
-    // on screen, not what the pointer holds.
     const bool dialogUp = GetActiveDialog() != nullptr && GetActiveDialog()->IsVisible();
     if (!outOfDough && !dialogUp && !animatingCar && !sparePartsNeedsReopen &&
         state.IsOutOfDough()) {
@@ -673,10 +662,6 @@ void Garage::DrawScene() {
             }
         }
 
-        // Click boxes belong to the car being drawn, not to whatever State
-        // currently calls the player's car - the two can differ (a carless
-        // player still has a bitmap mid-exit-animation), and carBitmap keeps
-        // its own car alive, so this is the source that cannot be null here.
         CarMetadata_t metadata =
             state.carData.GetCarMetadata(carBitmap->GetCar()->GetModelRef().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;

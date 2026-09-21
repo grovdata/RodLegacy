@@ -167,6 +167,7 @@ RodLegacy use these fine libraries:
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
+ - [Nuked-OPL3](https://github.com/nukeykt/Nuked-OPL3)
 
  # Legal
 

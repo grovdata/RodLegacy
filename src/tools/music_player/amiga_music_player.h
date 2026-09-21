@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct AdfFileData;
@@ -32,6 +33,7 @@ struct SongData {
 bool LoadSongDataFromDirectory(const std::string& directory, SongData& out_data, std::string& out_error);
 bool LoadSongDataFromAdf(const std::string& adf_path, SongData& out_data, std::string& out_error);
 
-int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debug_events, int base_transpose);
+int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debug_events, int base_transpose, uint32_t muted, int scan_irqs,
+                   const std::vector<std::pair<int,int>>& bank_overrides, int start_pattern);
 
 }  // namespace sr

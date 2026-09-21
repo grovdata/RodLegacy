@@ -3,12 +3,15 @@
 
 #include "tools/music_player/amiga_music_player.h"
 
+#include "audio/amiga_envelope.h"
 #include "parsers/adf.h"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <cctype>
 #include <cstdarg>
 #include <cmath>
 #include <cstdio>
@@ -33,8 +36,10 @@ struct ChannelState {
     int wait_ticks = 0;
     int instrument = 0;
     int note_volume = 64;
-    int env_step = 0;
-    int env_volume = 0;
+    // The game's own envelope engine, shared with src/audio/amiga_music.cpp so
+    // the two cannot drift apart again.
+    AmigaEnvelope env;
+    bool has_env = false;
     bool sample_active = false;
 
     const int8_t* sample_ptr = nullptr;
@@ -67,6 +72,16 @@ struct RuntimeState {
     bool debug = false;
     bool debug_truncated = false;
     int debug_events_left = 0;
+
+    // Bit N mutes instrument N. Written from the main thread while the audio
+    // callback reads it, so it has to be atomic.
+    std::atomic<uint32_t> muted_instruments{0};
+    // Notes started per instrument, so an unused instrument can be told apart
+    // from a wrong-sounding one.
+    std::array<uint64_t, 32> inst_note_count = {};
+    // Pattern the main thread wants to jump to, -1 for none. Applied by the
+    // sequencer so it never fights the audio callback for channel state.
+    std::atomic<int> jump_request{-1};
 
     double sample_tick_accum = 0.0;
     uint64_t irq_counter = 0;
@@ -165,14 +180,22 @@ bool ParsePatterns(const std::vector<uint8_t>& note_bytes, std::vector<std::arra
 }
 
 bool ParseInstruments(const std::vector<uint8_t>& ins_bytes, std::vector<InstrumentDef>& out_instruments) {
-    if (ins_bytes.size() % 10 != 0) {
+    // SR1 packs an instrument into 10 bytes, SR2 into 18: the same five fields
+    // in the same order, then four words SR1 does not have. See
+    // RodLegacyResearch/docs/formats/music.md.
+    size_t stride = 0;
+    if (ins_bytes.size() % 10 == 0) {
+        stride = 10;
+    } else if (ins_bytes.size() % 18 == 0) {
+        stride = 18;
+    } else {
         return false;
     }
     out_instruments.clear();
-    size_t count = ins_bytes.size() / 10;
+    size_t count = ins_bytes.size() / stride;
     out_instruments.reserve(count);
     for (size_t i = 0; i < count; i++) {
-        const uint8_t* p = ins_bytes.data() + i * 10;
+        const uint8_t* p = ins_bytes.data() + i * stride;
         InstrumentDef d;
         d.envelope_index = ReadBE16(p + 0);
         d.unknown = ReadBE16(p + 2);
@@ -252,10 +275,20 @@ void StartSample(RuntimeState& s, int ch_index, int note_byte) {
     ch.sample_pos = 0.0;
     ch.sample_step = PeriodToStep(period);
     ch.sample_active = (ch.sample_len > 0);
-    ch.env_step = 0;
-    // Start audible on note-on, then let envelope tick shape it.
-    ch.env_volume = std::clamp((ch.note_volume * s.master_volume) / 15, 1, 64);
+    ch.has_env = inst.envelope_index < s.envelopes.size();
+    if (ch.has_env) {
+        const int prevLast = inst.envelope_index > 0
+                                 ? s.envelopes[inst.envelope_index - 1].points[15]
+                                 : 0;
+        ch.env.Start(s.envelopes[inst.envelope_index].points, prevLast, ch.note_volume,
+                     s.master_volume);
+    } else {
+        ch.env.volume = (ch.note_volume * s.master_volume) / 15;
+    }
     s.note_count[ch_index]++;
+    if (ch.instrument >= 0 && ch.instrument < 32) {
+        s.inst_note_count[static_cast<size_t>(ch.instrument)]++;
+    }
     DebugLog(
         s,
         "seq=%llu ch=%d NOTE raw=%d note=%d inst=%d env=%u bank=%u off=%u len=%d period=%d step=%.6f",
@@ -272,12 +305,25 @@ void StartSample(RuntimeState& s, int ch_index, int note_byte) {
         ch.sample_step);
 }
 
-void NextArrangement(RuntimeState& s) {
-    s.arrangement_index = (s.arrangement_index + 1) % s.arrangement_len;
+// Restart every channel at the given pattern. Only ever called from the
+// sequencer side, so the main thread asks for a jump through jump_request.
+void SetArrangement(RuntimeState& s, int index) {
+    if (s.arrangement_len <= 0) {
+        return;
+    }
+    s.arrangement_index = ((index % s.arrangement_len) + s.arrangement_len) % s.arrangement_len;
     const std::array<size_t, kChannels>& start = s.patterns[static_cast<size_t>(s.arrangement_index)];
     for (int ch = 0; ch < kChannels; ch++) {
-        s.channel[ch].stream_index = start[ch];
+        ChannelState& ch_state = s.channel[ch];
+        ch_state.stream_index = start[ch];
+        ch_state.wait_ticks = 0;
+        ch_state.sample_active = false;
+        ch_state.slot_valid = {};
     }
+}
+
+void NextArrangement(RuntimeState& s) {
+    SetArrangement(s, s.arrangement_index + 1);
 }
 
 void HandleControlByte(RuntimeState& s, int ch_index, uint8_t cmd) {
@@ -522,43 +568,11 @@ void MusicTick(RuntimeState& s) {
 void EnvelopeTick(RuntimeState& s) {
     for (int ch_index = 0; ch_index < kChannels; ch_index++) {
         ChannelState& ch = s.channel[ch_index];
-        if (!ch.sample_active) {
+        if (!ch.sample_active || !ch.has_env) {
             continue;
         }
-        if (ch.instrument < 0 || static_cast<size_t>(ch.instrument) >= s.instruments.size()) {
-            continue;
-        }
-        uint16_t env_idx = s.instruments[static_cast<size_t>(ch.instrument)].envelope_index;
-        if (env_idx >= s.envelopes.size()) {
-            continue;
-        }
-        int step = std::clamp(ch.env_step, 0, kMaxEnvelopePoints - 1);
-        const EnvelopeDef& env = s.envelopes[env_idx];
-        int cur = env.points[step];
-        int prev = env.points[std::max(0, step - 1)];
-        int target = (((cur * ch.note_volume) / 64) * s.master_volume) / 15;
-        target = std::clamp(target, 0, 64);
-
-        // Common envelopes have zero plateaus in early points. If we sit on
-        // consecutive zero points, advance to avoid getting stuck at silence.
-        if (cur == 0 && prev == 0 && ch.env_step < (kMaxEnvelopePoints - 1)) {
-            ch.env_step++;
-            continue;
-        }
-
-        if ((cur - prev) < 1) {
-            if (target < ch.env_volume) {
-                ch.env_volume--;
-            } else if (cur != prev && ch.env_step < (kMaxEnvelopePoints - 1)) {
-                ch.env_step++;
-            }
-        } else if (ch.env_volume < target) {
-            ch.env_volume++;
-        } else if (ch.env_step < (kMaxEnvelopePoints - 1)) {
-            ch.env_step++;
-        }
-
-        if (ch.env_volume <= 0 && cur == 0) {
+        ch.env.Tick();
+        if (!ch.env.Active()) {
             ch.sample_active = false;
         }
     }
@@ -576,6 +590,11 @@ void MixSamples(RuntimeState& s, float* out, int frame_count) {
         while (s.sample_tick_accum >= samples_per_irq) {
             s.sample_tick_accum -= samples_per_irq;
             s.irq_counter++;
+            const int jump = s.jump_request.exchange(-1, std::memory_order_relaxed);
+            if (jump >= 0) {
+                SetArrangement(s, jump);
+                s.playing = true;
+            }
             EnvelopeTick(s);
             if ((s.speed_counter % static_cast<uint64_t>(std::max(1, s.speed_ticks))) == 0) {
                 MusicTick(s);
@@ -609,8 +628,8 @@ void MixSamples(RuntimeState& s, float* out, int frame_count) {
                         c.wait_ticks,
                         c.instrument,
                         c.note_volume,
-                        c.env_volume,
-                        c.env_step,
+                        c.env.volume,
+                        c.env.step,
                         c.sample_active ? 1 : 0,
                         c.sample_pos,
                         c.sample_len,
@@ -631,9 +650,15 @@ void MixSamples(RuntimeState& s, float* out, int frame_count) {
                 ch.sample_active = false;
                 continue;
             }
-            float sample = static_cast<float>(ch.sample_ptr[idx]) / 128.0f;
-            float vol = static_cast<float>(ch.env_volume) / 64.0f;
-            mix += sample * vol;
+            // Keep advancing a muted instrument so unmuting drops back in on time.
+            const bool muted = ch.instrument >= 0 && ch.instrument < 32 &&
+                               (s.muted_instruments.load(std::memory_order_relaxed) &
+                                (1u << ch.instrument)) != 0;
+            if (!muted) {
+                float sample = static_cast<float>(ch.sample_ptr[idx]) / 128.0f;
+                float vol = static_cast<float>(ch.env.volume) / 64.0f;
+                mix += sample * vol;
+            }
             ch.sample_pos += ch.sample_step;
             if (static_cast<int>(ch.sample_pos) >= ch.sample_len) {
                 ch.sample_active = false;
@@ -724,7 +749,8 @@ bool LoadSongDataFromAdf(const std::string& adf_path, SongData& out_data, std::s
     return true;
 }
 
-int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debug_events, int base_transpose) {
+int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debug_events, int base_transpose, uint32_t muted, int scan_irqs, const std::vector<std::pair<int,int>>& bank_overrides,
+                   int start_pattern) {
     RuntimeState s;
     s.notes = song.note_bytes;
     // Executable behavior indicates instrument bank index 1 points at the
@@ -733,7 +759,7 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
     s.wave_bank[1] = song.wave0_bytes;
 
     if (!ParseInstruments(song.ins_bytes, s.instruments)) {
-        std::fprintf(stderr, "Invalid srl.ins: expected 10-byte entries\n");
+        std::fprintf(stderr, "Invalid srl.ins: expected 10-byte (SR1) or 18-byte (SR2) entries\n");
         return 1;
     }
     if (!ParseEnvelopes(song.env_bytes, s.envelopes)) {
@@ -756,6 +782,26 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
 
     std::printf("Patterns: %d  Instruments: %zu  Envelopes: %zu  BaseTranspose: %d\n",
                 s.arrangement_len, s.instruments.size(), s.envelopes.size(), s.global_transpose);
+    for (const auto& ov : bank_overrides) {
+        if (ov.first >= 0 && static_cast<size_t>(ov.first) < s.instruments.size() &&
+            ov.second >= 0 && ov.second <= 1) {
+            std::printf("override: instrument %d bank %u -> %d\n", ov.first,
+                        s.instruments[static_cast<size_t>(ov.first)].bank_index, ov.second);
+            s.instruments[static_cast<size_t>(ov.first)].bank_index =
+                static_cast<uint16_t>(ov.second);
+        }
+    }
+    s.muted_instruments.store(muted);
+    if (start_pattern > 0) {
+        SetArrangement(s, start_pattern);
+    }
+    // Printed so a wrong-sounding instrument can be named by index.
+    std::printf("  inst  env  bank  offset  length\n");
+    for (size_t i = 0; i < s.instruments.size(); i++) {
+        const InstrumentDef& d = s.instruments[i];
+        std::printf("  %4zu  %3u  %4u  %6u  %6u\n", i, d.envelope_index, d.bank_index,
+                    d.sample_offset_bytes, d.sample_length_words);
+    }
     if (s.debug) {
         std::fprintf(stderr, "[DBG] enabled with event budget=%d\n", s.debug_events_left);
     }
@@ -779,8 +825,77 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
     }
     SDL_ResumeAudioStreamDevice(stream);
 
-    std::puts("Playing. Press Enter to stop.");
-    (void)std::getchar();
+    if (scan_irqs > 0) {
+        // Run the sequencer with no audio device, then report which
+        // instruments the song actually plays.
+        for (int i = 0; i < scan_irqs && s.playing; i++) {
+            EnvelopeTick(s);
+            if ((s.speed_counter % static_cast<uint64_t>(std::max(1, s.speed_ticks))) == 0) {
+                MusicTick(s);
+            }
+            s.speed_counter++;
+        }
+        std::printf("scan: %d irqs, %llu sequencer ticks\n", scan_irqs,
+                    static_cast<unsigned long long>(s.total_seq_ticks));
+        std::printf("  inst  notes\n");
+        for (size_t i = 0; i < s.instruments.size(); i++) {
+            std::printf("  %4zu  %5llu%s\n", i,
+                        static_cast<unsigned long long>(s.inst_note_count[i]),
+                        s.inst_note_count[i] == 0 ? "   (never played)" : "");
+        }
+        SDL_DestroyAudioStream(stream);
+        SDL_Quit();
+        return 0;
+    }
+
+    std::puts("Playing.");
+    std::puts("  <n>    toggle instrument n        s <n>  solo instrument n");
+    std::puts("  n / p  next / previous pattern    g <n>  go to pattern n");
+    std::puts("  a      unmute all                 Enter  stop");
+    char line[64];
+    while (std::fgets(line, sizeof(line), stdin)) {
+        char* p = line;
+        while (*p == ' ') p++;
+        if (*p == '\n' || *p == 'q') {
+            break;
+        }
+        uint32_t mask = s.muted_instruments.load();
+        const uint32_t all = (s.instruments.size() >= 32)
+                                 ? 0xFFFFFFFFu
+                                 : ((1u << s.instruments.size()) - 1u);
+        if (*p == 'n' || *p == 'p' || *p == 'g') {
+            int target = s.arrangement_index + (*p == 'p' ? -1 : 1);
+            if (*p == 'g') {
+                target = std::atoi(p + 1);
+            }
+            const int len = std::max(1, s.arrangement_len);
+            target = ((target % len) + len) % len;
+            s.jump_request.store(target);
+            std::printf("pattern %d/%d\n", target, s.arrangement_len);
+            std::fflush(stdout);
+            continue;
+        }
+        if (*p == 'a') {
+            mask = 0;
+        } else if (*p == 's' && std::isdigit(static_cast<unsigned char>(p[1] == ' ' ? p[2] : p[1]))) {
+            int n = std::atoi(p + 1);
+            mask = (n >= 0 && n < 32) ? (all & ~(1u << n)) : mask;
+        } else if (std::isdigit(static_cast<unsigned char>(*p))) {
+            int n = std::atoi(p);
+            if (n >= 0 && n < 32) {
+                mask ^= (1u << n);
+            }
+        } else {
+            continue;
+        }
+        s.muted_instruments.store(mask);
+        std::printf("audible:");
+        for (size_t i = 0; i < s.instruments.size(); i++) {
+            if (!(mask & (1u << i))) std::printf(" %zu", i);
+        }
+        std::printf("%s\n", mask == all ? " (none)" : "");
+        std::fflush(stdout);
+    }
 
     if (!loop_forever) {
         s.playing = false;
@@ -801,6 +916,10 @@ int main(int argc, char* argv[]) {
     bool debug = false;
     int debug_events = 600;
     int base_transpose = 0x54;
+    uint32_t muted = 0;
+    int scan_irqs = 0;
+    std::vector<std::pair<int,int>> bank_overrides;
+    int start_pattern = 0;
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--dir") == 0 && i + 1 < argc) {
@@ -816,6 +935,23 @@ int main(int argc, char* argv[]) {
             debug_events = std::max(0, std::atoi(argv[++i]));
         } else if (std::strcmp(argv[i], "--transpose") == 0 && i + 1 < argc) {
             base_transpose = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--mute") == 0 && i + 1 < argc) {
+            int n = std::atoi(argv[++i]);
+            if (n >= 0 && n < 32) muted |= (1u << n);
+        } else if (std::strcmp(argv[i], "--scan") == 0 && i + 1 < argc) {
+            scan_irqs = std::max(0, std::atoi(argv[++i]));
+        } else if (std::strcmp(argv[i], "--pattern") == 0 && i + 1 < argc) {
+            start_pattern = std::max(0, std::atoi(argv[++i]));
+        } else if (std::strcmp(argv[i], "--bank") == 0 && i + 1 < argc) {
+            // --bank <inst>:<bank>, to hear an instrument out of the other bank.
+            const char* a = argv[++i];
+            const char* colon = std::strchr(a, ':');
+            if (colon) {
+                bank_overrides.emplace_back(std::atoi(a), std::atoi(colon + 1));
+            }
+        } else if (std::strcmp(argv[i], "--solo") == 0 && i + 1 < argc) {
+            int n = std::atoi(argv[++i]);
+            if (n >= 0 && n < 32) muted = ~(1u << n);
         } else if (std::strcmp(argv[i], "--help") == 0) {
             std::puts("Usage:");
             std::puts("  amiga_music_player --dir <folder-with-msr.note+srl.*>");
@@ -825,6 +961,11 @@ int main(int argc, char* argv[]) {
             std::puts("  --debug      print sequencer/channel debug logs");
             std::puts("  --debug-events <N>  max detailed event lines (default 600)");
             std::puts("  --transpose <N>  base note transpose (default 84)");
+            std::puts("  --mute <N>   silence instrument N (repeatable)");
+            std::puts("  --solo <N>   play only instrument N");
+            std::puts("  --scan <N>   run N irqs with no audio, report instrument use");
+            std::puts("  --bank <I>:<B>  force instrument I to read bank B");
+            std::puts("  --pattern <N>   start at pattern N");
             return 0;
         }
     }
@@ -842,5 +983,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    return sr::RunMusicPlayer(song, loop_forever, debug, debug_events, base_transpose);
+    return sr::RunMusicPlayer(song, loop_forever, debug, debug_events, base_transpose, muted, scan_irqs, bank_overrides,
+                              start_pattern);
 }

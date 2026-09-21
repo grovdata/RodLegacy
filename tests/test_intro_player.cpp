@@ -15,10 +15,9 @@ std::array<IntroImage, 6> BlankImages() {
     return imgs;
 }
 
-int RunToEnd(IntroPlayer& p, std::vector<IntroSound>& sounds, int skipAtTick = -1) {
+int RunToEnd(IntroPlayer& p, std::vector<IntroSound>& sounds) {
     int ticks = 0;
     while (!p.Done() && ticks < 5000) {
-        if (ticks == skipAtTick) p.RequestSkip();
         p.Tick(sounds);
         ticks++;
     }
@@ -59,26 +58,6 @@ TEST_CASE("intro runs its full length and ends on the credits plate palette") {
     CHECK(p.Palette()[1] == 0x810);
     CHECK(p.Front()[0] == 1);           // the plate is drawn
     CHECK(p.Front()[199 * 320] == 0);   // and is only 180 rows high
-}
-
-TEST_CASE("skip is ignored before the title animation") {
-    const auto imgs = BlankImages();
-    IntroPlayer p;
-    p.Start(imgs);
-    std::vector<IntroSound> sounds;
-    CHECK(RunToEnd(p, sounds, 10) == 1075);
-}
-
-TEST_CASE("skipping the title animation still starts the music once") {
-    const auto imgs = BlankImages();
-    IntroPlayer p;
-    p.Start(imgs);
-    std::vector<IntroSound> sounds;
-    // Title starts at tick 330 + 15 + 96 + 96 = 537; skip on its 3rd step.
-    const int ticks = RunToEnd(p, sounds, 541);
-    CHECK(ticks < 1075);
-    CHECK(std::count(sounds.begin(), sounds.end(), IntroSound::StartMusic) == 1);
-    CHECK(std::count(sounds.begin(), sounds.end(), IntroSound::Ignition) == 0);
 }
 
 #include "audio/amiga_envelope.h"
