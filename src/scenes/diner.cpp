@@ -363,8 +363,6 @@ void Diner::DrawScene() {
         state.MoveToScene(SCENE_DRIVING);
     }
     if (challenge->WantsCarExit()) {
-        // The next opponent has a 1/100 chance of being The King.
-        if (challenge->WasOpponentRefusal()) state.RequestKingCameoRoll();
         challenge->Reset();
         StartOpponentExit();
     }
@@ -697,6 +695,7 @@ void Diner::OnSceneExit() {
 }
 
 void Diner::ShowCallListDialog() {
+    state.OnPhoneListOpened();
     const auto& known = state.GetKnownOpponents();
 
     std::vector<std::string> labels;

@@ -57,8 +57,9 @@ private:
     int lastChallengerPoolIndex = -1;
     // His road race is forced next. Cleared by a loss to him in either race.
     bool kingQualifierWon = false;
-    // Set by RequestKingCameoRoll(), consumed by the next PickNextOpponent().
-    bool pendingKingCameoRoll = false;
+    // Set when the phone list is opened while The King is available; cuts his arrival chance
+    // from 50 % to 10 %. Cleared by a loss to him.
+    bool kingListed = false;
 
     RaceType pendingRaceType   = RaceType::Road;
     int      pendingBetAmount  = 50;
@@ -190,15 +191,13 @@ public:
     // Null for the King's slot.
     CarPtr BuildCarForSpec(int specIndex);
 
-    // After a refused bet, the next reroll has a flat 1/100 chance of The King.
-    void RequestKingCameoRoll() { pendingKingCameoRoll = true; }
+    // Percent chance that the next arrival at the diner is The King.
+    int KingArrivalChance() const;
+    void OnPhoneListOpened();
 
-    // Call for every finished race, a ticket included. The King has no pool record. opponentWon is false for a
-    // win and a ticket.
-    void RecordChallengerRace(bool opponentWon);
-
-    // Returns true if the King was beaten in his road race (end-game).
-    bool OnRaceFinished(RaceType raceType, bool won);
+    // Call for every finished race. settlesBet is false for a ticket or a jumped light, which still
+    // count the race. Returns true if the King was beaten in his road race (end-game).
+    bool OnRaceFinished(RaceType raceType, bool won, bool settlesBet);
 
     bool IsKingQualifierWon() const { return kingQualifierWon; }
 

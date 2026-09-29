@@ -20,8 +20,8 @@ struct RacerEntry {
     // Set once downgraded after losing a pink slip; a second pink slip eliminates them.
     bool downgraded = false;
 
-    // races counts every race against them, opp_wins only those the player did not win (a ticket bumps
-    // neither). Both are zeroed when the driver gets a new car.
+    // races counts every race against them except ones just for kicks, opp_wins those the player did not
+    // win (a ticket included). Both are zeroed when the driver gets a new car.
     uint8_t races = 0;
     uint8_t opp_wins = 0;
 };
@@ -54,7 +54,7 @@ public:
 
     void OnRaceLost(int challenger_pool_index);
 
-    // opponent_won is false for a win and for a race voided by a ticket.
+    // opponent_won is true for any race the player did not win, a ticket included.
     void RecordRace(int pool_index, bool opponent_won);
 
     // Past 5 races a sticker, past 10 another, past 8 stripped bumpers or a chopped roof, each on the

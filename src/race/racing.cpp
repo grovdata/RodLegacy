@@ -25,15 +25,19 @@ namespace {
 constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 
-// The Amiga race loop is not vblank-locked: one physics step per rendered frame, well under 50 fps on an A500.
-// Tuning knob: lower = slower race. Rendering stays at GAME_FPS.
-constexpr int kPhysicsHz = 15;
+// Rendering stays at GAME_FPS and samples the sim.
+constexpr int kPhysicsHz = srrace::SIM_HZ;
 
 // The rpm the drive cutscene shifts at and then holds in top gear.
 constexpr int kCruiseRpm = 4500;
 // How far ahead the arriving car turns in. One segment shows no turn, twelve drifts across the road; tune here.
 constexpr int kCruiseArrivalSegs = 3;
 constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
+
+// Sim ticks a one-shot sample takes to play, rounded up.
+constexpr int SampleTicks(uint32_t length, uint32_t rate) {
+    return static_cast<int>((length * kPhysicsHz + rate - 1) / rate);
+}
 
 // This surface lands at screen y = 14, so every screen-space Y from the original is converted.
 constexpr int kViewOffsetY = 14;
@@ -923,7 +927,7 @@ void Racing::RenderMountains(int horizonY) {
     }
 }
 
-// lib.p asset 97, two 24x32 frames: red during staging, green at launch, then retracts 4/frame as the car rolls.
+// lib.p asset 97, two 24x32 frames: red during staging, green at launch, then retracts 4 a step as the car rolls.
 void Racing::DrawStartLight() {
     if (flybyMode || !startLightSprite || !startLightSprite->GetSurface()) {
         return;
@@ -934,13 +938,6 @@ void Racing::DrawStartLight() {
     }
 
     const bool green = (phase != srrace::RacePhase::Countdown);
-    if (green && sim.Player().speed > 0) {
-        startLightHeight -= 4;
-        if (startLightHeight <= 0) {
-            startLightHeight = 0;
-            return;
-        }
-    }
 
     const SpriteRect& frame = RACING_LIGHT_FRAMES[green ? 1 : 0];
     SDL_Surface* src = startLightSprite->GetSurface();
@@ -2336,7 +2333,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             if (sim.CopSirenOn() && audioManager) {
                 if (copSirenCooldownTicks == 0) {
                     audioManager->PlaySound(AudioSampleType::COP_SIREN);
-                    copSirenCooldownTicks = 13;
+                    copSirenCooldownTicks = SampleTicks(SRL0_COP_SIREN_LENGTH, SRL0_COP_SIREN_RATE);
                 }
             } else {
                 copSirenCooldownTicks = 0;
@@ -2349,11 +2346,14 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             if (sim.PlayerSkidding() && audioManager) {
                 if (tireScreechCooldownTicks == 0) {
                     audioManager->PlaySound(AudioSampleType::TIRE_SCREECH);
-                    // ~445 ms sample at 15 Hz.
-                    tireScreechCooldownTicks = 7;
+                    tireScreechCooldownTicks = SampleTicks(SRL0_TIRE_SCREECH_LENGTH, SRL0_TIRE_SCREECH_RATE);
                 }
             } else {
                 tireScreechCooldownTicks = 0;
+            }
+
+            if (sim.Phase() != srrace::RacePhase::Countdown && sim.Player().speed > 0) {
+                startLightHeight = std::max(0, startLightHeight - 4);
             }
 
             fixedAccumulator -= kFixedStepSeconds;

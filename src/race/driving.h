@@ -40,7 +40,7 @@ class Driving: public Scene {
 
     bool raceEnded = false;
     bool raceEndPendingKing = false;  // King beaten in a drag -> end-game screen instead
-    // A wreck that ends the evening: repaired or totaled.
+    // The race ended the evening: the player drives home instead of staying at the diner.
     bool raceEndLeftTheDiner = false;
     std::unique_ptr<Bubble> raceEndBubble;
     // A crash holds the screen for a minimum time.

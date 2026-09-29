@@ -325,6 +325,7 @@ void State::StartNewGame() {
     currentCar.reset();
     jailed = false;
     kingQualifierWon = false;
+    kingListed = false;
     // One roll per profile, fixed for its life.
     SetTrackVariant(std::uniform_int_distribution<int>(0, 9)(RandomEngine()));
 }
@@ -673,19 +674,15 @@ void State::PickNextOpponent() {
 
     int playerScore = GetPlayerScore();
 
-    // Winning his drag qualifier forces the road race, bypassing the tier check.
-    bool kingUnlocked = kingQualifierWon || reputation.IsKingUnlocked(racerPool.CountActive());
-    // After a refused bet, a flat 1/100 chance of The King; Challenge::OpenKing still gates him.
-    bool kingCameo = false;
-    if (!kingUnlocked && pendingKingCameoRoll) {
-        kingCameo = std::uniform_int_distribution<int>(0, 99)(RandomEngine()) == 0;
-    }
-    pendingKingCameoRoll = false;
-    if (kingUnlocked || kingCameo) {
-        LOG_INFO("State::PickNextOpponent - The King (unlocked=%d cameo=%d)", kingUnlocked, kingCameo);
+    // After his drag qualifier the King stays for the road race; otherwise every arrival rolls for him.
+    const int kingChance = KingArrivalChance();
+    const bool king = kingQualifierWon ||
+                      std::uniform_int_distribution<int>(0, 99)(RandomEngine()) < kingChance;
+    if (king) {
+        LOG_INFO("State::PickNextOpponent - The King (qualifier=%d chance=%d%%)", kingQualifierWon, kingChance);
         lastChallengerPoolIndex = RACER_KING_SLOT;
-        if (Opponent* king = GetKingOpponent()) {
-            roster.SetNextOpponent(king);
+        if (Opponent* kingOpp = GetKingOpponent()) {
+            roster.SetNextOpponent(kingOpp);
         }
         return;
     }
@@ -729,67 +726,80 @@ void State::PickNextOpponent() {
     }
 }
 
-void State::RecordChallengerRace(bool opponentWon) {
-    if (lastChallengerPoolIndex < 0 || lastChallengerPoolIndex >= RACER_POOL_SIZE) return;
-    racerPool.RecordRace(lastChallengerPoolIndex, opponentWon);
+int State::KingArrivalChance() const {
+    switch (reputation.GetOpponentTier(racerPool.CountActive())) {
+        case 0:  return kingListed ? 10 : 50;
+        case 1:  return 5;
+        case 2:  return 8;
+        default: return 12;
+    }
 }
 
-bool State::OnRaceFinished(RaceType raceType, bool won) {
-    const bool pinkSlip = pendingIsPinkSlip;
-    if (won) {
-        reputation.RecordWin(raceType);
-        if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
-            lastChallengerPoolIndex < RACER_POOL_SIZE) {
-            racerPool.OnRaceWon(lastChallengerPoolIndex, pinkSlip);
-        }
-        if (pinkSlip) {
-            // The stake was the cars: take theirs.
-            Opponent* opponent = GetCurrentOpponent();
-            if (opponent != nullptr && opponent->car) {
-                CarPtr wonCar = opponent->car;
-                opponent->car.reset();
-                ownedCars.push_back(wonCar);
-                // The old car stays in the garage alongside it.
-                currentCar = wonCar;
-                LOG_INFO("State::OnRaceFinished - pink slip win: now driving %s",
-                         wonCar->GetModel().name.c_str());
-            }
-        } else {
-            bankroll += pendingBetAmount;
-        }
-        LOG_INFO("State::OnRaceFinished - WIN $%d bankroll=%d drag_rep=%d road_rep=%d pool_active=%d",
-                 pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep,
-                 racerPool.CountActive());
+void State::OnPhoneListOpened() {
+    kingListed = reputation.IsKingUnlocked(racerPool.CountActive());
+}
 
-        if (lastChallengerPoolIndex == RACER_KING_SLOT) {
-            if (raceType == RaceType::Drag) {
-                // Qualifier only; his road race is the decider.
-                kingQualifierWon = true;
-            } else {
-                LOG_INFO("State::OnRaceFinished - King beaten in the ROAD race! Triggering end-game.");
-                return true;
-            }
-        }
-    } else {
-        reputation.RecordLoss();
-        if (!racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
-            lastChallengerPoolIndex < RACER_POOL_SIZE) {
-            racerPool.OnRaceLost(lastChallengerPoolIndex);
-        }
-        // Losing either King race clears the qualifier.
-        if (lastChallengerPoolIndex == RACER_KING_SLOT) {
-            kingQualifierWon = false;
-        }
-        if (pinkSlip) {
-            // The stake was the cars, so the one that was raced is gone.
-            ScrapCurrentCar();
-        } else {
-            bankroll = std::max(0, bankroll - pendingBetAmount);
-        }
-        LOG_INFO("State::OnRaceFinished - LOSS $%d bankroll=%d drag_rep=%d road_rep=%d",
-                 pendingBetAmount, bankroll, reputation.drag_rep, reputation.road_rep);
+bool State::OnRaceFinished(RaceType raceType, bool won, bool settlesBet) {
+    const bool pinkSlip = pendingIsPinkSlip;
+    const bool vsKing = (lastChallengerPoolIndex == RACER_KING_SLOT);
+    const bool counted = pinkSlip || pendingBetAmount > 0 || vsKing;
+    const bool inPool = !racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
+                        lastChallengerPoolIndex < RACER_POOL_SIZE;
+
+    reputation.RecordRace(raceType, won, counted, vsKing);
+    if (counted && inPool) racerPool.RecordRace(lastChallengerPoolIndex, !won);
+
+    if (vsKing && !won) {
+        kingQualifierWon = false;
+        kingListed = false;
     }
 
+    if (settlesBet) {
+        if (won) {
+            if (inPool) racerPool.OnRaceWon(lastChallengerPoolIndex, pinkSlip);
+            if (pinkSlip) {
+                // The stake was the cars: take theirs. The player only drives it if it is a better class.
+                Opponent* opponent = GetCurrentOpponent();
+                if (opponent != nullptr && opponent->car) {
+                    CarPtr wonCar = opponent->car;
+                    opponent->car.reset();
+                    Part tires = wonCar->GetTires();
+                    tires.wear = std::uniform_int_distribution<int>(0, 499)(RandomEngine());
+                    wonCar->SetTires(tires);
+                    ownedCars.push_back(wonCar);
+                    if (!currentCar || wonCar->GetWeightClass() > currentCar->GetWeightClass()) {
+                        currentCar = wonCar;
+                    }
+                    LOG_INFO("State::OnRaceFinished - pink slip win: %s, driving %s",
+                             wonCar->GetModel().name.c_str(),
+                             currentCar->GetModel().name.c_str());
+                }
+            } else {
+                bankroll += pendingBetAmount;
+            }
+        } else {
+            if (inPool) racerPool.OnRaceLost(lastChallengerPoolIndex);
+            if (pinkSlip) {
+                // The stake was the cars, so the one that was raced is gone.
+                ScrapCurrentCar();
+            } else {
+                bankroll = std::max(0, bankroll - pendingBetAmount);
+            }
+        }
+    }
+    LOG_INFO("State::OnRaceFinished - %s $%d settled=%d bankroll=%d drag_rep=%d road_rep=%d races=%d",
+             won ? "WIN" : "LOSS", pendingBetAmount, settlesBet, bankroll, reputation.drag_rep,
+             reputation.road_rep, reputation.races_completed);
+
+    if (vsKing && won) {
+        if (raceType == RaceType::Drag) {
+            // Qualifier only; his road race is the decider.
+            kingQualifierWon = true;
+        } else {
+            LOG_INFO("State::OnRaceFinished - King beaten in the ROAD race! Triggering end-game.");
+            return true;
+        }
+    }
     return false;
 }
 

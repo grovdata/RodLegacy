@@ -24,8 +24,6 @@ public:
 
     bool WantsRace()     const { return wantsRace; }
     bool WantsCarExit()  const { return wantsCarExit; }
-    // The opponent refused, rather than the player picking "Forget it". Used for the King's 1% cameo roll.
-    bool WasOpponentRefusal() const { return wasOpponentRefusal; }
 
     // A taunt with no encounter attached, used when the player pops the hood a second time.
     void Taunt();
@@ -44,7 +42,6 @@ private:
     float insultTimer = -1.0f;
     bool wantsRace     = false;
     bool wantsCarExit  = false;
-    bool wasOpponentRefusal = false;
 
     // The opponent may reject a proposed bet twice before the encounter ends.
     static constexpr int kMaxBetAttempts = 2;

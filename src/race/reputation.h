@@ -6,32 +6,31 @@ struct Reputation {
     int drag_rep = 0;
     int road_rep = 0;
     int races_completed = 0;
-    // Wins are counted separately: drag_rep/road_rep rise by 1 on a win but fall
-    // by 3/2 on a loss, so they are reputation and cannot be read as a tally.
+    // drag_rep/road_rep rise on a counted win and only fall on a loss to The King,
+    // so they cannot be read as a tally.
     int drag_wins = 0;
     int road_wins = 0;
     bool last_race_won = false;
 
     int races_won() const { return drag_wins + road_wins; }
 
-    void RecordWin(RaceType type) {
-        if (type == RaceType::Drag) {
-            drag_rep += 1;
-            drag_wins += 1;
-        } else {
-            road_rep += 1;
-            road_wins += 1;
+    // A race "just for kicks" is not counted: no race, no win.
+    void RecordRace(RaceType type, bool won, bool counted, bool vsKing) {
+        if (counted) races_completed += 1;
+        if (vsKing && !won) {
+            drag_rep -= 3;
+            road_rep -= 2;
         }
-        races_completed += 1;
-        last_race_won = true;
-    }
-
-    // A loss costs drag rep more than road rep, whatever kind of race it was.
-    void RecordLoss() {
-        drag_rep -= 3;
-        road_rep -= 2;
-        races_completed += 1;
-        last_race_won = false;
+        if (won && counted) {
+            if (type == RaceType::Drag) {
+                drag_rep += 1;
+                drag_wins += 1;
+            } else {
+                road_rep += 1;
+                road_wins += 1;
+            }
+        }
+        last_race_won = won;
     }
 
     //   0 = The King will race you

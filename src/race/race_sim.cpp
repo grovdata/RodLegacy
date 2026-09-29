@@ -256,9 +256,9 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npcAi.stallTicks = 0;
     npcAi.gaveUp = false;
 
-    // Random launch time, ~2-3s at 50 Hz; leaving early is a false start.
+    // The light turns green 110..212 vblanks (50 Hz) after "Get ready"; leaving early is a false start.
     phase = RacePhase::Countdown;
-    countdownTicks = 100 + rng.Next(50);
+    countdownTicks = std::max(1, (110 + rng.Next(103)) * SIM_HZ / 50);
 
     // Road races only, never the King's: 1 in 4, trigger at 510 + rand(255). From a derived seed so the extra
     // draws don't shift every later roll the races are regression-tested against.

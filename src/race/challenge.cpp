@@ -78,7 +78,6 @@ void Challenge::Reset() {
     insultTimer      = -1.0f;
     wantsRace        = false;
     wantsCarExit     = false;
-    wasOpponentRefusal = false;
     betAttempts      = 0;
     insultFromOpponent = false;
     tauntOnly          = false;
@@ -202,7 +201,6 @@ void Challenge::Draw(float deltaTime) {
             if (insultFromOpponent && betAttempts < kMaxBetAttempts) {
                 ShowRaceTypeDialog();
             } else {
-                wasOpponentRefusal = insultFromOpponent;
                 wantsCarExit = true;
             }
         }

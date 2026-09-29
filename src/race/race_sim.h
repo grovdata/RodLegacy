@@ -8,6 +8,10 @@
 
 namespace srrace {
 
+// The original steps once per rendered frame and times the race as 6 steps a second.
+// Tuning knob: lower = slower race.
+constexpr int SIM_HZ = 6;
+
 // Input word bits.
 constexpr uint16_t INPUT_THROTTLE = 0x01;
 constexpr uint16_t INPUT_BRAKE = 0x02;

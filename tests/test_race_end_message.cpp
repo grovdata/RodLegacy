@@ -122,36 +122,60 @@ TEST_CASE("win with an unlisted bet amount falls back to the no-bet line") {
 
 TEST_SUITE("BuildRaceEndReason - losses") {
 
-TEST_CASE("road race, plain loss") {
+TEST_CASE("a plain loss is the same line on the strip and the road") {
     RaceEndContext ctx;
     ctx.playerLost = true;
-    ctx.isDragRace = false;
-    CHECK(BuildRaceEndReason(ctx).text == "Lucky you're so slow. You only lost\nthe race.");
-}
-
-TEST_CASE("road race, loss with tire wear") {
-    RaceEndContext ctx;
-    ctx.playerLost = true;
-    ctx.isDragRace = false;
-    ctx.tiresBlown = true;
-    CHECK(BuildRaceEndReason(ctx).text ==
-          "Lucky you're so slow. You only lost\nthe race. But you need new tires.");
-}
-
-TEST_CASE("drag race, plain loss - drag-specific line, not the road one") {
-    RaceEndContext ctx;
-    ctx.playerLost = true;
-    ctx.isDragRace = true;
     ctx.betAmount = 25;
+    ctx.isDragRace = true;
+    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    ctx.isDragRace = false;
+    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    ctx.tiresBlown = true;
     CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
 }
 
-TEST_CASE("drag race loss ignores tire wear (that variant is road-only)") {
+TEST_CASE("a plain pink-slip loss") {
     RaceEndContext ctx;
     ctx.playerLost = true;
+    ctx.isPinkSlip = true;
+    CHECK(BuildRaceEndReason(ctx).text == "Take a walk, sucker.");
+}
+
+TEST_CASE("losing to The King") {
+    RaceEndContext ctx;
+    ctx.playerLost = true;
+    ctx.vsKing = true;
     ctx.isDragRace = true;
-    ctx.tiresBlown = true;
-    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    CHECK(BuildRaceEndReason(ctx).text == "Close, but no cigar punk`!");
+    ctx.isDragRace = false;
+    ctx.isPinkSlip = true;
+    CHECK(BuildRaceEndReason(ctx).text ==
+          "I`knew`you'd`choke`when`the`pressure`got`to`ya.\nBetter luck next time, sucker`!");
+}
+
+TEST_CASE("beating The King") {
+    RaceEndContext ctx;
+    ctx.playerWon = true;
+    ctx.vsKing = true;
+    ctx.isDragRace = true;
+    CHECK(BuildRaceEndReason(ctx).text == "Beginner's luck, punk`!");
+    ctx.isDragRace = false;
+    ctx.isPinkSlip = true;
+    CHECK(BuildRaceEndReason(ctx).text ==
+          "You ran a good race.\nYou deserve to be King of the County`!");
+}
+
+TEST_CASE("a broken drivetrain in a pink-slip race loses the car too") {
+    RaceEndContext ctx;
+    ctx.playerLost = true;
+    ctx.isPinkSlip = true;
+    ctx.endFlags = srrace::END_ENGINE_BLOWN;
+    CHECK(BuildRaceEndReason(ctx).text == "Blew your engine again`?\nYou lose. Take a walk, sucker.");
+    ctx.endFlags = srrace::END_TRANS_DROPPED;
+    CHECK(BuildRaceEndReason(ctx).text ==
+          "You just dropped your`transmission`!\nYou lose. Take a walk, sucker.");
+    ctx.isPinkSlip = false;
+    CHECK(BuildRaceEndReason(ctx).text == "You just dropped your`transmission,klutz`!");
 }
 
 }
@@ -222,13 +246,21 @@ TEST_CASE("payout and quote arithmetic") {
 
 }
 
-TEST_SUITE("SettlesBet - the cop branch returns before the stake") {
+TEST_SUITE("SettlesBet - the cop and a jumped light return before the stake") {
 
 using srrace::SettlesBet;
 
 TEST_CASE("a ticket in a pink-slip race does not cost the car") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_COP_CAUGHT | srrace::END_FINISHED;
+    ctx.isPinkSlip = true;
+    ctx.playerLost = true;
+    CHECK(SettlesBet(ctx) == false);
+}
+
+TEST_CASE("jumping the light costs neither money nor the car") {
+    RaceEndContext ctx;
+    ctx.endFlags = srrace::END_STALLED | srrace::END_FINISHED;
     ctx.isPinkSlip = true;
     ctx.playerLost = true;
     CHECK(SettlesBet(ctx) == false);

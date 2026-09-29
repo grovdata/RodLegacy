@@ -14,7 +14,7 @@ CrashOutcome ClassifyCrash(const RaceEndContext& ctx) {
 }
 
 bool SettlesBet(const RaceEndContext& ctx) {
-    return (ctx.endFlags & END_COP_CAUGHT) == 0;
+    return (ctx.endFlags & (END_COP_CAUGHT | END_STALLED)) == 0;
 }
 
 RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
@@ -52,9 +52,17 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
             break;
     }
     if (ctx.endFlags & END_ENGINE_BLOWN) {
+        if (ctx.isPinkSlip) {
+            return {"Blew your engine again`?\nYou lose. Take a walk, sucker.",
+                    MessageBox::TwoRow};  // 89
+        }
         return {"Blew your engine again, huh, Ace`?", MessageBox::Wide};  // 87
     }
     if (ctx.endFlags & END_TRANS_DROPPED) {
+        if (ctx.isPinkSlip) {
+            return {"You just dropped your`transmission`!\nYou lose. Take a walk, sucker.",
+                    MessageBox::TwoRow};  // 88
+        }
         return {"You just dropped your`transmission,klutz`!", MessageBox::Wide};  // 86
     }
     if (ctx.endFlags & END_STALLED) {
@@ -62,6 +70,11 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     }
 
     if (ctx.playerWon) {
+        if (ctx.vsKing) {
+            if (ctx.isDragRace) return {"Beginner's luck, punk`!", MessageBox::Wide};  // 78
+            return {"You ran a good race.\nYou deserve to be King of the County`!",
+                    MessageBox::TwoRow};  // 79
+        }
         if (ctx.isPinkSlip) return {"You just won a helluva car.", MessageBox::Wide};  // 77
         switch (ctx.betAmount) {
             case 10:  return {"Big deal. Ten lousy bucks.", MessageBox::Wide};      // 73
@@ -74,19 +87,14 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     }
 
     if (ctx.playerLost) {
-        // Confirmed by playtesting.
-        if (ctx.isDragRace) {
-            return {"You lose, sucker.", MessageBox::Narrow};  // 83
+        if (ctx.vsKing) {
+            if (ctx.isDragRace) return {"Close, but no cigar punk`!", MessageBox::Wide};  // 84
+            return {"I`knew`you'd`choke`when`the`pressure`got`to`ya.\n"
+                    "Better luck next time, sucker`!", MessageBox::TwoRow};  // 85
         }
-        if (ctx.tiresBlown) {
-            return {"Lucky you're so slow. You only lost\nthe race. But you need new tires.",
-                    MessageBox::TwoRow};  // 94
-        }
-        return {"Lucky you're so slow. You only lost\nthe race.", MessageBox::TwoRow};  // 93
+        if (ctx.isPinkSlip) return {"Take a walk, sucker.", MessageBox::Narrow};  // 82
+        return {"You lose, sucker.", MessageBox::Narrow};  // 83
     }
-    // Unresolved: the "Your winning time" / "In %d.%d sec you covered only" strings may belong to drag races,
-    // but their gating is unclear, so nothing is shown rather than guess.
-
     // No original string for this state.
     return {};
 }

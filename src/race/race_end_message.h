@@ -11,6 +11,7 @@ struct RaceEndContext {
     bool playerWon = false;  // raceOutcome == RaceOutcome::PlayerWon
     bool playerLost = false; // raceOutcome == RaceOutcome::PlayerLost
     bool isPinkSlip = false;
+    bool vsKing = false;
     int betAmount = 0;
     bool isDragRace = false;      // currentTrackType == SR_TRACK_DRAG_RACE
     bool tiresBlown = false; // endFlags & END_TIRES_BLOWN
