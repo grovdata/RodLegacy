@@ -370,7 +370,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_JACK_LENGTH, SRL0_CAR_JACK_RATE);
     }
 
-    // Tire screech sound - RaceLogicUpdate (0x244d50), see RACING_TODO.md
+    // Tire screech sound - RaceLogicUpdate (0x244d50), see RodLegacyResearch/docs/audio.md
     if (size >= SRL0_TIRE_SCREECH_OFFSET + SRL0_TIRE_SCREECH_LENGTH) {
         AudioSample tireScreechSample;
         LoadRawAudio(data + SRL0_TIRE_SCREECH_OFFSET, SRL0_TIRE_SCREECH_LENGTH,

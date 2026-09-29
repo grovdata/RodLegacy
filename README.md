@@ -163,11 +163,16 @@ RodLegacy use these fine libraries:
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
  - [lemon font](https://github.com/cmvnd/fonts)
- - [ISO88591-8x16, g1-7x8 font](https://github.com/epto/epto-fonts)
+ - [ISO88591-8x16 (data/font/bee.png), g1-7x8 font](https://github.com/epto/epto-fonts)
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
  - [Nuked-OPL3](https://github.com/nukeykt/Nuked-OPL3)
+
+ # License
+
+RodLegacy is licensed under the GNU General Public License v3.0 or later, see [LICENSE](LICENSE).
+Bundled third-party code keeps its own license.
 
  # Legal
 
