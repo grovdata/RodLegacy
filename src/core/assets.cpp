@@ -862,6 +862,12 @@ void AssetManager::LoadSettings() {
         // race_sim holds its own copy.
         srrace::SetPuristScoring(puristScoring);
 
+        auto smoothIt = kv.find("smooth_racing");
+        if (smoothIt != kv.end()) smoothRacing = std::stoi(smoothIt->second) != 0;
+
+        auto speedIt = kv.find("race_speed");
+        if (speedIt != kv.end()) srrace::SetSimHz(std::stoi(speedIt->second));
+
         // Stored by id, so reordering the registry cannot flip what is enabled.
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
         for (size_t i = 0; i < defs.size() && i < carSets.size(); i++) {
@@ -886,6 +892,14 @@ void AssetManager::LoadSettings() {
     } catch (...) {}
 }
 
+int AssetManager::GetRaceSpeed() const {
+    return srrace::SimHz();
+}
+
+void AssetManager::SetRaceSpeed(int hz) {
+    srrace::SetSimHz(hz);
+}
+
 void AssetManager::SaveSettings() {
     auto kv = ReadConfigFile();
     const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
@@ -905,5 +919,7 @@ void AssetManager::SaveSettings() {
     kv["skip_intro"] = skipIntro ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
     kv["purist_scoring"] = puristScoring ? "1" : "0";
+    kv["smooth_racing"] = smoothRacing ? "1" : "0";
+    kv["race_speed"] = std::to_string(srrace::SimHz());
     WriteConfigFile(kv);
 }

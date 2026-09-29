@@ -137,12 +137,20 @@ public:
     // race_sim keeps its own copy, updated by LoadSettings and the settings screen.
     bool& GetPuristScoringRef() { return puristScoring; }
 
+    // Deviation, off by default: the race view blends between sim steps. smooth_racing=1.
+    bool& GetSmoothRacingRef() { return smoothRacing; }
+
+    // Sim steps a second, 6 (original) to 15. race_speed=N. race_sim keeps its own copy.
+    int GetRaceSpeed() const;
+    void SetRaceSpeed(int hz);
+
 private:
     bool debugShowZoneOverlays = false;
     bool hillOcclusion = false;
     bool extraAnimations = false;
     bool analogSteering = false;
     bool puristScoring = false;
+    bool smoothRacing = false;
     bool skipIntro = false;
     fs::path gameBasePath;
     fs::path dataPath;

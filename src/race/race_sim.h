@@ -9,8 +9,11 @@
 namespace srrace {
 
 // The original steps once per rendered frame and times the race as 6 steps a second.
-// Tuning knob: lower = slower race.
-constexpr int SIM_HZ = 6;
+constexpr int SIM_HZ_ORIGINAL = 6;
+constexpr int SIM_HZ_MAX = 15;
+// Race speed in sim steps a second, clamped to SIM_HZ_ORIGINAL..SIM_HZ_MAX.
+void SetSimHz(int hz);
+int SimHz();
 
 // Input word bits.
 constexpr uint16_t INPUT_THROTTLE = 0x01;
@@ -136,6 +139,10 @@ struct CarState {
     int32_t transWearDelta = 0;
     int32_t tireWearDelta = 0;
 };
+
+// Blends the drawn position of a car from the previous sim step towards the current one, t in 0..1.
+// A jump longer than 32 segments (a debug pose, a cruise start) is shown as it is.
+void BlendCarView(const CarState& prev, CarState& cur, float t);
 
 // What the opponent's engine logic decided last tick, for the debug UI only.
 enum class NpcBranch : uint8_t {

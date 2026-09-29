@@ -1,4 +1,5 @@
 #include "garage/garage.h"
+#include "race/race_sim.h"
 #include "dialogs/key_bindings_dialog.h"
 #include "dialogs/settings_dialog.h"
 #include "core/state.h"
@@ -187,8 +188,8 @@ void Garage::InitOptionsDialog() {
     bool showMusicSource = am && am->HasAmigaMusic();
     bool canCycleMusicSource = showMusicSource && am->HasPCSpeaker();
 
-    // Rows advance as a cursor so skipped rows leave no gap; starting at y 40 keeps all seven clear of the HUD.
-    SDL_Rect optionsDialogRect = {60, 40, 200, 0};
+    // Rows advance as a cursor so skipped rows leave no gap; starting at y 24 keeps all eight clear of the HUD.
+    SDL_Rect optionsDialogRect = {60, 24, 200, 0};
 
     const int pad = 5;
     const int innerLeft  = optionsDialogRect.x + pad;
@@ -232,6 +233,22 @@ void Garage::InitOptionsDialog() {
         buttons.push_back({musicVolumeDownRect, "]", nullptr, false, 3});
         y += rowHeight;
     }
+
+    char speedLabel[32];
+    const int raceSpeed = state.GetAssets().GetRaceSpeed();
+    if (raceSpeed == srrace::SIM_HZ_ORIGINAL) {
+        snprintf(speedLabel, sizeof(speedLabel), "Race speed: %d (orig)", raceSpeed);
+    } else {
+        snprintf(speedLabel, sizeof(speedLabel), "Race speed: %d", raceSpeed);
+    }
+    SDL_Rect speedUpRect   = {innerRight - arrowWidth, rowY(arrowHeight), arrowWidth, arrowHeight};
+    SDL_Rect speedDownRect = {speedUpRect.x - arrowWidth - 4, speedUpRect.y, arrowWidth, arrowHeight};
+    texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, speedLabel, {0xFF,0xFF,0xFF,0xFF}, false});
+    dialogZones.push_back(Zone("race_speed_up",   "Faster races", speedUpRect));
+    dialogZones.push_back(Zone("race_speed_down", "Slower races, 6 is the original", speedDownRect));
+    buttons.push_back({speedUpRect,   "[", nullptr, false, 9});
+    buttons.push_back({speedDownRect, "]", nullptr, false, 10});
+    y += rowHeight;
 
     SDL_Rect fullscreenCheckboxRect = {innerRight - checkboxSize, rowY(checkboxSize), checkboxSize, checkboxSize};
     texts.push_back({SDL_Rect{innerLeft, rowY(fontHeight), labelWidth, 10}, "Fullscreen:", {0xFF,0xFF,0xFF,0xFF}, false});
@@ -316,6 +333,12 @@ void Garage::InitOptionsDialog() {
             case 5:
                 optionsDialog->Hide();
                 SetActiveDialog(gameMenuDialog.get());
+                break;
+            case 9:
+            case 10:
+                state.GetAssets().SetRaceSpeed(state.GetAssets().GetRaceSpeed() + (buttonIndex == 9 ? 1 : -1));
+                state.GetAssets().SaveSettings();
+                rebuildOptions_ = true;
                 break;
             case 7:
                 optionsDialog->Hide();

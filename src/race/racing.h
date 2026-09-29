@@ -91,6 +91,9 @@ private:
     srrace::RaceRng rng;
     int trackVariant = 0;
     srrace::RaceSim sim;
+    // What the renderer draws: the sim's cars, or with smooth racing a blend of the last two steps.
+    srrace::CarState prevPlayer, prevNpc, viewPlayer, viewNpc;
+    bool havePrevStep = false;
     std::array<RowProjection, 15> rows {};
 
     float cloudOffsetAccum = 0.0f;
@@ -173,6 +176,7 @@ private:
     int RaceTypeFromTrackType(SrTrackType trackType) const;
     int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
+    void UpdateRenderView();
     void RenderSkyAndParallax(float frameSeconds);
     void RenderClouds(int horizonY);
     void RenderMountains(int horizonY);

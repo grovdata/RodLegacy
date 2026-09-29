@@ -28,6 +28,7 @@ int ClampTrackIndex(int seg) {
 }
 
 bool gPuristScoring = false;
+int gSimHz = 12;
 
 }
 
@@ -37,6 +38,29 @@ void SetPuristScoring(bool enabled) {
 
 bool PuristScoring() {
     return gPuristScoring;
+}
+
+void BlendCarView(const CarState& prev, CarState& cur, float t) {
+    const int32_t a = prev.segPos * 8 + prev.scrollAcc;
+    const int32_t b = cur.segPos * 8 + cur.scrollAcc;
+    if (std::abs(b - a) > 256) return;
+    const int32_t fine = a + static_cast<int32_t>(std::lround((b - a) * t));
+    cur.segPos = fine / 8;
+    cur.scrollAcc = static_cast<int16_t>(fine % 8);
+    auto lerp = [t](int16_t x, int16_t y) {
+        return static_cast<int16_t>(x + std::lround((y - x) * t));
+    };
+    cur.lateral = lerp(prev.lateral, cur.lateral);
+    cur.heading = lerp(prev.heading, cur.heading);
+    cur.elevAtCar = lerp(prev.elevAtCar, cur.elevAtCar);
+}
+
+void SetSimHz(int hz) {
+    gSimHz = ClampValue(hz, SIM_HZ_ORIGINAL, SIM_HZ_MAX);
+}
+
+int SimHz() {
+    return gSimHz;
 }
 
 int ComputeBasePerformance(const CarSetup& setup) {
@@ -258,7 +282,7 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
 
     // The light turns green 110..212 vblanks (50 Hz) after "Get ready"; leaving early is a false start.
     phase = RacePhase::Countdown;
-    countdownTicks = std::max(1, (110 + rng.Next(103)) * SIM_HZ / 50);
+    countdownTicks = std::max(1, (110 + rng.Next(103)) * gSimHz / 50);
 
     // Road races only, never the King's: 1 in 4, trigger at 510 + rand(255). From a derived seed so the extra
     // draws don't shift every later roll the races are regression-tested against.

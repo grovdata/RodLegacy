@@ -25,18 +25,18 @@ namespace {
 constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 
-// Rendering stays at GAME_FPS and samples the sim.
-constexpr int kPhysicsHz = srrace::SIM_HZ;
-
 // The rpm the drive cutscene shifts at and then holds in top gear.
 constexpr int kCruiseRpm = 4500;
 // How far ahead the arriving car turns in. One segment shows no turn, twelve drifts across the road; tune here.
 constexpr int kCruiseArrivalSegs = 3;
-constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
+// Rendering stays at GAME_FPS and samples the sim, which steps at the race speed setting.
+float StepSeconds() {
+    return 1.0f / static_cast<float>(srrace::SimHz());
+}
 
 // Sim ticks a one-shot sample takes to play, rounded up.
-constexpr int SampleTicks(uint32_t length, uint32_t rate) {
-    return static_cast<int>((length * kPhysicsHz + rate - 1) / rate);
+int SampleTicks(uint32_t length, uint32_t rate) {
+    return static_cast<int>((length * static_cast<uint32_t>(srrace::SimHz()) + rate - 1) / rate);
 }
 
 // This surface lands at screen y = 14, so every screen-space Y from the original is converted.
@@ -457,6 +457,7 @@ void Racing::InitializeRaceSimulation() {
     raceBetAmount = state.GetPendingBetAmount();
     raceIsPinkSlip = state.GetPendingIsPinkSlip();
     fixedAccumulator = 0.0f;
+    havePrevStep = false;
     prevSpaceDown = false;
     pendingShift = false;
     firstPlayerFinishTick = -1;
@@ -698,9 +699,9 @@ srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     return ctx;
 }
 
-// The original's `ticks * 10 / 6` assumes 6 steps a second; ours runs at kPhysicsHz.
+// In the original's time scale, so a race reads the same at any race speed.
 int Racing::RaceTimeTenths() const {
-    return simTickCounter * 10 / kPhysicsHz;
+    return simTickCounter * 10 / srrace::SIM_HZ_ORIGINAL;
 }
 
 int Racing::AverageSpeedMph() const {
@@ -760,8 +761,17 @@ int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int l
     return 160 - numerator / d;
 }
 
+void Racing::UpdateRenderView() {
+    viewPlayer = sim.Player();
+    viewNpc = sim.Npc();
+    if (flybyMode || !havePrevStep || !state.GetAssets().GetSmoothRacingRef()) return;
+    const float t = std::clamp(fixedAccumulator / StepSeconds(), 0.0f, 1.0f);
+    srrace::BlendCarView(prevPlayer, viewPlayer, t);
+    srrace::BlendCarView(prevNpc, viewNpc, t);
+}
+
 int Racing::BuildRowTableAndGetLastVisible() {
-    const srrace::CarState& p = sim.Player();
+    const srrace::CarState& p = viewPlayer;
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
     const int elevAtCar = p.elevAtCar;
 
@@ -813,7 +823,7 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
         }
     }
 
-    const srrace::CarState& p = sim.Player();
+    const srrace::CarState& p = viewPlayer;
     cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
 }
 
@@ -857,7 +867,7 @@ void Racing::RenderMountains(int horizonY) {
     }
     SDL_Surface* src = mountainSprite->GetSurface();
     // A direct function of heading, not an integral of speed, so it returns as the heading returns.
-    const int heading = sim.Player().heading;
+    const int heading = viewPlayer.heading;
     const int baseOffset = (((heading * 2) % src->w) + src->w) % src->w;
 
     // The silhouette/foothill boundary is the horizon; anchoring the lowest opaque row left a green gap.
@@ -1381,8 +1391,8 @@ void Racing::DrawNpcCar(int lastVisible) {
         return;
     }
 
-    const srrace::CarState& p = sim.Player();
-    const srrace::CarState& np = sim.Npc();
+    const srrace::CarState& p = viewPlayer;
+    const srrace::CarState& np = viewNpc;
     const srrace::NpcState& ai = sim.NpcAi();
 
     if (ai.viewHidden) {
@@ -1453,7 +1463,7 @@ void Racing::DrawRearviewMirror() {
     const int gBottom = mirrorY + mirrorH - 2;
     const int centerX = mirrorX + mirrorW / 2;   // 280, matches ProjectMirrorX
     constexpr int kMirrorRows = 8;               // BuildMirrorRowTables walks 8
-    const srrace::CarState& p = sim.Player();
+    const srrace::CarState& p = viewPlayer;
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
 
     // Bottom-left anchored at (dstLeft, dstBottom), never spilling outside the glass.
@@ -1621,7 +1631,7 @@ void Racing::DrawRearviewMirror() {
     }
 
     if (opponentActive) {
-        const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
+        const int delta = static_cast<int>(viewNpc.segPos - viewPlayer.segPos);
         if (delta < 0 && delta >= -8) {
             const int idx = ClampInt((-delta) / 2, 0, 3);
             Bitmap* behind = nullptr;
@@ -2237,7 +2247,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         UpdateFlybyMovement(fElapsedTime);
     } else {
         fixedAccumulator += std::max(0.0f, fElapsedTime);
-        fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
+        fixedAccumulator = std::min(fixedAccumulator, StepSeconds() * 2.0f);
 
         // Consult the debug UI before reading raw key state.
         const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
@@ -2298,12 +2308,15 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             steerAmount = 1.0f;
         }
 
-        if (fixedAccumulator >= kFixedStepSeconds) {
+        if (fixedAccumulator >= StepSeconds()) {
             uint16_t inputBits = baseInput;
             if (pendingShift) {
                 inputBits |= srrace::INPUT_SHIFT;
                 pendingShift = false;
             }
+            prevPlayer = sim.Player();
+            prevNpc = sim.Npc();
+            havePrevStep = true;
             sim.Tick(inputBits, steerAmount);
             ++simTickCounter;
             // For the post-race stats panel's average speed.
@@ -2356,7 +2369,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 startLightHeight = std::max(0, startLightHeight - 4);
             }
 
-            fixedAccumulator -= kFixedStepSeconds;
+            fixedAccumulator -= StepSeconds();
         }
 
         HandleOutcomeAfterTicks();
@@ -2376,6 +2389,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         return;
     }
 
+    UpdateRenderView();
     RenderSkyAndParallax(fElapsedTime);
     lastVisibleRow = BuildRowTableAndGetLastVisible();
     RenderRoad(lastVisibleRow);

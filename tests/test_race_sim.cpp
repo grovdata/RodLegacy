@@ -1609,4 +1609,32 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     }
 }
 
+TEST_CASE("BlendCarView steps the drawn car between two sim steps") {
+    CarState prev, cur;
+    prev.segPos = 300; prev.scrollAcc = 6; prev.lateral = 2400; prev.heading = 0;
+    cur.segPos = 302;  cur.scrollAcc = 2;  cur.lateral = 2500;  cur.heading = 20;
+
+    CarState half = cur;
+    BlendCarView(prev, half, 0.5f);
+    // 2406 .. 2418 eighths, halfway is 2412 = segment 301, scroll 4.
+    CHECK(half.segPos == 301);
+    CHECK(half.scrollAcc == 4);
+    CHECK(half.lateral == 2450);
+    CHECK(half.heading == 10);
+
+    CarState start = cur, end = cur;
+    BlendCarView(prev, start, 0.0f);
+    BlendCarView(prev, end, 1.0f);
+    CHECK(start.segPos == 300);
+    CHECK(start.scrollAcc == 6);
+    CHECK(end.segPos == 302);
+    CHECK(end.scrollAcc == 2);
+
+    // A teleport is drawn where it landed.
+    CarState jump = cur;
+    jump.segPos = 900;
+    BlendCarView(prev, jump, 0.5f);
+    CHECK(jump.segPos == 900);
+}
+
 }

@@ -32,6 +32,7 @@ const Setting kSettings[] = {
     {"Skip intro",          &AssetManager::GetSkipIntroRef,        false, nullptr},
     {"Purist tune scoring", &AssetManager::GetPuristScoringRef,    false,
      [](bool on) { srrace::SetPuristScoring(on); }},
+    {"Smooth racing",       &AssetManager::GetSmoothRacingRef,     false, nullptr},
 };
 constexpr int kSettingCount = sizeof(kSettings) / sizeof(kSettings[0]);
 
