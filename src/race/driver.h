@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A driver: name and portrait.
+ *
+ * Created: 2023-01-29
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <iostream>

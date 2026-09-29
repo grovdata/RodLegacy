@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Amiga music sequencer: AmigaMusic plays msr.note arrangements with the srl1.wave instruments.
+ *
+ * Created: 2026-04-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL2/SDL.h>

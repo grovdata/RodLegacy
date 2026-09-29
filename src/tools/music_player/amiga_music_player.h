@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Standalone Amiga music player tool: song data loading and the player loop.
+ *
+ * Created: 2026-04-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstddef>

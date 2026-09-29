@@ -1,14 +1,13 @@
+/*
+ * RodLegacy - Street Rod data formats: .lib picture libraries, asset ids, palettes, SR_data and HOT_DATA
+ * records, sample offsets.
+ *
+ * Created: 2023-03-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #ifndef LIBP_H
 #define LIBP_H
-
-/*
-    SrLib: 2024 by grovdata
-    This library reads and writes assets for the Street Rod games.
-
-    SrLib is a fan project and is not affiliated with streetrodonline.com
-    who owns the Street Rod copyright.
-
-*/
 
 #include <tuple>
 #include <vector>
@@ -271,7 +270,7 @@ enum AmigaLibAsset {
     // Victoria 1955, Ford Fairlane 500 1956, Chevrolet Impala 1958, Valiant
     // V200 1961, Valiant V100 2dr 1963.
     RACING_OPPONENT_CAR_CHEVY_FRONT_SIDE = 83,
-    RACING_OPPONENT_CAR_CHEVY_REAR_SIDE = 84, 
+    RACING_OPPONENT_CAR_CHEVY_REAR_SIDE = 84,
     RACING_OPPONENT_CAR_CHEVY_REAR_1 = 85,
     RACING_OPPONENT_CAR_CHEVY_REAR_2 = 86,
     RACING_OPPONENT_CAR_CHEVY_REAR_3 = 87,
@@ -288,7 +287,7 @@ enum AmigaLibAsset {
     RACING_RED_LIGHTS = 97,
     // Used by: Dodge Custom Royal Lancer 1955, Mercury Monterey 1954, Mercury
     // Custom 2dr 1956, Chevrolet Bel Air Sports Coupe.
-    RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE = 98, 
+    RACING_OPPONENT_CAR_CHRYSLER_FRONT_SIDE = 98,
     RACING_OPPONENT_CAR_CHRYSLER_REAR_SIDE = 99,
     RACING_OPPONENT_CAR_CHRYSLER_REAR_1 = 100,
     RACING_OPPONENT_CAR_CHRYSLER_REAR_2 = 101,
@@ -882,20 +881,20 @@ struct SpriteAnimationInfo {
 };
 
 static const SpriteRect LIBP_15_GARAGE_SIGN[] = {
-    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
-    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7},
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14},
     {38, 42, 26, 18}, {0, 43, 38, 25}, {0, 0, 64, 43}
 };
 
 static const SpriteRect LIBP_15_GUS_GAS_SIGN[] = {
-    {18, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
-    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {18, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7},
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14},
     {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 
 static const SpriteRect LIBP_16_GUS_GAS_SIGN[] = {
-    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7}, 
-    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14}, 
+    {19, 82, 7, 4}, {27, 81, 8, 5}, {36, 80, 9, 6}, {30, 70, 11, 7},
+    {16, 70, 13, 8}, {0, 69, 15, 10}, {46, 74, 18, 12}, {43, 60, 21, 14},
     {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 

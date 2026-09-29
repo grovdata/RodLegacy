@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Small helpers: the seeded random engine, SDL smart-pointer wrappers and the SFont clip padding.
+ *
+ * Created: 2024-01-20
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <set>
 #include <stdexcept>

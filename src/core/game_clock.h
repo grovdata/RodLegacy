@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The 1963 summer calendar: GameClock converts the game's tick counter to dates, times and
+ * calendar positions.
+ *
+ * Created: 2026-08-04
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <cstdint>
 #include <string>

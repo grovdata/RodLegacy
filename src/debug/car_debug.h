@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Debug scene for checking car wheel lines and driver positions (debug_ui builds only).
+ *
+ * Created: 2026-08-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

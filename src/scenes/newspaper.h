@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The newspaper scene: front page, used-car and auto-parts classifieds, and buying.
+ *
+ * Created: 2025-01-23
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

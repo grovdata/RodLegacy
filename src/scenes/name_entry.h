@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The new-game name entry screen (DMV), with the car set choice.
+ *
+ * Created: 2026-08-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

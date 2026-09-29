@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Shared types: CarModel and its sprite lookups, and the IDrawable interface.
+ *
+ * Created: 2024-02-03
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/log.h"
 #include <string>

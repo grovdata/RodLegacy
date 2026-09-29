@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - RodLegacy's TOML save format: listing, peeking and the round-trip self-test.
+ *
+ * Created: 2026-09-01
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/save_loader.h"
 

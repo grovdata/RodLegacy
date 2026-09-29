@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - DOS PC speaker music: SR.EXE CODE_24 note parsing and the PCSpeaker square-wave player.
+ *
+ * Created: 2026-04-04
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL2/SDL.h>

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Engine drone: EngineSound resamples the engine loop in real time from RPM or an Amiga period.
+ *
+ * Created: 2025-10-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL2/SDL.h>

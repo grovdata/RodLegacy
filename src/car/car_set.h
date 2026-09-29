@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Car sets: the Amiga stock set and optional DOS data-disk packs, their sprite layout and wheel
+ * line.
+ *
+ * Created: 2026-08-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <string>
 #include <vector>

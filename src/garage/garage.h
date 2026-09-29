@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The garage scene: Garage with its menus, paint, tires, transmission and engine bay installs,
+ * and car sales.
+ *
+ * Created: 2023-02-26
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

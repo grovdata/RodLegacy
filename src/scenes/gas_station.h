@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Gus's gas station scene: GasStation with the pump, the attendant and refuelling.
+ *
+ * Created: 2023-02-26
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

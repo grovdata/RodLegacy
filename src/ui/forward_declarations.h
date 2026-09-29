@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Forward declarations of the UI classes.
+ *
+ * Created: 2025-07-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/types.h"

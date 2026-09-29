@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The game's own mouse pointer: Mouse draws it and drives it from the mouse, D-pad and analog
+ * stick.
+ *
+ * Created: 2023-02-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #ifndef MOUSE_H
 #define MOUSE_H
 

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The driving scene: Driving hosts races and town cruises, the cockpit, and settles each race.
+ *
+ * Created: 2023-02-28
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

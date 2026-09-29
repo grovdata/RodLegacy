@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Reads entries from zip files into memory.
+ *
+ * Created: 2026-04-14
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <filesystem>

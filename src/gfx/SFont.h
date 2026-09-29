@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - SFont, a bitmap-font library for SDL by Karl Bartel, extended with SFont_InitFontDirect for
+ * fonts built in memory.
+ *
+ * Created: 2023-02-05
+ * License: the original author's terms below (GPL-2.0-or-later or LGPL, at your choice).
+ */
+
 /*  SFont: a simple font-library that uses special bitmaps as fonts
     Copyright (C) 2003 Karl Bartel
 

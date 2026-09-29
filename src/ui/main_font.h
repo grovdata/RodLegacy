@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The Amiga main font, read from the Street_Rod executable, and its special glyphs.
+ *
+ * Created: 2026-08-10
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstdint>

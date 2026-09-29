@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - D-pad navigation between clickable zones, SDL-free: nav::PickNearest and nav::PickDirectional.
+ *
+ * Created: 2026-09-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #ifndef ZONE_NAV_H
 #define ZONE_NAV_H
 

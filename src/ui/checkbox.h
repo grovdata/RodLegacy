@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A checkbox button: Checkbox.
+ *
+ * Created: 2025-10-15
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <functional>

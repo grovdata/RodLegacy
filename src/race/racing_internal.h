@@ -1,5 +1,11 @@
+/*
+ * RodLegacy - Constants and helpers shared by the Racing source files.
+ *
+ * Created: 2026-09-29
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
-// Shared by racing.cpp, racing_render.cpp and racing_debug.cpp.
 
 #include <SDL.h>
 

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Loads SDL surfaces from resources embedded in the binary.
+ *
+ * Created: 2025-10-03
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/log.h"
 #include <SDL.h>

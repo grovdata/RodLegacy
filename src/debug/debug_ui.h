@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - ImGui debug UI: panels, rows, toggles and indicators around the game view, or an empty stub.
+ *
+ * Created: 2026-07-30
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 // ImGui debug UI: the game renders into an offscreen texture shown inside a dockspace.

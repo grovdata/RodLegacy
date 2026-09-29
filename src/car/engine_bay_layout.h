@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Engine bay geometry from the original's position tables: part, screw and wire rects for the bay
+ * screen.
+ *
+ * Created: 2026-09-04
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL.h>

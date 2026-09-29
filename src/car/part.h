@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Car parts: Part, wear units, sale prices and the original's master parts catalog prices.
+ *
+ * Created: 2024-11-14
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "parsers/libp.h"
 #include "car/car_system.h"

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Bob's diner scene: Diner with arriving opponents, the phone list, the hood view and jail.
+ *
+ * Created: 2023-02-28
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

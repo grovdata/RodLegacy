@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A dialog with one typed number, the car buyer's price field.
+ *
+ * Created: 2026-09-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "dialogs/dialog.h"

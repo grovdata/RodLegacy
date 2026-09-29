@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Sprite-sheet animation: AnimatedBitmap plays or selects frames from a sheet.
+ *
+ * Created: 2025-05-15
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "gfx/bitmap.h"
 #include "parsers/libp.h"

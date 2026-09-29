@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Amiga disk image access on top of ADFlib: mounting, listing and extracting files.
+ *
+ * Created: 2024-11-29
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #ifndef ADF_H
 #define ADF_H
 

@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Car model data: CarData reads the stock cars from SR_data and the data-disk sets into
+ * CarModels.
+ *
+ * Created: 2024-02-03
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <set>
 #include "car/car.h"

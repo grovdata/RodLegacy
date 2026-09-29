@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The key bindings screen: every control with its keyboard and gamepad icons.
+ *
+ * Created: 2026-09-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "dialogs/list_dialog.h"

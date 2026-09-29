@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The save and load screen for TOML saves and original Amiga .sav files.
+ *
+ * Created: 2026-09-01
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

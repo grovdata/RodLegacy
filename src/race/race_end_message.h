@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Race-end outcome, SDL-free: the bubble text, crash tiers, bet settling and wreck payouts.
+ *
+ * Created: 2026-08-03
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 // Race-end bubble text, kept SDL-free for unit tests. The strings are the originals verbatim.
 

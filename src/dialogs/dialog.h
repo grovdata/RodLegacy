@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Modal dialogs: Dialog with its texts, bitmaps, buttons, zones and keyboard handling.
+ *
+ * Created: 2024-12-28
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/global.h"
 #include "gfx/SFont.h"

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The race view: Racing renders the road and cars, reads input and steps the race simulation.
+ *
+ * Created: 2024-04-28
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL2/SDL.h>

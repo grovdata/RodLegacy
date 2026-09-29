@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The game-over menu: load, new game or quit.
+ *
+ * Created: 2026-09-07
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

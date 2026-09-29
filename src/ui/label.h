@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A text label rendered with an SFont: Label.
+ *
+ * Created: 2025-01-23
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "gfx/bitmap.h"

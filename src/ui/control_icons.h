@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Keyboard and gamepad icon sheets: icons::Strip draws a row of recoloured icons.
+ *
+ * Created: 2026-09-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL.h>

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Track generation: RoadLayoutInit and GenerateTrackShapes build the 1120-segment road.
+ *
+ * Created: 2026-07-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "race/race_types.h"

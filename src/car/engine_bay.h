@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The engine bay window: EngineBay (overview, tuning, parts) and the read-only EngineBayView.
+ *
+ * Created: 2025-04-27
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "dialogs/dialog.h"

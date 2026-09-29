@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - A player or opponent car: Car holds its parts, paint, mods, fuel, wear and value, and
+ * CarSetupFromCar feeds the race sim.
+ *
+ * Created: 2024-01-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

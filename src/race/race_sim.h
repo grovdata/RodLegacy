@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The race simulation, SDL-free: RaceSim runs both cars' physics, the opponent AI, the cop and
+ * the finish.
+ *
+ * Created: 2026-07-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 // One Tick() = one original frame.
 

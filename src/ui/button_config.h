@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - ButtonConfig: what a button shows and does.
+ *
+ * Created: 2023-02-12
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <functional>

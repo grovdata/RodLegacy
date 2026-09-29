@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Speech bubbles: Bubble shows a line of text in one of the original's three message boxes.
+ *
+ * Created: 2023-02-12
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

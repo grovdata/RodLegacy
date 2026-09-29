@@ -1,4 +1,11 @@
-// Generated from the Amiga Street_Rod binary. Do not edit.
+/*
+ * RodLegacy - Intro animation tables (logo and title steps and cels).
+ * Generated from the Amiga Street_Rod binary. Do not edit.
+ *
+ * Created: 2026-09-19
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstdint>

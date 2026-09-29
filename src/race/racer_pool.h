@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The 21 opponents: RacerPool picks challengers and tracks their cars, looks and rivalries.
+ *
+ * Created: 2026-03-20
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <vector>
 #include <cstdint>

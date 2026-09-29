@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The setup screen shown when game files are missing: finds and checks the data zips.
+ *
+ * Created: 2026-04-14
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <filesystem>

@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The Amiga music engine's volume envelope (srl.env): AmigaEnvelope steps one note's volume per
+ * interrupt tick.
+ *
+ * Created: 2026-09-19
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstdint>

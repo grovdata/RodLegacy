@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The diner's waitress and phone guy animation tables, from the original.
+ *
+ * Created: 2026-09-07
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <cstdint>
 

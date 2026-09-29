@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Asset loading: AssetManager reads the disk images and zips, caches bitmaps, fonts, audio and
+ * data, and owns config.txt.
+ *
+ * Created: 2024-07-11
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <vector>

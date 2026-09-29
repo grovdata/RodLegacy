@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The hall of fame scene: KingOfCounty shows and updates the King Street Rodders table.
+ *
+ * Created: 2026-04-02
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Game controller input: Gamepad snapshots one SDL game controller per frame.
+ *
+ * Created: 2026-09-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #ifndef GAMEPAD_H
 #define GAMEPAD_H
 

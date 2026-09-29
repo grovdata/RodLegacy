@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Car drawing: CarBitmap composites body, roof, bumpers, wheels, driver and stickers for the
+ * garage-style scenes.
+ *
+ * Created: 2024-02-03
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/global.h"
 #include "car/car.h"

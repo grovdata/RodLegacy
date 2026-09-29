@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A clickable screen area: Zone.
+ *
+ * Created: 2023-02-26
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

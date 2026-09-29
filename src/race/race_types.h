@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Shared race types: the track arrays, road edges and the race RNG.
+ *
+ * Created: 2026-07-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Game-wide constants (screen size, frame rate) and the pause-aware GameTicks clock.
+ *
+ * Created: 2023-02-05
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #define GAME_WIDTH 320

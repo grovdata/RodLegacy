@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - An image with its SDL surface and texture: Bitmap loading, palettes, crops and overlays.
+ *
+ * Created: 2024-02-18
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

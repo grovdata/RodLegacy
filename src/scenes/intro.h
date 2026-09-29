@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The intro scene: Intro renders IntroPlayer and plays its sounds.
+ *
+ * Created: 2026-09-19
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

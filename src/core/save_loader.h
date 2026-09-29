@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Reader for original Amiga .sav files: SaveGameLoader parses them into LoadedSave records.
+ *
+ * Created: 2026-08-04
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <cstdint>
 #include <filesystem>

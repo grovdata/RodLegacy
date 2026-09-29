@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Engines: EnginePart with its performance figures, and the spec-class and hood-scoop helpers.
+ *
+ * Created: 2025-10-20
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "parsers/libp.h"
 #include "car/part.h"

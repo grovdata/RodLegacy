@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Whether an opponent takes a bet: OpponentAcceptsBet and the SR_data strength, handicap and
+ * threshold tables.
+ *
+ * Created: 2026-04-01
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <cstdint>

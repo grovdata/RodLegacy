@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Gas pump arithmetic, SDL-free: ApplyGasPumpTick.
+ *
+ * Created: 2026-09-04
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 struct GasPumpTick {

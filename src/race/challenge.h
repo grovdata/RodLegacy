@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The diner challenge flow: Challenge runs the race-type and bet dialogs and the opponent's
+ * replies.
+ *
+ * Created: 2026-03-23
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "dialogs/dialog.h"

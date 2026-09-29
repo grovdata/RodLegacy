@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Car paint colours: StandardCarColor and its palette ramps.
+ *
+ * Created: 2024-07-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <vector>
 #include <cstdint>

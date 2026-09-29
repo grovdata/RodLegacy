@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Scene base classes: Scene (background, fades, zones, dialogs) and CarScene (car drive-in,
+ * drive-out and engine sound).
+ *
+ * Created: 2023-02-26
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/global.h"

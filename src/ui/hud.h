@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The bottom status bar: HUD with the bankroll and hover text.
+ *
+ * Created: 2024-12-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL.h>

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Opponent drivers and their cars: Roster and Opponent, including The King.
+ *
+ * Created: 2024-10-30
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <string>
 #include <vector>

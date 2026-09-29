@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Audio front end: AudioManager loads the srl0/srl1 samples, plays effects and loops, and
+ * switches music sources.
+ *
+ * Created: 2025-10-08
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <SDL2/SDL.h>

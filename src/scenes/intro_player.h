@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - The Amiga intro as a tick machine, SDL-free: IntroPlayer drives two indexed buffers and a
+ * palette.
+ *
+ * Created: 2026-09-19
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <array>

@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Global game state: State owns the scenes, cars, money, reputation, racer pool and the clock,
+ * and moves between scenes.
+ *
+ * Created: 2024-01-26
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "core/global.h"
 #include "parsers/libp.h"

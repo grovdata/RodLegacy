@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Car factory: CarBuilder builds cars and parts, fits SR_data specs and decodes save-file part
+ * variants.
+ *
+ * Created: 2025-10-20
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "core/types.h"

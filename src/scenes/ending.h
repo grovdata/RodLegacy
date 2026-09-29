@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The win ending cutscene after beating The King.
+ *
+ * Created: 2026-09-15
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "scenes/scene.h"

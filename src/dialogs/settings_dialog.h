@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The settings screen: toggles for options with no other UI, written to config.txt.
+ *
+ * Created: 2026-09-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "dialogs/list_dialog.h"

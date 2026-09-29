@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Logging macros on top of SDL_Log.
+ *
+ * Created: 2026-02-17
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include <SDL.h>
 

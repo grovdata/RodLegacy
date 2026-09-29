@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - The player's standing: Reputation counts wins and races and decides when The King will race.
+ *
+ * Created: 2026-03-10
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 enum class RaceType { Drag, Road };

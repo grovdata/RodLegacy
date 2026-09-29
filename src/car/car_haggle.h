@@ -1,3 +1,11 @@
+/*
+ * RodLegacy - Car-sale haggle state machine: CarHaggle ports the original's ceilings, counter-offers and
+ * 16-bit price quirk.
+ *
+ * Created: 2026-09-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 // The buyer has a hidden ceiling of 75-94% of the car's value. Each refusal of a counter-offer buys another

@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - Scrollable list dialog: ListDialog with selection, swatches and scroll buttons.
+ *
+ * Created: 2025-01-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 #include "dialogs/dialog.h"
 #include <functional>

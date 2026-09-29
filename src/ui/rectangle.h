@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - A filled or outlined rectangle: Rectangle.
+ *
+ * Created: 2025-01-06
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include "gfx/bitmap.h"

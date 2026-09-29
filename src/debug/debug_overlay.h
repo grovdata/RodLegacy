@@ -1,3 +1,10 @@
+/*
+ * RodLegacy - In-game text overlay for debug information in builds without the ImGui debug UI.
+ *
+ * Created: 2024-11-24
+ * SPDX-License-Identifier: GPL-3.0-or-later (see LICENSE)
+ */
+
 #pragma once
 
 #include <vector>
