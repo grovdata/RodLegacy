@@ -9,23 +9,25 @@ main.cpp bugs, #38 input handling, #39 code hygiene, #40 nice-to-haves.
 
 # Legal
 
-- [x] src/racing.cpp:58 kSpriteScale pixel-scale data lifted from the original Amiga binary, hardcoded in source. Read it from the
+- [x] src/race/racing.cpp kSpriteScale pixel-scale data lifted from the original Amiga binary, hardcoded in source. Read it from the
   loaded Amiga assets at runtime instead of shipping it as a source constant (same pattern already used for graphics/audio: user supplies the disk images).
-- [x] src/bet_acceptance.cpp:6 kThreshold table - read from binary. Found live via Copperline (breakpoint at
+- [x] src/race/bet_acceptance.cpp bet tables - read from binary. Found live via Copperline (breakpoint at
   FUN_0023d718 showed `LEA (-$2B64,A4),A0` indexing a 4x3 word table); the table itself lives in the SR_data
-  asset (disk2), not the Street_Rod exe -- confirmed at file offset 0x74C. Now read at runtime via
-  LoadBetThresholdTable(assets.GetSrData()), called from State::Init.
-- [x] data/drivers/guybrush.png, Homer.png, mario.png, zak.png — third-party copyrighted characters (LucasArts/Disney, Fox/Disney, Nintendo), unrelated to Street Rod. Remove or replace before any public release.
-- [x] #36 data/snd/*.aiff, s1.wav, sr1_ost.ogg and data/font/sr_font*.png - ripped from the original game, nothing in the build or the source referenced them. Removed from the tree; kept outside the repo in ~/kod/privat/sr/archive.zip.
+  asset (disk2), not the Street_Rod exe -- confirmed at file offset 0x74C. All three tables (strength,
+  handicap, threshold) are now read from SR_data 0x728 via LoadBetTables(assets.GetSrData()), called
+  from State::Init. The source still carries default copies: #74.
+- [ ] #75 hall_dat is tracked in the repo root, likely from an original install. Remove before release.
+- [x] data/drivers/guybrush.png, Homer.png, mario.png, zak.png - third-party copyrighted characters (LucasArts/Disney, Fox/Disney, Nintendo), unrelated to Street Rod. Remove or replace before any public release.
+- [x] #36 data/snd/*.aiff, s1.wav, sr1_ost.ogg and data/font/sr_font*.png - ripped from the original game, nothing in the build or the source referenced them. Removed from the tree.
 - [x] data/mods/mario.png, mario2.png, luigi.png, eddie.png - more third-party characters, same class as the driver portraits above. Went out with the unused-asset sweep below.
-- [x] Unused asset sweep: data/res concept art (6 DALL-E icon drafts, bluebil.svg, ikon2.png), data/mods, data/stickers, stray data/font experiments, and the dormant hand-drawn font pipeline (71 numbered glyph PNGs, font.png, src/build-font.py - the script read the glyphs to build font.png, which nothing embedded). Archived to ~/kod/privat/sr/archive.zip. data/ went 11M -> 1.4M.
+- [x] Unused asset sweep: data/res concept art (6 DALL-E icon drafts, bluebil.svg, ikon2.png), data/mods, data/stickers, data/drivers, stray data/font experiments, and the dormant hand-drawn font pipeline (71 numbered glyph PNGs, font.png, src/build-font.py - the script read the glyphs to build font.png, which nothing embedded). data/ went 11M -> 1.4M.
 
 ## License background (for #11)
 
 ADFlib is vendored in subprojects/ADFlib and is GPL-2.0-or-later (COPYING-GPL2, confirmed in the header). Since RodLegacy links it to read Amiga disk images,
-that forces the whole binary to be GPL-2.0-or-later-compatible on distribution — this isn't really a choice, it's inherited.
+that forces the whole binary to be GPL-2.0-or-later-compatible on distribution - this isn't really a choice, it's inherited.
 
-So: GPL-2.0-or-later, or GPLv3 if you want the newer terms (both satisfy ADFlib's "or later" clause). This also matches the norm for this exact genre —
+So: GPL-2.0-or-later, or GPLv3 if you want the newer terms (both satisfy ADFlib's "or later" clause). This also matches the norm for this exact genre -
 OpenTTD is GPLv2, OpenRCT2 and OpenMW are GPLv3, ScummVM is LGPL/GPL mixed. Add a LICENSE file at the RodLegacy root and an SPDX header convention if you
 want one; not required, just common practice.
 
@@ -41,8 +43,9 @@ want one; not required, just common practice.
 - [x] Figure out game time progression
 - [x] Figure out how time relates to final score
 - [x] Car painting: mask spray can with car color, paint with stock colors
-- [x] Newspaper: buying cars with dialogs, buying parts, headlines from the
-      current date, close by clicking the bottom-right area
+- [x] Newspaper: buying cars with dialogs, buying parts, close by clicking
+      the bottom-right area. Headlines cycle the five front pages in order;
+      the original's choice is not confirmed (#8)
 - [x] Changing tires
 - [x] Radio mute/unmute
 
