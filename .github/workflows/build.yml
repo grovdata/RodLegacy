@@ -124,12 +124,26 @@ jobs:
 
             - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
               with:
-                  name: rodlegacy-linux-packages-${{ env.TAG }}
-                  path: |
-                      *.deb
-                      *.rpm
-                      *.AppImage
-                      *.tar.gz
+                  name: rodlegacy-linux-deb-${{ env.TAG }}
+                  path: "*.deb"
+                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
+
+            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
+              with:
+                  name: rodlegacy-linux-rpm-${{ env.TAG }}
+                  path: "*.rpm"
+                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
+
+            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
+              with:
+                  name: rodlegacy-linux-appimage-${{ env.TAG }}
+                  path: "*.AppImage"
+                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
+
+            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
+              with:
+                  name: rodlegacy-linux-tarball-${{ env.TAG }}
+                  path: "*.tar.gz"
                   retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
 
             - name: Attach packages to release
@@ -180,7 +194,9 @@ jobs:
                   i686-w64-mingw32-strip builddir/rodlegacy.exe
 
             - name: Build zip
-              run: zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe
+              run: |
+                  cp README_dist.txt readme.txt
+                  zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe readme.txt
 
             - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
               with:
