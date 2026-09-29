@@ -385,14 +385,18 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
     InitializeRaceSimulation();
 }
 
-void Racing::ResetForNewRace() {
-    // Driving and this Racing are built once and Init() never runs again, so per-race state is cleared here.
-
-    // A loop left running from an unfinished race would stack with the new one.
+void Racing::StopEngineSound() {
     if (engineSoundStarted && audioManager) {
         audioManager->StopLoop(0);
     }
     engineSoundStarted = false;
+}
+
+void Racing::ResetForNewRace() {
+    // Driving and this Racing are built once and Init() never runs again, so per-race state is cleared here.
+
+    // A loop left running from an unfinished race would stack with the new one.
+    StopEngineSound();
 
     // A race always starts in the cockpit.
     flybyMode = false;

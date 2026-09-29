@@ -254,6 +254,8 @@ public:
     RaceOutcome GetRaceOutcome() const;
     void ResetRaceOutcome();
     void ResetForNewRace();
+    // A cruise has no outcome to stop the loop, so leaving the scene must.
+    void StopEngineSound();
 
     void SetDebugFeaturesEnabled(bool enabled);
     bool IsFlybyMode() const { return flybyMode; }

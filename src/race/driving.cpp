@@ -1226,6 +1226,9 @@ void Driving::DrawSteeringDot() {
 }
 
 void Driving::OnSceneExit() {
+    if (racing) {
+        racing->StopEngineSound();
+    }
     AudioManager* am = state.GetAssets().GetAudioManager();
     if (am && !musicWasPaused) {
         am->ResumeMusic();

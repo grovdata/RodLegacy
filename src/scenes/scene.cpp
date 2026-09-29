@@ -333,7 +333,10 @@ void CarScene::OnSceneExit() {
     animatingCar = false;
     carBitmap = nullptr;
     initialDelay = true;
-    
+    if (audioManager) {
+        audioManager->StopLoop(0);
+    }
+
     Scene::OnSceneExit();
 }
 
