@@ -321,7 +321,6 @@ void Racing::InitializeRaceSimulation() {
     // The scene outlives a race, so per-race timers are cleared here.
     tireScreechCooldownTicks = 0;
     copSirenCooldownTicks = 0;
-    cloudOffsetAccum = 0.0f;
     lastVisibleRow = -1;
 }
 
@@ -763,7 +762,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
     }
 
     UpdateRenderView();
-    RenderSkyAndParallax(fElapsedTime);
+    RenderSky();
     lastVisibleRow = BuildRowTableAndGetLastVisible();
     RenderRoad(lastVisibleRow);
     RenderMountains(rows[lastVisibleRow].y);

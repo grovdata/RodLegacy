@@ -103,7 +103,6 @@ private:
     bool havePrevStep = false;
     std::array<RowProjection, 15> rows {};
 
-    float cloudOffsetAccum = 0.0f;
     // The row that sits on the horizon, not the bitmap's lowest opaque row. -1 = uncomputed.
     int mountainBaseRow = -1;
 
@@ -181,7 +180,7 @@ private:
     int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
     void UpdateRenderView();
-    void RenderSkyAndParallax(float frameSeconds);
+    void RenderSky();
     void RenderClouds(int horizonY);
     void RenderMountains(int horizonY);
     void DrawStartLight();

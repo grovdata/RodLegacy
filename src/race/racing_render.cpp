@@ -147,25 +147,23 @@ int Racing::BuildRowTableAndGetLastVisible() {
     return horizonRow;
 }
 
-void Racing::RenderSkyAndParallax(float frameSeconds) {
+void Racing::RenderSky() {
     // The whole surface: near sprites can draw below kClipBottom and would ghost there.
     for (int y = 0; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
         }
     }
-
-    const srrace::CarState& p = viewPlayer;
-    cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
 }
 
 // Drawn between the road's sky fill and the mountains, which would otherwise erase it. Clipped to the horizon.
+// Half the mountains' pan rate, as in SR.EXE 2645:2982 (sky heading<<1, range heading<<2).
 void Racing::RenderClouds(int horizonY) {
     if (!cloudSprite || !cloudSprite->GetSurface()) {
         return;
     }
     SDL_Surface* src = cloudSprite->GetSurface();
-    const int baseOffset = ((static_cast<int>(cloudOffsetAccum) % src->w) + src->w) % src->w;
+    const int baseOffset = ((viewPlayer.heading % src->w) + src->w) % src->w;
     const int yEnd = std::min({src->h, horizonY, static_cast<int>(GAME_RACING_HEIGHT)});
     for (int pass = 0; pass < 2; ++pass) {
         const int drawX = -baseOffset + pass * src->w;
