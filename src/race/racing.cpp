@@ -59,9 +59,6 @@ constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
 constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
 constexpr SDL_Color kArchColor = {180, 32, 32, 255};  // overhead gantry: red
 
-// 20 records of 0x36 bytes {loadHandle:u16, bitmapPtr:u32, maskPtr:u32, frames[11]:{srcX,srcY,w,h} u8 each}.
-constexpr size_t kSpriteScaleTableOffset = 0x28024;
-
 // One needle table shared by speedo and tacho: 82 entries of {x0, y0, x1, y1} signed bytes, inner end first,
 // relative to the dial origin. The needle is drawn from these lines, not swept with trig.
 constexpr size_t kNeedleTableOffset = 0x12430;
@@ -90,27 +87,6 @@ std::vector<NeedleLine> LoadNeedleTable(const byte_vector& exe) {
     }
     return table;
 }
-constexpr size_t kSpriteScaleRecordSize = 0x36;
-constexpr int kSpriteScaleFrameCount = 11;
-
-std::array<std::array<std::array<uint8_t, 2>, 11>, 20> LoadSpriteScaleTable(const byte_vector& exe) {
-    std::array<std::array<std::array<uint8_t, 2>, 11>, 20> table{};
-    const size_t needed = kSpriteScaleTableOffset + 20 * kSpriteScaleRecordSize;
-    if (exe.size() < needed) {
-        LOG_ERROR("LoadSpriteScaleTable: Street_Rod exe too small (%zu < %zu)", exe.size(), needed);
-        return table;
-    }
-    for (int slot = 0; slot < 20; ++slot) {
-        const uint8_t* rec = exe.data() + kSpriteScaleTableOffset + slot * kSpriteScaleRecordSize;
-        for (int r = 0; r < kSpriteScaleFrameCount; ++r) {
-            const uint8_t* frame = rec + 10 + static_cast<size_t>(r) * 4;  // {srcX, srcY, w, h}
-            table[slot][r][0] = frame[2];  // w
-            table[slot][r][1] = frame[3];  // h
-        }
-    }
-    return table;
-}
-
 int ClampInt(int v, int lo, int hi) {
     return std::max(lo, std::min(hi, v));
 }
@@ -194,9 +170,9 @@ void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, i
                                  originX + e.x1, originY + e.y1);
 }
 
-void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
-                                       int srcX0, int srcY0, int srcW, int srcH, bool flipX) {
-    if (!bitmap || dstW <= 0 || dstH <= 0) {
+void Racing::DrawSprite(Bitmap* bitmap, int dstX, int dstY, bool anchorRight, bool anchorBottom,
+                        int srcX0, int srcY0, int srcW, int srcH) {
+    if (!bitmap) {
         return;
     }
     SDL_Surface* src = bitmap->GetSurface();
@@ -214,30 +190,22 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
         return;
     }
 
-    int drawX = dstX;
-    int drawY = dstY;
-    if (anchorRight) {
-        drawX -= dstW;
-    }
-    if (anchorBottom) {
-        drawY -= dstH;
-    }
+    const int drawX = anchorRight ? dstX - srcW : dstX;
+    const int drawY = anchorBottom ? dstY - srcH : dstY;
 
-    for (int y = 0; y < dstH; ++y) {
+    for (int y = 0; y < srcH; ++y) {
         const int py = drawY + y;
         if (py < 0 || py >= pixels->h) {
             continue;
         }
-        const int srcY = srcY0 + (y * srcH) / dstH;
-        for (int x = 0; x < dstW; ++x) {
+        for (int x = 0; x < srcW; ++x) {
             const int px = drawX + x;
             if (px < 0 || px >= pixels->w) {
                 continue;
             }
-            const int col = (x * srcW) / dstW;
-            const int srcX = flipX ? (srcX0 + srcW - 1 - col) : (srcX0 + col);
             Uint32 srcPixel = 0;
-            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + srcY * src->pitch + srcX * src->format->BytesPerPixel;
+            const Uint8* srcPtr = static_cast<const Uint8*>(src->pixels) + (srcY0 + y) * src->pitch +
+                                  (srcX0 + x) * src->format->BytesPerPixel;
             std::memcpy(&srcPixel, srcPtr, src->format->BytesPerPixel);
             Uint8 r = 0;
             Uint8 g = 0;
@@ -253,7 +221,6 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
 }
 
 void Racing::LoadSpriteBitmaps() {
-    spriteScale = LoadSpriteScaleTable(state.GetAssets().GetSrExeData());
     needleLines = LoadNeedleTable(state.GetAssets().GetSrExeData());
     for (int slot = 0; slot < 20; ++slot) {
         // Record N is lib.p asset 21 + N.
@@ -262,7 +229,6 @@ void Racing::LoadSpriteBitmaps() {
         if (asset) {
             roadsideSprites[slot] = std::make_unique<Bitmap>(*asset);
         }
-        // Pre-drawn frames when the sprite has them, else the kSpriteScale fallback.
         roadsideAnim[slot] = GetSpriteAnimationInfo(static_cast<uint16_t>(assetId));
     }
 
@@ -1137,14 +1103,8 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
     const SpriteAnimationInfo* anim = GetSpriteAnimationInfo(bannerId);
     if (anim && anim->frames && anim->frameCount > 0) {
         const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
-        DrawNearestNeighborScaled(banner, centerX - fr.w / 2, yTop + 1, fr.w, fr.h, false, false,
-                                  fr.x, fr.y, fr.w, fr.h);
-        return;
+        DrawSprite(banner, centerX - fr.w / 2, yTop + 1, false, false, fr.x, fr.y, fr.w, fr.h);
     }
-
-    SDL_Surface* src = banner->GetSurface();
-    const int bannerHeight = std::max(1, bannerWidth * src->h / std::max(1, src->w));
-    DrawNearestNeighborScaled(banner, centerX - bannerWidth / 2, yTop + 1, bannerWidth, bannerHeight, false, false);
 }
 
 // The town, drawn only during a cruise: per row and side, a wall quad on the shoulder line, topped at the
@@ -1251,11 +1211,6 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             srcY0 = fr.y;
             srcW = fr.w;
             srcH = fr.h;
-        } else {
-            // TODO: temporary fallback. Nearest-neighbor scaling is not how the original draws scenery; once every roadside
-            // object has pre-drawn frames, delete this branch, spriteScale, and the scaling path of DrawNearestNeighborScaled.
-            w = spriteScale[slot][sr][0];
-            h = spriteScale[slot][sr][1];
         }
         if (w <= 0 || h <= 0) {
             return;
@@ -1264,11 +1219,11 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         Bitmap* sprite = roadsideSprites[slot].get();
         if (centerInRoad) {
             const int x = (row.leftX + row.rightX) / 2 - w / 2;
-            DrawNearestNeighborScaled(sprite, x, row.y, w, h, false, true, srcX0, srcY0, srcW, srcH);
+            DrawSprite(sprite, x, row.y, false, true, srcX0, srcY0, srcW, srcH);
         } else if (side < 0) {
-            DrawNearestNeighborScaled(sprite, row.leftX - 2, row.y, w, h, true, true, srcX0, srcY0, srcW, srcH);
+            DrawSprite(sprite, row.leftX - 2, row.y, true, true, srcX0, srcY0, srcW, srcH);
         } else {
-            DrawNearestNeighborScaled(sprite, row.rightX + 2, row.y, w, h, false, true, srcX0, srcY0, srcW, srcH);
+            DrawSprite(sprite, row.rightX + 2, row.y, false, true, srcX0, srcY0, srcW, srcH);
         }
     };
 
@@ -1281,8 +1236,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
         const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
         const int x = (side < 0) ? row.leftX - 2 : row.rightX + 2;
-        DrawNearestNeighborScaled(cruiseSignSprite.get(), x, row.y, fr.w, fr.h,
-                                  side < 0, true, fr.x, fr.y, fr.w, fr.h);
+        DrawSprite(cruiseSignSprite.get(), x, row.y, side < 0, true, fr.x, fr.y, fr.w, fr.h);
     };
 
     for (int k = std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
@@ -1421,13 +1375,12 @@ void Racing::DrawNpcCar(int lastVisible) {
     if (state == 0) {
         // Right alongside, off to our left: right edge 64 px left of x, never right of the screen edge, hanging down
         // from the road row.
-        DrawNearestNeighborScaled(sprite, std::min(0, x - 64 - src->w), y, src->w, src->h,
-                                  false, false);
+        DrawSprite(sprite, std::min(0, x - 64 - src->w), y, false, false);
         return;
     }
     if (state == 1) {
         // Just ahead and well left: right edge on x, baseline 17 px low.
-        DrawNearestNeighborScaled(sprite, x, y + 0x11, src->w, src->h, true, true);
+        DrawSprite(sprite, x, y + 0x11, true, true);
         return;
     }
     // Ahead: centred, never above the horizon row. With Hill cover on, clip to the sky above the crest row so a car
@@ -1439,15 +1392,14 @@ void Racing::DrawNpcCar(int lastVisible) {
         if (visible <= 0) {
             return;
         }
-        DrawNearestNeighborScaled(sprite, x - src->w / 2, y - src->h, src->w, visible,
-                                  false, false, 0, 0, src->w, visible);
+        DrawSprite(sprite, x - src->w / 2, y - src->h, false, false, 0, 0, src->w, visible);
         return;
     }
     y = std::max(crest.y, y);
     if (state == 2) {
         y = std::min(y, kClipBottom);   // the nearest frame stops at the viewport floor
     }
-    DrawNearestNeighborScaled(sprite, x - src->w / 2, y, src->w, src->h, false, true);
+    DrawSprite(sprite, x - src->w / 2, y, false, true);
 }
 
 void Racing::DrawRearviewMirror() {
@@ -1651,7 +1603,7 @@ void Racing::DrawRearviewMirror() {
                 const int h = std::min(bs->h, mirrorH - 2);
                 const int cx = mirrorX + mirrorW / 2 - w / 2;
                 const int cy = mirrorY + mirrorH - h - 1;
-                DrawNearestNeighborScaled(behind, cx, cy, w, h, false, false, 0, 0, w, h);
+                DrawSprite(behind, cx, cy, false, false, 0, 0, w, h);
             }
         }
     }

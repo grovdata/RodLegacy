@@ -101,9 +101,7 @@ private:
     int mountainBaseRow = -1;
 
     std::array<std::unique_ptr<Bitmap>, 20> roadsideSprites {};
-    // nullptr slots fall back to spriteScale.
     std::array<const SpriteAnimationInfo*, 20> roadsideAnim {};
-    std::array<std::array<std::array<uint8_t, 2>, 11>, 20> spriteScale {};
     std::unique_ptr<Bitmap> mountainSprite;
     std::unique_ptr<Bitmap> cloudSprite;
     std::unique_ptr<Bitmap> startLightSprite;
@@ -182,8 +180,9 @@ private:
     void RenderMountains(int horizonY);
     void DrawStartLight();
     void RenderRoad(int lastVisible);
-    void DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int dstW, int dstH, bool anchorRight, bool anchorBottom,
-                                   int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1, bool flipX = false);
+    // 1:1 blit into the road surface, clipped. The source rect defaults to the whole bitmap.
+    void DrawSprite(Bitmap* bitmap, int dstX, int dstY, bool anchorRight, bool anchorBottom,
+                    int srcX0 = 0, int srcY0 = 0, int srcW = -1, int srcH = -1);
     void DrawRoadsideAndArchSprites(int lastVisible);
     void DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr);
     Bitmap* OpponentSpriteForState(int state) const;
