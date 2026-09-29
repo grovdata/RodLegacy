@@ -29,7 +29,7 @@ struct BetContext {
     int rivalryMargin    = 0;
 };
 
-// Leaves the built-in tables in place if srData is too short.
+// Leaves the tables unchanged if srData is too short.
 void LoadBetTables(const std::vector<uint8_t>& srData);
 
 // roll is in [0, 99].

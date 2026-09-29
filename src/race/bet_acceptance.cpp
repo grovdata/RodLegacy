@@ -6,24 +6,9 @@
 constexpr size_t kTableOffset = 0x728;
 constexpr size_t kTableBytes  = 60;
 
-static int kStrength[3][3] = {
-    {210, 180, 150},
-    {175, 150, 125},
-    {140, 120, 100},
-};
-
-static int kHandicap[3][3] = {
-    {60, 45, 12},
-    {55, 40,  8},
-    {50, 30,  5},
-};
-
-static int kThreshold[4][3] = {
-    {40, 60, 90},  // NoMoney
-    {70, 65, 25},  // SmallMoney
-    {90, 70, 15},  // LargeMoney
-    {90, 35,  0},  // PinkSlips (threshold 0: never accepts when player is stronger)
-};
+static int kStrength[3][3] = {};
+static int kHandicap[3][3] = {};
+static int kThreshold[4][3] = {};
 
 static void ReadBE16(const uint8_t* p, int* dst, int count) {
     for (int i = 0; i < count; ++i) {
