@@ -147,8 +147,7 @@ void SFont_Write(SDL_Surface *Surface, const SFont_Font *Font,
             (Font->CharPos[charoffset+2] + Font->CharPos[charoffset+1])/2 -
             (Font->CharPos[charoffset] + Font->CharPos[charoffset-1])/2;
         srcrect.x = (Font->CharPos[charoffset]+Font->CharPos[charoffset-1])/2;
-        dstrect.x = x - (float)(Font->CharPos[charoffset]
-                    - Font->CharPos[charoffset-1])/2;
+        dstrect.x = x - (Font->CharPos[charoffset] - srcrect.x);
 
         SDL_BlitSurface(Font->Surface, &srcrect, Surface, &dstrect);
         // printf("src: %s %d %d %d %d\n", c, srcrect.x, srcrect.y, srcrect.w, srcrect.h);
