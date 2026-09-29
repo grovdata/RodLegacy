@@ -598,90 +598,8 @@ void Driving::DrawScene() {
                     return;
                 }
             } else if (!racing->IsFlybyMode()) {
-                RaceOutcome outcome = racing->GetRaceOutcome();
-                if (outcome != RaceOutcome::Ongoing) {
-                    bool won = (outcome == RaceOutcome::PlayerWon);
-                    RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
-                                        ? RaceType::Drag : RaceType::Road;
-                    const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
-                    srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
-                    endCtx.vsKing = wasKingRace;
-                    const srrace::RaceEndMessage reason = srrace::BuildRaceEndReason(endCtx);
-                    const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
-                    // Read before ResetRaceOutcome clears it; charged after the tires, whose debt is added to the fine.
-                    const bool busted = racing->PlayerBusted();
-                    const int speedingFine = busted ? racing->SpeedingFine() : 0;
-
-                    // A ticket or a jumped light still counts the race, but leaves the stake alone.
-                    raceEndPendingKing = state.OnRaceFinished(raceType, won, srrace::SettlesBet(endCtx));
-                    racing->ResetRaceOutcome();
-                    // On top of the drive legs State::MoveToScene charges.
-                    state.BurnFuel(raceType == RaceType::Drag
-                                       ? State::FUEL_PER_DRAG_RACE_TENTHS
-                                       : State::FUEL_PER_ROAD_RACE_TENTHS);
-                    // King races advance the clock 4h/7h instead of 2h.
-                    if (wasKingRace) {
-                        state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : 7);
-                    } else {
-                        state.AdvanceGameHours(2);
-                    }
-
-                    ApplyRaceWear();
-                    // What a fresh set left unpaid if the $50 could not be covered.
-                    int tireDebt = 0;
-                    if (endCtx.tiresBlown) {
-                        tireDebt = ApplyBlownTires();
-                    }
-                    ApplyDrivetrainDamage(endCtx.endFlags);
-
-                    // Tires first, then the fine; any unpaid tire debt is billed on top of the ticket.
-                    if (busted) {
-                        const int owed = speedingFine + tireDebt;
-                        if (state.GetBankroll() >= owed) {
-                            state.SetBankroll(state.GetBankroll() - owed);
-                        } else {
-                            // Short of it: jail, and the run is over.
-                            state.SetJailed(true);
-                        }
-                    }
-
-                    // Any wreck, a failed drivetrain, unpaid tires or a settled pink slip send the player home.
-                    const bool drivetrainFailed =
-                        (endCtx.endFlags &
-                         (srrace::END_ENGINE_BLOWN | srrace::END_TRANS_DROPPED)) != 0;
-                    raceEndLeftTheDiner = (crash == srrace::CrashOutcome::Totaled ||
-                                           crash == srrace::CrashOutcome::RepairOrJunk ||
-                                           crash == srrace::CrashOutcome::DroveAway ||
-                                           crash == srrace::CrashOutcome::Forfeited ||
-                                           drivetrainFailed ||
-                                           tireDebt > 0 ||
-                                           (endCtx.isPinkSlip && srrace::SettlesBet(endCtx)));
-
-                    // After the bet is settled.
-                    if (crash == srrace::CrashOutcome::Totaled) {
-                        const int scrap = srrace::ScrapPayout(endCtx.carStrippedValue);
-                        state.SetBankroll(state.GetBankroll() + scrap);
-                        state.ScrapCurrentCar();
-                        LOG_INFO("Driving: car totaled at %d mph, $%d for scrap",
-                                 endCtx.crashSpeed, scrap);
-                    }
-
-                    LOG_INFO("Driving: race ended (%s); press any key for garage",
-                             reason.text.c_str());
-                    raceEnded = true;
-                    // ShowRaceEndMessage puts the message up after the dip.
-                    raceEndReason = reason;
-                    raceEndWon = won;
-                    raceEndWreck = (crash == srrace::CrashOutcome::RepairOrJunk);
-                    raceEndCtx = endCtx;
-                    // Only for a race decided at the line.
-                    raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0;
-                    raceEndTimeTenths = racing->RaceTimeTenths();
-                    raceEndAvgSpeed = racing->AverageSpeedMph();
-                    raceEndPercent = racing->DistancePercent();
-                    raceEndDipping = true;
-                    FadeOut();
-                }
+                const RaceOutcome outcome = racing->GetRaceOutcome();
+                if (outcome != RaceOutcome::Ongoing) SettleRace(outcome);
             }
 
             UpdateDiceAnimation(deltaTime);
@@ -949,6 +867,92 @@ int Driving::ApplyBlownTires() {
     LOG_INFO("Driving: tires blown - no spare, charged $%d, bankroll now $%d, still owed $%d",
              kNewTireCharge, state.GetBankroll(), owed);
     return owed;
+}
+
+// Settles a finished race: stake, reputation, fuel, clock, wear, tires, fine, and whether the evening
+// is over. Then starts the race-end screen.
+void Driving::SettleRace(RaceOutcome outcome) {
+    const bool won = (outcome == RaceOutcome::PlayerWon);
+    const RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
+                              ? RaceType::Drag : RaceType::Road;
+    const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
+    srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
+    endCtx.vsKing = wasKingRace;
+    const srrace::RaceEndMessage reason = srrace::BuildRaceEndReason(endCtx);
+    const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
+    // Read before ResetRaceOutcome clears it; charged after the tires, whose debt is added to the fine.
+    const bool busted = racing->PlayerBusted();
+    const int speedingFine = busted ? racing->SpeedingFine() : 0;
+
+    // A ticket or a jumped light still counts the race, but leaves the stake alone.
+    raceEndPendingKing = state.OnRaceFinished(raceType, won, srrace::SettlesBet(endCtx));
+    racing->ResetRaceOutcome();
+    // On top of the drive legs State::MoveToScene charges.
+    state.BurnFuel(raceType == RaceType::Drag
+                       ? State::FUEL_PER_DRAG_RACE_TENTHS
+                       : State::FUEL_PER_ROAD_RACE_TENTHS);
+    // King races advance the clock 4h/7h instead of 2h.
+    if (wasKingRace) {
+        state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : 7);
+    } else {
+        state.AdvanceGameHours(2);
+    }
+
+    ApplyRaceWear();
+    // What a fresh set left unpaid if the $50 could not be covered.
+    int tireDebt = 0;
+    if (endCtx.tiresBlown) {
+        tireDebt = ApplyBlownTires();
+    }
+    ApplyDrivetrainDamage(endCtx.endFlags);
+
+    // Tires first, then the fine; any unpaid tire debt is billed on top of the ticket.
+    if (busted) {
+        const int owed = speedingFine + tireDebt;
+        if (state.GetBankroll() >= owed) {
+            state.SetBankroll(state.GetBankroll() - owed);
+        } else {
+            // Short of it: jail, and the run is over.
+            state.SetJailed(true);
+        }
+    }
+
+    // Any wreck, a failed drivetrain, unpaid tires or a settled pink slip send the player home.
+    const bool drivetrainFailed =
+        (endCtx.endFlags &
+         (srrace::END_ENGINE_BLOWN | srrace::END_TRANS_DROPPED)) != 0;
+    raceEndLeftTheDiner = (crash == srrace::CrashOutcome::Totaled ||
+                           crash == srrace::CrashOutcome::RepairOrJunk ||
+                           crash == srrace::CrashOutcome::DroveAway ||
+                           crash == srrace::CrashOutcome::Forfeited ||
+                           drivetrainFailed ||
+                           tireDebt > 0 ||
+                           (endCtx.isPinkSlip && srrace::SettlesBet(endCtx)));
+
+    // After the bet is settled.
+    if (crash == srrace::CrashOutcome::Totaled) {
+        const int scrap = srrace::ScrapPayout(endCtx.carStrippedValue);
+        state.SetBankroll(state.GetBankroll() + scrap);
+        state.ScrapCurrentCar();
+        LOG_INFO("Driving: car totaled at %d mph, $%d for scrap",
+                 endCtx.crashSpeed, scrap);
+    }
+
+    LOG_INFO("Driving: race ended (%s); press any key for garage",
+             reason.text.c_str());
+    raceEnded = true;
+    // ShowRaceEndMessage puts the message up after the dip.
+    raceEndReason = reason;
+    raceEndWon = won;
+    raceEndWreck = (crash == srrace::CrashOutcome::RepairOrJunk);
+    raceEndCtx = endCtx;
+    // Only for a race decided at the line.
+    raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0;
+    raceEndTimeTenths = racing->RaceTimeTenths();
+    raceEndAvgSpeed = racing->AverageSpeedMph();
+    raceEndPercent = racing->DistancePercent();
+    raceEndDipping = true;
+    FadeOut();
 }
 
 void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {

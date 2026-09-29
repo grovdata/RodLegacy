@@ -171,7 +171,6 @@ private:
     void LoadOpponentCarSprites();
     void InitializeRaceSimulation();
     srrace::CarSetup BuildCarSetupFromCar(const Car* car, bool isPlayer) const;
-    int RaceTypeFromTrackType(SrTrackType trackType) const;
     int ProjectX(const srrace::CarState& player, int d, int roadDelta, int lateral) const;
     int BuildRowTableAndGetLastVisible();
     void UpdateRenderView();
@@ -212,15 +211,10 @@ public:
     SrTrackType GetTrackType() const;
 
     void InitializeOpponent();
-    void SetOpponentActive(bool active);
-    void SetOpponentCarType(int carType);
-    void SetOpponentColor(StandardCarColor color);
 
     float GetSpeed() const;
 
     int16_t GetCurrentGear() const;
-    int16_t GetRPM() const;
-    int16_t GetVelocity() const;
     // >0 right, <0 left, up to ~24. Decays after release so the wheel re-centers gradually.
     int16_t GetSteerDisplay() const;
 
@@ -232,14 +226,12 @@ public:
     // Cruising: the race renderer with the race off, driving itself to the arch. signAsset is drawn on
     // approach segments flagged 0x0800.
     void StartCruise(int startSeg, int signAsset);
-    bool IsCruising() const { return cruiseMode; }
     bool CruiseFinished() const;
     int CruiseArrivalSide() const;
 
     int RaceTimeTenths() const;
     int AverageSpeedMph() const;
     int DistancePercent() const;
-    bool IsTransmissionDamaged() const;
     // In the original's 0..10000 units.
     int PlayerEngineWearDelta() const { return sim.Player().engineWearDelta; }
     int PlayerTransWearDelta() const { return sim.Player().transWearDelta; }

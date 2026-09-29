@@ -74,6 +74,7 @@ private:
     bool cruising = false;
     SrLibGameScene cruiseDestination = SCENE_DINER;
     void EndCruise();
+    void SettleRace(RaceOutcome outcome);
     void ApplyDrivetrainDamage(uint16_t endFlags);
     void ApplyRaceWear();
     // What is still owed for the new set; 0 unless the $50 could not be covered.

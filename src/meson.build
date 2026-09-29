@@ -139,6 +139,8 @@ cpp_sources = files(
     'scenes/diner.cpp',
     'race/driving.cpp',
     'race/racing.cpp',
+    'race/racing_render.cpp',
+    'race/racing_debug.cpp',
     'race/track_gen.cpp',
     'race/race_sim.cpp',
     'race/race_end_message.cpp',

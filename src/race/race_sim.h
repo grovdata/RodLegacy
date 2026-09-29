@@ -137,7 +137,6 @@ struct CarState {
     // wear accumulated during the race, added to part wear (0..10000)
     int32_t engineWearDelta = 0;
     int32_t transWearDelta = 0;
-    int32_t tireWearDelta = 0;
 };
 
 // Blends the drawn position of a car from the previous sim step towards the current one, t in 0..1.
@@ -220,7 +219,6 @@ public:
     bool PlayerWonAtLine() const { return playerAheadAtFinish; }
     bool RollingOut() const { return player.segPos > finishSeg; }
 
-    bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
     // Any race-ending failure; PlayerWrecked() is the subset that bends metal.
     bool PlayerFailed() const {
         return (player.endFlags & END_FAILURE_MASK) != 0;
@@ -233,7 +231,6 @@ public:
         npcBumpEvent = false;
         return hit;
     }
-    bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
 
     // Suppresses crashes and blown engines; not the cop, the finish or a false start.
     void SetInvulnerable(bool on) { invulnerable = on; }
@@ -243,9 +240,6 @@ public:
     void SetCameraState(int32_t segPos, int16_t scrollAcc, int16_t heading,
                         int16_t lateral, int16_t elevAtCar);
     void SetNpcDebugPose(int32_t segPos, int16_t lateral);
-
-    int16_t RoadEdgeLeft() const { return edgeLeft; }
-    int16_t RoadEdgeRight() const { return edgeRight; }
 
     // |slideVel| >= 12 of +-24 and over 20 mph.
     bool PlayerSkidding() const {
