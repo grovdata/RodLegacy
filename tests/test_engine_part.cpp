@@ -1,10 +1,6 @@
 #include <doctest/doctest.h>
 #include "car/engine_part.h"
 
-// ---------------------------------------------------------------------------
-// Default constructor
-// ---------------------------------------------------------------------------
-
 TEST_SUITE("EnginePart default constructor") {
 
 TEST_CASE("default engine is GM V8 327 with correct stats") {
@@ -17,11 +13,7 @@ TEST_CASE("default engine is GM V8 327 with correct stats") {
     CHECK(ep.cost  == 0);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// Performance characteristics for all 9 engine types
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart performance characteristics") {
 
@@ -94,11 +86,7 @@ TEST_CASE("wear and cost are preserved by constructor") {
     CHECK(ep.cost == 1500);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// HasScoop: true only for the class-2 (big V8) engines
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart::HasScoop") {
 
@@ -120,11 +108,7 @@ TEST_CASE("all 3 V6 engines have no scoop") {
     CHECK(EnginePart(CarEngineChrysler_V6, 0, 0, CarVendorChrysler, ENGINE_V8).HasScoop() == false);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetVendor
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart::GetVendor") {
 
@@ -146,11 +130,7 @@ TEST_CASE("Chrysler engine types return CarVendorChrysler") {
     CHECK(EnginePart(CarEngineChrysler_V8_340, 0, 0, CarVendorChrysler, ENGINE_V8).GetVendor() == CarVendorChrysler);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetEngineName
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart::GetEngineName") {
 
@@ -166,11 +146,7 @@ TEST_CASE("all 9 engine types return correct name string") {
     CHECK(EnginePart(CarEngineChrysler_V8_340, 0, 0, CarVendorChrysler, ENGINE_V8).GetEngineName() == "Chrysler V8 340");
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// FromPart: vendor→default engine mapping
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart::FromPart") {
 
@@ -203,11 +179,7 @@ TEST_CASE("unknown vendor falls back to GM V8 327") {
     CHECK(ep.engineType == CarEngineGM_V8_327);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// ToPart: round-trip preservation of wear, cost, vendor, assetId
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("EnginePart::ToPart") {
 
@@ -220,4 +192,4 @@ TEST_CASE("ToPart preserves wear, cost, vendor and assetId") {
     CHECK(p.assetId  == ENGINE_V8);
 }
 
-} // TEST_SUITE
+}

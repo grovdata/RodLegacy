@@ -6,7 +6,6 @@
 #include "gfx/bitmap.h"
 #include "gfx/SFont.h"
 
-// Add string wrapper functions
 namespace SFontUtils {
     inline int GetTextWidth(const SFont_Font* font, const std::string& text) {
         return SFont_TextWidth(font, text.c_str());
@@ -28,8 +27,8 @@ private:
     int padding;
     SDL_Color bgColor;
     bool needsUpdate;
-    int minWidth = 200;   // Minimum width to prevent excessive resizing
-    int lastWidth = 200;  // Remember previous width
+    int minWidth = 200;
+    int lastWidth = 200;
 
     void UpdateContent();
 

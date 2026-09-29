@@ -1,13 +1,6 @@
 #include <doctest/doctest.h>
 #include "core/game_clock.h"
 
-// Values here are the confirmed findings from RodLegacyResearch/docs/formats/
-// save_game.md's "Chunk 7 fully decoded" section: code-level confirmation
-// from the Amiga binary (CarEventLoop's "% 6" tick increment,
-// GetCappedElapsedDayNumber's literal 3600/91, GetMonthAndDayOfMonth's
-// branch table), cross-checked live against a fresh "New Game" (June 16)
-// and two further observed day transitions (June 17, June 18).
-
 TEST_CASE("GameClock: day-boundary dates match the confirmed epoch and month lengths") {
     CHECK(GameClock::FormatDate(0) == "June 16, 1963");                    // new-game epoch
     CHECK(GameClock::FormatDate(GameClock::TICKS_PER_DAY) == "June 17, 1963");
@@ -46,10 +39,7 @@ TEST_CASE("GameClock: hours<->ticks conversions round-trip at 150 ticks/hour") {
     }
 }
 
-// Calendar highlight grid, measured off the two calendar bitmaps (lib.p 320 =
-// June/July, 319 = August/September, both 168x150). The anchors are the cyan
-// rings the artwork itself draws over the season boundaries: they are exactly
-// the highlight's own 24x9 size, so their bounding boxes pin the grid.
+// The anchors are the cyan rings the calendar art draws over the season boundaries, exactly 24x9.
 TEST_CASE("GameClock: calendar highlight lands on the artwork's own season-boundary rings") {
     // June 15, 1963 is a Saturday: last column, third week row of the June
     // block. Ring bbox in lib.p 320 is x 143..158, y 28..36.
@@ -69,7 +59,6 @@ TEST_CASE("GameClock: calendar highlight rows and columns follow the 1963 weekda
     CHECK(GameClock::CalendarHighlightPos(8, 1).x == 31 + 18 * 4);  // Thursday
     CHECK(GameClock::CalendarHighlightPos(9, 1).x == 31 + 18 * 0);  // Sunday
 
-    // Each month's first week row, and a 7px step down per week.
     CHECK(GameClock::CalendarHighlightPos(6, 1).y == 14);
     CHECK(GameClock::CalendarHighlightPos(7, 1).y == 107);
     CHECK(GameClock::CalendarHighlightPos(8, 1).y == 15);
@@ -77,7 +66,6 @@ TEST_CASE("GameClock: calendar highlight rows and columns follow the 1963 weekda
     CHECK(GameClock::CalendarHighlightPos(9, 8).y == 105 + 7);   // one week on
     CHECK(GameClock::CalendarHighlightPos(9, 15).y == 105 + 14);
 
-    // Sundays all share column 0.
     CHECK(GameClock::CalendarHighlightPos(6, 16).x == 31);
     CHECK(GameClock::CalendarHighlightPos(6, 23).x == 31);
     CHECK(GameClock::CalendarHighlightPos(6, 30).x == 31);

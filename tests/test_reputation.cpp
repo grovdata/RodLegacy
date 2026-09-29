@@ -24,15 +24,13 @@ TEST_CASE("win increments races_completed and sets last_race_won") {
     CHECK(r.last_race_won == true);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("Reputation::RecordLoss") {
 
 TEST_CASE("loss decrements both reps") {
     Reputation r;
     r.RecordLoss();
-    // ChallengeRaceLoop 0023e60c: drag standing costs more than road standing
-    // on any loss.
     CHECK(r.drag_rep == -3);
     CHECK(r.road_rep == -2);
 }
@@ -53,7 +51,7 @@ TEST_CASE("reps can go negative") {
     CHECK(r.road_rep == -4);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("Reputation::GetOpponentTier") {
 
@@ -128,7 +126,7 @@ TEST_CASE("tier 3: both reps at 6 but wins lag races completed") {
     CHECK(r.GetOpponentTier(5) == 3);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("Reputation::IsKingUnlocked") {
 
@@ -144,8 +142,7 @@ TEST_CASE("King unlocked when pool is empty") {
 
 TEST_CASE("King unlocked when both reps >= 6 and total >= races_completed/2") {
     Reputation r;
-    // 6 drag wins + 6 road wins = drag=6, road=6, total=12, races=12
-    // races_completed/2 = 6, total(12) >= 6 → King
+    // 6 drag + 6 road wins, races=12: total 12 >= 6, so The King
     for (int i = 0; i < 6; i++) r.RecordWin(RaceType::Drag);
     for (int i = 0; i < 6; i++) r.RecordWin(RaceType::Road);
     CHECK(r.IsKingUnlocked(5));
@@ -158,15 +155,12 @@ TEST_CASE("King not unlocked if only one rep >= 6") {
 }
 
 TEST_CASE("King not unlocked if reps maxed but too few races relative to completed") {
-    // drag=6, road=6, total=12, but races_completed=25 → 12 < 25/2=12? No, 12 >= 12. Edge case.
-    // Let's force: many losses inflate races_completed without matching rep
     Reputation r;
     for (int i = 0; i < 6; i++) r.RecordWin(RaceType::Drag);
     for (int i = 0; i < 6; i++) r.RecordWin(RaceType::Road);
-    // Now: drag=6, road=6, total=12, races=12. King IS unlocked.
-    // Add a loss to tip the ratio: drag=4, road=3, total=7, races=13. Not King.
+    // A loss tips the ratio: drag=4, road=3, total=7, races=13. Not King.
     r.RecordLoss();
     CHECK_FALSE(r.IsKingUnlocked(5));
 }
 
-} // TEST_SUITE
+}

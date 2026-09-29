@@ -1,20 +1,11 @@
 #pragma once
-// Race-end bubble text, split out of Racing::GetRaceEndReason() so the pure
-// decision logic can be unit tested without SDL (Racing owns a SDL_Surface
-// and an AudioManager*, neither buildable in the SDL-free test target).
-// The strings are the originals, taken verbatim from the message table in the
-// Amiga executable (Street_Rod ~0x246e00-0x2479ff); see
-// RodLegacyResearch/docs/driving/race_end_messages.md for the string-table
-// research, and race_sim.h for the END_* flag bits used here.
+// Race-end bubble text, kept SDL-free for unit tests. The strings are the originals verbatim.
 
 #include <cstdint>
 #include <string>
 
 namespace srrace {
 
-// Everything GetRaceEndReason() needs to pick a line, gathered by the caller
-// (Racing::GetRaceEndReason()) from CarState::endFlags, RaceOutcome, and the
-// race setup snapshotted at InitializeRaceSimulation().
 struct RaceEndContext {
     uint16_t endFlags = 0;   // sim.Player().endFlags
     bool playerWon = false;  // raceOutcome == RaceOutcome::PlayerWon
@@ -30,9 +21,6 @@ struct RaceEndContext {
     int carStrippedValue = 0;     // state.GetCarStrippedValue(current car)
 };
 
-// Which of the original's three message boxes the line is shown in; the box
-// fixes the bubble bitmap, its position and how many rows it holds. See
-// RodLegacyResearch/docs/speech_bubbles.md.
 enum class MessageBox {
     Narrow,  // box 0: 152x37, tail down-right
     Wide,    // box 1: 232x37, tail down-left
@@ -46,9 +34,7 @@ struct RaceEndMessage {
 
 RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx);
 
-// What a wreck costs you. ProcessRaceOutcome (0x23eaa2) tiers this on the
-// speed at the moment of impact (A4+0x4b0a), the same 31 / 61 / 91 mph
-// thresholds the crash graphics use.
+// Tiered on the speed at impact, the same 31 / 61 / 91 mph thresholds the crash graphics use.
 enum class CrashOutcome {
     None,          // not a wreck, or the cop got you first (his branch wins)
     Forfeited,     // pink-slip race: the car goes with the bet regardless
@@ -59,18 +45,13 @@ enum class CrashOutcome {
 
 CrashOutcome ClassifyCrash(const RaceEndContext& ctx);
 
-// Whether the stake changes hands at all. ProcessRaceOutcome's cop branch shows
-// the fine and returns before the bet, the reputation and the racer pool are
-// touched, so a ticket costs you the fine and nothing else - being pulled over
-// in a pink-slip race does not cost you the car. See docs/driving/cop.md.
+// A ticket costs the fine and nothing else: the original returns before the bet is settled.
 bool SettlesBet(const RaceEndContext& ctx);
 
-// Wreck payouts, straight off the original's arithmetic. Scrapping strips the
-// car first, so it is paid on DismantleCar's return; junking it after a repair
-// quote is paid on the car's full value, parts and all.
+// Scrapping strips the car first, so it pays on the stripped value; junking after a repair quote pays full value.
 inline int ScrapPayout(int strippedValue) { return strippedValue / 10 + 19; }
 inline int JunkPayout(int carValue) { return carValue * 4 / 10; }
 // The repair quote is $100 + rand(N) - N is 20 up to 60 mph, 40 above.
 inline int RepairRollRange(int crashSpeed) { return crashSpeed > 60 ? 40 : 20; }
 
-} // namespace srrace
+}

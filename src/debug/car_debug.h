@@ -10,15 +10,7 @@
 #include <memory>
 #include <vector>
 
-// Debug-only scene for eyeballing one car model at a time and correcting its
-// wheel line. Built only when -Ddebug_ui=true.
-//
-// The per-model wheel Y (BitmapOffset_t::offsetYTires) has no field in the
-// game data: it is derived, bottom-aligning the wheel cell to the body sprite
-// (CarSetWheelY). This scene is how that is checked against the art.
-//
-// It also places a driver portrait, anchored by its bottom edge on the
-// per-car y_driver from SpriteInfo.
+// Debug scene for checking one car model's wheel line and driver position against the art.
 //
 //   < >  or Left/Right   previous / next model
 //   Up / Down            raise / lower the wheels by one pixel
@@ -27,9 +19,6 @@
 //   P                    next driver portrait
 //   0                    reset this model to its stock offsets
 //   D                    dump every adjusted model to the log
-//
-// Adjustments are kept per model while the scene is open, so several cars can
-// be tuned in one pass and read off together with D.
 class CarDebug : public Scene {
 private:
     std::vector<CarModel> models;
@@ -41,9 +30,7 @@ private:
     std::unique_ptr<Button> nextButton;
     std::unique_ptr<Button> dumpButton;
 
-    // Model index -> nudge applied on top of the model's stock offsetYTires.
     std::map<int, int> wheelYAdjust;
-    // Model index -> nudge applied on top of the driver's computed position.
     std::map<int, SDL_Point> driverAdjust;
 
     Driver debugDriver;
@@ -55,9 +42,7 @@ private:
     Label driverLabel;
 
     void LoadModels();
-    // The King's car is spec slot 25 in every set and is never for sale, so
-    // CarData builds no model for it. It still has art and a wheel line, so
-    // the scene synthesises one per set.
+    // The King's car is never for sale so CarData builds no model for it; synthesise one per set.
     void AppendKingModels();
     void RefreshLabels();
     void ShowModel(int index);

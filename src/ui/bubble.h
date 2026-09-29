@@ -5,9 +5,6 @@
 #include "core/utils.h"
 #include "ui/zone.h"
 
-// The original's three message boxes, table at A4-0x7fd6. The box fixes the
-// bitmap, the position and how many rows of text fit; see
-// RodLegacyResearch/docs/speech_bubbles.md.
 typedef enum {
     BUBBLE_LEFT,            // box 1: wide, tail down-left,  at (80,30)
     BUBBLE_RIGHT,           // box 0: narrow, tail down-right, at (72,30)

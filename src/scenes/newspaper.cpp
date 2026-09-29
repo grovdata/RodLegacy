@@ -35,11 +35,7 @@ PartCatalogEntry Tire(CarWheelType t) {
     PartCatalogEntry e{}; e.category = PartCategory::Tire; e.vendor = CarVendorUnknown; e.tireType = t; return e;
 }
 
-// Category/vendor/type for each of the 40 AUTO PARTS classified slots, in the
-// exact order they appear in the Street_Rod executable at offset 0xA4CE.
-// Name and price are NOT hardcoded here -- they come from the parsed
-// ClassifiedEntry_t in Newspaper::partMetadata, index-aligned with this table.
-// TODO: Move this knowledge to libp.h
+// Identity of each of the 40 AUTO PARTS slots, in executable order. Name and price come from partMetadata.
 const PartCatalogEntry kPartCatalog[40] = {
     // Engines (6): "GM/Ford/Chrysler V-8 engine ..."
     Engine(CarVendorGM,       CarEngineGM_V8_282),
@@ -93,9 +89,7 @@ const PartCatalogEntry kPartCatalog[40] = {
     Tire(RACING),
 };
 
-// Newsprint, not paper white: the side-page art (lib.p 177) is a flat
-// 240,240,240, so the ads column between them has to match or it reads as a
-// lit panel stuck on the page.
+// The side-page art is a flat 240,240,240, so the ads column matches it.
 constexpr Uint8 kPaperR = 240;
 constexpr Uint8 kPaperG = 240;
 constexpr Uint8 kPaperB = 240;
@@ -110,7 +104,7 @@ constexpr AmigaLibAsset kHeadlineAssets[] = {
 };
 constexpr int kHeadlineCount = sizeof(kHeadlineAssets) / sizeof(kHeadlineAssets[0]);
 
-} // namespace
+}
 
 Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
     currentPage = 0;
@@ -138,12 +132,8 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
     GetZone("back_to_garage").onClick = backToGarage;
     GetZone("back_to_garage2").onClick = backToGarage;
     GetZone("back_to_garage3").onClick = backToGarage;
-    // Page 0 is the front page, pages 1..totalPartsPages are the AUTO PARTS
-    // pages, and pages (1+totalPartsPages)..(totalPartsPages+totalPages) are
-    // the used-car ad pages. previous/next are only enabled while browsing
-    // (currentPage > 0, see Update()), so they loop within 1..lastPage --
-    // parts flows straight into cars and back again without detouring
-    // through the front page, which is reached only via its own zones.
+    // Page 0 is the front page, then the AUTO PARTS pages, then the used-car pages. previous/next loop
+    // within 1..lastPage; the front page is reached through its own zones.
     GetZone("previous").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         int lastPage = totalPartsPages + totalPages;
@@ -172,9 +162,7 @@ Newspaper::~Newspaper() {
 void Newspaper::ResetToFrontPage() {
     currentPage = 0;
     smoothScrollOffset = 0;
-    // A fresh edition every time the paper is picked up. Which of the five
-    // front pages the original prints is NOT confirmed from the disassembly -
-    // it just must not be the same one forever, so this walks them in order.
+    // The original's choice of front page is unconfirmed; this walks them in order.
     headlineIndex = (headlineIndex + 1) % kHeadlineCount;
     SetHeadline(kHeadlineAssets[headlineIndex]);
     Update();
@@ -184,7 +172,6 @@ void Newspaper::Init(bool debugMode) {
     Scene::Init(debugMode);
     InitPageOne();
     RefreshClassifieds();
-    // Common
 
 }
 
@@ -213,11 +200,7 @@ void Newspaper::InitPageOne() {
     date.SetText("  " + lastDateText + "  ", true, GAME_WIDTH);
 }
 
-// The five headline assets are 320x54 slabs of finished newsprint - both
-// columns of text are part of the art, so there is nothing to mask out and
-// nothing to re-render on top. (The code used to blank the top of the Viet Nam
-// one and draw that single headline back over it with the newspaper font, which
-// is why the paper only ever carried one story.)
+// The headline assets are finished 320x54 newsprint slabs, both columns included.
 void Newspaper::SetHeadline(AmigaLibAsset asset) {
     headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
     headline.SetPosition(0, 136);
@@ -233,18 +216,12 @@ void Newspaper::RefreshClassifieds() {
 }
 
 void Newspaper::LoadClassifiedsData() {
-    // Rebuilt, not appended to: this runs again whenever a new or loaded game
-    // regenerates the classifieds, and the lists below must stay the same
-    // length as state.classifiedCars for the buy handler to index them.
+    // Rebuilt, not appended: it must stay the same length as state.classifiedCars.
     carMetadata.clear();
     carAssetIds.clear();
     partMetadata.clear();
 
-    // Classified cars are already generated in State::Init
-    // Just load the metadata and asset IDs to match
-    // Walks the merged car-spec table in the same order and with the same skip
-    // condition State::Init used, so this list stays index-aligned with
-    // state.classifiedCars - the buy handler indexes that by list position.
+    // Same order and skip condition as State, so it stays index-aligned with state.classifiedCars.
     const std::vector<int>& specModelIndex = state.GetCarSpecModelIndex();
     for (int spec = 0; spec < static_cast<int>(specModelIndex.size()); spec++) {
         int carAssetId = specModelIndex[spec];
@@ -264,9 +241,7 @@ void Newspaper::LoadClassifiedsData() {
 
     LOG_INFO("Loaded %zu classifieds entries, %d pages", carMetadata.size(), totalPages);
 
-    // AUTO PARTS classifieds. Not part of SR_data -- compiled into the
-    // Street_Rod executable itself (same buffer already used for the main
-    // font and mouse pointer sprite), at a fixed offset (see libp.cpp).
+    // The AUTO PARTS ads are compiled into the Street_Rod executable.
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     int partCount = 0;
     DataParser dp;
@@ -283,7 +258,6 @@ void Newspaper::LoadClassifiedsData() {
 }
 
 void Newspaper::InitPageAds() {
-    // Ads page 1-x
     SDL_Rect textAreaRect = {64, 0, 192, 190};
 
     adsArea = Bitmap(textAreaRect.w, textAreaRect.h, 32);
@@ -294,11 +268,9 @@ void Newspaper::InitPageAds() {
 
     AddDivider(1);
 
-    // Create dynamic classified ads BEFORE updating adsArea surface
     CreateClassifiedAds();
     CreateUsedCarAds();
 
-    // Create single clickable zone for the ads area
     SDL_Rect adsZoneRect = {64, 0, 192, 190};
     Zone adsZone("ads_area", "Click on an ad to view details", adsZoneRect);
     adsZone.onClick = [this] {
@@ -317,14 +289,11 @@ void Newspaper::InitPageAds() {
 void Newspaper::CreateClassifiedAds() {
     classifiedAds.clear();
 
-    // Create 6 label slots (6 ads per page, variable height)
-    // We'll update their text content and position when the page changes
     for (int i = 0; i < adsPerPage; i++) {
         Label adLabel;
-        // Initial position, will be updated based on content
-        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
+        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0);
         adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
-        adLabel.SetVisible(false); // Will be shown based on current page
+        adLabel.SetVisible(false);
 
         classifiedAds.push_back(adLabel);
     }
@@ -333,14 +302,11 @@ void Newspaper::CreateClassifiedAds() {
 void Newspaper::CreateUsedCarAds() {
     usedCarAds.clear();
 
-    // Create 7 label slots (6.5 ads per page, variable height)
-    // We'll update their text content and position when the page changes
     for (int i = 0; i < adsPerPage + 1; i++) {
         Label adLabel;
-        // Initial position, will be updated based on content
-        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0); // Pure black
+        uint32_t textColor = SDL_MapRGB(surface->format, 0, 0, 0);
         adLabel.Init(state.GetAssets().GetMainFont(), 68, 32, textColor);
-        adLabel.SetVisible(false); // Will be shown based on current page
+        adLabel.SetVisible(false);
 
         usedCarAds.push_back(adLabel);
     }
@@ -348,15 +314,10 @@ void Newspaper::CreateUsedCarAds() {
 
 
 void Newspaper::UpdatePageContent() {
-    // Use the new viewport system
     UpdateViewport();
 }
 
 void Newspaper::AddDivider(int /* y */) {
-    // Crashing here
-    // SDL_Rect dividerRect = {4, y, 184, 1};
-    // SDL_FillRect(adsArea.GetSurface(), &dividerRect, SDL_MapRGBA(adsArea.GetSurface()->format, 0, 0, 0, 255));
-    // adsArea.UpdateFromSurface();
 }
 
 void Newspaper::DrawScene() {
@@ -370,22 +331,18 @@ void Newspaper::DrawScene() {
     adsArea.Draw();
     next.Draw();
 
-    // Draw classified ads
     for (auto& ad : classifiedAds) {
         ad.Draw();
     }
 
-    // Draw used car ads
     for (auto& ad : usedCarAds) {
         ad.Draw();
     }
 
-    // Draw active dialog
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
     }
 
-    // Draw bubbles last so they appear on top of dialogs
     for (auto& b : bubbles) {
         b->Draw();
     }
@@ -418,9 +375,7 @@ bool Newspaper::PushEvent(SDL_Event *event) {
 
 
 void Newspaper::Update() {
-    // Note: this overload is unrelated to the real per-frame Update(Uint64)
-    // below -- it's only called from a handful of explicit spots (page
-    // turns, ad clicks, Init) to refresh page visibility/content.
+    // Unrelated to the per-frame Update(Uint64); refreshes page content.
 
     background->SetVisible(currentPage == 0);
     headline.SetVisible(currentPage == 0);
@@ -428,8 +383,6 @@ void Newspaper::Update() {
     previous.SetVisible(currentPage > 0);
     next.SetVisible(currentPage > 0);
     adsArea.SetVisible(currentPage > 0);
-
-    // Headers are now part of the large surface
 
     SetZoneEnabled("auto_parts", currentPage == 0);
     SetZoneEnabled("used_cars", currentPage == 0);
@@ -439,17 +392,13 @@ void Newspaper::Update() {
     SetZoneEnabled("next", currentPage > 0);
     SetZoneEnabled("ads_area", currentPage > 0);
 
-    // Update page content
     UpdatePageContent();
 }
 
 void Newspaper::Update(Uint64 deltaTime) {
     Scene::Update(deltaTime);  // fade handling, otherwise lost by overriding this
 
-    // Catches any change to the game date (loading a save, or normal
-    // time-advancing actions). Cheap: a string compare every frame: the
-    // actual re-render (date.SetText, which rebuilds a surface) only runs
-    // when the text actually changed.
+    // A string compare every frame; the date only re-renders when the text changes.
     if (lastClassifiedsGeneration != state.GetClassifiedsGeneration()) {
         RefreshClassifieds();
     }
@@ -462,7 +411,6 @@ void Newspaper::Update(Uint64 deltaTime) {
 }
 
 void Newspaper::HandleAdClick(int adIndex) {
-    // adIndex is the position in the adPositions vector
     if (adIndex < 0 || adIndex >= (int)adPositions.size()) {
         return;
     }
@@ -472,10 +420,7 @@ void Newspaper::HandleAdClick(int adIndex) {
         if (adPos.adIndex < 0 || adPos.adIndex >= (int)carMetadata.size()) {
             return;
         }
-        // Don't open dialog for already-sold cars. The bounds check is not
-        // redundant with the one above: carMetadata and classifiedCars are
-        // separate lists that are only the same length while they agree on the
-        // enabled car sets.
+        // carMetadata and classifiedCars are separate lists, only equal in length while they agree on the car sets.
         if (adPos.adIndex >= (int)state.GetClassifiedCars().size()) {
             LOG_WARN("Newspaper: ad %d has no classified car (%zu ads, %zu cars)",
                      adPos.adIndex, carMetadata.size(),
@@ -499,30 +444,20 @@ void Newspaper::CreateAllAdsSurface() {
     LOG_INFO("CreateAllAdsSurface: Starting with %zu car metadata entries, %zu part entries",
              carMetadata.size(), partMetadata.size());
 
-    // Calculate total height needed for all ads. This is only an upper-bound
-    // guess to size the canvas before drawing -- actual page counts and
-    // scroll limits are derived below from the real rendered height, not
-    // from this estimate (a tighter guess here previously undersized the
-    // canvas relative to real content, silently truncating the last several
-    // "pages" of scrolling into duplicates of one clamped view).
+    // An upper bound to size the canvas; page counts come from the real rendered height below.
     int totalHeight = 0;
 
-    // Add space for AUTO PARTS ads (continuous list). Worst case ~3 rendered
-    // rows per entry (name + 2 wrapped lines) plus a divider.
     totalHeight += 20; // PARTS header
     totalHeight += partMetadata.size() * 40;
 
-    // Add space for used car ads (continuous list, not pages)
     totalHeight += 20; // USED CARS header
     totalHeight += carMetadata.size() * 40;
 
-    // Add some padding
     totalHeight += 100;
 
     allAdsSurfaceHeight = totalHeight;
     LOG_INFO("CreateAllAdsSurface: Calculated total height: %d", totalHeight);
 
-    // Create the large surface
     allAdsSurface = Bitmap(192, totalHeight, 32);
     SDL_Surface* surface = allAdsSurface.GetSurface();
     if (!surface) {
@@ -532,10 +467,8 @@ void Newspaper::CreateAllAdsSurface() {
     }
     SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, kPaperR, kPaperG, kPaperB, 255));
 
-    // Clear ad positions
     adPositions.clear();
 
-    // Get the main font once for all rendering
     SFont_Font* mainFont = state.GetAssets().GetMainFont();
     if (!mainFont) {
         LOG_INFO("ERROR: GetMainFont() returned NULL");
@@ -544,28 +477,23 @@ void Newspaper::CreateAllAdsSurface() {
 
     int currentY = 0;
 
-    // Draw PARTS header
     {
         Label headerLabel;
         uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
         headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(autoParts, false, 184);
-        headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
+        headerLabel.UpdateFromSurface();
 
-        // Center the header text
         int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), autoParts.c_str());
         int centerX = (192 - textWidth) / 2;
 
-        // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, allAdsSurface.GetSurface(), &headerRect);
         LOG_INFO("Rendered PARTS header at Y=%d", currentY);
         currentY += 20;
     }
 
-    // Draw all AUTO PARTS ads (continuous list, same layout as used car ads
-    // below -- name at LEFT_COL, '+'-prefixed feature line at RIGHT_COL on
-    // the same row, price on its own line).
+    // Name at LEFT_COL, '+' feature line at RIGHT_COL on the same row, price on its own line.
     {
         const int LEFT_COL = 1;
         const int RIGHT_COL_MIN = 96;
@@ -625,46 +553,33 @@ void Newspaper::CreateAllAdsSurface() {
 
     partsSectionHeight = currentY;
 
-    // Draw USED CARS header
     {
-        // Create header label
         Label headerLabel;
         uint32_t headerColor = SDL_MapRGB(surface->format, 32, 32, 32);
         headerLabel.Init(mainFont, 0, currentY, headerColor);
         headerLabel.SetText(usedCars, false, 184);
-        headerLabel.UpdateFromSurface(); // Make sure the label surface is updated
+        headerLabel.UpdateFromSurface();
 
-        // Center the header text
         int textWidth = SFont_TextWidth(mainFont, usedCars.c_str());
         int centerX = (192 - textWidth) / 2;
 
-        // Render header to surface
         SDL_Rect headerRect = {centerX, currentY, 184, 20};
         SDL_BlitSurface(headerLabel.GetSurface(), NULL, surface, &headerRect);
         LOG_INFO("Rendered USED CARS header at Y=%d", currentY);
         currentY += 20;
     }
 
-    // Draw all used car ads (no page concept, just continuous list)
-    //
-    // Original DOS layout (reversed from FUN_1000_09cb in SR.EXE):
-    //   - Car name is rendered at left column x=LEFT_COL, current row y.
-    //   - Lines from data that start with '+' (stored here as '\t'-prefixed) are
-    //     rendered at RIGHT_COL on the SAME row as the car name (no y advance).
-    //     At most one feature line per entry in the actual game data.
-    //   - All other lines advance y by lineHeight and render at LEFT_COL.
-    //   - The price string (e.g. "$1450") is stored as the last regular line in adText.
+    // As in the DOS layout: the name at LEFT_COL; '\t'-prefixed lines at RIGHT_COL on the same row, at most one
+    // per entry; other lines advance y at LEFT_COL. The price is the last regular line.
     {
         const int LEFT_COL = 1;
-        // Minimum right column x. For car names wider than this, the feature
-        // text is placed just after the name end + a small gap instead.
+        // Pushed right after long car names.
         const int RIGHT_COL_MIN = 96;
         const int RIGHT_COL_GAP = 4;
         const int lineHeight = SFont_TextHeight(mainFont);
 
         SDL_SetSurfaceColorMod(mainFont->Surface, 0, 0, 0);
 
-        // Draw top divider line (1px top margin above first ad)
         currentY += 1;
         SDL_Rect topDividerRect = {0, currentY, 192, 1};
         SDL_FillRect(surface, &topDividerRect, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
@@ -675,17 +590,11 @@ void Newspaper::CreateAllAdsSurface() {
             const char* carName = entry.carName ? entry.carName : "";
             int adStartY = currentY;
 
-            // Car name: left column, current row
             SFont_Write(surface, mainFont, LEFT_COL, currentY, carName);
 
-            // Right column: at least RIGHT_COL_MIN, but pushed right if the car
-            // name extends past that to avoid overlap.
             int carNameWidth = SFont_TextWidth(mainFont, carName);
             int featureX = std::max(RIGHT_COL_MIN, LEFT_COL + carNameWidth + RIGHT_COL_GAP);
 
-            // Render adText lines.
-            // '\t'-prefixed lines go in the right column at the same y as car name.
-            // All other lines advance y and render at left column.
             if (entry.adText && entry.adText[0]) {
                 std::istringstream ss(entry.adText);
                 std::string line;
@@ -709,7 +618,6 @@ void Newspaper::CreateAllAdsSurface() {
 
             currentY += lineHeight;  // advance past last rendered row
 
-            // Draw divider line (4px bottom margin below each ad, except the last)
             if (i < (int)carMetadata.size() - 1) {
                 currentY += 4;
                 SDL_Rect dividerRect = {0, currentY, 192, 1};
@@ -721,11 +629,7 @@ void Newspaper::CreateAllAdsSurface() {
         SDL_SetSurfaceColorMod(mainFont->Surface, 255, 255, 255);
     }
 
-    // Page counts and scroll limits must match the real rendered height, not
-    // the upfront size guess above -- otherwise "next" can report more pages
-    // than the content actually has room to scroll through, and everything
-    // past the real end just re-clamps to the same view (looks like dead
-    // pages). 190px viewport height per page, rounded up.
+    // From the real rendered height, or "next" reports pages with nothing to scroll to.
     const int usedCarsSectionHeight = currentY - partsSectionHeight;
     totalPartsPages = std::max(1, (partsSectionHeight + 189) / 190);
     totalPages = std::max(1, (usedCarsSectionHeight + 189) / 190);
@@ -733,17 +637,14 @@ void Newspaper::CreateAllAdsSurface() {
     LOG_INFO("Real content: parts %dpx (%d pages), cars %dpx (%d pages), total %dpx",
              partsSectionHeight, totalPartsPages, usedCarsSectionHeight, totalPages, allAdsSurfaceHeight);
 
-    // Update the surface
     allAdsSurface.UpdateFromSurface();
 
-    // Debug: Check surface content
     SDL_Surface* debugSurface = allAdsSurface.GetSurface();
     if (debugSurface) {
         LOG_INFO("Surface format: %dx%d, %d bpp, %s",
                debugSurface->w, debugSurface->h, debugSurface->format->BitsPerPixel,
                SDL_GetPixelFormatName(debugSurface->format->format));
 
-        // Check if surface has any non-white pixels
         SDL_LockSurface(debugSurface);
         Uint32* pixels = (Uint32*)debugSurface->pixels;
         int nonWhitePixels = 0;
@@ -758,15 +659,11 @@ void Newspaper::CreateAllAdsSurface() {
         LOG_INFO("Surface has %d non-white pixels out of %d total", nonWhitePixels, debugSurface->w * debugSurface->h);
     }
 
-    // Save to file for debugging (after updating the surface)
-    // SaveAdsSurfaceToFile();
-
     LOG_INFO("Created all ads surface: %dx%d", 192, allAdsSurfaceHeight);
     LOG_INFO("Total ads rendered: %zu", adPositions.size());
 }
 
 void Newspaper::UpdateViewport() {
-    // Basic validation
     if (allAdsSurfaceHeight <= 0) {
         return;
     }
@@ -777,11 +674,9 @@ void Newspaper::UpdateViewport() {
         return;
     }
 
-    // Calculate viewport position based on current page
     int viewportY = 0;
 
     if (currentPage >= 1 && currentPage <= totalPartsPages) {
-        // AUTO PARTS pages - scroll through the parts portion of the surface.
         int pageScrollOffset = (currentPage - 1) * 190; // 190px per "page" of scrolling
         viewportY = pageScrollOffset + smoothScrollOffset;
 
@@ -795,17 +690,13 @@ void Newspaper::UpdateViewport() {
             smoothScrollOffset = 0;
         }
     } else if (currentPage > totalPartsPages) {
-        // Used car ads - scroll through the rest of the continuous surface.
         int pageScrollOffset = (currentPage - totalPartsPages - 1) * 190;
 
-        // Calculate base viewport position
         viewportY = partsSectionHeight + pageScrollOffset;
 
-        // Add smooth scroll offset (always add it, but clamp the result)
         viewportY += smoothScrollOffset;
 
 
-        // Clamp viewport to prevent scrolling beyond content
         int maxViewportY = allAdsSurfaceHeight - 190; // 190 is viewport height
         if (viewportY > maxViewportY) {
             viewportY = maxViewportY;
@@ -817,27 +708,21 @@ void Newspaper::UpdateViewport() {
         }
     }
 
-    // Set the viewport
     adsViewport = {0, viewportY, 192, 190};
 
-    // Clear the ads area
     SDL_FillRect(adsAreaSurfacePtr, NULL, SDL_MapRGBA(adsAreaSurfacePtr->format, kPaperR, kPaperG, kPaperB, 255));
 
-        // Blit the viewport from the large surface
         if (viewportY < allAdsSurfaceHeight) {
             SDL_Rect srcRect = adsViewport;
             SDL_Rect destRect = {0, 0, 192, 190};
 
-            // Check for surface format mismatch (the likely cause of corruption)
             if (allAdsSurfacePtr->format->format != adsAreaSurfacePtr->format->format) {
-                // Convert and blit
                 SDL_Surface* convertedSurface = SDL_ConvertSurface(allAdsSurfacePtr, adsAreaSurfacePtr->format, 0);
                 if (convertedSurface) {
                     SDL_BlitSurface(convertedSurface, &srcRect, adsAreaSurfacePtr, &destRect);
                     SDL_FreeSurface(convertedSurface);
                 }
             } else {
-                // Direct blit
                 SDL_BlitSurface(allAdsSurfacePtr, &srcRect, adsAreaSurfacePtr, &destRect);
             }
         }
@@ -846,10 +731,8 @@ void Newspaper::UpdateViewport() {
 }
 
 void Newspaper::SaveAdsSurfaceToFile() {
-    // Save the large surface to a PNG file for debugging using the existing Bitmap method
     LOG_INFO("Saving all ads surface to PNG...");
 
-    // Debug: Check surface format
     SDL_Surface* surface = allAdsSurface.GetSurface();
     if (surface) {
         LOG_INFO("Surface format: %dx%d, %d bpp, %s",
@@ -857,18 +740,14 @@ void Newspaper::SaveAdsSurfaceToFile() {
                SDL_GetPixelFormatName(surface->format->format));
     }
 
-    allAdsSurface.SaveBitmap(999); // Use a unique index for the ads surface
+    allAdsSurface.SaveBitmap(999);
     LOG_INFO("Saved all ads surface to sprite_999.png");
 }
 
 int Newspaper::FindAdAtPosition(int mouseY) {
-    // Convert mouse Y position to position in the large surface
     int surfaceY = mouseY + adsViewport.y;
 
-    // Find which ad contains this Y position. Returns the position within
-    // adPositions itself (what HandleAdClick expects), NOT adPos.adIndex --
-    // that field is only the index within carMetadata/partMetadata, which
-    // collide (both start at 0) now that parts and cars share one vector.
+    // Returns the position within adPositions, not adPos.adIndex, which collides between parts and cars.
     for (int i = 0; i < (int)adPositions.size(); i++) {
         if (surfaceY >= adPositions[i].startY && surfaceY < adPositions[i].endY) {
             return i;
@@ -1003,11 +882,7 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                     bubbles[0]->SetText("  No go, hot shot. You're $" + std::to_string(short_) + " short.");
                     bubbles[0]->SetVisible(true);
                 } else {
-                    // Buying an auto part from the newspaper costs no game
-                    // time (same as browsing/buying a car), and unlike cars
-                    // the classifieds are a standing catalog, not one-off
-                    // listings -- stay on the newspaper so the player can
-                    // buy more than one part per visit.
+                    // Costs no game time, and the parts catalog is standing, so stay on the paper.
                     state.SetBankroll(state.GetBankroll() - price);
 
                     const char* rawName = partMetadata[partIndex].classified.carName;
@@ -1092,23 +967,17 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     BitmapOffset_t offsets = model.offsets;
     std::vector<uint16_t> palette = GetStandardCarColor(car->GetColor());
 
-    // Load body with car's color palette. carAssetIds holds the pool key,
-    // which for a Street Rod SE car is not a lib.p asset - go through the
-    // model so the right lib is used.
+    // carAssetIds holds the pool key, which for an SE car is not a lib.p asset.
     Bitmap* carBodyBitmap = LoadCarModelSprite(model, model.sprites.body, palette);
 
-    // Load the wheel still, from whichever lib this car's set uses.
     SDL_Rect wheelSrcRect = {0, 0, 0, 0};
     SDL_Point wheelDrawSize = {0, 0};
     Bitmap* wheelBitmap = GetCarWheelFrame(model, car->GetWheelType(), 1,
                                            &wheelSrcRect, &wheelDrawSize);
 
-    // Full-width strip from y=63 to y=146 (height=83)
     SDL_Rect dialogRect = {0, 63, 320, 83};
 
-    // Wheels go behind the body, so the body's wheel arches cut over them -
-    // the same order CarBitmap::Draw uses in the garage and diner. Lower
-    // zOrder draws first.
+    // Wheels go behind the body so its arches cut over them. Lower zOrder draws first.
     const int kWheelZ = 0;
     const int kBodyZ = 1;
 
@@ -1120,9 +989,7 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
         int carY = 63 + 2;
         bitmaps["car_body"] = {carBodyBitmap, {carX, carY, carW, carH}, kBodyZ};
 
-        // Add wheels relative to car body position. Frame 1 is the same still
-        // the garage shows; where that frame lives, and how big it is, depends
-        // on the car's set.
+        // Frame 1 is the garage's still.
         if (wheelBitmap) {
             int rearWheelX = carX + offsets.offsetXRearTire;
             int frontWheelX = carX + offsets.offsetXFrontTire;

@@ -31,8 +31,7 @@ enum SrLibFile {
     SrLibFileDosLib1 = 2,
     SrLibFileDosLib1c = 3,
     SrLibFileDosLib2 = 4,
-    // Optional car sets bring their own libs, identified by car set rather
-    // than by an entry here - see car_set.h.
+    // Optional car sets bring their own libs, identified by car set.
 };
 
 
@@ -53,8 +52,7 @@ struct SrLibColor {
 using Palette = std::vector<SrLibColor>;
 const SrLibColor AmigaMaskColor = {128, 16, 0, 255};
 
-// The two DOS palette entries a car's paint occupies, and which steps of a
-// 9-step StandardCarColor ramp replace them. See GetDOSCarPalette.
+// The two DOS palette entries a car's paint occupies, and which ramp steps replace them.
 static constexpr int DOS_CAR_SHADE_DARK  = 7;
 static constexpr int DOS_CAR_SHADE_LIGHT = 6;
 static constexpr int DOS_CAR_RAMP_DARK   = 2;
@@ -99,28 +97,12 @@ enum SrLibGameScene {
     SCENE_DRIVING = 4,
     SCENE_NEWSPAPER = 5,
     SCENE_KING_OF_COUNTY = 6,
-    // RodLegacy addition, not part of the original game's scene table: the
-    // new-game name entry screen. Never passed to SrLibQueryGetCarRoofYOffset
-    // / SrLibQueryGetCarIdleX, which index original per-scene car tables.
+    // RodLegacy scenes from here on; never passed to the per-scene car tables.
     SCENE_NAME_ENTRY = 7,
-    // Also a RodLegacy addition, and only reachable in debug_ui builds: the
-    // car/wheel-offset inspector. Same caveat as SCENE_NAME_ENTRY - never
-    // passed to the per-scene car tables.
     SCENE_CAR_DEBUG = 8,
-    // RodLegacy addition: the save/load screen, on the original's unused
-    // California Highway Patrol roster background. Same caveat as
-    // SCENE_NAME_ENTRY - never passed to the per-scene car tables.
     SCENE_SAVE_LOAD = 9,
-    // RodLegacy addition: where a finished run ends, after the hall of fame.
-    // Same caveat as SCENE_NAME_ENTRY - never passed to the per-scene car
-    // tables.
     SCENE_GAME_OVER_MENU = 10,
-    // RodLegacy addition: the win cutscene, between the King's road race and
-    // the hall of fame. Same caveat as SCENE_NAME_ENTRY - never passed to the
-    // per-scene car tables.
     SCENE_ENDING = 11,
-    // RodLegacy addition: the Amiga intro, shown once at launch. Same caveat
-    // as SCENE_NAME_ENTRY - never passed to the per-scene car tables.
     SCENE_INTRO = 12,
 };
 
@@ -146,18 +128,12 @@ enum SrLibCarDecal {
     SrLibCarDecalCustom,
 };
 
-// The car "body/sticker" bitfield: byte 0x2E of a saved car record, and byte 6
-// of an opponent's pool record. Both are written by the original with the same
-// encoding (see FUN_0023eac0 / save_game.md).
+// Car body/sticker bitfield, in saved car records and opponent pool records:
 //
 //   bit 0+1  bumpers stripped (the original sets both together)
 //   bit 2    roof chopped
 //   bit 3    hood scoop - set when the engine class is 2 (the 327/351/340)
 //   bits 4-7 sticker, ONE-BASED: 0 = no sticker, 1..8 = the eight Amiga decals
-//
-// The one-based sticker matters: the original rolls random(9) for it, and
-// leaves the nibble at 0 when a car gets no sticker at all. Reading the nibble
-// as a plain decal index therefore puts decal 0 on every unstickered car.
 constexpr uint8_t CAR_BODY_BUMPERS_STRIPPED = 0x03;
 constexpr uint8_t CAR_BODY_ROOF_CHOPPED     = 0x04;
 constexpr uint8_t CAR_BODY_SPEC_CONFIG_BIT  = 0x08;
@@ -185,7 +161,6 @@ enum CarVendor_t {
     CarVendorUnknown = 4
 };
 
-// Engines in Street Rod 1
 enum CarEngine_t {
     CarEngineChrysler_V6 = 0,
     CarEngineChrysler_V8_285 = 1,
@@ -308,11 +283,7 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY_BEHIND_2 = 93,
     RACING_OPPONENT_CAR_CHEVY_BEHIND_3 = 94,
     RACING_OPPONENT_CAR_CHEVY_BEHIND_4 = 95,
-    // Confirmed via the Amiga NPC-sprite-set table (roadside/opponent art table
-    // at 0x2395f4, read directly from the binary): this category's 13-asset row
-    // The oldsmobile set is {96, 126..137} in
-    // front_side/rear_side/rear_1..7/behind_1..4 order, so 96 is its front-side
-    // view and sits apart from the rest of the block at 126 below.
+    // This set is {96, 126..137}, so its front-side view sits apart from the rest of the block.
     RACING_OPPONENT_CAR_OLDSMOBILE_FRONT_SIDE = 96,
     RACING_RED_LIGHTS = 97,
     // Used by: Dodge Custom Royal Lancer 1955, Mercury Monterey 1954, Mercury
@@ -347,8 +318,6 @@ enum AmigaLibAsset {
     RACING_RACING_SPEEDING_TICKET_COP_HAND = 125,
     // Used by: Chevrolet 2dr Coupe 1940, Chevrolet Roadster 1940, Chevrolet
     // Master Deluxe 2dr 1938, Ford Deuce Coupe 1932, Ford Deluxe 2dr 1940.
-    // Row is {96(front_side), 126(rear_side), 127..133(rear_1..7),
-    // 134..137(behind_1..4)}.
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_SIDE = 126,
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_1 = 127,
     RACING_OPPONENT_CAR_OLDMOBILE_REAR_2 = 128,
@@ -378,7 +347,6 @@ enum AmigaLibAsset {
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_3 = 149,
     RACING_OPPONENT_CAR_CHEVY2_BEHIND_4 = 150,
     // Used by: The King's Chevrolet Corvette 1963 only.
-    // TODO: Is this really correct?
     RACING_OPPONENT_CAR_CORVETTE_FRONT_SIDE = 151,
     RACING_OPPONENT_CAR_CORVETTE_REAR_SIDE = 152,
     RACING_OPPONENT_CAR_CORVETTE_REAR_1 = 153,
@@ -538,15 +506,11 @@ enum AmigaLibAsset {
     GUS_GAS_PUMP1 = 306,
     GUS_GAS_PUMP_FILLING = 307,
     CAR_GAS_CAP = 308,
-    //
     CAR_SCOOP1 = 310,
     CAR_SCOOP2 = 311,
     CAR_SCOOP3 = 312,
     CAR_SCOOP4 = 313,
-    //
-    // The phone guy's animation spans two sheets, five columns by two rows
-    // each: frames 0-9 here, 10-19 in PHONEBOOK_GUY. See
-    // RodLegacyResearch/docs/diner.md.
+    // The phone guy spans two 5x2 sheets: frames 0-9 here, 10-19 in PHONEBOOK_GUY.
     PHONEBOOK_GUY_1 = 315,
     CAR_SHADOW = 316,
     ENGINE_TUNING_SCREEN = 317,
@@ -637,64 +601,49 @@ enum DosLib2Asset {
 };
 
 
-// SRSE LIB2 - car pack from the "Street Rod SE" DOS data disk
-// (RodLegacyBins/dos/SRSE/LIB2). Same DOS .lib format and same 268-entry
-// index layout as stock DOS LIB2, so every index has the same role in both
-// files (110 is the speeding ticket in both, etc). SRSE only redraws the 25
-// cars plus the 8 stickers: 162 of the 268 sprites are byte-identical to
-// stock DOS LIB2, and the 106 that differ are exactly the car art, the
-// stickers and three racing-view car sprites.
+// SRSE LIB2 from the "Street Rod SE" DOS data disk. Same format and 268-entry layout as stock DOS LIB2; only
+// the 25 cars, the 8 stickers and three racing-view car sprites differ.
 //
-// Unlike AmigaLibAsset, a car's chopped-roof and bumper-stripped sprites are
-// NOT grouped next to its body in file order, and some are shared between
-// cars. The names below come from the two per-car tables in SRSE/HOT_DATA,
-// which give each slot its body, chopped roof, hood scoop and bumper-stripped
-// sprite numbers outright - so this enum is a readable mirror of that data,
-// not the source of truth. Anything reading these at runtime should parse
-// HOT_DATA rather than hardcode the enum.
-//
-// Asset map: RodLegacyResearch/docs/formats/srse_lib2.md.
-// HOT_DATA layout: RodLegacyResearch/docs/formats/hot_data_dos.md.
-// Cataloging UI: RodLegacyResearch/src/tools/srse_cataloger.py, which writes
-// RodLegacyBins/dos/SRSE/LIB2_catalog.txt.
+// A car's variant sprites are not next to its body and some are shared between cars. This enum mirrors
+// SRSE/HOT_DATA's per-car tables; runtime code should parse HOT_DATA instead.
 enum SrseLib2Asset {
-    SRSE_LIB2_DRIVING_WHEEL_RIGHT = 0, // driving wheel right
-    SRSE_LIB2_DRIVING_WHEEL_NEUTRAL = 1, // driving wheel neutral
-    SRSE_LIB2_DRIVING_WHEEL_LEFT = 2, // driving wheel left
-    SRSE_LIB2_CAR_SIDE_FRONT = 3, // car side front
-    SRSE_LIB2_CAR_BEHIND_CORVETTE_MAYBE = 4, // car behind corvette maybe
-    SRSE_LIB2_RACING_CLOUDS = 5, // racing clouds
-    SRSE_LIB2_INTERIOR_PILLAR = 6, // interior pillar
-    SRSE_LIB2_INTERIOR_HOOD = 7, // interior hood
-    SRSE_LIB2_RACING_HORIZON = 8, // racing horizon
-    SRSE_LIB2_INTERIOR_MIRROR = 9, // interior mirror
-    SRSE_LIB2_CAR_2_SIDE_FRONT = 10, // car 2 side front
-    SRSE_LIB2_CAR_2_BEHIND = 11, // car 2 behind
-    SRSE_LIB2_CAR_2_BEHIND_TURNING = 12, // car 2 behind turning
-    SRSE_LIB2_RACING_GREEN_RED_LIGHTS = 13, // racing green red lights
-    SRSE_LIB2_RACING_INTERIOR_COCKPIT = 14, // racing interior cockpit
-    SRSE_LIB2_LOAD_SCREEN_HIGHWAY_PATROL = 15, // load screen highway patrol
-    SRSE_LIB2_NAME_SCREEN_DMV = 16, // name screen dmv
-    SRSE_LIB2_BUTTON_TEMPLATE = 17, // button template
-    SRSE_LIB2_BUTTON_LOAD = 18, // button load
-    SRSE_LIB2_BUTTON_SAVE = 19, // button save
-    SRSE_LIB2_BUTTON_FORGET_IT = 20, // button forget it
-    SRSE_LIB2_NEWSPAPER_SCREEN_TOP = 21, // newspaper screen top
-    SRSE_LIB2_NEWSPAPER_DODGERS_WIN = 22, // newspaper dodgers win
-    SRSE_LIB2_NEWSPAPER_YOUTH_KILLED = 23, // newspaper youth killed
-    SRSE_LIB2_NEWSPAPER_LAUGH_AT_JAPAN = 24, // newspaper laugh at japan
-    SRSE_LIB2_NEWSPAPER_OSCAR_NOMINATIONS = 25, // newspaper oscar nominations
-    SRSE_LIB2_NEWSPAPER_NO_US_SOLDIERS_IN_VIETNAM = 26, // newspaper no us soldiers in vietnam
-    SRSE_LIB2_NEWSPAPER_SIDEBAR = 27, // newspaper sidebar
-    SRSE_LIB2_CAR_WHEEL_1 = 28, // car wheel 1
-    SRSE_LIB2_CAR_WHEEL_2 = 29, // car wheel 2
-    SRSE_LIB2_CAR_WHEEL_3 = 30, // car wheel 3
-    SRSE_LIB2_CAR_WHEEL_4 = 31, // car wheel 4
-    SRSE_LIB2_GARAGE_SCREEN = 32, // garage screen
+    SRSE_LIB2_DRIVING_WHEEL_RIGHT = 0,
+    SRSE_LIB2_DRIVING_WHEEL_NEUTRAL = 1,
+    SRSE_LIB2_DRIVING_WHEEL_LEFT = 2,
+    SRSE_LIB2_CAR_SIDE_FRONT = 3,
+    SRSE_LIB2_CAR_BEHIND_CORVETTE_MAYBE = 4,
+    SRSE_LIB2_RACING_CLOUDS = 5,
+    SRSE_LIB2_INTERIOR_PILLAR = 6,
+    SRSE_LIB2_INTERIOR_HOOD = 7,
+    SRSE_LIB2_RACING_HORIZON = 8,
+    SRSE_LIB2_INTERIOR_MIRROR = 9,
+    SRSE_LIB2_CAR_2_SIDE_FRONT = 10,
+    SRSE_LIB2_CAR_2_BEHIND = 11,
+    SRSE_LIB2_CAR_2_BEHIND_TURNING = 12,
+    SRSE_LIB2_RACING_GREEN_RED_LIGHTS = 13,
+    SRSE_LIB2_RACING_INTERIOR_COCKPIT = 14,
+    SRSE_LIB2_LOAD_SCREEN_HIGHWAY_PATROL = 15,
+    SRSE_LIB2_NAME_SCREEN_DMV = 16,
+    SRSE_LIB2_BUTTON_TEMPLATE = 17,
+    SRSE_LIB2_BUTTON_LOAD = 18,
+    SRSE_LIB2_BUTTON_SAVE = 19,
+    SRSE_LIB2_BUTTON_FORGET_IT = 20,
+    SRSE_LIB2_NEWSPAPER_SCREEN_TOP = 21,
+    SRSE_LIB2_NEWSPAPER_DODGERS_WIN = 22,
+    SRSE_LIB2_NEWSPAPER_YOUTH_KILLED = 23,
+    SRSE_LIB2_NEWSPAPER_LAUGH_AT_JAPAN = 24,
+    SRSE_LIB2_NEWSPAPER_OSCAR_NOMINATIONS = 25,
+    SRSE_LIB2_NEWSPAPER_NO_US_SOLDIERS_IN_VIETNAM = 26,
+    SRSE_LIB2_NEWSPAPER_SIDEBAR = 27,
+    SRSE_LIB2_CAR_WHEEL_1 = 28,
+    SRSE_LIB2_CAR_WHEEL_2 = 29,
+    SRSE_LIB2_CAR_WHEEL_3 = 30,
+    SRSE_LIB2_CAR_WHEEL_4 = 31,
+    SRSE_LIB2_GARAGE_SCREEN = 32,
     SRSE_LIB2_PONTIAC_2DR_COUPE_1939_FRONT_BUMPER_STRIPPED = 33, // 24x16 - car slot 0
-    SRSE_LIB2_CARJACK_1 = 34, // carjack 1
-    SRSE_LIB2_CARJACK_2 = 35, // carjack 2
-    SRSE_LIB2_CARJACK_3 = 36, // carjack 3
+    SRSE_LIB2_CARJACK_1 = 34,
+    SRSE_LIB2_CARJACK_2 = 35,
+    SRSE_LIB2_CARJACK_3 = 36,
     SRSE_LIB2_PONTIAC_2DR_COUPE_1939_REAR_BUMPER_STRIPPED = 37, // 32x18 - car slot 0
     SRSE_LIB2_PONTIAC_2DR_COUPE_1939_CHOPPED_ROOF = 38, // 112x18 - car slot 0
     SRSE_LIB2_PONTIAC_2DR_COUPE_1939_BODY = 39, // 240x64 - car slot 0, 1939 Pontiac 2-dr coupe
@@ -715,7 +664,7 @@ enum SrseLib2Asset {
     SRSE_LIB2_CHEVROLET_BELAIR_1957_BODY = 54, // 248x59 - car slot 5, 1957 Chevrolet Bel-Air
     SRSE_LIB2_CHEVROLET_BELAIR_1957_REAR_BUMPER_STRIPPED = 55, // 24x15 - car slot 5
     SRSE_LIB2_CHEVROLET_BELAIR_1957_FRONT_BUMPER_STRIPPED = 56, // 32x22 - car slot 5
-    SRSE_LIB2_RACING_THE_KING_REAR = 57, // racing the king rear
+    SRSE_LIB2_RACING_THE_KING_REAR = 57,
     SRSE_LIB2_BUICK_SPECIAL_1958_REAR_BUMPER_STRIPPED = 58, // 56x12 - car slot 6
     SRSE_LIB2_BUICK_SPECIAL_1958_CHOPPED_ROOF = 59, // 120x16 - car slot 6
     SRSE_LIB2_BUICK_SPECIAL_1958_BODY = 60, // 264x55 - car slot 6, 1958 Buick Special
@@ -723,52 +672,52 @@ enum SrseLib2Asset {
     SRSE_LIB2_CADILLAC_ELDORADO_CONVERTIBLE_1959_CHOPPED_ROOF = 62, // 120x15 - car slot 7
     SRSE_LIB2_OLDSMOBILE_98_1955_CHOPPED_ROOF = 63, // 112x17 - car slot 4
     SRSE_LIB2_CHEVROLET_NOMAD_WAGON_1955_CHOPPED_ROOF = 64, // 152x19 - car slot 3
-    SRSE_LIB2_BRAND_WHEEL_1 = 65, // brand wheel 1
-    SRSE_LIB2_BRAND_WHEEL_2 = 66, // brand wheel 2
-    SRSE_LIB2_BRAND_WHEEL_3 = 67, // brand wheel 3
-    SRSE_LIB2_BRAND_WHEEL_4 = 68, // brand wheel 4
-    SRSE_LIB2_ENGINE_WINDOW_FRAME = 69, // engine window frame
-    SRSE_LIB2_TRANSMISSION_WINDOW = 70, // transmission window
-    SRSE_LIB2_ENGINE_TUNING_WINDOW = 71, // engine tuning window
-    SRSE_LIB2_BUBBLE_LEFT = 72, // bubble left
-    SRSE_LIB2_BUBBLE_RIGHT_1_LINE = 73, // bubble right 1 line
-    SRSE_LIB2_BUBBLE_RIGHT_2_LINES = 74, // bubble right 2 lines
-    SRSE_LIB2_TUNING_BELT = 75, // tuning belt
-    SRSE_LIB2_ENGINE_BLOCK_V6 = 76, // engine block v6
-    SRSE_LIB2_ENGINE_BLOCK_V8_SMALL = 77, // engine block v8 small
-    SRSE_LIB2_ENGINE_BLOCK_V8_BIG = 78, // engine block v8 big
+    SRSE_LIB2_BRAND_WHEEL_1 = 65,
+    SRSE_LIB2_BRAND_WHEEL_2 = 66,
+    SRSE_LIB2_BRAND_WHEEL_3 = 67,
+    SRSE_LIB2_BRAND_WHEEL_4 = 68,
+    SRSE_LIB2_ENGINE_WINDOW_FRAME = 69,
+    SRSE_LIB2_TRANSMISSION_WINDOW = 70,
+    SRSE_LIB2_ENGINE_TUNING_WINDOW = 71,
+    SRSE_LIB2_BUBBLE_LEFT = 72,
+    SRSE_LIB2_BUBBLE_RIGHT_1_LINE = 73,
+    SRSE_LIB2_BUBBLE_RIGHT_2_LINES = 74,
+    SRSE_LIB2_TUNING_BELT = 75,
+    SRSE_LIB2_ENGINE_BLOCK_V6 = 76,
+    SRSE_LIB2_ENGINE_BLOCK_V8_SMALL = 77,
+    SRSE_LIB2_ENGINE_BLOCK_V8_BIG = 78,
     SRSE_LIB2_MANIFOLD_3X2 = 79, // manifold 3x2
     SRSE_LIB2_MANIFOLD_1X2 = 80, // manifold 1x2
     SRSE_LIB2_MANIFOLD_1X2_2 = 81, // manifold 1x2 2
     SRSE_LIB2_MANIFOLD_1X4 = 82, // manifold 1x4
     SRSE_LIB2_MANIFOLD_2X4 = 83, // manifold 2x4
-    SRSE_LIB2_CARB1 = 84, // carb1
-    SRSE_LIB2_CARB2 = 85, // carb2
-    SRSE_LIB2_CARB3 = 86, // carb3
-    SRSE_LIB2_SCREW_FULL = 87, // screw full
-    SRSE_LIB2_SCREW_HALF = 88, // screw half
-    SRSE_LIB2_SCREW_HEAD = 89, // screw head
-    SRSE_LIB2_GAS_STATION_SCREEN = 90, // gas station screen
-    SRSE_LIB2_COP_BEHIND = 91, // cop behind
-    SRSE_LIB2_60S_CAR_BEHIND = 92, // 60s car behind
-    SRSE_LIB2_DINER_SCREEN = 93, // diner screen
-    SRSE_LIB2_ENGINE_WIRE_PLUGGED = 94, // engine wire plugged
-    SRSE_LIB2_ENGINE_WIRE_UNPLUGGED = 95, // engine wire unplugged
-    SRSE_LIB2_GAS_STATION_PUMP_MASK = 96, // gas station pump mask
-    SRSE_LIB2_GAS_STATION_PUMP_BG = 97, // gas station pump bg
-    SRSE_LIB2_GAS_STATION_PUMP_MASK_SMALL = 98, // gas station pump mask small
-    SRSE_LIB2_GEARBOX_AUTO_1 = 99, // gearbox auto 1
-    SRSE_LIB2_GEARBOX_MANUAL_1 = 100, // gearbox manual 1
-    SRSE_LIB2_GEARBOX_AUTO_2 = 101, // gearbox auto 2
-    SRSE_LIB2_GEARBOX_MANUAL_2 = 102, // gearbox manual 2
-    SRSE_LIB2_GEARBOX_SCREW_VARIANTS = 103, // gearbox screw variants
+    SRSE_LIB2_CARB1 = 84,
+    SRSE_LIB2_CARB2 = 85,
+    SRSE_LIB2_CARB3 = 86,
+    SRSE_LIB2_SCREW_FULL = 87,
+    SRSE_LIB2_SCREW_HALF = 88,
+    SRSE_LIB2_SCREW_HEAD = 89,
+    SRSE_LIB2_GAS_STATION_SCREEN = 90,
+    SRSE_LIB2_COP_BEHIND = 91,
+    SRSE_LIB2_60S_CAR_BEHIND = 92,
+    SRSE_LIB2_DINER_SCREEN = 93,
+    SRSE_LIB2_ENGINE_WIRE_PLUGGED = 94,
+    SRSE_LIB2_ENGINE_WIRE_UNPLUGGED = 95,
+    SRSE_LIB2_GAS_STATION_PUMP_MASK = 96,
+    SRSE_LIB2_GAS_STATION_PUMP_BG = 97,
+    SRSE_LIB2_GAS_STATION_PUMP_MASK_SMALL = 98,
+    SRSE_LIB2_GEARBOX_AUTO_1 = 99,
+    SRSE_LIB2_GEARBOX_MANUAL_1 = 100,
+    SRSE_LIB2_GEARBOX_AUTO_2 = 101,
+    SRSE_LIB2_GEARBOX_MANUAL_2 = 102,
+    SRSE_LIB2_GEARBOX_SCREW_VARIANTS = 103,
     SRSE_LIB2_MANIFOLD_2X4_BIG = 104, // manifold 2x4 big
     SRSE_LIB2_MANIFOLD_1X2_BIG = 105, // manifold 1x2 big
-    SRSE_LIB2_RACING_WHEEL_1 = 106, // racing wheel 1
-    SRSE_LIB2_RACING_WHEEL_2 = 107, // racing wheel 2
-    SRSE_LIB2_RACING_WHEEL_3 = 108, // racing wheel 3
-    SRSE_LIB2_RACING_WHEEL_4 = 109, // racing wheel 4
-    SRSE_LIB2_SPEEDING_TICKET = 110, // speeding ticket
+    SRSE_LIB2_RACING_WHEEL_1 = 106,
+    SRSE_LIB2_RACING_WHEEL_2 = 107,
+    SRSE_LIB2_RACING_WHEEL_3 = 108,
+    SRSE_LIB2_RACING_WHEEL_4 = 109,
+    SRSE_LIB2_SPEEDING_TICKET = 110,
     SRSE_LIB2_CHEVROLET_DELRAY_1955_CHOPPED_ROOF = 111, // 128x18 - car slot 8
     SRSE_LIB2_CHEVROLET_DELRAY_1955_BODY = 112, // 264x61 - car slot 8, 1955 Chevrolet Delray
     SRSE_LIB2_CHEVROLET_IMPALA_1961_BODY = 113, // 264x52 - car slot 9, 1961 Chevrolet Impala
@@ -854,7 +803,6 @@ enum SrseLib2Asset {
     SRSE_LIB2_RACING_CAR_FRONT_SMALL = 251 // 32x24
 };
 
-// Track data structures based on Street Rod binary analysis
 enum SrTrackType {
     SR_TRACK_ROAD_RACE = 0,  // Complex curved course at 0xE000
     SR_TRACK_DRAG_RACE = 1   // Straight drag strip at 0xDD00
@@ -880,7 +828,7 @@ enum SrRoadSideSprite {
     SR_SPRITE_RACING_ROAD_POSTS_33 = 33   // Primary road posts (appears with telephone poles)
 };
 
-// Track coordinate segment (12 bytes) - raw storage format from binary
+// 12 bytes, as stored in the binary.
 struct SrTrackCoordSegment {
     int16_t xStart;    // Start X coordinate (scale by 1/16 for 320x200 screen)
     int16_t xEnd;      // End X coordinate
@@ -890,7 +838,7 @@ struct SrTrackCoordSegment {
     int16_t sprite2;   // Second sprite ID or environment marker
 };
 
-// Roadside sprite placement (8 bytes) - environmental decoration format
+// 8 bytes.
 struct SrRoadSideSpriteRecord {
     uint16_t spriteId1;      // First sprite ID
     uint16_t trackPosition1; // Position along track (scale by 1/16)
@@ -898,7 +846,7 @@ struct SrRoadSideSpriteRecord {
     uint16_t trackPosition2; // Position along track
 };
 
-// TrackSegment C structure (26 bytes) - runtime format used by game engine
+// Runtime format, 26 bytes.
 struct SrTrackSegment {
     int16_t commandStart;   // Racing command/instruction start
     int16_t commandEnd;     // Racing command/instruction end
@@ -912,23 +860,19 @@ struct SrTrackSegment {
     uint8_t triggerFlag;    // Trigger conditions
     uint8_t padding[13];    // Padding to 26 bytes total
 
-    // Check if this segment ends the chain
     bool IsEndOfChain() const { return (flags & 2) != 0; }
 
-    // Get bounding box for collision detection
     void GetBoundingBox(int16_t& minX, int16_t& minY, int16_t& maxX, int16_t& maxY) const {
         minX = trapXMin; minY = trapYMin;
         maxX = trapXMax; maxY = trapYMax;
     }
 };
 
-// Custom rectangle type for frame definitions
 struct SpriteRect {
     int16_t x, y;        // Position in sprite sheet
     uint16_t w, h;       // Dimensions of frame
 };
 
-// Animation metadata for sprites with multiple frames
 struct SpriteAnimationInfo {
     uint16_t spriteId;           // The sprite asset ID
     uint8_t frameCount;          // Total number of frames
@@ -955,16 +899,8 @@ static const SpriteRect LIBP_16_GUS_GAS_SIGN[] = {
     {38, 43, 26, 17}, {0, 43, 38, 26}, {0, 0, 64, 43}
 };
 
-// ============================================================================
-// Roadside object frame tables - EXACT data from roadside_sprite_table
-// (Amiga static 0x2469a0, 20 records x 0x36 bytes). Each record's per-scale-row
-// 4 bytes = {srcX, srcY, width, height}; frames are listed largest (nearest) ->
-// smallest (farthest).
-//
-// Record N is lib.p asset id (21 + N): record 0 = palm tree = id 21, matching
-// RodEdit and the AmigaLibAsset enum. (The table's own leading word is id+1, an
-// internal load handle - do NOT read it as the asset id.)
-// ============================================================================
+// Roadside object frame tables: 20 records, each scale row {srcX, srcY, width, height}, largest (nearest) first.
+// Record N is lib.p asset 21 + N; the table's own leading word is id+1, not the asset id.
 
 static const SpriteRect FRAMES_PALM_TREE[] = {
     {0, 0, 56, 87}, {56, 0, 34, 52}, {90, 0, 23, 35}, {56, 52, 19, 29}, {75, 52, 15, 24}, {90, 35, 13, 20}, {90, 55, 11, 17}, {103, 35, 10, 15}, {104, 50, 9, 14}, {106, 64, 7, 11}, {107, 75, 6, 9}
@@ -1054,19 +990,11 @@ static const SpriteRect RACING_LIGHT_FRAMES[] = {
     {24, 0, 24, 32}, {0, 0, 24, 32}
 };
 
-// Engine animation frame definitions.
-//
-// Frames are packed at exactly their own size, with no gutter - the sheets
-// are wider than frames*width and the slack sits unused at the right edge.
-// Straight from the original: FUN_002416bc picks a frame with
+// Frames are packed at their own size with no gutter; slack sits at the sheet's right edge. The original picks
 //
 //     srcX = (counter & 3) * w        srcY = row ? h : 0
 //
-// off the blit record's own width/height fields, so the stride IS the frame
-// size. Do not "correct" these to the sheet divided by its grid - that pulls
-// in a strip of the neighbouring frame. Sizes below match the original's
-// records at A4-0x3b40 / A4-0x3b1c exactly; see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md.
+// so do not "correct" these to the sheet divided by its grid.
 
 // Belt: 176x106 sheet, 2x2 of 86x53
 static const SpriteRect ENGINE_BELT_FRAMES[] = {
@@ -1106,14 +1034,11 @@ static const SpriteRect CAR_JACK_FRAMES[] = {
     {96, 0, 32, 29} // Last frame is a mask for the garage floor to hide the jack from background
 };
 
-// Animation data for known animated sprites
 static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {RACING_SIGN_GARAGE, 11, 100, true, LIBP_15_GARAGE_SIGN},
     {RACING_SIGN_GUS_GAS, 11, 100, true, LIBP_15_GUS_GAS_SIGN},
     {RACING_DRIVE_IN, 11, 100, true, LIBP_16_GUS_GAS_SIGN},
-    // Roadside objects (roadside_sprite_table @ Amiga 0x2469a0). Record N =
-    // lib.p asset id (21 + N); keyed here by that id so name, frames and the
-    // loaded bitmap all agree (palm = 21, matching RodEdit).
+    // Keyed by lib.p asset id, so name, frames and bitmap agree.
     {RACING_PALM_TREE,            11, 100, true, FRAMES_PALM_TREE},                // id21
     {RACING_ROAD_POST,            11, 100, true, FRAMES_ROAD_POST},                // id22
     {RACING_UNKNOWN_THING2,       11, 100, true, FRAMES_THING2},                   // id23
@@ -1145,63 +1070,35 @@ static const SpriteAnimationInfo SPRITE_ANIMATIONS[] = {
     {CAR_JACK_ANIMATION, 3, 500, true, CAR_JACK_FRAMES}, // Skip last frame
 };
 
-// Helper function to get animation info for a sprite
 inline const SpriteAnimationInfo* GetSpriteAnimationInfo(uint16_t spriteId) {
     for (const auto& info : SPRITE_ANIMATIONS) {
         if (info.spriteId == spriteId) {
             return &info;
         }
     }
-    return nullptr; // No animation info found
+    return nullptr;
 }
 
-// Helper function to get frame rectangle for animation frame
 inline SpriteRect GetAnimationFrameRect(const SpriteAnimationInfo* info, uint8_t frameIndex) {
     if (!info || frameIndex >= info->frameCount || !info->frames) {
-        return {0, 0, 0, 0}; // Invalid frame
+        return {0, 0, 0, 0};
     }
 
     return info->frames[frameIndex];
 }
 
-// Opponent car sprite color palette index
-// Opponent car sprites use indexed colors. Palette index 7 contains the magenta
-// placeholder color (#f000c0 / RGB: 240, 0, 192) that represents the car body.
-// To recolor an opponent car, replace palette[7] with the desired car color before
-// converting the sprite from planar to chunky format.
+// Palette index 7 holds the magenta placeholder (#f000c0) for the body; replace it before planar-to-chunky.
 constexpr uint8_t SR_OPPONENT_CAR_PALETTE_INDEX = 7;
 constexpr uint8_t SR_OPPONENT_MAGENTA_R = 240;
 constexpr uint8_t SR_OPPONENT_MAGENTA_G = 0;
 constexpr uint8_t SR_OPPONENT_MAGENTA_B = 192;
 constexpr uint8_t SR_OPPONENT_MAGENTA_TOLERANCE = 5;  // RGB tolerance for matching
 
-// ============================================================================
-// AUDIO SAMPLE DATA - Verified Sound Sample Offsets and Properties
-// ============================================================================
-//
-// Street Rod uses three main audio files containing raw 8-bit signed PCM samples:
-// - srl0.wave: Racing engine loop and general game sounds (engine start, effects)
-// - srl1.wave: Music samples (California Dreams custom format)
-//
-// All samples are 8-bit SIGNED audio (-128 to 127), NOT unsigned!
-// Amiga Paula chip base frequency: 3579545 Hz (NTSC) / 3546895 Hz (PAL)
-// Sample playback rate = PAULA_BASE_FREQ / period
-//
-// ============================================================================
+// Samples are 8-bit SIGNED PCM. Playback rate = Paula base frequency / period
+// (3579545 Hz NTSC, 3546895 Hz PAL).
 
-// srl0.wave - Racing engine loop and general game sounds
-// Total file size: 37748 bytes. Raw signed 8-bit PCM after an 8-byte prefix
-// (e1 f7 0e 22 31 3c 3d 34), which srs0/srl1 carry too.
-//
-// The engine loop is NOT in srs0.wave. srs0.wave is 2558 bytes holding a few
-// small IFF 8SVX FORMs (first one: VHDR 210 one-shot samples, ANNO, BODY) - it
-// has no 512-byte drone in it, and reading it as raw PCM from offset 0 feeds
-// the literal ASCII "FORM....8SVX VHDR" header to the audio device. That is
-// what the engine used to play. Corroborating the file choice: the audio loader
-// allocates 64948 bytes = srl0 (37748) + srl1 (27200) exactly.
-//
-// Racing engine loop: a steady-state slice of the ignition sample, looped on
-// two channels with the period recomputed every tick (docs/audio.md).
+// srl0.wave: 37748 bytes of raw signed PCM after an 8-byte prefix. The engine loop is here, not in srs0.wave,
+// which holds IFF 8SVX FORMs. The racing loop is a steady slice of the ignition sample.
 constexpr uint32_t SRL0_ENGINE_LOOP_OFFSET = 0x01D8;  // Racing engine loop
 constexpr uint32_t SRL0_ENGINE_LOOP_LENGTH = 0x0200;  // Bytes (looped)
 constexpr uint16_t SRL0_ENGINE_IDLE_PERIOD = 252;     // Period at idle RPM (~14204 Hz)
@@ -1209,34 +1106,25 @@ constexpr uint16_t SRL0_ENGINE_MAX_PERIOD = 193;      // Period at redline (~185
 constexpr uint32_t SRL0_ENGINE_BASE_RATE = 16000;     // Nominal rate; pitch is set from the period
 
 constexpr uint32_t SRL0_ENGINE_START_OFFSET = 0x0000;  // Offset in bytes
-constexpr uint16_t SRL0_ENGINE_START_PERIOD = 325;    // Amiga period (3579545 / 325 ≈ 11014 Hz)
+constexpr uint16_t SRL0_ENGINE_START_PERIOD = 325;    // Amiga period (3579545 / 325 ~ 11014 Hz)
 constexpr uint32_t SRL0_ENGINE_START_LENGTH = 7827;  // Length in bytes
 constexpr uint32_t SRL0_ENGINE_START_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.710 seconds
 
 constexpr uint32_t SRL0_TIRE_SCREECH_OFFSET = 0x1E93;  // Offset in bytes
 constexpr uint32_t SRL0_TIRE_SCREECH_LENGTH = 4910;  // Length in bytes
 constexpr uint32_t SRL0_TIRE_SCREECH_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.445 seconds
 
 constexpr uint32_t SRL0_HONK_OFFSET = 0x31C1;  // Offset in bytes
 constexpr uint32_t SRL0_HONK_LENGTH = 1718;  // Length in bytes
 constexpr uint32_t SRL0_HONK_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.156 seconds
 
-// The intro's three bangs (0x228208): srl0 + 0x3108, 0x780 bytes, period
-// param + 250, volume 0x40, channels 2 and 3, played once.
+// The intro's three bangs: 0x780 bytes, period param + 250, volume 0x40, channels 2 and 3, played once.
 constexpr uint32_t SRL0_CUTSCENE_HIT_OFFSET = 0x3108;
 constexpr uint32_t SRL0_CUTSCENE_HIT_LENGTH = 0x0780;
 constexpr uint16_t SRL0_CUTSCENE_HIT_PERIOD_BIAS = 250;
 constexpr int SRL0_CUTSCENE_HIT_VOLUME = 0x40;
 
-// Impact. CONFIRMED from the binary (0x22854e, reached from the sideswipe block
-// in RaceLogicUpdate at 0x244fb0/0x244fb4/0x244fe8 - the three hits the player
-// gets shoved with): srl0 + 0x3888, 0x1010 bytes, period `random % 40 + 310`
-// rolled per channel, volume 0x34, on channels 2 and 3, played once.
-// The 0x3877/4773/11025 recorded here before was ear-tuned, not read off the
-// binary, and sat 17 bytes early into the sample.
+// Impact: 0x1010 bytes, period `random % 40 + 310` per channel, volume 0x34, channels 2 and 3, played once.
 constexpr uint32_t SRL0_CAR_BASH_OFFSET = 0x3888;
 constexpr uint32_t SRL0_CAR_BASH_LENGTH = 0x1010;  // 4112 bytes
 constexpr uint16_t SRL0_CAR_BASH_PERIOD_BASE = 310;
@@ -1244,10 +1132,7 @@ constexpr uint16_t SRL0_CAR_BASH_PERIOD_SPREAD = 40;
 constexpr int SRL0_CAR_BASH_VOLUME = 0x34;         // Paula 52
 constexpr uint32_t SRL0_CAR_BASH_RATE = 3579545u / SRL0_CAR_BASH_PERIOD_BASE;
 
-// The full wreck. Same sample start, but the whole 0x254c of it on ALL FOUR
-// channels at four fixed periods at once (0x2284a8, reached from the race
-// outcome screen at 0x245240) - a four-voice chord, not a single bang. The
-// bash above is just the head of this sample.
+// The full wreck: the whole 0x254c of the same sample on all four channels at four periods at once.
 constexpr uint32_t SRL0_CRASH_OFFSET = 0x3888;
 constexpr uint32_t SRL0_CRASH_LENGTH = 0x254c;     // 9548 bytes
 constexpr uint16_t SRL0_CRASH_PERIODS[4] = {280, 340, 390, 480};
@@ -1256,53 +1141,23 @@ constexpr int SRL0_CRASH_VOLUME = 0x40;            // Paula 64
 constexpr uint32_t SRL0_DEBRIS_OFFSET = 0x4B1C;  // Offset in bytes
 constexpr uint32_t SRL0_DEBRIS_LENGTH = 4782;  // Length in bytes
 constexpr uint32_t SRL0_DEBRIS_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.434 seconds
 
-// Engine bay drone. 0x22818e plays 0x1b00 bytes from srl0 + 0x408 on channels
-// 0 and 1 at volume 0x24, rolling `320 + random % 50` SEPARATELY for each
-// channel - so left and right sit at slightly different rates, drift against
-// each other and phase, and the detune differs every time it is started. That
-// per-channel roll is the whole character of the sound; one shared period is
-// centred mono and sounds nothing like it.
+// Engine bay ignition: 0x1b00 bytes on channels 0 and 1 at volume 0x24, each channel rolling its own
+// `320 + random % 50`, so they phase differently every start.
 constexpr uint32_t SRL0_BAY_IGNITION_OFFSET = 0x0408;   // Offset in bytes
 constexpr uint32_t SRL0_BAY_IGNITION_LENGTH = 0x1B00;   // 6912 bytes
 constexpr uint16_t SRL0_BAY_IGNITION_PERIOD_BASE = 320;
 constexpr uint16_t SRL0_BAY_IGNITION_PERIOD_SPREAD = 50;
 constexpr int SRL0_BAY_IGNITION_VOLUME = 0x24;          // Paula 36
 
-// The engine bay drone, measured live in Copperline (period array at A4-0x44ec,
-// volume array at A4-0x44e4 - the arrays 0x22c32e / 0x22c326 write):
+// Engine bay drone: all four channels play the racing loop at period 670 at perfect tune. Pairs 0/1 and 2/3
+// detune against each other by one step per notch, so the phasing speeds up the worse the tune is, heard as a
+// stereo sweep. The buttons are asymmetric against the tune byte (-8..+4):
 //
-//   all four channels play srl0 + 0x1D8, length 512 - the racing loop
-//   at perfect tune ALL FOUR sit at period 670
-//   one knob press moves channels 0/1 by 10 and channels 2/3 by 11
+//   Retard   clamp -8   muls #10 (ch 0/1) / #11 (ch 2/3)
+//   Advance  clamp  4   muls #13 (ch 0/1) / #12 (ch 2/3)
 //
-// The two pairs are just two voices of the same engine, deliberately detuned
-// against each other. (They get started by the routines racing uses for the
-// player's car and the opponent's - 0x227c2e on channels 0/1 at volume 20 and
-// 0x227d1c on 2/3 at volume 30 - but there is no second car in the bay, so do
-// not read anything into those names.)
-//
-// That one-step difference is the whole effect: at perfect tune the pairs are
-// identical and there is no phasing at all, and every step away widens the
-// split by one period, so the beating gets faster the worse the tune is. Paula
-// puts channels 0+3 left and 1+2 right, so the split is heard as a stereo
-// sweep rather than a simple beat.
-//
-// Sweeping the knob end to end gave pair A 618..761 against pair B 622..758.
-//
-// The two buttons are NOT symmetric - 0x241972 / 0x2419fa / 0x241a56 share one
-// function and pick their multipliers per branch, against the tune byte at
-// car+0x2b (clamped -8..+4):
-//
-//   Retard   subq.b #1  clamp $f8 (-8)   muls #10 (ch 0/1) / #11 (ch 2/3)
-//   Advance  addq.b #1  clamp #4         muls #13 (ch 0/1) / #12 (ch 2/3)
-//
-// so period = centre - tune*step, and advancing detunes faster than retarding.
-//
-// And perfect tune is marked twice over: 0x241a1a `tst.b $2b(a3)` picks volume
-// 16 when the tune byte is zero and 25 otherwise, so the drone goes quiet as
-// well as clean at centre.
+// Perfect tune also drops the volume from 25 to 16.
 constexpr uint16_t SRL0_BAY_DRONE_PERIOD_CENTRE = 670;
 constexpr int SRL0_BAY_DRONE_STEP_A_RETARD  = 10;  // channels 0/1, tune < 0
 constexpr int SRL0_BAY_DRONE_STEP_B_RETARD  = 11;  // channels 2/3, tune < 0
@@ -1311,10 +1166,7 @@ constexpr int SRL0_BAY_DRONE_STEP_B_ADVANCE = 12;  // channels 2/3, tune > 0
 constexpr int SRL0_BAY_DRONE_VOLUME = 25;          // Paula, off centre
 constexpr int SRL0_BAY_DRONE_VOLUME_TUNED = 16;    // Paula, at perfect tune
 
-// period = centre - tune*step, matching `sub.w d0,d1` at 0x241a18 / 0x241a3c.
-// Advancing therefore SHORTENS the period (higher pitch) and retarding
-// lengthens it (lower pitch) - the sign was inverted here at first, which made
-// retarding speed the engine up.
+// period = centre - tune*step: advancing shortens the period (higher pitch).
 inline int BayDronePeriodA(int tuneOffset) {
     return SRL0_BAY_DRONE_PERIOD_CENTRE - tuneOffset *
         (tuneOffset > 0 ? SRL0_BAY_DRONE_STEP_A_ADVANCE : SRL0_BAY_DRONE_STEP_A_RETARD);
@@ -1327,17 +1179,10 @@ inline int BayDroneVolume(int tuneOffset) {
     return tuneOffset == 0 ? SRL0_BAY_DRONE_VOLUME_TUNED : SRL0_BAY_DRONE_VOLUME;
 }
 
-// Part-mounting sound effect. 0x2287a8 plays 0x320 bytes from srl0 + 0x5dc8 on
-// channels 1 and 3 at `param + 0xdc`, and the two callers roll the param as
-// `random % 50 + 400` (volume 60) and `random % 50 + 600` (volume 40). So the
-// period lands in 620..669 or 820..869 - a fresh pitch on every use.
-// Gas pump. CONFIRMED: 0x227e6e, reached from GasStationPumpLoop (0x246212)
-// through its module thunk at 0x246836 and the on/off wrapper 0x22e19e - the
-// "no findable callers" note in docs/audio.md is now settled. Four looping
-// voices: the racing loop (srl0 + 0x1d8, 0x200 bytes) at periods 2850 and 1850
-// at volume 0x19, plus srl0 + 0x60f4 (0xc80 bytes) at 550 and 565 at volume 5.
-// At those periods the loop is a slow chug, not an engine note. RodLegacy plays
-// the loud pair; the volume-5 voices are a garnish it leaves out.
+// Gas pump: the racing loop at periods 2850 and 1850, volume 0x19, a slow chug. The original's two quiet
+// extra voices are left out.
+// Part mount: 0x320 bytes at `param + 0xdc`, param rolled `random % 50 + 400` (volume 60) or
+// `random % 50 + 600` (volume 40), a fresh pitch every use.
 constexpr uint16_t SRL0_GAS_PUMP_PERIOD_LEFT = 2850;
 constexpr uint16_t SRL0_GAS_PUMP_PERIOD_RIGHT = 1850;
 constexpr int SRL0_GAS_PUMP_VOLUME = 0x19;            // Paula 25
@@ -1353,20 +1198,13 @@ constexpr int SRL0_PART_MOUNT_VOLUME_HIGH = 40;       // the 820..869 roll
 constexpr uint32_t SRL0_CAR_JACK_OFFSET = 0x5DCA;  // Offset in bytes
 constexpr uint32_t SRL0_CAR_JACK_LENGTH = 3972;  // Length in bytes
 constexpr uint32_t SRL0_CAR_JACK_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.360 seconds
 
 constexpr uint32_t SRL0_COP_SIREN_OFFSET = 0x6D4E;  // Offset in bytes
 constexpr uint32_t SRL0_COP_SIREN_LENGTH = 9766;  // Length in bytes
 constexpr uint32_t SRL0_COP_SIREN_RATE = 11025;  // Sample rate in Hz
-// Duration: 0.886 seconds
 
 
-// Note: Other sound effects in srl0.wave (ignition, tire screech, honk, crash, siren)
-// are present but exact offsets need verification from Amiga disassembly
-
-// srl1.wave - Music Samples (California Dreams Format)
-// Total file size: ~27KB
-// These samples are used by the music sequencer for background music
+// srl1.wave: music samples for the sequencer.
 constexpr uint32_t SRL1_TONE_OFFSET = 0x0000;         // Lead melody tone
 constexpr uint32_t SRL1_TONE_LENGTH = 2355;           // Bytes
 constexpr uint32_t SRL1_BASSDRUM_OFFSET = 0x0933;     // Bass drum percussion
@@ -1377,26 +1215,10 @@ constexpr uint32_t SRL1_BUZZ_OFFSET = 0x094F;         // Buzz/distortion effect
 constexpr uint32_t SRL1_BUZZ_LENGTH = 24817;          // Bytes (rest of file)
 constexpr uint32_t SRL1_MUSIC_SAMPLE_RATE = 22050;    // Standard sample rate for music
 
-// Music format companion files (see streetrod-research/src/music for details):
-// - msr.note: Note sequences and pattern data
-// - srl.ins: Instrument definitions (maps notes to samples)
-// - srl.env: Envelope data (volume/pitch modulation)
-
-// Audio format notes:
-// 1. All samples are 8-bit SIGNED PCM (-128 to 127)
-// 2. Engine sounds use Amiga period-based pitch shifting
-// 3. Music samples use fixed sample rates
-// 4. Looped samples (engine) repeat seamlessly
-// 5. One-shot samples (effects) play once without looping
-
-// Helper function to calculate sample duration in seconds
 constexpr inline float CalculateSampleDuration(uint32_t lengthInSamples, uint32_t sampleRate) {
     return static_cast<float>(lengthInSamples) / static_cast<float>(sampleRate);
 }
 
-// ============================================================================
-
-// Track data offsets in Street Rod binary
 constexpr uint32_t SR_TRACK_ROAD_RACE_OFFSET = 0xE000;      // Road race track (500 segments)
 constexpr uint32_t SR_TRACK_DRAG_RACE_OFFSET = 0xDD00;      // Drag race track (~200 segments)
 constexpr uint32_t SR_ROADSIDE_SPRITES_OFFSET = 0x10021;    // Roadside sprite placements
@@ -1464,7 +1286,6 @@ const int CAR_VENDOR_LOOKUP[][2] = {
 #define CAR_VENDOR_LOOKUP_COUNT (sizeof(CAR_VENDOR_LOOKUP) / sizeof(CAR_VENDOR_LOOKUP[0]))
 
 
-// Car X position lookup table by scene
 const int CAR_IDLE_X[][2] = {
     {SCENE_GARAGE,      35},
     {SCENE_DINER,       82},
@@ -1476,12 +1297,7 @@ const int CAR_IDLE_X[][2] = {
 #define CAR_IDLE_X_COUNT (sizeof(CAR_IDLE_X) / sizeof(CAR_IDLE_X[0]))
 
 
-// Wheel Y per car now lives in car_set.cpp (CarSetWheelY), because it is
-// per car set rather than per lib.p asset and no data file supplies it.
-//
-// Gas cap X/Y (unlike the fields above) is not a separate hand-measured
-// table - it comes straight from CLICKBOX_GASSTATION_START, the same point
-// the click box itself reads, in SrLibDataReadDataFromBuffer.
+// Wheel Y per car lives in car_set.cpp. The gas cap position comes from the click box point.
 
 #pragma pack(push, 1)
 struct BitmapEntry_t {
@@ -1521,8 +1337,7 @@ struct BitmapOffset_t {
     uint8_t offsetYFrontBumper;
     uint8_t offsetXDecal;
     uint8_t offsetYDecal;
-    // Supplemental offsets
-    // not found in SR_data
+    // Not in SR_data.
     uint8_t offsetYTires;
     uint8_t offsetXGasCap;
     uint8_t offsetYGasCap;
@@ -1563,9 +1378,7 @@ struct CarMetadata_t {
     BitmapOffset_t offsets;
     ClassifiedEntry_t classified;
     CarClickBoxes_t clickBoxes;
-    // lib.p hood-scoop asset for this car, -1 if it has none. One of
-    // CAR_SCOOP1..4, picked per car body by the sprite-ref table - see
-    // RodLegacyResearch/docs/garage/car_asset_table.md.
+    // lib.p hood-scoop asset, one of CAR_SCOOP1..4, or -1.
     int airScoop = -1;
 };
 
@@ -1585,23 +1398,16 @@ enum StockPalette {
 
 
 
-// FIXME: Add all stock palettes
 #define RLE         {{1, 0x0}, {1, 0xff}, {2, 0x0}, {3, 0x0}, {2, 0xff}, {4, 0x0}, {5, 0x0}, {3, 0xff},	{6, 0x0}, {4, 0xff}, {7, 0x0}, {5, 0xff}, {8, 0x0}, {6, 0xff}, {9, 0x0}, {7, 0xff}}
 #define RLE_DOS     {{1, 0x00}, {1, 0xFF}, {2, 0x00}, {3, 0x00}, {4, 0x00}, {2, 0xFF}, {3, 0xFF}, {5, 0x00}, {6, 0xFF}, {6, 0x00}, {4, 0xFF}, {7, 0xFF}, {7, 0x00}, {5, 0xFF}, {8, 0xFF}, {8, 0x00}}
 #define PAL1        {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00D0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x009F, 0x00BF}
 #define PAL_GAS     {0x0000, 0x0810, 0x0911, 0x0B21, 0x0D22, 0x0F32, 0x0F44, 0x0F65, 0x0F87, 0x0F98, 0x0FFF, 0x0EEE, 0x0CCC, 0x0BBB, 0x0AAA, 0x0999, 0x0888, 0x0950, 0x0C71, 0x0F96, 0x0333, 0x0222, 0x005B, 0x007F, 0x00F0, 0x00B0, 0x0FE9, 0x0FD2, 0x0B21, 0x0F32, 0x0F96, 0x0C63}
 #define PAL_DRIVING {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F0C, 0x0B0A, 0x0F0C, 0x0F0C, 0x0EEE, 0x052F, 0x0FE0, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA}
-// Same as PAL_DRIVING, but some colors are swapped using copperlists
-// The copperlist reloads six registers (6, 7, 8, 9, 11, 12) partway down the
-// interior: above the split they hold shades of the player car's colour ramp,
-// below it the driver's skin tones. PAL_DRIVING_LOW is the lower band's values;
-// PAL_DRIVING keeps magenta placeholders in 6..9 for the car-colour recolour.
+// The copperlist reloads registers 6, 7, 8, 9, 11 and 12 partway down the interior: above the split they hold
+// the player car's shades, below it the driver's skin tones. This is the lower band; PAL_DRIVING keeps magenta
+// placeholders in 6..9 for the recolour.
 #define PAL_DRIVING_LOW {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F96, 0x0D94, 0x0D62, 0x0A50, 0x0EEE, 0x0841, 0x0730, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA};
-// Assets that carry hood pixels (RACING_HOOD, and the hood's left edge inside
-// RACING_INTERIOR_1) sit above the split, where 6 and 7 hold the player car's
-// colour. Only those two registers are restored to PAL_DRIVING's magenta
-// placeholders, which is what PlanarToChunky swaps for the car palette; 8, 9,
-// 11 and 12 keep the LOW values, the only ones observed in the reference frame.
+// Hood pixels sit above the split: only 6 and 7 are restored to magenta placeholders for the car palette.
 #define PAL_DRIVING_HOOD {0x0000, 0x0640, 0x0999, 0x0666, 0x0333, 0x0111, 0x0F0C, 0x0B0A, 0x0D62, 0x0A50, 0x0EEE, 0x0841, 0x0730, 0x00B1, 0x0070, 0x0E00, 0x0CCC, 0x0330, 0x0970, 0x0860, 0x0777, 0x0666, 0x0555, 0x0444, 0x0A94, 0x0CB6, 0x0BBB, 0x0999, 0x0888, 0x0B00, 0x0900, 0x0AAA};
 static const int kCarIndex[] = {
     CHEVROLET_2DR_COUPE_1940,
@@ -1707,17 +1513,9 @@ public:
     }
 };
 
-/*
-    Debug functions
-*/
-
 void SrLibDebugBitmapEntry(int number, BitmapEntry_t entry);
 void SrLibDebugBitplanes(const uint8_t* data, int width, int height, int depth);
 
-
-/*
-    Bitmap functions
-*/
 
 class BitmapParser {
 
@@ -1726,8 +1524,7 @@ class BitmapParser {
     std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::vector<uint8_t>& data);
 	std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::string& filename);
     std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1);
-    // Raw palette indices, for images whose colours change after decode
-    // (palette fades on an indexed buffer).
+    // Raw palette indices, for images whose colours change after decode.
     std::vector<uint8_t>                                 PlanarToIndices(const std::vector<uint8_t>& data, BitmapEntry_t entry);
     std::vector<uint8_t>                                 ChunkyToPlanar(const std::vector<SrLibColor>& pixels, BitmapEntry_t entry, const Palette& palette, std::string* error = nullptr);
     std::vector<uint8_t>                                 GetPackedData(const std::vector<uint8_t>& data, const BitmapEntry_t& bitmapEntry, int totalEntriesCount);
@@ -1751,22 +1548,15 @@ class BitmapParser {
     std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);
 
-    // DOS LIB bitmap support
     std::pair<int, std::vector<DOSBitmapEntry_t>>   ReadEntriesDOS(const std::vector<uint8_t>& data);
     std::vector<uint8_t>                            GetPackedDataDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int totalEntriesCount);
     std::vector<uint8_t>                            UnpackDataDOS(const DOSBitmapEntry_t& sprite, const std::vector<uint8_t>& data);
     std::vector<uint8_t>                            ReadImageDOS(const std::vector<uint8_t>& data, const DOSBitmapEntry_t& entry, int index, int totalEntriesCount);
     Palette                                         GetDOSPalette(int spriteType = 0);
-    // GetDOSPalette with the car's paint substituted in, for car sprites out
-    // of a DOS car set. carPalette is a 9-step StandardCarColor ramp; a
-    // shorter one is ignored and the stock DOS colours come back.
+    // carPalette is a 9-step ramp; a shorter one returns the stock DOS colours.
     Palette                                         GetDOSCarPalette(int spriteType, const std::vector<uint16_t>& carPalette);
     std::vector<SrLibColor>                         PlanarToChunky(const std::vector<uint8_t>& data, DOSBitmapEntry_t entry, const Palette& palette);
 };
-
-/*
-    Amiga sprite functions
-*/
 
 enum SrLibAmigaSpriteAsset {
     SrLibAmigaSpriteAssetMousePointerWrench = 0,
@@ -1782,12 +1572,7 @@ struct SrLibAmigaSpriteInfo {
     int offset;
     int width;
     int height;
-    // Sprite colours 1..3, Amiga 12-bit RGB. The mouse pointer is always
-    // hardware sprite 0, so the original loads these three into colour
-    // registers 17-19 every time the pointer changes - they are a property of
-    // the pointer, not of the scene palette. Read out of the pointer table at
-    // A4-0x6630 in the Amiga binary (SetMousePointer, 0x002260e2), 0x12 bytes
-    // per entry: +0 data, +4 width, +6 height, +8/+a hotspot, +c/+e/+10 colours.
+    // Colours 1..3 in Amiga 12-bit RGB, a property of the pointer (hardware sprite 0), not the scene palette.
     uint16_t colors[3];
 };
 
@@ -1806,14 +1591,9 @@ const SrLibAmigaSpriteInfo SPRITE_INFO_LOOKUP[] = {
 int SrLibAmigaSpriteToRGBA(const uint16_t* data, int startOffset, const uint16_t* colors, int width, int height, SrLibColor* out_buffer);
 int SrLibAmigaSpriteReadMousePointer(const uint16_t* data, SrLibAmigaSpriteAsset sprite, SrLibColor* out_buffer);
 
-/*
-    Data functions
-*/
-
 void SrLibDataCleanupCarString(char* str);
 void SrLibDataFreeClassified(ClassifiedEntry_t* entry);
 
-// Transmission types enum
 enum SrTransmissionType {
     SR_TRANS_AUTO_GM = 0,
     SR_TRANS_AUTO_FORD = 1,
@@ -1831,26 +1611,19 @@ enum SrTransmissionType {
     SR_TRANS_COUNT = 13
 };
 
-// SR_data challenger dialog block: 22 entries × 10 bytes = 220 bytes.
-// Byte layout confirmed identical between DOS HOT_DATA and Amiga SR_data runtime.
+// 22 entries x 10 bytes, identical layout in DOS HOT_DATA and Amiga SR_data.
 static constexpr int SR_DATA_DRIVER_ENTRY_COUNT  = 22;
 static constexpr int SR_DATA_CARSPEC_ENTRY_COUNT = 26; // 25 regular + King at index 25
 static constexpr int SR_DATA_KING_DRIVER_INDEX   = 21; // entry 21 = The King
-// Start of the text blob the driver/car-spec records point into. The records
-// store absolute addresses, so the load base is recovered by anchoring the first
-// car spec's pointer to this offset.
+// The records store absolute addresses, so the load base is recovered from the first car spec's pointer.
 static constexpr int SR_DATA_TEXT_BLOB_OFFSET    = 0x854;
 static constexpr int SR_DATA_KING_CARSPEC_INDEX  = 25; // spec 25 = The King's car
 
-// Both blocks are big-endian on disk, so multi-byte fields are kept as raw
-// byte pairs and read through accessors. Layout verified against every entry of
-// the shipped SR_data; see RodLegacyResearch/docs/formats/sr_data.md.
+// Big-endian on disk, so multi-byte fields are raw byte pairs read through accessors.
 #pragma pack(push, 1)
 struct SrDriverData {
     uint8_t tier;         // [0] difficulty tier: 0=easy, 1=medium, 2=hard
-    // Both of the next two FALL as driver index rises, i.e. the driver index is
-    // the difficulty ranking and LOWER IS BETTER in both. The King (21) holds
-    // the minimum of each: reaction 0x0a, aggression 0x04.
+    // Both fall as the driver index rises: lower is better. The King holds the minimum of each.
     uint8_t reaction;     // [1] 0x0a (fastest) .. 0x14 (slowest)
     uint8_t aggression;   // [2] 0x04 (best) .. 0x0c (worst)
     uint8_t reserved3;    // [3] always 0x00
@@ -1870,12 +1643,7 @@ struct SrDriverData {
 };
 static_assert(sizeof(SrDriverData) == 10, "SrDriverData must be 10 bytes");
 
-// SR_data car spec block: 26 entries × 14 bytes = 364 bytes.
-// Every field below is verified against all 26 entries of the shipped SR_data.
-// The config word's bit fields are corroborated by the Amiga itself: the game's
-// FUN_00243b9c expands exactly these fields into part indices before scoring,
-// and SetupChallengerEncounter 0x23d3e4 reads the word at +4 as
-// `(word & 0x0c00) >> 10` for the tire class.
+// 26 entries x 14 bytes.
 struct SrCarSpecEntry {
     uint8_t price[2];       // [0..1] BE price in dollars; 0 = never for sale
     uint8_t car_class;      // [2] 0..8 tier; correlates with price and spec
@@ -1891,19 +1659,9 @@ struct SrCarSpecEntry {
     bool ForSale() const { return Price() != 0; }
     int ConfigWord() const { return (config[0] << 8) | config[1]; }
 
-    // Packed config word. Bits 0..14 are all accounted for; bit 15 is always 0.
-    // Brand is stored as a bitmask (bit12=GM, bit13=Ford, bit14=Chrysler), and
-    // >>13 conveniently collapses that to 0/1/2 - which is what the Amiga does.
-    //
-    // The field layout is the same one the Amiga's master parts table uses for
-    // a part's own class word (engine & 7, manifold (& 0x38) >> 3, carb
-    // (& 0xc0) >> 6, transmission (& 0x300) >> 8, tires (& 0xc00) >> 10), which
-    // is what makes the classes drop straight into the top-speed scoring.
-    // GenerateOpponentCar (0x23bd6a) builds a car's parts from this word and
-    // pins engine and carb to those bits: engine variant = brand + (cfg & 7) * 3
-    // (master indices 0..8, the nine engines), carb = ((cfg & 0xc0) >> 6) + 0x16
-    // (22..24, the three carburettors).
-    // See RodLegacyResearch/docs/driving/top_speed.md.
+    // Bits 0..14 are used, bit 15 is always 0. Brand is a bitmask (bit12=GM, bit13=Ford, bit14=Chrysler) that >>13
+    // collapses to 0/1/2. Same layout as a part's class word in the master parts table, so the classes drop straight
+    // into the top-speed scoring.
     int Brand()         const { return (ConfigWord() >> 13) & 0x7; }  // 0=GM 1=Ford 2=Chrysler
     int TireClass()     const { return (ConfigWord() >> 10) & 0x3; }  // 0..2
     int TransClass()    const { return (ConfigWord() >> 8)  & 0x3; }  // 0..3
@@ -1922,16 +1680,11 @@ struct SrCarSpecEntry {
 static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
 #pragma pack(pop)
 
-// Amiga SR_data: the per-car sprite offset table. 12 bytes per car in the same
-// field order as its DOS counterpart, for all SR_DATA_CARSPEC_ENTRY_COUNT cars
-// - one more than the game sells, the last being The King's.
-// See RodLegacyResearch/docs/formats/sr_data.md.
+// 12 bytes per car in the DOS field order, one more than the game sells: the last is The King's.
 static constexpr size_t SR_DATA_OFFSETS_START = 0x34C;
 static constexpr size_t SR_DATA_CAR_SPRITES_START = 584;
 
-// DOS HOT_DATA table starts. Same tables as the Amiga SR_data, differently
-// packed, plus DosCarSprites which the Amiga does not need.
-// See RodLegacyResearch/docs/formats/hot_data_dos.md.
+// Same tables as Amiga SR_data, packed differently, plus DosCarSprites.
 static constexpr size_t HOT_DATA_CARSPEC_START    = 396;
 static constexpr size_t HOT_DATA_CARSPRITES_START = 656;
 static constexpr size_t HOT_DATA_OFFSETS_START    = 916;
@@ -1943,10 +1696,7 @@ static constexpr int    HOT_DATA_CAR_COUNT        = 26;
 // Sprite numbers in HOT_DATA are stored with this added on.
 static constexpr int    HOT_DATA_SPRITE_BASE      = 1000;
 
-// Per-car LIB2 sprite numbers, DOS only. The Amiga can assume a car's chopped
-// roof and bumper-stripped patches sit at body+1..body+3; in the DOS libs they
-// are scattered and sometimes shared between cars, so HOT_DATA names them.
-// -1 means the car has no such variant.
+// DOS only: in the DOS libs a car's variant patches are scattered and sometimes shared. -1 = no such variant.
 struct DosCarSprites {
     int body;
     int choppedRoof;
@@ -1955,7 +1705,6 @@ struct DosCarSprites {
     int frontBumperStripped;
 };
 
-// Transmission data structure
 struct SrTransmissionData {
     char name[32];           // Transmission name (e.g., "Trnsmsn 4-spd. GM.")
     uint16_t price;          // Price in dollars
@@ -1964,7 +1713,6 @@ struct SrTransmissionData {
     int16_t gear_ratios[4];  // Gear ratios as scaled integers
     uint16_t scale_factor;   // Scaling factor (100, 256, etc.)
 
-    // Helper: Get actual ratio as float (for display/debugging)
     float GetRatio(int gear) const {
         if (gear < 0 || gear >= 4) return 0.0f;
         return static_cast<float>(gear_ratios[gear]) / static_cast<float>(scale_factor);
@@ -1979,79 +1727,54 @@ class DataParser {
         std::vector<uint8_t>   SrLibDataWriteCarMetadataToBuffer(const std::vector<uint8_t>& data, const std::vector<CarMetadata_t>& metadata, std::string* error = nullptr);
         int                    GetCarIndex(AmigaLibAsset asset);
 
-        // New: Transmission data parsing
         std::vector<SrTransmissionData> ParseTransmissions(const std::vector<uint8_t>& srDataFile);
         std::vector<SrTransmissionData> ParseTransmissions(const std::string& filename);
 
-        // SR_data driver and car spec parsing.
-        // sr_data must be the raw SR_data file bytes (driver block first, then car spec block).
+        // sr_data is the raw SR_data file (driver block first, then car specs).
         std::vector<SrDriverData>   ParseDriverData(const std::vector<uint8_t>& sr_data);
         std::vector<SrCarSpecEntry> ParseCarSpecTable(const std::vector<uint8_t>& sr_data);
-        // Driver names, resolved through the name pointers in the driver block.
         // Same order and length as ParseDriverData(); empty on a short file.
         std::vector<std::string> ParseDriverNames(const std::vector<uint8_t>& sr_data);
 
-        // DOS HOT_DATA (stock SR1 or the SRSE data disk).
-        // ParseCarSpecTableDOS converts the 10-byte DOS records into the same
-        // SrCarSpecEntry the Amiga path produces, so scoring and roster code
-        // works on either source unchanged. All HOT_DATA_CAR_COUNT entries are
-        // returned; empty on a short file.
+        // Converts the DOS records into the same SrCarSpecEntry the Amiga path produces. Empty on a short file.
         std::vector<SrCarSpecEntry> ParseCarSpecTableDOS(const std::vector<uint8_t>& hot_data);
         std::vector<DosCarSprites>  ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data);
-        // DOS counterpart of SrLibDataReadDataFromBuffer: offsets, classified
-        // ads and click boxes for the CAR_PLAYER_MODEL_COUNT buyable cars.
+        // DOS counterpart of SrLibDataReadDataFromBuffer.
         CarMetadata_t* SrLibDataReadDataFromBufferDOS(const uint8_t* data, size_t dataSize, int* outCount);
 };
 
 
-/*
-    Query functions
-*/
-
 class CarQuery {
     public:
-        // Which body mods this car can take, from the assets it ships. Also
-        // what the top-speed score reads: a body that cannot do a mod is
-        // handed the points as though it had, so no car is penalised for
-        // something it can never do. That freebie is worth 9 points on a
-        // Corvette, which cannot be chopped - see
-        // RodLegacyResearch/docs/driving/top_speed.md.
+        // A body that cannot take a mod is scored as though it had it.
         static bool SrLibQueryCanChopRoof(AmigaLibAsset carAsset);
         static bool SrLibQueryCanStripBumpers(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberRearIndex(AmigaLibAsset carAsset);
         static int SrLibQueryGetChoppedBumberFrontIndex(AmigaLibAsset carAsset);
 };
 
-// Track data reader class for loading Street Rod track data
 class TrackReader {
 private:
     std::vector<uint8_t> binaryData;
     bool dataLoaded = false;
 
-    // Helper to read big-endian 16-bit value
     int16_t ReadBigEndian16(const uint8_t* data, size_t offset) const {
         return (static_cast<int16_t>(data[offset]) << 8) | data[offset + 1];
     }
 
-    // Helper to read big-endian 16-bit unsigned value
     uint16_t ReadBigEndianU16(const uint8_t* data, size_t offset) const {
         return (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
     }
 
 public:
-    // Load Street Rod binary data from file
     bool LoadTrackData(const std::string& binaryPath);
 
-    // Load Street Rod binary data from memory (AssetManager)
     bool LoadTrackData(const std::vector<uint8_t>& binaryData);
 
-    // Extract raw coordinate segments from track
     std::vector<SrTrackCoordSegment> ExtractTrackCoordinates(SrTrackType trackType, int maxSegments = 500);
 
-    // Extract roadside sprite placements
     std::vector<SrRoadSideSpriteRecord> ExtractRoadSideSprites(uint32_t offset = SR_ROADSIDE_SPRITES_OFFSET, int maxRecords = 200);
 
-    // Convert coordinate segment to screen coordinates
     static void ScaleCoordinates(SrTrackCoordSegment& segment) {
         segment.xStart /= SR_COORDINATE_SCALE_FACTOR;
         segment.xEnd /= SR_COORDINATE_SCALE_FACTOR;
@@ -2059,16 +1782,13 @@ public:
         segment.yEnd /= SR_COORDINATE_SCALE_FACTOR;
     }
 
-    // Convert sprite position to screen coordinates
     static void ScaleSpritePosition(SrRoadSideSpriteRecord& record) {
         record.trackPosition1 /= SR_COORDINATE_SCALE_FACTOR;
         record.trackPosition2 /= SR_COORDINATE_SCALE_FACTOR;
     }
 
-    // Get sprite name for debugging
     static const char* GetSpriteName(uint16_t spriteId);
 
-    // Analyze track for statistics
     struct TrackAnalysis {
         int segmentCount;
         int curvedSegments;
@@ -2081,7 +1801,6 @@ public:
     TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
-// Calcuates car Y offset fpr a scene
 int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight);
 int SrLibQueryGetCarIdleX(SrLibGameScene scene);
 CarVendor_t SrLibQueryGetCarVendor(int carIndex);

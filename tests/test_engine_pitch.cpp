@@ -4,8 +4,7 @@
 #include <cmath>
 
 TEST_CASE("engine period follows the Amiga's rpm formula") {
-    // RoadRaceMainLoop 0x2363ae computes 240 - rpm/32; the setter at 0x227c8c
-    // adds 400. So period = 640 - rpm/32 below the over-rev threshold.
+    // period = 640 - rpm/32 below the over-rev threshold.
     CHECK(EngineSound::RPMToPeriod(0) == 640);
     CHECK(EngineSound::RPMToPeriod(1500) == 640 - 46);   // idle -> 594
     CHECK(EngineSound::RPMToPeriod(5000) == 640 - 156);  // -> 484
@@ -15,7 +14,7 @@ TEST_CASE("engine period follows the Amiga's rpm formula") {
 }
 
 TEST_CASE("crossing 5500 rpm jumps the drone up, and dropping back undoes it") {
-    // 0x2363d4 swaps the base 240 for 180, so the period falls 60 in one tick.
+    // Over the threshold the base drops by 60 in one tick.
     const int below = EngineSound::RPMToPeriod(5499);
     const int above = EngineSound::RPMToPeriod(5500);
     CHECK(below == 640 - 171);   // 469
@@ -40,9 +39,7 @@ TEST_CASE("crossing 5500 rpm jumps the drone up, and dropping back undoes it") {
 }
 
 TEST_CASE("the bay drone detunes with mistune and goes clean at perfect tune") {
-    // Measured live in Copperline off the period array at A4-0x44ec: both pairs
-    // sit at 670 at perfect tune, and a knob press moves channels 0/1 by 10
-    // and channels 2/3 by 11.
+    // Measured live: both pairs sit at 670 at perfect tune; a knob press moves channels 0/1 by 10 and 2/3 by 11.
     auto pairA = [](int off) { return BayDronePeriodA(off); };
     auto pairB = [](int off) { return BayDronePeriodB(off); };
 
@@ -68,8 +65,7 @@ TEST_CASE("the bay drone detunes with mistune and goes clean at perfect tune") {
 }
 
 TEST_CASE("advancing the tune detunes faster than retarding") {
-    // 0x2419fa (Advance) multiplies by 13/12; 0x241a56 (Retard) by 10/11. The
-    // two directions are deliberately not mirror images.
+    // Advance multiplies by 13/12, retard by 10/11: deliberately not mirror images.
     CHECK(SRL0_BAY_DRONE_STEP_A_RETARD == 10);
     CHECK(SRL0_BAY_DRONE_STEP_B_RETARD == 11);
     CHECK(SRL0_BAY_DRONE_STEP_A_ADVANCE == 13);
@@ -92,8 +88,7 @@ TEST_CASE("advancing the tune detunes faster than retarding") {
 }
 
 TEST_CASE("perfect tune drops the bay drone's volume too") {
-    // 0x241a1a: tst.b the tune byte, 16 when zero and 25 otherwise. Perfect
-    // tune is marked twice - the phasing stops AND the drone quietens.
+    // Perfect tune is marked twice: the phasing stops and the drone quietens.
     CHECK(BayDroneVolume(0) == SRL0_BAY_DRONE_VOLUME_TUNED);
     CHECK(BayDroneVolume(-1) == SRL0_BAY_DRONE_VOLUME);
     CHECK(BayDroneVolume(+1) == SRL0_BAY_DRONE_VOLUME);
@@ -101,10 +96,7 @@ TEST_CASE("perfect tune drops the bay drone's volume too") {
 }
 
 TEST_CASE("the bay ignition rolls its two channels independently") {
-    // 0x22818e calls PRNG(50) twice, once per channel, so the two sides end up
-    // at different rates and phase against each other. It plays ONCE
-    // (ioa_Cycles = 1 at 0x2281b4) - looping it means the ignition never ends,
-    // which is what it sounded like.
+    // Each channel rolls its own rate, so the two phase. It plays once; looping it never ends the ignition.
     const int lo = SRL0_BAY_IGNITION_PERIOD_BASE;
     const int hi = SRL0_BAY_IGNITION_PERIOD_BASE + SRL0_BAY_IGNITION_PERIOD_SPREAD - 1;
     CHECK(lo == 320);
@@ -122,8 +114,7 @@ TEST_CASE("the bay ignition rolls its two channels independently") {
 }
 
 TEST_CASE("the part-mount sound is detuned, and drifts slowly") {
-    // 0x227de8 plays the racing loop twice at 3550 and 3650. The point is the
-    // gap: equal periods would be plain mono and there would be no phasing.
+    // The racing loop twice at 3550 and 3650; equal periods would give no phasing.
     CHECK(EngineSound::kPartMountPeriodLeft == 3550);
     CHECK(EngineSound::kPartMountPeriodRight == 3650);
     CHECK(EngineSound::kPartMountPeriodLeft != EngineSound::kPartMountPeriodRight);
@@ -141,7 +132,7 @@ TEST_CASE("the part-mount sound is detuned, and drifts slowly") {
 }
 
 TEST_CASE("engine volume follows the Amiga's rpm formula") {
-    // 0x236286: (rpm + 14) / 256, and the setter adds 6.
+    // (rpm + 14) / 256, plus 6.
     CHECK(EngineSound::RPMToPaulaVolume(1500) == 11);
     CHECK(EngineSound::RPMToPaulaVolume(5700) == 28);
 

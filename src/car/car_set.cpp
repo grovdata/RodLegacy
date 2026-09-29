@@ -4,14 +4,12 @@
 
 namespace {
 
-// Tire cell height per art format: lib.p packs 32x31 frames into one sheet, a
-// DOS lib gives each frame its own 40x28 sprite. Stock, brand and racing tires
-// are all the same size in both.
+// lib.p packs 32x31 tire frames in one sheet; DOS libs use 40x28 sprites.
 int TireHeight(CarSetArt art) {
     return art == CarSetArt::AmigaLibP ? 31 : 28;
 }
 
-} // namespace
+}
 
 int CarSetWheelY(int carSet, int bodySpriteHeight) {
     const std::vector<CarSetDef>& defs = GetCarSetDefs();

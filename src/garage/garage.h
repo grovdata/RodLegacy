@@ -32,9 +32,7 @@ class Garage : public CarScene {
 
     TireChangePhase tireChangePhase = TireChangePhase::IDLE;
     float tireChangeTimer = 0.0f;
-    // The whole set going on, not just its type: a spare carries the wear and
-    // the classified-ad name it was bought with, and fitting it must not hand
-    // the player a fresh set.
+    // A spare carries its wear and ad name, so fitting it must not hand over a fresh set.
     Part pendingTire;
     std::unique_ptr<ListDialog> tireDialog;
     std::unique_ptr<ListDialog> transmissionDialog;
@@ -57,13 +55,8 @@ class Garage : public CarScene {
     void StartTireChangeAnimation(const Part& newTire);
     void UpdateTireChangeAnimation(double deltaTime);
 
-    // Transmission install animation (garage/garage_transmission_install.cpp).
-    // Mirrors the tire-change state machine above: MOUNTED is the steady
-    // state (screws visually "in"); UNSCREWING/SCREWING_IN are click-driven
-    // (2 clicks per screw, see docs/garage/transmission_install.md); SLIDING_IN
-    // is the only timer-driven phase. The car's actual gearbox is never
-    // mutated until SCREWING_IN completes, so backing out mid-animation via
-    // Done just resets the visuals - no rollback logic needed.
+    // MOUNTED is the steady state; UNSCREWING/SCREWING_IN are click-driven (2 clicks per screw) and SLIDING_IN
+    // is timed. The gearbox is only changed when SCREWING_IN completes, so backing out needs no rollback.
     enum class TransInstallPhase {
         MOUNTED,
         UNSCREWING,
@@ -72,8 +65,7 @@ class Garage : public CarScene {
         SCREWING_IN,
     };
     TransInstallPhase transInstallPhase = TransInstallPhase::MOUNTED;
-    // Picked a transmission of the wrong make: it still animates in before
-    // bouncing back out, same as the engine bay slots.
+    // A wrong-make pick still animates in before bouncing out.
     bool transRejected = false;
     float transInstallTimer = 0.0f;
     int transScrewState[2] = {0, 0};  // 0 = seated .. 2 = fully backed out
@@ -84,18 +76,10 @@ class Garage : public CarScene {
     SDL_Point transNaturalSize{};  // unscaled transmission bitmap size, for re-deriving the clip each frame
     std::unique_ptr<Dialog> transmissionInstallDialog;
     std::unique_ptr<Bitmap> transScrewBitmap[2];  // independent copies of ENGINE_TRANSMISSION_BOLT, cropped per state
-    // Cached once at construction - transScrewBitmap[i]->GetPosition() is
-    // NOT safe to re-query later: whenever a screw's clip goes to {0,0,0,0}
-    // (fully outside the porthole), Dialog::Draw()'s no-crop fallback path
-    // calls SetPosition/SetDimensions on the underlying Bitmap, permanently
-    // stomping its own rect to that same 0x0 - see ApplyScrewGeometry.
+    // Cached at construction: Dialog::Draw's no-crop path stomps the bitmap's rect to 0x0 once a clip is empty.
     SDL_Point transScrewNaturalSize[2]{};
 
-    // Once a screw finishes backing out it drops out of the window; once a
-    // new transmission is in place, fresh screws drop in from the top. Runs
-    // independently of transInstallPhase/transScrewState (which stay
-    // click-driven and immediate) - this is a purely cosmetic Y translation
-    // layered on top.
+    // Purely cosmetic Y translation, independent of the click-driven state.
     bool transScrewFalling[2] = {false, false};
     bool transScrewFallingOut[2] = {false, false};  // true = dropping out (hide on arrival); false = dropping in from the top
     float transScrewFallTimer[2] = {0.0f, 0.0f};
@@ -107,9 +91,7 @@ class Garage : public CarScene {
     void UpdateTransmissionInstallAnimation(double deltaTime);
     void OnTransScrewClicked(int screwIndex);
     void UpdateTransScrewVisual(int screwIndex);
-    // Sets a screw's crop (from its click-state), X (pushed out by the same
-    // distance as the crop growth), and porthole clip, at the given Y - the
-    // one place all three combine, used both at rest and every fall frame.
+    // The one place crop, X push-out and porthole clip combine, at rest and every fall frame.
     void ApplyScrewGeometry(int screwIndex, int y);
     void StartScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);
     void UpdateScrewFallAnimations(double deltaTime);
@@ -118,21 +100,10 @@ class Garage : public CarScene {
     void ResetTransmissionInstallToMounted();
     DialogBitmap BuildTransmissionBitmapEntry(TransmissionType type);
 
-    // Engine bay part-swap animation (garage/garage_engine_bay_install.cpp).
-    // Same idea as the transmission install above, but 3 slots sharing
-    // EngineBay's own overview dialog instead of a dedicated popup: engine
-    // (1 screw), manifold (2 screws), carb (1 per carburetor the manifold
-    // mounts, 1 to 3) - 6 screws total, flat-indexed 0=engine,
-    // 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
-    // Like the transmission's screws these grow as they back out, but
-    // upwards out of the mount rather than sideways - see ScrewFrameCrop.
+    // Engine bay part swap: engine (1 screw), manifold (2), carbs (1 each, up to 3), flat-indexed
+    // 0=engine, 1=manifold-left, 2=manifold-right, 3..5=carb 0..2. Screws grow upwards as they back out.
    public:
-    // Public so garage_engine_bay_install.cpp's free functions (ScrewSlot,
-    // SlotScrewCount, etc.) can name them; the members using these types
-    // stay private below.
-    // One slot per drawn part, matching the original's car struct: a
-    // dual-quad or triple manifold really does carry two or three separate
-    // carburetors, each fitted and pulled on its own.
+    // Public for the install code's free functions. A dual-quad or triple manifold carries separate carbs.
     enum class EngineBaySlot { ENGINE = 0, MANIFOLD = 1, CARB0 = 2, CARB1 = 3, CARB2 = 4 };
     enum class PartInstallPhase { MOUNTED, UNSCREWING, EMPTY, SLIDING_IN, SCREWING_IN };
    private:
@@ -140,12 +111,8 @@ class Garage : public CarScene {
         PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED,
         PartInstallPhase::MOUNTED, PartInstallPhase::MOUNTED
     };
-    // Set when a slide-in was started for a part that doesn't fit the car's
-    // current engine (e.g. a triple-2bbl manifold on a V8) - the original
-    // still animates it in before rejecting it, rather than hiding it from
-    // the picker. See UpdateEngineBayInstallAnimation.
+    // A part that does not fit still animates in before it is rejected.
     bool engineBaySlotRejected[kEngineBayPartSlots]{};
-    // Six screws: 1 engine, 2 manifold, up to 3 carburetor.
     int engineBayScrewState[kEngineBayScrewCount]{};
     bool engineBayScrewFalling[kEngineBayScrewCount]{};
     bool engineBayScrewFallingOut[kEngineBayScrewCount]{};
@@ -158,10 +125,7 @@ class Garage : public CarScene {
     SDL_Point engineBaySlideStart[kEngineBayPartSlots]{};
     SDL_Point engineBaySlideEnd[kEngineBayPartSlots]{};
 
-    // The engine's ground wire: a second, independent precondition (besides
-    // its screw) for the ENGINE slot to count as fully disassembled/
-    // reassembled. Single click toggles it - no multi-step crop/fall, it's
-    // a straight swap between the two ENGINE_WIRE_* bitmaps.
+    // A second precondition, besides its screw, for the ENGINE slot to count as out or in.
     bool engineWireAttached = true;
 
     EnginePart pendingEngine;
@@ -175,8 +139,7 @@ class Garage : public CarScene {
     void OnEngineBayZoneClicked(Zone& zone);
     void UpdateEngineBayInstallAnimation(double deltaTime);
     void OnEngineBayScrewClicked(int screwIndex);
-    // seating = the part dropping into its mount (low, loud); otherwise a
-    // screw being turned (high, quieter). Re-pitched on every use.
+    // seating = the part dropping in (low, loud); otherwise a screw turning (high, quieter).
     void PlayBayToolSound(bool seating);
     void UpdateEngineBayScrewVisual(int screwIndex);
     void ApplyEngineBayScrewGeometry(int screwIndex, int bottomY);
@@ -190,7 +153,6 @@ class Garage : public CarScene {
     void ReleaseEngineBayPartToSpares(EngineBaySlot slot);
     void EmptyEngineBaySlot(EngineBaySlot slot);
     void ApplyEngineBayAssemblyState();
-    // Puts the ground wire's sprite in step with engineWireAttached.
     void ApplyEngineWireVisual();
     void RefreshEngineBayGeometry();
     void ApplyEngineBaySlideFrame(EngineBaySlot slot, int y, const SDL_Rect& mount);
@@ -204,9 +166,7 @@ class Garage : public CarScene {
     void ShowManifoldDialog();
     void ShowCarburetorDialog(int carbIndex);
 
-    // The spare parts list (bought from the newspaper or pulled off a car),
-    // in the order it is shown - and the one place that order is defined, so
-    // a row index means the same thing to the list and to the sale.
+    // The one place the spare list order is defined, so a row index means the same to the list and the sale.
     struct SpareRef {
         PartCategory category;
         int index;        // position within that category's vector
@@ -217,41 +177,30 @@ class Garage : public CarScene {
     std::vector<SpareRef> CollectSpares() const;
     std::unique_ptr<ListDialog> sparePartsDialog;
     std::unique_ptr<Dialog> sellPartDialog;
-    // Reopening the list from inside its own row callback would destroy the
-    // dialog whose event handler is running, so the sale defers it a frame.
+    // Reopening from inside its own row callback would destroy the running dialog, so it is deferred a frame.
     bool sparePartsNeedsReopen = false;
     void ShowSparePartsDialog();
     void SellSparePart(int row);
 
     CarPtr pendingCar;
-    // Car shown here when the scene was last exited (nullptr if the garage
-    // was empty) - lets DrawScene tell "car was already parked, just show
-    // it" apart from "this car wasn't here before, drive it in".
+    // Tells an already parked car apart from one that must drive in.
     CarPtr lastParkedCar;
     void OnSceneExit() override;
     SDL_Surface *signSurface;
     SDL_Texture *signTexture;
     std::unique_ptr<ListDialog> carSelectDialog;
 
-    // The bubble everything buying from the player talks through - the car
-    // buyer's haggle lines and the parts screen's sign-off. Appended last in
-    // Garage's constructor.
+    // The buyer's haggle lines and the parts sign-off. Appended last in the constructor.
     static constexpr size_t kSellerBubble = 14;
-    // bubbles[kOutOfDoughBubble] - the end of the run, shown on entering a
-    // garage with no car, nothing to sell and no money (State::IsOutOfDough).
-    // The original shows its message box here and then rolls the hall of fame;
-    // this holds the garage until a key or click moves on to it.
+    // Shown entering a garage with no car, nothing to sell and no money; holds until a key or click.
     static constexpr size_t kOutOfDoughBubble = 15;
     bool outOfDough = false;
 
-    // Fuel gates confirmed against FUN_002430d2 (Amiga garage main loop):
-    // messages 37/38/39, all car+0x2c (fuel tenths) checks. See gas_station.md.
+    // Fuel gates, all on fuel tenths.
     static constexpr size_t kNotEnoughGasBubble = 16;  // fuel < 9, going to the diner
     static constexpr size_t kFullTankBubble     = 17;  // fuel >= 140, going to the gas station
     static constexpr size_t kGasNotFreeBubble   = 18;  // fuel < 140 and bankroll == 0, same trip
 
-    // Selling a car. The haggle itself is in car_haggle.h; this end owns the
-    // two dialogs it drives and the car being sold. See garage_sell_car.cpp.
     std::unique_ptr<CarHaggle> haggle;
     CarPtr haggleCar;
     std::unique_ptr<NumberEntryDialog> priceEntryDialog;
@@ -262,7 +211,7 @@ class Garage : public CarScene {
     void ShowHaggleMessage(HaggleMessage message);
     void FinishCarSale(int price);
     void CloseHaggle();
-    // What the buyer values a car at: its newspaper list price.
+    // Its newspaper list price.
     int CarSaleValue(const CarPtr& car);
 
     std::unique_ptr<Dialog> gameMenuDialog;
@@ -290,7 +239,6 @@ class Garage : public CarScene {
     std::vector<CarPtr> sortedOwnedCars;
     std::vector<SDL_Surface*> carListSwatches;
     void FreeCarListSwatches();
-    // Housekeeping on scene entry - see the definition for why it is only that.
     void DropUnownedCarBitmaps();
     std::map<CarPtr, std::unique_ptr<CarBitmap>> carBitmaps;
     SDL_Rect signRect;
@@ -316,7 +264,6 @@ class Garage : public CarScene {
     void ApplyPreviewColor();
     void UpdatePaintCanPreview();
     void UpdateCarZones();
-    // Adds the tire-change animation to CarScene::CanInteract's checks.
     bool CanInteract() const { return CarScene::CanInteract() && tireChangePhase == TireChangePhase::IDLE; }
 
    public:

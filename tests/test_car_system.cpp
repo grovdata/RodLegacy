@@ -7,10 +7,6 @@ static bool Contains(const std::vector<T>& vec, T val) {
     return std::find(vec.begin(), vec.end(), val) != vec.end();
 }
 
-// ---------------------------------------------------------------------------
-// GetCompatibleTransmissions – count and contents
-// ---------------------------------------------------------------------------
-
 TEST_SUITE("PartsCompatibilityManager::GetCompatibleTransmissions") {
 
 // FIXME: pretty sure these are wrong
@@ -51,11 +47,7 @@ TEST_CASE("all Chrysler engines: 4 Chrysler transmissions including racing") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// IsTransmissionCompatible – cross-vendor rejection and same-vendor acceptance
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("PartsCompatibilityManager::IsTransmissionCompatible") {
 
@@ -87,17 +79,11 @@ TEST_CASE("V6 engines accept racing transmission of own vendor") {
     CHECK(PartsCompatibilityManager::IsTransmissionCompatible(TRANS_RACING_CHRYSLER, CarEngineChrysler_V6));
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// Manifolds
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("PartsCompatibilityManager manifolds") {
 
-// Row 0 of the original's fitment table (A4-0x4672) reads 1 0 1 0 0 over
-// 2brl/4brl/triple/dual-quad/racing, so a V6 takes the two 2-barrel
-// manifolds and nothing else. See docs/garage/engine_bay_layout.md.
+// A V6 takes the two 2-barrel manifolds and nothing else.
 TEST_CASE("GM V6: 2-brl manifold fits, 4-brl does not") {
     CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_2BARREL, CarEngineGM_V6));
     CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_4BARREL, CarEngineGM_V6));
@@ -108,8 +94,7 @@ TEST_CASE("GM V6: racing/dual-quad manifolds do not fit") {
     CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_DUAL_QUAD, CarEngineGM_V6));
 }
 
-// Triple-2bbl only fits V6s (confirmed in game: a GM 327 V8 rejects it as an
-// install option), not any V8, big-block or small.
+// Confirmed in game: a GM 327 V8 rejects the triple.
 TEST_CASE("GM V6: triple-2brl manifold fits") {
     CHECK(PartsCompatibilityManager::IsManifoldCompatible(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V6));
 }
@@ -148,11 +133,7 @@ TEST_CASE("V8 engines: returns exactly 4 compatible manifolds") {
     CHECK(Contains(m, MANIFOLD_RACING));
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// Carburetors – engine-level (carb type follows V6 vs V8)
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("PartsCompatibilityManager carburetors (engine)") {
 
@@ -182,16 +163,10 @@ TEST_CASE("V8 engines: 4-brl and racing carbs fit, not 2-brl") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// Carburetors – manifold-level pairing
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("PartsCompatibilityManager carburetors (manifold)") {
-// Fitment here follows the newspaper classifieds' own ad text: manifolds are
-// explicitly sold as "for 2-4brl carbs" (dual-quad) or "for 3-2brl carbs"
-// (triple-2barrel), not guessed.
+// Follows the classified ads: "for 2-4brl carbs" (dual-quad), "for 3-2brl carbs" (triple).
 
 TEST_CASE("2-brl manifold takes only 2-brl carb") {
     auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_2BARREL);
@@ -201,10 +176,7 @@ TEST_CASE("2-brl manifold takes only 2-brl carb") {
     CHECK_FALSE(Contains(c, CARB_4BARREL_RACING));
 }
 
-// The original's carb fitment table (A4-0x4663) is 1 0 0 / 0 1 1 / 1 0 0 /
-// 0 1 1 / 0 1 1 over manifold classes 2brl, 4brl, triple, dual quad, racing:
-// a 2-barrel manifold takes 2-barrels, everything else takes a 4-barrel of
-// either kind.
+// A 2-barrel manifold takes 2-barrels, everything else a 4-barrel of either kind.
 TEST_CASE("4-brl manifold takes either 4-brl carb") {
     auto c = PartsCompatibilityManager::GetCompatibleCarburetors(MANIFOLD_4BARREL);
     CHECK(c.size() == 2);
@@ -255,4 +227,4 @@ TEST_CASE("4-brl carb does not fit 2-brl or triple-2brl manifolds") {
     CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_TRIPLE_2BARREL));
 }
 
-} // TEST_SUITE
+}

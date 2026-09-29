@@ -22,7 +22,7 @@ constexpr SDL_Rect kForgetItRect  = {240, 140, 56, 39};
 constexpr SDL_Color kTextColor         = {0x00, 0x00, 0x00, 0xFF};
 constexpr SDL_Color kSelectionBoxColor = {0x00, 0xAF, 0xEF, 0xFF};
 
-// Trims the space padding the .sav header stores names with (save_game.md).
+// The .sav header space-pads names.
 std::string TrimTrailingSpaces(std::string s) {
     while (!s.empty() && s.back() == ' ') s.pop_back();
     return s;
@@ -34,8 +34,7 @@ std::string LegacyLabel(const std::string& filename, const std::string& rawSaveN
     return trimmed;
 }
 
-// Names are compared trimmed and case-insensitively: "Bob" and "bob " sitting
-// in the list side by side would be the confusion the duplicate ban is for.
+// Compared trimmed and case-insensitively.
 std::string NameKey(std::string s) {
     s = TrimTrailingSpaces(std::move(s));
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -54,7 +53,7 @@ std::string SanitiseForFilename(const std::string& name) {
     return out;
 }
 
-} // namespace
+}
 
 SaveLoadScene::SaveLoadScene()
     : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP,
@@ -69,21 +68,17 @@ void SaveLoadScene::Configure(Mode newMode, SrLibGameScene newReturnTo) {
     const Uint64 t0 = SDL_GetTicks64();
     mode = newMode;
     returnTo = newReturnTo;
-    // Hidden rather than destroyed: Configure can run from inside the confirm
-    // dialog's own button callback (a failed overwrite).
+    // Hidden rather than destroyed: Configure can run from the confirm dialog's own callback.
     if (confirmDialog) confirmDialog->Hide();
     newSaveName = state.GetPlayerName();
     if (newSaveName.size() > kMaxSaveNameLength) newSaveName.resize(kMaxSaveNameLength);
-    // Saving is the only mode with something to type into.
     if (mode == Mode::Save) SDL_StartTextInput();
     else                    SDL_StopTextInput();
     RebuildList();
     const Uint64 t1 = SDL_GetTicks64();
     BuildDialog();
     const Uint64 t2 = SDL_GetTicks64();
-    // Open on the new-save row so the row being typed into is the one
-    // highlighted, and scrolled to if the save list is long enough to hide it.
-    // A name already in use highlights that save instead - see RefreshNewSaveRow.
+    // Open on the new-save row, or on the save the name already belongs to.
     if (mode == Mode::Save && listDialog && !entries.empty()) {
         const int clash = FindSaveNamed(newSaveName);
         listDialog->SetSelectedIndex(clash >= 0 ? clash
@@ -133,8 +128,6 @@ void SaveLoadScene::ScanDisk2Samples() {
 void SaveLoadScene::RebuildList() {
     entries.clear();
 
-    // RodLegacy's own saves, offered by both modes - loadable, and in save
-    // mode each row is a slot to overwrite.
     for (const auto& path : ListSaveFiles(AssetManager::GetSavesDir())) {
         Entry e;
         e.kind = Entry::Kind::Modern;
@@ -159,8 +152,7 @@ void SaveLoadScene::RebuildList() {
         return;
     }
 
-    // Original .sav files, load-only: loose in the game directory first, then
-    // the samples shipped on disk2.
+    // Original .sav files, load-only: loose ones first, then the disk2 samples.
     std::error_code ec;
     const fs::path base = state.GetAssets().GetBasePath();
     for (fs::directory_iterator it(base, ec), end; !ec && it != end; it.increment(ec)) {
@@ -236,8 +228,7 @@ void SaveLoadScene::BuildDialog() {
     ListDialogConfig listCfg;
     listCfg.labels = labels;
     listCfg.listBoxRect = kListRect;
-    // No centred read-out: the list highlights the current pick in place, and
-    // the artwork leaves no room under the box for a second copy of it.
+    // The artwork leaves no room for a read-out.
     listCfg.selectedItemRect = {0, 0, 0, 0};
     listCfg.textColor = kTextColor;
     listCfg.selectionBoxColor = kSelectionBoxColor;
@@ -246,8 +237,6 @@ void SaveLoadScene::BuildDialog() {
     listDialog = std::make_unique<ListDialog>(cfg, listCfg);
 }
 
-// Index of our own save carrying `name`, or -1. Only Modern rows can clash:
-// .sav files are read-only, so they never share the list with a save mode row.
 int SaveLoadScene::FindSaveNamed(const std::string& name) const {
     const std::string key = NameKey(name);
     for (size_t i = 0; i < entries.size(); ++i) {
@@ -267,10 +256,7 @@ void SaveLoadScene::RefreshNewSaveRow() {
     std::vector<std::string> labels;
     labels.reserve(entries.size());
     for (const Entry& row : entries) labels.push_back(row.label);
-    // SetLabels drops the selection; typing shouldn't move the highlight off
-    // the row being typed into - unless the name typed so far is one already
-    // taken, in which case the save about to be overwritten is highlighted
-    // instead (and scrolled to), so the clash shows before the confirm box.
+    // SetLabels drops the selection. Highlight the row being typed into, or the save a clashing name would overwrite.
     const int clash = FindSaveNamed(newSaveName);
     listDialog->SetLabels(labels);
     listDialog->SetSelectedIndex(clash >= 0 ? clash : static_cast<int>(entries.size()) - 1);
@@ -283,8 +269,7 @@ bool SaveLoadScene::LoadEntry(const Entry& e) {
         case Entry::Kind::LegacyFile:
             return state.LoadSaveGame(e.path);
         case Entry::Kind::LegacyDisk2: {
-            // SaveGameLoader reads from a real path, so the ADF member has to
-            // land on disk first.
+            // SaveGameLoader reads from a real path.
             const auto& disk2 = state.GetAssets().GetDisk2Adf();
             AdfFileData* data = extract_adf_file_from_buffer(disk2.data(), disk2.size(),
                                                             e.adfFileName.c_str());
@@ -314,10 +299,7 @@ bool SaveLoadScene::LoadEntry(const Entry& e) {
     return false;
 }
 
-// The name is the player's from here on, since the list shows each save by the
-// player name inside it - a save called one thing and reading back as another
-// would be a lie. That makes the name the save's identity, so a name already
-// in use is an overwrite of that save, never a second row reading the same.
+// The list shows each save by its player name, so a name in use is an overwrite, never a second row.
 void SaveLoadScene::SaveUnderName(const std::string& rawName) {
     const std::string name = TrimTrailingSpaces(rawName);
     if (name.empty()) {
@@ -369,8 +351,7 @@ void SaveLoadScene::ConfirmOverwrite(const fs::path& target, const std::string& 
     cfg.texts = std::vector<DialogTextConfig>{
         {SDL_Rect{38, 103, 248, 10}, "Overwrite " + name + " ?", kTextColor, true}
     };
-    // Neither button is the Enter default: this throws a saved game away, and
-    // Enter is what gets you here from the name row in the first place.
+    // No Enter default: this throws a save away, and Enter is how you got here.
     cfg.buttons = std::vector<ButtonConfig>{
         {yesRect, "Overwrite",  nullptr, false, 0},
         {noRect,  "Forget it", nullptr, false, 1}
@@ -387,7 +368,7 @@ void SaveLoadScene::ConfirmOverwrite(const fs::path& target, const std::string& 
     SetActiveDialog(confirmDialog.get());
 }
 
-// Hidden, not destroyed - this runs from inside the dialog's own callback.
+// Hidden, not destroyed: this runs from the dialog's own callback.
 void SaveLoadScene::CancelConfirm() {
     if (confirmDialog) confirmDialog->Hide();
     SetActiveDialog(listDialog.get());
@@ -396,16 +377,14 @@ void SaveLoadScene::CancelConfirm() {
 void SaveLoadScene::Commit() {
     const int index = listDialog ? listDialog->GetSelectedIndex() : -1;
     if (index < 0 || index >= static_cast<int>(entries.size())) {
-        // Nothing picked yet. ListDialog::OnItemSelected hides itself on the
-        // way here, so put it back rather than leaving a bare background.
+        // ListDialog hides itself on the way here.
         SetActiveDialog(listDialog.get());
         if (hud) hud->SetText(mode == Mode::Save ? "Pick a slot" : "Pick a game");
         return;
     }
     const Entry e = entries[index];
 
-    // Picking an existing slot means saving under its name, so it goes through
-    // the same duplicate-name path as the typed row and asks before clobbering.
+    // Picking an existing slot saves under its name, through the same overwrite check.
     if (mode == Mode::Save) {
         SaveUnderName(e.kind == Entry::Kind::NewSave ? newSaveName : e.label);
         return;
@@ -413,16 +392,12 @@ void SaveLoadScene::Commit() {
 
     if (!LoadEntry(e)) {
         LOG_INFO("SaveLoadScene: load '%s' FAILED", e.label.c_str());
-        // Rebuild so a half-written or unreadable slot is reflected, and stay
-        // put so the player can pick something else.
         Configure(mode, returnTo);
         if (hud) hud->SetText("Load failed");
         return;
     }
 
-    // A finished load resumes in the garage - the hub the loaded game belongs
-    // in - rather than wherever the screen was opened from, which for the
-    // name-entry route is a new-game screen the player has left behind.
+    // A load resumes in the garage, not the screen it was opened from.
     GoTo(SCENE_GARAGE);
 }
 
@@ -445,9 +420,7 @@ void SaveLoadScene::DrawScene() {
     DrawNameCursor();
 }
 
-// A blinking block sitting after the typed name, on the new-save row only.
-// Drawn straight to the renderer after the dialog so the list's own colour
-// mod doesn't tint it, same reasoning as ListDialog's selection box.
+// Drawn after the dialog so the list's colour mod doesn't tint it.
 void SaveLoadScene::DrawNameCursor() {
     if (mode != Mode::Save || !listDialog || !listDialog->IsVisible() || entries.empty()) return;
     if (entries.back().kind != Entry::Kind::NewSave) return;
@@ -473,9 +446,7 @@ void SaveLoadScene::DrawNameCursor() {
 }
 
 bool SaveLoadScene::PushEvent(SDL_Event* event) {
-    // Ahead of the base class, which hands Escape to the dialog - ListDialog
-    // would hide itself and leave the screen empty, and an unconsumed Escape
-    // quits the game outright (main.cpp).
+    // Before the base class: ListDialog would hide itself on Escape, and an unconsumed Escape quits the game.
     const bool confirming = confirmDialog && confirmDialog->IsVisible();
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
         if (confirming) CancelConfirm();
@@ -483,8 +454,6 @@ bool SaveLoadScene::PushEvent(SDL_Event* event) {
         return true;
     }
 
-    // Typing edits the new-save row. There is only ever one typeable row, so
-    // keystrokes go to it without having to select it first.
     if (mode == Mode::Save && !confirming) {
         if (event->type == SDL_TEXTINPUT) {
             for (const char* p = event->text.text; *p; ++p) {
@@ -501,8 +470,6 @@ bool SaveLoadScene::PushEvent(SDL_Event* event) {
             }
             return true;
         }
-        // Enter saves under the typed name rather than whatever row the mouse
-        // last touched - you have just been typing it.
         if (event->type == SDL_KEYDOWN &&
             (event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER)) {
             SaveUnderName(newSaveName);

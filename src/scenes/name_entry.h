@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 
-// DMV, the new-game entry screen
 class NameEntry : public Scene {
 private:
     static constexpr size_t MAX_NAME_LENGTH = 16;
@@ -16,9 +15,7 @@ private:
     Label nameLabel;
     std::unique_ptr<Button> oldGameButton;
     std::unique_ptr<Button> okButton;
-    // Only built when the SE data is installed. The set it switches decides the
-    // car spec table this game is generated against, which is why it is chosen
-    // here rather than in Options - see State::RebuildCarSets.
+    // Only with SE data installed. Chosen here because it decides the car spec table the game is generated against.
     std::unique_ptr<Checkbox> seCarsCheckbox;
     bool seCarsEnabled = false;
     Label seCarsLabel;

@@ -37,13 +37,7 @@ SDL_Rect CellRect(int index) {
             kCellSize, kCellSize};
 }
 
-// Each icon is exactly three values: white (the cap or button body), black (its
-// lettering and outline) and transparent (outside the rounded corners). A
-// colour mod only multiplies, so it can never lift the black off zero -
-// remapping the two inks independently has to happen per pixel.
-//
-// Repaints a blitted strip: every opaque pixel becomes either `body` or `line`
-// depending on which of the sheet's two inks it came from.
+// A colour mod only multiplies, so black can't be lifted; remap both inks per pixel.
 void Recolour(SDL_Surface* s, SDL_Color body, SDL_Color line) {
     if (SDL_MUSTLOCK(s) && SDL_LockSurface(s) != 0) {
         LOG_WARN("control_icons: could not lock a strip: %s", SDL_GetError());
@@ -61,8 +55,6 @@ void Recolour(SDL_Surface* s, SDL_Color body, SDL_Color line) {
             Uint8 r, g, b, a;
             SDL_GetRGBA(p, s->format, &r, &g, &b, &a);
             if (a == 0) continue;
-            // The sheets hold only white and black ink, so one threshold
-            // separates the body from the line art.
             p = (r > 127) ? bodyPx : linePx;
         }
     }
@@ -70,7 +62,7 @@ void Recolour(SDL_Surface* s, SDL_Color body, SDL_Color line) {
     if (SDL_MUSTLOCK(s)) SDL_UnlockSurface(s);
 }
 
-}  // namespace
+}
 
 SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color body, SDL_Color line) {
     if (cells.empty()) return nullptr;
@@ -87,8 +79,7 @@ SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color body, SDL_Color lin
 
     bool drewAnything = false;
     for (size_t i = 0; i < cells.size(); ++i) {
-        // A negative index is a deliberate gap: it advances a cell and draws
-        // nothing, which is how a strip separates its keyboard and pad halves.
+        // A negative index leaves a gap cell.
         if (cells[i].index < 0) continue;
 
         SDL_Surface* sheet = SheetFor(cells[i].sheet);
@@ -100,8 +91,7 @@ SDL_Surface* Strip(const std::vector<Cell>& cells, SDL_Color body, SDL_Color lin
             continue;
         }
 
-        // Straight copy, no blending: the two inks have to arrive unmodified so
-        // Recolour can tell them apart.
+        // No blending, so Recolour can tell the two inks apart.
         SDL_SetSurfaceBlendMode(sheet, SDL_BLENDMODE_NONE);
         SDL_Rect dst = {static_cast<int>(i) * kCellSize, 0, kCellSize, kCellSize};
         SDL_BlitSurface(sheet, &src, out, &dst);
@@ -129,4 +119,4 @@ void Shutdown() {
     loadAttempted = false;
 }
 
-}  // namespace icons
+}

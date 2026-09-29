@@ -1,23 +1,12 @@
 #pragma once
 
-// Amiga car-sale haggle, ported from SellOrSwitchCarLoop (0x00242ba4) and
-// ShowSellCounterOffer (0x00242a8e). Full write-up, including where the
-// constants come from, in RodLegacyResearch/docs/gameplay.md ("Selling").
+// The buyer has a hidden ceiling of 75-94% of the car's value. Each refusal of a counter-offer buys another
+// prompt, three in all; he closes at anything up to ceiling / 0.9.
 //
-// The buyer has a hidden ceiling of 75-94% of the car's value. You name a
-// price; if it is over the ceiling he counters with a lower one, and every
-// refusal buys you another prompt - three in all. He closes at anything up to
-// ceiling / 0.9.
+// The sanity ceilings (115% and 100% of value) only test the first price. The final test computes price * 9
+// in 16 bits, reproduced on purpose: it is the $22,001 trick.
 //
-// The two sanity ceilings (115% and 100% of the car's value) are tested only
-// on the *first* price. Later prompts take any number, which is the hole the
-// $22,001 trick goes through: the final test computes price * 9 in a 16-bit
-// register, so a price whose ninefold wraps past 65536 lands on a tiny
-// remainder and passes. That arithmetic is reproduced here on purpose - see
-// Settle() in the .cpp.
-//
-// Rolls are passed in rather than drawn here, so the whole thing is a pure
-// state machine that unit tests can drive (same approach as bet_acceptance.h).
+// Rolls are passed in so this is a pure, testable state machine.
 
 enum class HaggleOutcome {
     AskPrice,      // prompt the player for a price, then call SubmitPrice
@@ -48,19 +37,11 @@ class CarHaggle {
     // carValue is what the car is worth; roll20 is rand(20), i.e. 0..19.
     CarHaggle(int carValue, int roll20);
 
-    // The price the player typed. Truncated to 16 bits first, exactly as the
-    // original's numeric entry does.
-    //
-    // roll5 is rand(5), i.e. 0..4, and is only used when this call produces a
-    // counter-offer. The original draws it at that point rather than up front;
-    // drawing it eagerly here costs one extra number from the caller's
-    // generator and nothing else.
+    // Truncated to 16 bits first, as the original's numeric entry does. roll5 is only used for a counter-offer.
     HaggleStep SubmitPrice(int price, int roll5);
 
-    // Answer the counter-offer the last step returned.
     HaggleStep AnswerCounterOffer(bool accepted);
 
-    // What the buyer will currently pay. Exposed for tests.
     int BuyerCeiling() const { return offer; }
 
    private:

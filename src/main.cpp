@@ -25,7 +25,6 @@
 #include <fstream>
 #include <cstring>
 
-// Embed resources for some small data files
 extern "C" {
     #include "embedded_resources.h"
 }
@@ -45,7 +44,6 @@ namespace fs = std::filesystem;
 
 #define APP_TITLE "RodLegacy " RODLEGACY_VERSION
 
-// speed in pixels/second
 #define SPEED (300)
 
 SDL_Window *win = nullptr;
@@ -64,37 +62,31 @@ float scaleX = 1.0f;
 float scaleY = 1.0f;
 
 bool IsSteamDeck() {
-    // Method 1: Check Steam Deck specific environment variables
     const char* steamDeck = getenv("STEAM_DECK");
     if (steamDeck && strcmp(steamDeck, "1") == 0) {
         return true;
     }
 
-    // Method 2: Check for Steam Deck specific hardware
     const char* hardware = getenv("HARDWARE");
     if (hardware && strcmp(hardware, "steamdeck") == 0) {
         return true;
     }
 
-    // Method 3: Check for Steam Deck specific platform
     const char* platform = getenv("PLATFORM");
     if (platform && strcmp(platform, "steamdeck") == 0) {
         return true;
     }
 
-    // Method 4: Check for Steam Deck specific device model
     const char* deviceModel = getenv("DEVICE_MODEL");
     if (deviceModel && strstr(deviceModel, "steamdeck") != nullptr) {
         return true;
     }
 
-    // Method 5: Check for Steam Deck specific user agent
     const char* userAgent = getenv("HTTP_USER_AGENT");
     if (userAgent && strstr(userAgent, "SteamDeck") != nullptr) {
         return true;
     }
 
-    // Method 6: Check for Steam Deck specific file paths
     if (fs::exists("/sys/devices/virtual/dmi/id/product_name")) {
         std::ifstream productFile("/sys/devices/virtual/dmi/id/product_name");
         std::string productName;
@@ -105,8 +97,7 @@ bool IsSteamDeck() {
         }
     }
 
-    // Method 7: Check for Steam Deck specific joystick/gamepad. Only meaningful
-    // once the joystick subsystem is up, so this runs after SDL_Init.
+    // Needs the joystick subsystem, so this runs after SDL_Init.
     if (SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
         for (int i = 0; i < SDL_NumJoysticks(); ++i) {
             const char* joystickName = SDL_JoystickNameForIndex(i);
@@ -127,56 +118,46 @@ void ToggleFullScreen(SDL_Window* window, bool currentState) {
 void TakeScreenshot() {
     Uint64 currentTime = SDL_GetTicks64();
 
-    // Check cooldown
     if (currentTime - lastScreenshotTime < SCREENSHOT_COOLDOWN_MS) {
-        return; // Still in cooldown period
+        return;
     }
 
     lastScreenshotTime = currentTime;
 
-    // Get the actual window size
     int windowWidth, windowHeight;
     SDL_GetWindowSize(win, &windowWidth, &windowHeight);
 
-    // Create a surface to hold the pixel data
     sdl2::SurfacePtr surface(SDL_CreateRGBSurface(0, windowWidth, windowHeight, 32,
-                                               0x00FF0000,  // Red mask
-                                               0x0000FF00,  // Green mask
-                                               0x000000FF,  // Blue mask
-                                               0xFF000000)); // Alpha mask
+                                               0x00FF0000,
+                                               0x0000FF00,
+                                               0x000000FF,
+                                               0xFF000000));
 
     if (!surface) {
         LOG_INFO("Failed to create surface for screenshot: %s", SDL_GetError());
         return;
     }
 
-    // Read pixels from the renderer
     if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                             surface->pixels, surface->pitch) != 0) {
         LOG_INFO("Failed to read pixels for screenshot: %s", SDL_GetError());
         return;
     }
 
-    // Find next available counter value
     while (fs::exists("screenshot_" + std::to_string(screenshotCounter) + ".png")) {
         screenshotCounter++;
     }
 
-    // Generate filename with counter
     std::string filename = "screenshot_" + std::to_string(screenshotCounter++) + ".png";
 
-    // Save the surface as PNG
     if (IMG_SavePNG(surface.get(), filename.c_str()) != 0) {
         LOG_INFO("Failed to save screenshot: %s", SDL_GetError());
     } else {
         LOG_INFO("Screenshot saved: %s", filename.c_str());
     }
-
-    // RAII handles cleanup automatically
 }
 
-// Pause is global and owned by the loop, not by any scene: P on the keyboard,
-// Start (Menu) on the pad. The frozen frame stays on screen under a dim.
+// Global pause, owned by the loop: P on the keyboard, Start on the pad.
 bool paused = false;
 Uint64 pausedTicks = 0;   // total time spent paused
 Uint64 pauseStarted = 0;  // when the current pause began
@@ -188,9 +169,7 @@ Uint64 GameTicks() {
 
 bool IsPauseEvent(const SDL_Event& event) {
     if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
-        // P is a letter: while a name or an amount is being typed it belongs to
-        // the field. Unpausing with it always works, because nothing can be
-        // typed while paused.
+        // P belongs to a text field while one is active.
         return event.key.keysym.sym == SDLK_p &&
                (paused || SDL_IsTextInputActive() == SDL_FALSE);
     }
@@ -218,15 +197,12 @@ void SetPaused(bool value) {
     LOG_INFO("Pause: %s", paused ? "ON" : "OFF");
 }
 
-// "PAUSED" over a hint line that spells out the way back, with the pad's Menu
-// button drawn as its icon between the two halves of the sentence.
 SDL_Surface* BuildPauseSurface(SFont_Font* font) {
     const char* kTitle = "PAUSED";
     const char* kHintHead = "Press P or ";
     const char* kHintTail = " to unpause";
 
-    // Menu (Start) on the controller sheet, as a white cap with black lettering
-    // so it reads against the dim.
+    // A white cap with black lettering so it reads against the dim.
     SDL_Surface* icon = icons::Strip({{icons::Sheet::Controller, 14}},
                                      SDL_Color{0xFF, 0xFF, 0xFF, 0xFF},
                                      SDL_Color{0x00, 0x00, 0x00, 0xFF});
@@ -239,7 +215,7 @@ SDL_Surface* BuildPauseSurface(SFont_Font* font) {
                       SFont_TextWidth(font, kHintTail);
     const int gap = 6;
 
-    // Same masks as Label uses, so SFont maps its colours the way it does there.
+    // Same masks as Label.
     SDL_Surface* s = SDL_CreateRGBSurface(0, GAME_WIDTH, lineH + gap + hintH, 32,
                                           0x00FF0000, 0x0000FF00, 0x000000FF,
                                           0xFF000000);
@@ -257,8 +233,7 @@ SDL_Surface* BuildPauseSurface(SFont_Font* font) {
     x += SFont_TextWidth(font, kHintHead);
     if (icon) {
         SDL_Rect dst = {x, lineH + gap + (hintH - iconH) / 2, iconW, iconH};
-        // Copy the icon verbatim, alpha included: blending it onto a fully
-        // transparent surface is what loses the rounded corners.
+        // Verbatim with alpha: blending onto a transparent surface loses the rounded corners.
         SDL_SetSurfaceBlendMode(icon, SDL_BLENDMODE_NONE);
         SDL_BlitSurface(icon, nullptr, s, &dst);
         SDL_FreeSurface(icon);
@@ -276,8 +251,7 @@ void DrawPauseOverlay() {
     SDL_RenderFillRect(renderer, &full);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
-    // Built on first pause, when the font is certainly loaded, and never freed:
-    // its texture must not outlive the renderer.
+    // Built on first pause and never freed: its texture must not outlive the renderer.
     static Bitmap* overlay = nullptr;
     if (!overlay) {
         SFont_Font* font = state.GetAssets().GetMainFont();
@@ -338,7 +312,6 @@ int main(int argc, char* argv[]) {
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
     LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
-    // Attempt to initialize graphics and timer system
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO |
                  SDL_INIT_GAMECONTROLLER) != 0) {
         LOG_INFO("error initializing SDL: %s\n", SDL_GetError());
@@ -357,8 +330,7 @@ int main(int argc, char* argv[]) {
     LOG_INFO("Creating window: %dx%d (%s)", windowWidth, windowHeight,
             useOriginalSize ? "original size" : "4x upscaled");
 
-    // Resizable only with --debug: the debug UI wants room to drag panels
-    // around, while the plain game keeps its fixed presentation.
+    // Resizable only with --debug, for dragging debug panels.
     const Uint32 windowFlags = debugMode ? SDL_WINDOW_RESIZABLE : 0;
     win = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                            windowWidth, windowHeight, windowFlags);
@@ -368,15 +340,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Renderer hints only take effect if they are set before the renderer is
-    // created, so they belong here rather than next to SDL_RenderSetIntegerScale.
+    // Renderer hints must be set before the renderer is created.
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // Nearest neighbor scaling
     if (useOriginalSize) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Pixel-perfect at 1x
         LOG_INFO("Using software renderer for original size mode");
     }
 
-    // Create renderer with proper flags
     renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
         LOG_INFO("error creating renderer: %s\n", SDL_GetError());
@@ -393,13 +363,11 @@ int main(int argc, char* argv[]) {
     }
 
 #ifndef _WIN32
-    // Load icon from embedded data (only on non-Windows platforms)
     sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));
     if (!icon) {
         LOG_INFO("Could not load embedded icon");
     } else {
         SDL_SetWindowIcon(win, icon.get());
-        // RAII handles cleanup automatically
     }
 #endif
 
@@ -407,7 +375,6 @@ int main(int argc, char* argv[]) {
         SDL_RenderSetIntegerScale(renderer, SDL_TRUE);    // Force integer scaling only for upscaled mode
     }
 
-    // Initialize SDL2_mixer
     if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
         LOG_INFO("error opening audio: %s\n", Mix_GetError());
         SDL_DestroyRenderer(renderer);
@@ -415,21 +382,14 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
-    //Mix_Music *music = Mix_LoadMUS(TUNE);
-    //Mix_PlayMusic(music, 1);
 
-    // Gamepad
     gamepad.OpenFirst();
 
-    // SDL enables text input by default on desktop. The pause key asks SDL
-    // whether a field is being typed into, so start from a known-off state and
-    // let the name entry, the save screen and the entry dialogs turn it on.
+    // SDL enables text input by default on desktop; start off and let text fields turn it on.
     SDL_StopTextInput();
 
-    // Check if running on Steam Deck (needs the joystick subsystem, so not earlier)
     if (IsSteamDeck()) {
         LOG_INFO("Steam Deck detected - optimizing for handheld experience");
-        // Enable gamepad mode by default on Steam Deck
         mouse.SetGamepadActive(true);
     } else {
         LOG_INFO("Running on desktop/laptop system");
@@ -459,7 +419,6 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Game data: %s (config screen)", gamePath.string().c_str());
     }
 
-    // Now that we have a valid game path, initialize the game state
     try {
         SDL_ShowCursor(SDL_DISABLE);
         state.Init(debugMode, gamePath, muteAudio);
@@ -477,46 +436,31 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Res scaling
     if (debugUi.Active()) {
-        // The dockspace decides where the game is drawn, so SDL's logical-size
-        // mapping would put mouse coordinates in the wrong place. The game
-        // renders into a texture that is already exactly GAME_WIDTH x
-        // GAME_HEIGHT, so no logical scaling is needed; coordinates are mapped
-        // from the viewport rect instead (see RemapMouseToGameViewport).
+        // The dockspace decides where the game is drawn; mouse coordinates come from the viewport rect instead.
         LOG_INFO("Debug UI active - logical scaling left off, dockspace owns layout");
     } else if (useOriginalSize) {
-        // When using original size, no logical scaling - render directly to window
         LOG_INFO("Using original size - no logical scaling applied (1:1 pixel mapping)");
     } else {
-        // When using upscaled window, set logical size to game resolution
         SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
         LOG_INFO("Using upscaled window - logical size set to %dx%d", GAME_WIDTH, GAME_HEIGHT);
     }
 
-    // Force integer scaling
-    // SDL_RenderSetIntegerScale(rend, SDL_TRUE);
 
-
-    // state.SetCurrentScene(&diner);
-
-    // struct to hold the position and size of the sprite
     SDL_Rect dest;
 
-    // get and scale the dimensions of texture
     SDL_QueryTexture(state.GetCurrentScene()->GetTexture(), NULL, NULL, &dest.w, &dest.h);
     dest.x = 0;
     dest.y = 0;
 
     bool close_requested = false;
 
-    // Delta-time tracking
     Uint64 prevTicks = SDL_GetTicks64();
 
     while (!close_requested) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            // Quit must always get through, whatever the UI wants.
+            // Quit must always get through.
             if (debugUi.ProcessEvent(event) && event.type != SDL_QUIT) {
                 continue;
             }
@@ -525,8 +469,7 @@ int main(int argc, char* argv[]) {
             }
             gamepad.HandleEvent(event);
 
-            // Pause swallows its own key and button so no scene sees them, and
-            // while paused only quitting gets through.
+            // While paused only quitting gets through.
             if (IsPauseEvent(event)) {
                 if ((event.type == SDL_KEYDOWN && event.key.repeat == 0) ||
                     event.type == SDL_CONTROLLERBUTTONDOWN) {
@@ -595,29 +538,24 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Calculate delta-time properly
         Uint64 now = SDL_GetTicks64();
         Uint64 delta = now - prevTicks;
         prevTicks = now;
 
-        // Snapshot the pad once per frame, before anything reads it: the cursor
-        // here and the driving scene below both see the same button edges.
+        // Once per frame, before anything reads it.
         gamepad.Update();
         if (!paused) {
             mouse.UpdateGamepad(state.GetCurrentScene(), delta);
         }
 
-        // Clear to black. Scenes (e.g. racing gauges/dot) leave the draw color
-        // set to their last color, so reset it here or the clear tints everything.
+        // Scenes leave the draw colour set, which would tint the clear.
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
         Scene *scene = state.GetCurrentScene();
 
-        // Update state with delta-time in milliseconds
         state.SetElapsedTime(paused ? 0 : delta);
 
-        // Update scene (handles fade transitions and other per-frame logic)
         if (!paused) {
             scene->Update(delta);
 
@@ -626,8 +564,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // With the debug UI up the game renders into an offscreen texture that
-        // the dockspace displays; otherwise it goes straight to the backbuffer.
+        // With the debug UI up the game renders into an offscreen texture.
         if (debugUi.Active()) {
             SDL_SetRenderTarget(renderer, debugUi.GameTexture());
             SDL_RenderClear(renderer);
@@ -650,16 +587,14 @@ int main(int argc, char* argv[]) {
 
         SDL_RenderPresent(renderer);
 
-        // Frame rate limiting: rely on vsync primarily, but add delay as backup
-        // Since we use SDL_RENDERER_PRESENTVSYNC, this delay is mainly for non-vsync scenarios
+        // Backup for when vsync is unavailable.
         if (delta < (1000 / GAME_FPS)) {
             SDL_Delay((1000 / GAME_FPS) - delta);
         }
     }
 
 
-    // Persist in-session settings changed via raw bool* bindings (e.g. the
-    // debug "Show zone overlays" toggle) that have no per-change save hook.
+    // Raw bool* bindings have no per-change save hook.
     state.GetAssets().SaveSettings();
 
     debugUi.Shutdown();

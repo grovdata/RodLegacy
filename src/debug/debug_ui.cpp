@@ -14,17 +14,14 @@
 #include <cstdint>
 
 namespace {
-// The one live instance, so DebugUiWantsKeyboard() can be called from code that
-// has no handle on it.
 DebugUi* gDebugUi = nullptr;
-}  // namespace
+}
 
 bool DebugUiWantsKeyboard() {
     return gDebugUi != nullptr && gDebugUi->WantsKeyboard();
 }
 
 namespace {
-// Panel body: the key/value pairs as a two column table, then any loose lines.
 void DrawPanelBody(const DebugPanel& panel) {
     if (panel.image != nullptr) {
         int w = 0;
@@ -95,7 +92,7 @@ void DrawPanelBody(const DebugPanel& panel) {
         ImGui::TextUnformatted(line.c_str());
     }
 }
-}  // namespace
+}
 
 DebugUi::~DebugUi() {
     Shutdown();
@@ -110,8 +107,6 @@ bool DebugUi::Init(SDL_Window* win, SDL_Renderer* ren, int gameWidth, int gameHe
     gameW = gameWidth;
     gameH = gameHeight;
 
-    // The game draws into this at its native resolution; the dockspace scales it
-    // for display, so it stays pixel-exact regardless of window size.
     gameTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
                                     SDL_TEXTUREACCESS_TARGET, gameW, gameH);
     if (!gameTexture) {
@@ -129,7 +124,6 @@ bool DebugUi::Init(SDL_Window* win, SDL_Renderer* ren, int gameWidth, int gameHe
     }
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    // Panel positions and dock layout persist between runs.
     io.IniFilename = "debug_ui.ini";
     ImGui::StyleColorsDark();
 
@@ -176,7 +170,6 @@ bool DebugUi::ProcessEvent(const SDL_Event& event) {
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
         case SDL_MOUSEWHEEL:
-            // Clicks inside the game image belong to the game, not the UI.
             return io.WantCaptureMouse && !gameHovered;
         case SDL_KEYDOWN:
         case SDL_KEYUP:
@@ -204,8 +197,6 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    // A full-window host holding the dockspace, so panels can be dragged
-    // anywhere in the window and the game sits in a dock node like any panel.
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -223,13 +214,8 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
     const ImGuiID dockspaceId = ImGui::GetID("RodLegacyDockspace");
     ImGui::DockSpace(dockspaceId);
 
-    // Build the default layout only when there is nothing to restore, so a saved
-    // debug_ui.ini always wins. Windows are docked by name, which works even for
-    // panels that do not exist yet (Racing only appears in the driving scene).
+    // Default layout only when nothing is restored. Docking by name works for panels that do not exist yet.
     if (ImGui::DockBuilderGetNode(dockspaceId) == nullptr) {
-        // Three columns: global info left, the game in the middle, scene info
-        // right. Each split takes from the shrinking centre, so the game keeps
-        // whatever is left over.
         ImGui::DockBuilderRemoveNode(dockspaceId);
         ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
         ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->WorkSize);
@@ -242,8 +228,7 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
 
         ImGui::DockBuilderDockWindow("Game", centreId);
 
-        // Stack each column's panels into their own nodes rather than docking
-        // them all to one, which would collapse them into tabs.
+        // Separate nodes per panel; docking all to one would collapse them into tabs.
         auto stackColumn = [](ImGuiID column, const std::vector<const char*>& titles) {
             ImGuiID remaining = column;
             for (size_t i = 0; i < titles.size(); ++i) {
@@ -264,8 +249,7 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
     }
     ImGui::End();
 
-    // The game viewport. Scaled to the largest whole multiple that fits so the
-    // pixel art stays sharp, and centred in whatever space is left.
+    // Largest whole multiple that fits, so the pixel art stays sharp.
     gameHovered = false;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     if (ImGui::Begin("Game")) {
@@ -305,4 +289,4 @@ void DebugUi::Draw(const std::vector<DebugPanel>& panels) {
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
 }
 
-#endif  // RODLEGACY_DEBUG_UI
+#endif

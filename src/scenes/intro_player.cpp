@@ -6,7 +6,6 @@
 
 namespace {
 
-// Palette table at A4-0x68f2 in the Amiga binary. 0 is PAL1.
 constexpr std::array<uint16_t, 32> kPal0 = {
     0x000, 0x810, 0x911, 0xB21, 0xD22, 0xF32, 0xF44, 0xF65, 0xF87, 0xF98, 0xFFF,
     0xEEE, 0xCCC, 0xBBB, 0xAAA, 0x999, 0x888, 0x950, 0xC71, 0xF96, 0x333, 0x222,
@@ -30,23 +29,19 @@ std::array<uint16_t, 32> PaletteById(int id) {
         case 4: return kPalSepia;
         case 5: return kPalTitle;
         case 6: return kPalLogo;
-        default: return {};  // -1: black
+        default: return {};
     }
 }
 
-// libstart.p indices, LoadStartAsset(1000 + index).
 constexpr int kLogoImage = 1;
 constexpr int kPlateImage = 2;
 constexpr int kTitleScreenImage = 3;
 constexpr int kTitleSheetImage = 4;
 constexpr int kPhotoImage = 5;
 
-// FlipBuffers waits for one raster line and nothing else, so the real rate is
-// whatever the blits cost. ponytail: guessed at 2 vblanks a step, measure it
-// in Copperline and change this one number.
+// ponytail: guessed at 2 vblanks a step, measure on hardware and change this one number.
 constexpr int kTitleExtraTicks = 2;
 
-// Where each step starts in a -1 terminated step list.
 std::vector<int> StepStarts(const int16_t* steps, int stepCount) {
     std::vector<int> starts;
     int i = 0;
@@ -68,7 +63,7 @@ const std::vector<int>& TitleStarts() {
     return s;
 }
 
-}  // namespace
+}
 
 void IntroPlayer::Start(const std::array<IntroImage, 6>& imgs) {
     images = &imgs;
@@ -86,7 +81,6 @@ void IntroPlayer::Build() {
     auto add = [this](OpKind k, int a = 0, int b = 0, int c = 0) { ops.push_back({k, a, b, c}); };
     auto sound = [&](IntroSound s) { add(OpKind::Sound, static_cast<int>(s)); };
 
-    // LogoAnimation. Each step's event runs before the step is drawn.
     add(OpKind::Clear);
     for (int k = 0; k < kIntroLogoStepCount; k++) {
         if (k == 0) add(OpKind::Fade, -1, 6, 5);
@@ -104,7 +98,6 @@ void IntroPlayer::Build() {
     add(OpKind::Fade, -1, 4, 5);
     add(OpKind::Fade, 4, 5, 5);
 
-    // TitleAnimation.
     add(OpKind::TitleSetup);
     for (int k = 0; k < kIntroTitleStepCount; k++) {
         switch (k) {
@@ -178,7 +171,6 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
         }
 
         case OpKind::Fade:
-            // FadePalette: 16 steps, each one vblank plus Delay(c).
             if (fadeStep < 0) {
                 palette = PaletteById(op.a);
                 fadeTarget = PaletteById(op.b);
@@ -202,7 +194,6 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
             return true;
 
         case OpKind::FadeToBlack: {
-            // Peel the brightest level off every channel, one per vblank.
             int m = 0;
             for (uint16_t c : palette) {
                 m = std::max({m, c >> 8, (c >> 4) & 0xF, c & 0xF});

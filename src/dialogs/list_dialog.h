@@ -2,9 +2,7 @@
 #include "dialogs/dialog.h"
 #include <functional>
 
-// Zeroed by default: a caller that wants no scroll buttons (SaveLoadScene)
-// just leaves these alone, and default-initialising a ListDialogConfig on the
-// stack can't hand Rectangle garbage dimensions to build a surface from.
+// Zeroed so a stack-initialised config can't build a Rectangle from garbage.
 struct ScrollButtonsConfig {
     SDL_Rect topRect{};
     SDL_Rect upRect{};
@@ -21,29 +19,17 @@ struct ListDialogConfig {
 
     ScrollButtonsConfig scrollButtons;
 
-    // Kept last so existing positional aggregate initialisation of this
-    // struct keeps compiling.
-    // Tint applied to the whole list once it is rendered. Alpha 0 leaves the
-    // font's own colours alone, which is what every caller got before - the
-    // per-row colours above never reached the screen, because the texture was
-    // recreated (dropping the colour mod) immediately after each one was set.
+    // Fields from here on are kept last so positional aggregate initialisation still compiles.
+    // Tint for the whole list. Alpha 0 leaves the font's colours alone.
     SDL_Color textColor = {0, 0, 0, 0};
 
-    // Outline drawn around the selected row. Alpha 0 draws nothing. Use this
-    // rather than a per-row text colour to mark the selection: a colour mod
-    // applies to the entire list texture, so one row cannot differ from
-    // the rest.
+    // Alpha 0 draws nothing. A colour mod applies to the whole list texture, so selection is an outline.
     SDL_Color selectionBoxColor = {0, 0, 0, 0};
 
-    // Also last, for the same reason. When true a click on a row acts on it
-    // immediately instead of only highlighting it. Off by default: every other
-    // list here is select-then-confirm, where a click that acted at once would
-    // fit a transmission or sell a part on the first tap.
+    // Off by default: other lists are select-then-confirm.
     bool activateOnClick = false;
 
-    // Also last, for the same reason. Row pitch in pixels: 0 (the default)
-    // follows the font's height, which is what a plain text list wants; a list
-    // with taller artwork per row sets it so the rows do not overlap.
+    // 0 follows the font height.
     int rowHeight = 0;
 };
 
@@ -70,17 +56,13 @@ public:
     bool HandleEvent(SDL_Event* event) override;
 
     void OnItemSelected(int index);
-    /** Acts on a row: dismisses the list, or with activateOnClick leaves it
-     *  open so a toggle list can be worked through in one visit. */
+    // With activateOnClick the list stays open.
     void ActivateRow(int index);
     int GetSelectedIndex() const { return selectedIndex; }
-    /** Highlights a row without acting on it, scrolling it into view. */
     void SetSelectedIndex(int index);
-    /** On-screen rect of a row, or a zero rect if it is scrolled out of view. */
     SDL_Rect GetRowRect(int index) const;
     int GetIndexAtPosition(int x, int y) const;
     void SetLabels(const std::vector<std::string>& labels, const std::vector<SDL_Surface*>& swatches = {});
-    /** Swaps one row's swatch, keeping the selection and scroll position -
-     *  SetLabels resets both, which a live toggle list cannot afford. */
+    // Keeps selection and scroll, which SetLabels resets.
     void SetSwatch(int index, SDL_Surface* swatch);
 }; 

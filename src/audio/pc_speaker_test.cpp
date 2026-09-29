@@ -12,7 +12,6 @@
 #include <termios.h>
 #include <unistd.h>
 
-// ~72.82 Hz ISR rate -- matches pc_speaker.cpp
 static constexpr float ISR_RATE_HZ = 1193182.0f / 16384.0f;
 
 static float SegDurSec(const std::vector<SrNote>& seg) {
@@ -31,10 +30,8 @@ static std::vector<uint8_t> LoadAndUnpack(const char* path) {
 
     exepack::UnpackExeResult res = exepack::unpack_exepack_to_exe_bytes(buf.data(), buf.size());
     if (res.ok()) return res.exe_bytes;
-    return buf;  // already unpacked or not EXEPACK
+    return buf;
 }
-
-// --- Raw terminal helpers ---
 
 static struct termios s_saved_termios;
 static bool s_raw_mode = false;
@@ -56,7 +53,6 @@ static void DisableRawMode() {
     }
 }
 
-// Returns char read, or 0 if nothing available.
 static char PollKey() {
     char c = 0;
     read(STDIN_FILENO, &c, 1);
@@ -97,26 +93,22 @@ int main(int argc, char* argv[]) {
     }
     if (!mode_shuffle && !mode_segs && !mode_songs) mode_shuffle = true;
 
-    // --- Load and unpack ---
     std::vector<uint8_t> exe = LoadAndUnpack(exe_path);
     if (exe.empty()) {
         fprintf(stderr, "Cannot open: %s\n", exe_path);
         return 1;
     }
 
-    // --- Parse raw segments ---
     std::vector<std::vector<SrNote>> segs;
     if (!sr_exe_parse_music_bytes(exe.data(), exe.size(), segs)) {
         fprintf(stderr, "Failed to parse SR.EXE music data\n");
         return 1;
     }
 
-    // --- Parse playlist-assembled songs ---
     std::vector<std::vector<SrNote>> songs;
     std::vector<SrNote> bridge;
     bool has_songs = sr_exe_parse_songs(exe.data(), exe.size(), songs, bridge);
 
-    // --- Print structure summary ---
     printf("=== CODE_24 raw segments: %zu ===\n", segs.size());
     for (int i = 0; i < (int)segs.size(); i++)
         printf("  seg[%2d]  %4zu notes  %6.2fs\n", i, segs[i].size(), SegDurSec(segs[i]));
@@ -136,7 +128,6 @@ int main(int argc, char* argv[]) {
     }
     printf("\nControls: Space=mark  Enter=next  q=quit\n\n");
 
-    // --- Audio init ---
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
@@ -148,8 +139,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Build the list of items to play.
-    // Each item is the notes to load; label is printed in the status line.
     struct Item {
         std::vector<SrNote> notes;
         float dur;
@@ -232,11 +221,9 @@ int main(int argc, char* argv[]) {
             loop = (int)(elapsed / dur);
             pos  = elapsed - loop * dur;
         }
-        // Overwrite the status line.
         printf("\r  [loop %d]  %.1f / %.1fs    ", loop, pos, dur);
         fflush(stdout);
 
-        // Auto-advance when the song loops, same as the game does.
         if (spk.ConsumeLoopFlag()) {
             idx = (idx + 1) % (int)items.size();
             StartItem(idx);
@@ -249,7 +236,6 @@ int main(int argc, char* argv[]) {
         if (c == 'q') {
             running = false;
         } else if (c == ' ') {
-            // Mark: print timestamp on a new line, keep playing.
             printf("\r  [MARK] loop=%d  pos=%.2fs / %.2fs  abs=%.2fs\n",
                    loop, pos, dur, elapsed);
         } else if (c == '\r' || c == '\n') {

@@ -27,19 +27,10 @@ class CarData {
         
         void ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
 
-        /// @brief Adds an optional DOS-format car set's cars to the pool.
-        /// Stats, sprite numbers and pixel offsets all come out of the set's
-        /// own HOT_DATA, so nothing here is hand-tuned per car.
-        /// @param carSet index into GetCarSetDefs()
-        /// @param hotData raw HOT_DATA bytes for that set
-        /// @param bitmaps entries parsed from the set's LIB2, for sprite sizes
-        /// @return number of models added
+        // Adds an optional DOS car set's cars. Returns the number of models added.
         int ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
                        const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps);
 
-        /// @brief Finds a model in car data array
-        /// @param modelId
-        /// @return a car model
         CarModel GetModel(char* modelId);
         CarModel GetModelFromIndex(int index);
 
@@ -51,9 +42,6 @@ class CarData {
         void ReadCarsFromTomlFile(std::string filename);
         CarModel GetRandomModel();
 
-        /// @brief Every model in the pool, from every enabled car set.
-        /// Ordered by name (the set's comparator), so it is stable to page
-        /// through. Used by the car debug scene.
         const std::set<CarModel>& GetAllModels() const { return allCarModels; }
 };
 

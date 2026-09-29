@@ -1,18 +1,15 @@
 #pragma once
 
-// Include essential types that are needed everywhere
 #include "core/types.h"
 #include "ui/zone.h"
-#include "core/assets.h"   // For Asset struct
-#include "ui/button_config.h"  // For ButtonConfig struct
+#include "core/assets.h"
+#include "ui/button_config.h"
 
-// Forward declarations for UI classes
 class Rectangle;
 class Button;
 class Bubble;
 class HUD;
 
-// Forward declarations for other classes
 class Bitmap;
 class AnimatedBitmap;
 class Car;

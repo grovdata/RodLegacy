@@ -1,11 +1,7 @@
 #include "doctest/doctest.h"
 #include "car/engine_part.h"
 
-// A car still on its SR_data spec has no concrete EnginePart - CarBuilder
-// leaves the vendor's placeholder V6 in place - so Car::GetEngineType()
-// resolves from the spec class through SpecEngineType, in the car's own
-// brand. Getting this wrong is what made a '56 Corvette read "V-6" beside a
-// V8 body in the engine bay.
+// A car still on its SR_data spec has no concrete EnginePart, so the type resolves from the spec class.
 TEST_CASE("spec engine class resolves to the car's own brand and tier") {
     CHECK(SpecEngineType(CarVendorGM, 0) == CarEngineGM_V6);
     CHECK(SpecEngineType(CarVendorGM, 1) == CarEngineGM_V8_282);
@@ -28,10 +24,7 @@ TEST_CASE("out-of-range spec classes clamp into the brand's own row") {
     CHECK(SpecEngineType(CarVendorFord, -1) == CarEngineFord_V6);
 }
 
-// The scoop follows the same resolved type, not the placeholder EnginePart.
-// Reading the part directly is what showed every spec-built car without a
-// scoop. Only class 2 gets one: the 1957 Fairlane 500 2-dr is class 1 and has
-// no scoop in the original.
+// Only class 2 gets a scoop: the 1957 Fairlane 500 2-dr is class 1 and has none in the original.
 TEST_CASE("the scoop follows the tier, in every brand") {
     for (CarVendor_t v : {CarVendorGM, CarVendorFord, CarVendorChrysler}) {
         CHECK(EngineTypeHasScoop(SpecEngineType(v, 0)) == false);
@@ -49,7 +42,6 @@ TEST_CASE("the resolved tier matches what the engine bay draws") {
             const CarEngine_t type = SpecEngineType(v, cls);
             CHECK(static_cast<int>(type) % 3 == cls);
             const EnginePart part(type, 0, 0, v, ENGINE_V8);
-            // Every brand's V6 is the 200, and displacement climbs with tier.
             if (cls == 0) CHECK(part.displacement == 200);
             CHECK(part.displacement > previous);
             previous = part.displacement;

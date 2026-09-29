@@ -1,11 +1,4 @@
-// Selling a car from the garage's "Your cars" list. The negotiation is
-// CarHaggle (car_haggle.h); everything here is the dialogs it drives.
-//
-// Two dialogs take turns: a price field ("I'll take $____", Offer / Never
-// mind) and a counter-offer ("How about $N ?", Yeah / No thanks). Neither is
-// ever rebuilt from inside its own button callback - the price dialog is
-// reused across prompts and only cleared, and a counter-offer can never
-// directly follow a counter-offer.
+// Two dialogs take turns: a price field and a counter-offer. Neither is rebuilt from inside its own button callback.
 
 #include "garage/garage.h"
 #include "core/state.h"
@@ -71,9 +64,6 @@ void Garage::StartSellCar(const CarPtr& car) {
     SetActiveDialog(priceEntryDialog.get());
 }
 
-// Selling a spare part: no haggle at all, the buyer names one price and you
-// take it or leave it. SellSparePartsLoop (0x0024284a); the formula is
-// PartSalePrice in part.h.
 void Garage::SellSparePart(int row) {
     const std::vector<SpareRef> spares = CollectSpares();
     if (row < 0 || row >= static_cast<int>(spares.size())) return;
@@ -82,16 +72,14 @@ void Garage::SellSparePart(int row) {
     std::uniform_int_distribution<int> roll20(0, 19);
     const int price = PartSalePrice(spare.category, spare.value, spare.wear, roll20(RandomEngine()));
 
-    // Original strings; a worthless part gets its own line rather than an
-    // offer of $0.
+    // A worthless part gets its own line rather than an offer of $0.
     const std::string title = price == 0
         ? "I'll take it off your hands for nothing."
         : "Will you take $" + std::to_string(price) + " ?";
 
     sparePartsDialog->Hide();
 
-    // Same box as the car buyer's counter-offer: the "for nothing" line needs
-    // the full width, which the garage's 156px modification dialog cuts off.
+    // The "for nothing" line needs the full width.
     SDL_Rect dialogRect = {34, 97, 252, 46};
     SDL_Rect yeahRect = {88, 123, 66, 16};
     SDL_Rect noRect = {166, 123, 66, 16};
@@ -120,8 +108,7 @@ void Garage::SellSparePart(int row) {
         }
         sellPartDialog->Hide();
         SetActiveDialog(nullptr);
-        // Back to the list, rebuilt a frame later (see Garage::DrawScene) -
-        // doing it here would destroy the dialog whose callback is running.
+        // Rebuilt next frame; doing it here would destroy the dialog whose callback is running.
         sparePartsNeedsReopen = true;
     };
     cfg.onDismiss = [this] {
@@ -170,8 +157,7 @@ void Garage::ShowCounterOfferDialog(int amount) {
 void Garage::HandleHaggleStep(const HaggleStep& step) {
     switch (step.outcome) {
         case HaggleOutcome::AskPrice:
-            // Same dialog, empty field - rebuilding it here would destroy the
-            // button whose callback is running.
+            // Rebuilding here would destroy the button whose callback is running.
             priceEntryDialog->ClearEntry();
             priceEntryDialog->Show();
             SetActiveDialog(priceEntryDialog.get());
@@ -189,8 +175,7 @@ void Garage::HandleHaggleStep(const HaggleStep& step) {
             break;
     }
 
-    // Last: Scene::SetActiveDialog hides every bubble as it opens a dialog,
-    // so the buyer's line has to go up after that, not before.
+    // SetActiveDialog hides every bubble, so the line goes up after it.
     ShowHaggleMessage(step.message);
 }
 
@@ -198,9 +183,7 @@ void Garage::ShowHaggleMessage(HaggleMessage message) {
     if (message == HaggleMessage::None) return;
     if (bubbles.size() <= kSellerBubble) return;
 
-    // Original strings and the box each one uses (messages 10-16, see
-    // RodLegacyResearch/docs/speech_bubbles.md). The backtick renders as a
-    // narrow space.
+    // The backtick renders as a narrow space.
     const char* text = "";
     BubbleStyle style = BUBBLE_RIGHT;
     switch (message) {
@@ -226,8 +209,7 @@ void Garage::FinishCarSale(int price) {
     // Four hours, the original's 0x4b0 ticks at 300 per game hour.
     state.AdvanceGameHours(4);
     state.RemoveOwnedCar(haggleCar);
-    // Selling the car you are driving leaves you carless even if others are
-    // parked here, which is what the original does.
+    // Selling the car you drive leaves you carless even with others parked, as in the original.
     if (wasCurrent) {
         state.SetCurrentCar(nullptr);
     }

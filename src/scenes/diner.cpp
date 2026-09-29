@@ -45,7 +45,7 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
         if (hoodPopped) { challenge->Taunt(); return; }
         hoodPopped = true;
         hoodTimer = 0.0f;
-        // Rebuilt per opponent - the parts drawn are baked in at construction.
+        // Rebuilt per opponent: the parts drawn are baked in at construction.
         hoodView = std::make_unique<EngineBayView>(*currentOpponent->car, state,
                                                    [this] { CloseHoodView(); });
         SetActiveDialog(hoodView->GetDialog());
@@ -53,11 +53,8 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
     GetZone("challenge_opponent").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
         if (!OpponentPresent()) return;
-        // Who is actually on screen, not which pool slot was picked last: a
-        // phoned opponent forces a pick without touching the index, and any
-        // re-pick moves it, so the index can say King while someone else is
-        // parked outside and vice versa. The King never gets the bet dialog -
-        // he only ever refuses or accepts.
+        // Who is on screen, not the last pool index, which a phoned or re-picked opponent moves. The King never
+        // gets the bet dialog.
         if (state.IsKingOpponent(currentOpponent)) {
             challenge->OpenKing(state.GetAssets().GetMainFont());
         } else {
@@ -69,7 +66,6 @@ Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCR
 void Diner::Init(bool debugMode) {
     CarScene::Init(debugMode);
 
-    // Set audio manager for engine sound
     SetAudioManager(state.GetAssets().GetAudioManager());
 
     roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
@@ -87,7 +83,6 @@ void Diner::Init(bool debugMode) {
     jailBars->SetPosition(0, 0);
     jailBars->SetVisible(true);
 
-    // Create masked screen background (similar to gas station)
     Bitmap* screenMaskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
     if (screenMaskBitmap) {
         maskedScreenBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 256, 41, 32, SDL_PIXELFORMAT_RGBA8888));
@@ -102,7 +97,6 @@ void Diner::Init(bool debugMode) {
 }
 
 Diner::~Diner() {
-    // Smart pointers will automatically clean up
     opponentCarBitmaps.clear();
     carBitmap = nullptr;
 }
@@ -124,10 +118,7 @@ void Diner::LoadActors() {
     for (int s = 0; s < 2; ++s) {
         Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, guySheets[s]});
         guyAnim[s] = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{kGuyX, kGuyBottomY - kGuyRowH[0], kGuyFrameW, kGuyRowH[0]});
-        // The original blits a fixed 40x60/64 cell out of both sheets, but they
-        // are not the same width (192 and 200), so the last column of the
-        // narrower one runs off the edge. Clip the cell to what is there rather
-        // than stretching 32 pixels of art across 40.
+        // The two sheets differ in width (192 and 200), so clip the fixed 40-wide cell rather than stretch it.
         const int sheetW = sheet->GetSurface()->w;
         const int sheetH = sheet->GetSurface()->h;
         std::vector<SDL_Rect> frames;
@@ -149,8 +140,7 @@ void Diner::LoadActors() {
         const int fh = sheet->GetSurface()->h / 2;
         waitressAnim[d] = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{kWaitressStartX[d], kWaitressY, fw, fh});
         std::vector<SDL_Rect> frames;
-        // 11 frames out of the 6x2 grid. The twelfth cell is not an unused
-        // pose, it is blank on both sheets - 11 frames simply need two rows.
+        // 11 frames need two rows; the twelfth cell is blank on both sheets.
         for (int i = 0; i < kWaitressFrameCount; ++i) {
             frames.push_back({(i % kWaitressColumns) * fw, (i / kWaitressColumns) * fh, fw, fh});
         }
@@ -164,7 +154,6 @@ void Diner::StartWaitressWalk(int dir) {
     waitressDir = dir;
     waitressStep = 0;
     waitressStepTimer = 0.0f;
-    // She gets one stop per walk in, and only walking in.
     waitressPauseTimer = -1.0f;
     waitressPauseDone = (dir != 0) || !state.GetAssets().GetExtraAnimationsRef();
     ApplyWaitressFrame();
@@ -175,9 +164,7 @@ void Diner::ApplyWaitressFrame() {
         for (int d = 0; d < 2; ++d) waitressAnim[d]->SetVisible(false);
         return;
     }
-    // Walking uses the sheet for the way she is going. Standing still does
-    // not: only 335 has the upright pose, so the stop borrows it whichever
-    // way she was headed.
+    // Standing borrows 335's upright pose whichever way she was headed.
     const bool standing = waitressPauseTimer >= 0.0f;
     const int sheet = standing ? kWaitressStandSheet : waitressDir;
     const int frame = standing ? kWaitressStandFrame : kWaitressFrames[waitressStep];
@@ -189,14 +176,11 @@ void Diner::ApplyWaitressFrame() {
 }
 
 void Diner::ApplyGuyFrame() {
-    // He stands at the phone the whole time. Frame 0 is his resting pose -
-    // the sequence both starts and ends on it.
     const int frame = guyStep >= 0 ? kGuyFrames[guyStep] : 0;
     const int sheet = frame / 10;
     for (int s = 0; s < 2; ++s) guyAnim[s]->SetVisible(s == sheet);
     guyAnim[sheet]->SetFrame(frame % 10);
-    // Draw the cell at its own size, so a clipped one is not scaled up. He is
-    // bottom-aligned, so a shorter cell sits lower.
+    // At its own size, bottom-aligned, so a clipped cell sits lower rather than scaling up.
     const SDL_Rect src = guyAnim[sheet]->GetCurrentFrameRect();
     guyAnim[sheet]->SetPosition(kGuyX, kGuyBottomY - src.h + 1);
     guyAnim[sheet]->SetDimensions(src.w, src.h);
@@ -206,7 +190,6 @@ void Diner::UpdateActors(double deltaTime) {
     if (!guyAnim[0]) return;
     const float dtMs = static_cast<float>(deltaTime) * 1000.0f;
 
-    // Phone guy: one table step per hold, then off screen again.
     if (guyStep >= 0) {
         guyHoldTimer += dtMs;
         const float hold = kGuyHold[kGuyFrames[guyStep]] * GUY_STEP_MS;
@@ -217,9 +200,7 @@ void Diner::UpdateActors(double deltaTime) {
         ApplyGuyFrame();
     }
 
-    // Waitress: one table step per tick, X from the run-length table.
     if (waitressStep >= 0) {
-        // extra_animations: she stands still for a moment partway in.
         if (waitressPauseTimer >= 0.0f) {
             waitressPauseTimer += dtMs;
             if (waitressPauseTimer >= kWaitressPauseMs) waitressPauseTimer = -1.0f;
@@ -237,7 +218,6 @@ void Diner::UpdateActors(double deltaTime) {
             waitressStepTimer -= WAITRESS_STEP_MS;
             if (++waitressStep >= kWaitressSteps) {
                 waitressStep = -1;
-                // Walking in leaves her standing; walking out clears her.
                 waitressOnScreen = (waitressDir == 0);
                 if (waitressTurnAround) {
                     waitressTurnAround = false;
@@ -247,7 +227,6 @@ void Diner::UpdateActors(double deltaTime) {
             }
         }
         ApplyWaitressFrame();
-        // She stays on screen on the standing frame after walking in.
         if (waitressStep < 0 && waitressOnScreen) {
             waitressAnim[0]->SetVisible(true);
         }
@@ -255,15 +234,13 @@ void Diner::UpdateActors(double deltaTime) {
 
     if (waitressStep >= 0 || guyStep >= 0) return;
 
-    // The rolls. Percentages are the original's; the cadence is not, since it
-    // rolls once per pass of the challenger dialog.
+    // The percentages are the original's; the cadence is not.
     dinerRollTimer += static_cast<float>(deltaTime);
     if (dinerRollTimer < ROLL_SECONDS) return;
     dinerRollTimer = 0.0f;
 
     std::uniform_int_distribution<int> roll100(0, 99);
-    // The waitress never shows in jail: her scheduler lives in the challenger
-    // dialog, which the original's jail loop never reaches. The phone guy does.
+    // The original's jail loop never reaches her scheduler. The phone guy still shows.
     if (state.IsJailed()) {
         if (roll100(RandomEngine()) < 6) {
             guyStep = 0;
@@ -273,8 +250,7 @@ void Diner::UpdateActors(double deltaTime) {
         return;
     }
     if (!waitressOnScreen) {
-        // Odds climb the longer she has been away, as the original's do as the
-        // dialog goes on; it also refuses to bring her back straight away.
+        // Odds climb the longer she has been away, and she never comes straight back.
         ++waitressWaits;
         const int chance = std::min(85, 5 + 10 * (waitressWaits - 3));
         if (waitressWaits >= 3 && roll100(RandomEngine()) < chance) {
@@ -297,7 +273,6 @@ void Diner::UpdateActors(double deltaTime) {
 }
 
 void Diner::DrawScene() {
-    // No status bar in a cell.
     hud->SetVisible(!state.IsJailed());
 
     currentTime = GameTicks() / 1000.0;
@@ -314,7 +289,6 @@ void Diner::DrawScene() {
         if (hoodTimer >= HOOD_SECONDS) CloseHoodView();
     }
 
-    // Only ever one of each pair is visible; the other draws nothing.
     AnimatedBitmap* waitressLeft = waitressAnim[1].get();
     AnimatedBitmap* waitressRight = waitressAnim[0].get();
 
@@ -324,15 +298,12 @@ void Diner::DrawScene() {
         isSetup = true;
     }
 
-    // Handle initial delay
     if (initialDelay) {
         if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }
-        // Still draw everything else while waiting
 
-        // Draw waitress animations first (before mask)
         if (waitressLeft) {
             waitressLeft->Draw();
         }
@@ -340,13 +311,11 @@ void Diner::DrawScene() {
             waitressRight->Draw();
         }
 
-        // Draw the masked screen background (to mask parts of waitress animation)
         if (maskedScreenBackgroundTexture) {
             SDL_Rect screenMaskRect = {0, 68, 256, 41};
             SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
         }
 
-        // Draw the phone guy (the invisible half of the pair is a no-op)
         for (auto& g : guyAnim) g->Draw();
 
         for (auto& b : bubbles) {
@@ -358,7 +327,6 @@ void Diner::DrawScene() {
         return;
     }
 
-    // Draw waitress animations first (before mask)
     if (waitressLeft) {
         waitressLeft->Draw();
     }
@@ -366,13 +334,11 @@ void Diner::DrawScene() {
         waitressRight->Draw();
     }
 
-    // Draw the masked screen background (to mask parts of waitress animation)
     if (maskedScreenBackgroundTexture) {
         SDL_Rect screenMaskRect = {0, 68, 256, 41};
         SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
     }
 
-    // Draw the phone guy (the invisible half of the pair is a no-op)
     for (auto& g : guyAnim) g->Draw();
 
     if (carBitmap != nullptr) {
@@ -380,8 +346,7 @@ void Diner::DrawScene() {
         carBitmap->Draw();
     }
 
-    // The hood window is the exception: it reaches down into the road strip,
-    // so DrawMaskAfterCar draws it once the mask is down.
+    // The hood window reaches into the road strip, so DrawMaskAfterCar draws it after the mask.
     if (activeDialog && activeDialog->IsVisible() && !IsHoodViewOpen()) {
         activeDialog->Draw();
     }
@@ -398,8 +363,7 @@ void Diner::DrawScene() {
         state.MoveToScene(SCENE_DRIVING);
     }
     if (challenge->WantsCarExit()) {
-        // ShowOpponentRefusal (0x0023e904): the very next opponent has a
-        // 1/100 chance of being The King, win or lose reputation-wise.
+        // The next opponent has a 1/100 chance of being The King.
         if (challenge->WasOpponentRefusal()) state.RequestKingCameoRoll();
         challenge->Reset();
         StartOpponentExit();
@@ -413,7 +377,6 @@ void Diner::DrawScene() {
 }
 
 void Diner::DrawMaskAfterCar() {
-    // Draw the road mask (for car)
     if (roadMaskSurface && roadMaskTexture) {
         SDL_BlitSurface(surface.get(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
         roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
@@ -423,13 +386,9 @@ void Diner::DrawMaskAfterCar() {
 
     CarScene::DrawMaskAfterCar();
 
-    // The bay window's bottom rows overlap the road strip, so it goes on after
-    // the mask rather than with the other dialogs in DrawScene.
     if (IsHoodViewOpen()) hoodView->GetDialog()->Draw();
 
-    // Last of all, so nothing draws over them - this runs from DrawExtra,
-    // after DrawScene has finished. Everything in the diner is behind the
-    // bars: the challengers keep arriving and leaving, you just watch.
+    // Last, from DrawExtra, so nothing draws over the bars.
     if (state.IsJailed()) jailBars->Draw();
 }
 
@@ -437,8 +396,7 @@ bool Diner::IsHoodViewOpen() const {
     return hoodView && hoodView->GetDialog()->IsVisible();
 }
 
-// Not hoodView.reset(): this also runs from inside the view's own dialog
-// callback, which would delete the object being iterated.
+// Not hoodView.reset(): this runs from the view's own dialog callback.
 void Diner::CloseHoodView() {
     if (!hoodView) return;
     hoodView->GetDialog()->Hide();
@@ -454,10 +412,7 @@ std::string Diner::GetOpponentText(Opponent *opponent) {
 void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     if (animatingCar && carBitmap) return;
 
-    // Every challenger that drives in comes through here - the first one after
-    // the fade, and each one the OPPONENT_CONTINUOUS loop in Scene brings in
-    // afterwards. Picking here is what keeps the racer pool, the reputation
-    // tier and The King's unlock in play for more than the diner's first car.
+    // Every challenger that drives in comes through here, which keeps the pool, tier and King unlock in play.
     state.PickNextOpponent();
 
     this->currentOpponent = state.GetNextOpponent();
@@ -474,13 +429,7 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     hud->SetText(oppoText.c_str());
     SetZoneText("background", oppoText);
 
-    // Keyed on the car, not the driver's name: a driver does not keep one car.
-    // PickNextOpponent repaints the roster Opponent for whichever pool slot it
-    // just drew, and several pool slots share one Opponent, so the same name
-    // turns up in different paint; losing a pink slip takes the car away
-    // entirely and the next pick builds a new one from the pool's car spec.
-    // Keying by name drew the first car that name ever had, which is not the
-    // car the race renders or the pink slip hands over.
+    // Keyed on the car, not the driver's name: pool slots share Opponents and a lost pink slip replaces the car.
     auto existingBitmap = opponentCarBitmaps.find(currentOpponent->car);
     if (existingBitmap != opponentCarBitmaps.end()) {
         carBitmap = existingBitmap->second.get();
@@ -495,14 +444,12 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
                                                   currentOpponent->car->GetModel().height);
     this->cary = carYOffset;
 
-    // The hood hotspot follows the car: sprite widths and heights differ per
-    // model, so anchor it on the air-scoop offset at the idle position.
+    // Sprite sizes differ per model, so anchor on the air-scoop offset at the idle position.
     const SDL_Point idle = GetCarIdlePosition();
     const BitmapOffset_t hoodOffsets = currentOpponent->car->GetModel().offsets;
     SetZoneRect("pop_hood", {idle.x + hoodOffsets.offsetXAirScoop - 24,
                              idle.y + hoodOffsets.offsetYAirScoop - 4, 64, 26});
 
-    // Reset state for new opponent
     hoodPopped = false;
     exitingCar = false;
     debugWaitTimer = 0;
@@ -511,16 +458,12 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     LOG_INFO("Diner::StartAnimateCar - Reset state: exitingCar=0, debugWaitTimer=0, engineSoundStarted=0");
 
     CarScene::StartAnimateCar(currentOpponent->car, &currentOpponent->driver, CarAnimationType::OPPONENT_CONTINUOUS);
-
-    // Audio start for drive-in is handled by CarScene::StartAnimateCar.
 }
 
 void Diner::UpdateDebugInfo() {
     if (!debugMode) return;
 
-    // Not gated on debugOverlay: that is only the in-game text widget, and the
-    // debug UI reads this without one. Nor cleared afterwards - the base class
-    // has already filled in the common scene rows and they are worth keeping.
+    // The debug UI reads this without debugOverlay; the base class rows are kept.
     CarScene::UpdateDebugInfo();
 
     AddDebugValue("diner", "");
@@ -572,15 +515,11 @@ std::vector<DebugPanel> Diner::GetDebugPanels() {
 }
 
 bool Diner::PushEvent(SDL_Event *event) {
-    // In jail nothing is clickable - the original passes 1 to its challenger
-    // calls, which is look-don't-touch. Watch as long as you like; a key ends
-    // the run and rolls the hall of fame.
+    // In jail nothing is clickable; a key ends the run.
     if (state.IsJailed()) {
         if (event->type == SDL_KEYDOWN) {
-            // MoveToScene reads the flag to build the hall of fame as a loss;
-            // clear it after, or leaving the hall locks the diner again.
-            // ponytail: a proper end-of-run reset belongs to the game-over
-            // sequence (issue #24), this only avoids the dead end.
+            // MoveToScene reads the flag to build the hall of fame as a loss; clear it after or the diner stays locked.
+            // ponytail: a proper end-of-run reset belongs to the game-over sequence.
             state.MoveToScene(SCENE_KING_OF_COUNTY);
             state.SetJailed(false);
         }
@@ -589,10 +528,7 @@ bool Diner::PushEvent(SDL_Event *event) {
 
     if (challenge->HandleEvent(event)) return true;
 
-    // An encounter in progress owns the screen. Once a bet is on the table -
-    // and above all once it has been accepted and the car is about to pull
-    // away - a stray click must not walk out to the garage on a race that is
-    // already happening.
+    // A stray click must not walk out to the garage on a race that is already happening.
     const bool dialogUp = activeDialog && activeDialog->IsVisible();
     if (challenge->IsActive() && !dialogUp &&
         (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP)) {
@@ -645,27 +581,20 @@ bool Diner::PushEvent(SDL_Event *event) {
 }
 
 void Diner::FadeOut() {
-    // Reset animation state during fade out (safer than during hotkey press)
     OnSceneExit();
 
-    // Call parent implementation
     Scene::FadeOut();
 }
 
 void Diner::UpdateCarAnimation(double deltaTime) {
-    // Debug logging before calling parent
     static bool lastAnimatingCar = false;
     static bool lastExitingCar = false;
     
-    // Call parent implementation first
     CarScene::UpdateCarAnimation(deltaTime);
 
-    // Debug and fix the wait timer for OPPONENT_CONTINUOUS
     if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && !exitingCar && carBitmap) {
         if (exitCrankTimer >= 0.0) {
-            // Cranking. The car stays put until the starter sample has run, the
-            // same order CarScene uses for the player reversing out - a car
-            // that pulls away silently and then starts its engine is backwards.
+            // The car holds still until the starter sample has run.
             exitCrankTimer += deltaTime;
             if (exitCrankTimer >= CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE)) {
                 exitCrankTimer = -1.0;
@@ -674,18 +603,15 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         } else {
             debugWaitTimer += deltaTime;
 
-            // Hold the timer while a challenge dialog is in progress
             if (!CanStartCarExit()) {
                 debugWaitTimer = 0;
             }
-            // Fix: Manually trigger exit after 3 seconds if base class doesn't do it
             else if (debugWaitTimer >= 3.0) {
                 LOG_DEBUG("Diner::UpdateCarAnimation - Manual exit trigger after 3 seconds");
                 StartOpponentExit();
             }
         }
     } else if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS && !animatingCar && exitingCar && carBitmap) {
-        // Log when we're in exit state
         static double exitLogTimer = 0;
         exitLogTimer += deltaTime;
         if (exitLogTimer >= 1.0) {
@@ -694,7 +620,6 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         }
     }
 
-    // Check for state changes
     if (exitingCar != lastExitingCar) {
         LOG_DEBUG("Diner::UpdateCarAnimation - exitingCar changed: %d -> %d", lastExitingCar, exitingCar);
         lastExitingCar = exitingCar;
@@ -704,19 +629,15 @@ void Diner::UpdateCarAnimation(double deltaTime) {
         lastAnimatingCar = animatingCar;
     }
 
-    // Check if exit animation just started
     if (exitingCar && !engineSoundStarted) {
      
-        // Start engine sound when opponent car starts driving away
         if (audioManager) {
-            // Set engine period for driving away (similar to reverse out)
             audioManager->UpdateEnginePeriod(605);  // Period 605 = ~5916 Hz
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
             engineSoundStarted = true;
         }
     }
 
-    // Reset flag when exit animation completes
     if (!exitingCar && engineSoundStarted) {
         engineSoundStarted = false;
         LOG_DEBUG("Diner::UpdateCarAnimation - Exit animation completed, resetting engine sound flag");
@@ -736,16 +657,14 @@ void Diner::StartOpponentExit() {
 void Diner::OnCarAnimationComplete() {
     LOG_INFO("Diner::OnCarAnimationComplete - Opponent car reached idle position, stopping drive-in engine sound");
 
-    // Stop the drive-in engine sound when car reaches idle position
     if (audioManager) {
-        audioManager->StopLoop(0);  // Channel 0 is engine sound
+        audioManager->StopLoop(0);
         LOG_INFO("Diner::OnCarAnimationComplete - Drive-in engine sound stopped");
     }
 }
 
 void Diner::OnCarExitComplete() {
     LOG_INFO("Diner::OnCarExitComplete - Opponent car exit animation completed");
-    // Engine sound is already playing from UpdateCarAnimation
 }
 
 void Diner::OnSceneExit() {
@@ -766,7 +685,6 @@ void Diner::OnSceneExit() {
 
     challenge->Reset();
 
-    // Reset the actors; both start off screen.
     waitressStep = -1;
     waitressOnScreen = false;
     waitressTurnAround = false;
@@ -775,7 +693,6 @@ void Diner::OnSceneExit() {
     dinerRollTimer = 0.0f;
     if (guyAnim[0]) { ApplyWaitressFrame(); ApplyGuyFrame(); }
 
-    // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
 }
 
@@ -841,7 +758,7 @@ void Diner::ShowCallListDialog() {
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
-            case 0: { // Call
+            case 0: {
                 int selectedIndex = callListDialog->GetSelectedIndex();
                 if (selectedIndex >= 0) {
                     const auto& knownOpps = state.GetKnownOpponents();
@@ -850,7 +767,6 @@ void Diner::ShowCallListDialog() {
                         state.SetNextOpponent(selected);
                         callListDialog->Hide();
                         SetActiveDialog(nullptr);
-                        // Trigger car exit so the called opponent drives in next
                         if (carBitmap && !exitingCar) {
                             exitingCar = true;
                             debugWaitTimer = 0;
@@ -859,7 +775,7 @@ void Diner::ShowCallListDialog() {
                 }
                 break;
             }
-            case 1: // Forget it
+            case 1:
                 callListDialog->Hide();
                 SetActiveDialog(nullptr);
                 break;
@@ -889,7 +805,6 @@ void Diner::OnFadeComplete() {
     if (initialDelay) {
         fadeCompleteTime = GameTicks();
     } else {
-        // Start car animation immediately for subsequent fades
         if (!animatingCar && !exitingCar && !carBitmap) {
             StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::OPPONENT_CONTINUOUS);
         }

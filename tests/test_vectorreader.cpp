@@ -1,10 +1,6 @@
 #include <doctest/doctest.h>
 #include "parsers/libp.h"
 
-// ---------------------------------------------------------------------------
-// VectorReader
-// ---------------------------------------------------------------------------
-
 TEST_SUITE("VectorReader") {
 
 TEST_CASE("ReadUint8 basic") {
@@ -143,11 +139,11 @@ TEST_CASE("Seek beyond bounds throws") {
 TEST_CASE("Sequential reads advance position correctly") {
     std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A};
     VectorReader r(data);
-    r.ReadUint8();       // pos=1
-    r.ReadUint16BE();    // pos=3
-    r.ReadUint32BE();    // pos=7
+    r.ReadUint8();
+    r.ReadUint16BE();
+    r.ReadUint32BE();
     CHECK(r.Tell() == 7);
     CHECK(r.ReadUint8() == 0x08);
 }
 
-} // TEST_SUITE
+}

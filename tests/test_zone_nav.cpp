@@ -4,7 +4,6 @@
 using nav::Dir;
 using nav::Rect;
 
-// A 2x2 grid of buttons, the shape most dialogs and menus have.
 static const std::vector<Rect> kGrid = {
     {10, 10, 40, 20},   // 0: top-left,     centre (30, 20)
     {110, 10, 40, 20},  // 1: top-right,    centre (130, 20)
@@ -13,14 +12,11 @@ static const std::vector<Rect> kGrid = {
 };
 
 TEST_CASE("PickDirectional moves one step in each direction") {
-    // Standing on the top-left button.
     CHECK(nav::PickDirectional(kGrid, 30, 20, Dir::Right) == 1);
     CHECK(nav::PickDirectional(kGrid, 30, 20, Dir::Down) == 2);
-    // Nothing above or to the left of it.
     CHECK(nav::PickDirectional(kGrid, 30, 20, Dir::Up) == -1);
     CHECK(nav::PickDirectional(kGrid, 30, 20, Dir::Left) == -1);
 
-    // And back from the bottom-right.
     CHECK(nav::PickDirectional(kGrid, 130, 70, Dir::Up) == 1);
     CHECK(nav::PickDirectional(kGrid, 130, 70, Dir::Left) == 2);
 }
@@ -35,8 +31,6 @@ TEST_CASE("PickDirectional prefers the straight neighbour over a diagonal") {
 }
 
 TEST_CASE("PickDirectional ignores the target under the cursor") {
-    // Regression: the old code only considered zones containing the cursor, so
-    // navigation could never leave the one it was already on.
     const std::vector<Rect> zones = {
         {0, 0, 100, 100},  // 0: the cursor is inside this one
         {0, 200, 20, 20},  // 1: the only real target below
@@ -45,7 +39,6 @@ TEST_CASE("PickDirectional ignores the target under the cursor") {
 }
 
 TEST_CASE("PickDirectional needs strict movement, not a tie") {
-    // Same centre line: neither is "to the right" of the other.
     const std::vector<Rect> zones = {{0, 0, 10, 10}, {0, 40, 10, 10}};
     CHECK(nav::PickDirectional(zones, 5, 5, Dir::Right) == -1);
     CHECK(nav::PickDirectional(zones, 5, 5, Dir::Down) == 1);

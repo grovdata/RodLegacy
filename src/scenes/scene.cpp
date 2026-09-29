@@ -8,15 +8,12 @@
 #include "core/assets.h"
 #include "core/mouse.h"
 
-// Forward declaration for mouse pointer update on scene change
 extern Mouse mouse;
 
 Scene::Scene(Asset backgroundAsset, StockPalette palette) {
     this->isSetup = false;
     this->backgroundAsset = backgroundAsset;
     this->palette = palette;
-    //background->SetPosition(0, 0);
-    //background->SetVisible(true);
     debugOverlay = nullptr;
     debugMode = false;
 }
@@ -31,7 +28,6 @@ Scene::Scene(std::string backgroundName) {
 Scene::Scene() {
     this->isSetup = false;
     this->backgroundName = "";
-    // Set backgroundAsset to an invalid/empty state
     this->backgroundAsset = {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)0};
     this->palette = StockPaletteAmigaDiner;
     debugOverlay = nullptr;
@@ -39,7 +35,6 @@ Scene::Scene() {
 }
 
 Scene::~Scene() {
-    // RAII handles cleanup automatically
     if (debugOverlay) {
         delete debugOverlay;
         debugOverlay = nullptr;
@@ -53,7 +48,6 @@ void Scene::Init(bool initialDebugMode) {
         debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetDebugFont());
     }
     
-    // Only load background if we have a valid asset or filename
     if (backgroundAsset.id != 0) {
         background = state.GetAssets().GetBitmapAsset(backgroundAsset);
         background->SetVisible(true);
@@ -67,7 +61,6 @@ void Scene::Init(bool initialDebugMode) {
                                     0x000000FF,
                                     0xFF000000));
     if (backgroundName == "") {
-        // Fill with black if no background
         if (!background) {
             SDL_FillRect(surface.get(), nullptr, SDL_MapRGB(surface->format, 0, 0, 0));
         }
@@ -86,12 +79,8 @@ void Scene::Init(bool initialDebugMode) {
     m_backgroundRect.w = GAME_WIDTH;
     m_backgroundRect.h = GAME_HEIGHT;
 
-    // Status bar pens. The original does not hardcode indices: it
-    // nearest-colour-matches two fixed RGB values inside the scene's own
-    // palette, considering EHB half-brights too (SetupStatusBar 0x002259d0 ->
-    // 0x002259a2 -> the matcher at 0x00226200). Text is 0x0C71, background is
-    // 0x0333. PAL1 resolves those to 59 (EHB of index 27) and 20; PAL_GAS to
-    // 31 (0x0C63) and 20.
+    // Status bar pens are nearest-colour matches of 0x0C71 (text) and 0x0333 (background) in the scene's palette,
+    // EHB included: PAL1 gives 59 and 20, PAL_GAS 31 and 20.
     const int fontColorIndex = (palette == StockPaletteAmigaGasStation) ? 31 : 59;
     hud = std::make_unique<HUD>(palette, 20, fontColorIndex);
     hud->SetVisible(true);
@@ -106,16 +95,14 @@ void Scene::Init(bool initialDebugMode) {
 }
 
 void Scene::ToggleDebugMode() {
-    if (!debugEnabled) return;  // Early return if debug wasn't enabled at startup
+    if (!debugEnabled) return;
     
     debugMode = !debugMode;
     
-    // Create overlay if it doesn't exist yet
     if (debugMode && !debugOverlay) {
         debugOverlay = new DebugOverlay(renderer, state.GetAssets().GetMainFont());
     }
     
-    // Clear overlay when toggling off
     if (!debugMode && debugOverlay) {
         debugLines.clear();
     }
@@ -190,9 +177,7 @@ void Scene::DrawScene() {
 }
 
 void Scene::Draw() {
-    // Restore whatever target was current on entry rather than assuming the
-    // backbuffer: the caller may be rendering the game into an offscreen
-    // texture, and resetting to nullptr would send the scene past it.
+    // Restore the caller's target: the game may be rendering into an offscreen texture.
     SDL_Texture* callerTarget = SDL_GetRenderTarget(renderer);
 
     SDL_SetRenderTarget(renderer, sceneTarget.get());
@@ -207,11 +192,8 @@ void Scene::Draw() {
     DrawFadeClamp();
 }
 
-// The Amiga fade clamps every 4-bit colour channel to a ceiling that drops one
-// level per frame, so highlights are crushed first while dark areas hold until
-// the ceiling reaches them. That is a per-channel minimum, not the proportional
-// darkening a colour mod gives, so it is drawn as a full-screen grey composited
-// with a minimum blend. See RodLegacyResearch/docs/palette_fade.md.
+// The Amiga fade clamps each 4-bit channel to a falling ceiling, a per-channel minimum, so it is drawn as a
+// full-screen grey with a minimum blend.
 void Scene::DrawFadeClamp() {
     if (fadeLevel >= FADE_LEVELS) {
         return;
@@ -252,18 +234,15 @@ Dialog *Scene::GetActiveDialog() {
 }
 
 bool Scene::PushEvent(SDL_Event *event) {
-    // Handle debug toggle
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_F12 && debugEnabled) {
         ToggleDebugMode();
         return true;
     }
     
-    // If there's an active dialog, pass the event to it first
     if (activeDialog && activeDialog->IsVisible()) {
         return activeDialog->HandleEvent(event);
     }
     
-    // Handle mouse events for scene zones
     if (event->type == SDL_MOUSEMOTION) {
         FindZone(event->motion.x, event->motion.y);
         return false;
@@ -287,11 +266,7 @@ void Scene::FadeIn() {
     fadeLevel = 0;
     fadeStartTime = GameTicks();
     sceneTransition = SCENE_FADE_IN;
-    // Scene entry owns the cursor: each scene declares whether it wants the
-    // pointer and which one, so the next scene entered always sets both. Type and
-    // visibility have to be restored together - setting the type only once the
-    // fade completed left the previous scene's cursor (the race-end thumb, say)
-    // on screen for the whole fade into the next one.
+    // Pointer type and visibility are restored together on entry, or the previous cursor lingers through the fade.
     mouse.SetVisible(WantsPointer());
     mouse.SetPointerType(GetPointerType());
 }
@@ -312,8 +287,7 @@ void Scene::UpdateFade(Uint64) {
         return;
     }
 
-    // The Amiga moves the ceiling exactly one level per vblank, so step off
-    // wall clock rather than off our own frame rate.
+    // One level per vblank, off wall clock.
     Uint64 step = (GameTicks() - fadeStartTime) / FADE_STEP_MS;
 
     if (sceneTransition == SCENE_FADE_IN) {
@@ -338,25 +312,18 @@ void Scene::Update(Uint64 deltaTime) {
 void Scene::OnFadeComplete() {
     if (sceneTransition == SCENE_FADE_OUT) {
         sceneTransition = SCENE_BLACK;
-        //state.MoveToScene(sceneTransitioningTo);
-        // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_TRANSPARENT);
     } else if (sceneTransition == SCENE_FADE_IN) {
         sceneTransition = SCENE_SOLID;
-        // SDL_SetTextureAlphaMod(this->m_Texture, SDL_ALPHA_OPAQUE);
     }
 }
 
 void Scene::OnSceneEnter() {
-    // Base implementation - can be overridden by derived classes
 }
 
 void Scene::OnSceneExit() {
-    // Base implementation - can be overridden by derived classes
-    // This is called when the scene is being exited via hotkeys or other means
 }
 
 void CarScene::OnSceneExit() {
-    // Reset common car animation state
     carAnimationTime = 0;
     carExitAnimationTime = 0;
     waitTimer = 0;
@@ -364,10 +331,9 @@ void CarScene::OnSceneExit() {
     isPaused = false;
     needsNewAnimation = true;
     animatingCar = false;
-    carBitmap = nullptr;  // This ensures no car is visible when re-entering
+    carBitmap = nullptr;
     initialDelay = true;
     
-    // Call parent implementation
     Scene::OnSceneExit();
 }
 
@@ -415,25 +381,19 @@ void Scene::AddGamepadDebugInfo(const Mouse& mouse) {
 void Scene::DrawDebugZones() {
     if (!debugMode || !state.GetAssets().GetDebugShowZoneOverlaysRef()) return;
     
-    // Create a yellow semi-transparent surface for zone highlighting
     sdl2::SurfacePtr zoneSurface(SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32));
     SDL_SetSurfaceBlendMode(zoneSurface.get(), SDL_BLENDMODE_BLEND);
     
-    // Yellow with 50% transparency
     Uint32 zoneColor = SDL_MapRGBA(zoneSurface->format, 255, 255, 0, 128);
     
-    // Draw each zone
     for (auto zone : zones) {
-        SDL_Rect zoneRect = zone.GetRect(); // Assuming rect is public or has a getter
+        SDL_Rect zoneRect = zone.GetRect();
         SDL_FillRect(zoneSurface.get(), &zoneRect, zoneColor);
     }
     
-    // Create texture and render
     sdl2::TexturePtr zoneTexture(SDL_CreateTextureFromSurface(renderer, zoneSurface.get()));
     SDL_SetTextureBlendMode(zoneTexture.get(), SDL_BLENDMODE_BLEND);
     SDL_RenderCopy(renderer, zoneTexture.get(), NULL, NULL);
-    
-    // RAII handles cleanup automatically
 }
 
 CarScene::CarScene(std::string backgroundName): Scene(backgroundName) {
@@ -446,49 +406,33 @@ void CarScene::Init(bool debugMode) {
     Scene::Init(debugMode);
 }
 
-//void CarScene::Draw() {
-//    if (!isSetup) {
-//        Init();
-//        isSetup = true;
-//    }
-//    Scene::Draw();
-//}
-
 void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) {
 
     currentAnimationType = animType;
     
-    // Stop any existing audio and restart for this animation
     if (audioManager) {
-        // Always stop first to ensure clean restart
         audioManager->StopLoop(0);
         lastAnimationEnginePeriod = -1;
         
-        // Reset engine start timer
         waitingForEngineStart = false;
         engineStartTimer = 0;
         
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
-            // Reverse out: play engine start sample FIRST, then loop after delay
-            // Engine start: 31763 samples at 11025 Hz = ~2.88s duration
+            // Engine start: ~2.88s.
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
             
-            // Set flag to wait for engine start to finish
             waitingForEngineStart = true;
             engineStartTimer = 0;
             
-            // Pre-configure the engine loop period (will start after delay)
             audioManager->UpdateEnginePeriod(605);
             lastAnimationEnginePeriod = 605;
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
-            // Driving in: mostly constant low pitch, then deeper drop near full stop.
             audioManager->UpdateEnginePeriod(605);
             lastAnimationEnginePeriod = 605;
             audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
         }
     }
     
-    // For reverse animation with existing bitmap, just start the animation
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE && carBitmap != nullptr) {
         carAnimationTime = 0;
         carxFloat = carx;
@@ -497,19 +441,15 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
         return;
     }
     
-    // Use flag instead of null check
     if (car && needsNewAnimation) {
         if (carBitmap == nullptr) {
             carBitmap = new CarBitmap(car, driver, car->GetColor());
         }
         
-        // Set initial position based on animation type
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
-            // Reverse: start at idle position (car is already visible)
             SDL_Point idlePos = GetCarIdlePosition();
             carx = idlePos.x;
         } else {
-            // Forward: start off-screen left
             carx = -GAME_WIDTH;
         }
         carxFloat = carx;
@@ -517,10 +457,10 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
         
         cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
         carBitmap->Move({carx, cary});
-        carAnimationTime = 0;  // Reset animation timer
+        carAnimationTime = 0;
         animatingCar = true;
         waitTimer = 0;
-        needsNewAnimation = false;  // Reset flag
+        needsNewAnimation = false;
     }
 }
 
@@ -540,25 +480,19 @@ void CarScene::UpdateDebugInfo() {
     Scene::UpdateDebugInfo();
 }
 
-// Helper function to get Amiga period for car animation based on progress
-// Based on emulator analysis: pitch DROPS during animation (period increases)
-// Car uses exponential easing, so it slows dramatically at 80%+
+// Pitch drops as the car slows.
 int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
     if (!isDrivingIn) {
-        // Reverse out: constant period around 605 (5916 Hz)
         return 605;
     }
     
-    // Driving in: keep engine tone constant, then one final low drop near stop.
     if (progress < 0.92) {
         return 605;
     }
     return 800;
 }
 
-// One tick of the original's animation clock moves the car a whole number of
-// pixels, so a 280 px/s phase is 8 px per tick and nothing in between. Returns
-// how far to move this frame - usually 0, sometimes a whole step.
+// Moves a whole number of pixels per tick of the original's clock; usually 0 this frame.
 double CarScene::StepCarX(double deltaTime, double pxPerSecond) {
     const double tick = 1.0 / SCENE_STEP_HZ;
     const double step = std::round(pxPerSecond * tick);
@@ -572,28 +506,22 @@ double CarScene::StepCarX(double deltaTime, double pxPerSecond) {
 }
 
 void CarScene::UpdateCarAnimation(double deltaTime) {
-    // LOG_INFO("UpdateCarAnimation: isPaused=%d, exitingCar=%d, animatingCar=%d", 
-    //         isPaused, exitingCar, animatingCar);
-    
-    // Handle engine start delay (for reverse out)
     if (waitingForEngineStart) {
         engineStartTimer += deltaTime;
         if (engineStartTimer >= ENGINE_START_DURATION) {
-            // Engine start sample finished, now start the loop
             waitingForEngineStart = false;
             if (audioManager) {
                 LOG_INFO("UpdateCarAnimation: Engine start finished, starting loop at period 605");
                 audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
             }
         } else {
-            // Still waiting for engine start sample to finish - don't move car yet
             return;
         }
     }
             
     if (!isPaused) {
         if (exitingCar) {
-            // Exit: 3-phase acceleration matching DOS port (2->4->8 px/step at 35Hz)
+            // 2->4->8 px/step at 35Hz.
             SDL_Point idlePos = GetCarIdlePosition();
             double exitTotal = GAME_WIDTH + idlePos.x;
             double exitProgress = (exitTotal > 0)
@@ -636,10 +564,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             bool done;
 
             if (isDrivingIn) {
-                // Drive-in: 3-phase deceleration matching DOS port (8->4->2 px/step at 35Hz)
-                // Phase 0 (fast, 280 px/s): first ~25% of distance
-                // Phase 1 (medium, 140 px/s): middle ~55%
-                // Phase 2 (slow, 70 px/s): final ~20%
+                // 8->4->2 px/step at 35Hz: fast ~25% of the distance, medium ~55%, slow ~20%.
                 double totalDist = idlePos.x + GAME_WIDTH;
                 double progress = (totalDist > 0)
                     ? std::clamp((carxFloat + GAME_WIDTH) / totalDist, 0.0, 1.0)
@@ -662,8 +587,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                     carBitmap->Move({carx, cary});
                 }
             } else {
-                // SINGLE_CAR_REVERSE: 3-phase acceleration (2->4->8 px/step at 35Hz),
-                // backing out to the left along the same path the car drove in on.
+                // 2->4->8 px/step, backing out along the drive-in path.
                 double totalDist = idlePos.x + GAME_WIDTH;
                 double progress = (totalDist > 0)
                     ? std::clamp((idlePos.x - carxFloat) / totalDist, 0.0, 1.0)
@@ -714,7 +638,6 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             }
         }
 
-        // Handle waiting timers for OPPONENT_CONTINUOUS only
         if (currentAnimationType == CarAnimationType::OPPONENT_CONTINUOUS) {
             if (!animatingCar && !exitingCar && carBitmap) {
                 if (!CanStartCarExit()) {

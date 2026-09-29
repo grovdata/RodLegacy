@@ -23,32 +23,26 @@ TrackData MakeFlatTrack() {
     return track;
 }
 
-// Shifts early enough that the gear change lands at or under 5000 rpm. Above
-// that a manual box rolls the money-shift (PlayerCarPhysics 0x23c80a, ~3% a
-// shift), which drops the transmission and ends the race - fine as a mechanic,
-// but it is not what any of the callers below are testing, and it made them
-// fail at random. Tests that WANT a dropped box should power-shift explicitly.
+// Shifts at or under 5000 rpm: above that a manual rolls the ~3% money-shift, which drops the box and made
+// these tests fail at random. Tests that want a dropped box power-shift explicitly.
 uint16_t ThrottleWithShiftIfNeeded(const RaceSim& sim) {
     const CarState& player = sim.Player();
     const CarTables& tables = sim.PlayerTables();
     const bool canShiftUp = player.gear < tables.numGears - 1;
-    // Low gears gain ~500 rpm a tick, so the trigger has to sit well under 5000
-    // for the post-gain rpm at the shift to stay under it.
+    // Low gears gain ~500 rpm a tick, so trigger well under 5000.
     const int shiftRpm = std::min<int>(tables.autoShiftRpm, 3600);
     uint16_t input = 0;
     if (canShiftUp && player.rpm >= shiftRpm) {
         input |= INPUT_SHIFT | INPUT_THROTTLE;
     } else if (player.rpm >= 5600) {
-        // Top gear near redline: lift off so we don't grenade the engine by
-        // sitting on the limiter (the original blows after ~15 ticks held there).
+        // Lift near redline, or the engine blows after ~15 ticks on the limiter.
     } else {
         input |= INPUT_THROTTLE;
     }
     return input;
 }
 
-// Idle on the line until the staging countdown ends, so the caller can floor it
-// at the green without triggering a false start.
+// Idle through the countdown so the caller can floor it at the green.
 void RunOutCountdown(RaceSim& sim) {
     for (int i = 0; i < 400 && sim.InCountdown(); ++i) {
         sim.Tick(0);
@@ -68,10 +62,7 @@ CarSetup CopTestSetup() {
     return setup;
 }
 
-// The cop spawn is a 1-in-4 roll inside Init, so tests that need one search for
-// a seed rather than reaching into the sim.
-// Inverse of the above: a seed where the spawn roll does NOT arm a cop, so
-// kingRace can be toggled without also toggling the cop.
+// A seed where the 1-in-4 spawn roll does not arm a cop, so kingRace can be toggled alone.
 uint32_t SeedWithoutCop(const TrackData& track, const CarSetup& setup) {
     for (uint32_t seed = 1; seed < 500; ++seed) {
         RaceSim probe;
@@ -94,8 +85,7 @@ uint32_t SeedThatArmsCop(const TrackData& track, const CarSetup& setup) {
     return 0;
 }
 
-// Arms the cop, drops the player just past the trigger segment with the
-// opponent well behind, and ticks once so the cop takes over the opponent slot.
+// Arms the cop, drops the player past the trigger with the opponent well behind, and ticks once.
 void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup,
                      uint32_t seed) {
     sim.Init(&track, 1, setup, setup, seed);
@@ -105,8 +95,7 @@ void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup
     sim.Tick(0);
 }
 
-// Flips purist scoring on for one test case and puts it back afterwards, so a
-// failure cannot leak the setting into the rest of the suite.
+// Restored afterwards so it cannot leak into the rest of the suite.
 struct PuristScope {
     bool previous;
     explicit PuristScope(bool enabled) : previous(PuristScoring()) {
@@ -133,7 +122,7 @@ CarSetup PerfectCar() {
     return setup;
 }
 
-}  // namespace
+}
 
 TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
     CarSetup setup{};
@@ -164,8 +153,7 @@ TEST_CASE("ComputeBasePerformance perfect car lands on the 100-point ceiling") {
     CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (82 * 30) / 100);  // 94
 }
 
-// Same term-by-term arithmetic the 68k does, with the fixed tune term. The
-// purist tune term is covered by the two cases above.
+// The 68k's term-by-term arithmetic, with the fixed tune term.
 TEST_CASE("ComputeBasePerformance matches the formula term by term") {
     CarSetup setup{};
     setup.carbClass = 2;
@@ -214,11 +202,7 @@ TEST_CASE("ComputeTopSpeed is base * 13/10 capped at 130") {
     CHECK(ComputeTopSpeed(setup) == (base * 13) / 10);
 }
 
-// Reference reading taken from the real game: a stock, correctly tuned 1940
-// Chevrolet 2-dr coupe shows 92 mph. That car is SR_data car spec 0 - class
-// byte 0, config 0x1000, i.e. GM automatic, 2-brl carb, stock manifold, stock
-// tires - and the engine/manifold pairing scores 0 whichever way round the
-// spec word's two fields are read. See top_speed.md.
+// Reference reading from the real game: a stock, tuned 1940 Chevrolet 2-dr coupe (spec 0) shows 92 mph.
 TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph in purist mode") {
     CarSetup chevy{};
     chevy.carbClass = 0;      // 2-brl
@@ -233,14 +217,8 @@ TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph in purist mode") {
     CHECK(ComputeTopSpeed(chevy) == 92);
 }
 
-// Second reference reading from the real game: the newspaper's 1963 Corvette
-// shows 119 mph once tuned. SR_data car spec 5, config 0x1ba2, class byte 8 -
-// racing 4-brl carb, racing 4-speed GM, racing slicks, engine class 2 with the
-// class-4 racing manifold, which is the pairing that scores 100.
-//
-// roofChopped is set on a *stock* car here on purpose: no Corvette can be
-// chopped, and the original hands out the 9 points for a mod the body cannot
-// do. Without it the car scores 110 and the 119 does not come out.
+// Reference reading: the tuned 1963 Corvette (spec 5) shows 119 mph. roofChopped is set on purpose: a
+// Corvette cannot be chopped, and the original hands out the 9 points; without them it scores 110.
 CarSetup TunedCorvette() {
     CarSetup vette{};
     vette.carbClass = 2;      // 4-brl racing
@@ -258,23 +236,19 @@ TEST_CASE("Tuned 1963 Corvette reads 119 mph in purist mode") {
     PuristScope purist(true);
     CHECK(ComputeTopSpeed(TunedCorvette()) == 119);
 
-    // Three notches off perfect tune is the 117 the same car reads before it
-    // is tuned: the term goes (1-3)*20/8 = -5 instead of +2.
+    // Three notches off gives the 117 the car reads before tuning.
     CarSetup untuned = TunedCorvette();
     untuned.tuneOffset = 3;
     CHECK(ComputeTopSpeed(untuned) == 117);
 
-    // The King drives this exact car (spec 25 is spec 5 again). A player who
-    // buys one and pulls both bumpers gets to 122 - beating him in his own car
-    // is possible but tight, which is what the strategy guides describe.
+    // The King drives this car; pulling both bumpers gets a player to 122.
     CarSetup built = TunedCorvette();
     built.frontBumperRemoved = true;
     built.rearBumperRemoved = true;
     CHECK(ComputeTopSpeed(built) == 122);
 }
 
-// The same car with the tune term "fixed". Not what the game shows - kept as a
-// pin so the two modes cannot silently converge.
+// The fixed tune term, kept as a pin so the two modes cannot silently converge.
 TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 97 mph with the fixed tune term") {
     CarSetup chevy{};
     chevy.carbClass = 0;
@@ -289,10 +263,7 @@ TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 97 mph with the fixed tune term
     CHECK(ComputeTopSpeed(chevy) == 97);
 }
 
-// The body-mod freebie the Corvette reading exposed: a Corvette gets the roof
-// points because it cannot be chopped, but no bumper points, because it can
-// lose its bumpers like any other car. Treating the bumpers as impossible too
-// would put the 1963 at 125 mph instead of 119.
+// A Corvette gets the roof points because it cannot be chopped, but no bumper points, since it can lose them.
 TEST_CASE("Corvettes cannot be chopped but can lose their bumpers") {
     for (AmigaLibAsset body : {CHEVROLET_CORVETTE_1956_BODY,
                                CHEVROLET_CORVETTE_1961_BODY,
@@ -420,10 +391,7 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
     bool finished = false;
     for (int i = 0; i < 6000; ++i) {
-        // Hold the opponent in the far-left lane. Without this the pair start
-        // the race overlapping and the test "finishes" on the rear-end crash
-        // (END_HIT_NPC carries END_FINISHED) a dozen segments off the line,
-        // rather than on reaching 380.
+        // Hold the opponent in the far-left lane, or the pair overlap and the race ends on a rear-end crash.
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
 
@@ -443,30 +411,20 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
     CHECK((sim.Player().endFlags & END_FAILURE_MASK) == 0);
     CHECK(sim.Player().segPos > DRAG_FINISH_SEG);
     CHECK(sim.Player().speed == 0);
-    // Who wins is deliberately not asserted. The opponent rubber-bands to
-    // player speed + 16 while level and sprints when jockeying for position, and
-    // ThrottleWithShiftIfNeeded drives the player conservatively (lifting off
-    // near the redline), so the finish is close either way. This test is about
-    // the sim staying in sane ranges and reaching the flag.
+    // Who wins is not asserted: the finish is close either way. This checks the sim stays sane and reaches the flag.
     CHECK(std::abs(static_cast<int>(sim.Player().segPos) -
                    static_cast<int>(sim.Npc().segPos)) < 40);
 }
 
-// UpdateNPCEngine 0x2444c2: the curve branch caps the opponent once, at
-// perfScore - aggression, and re-arms on the next straight.
+// The curve branch caps the opponent once, at perfScore - aggression, re-armed on the next straight.
 TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") {
     TrackData track = MakeFlatTrack();
-    // A one-segment kink: 800 and 801 both read as "not straight", and the
-    // curve is back to 0 straight after, so neither car is dragged off the road.
-    // It sits this far down the course because the brake only bites once the
-    // opponent is above `perfScore - aggression`, and the opponent upshifts well
-    // short of the band end (CarSetup::reaction), so it needs room to get there.
+    // A one-segment kink far enough down the course for the opponent to exceed the cap.
     track.curve[801] = 1;
 
     CarSetup setup = CopTestSetup();
     setup.aggression = 12;   // 0x0c, the worst driver: the biggest penalty
-    // A slower player, so the opponent is clear ahead at the kink and takes the
-    // full penalty rather than the halved one it gets while being chased.
+    // A slower player, so the opponent is clear ahead and takes the full penalty.
     CarSetup slowPlayer;
 
     RaceSim sim;
@@ -491,11 +449,7 @@ TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") 
     CHECK((cappedTo == perf - 12 || cappedTo == perf - 6));
 }
 
-// UpdateNPCEngine upshifts at the car's band-end rpm minus 100 per point of the
-// driver's reaction byte, so no opponent ever uses the top of its power band.
-// The port read the band end straight, making every NPC shift better than the
-// best driver in the data - most obvious against The King in a drag race, which
-// is nothing but shift points.
+// The opponent upshifts at band end minus 100 per point of reaction, so none uses the top of its band.
 TEST_CASE("The opponent upshifts short of the band end, by its driver's reaction") {
     TrackData track = MakeFlatTrack();
     CarSetup setup = CopTestSetup();   // carb class 1 -> band end 5000
@@ -527,8 +481,7 @@ TEST_CASE("The opponent upshifts short of the band end, by its driver's reaction
 
 TEST_CASE("Steering input counteracts curve drift") {
     TrackData track = MakeFlatTrack();
-    // The road-direction array that pushes the car sideways is curve[] (A4+0x1098),
-    // not elev[] - see ApplyLateralDrift. A non-zero curve[] run creates the drift.
+    // The drift comes from curve[], not elev[].
     for (int i = 300; i <= 340; ++i) {
         track.curve[i] = 4;
     }
@@ -548,10 +501,7 @@ TEST_CASE("Steering input counteracts curve drift") {
     RaceSim noSteer;
     noSteer.Init(&track, 1, setup, npcSetup, 0x1122u);
     RunOutCountdown(noSteer);
-    // Park the opponent far up the road. This test is about curve drift versus
-    // steering input, and holding the throttle without ever steering otherwise
-    // rear-ends the blocking NPC long before segment 305 - a real outcome, but
-    // not the one under test here.
+    // Park the opponent far up the road, or holding the throttle rear-ends it before segment 305.
     noSteer.SetNpcDebugPose(900, 2200);
     for (int i = 0; i < 4000 && noSteer.Player().segPos < 305; ++i) {
         noSteer.Tick(ThrottleWithShiftIfNeeded(noSteer));
@@ -628,14 +578,12 @@ TEST_CASE("Cop spawns only on plain road races") {
         road.Init(&track, 1, setup, setup, seed);
         if (road.CopState() == 1) {
             ++roadSpawns;
-            // 510 + rand(255): always in the middle-to-late stretch of a road
-            // course, which runs 200..1020.
+            // 510 + rand(255), in the back half of a course that runs 200..1020.
             CHECK(road.CopTriggerSegment() >= 510);
             CHECK(road.CopTriggerSegment() < 765);
         }
     }
-    // It is a 1-in-4 roll, so over 79 road races it must fire sometimes and
-    // must not fire always.
+    // A 1-in-4 roll: over 79 road races it must fire sometimes, never always.
     CHECK(roadSpawns > 0);
     CHECK(roadSpawns < 79);
 }
@@ -646,8 +594,7 @@ TEST_CASE("Cop is cancelled unless the player is 5+ segments ahead") {
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    // Level with the opponent at the trigger: no cop at all. You only get
-    // pulled over for leading.
+    // Level with the opponent at the trigger: no cop. You only get pulled over for leading.
     RaceSim level;
     level.Init(&track, 1, setup, setup, seed);
     REQUIRE(level.CopState() == 1);
@@ -707,8 +654,7 @@ TEST_CASE("Speeding fine is tiered on the speed at capture") {
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
-    // Build speed with the cop held far enough back that it cannot catch us,
-    // then force the capture and check the fine matches the tier we are in.
+    // Build speed with the cop held back, then force the capture and check the fine tier.
     for (int i = 0; i < 400 && sim.Player().speed < 60; ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos - 40, 2200);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
@@ -719,7 +665,7 @@ TEST_CASE("Speeding fine is tiered on the speed at capture") {
     REQUIRE(sim.Player().speed >= 51);
     REQUIRE_FALSE(sim.PlayerBusted());
 
-    // Let it close first - the capture only arms once the siren is going.
+    // The capture only arms once the siren is going.
     sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
     sim.Tick(ThrottleWithShiftIfNeeded(sim));
     REQUIRE(sim.CopState() == 3);
@@ -728,8 +674,7 @@ TEST_CASE("Speeding fine is tiered on the speed at capture") {
     sim.Tick(ThrottleWithShiftIfNeeded(sim));
     REQUIRE(sim.PlayerBusted());
 
-    // Fine tracks the speed actually recorded at capture, not the speed we
-    // happened to read a tick earlier.
+    // The fine uses the speed recorded at capture.
     const int16_t caught = sim.CopCaughtSpeed();
     CHECK(caught >= 51);
     CHECK(sim.SpeedingFine() == (caught < 81 ? 50 : 75));
@@ -745,8 +690,7 @@ TEST_CASE("Winning the race shakes the cop - no ticket") {
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
-    // Run to the flag with the cop pinned close behind, so the siren is going
-    // the whole way but it never gets ahead of us.
+    // The cop pinned close behind all the way to the flag, never ahead.
     bool sirenSounded = false;
     for (int i = 0; i < 4000 && !sim.RaceOver(); ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
@@ -757,9 +701,7 @@ TEST_CASE("Winning the race shakes the cop - no ticket") {
     REQUIRE(sim.RaceOver());
     CHECK(sirenSounded);              // it really was chasing us
     CHECK(sim.PlayerWonAtLine());
-    // The whole point: the original re-tests its failure word before ORing in
-    // the caught bit, and a win is recorded in a different word, so crossing
-    // the line first gets you off scot free.
+    // A win is recorded in a different word than the failure bits, so crossing first gets you off.
     CHECK_FALSE(sim.PlayerBusted());
     CHECK(sim.SpeedingFine() == 0);
     CHECK_FALSE(sim.CopSirenOn());
@@ -786,10 +728,7 @@ TEST_CASE("Crashing while chased gets you a ticket on top") {
     CHECK_FALSE(sim.CopSirenOn());
 }
 
-// END_TIRES_BLOWN is not one of the original's in-race outcome bits - it lives
-// in A4+0x4ccc until ProcessRaceOutcome folds it into the word after the race.
-// Reading it as "the race has ended" handed out a ticket the instant the tires
-// let go, with the cop still far behind and never seen.
+// END_TIRES_BLOWN is not an in-race outcome bit; reading it as the race ending handed out a ticket.
 TEST_CASE("Blowing the tires while a cop is out is not a bust") {
     TrackData track = MakeFlatTrack();
     CarSetup worn = CopTestSetup();
@@ -829,8 +768,7 @@ TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
-    // Sit level and laterally overlapping while closing - without the cop gate
-    // this is exactly the geometry that sets END_HIT_NPC.
+    // Level and overlapping while closing: the geometry that sets END_HIT_NPC without the cop gate.
     for (int i = 0; i < 30 && !sim.RaceOver(); ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos, sim.Player().lateral + 20);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
@@ -839,9 +777,7 @@ TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
 }
 
 TEST_CASE("Init fully resets a sim that has already been raced") {
-    // The scene objects that own a RaceSim are built once at game start and are
-    // reused for every race, so re-Init has to be a complete reset - anything it
-    // misses leaks into the next race.
+    // A RaceSim is reused for every race, so re-Init must be a complete reset.
     TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
@@ -850,10 +786,7 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
     RaceSim fresh;
     fresh.Init(&track, 1, setup, setup, seed);
 
-    // Two separate dirty states, because they are mutually exclusive: being
-    // caught is what switches the siren back off, so a captured sim has a
-    // non-zero caught speed but a quiet siren, and vice versa. Testing only one
-    // of them lets the other's reset go missing unnoticed.
+    // Two dirty states, since capture switches the siren off: test both resets.
     SUBCASE("left mid-pursuit with the siren going") {
         RaceSim used;
         StartCopPursuit(used, track, setup, seed);
@@ -911,9 +844,7 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
 TEST_CASE("The King does not ease off when it gets clear in a road race") {
     TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
-    // Must be a seed with no cop: kingRace also suppresses the spawn roll, so
-    // on a cop-armed seed this would compare "cop" against "no cop" instead of
-    // King AI against ordinary AI.
+    // A seed with no cop, since kingRace also suppresses the spawn roll.
     const uint32_t seed = SeedWithoutCop(track, setup);
     REQUIRE(seed != 0);
 
@@ -928,9 +859,7 @@ TEST_CASE("The King does not ease off when it gets clear in a road race") {
         REQUIRE(sim.CopState() == 0);
         RunOutCountdown(sim);
         for (int i = 0; i < 400 && !sim.RaceOver(); ++i) {
-            // Pinned 30 segments up the road - past the 13 segment threshold
-            // where an ordinary opponent drops back to its cruising speed
-            // (UpdateNPCEngine 0x2444c2) - with the player left crawling.
+            // Pinned 30 segments ahead, past the 13-segment threshold where an ordinary opponent drops to cruise.
             sim.SetNpcDebugPose(sim.Player().segPos + 30, 2200);
             sim.Tick(0);
         }
@@ -941,13 +870,9 @@ TEST_CASE("The King does not ease off when it gets clear in a road race") {
     const Result ordinary = runClearAhead(false);
     const Result king = runClearAhead(true);
 
-    // The ordinary opponent is pulled back to its cruising target and hovers
-    // just above it (the ease-off assigns the target, the next tick accelerates
-    // off it again).
+    // The ordinary opponent hovers just above its cruising target.
     CHECK(ordinary.finalSpeed <= ordinary.normal + 2);
-    // The King never enters that branch, so it is held to neither target and
-    // runs away to its car's own limit - comfortably clear of the higher target
-    // it would settle at if the branch did apply to it.
+    // The King never enters that branch and runs to his car's own limit.
     CHECK(king.finalSpeed > king.risky + 20);
 }
 
@@ -955,9 +880,7 @@ TEST_CASE("In a drag race the King eases to the higher of the two targets") {
     TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
 
-    // The road-race clause of the King's entry test does not apply to a drag
-    // race, so here it does reach the far-ahead branch - and takes the risky
-    // target where an ordinary opponent takes the normal one.
+    // In a drag race the King does reach the far-ahead branch, taking the risky target.
     auto finalSpeedClearAhead = [&](bool king) {
         RaceSim sim;
         sim.Init(&track, 0, setup, setup, 0x77u, king);
@@ -984,8 +907,7 @@ TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
     RaceSim sim;
     sim.Init(&track, 1, setup, setup, seed);
     sim.SetCameraState(sim.CopTriggerSegment() + 1, 0, 0, 2560, 0);
-    // Opponent left a long way back, which is the normal state of affairs by the
-    // time the cop trigger is reached: it takes over wherever the opponent is.
+    // The cop takes over wherever the opponent is, usually a long way back.
     sim.SetNpcDebugPose(sim.CopTriggerSegment() - 115, 2200);
     sim.Tick(0);
     REQUIRE(sim.CopState() == 2);
@@ -994,8 +916,7 @@ TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
         static_cast<int>(sim.Player().segPos) - static_cast<int>(sim.Npc().segPos);
     REQUIRE(gapAtSpawn > 100);
 
-    // The cop must not inherit the challenger's performance or its concede
-    // state, or it simply trails along and can never catch anyone.
+    // The cop must not inherit the challenger's performance or concede state.
     CHECK_FALSE(sim.NpcAi().gaveUp);
     CHECK(sim.NpcTables().perfScore > 70);
 
@@ -1007,7 +928,7 @@ TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
         static_cast<int>(sim.Player().segPos) - static_cast<int>(sim.Npc().segPos);
     CHECK(gapEnd < gapAtSpawn);          // it closed
     CHECK_FALSE(sim.NpcAi().gaveUp);     // and never conceded on the way
-    // Fleeing flat out is not enough to shake it: it runs to player + 32.
+    // Fleeing flat out is not enough: it runs to player + 32.
     CHECK(sim.Npc().speed > sim.Player().speed);
 }
 
@@ -1033,8 +954,7 @@ TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
         tough.Tick(0);
         CHECK_FALSE(tough.PlayerWrecked());
         CHECK_FALSE(tough.PlayerFailed());
-        // Nothing at all is latched: an event carrying a suppressed bit is
-        // dropped whole, so a rear-end cannot leave END_FINISHED behind either.
+        // An event carrying a suppressed bit is dropped whole.
         CHECK(tough.Player().endFlags == 0);
     }
 
@@ -1095,16 +1015,13 @@ TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
     RunOutCountdown(sim);
     sim.SetNpcDebugPose(900, 2200);  // keep the opponent out of the way
 
-    // Standing still: PlayerSkidding() (RaceLogicUpdate 0x244d50) requires
-    // speed > 20 mph, so even pinning the wheel over should stay quiet.
+    // PlayerSkidding() needs speed > 20 mph.
     for (int i = 0; i < 10; ++i) {
         sim.Tick(INPUT_STEER_LEFT);
         CHECK_FALSE(sim.PlayerSkidding());
     }
 
-    // Get rolling past 20 mph, then hold the wheel hard over. slideVel ramps
-    // by 2/tick toward its +-24 clamp, so it crosses the |slideVel| >= 12
-    // threshold within a handful of ticks.
+    // slideVel ramps 2/tick toward +-24, crossing 12 within a few ticks.
     for (int i = 0; i < 200 && sim.Player().speed <= 25; ++i) {
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
     }
@@ -1152,8 +1069,7 @@ TEST_CASE("An automatic can rev on the line without jumping the start") {
     REQUIRE(sim.PlayerTables().automatic);
     REQUIRE(sim.InCountdown());
 
-    // Hold the throttle on the line with the selector in N. The box must stay in
-    // neutral so the car never rolls: the engine revs, nothing moves.
+    // Throttle on the line in N: the engine revs, nothing moves.
     for (int i = 0; i < 20 && sim.InCountdown(); ++i) {
         sim.Tick(INPUT_THROTTLE);
     }
@@ -1208,8 +1124,7 @@ TEST_CASE("Rolling in neutral pins the rpm to road speed, standing still it revs
     }
     REQUIRE(sim.Player().speed > 0);
 
-    // Now hold the throttle while coasting out of gear. The needle must track
-    // road speed, not run away on the rpm gain.
+    // Coasting out of gear the needle tracks road speed.
     for (int i = 0; i < 20 && sim.Player().speed > 0; ++i) {
         sim.Tick(INPUT_THROTTLE);
         const CarState& p = sim.Player();
@@ -1217,8 +1132,7 @@ TEST_CASE("Rolling in neutral pins the rpm to road speed, standing still it revs
     }
     CHECK(sim.Player().rpm < 5000);
 
-    // Stationary in neutral, though, it must still rev - that is the start-line
-    // blip, and the rpm gain is what drives it.
+    // Stationary in neutral it must still rev: the start-line blip.
     RaceSim standing;
     standing.Init(&track, 1, setup, setup, 0x2468u);
     RunOutCountdown(standing);
@@ -1245,8 +1159,7 @@ TEST_CASE("An automatic cannot be blown by holding the throttle") {
     RunOutCountdown(sim);
     sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);   // engage drive
 
-    // Flat out for far longer than the ~15 ticks that grenades a manual on the
-    // limiter. The governor holds it below the redline, so it must survive.
+    // Far longer than the ~15 ticks that grenade a manual; the governor holds it under redline.
     for (int i = 0; i < 400; ++i) {
         sim.Tick(INPUT_THROTTLE);
     }
@@ -1336,12 +1249,10 @@ CarSetup FastSetup() {
     return setup;
 }
 
-}  // namespace
+}
 
-// The bug this fixes: `speed = rpm/ratio` was recomputed every tick and braking
-// was a post-pass on top of it, so a braking car sprang back to the speed implied
-// by the 1500 rpm idle floor and could never stop. In the original the two are
-// alternatives, not a sequence (PlayerCarPhysics 0x23c5d6).
+// Speed recomputed from rpm every tick made a braking car spring back to the idle speed. In the original
+// the two are alternatives.
 TEST_CASE("Braking brings a car to a complete stop") {
     TrackData track = MakeFlatTrack();
     const CarSetup setup = FastSetup();
@@ -1369,9 +1280,7 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     npc.engineClass = 0;
     npc.weightClass = 7;
 
-    // kingRace suppresses the cop spawn roll. This test is about the roll-out
-    // past the line, and a working cop would end the race before the player
-    // ever gets there.
+    // kingRace suppresses the cop, which would end the race before the roll-out.
     RaceSim sim;
     sim.Init(&track, 1, player, npc, 0x12345678u, /*kingRace=*/true);
     RunOutCountdown(sim);
@@ -1380,10 +1289,7 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     int16_t speedAtLine = 0;
     int rollOutTicks = 0;
     for (int i = 0; i < 4000; ++i) {
-        // Hold the opponent well behind, out of the view states that can touch
-        // the player. Parking it in the next lane does NOT do that: level and
-        // 180+ to our left IS view state 0, the one the side-swipe runs in, and
-        // a player who never steers back gets shoved off the road.
+        // Held well behind: parked level in the next lane is the side-swipe view state.
         sim.SetNpcDebugPose(sim.Player().segPos - 40, 1550);
         sim.Tick(ThrottleWithShiftIfNeeded(sim));
         if (!crossed && sim.Player().segPos >= ROAD_FINISH_SEG) {
@@ -1401,8 +1307,7 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     REQUIRE(crossed);
     CHECK(speedAtLine > 50);
 
-    // It ends only once the car has stopped, some way past the line. Whether the
-    // player won is incidental here - see the drag smoke test.
+    // It ends only once the car has stopped past the line.
     CHECK(sim.RaceOver());
     CHECK(sim.Player().speed == 0);
     CHECK(sim.Player().segPos > ROAD_FINISH_SEG);
@@ -1421,8 +1326,7 @@ TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
     int16_t topRollOutSpeed = 0;
     for (int i = 0; i < 4000; ++i) {
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
-        // Race normally to the line, then bury the throttle and hold full left
-        // lock: past the line neither may have any effect.
+        // Past the line, throttle and steering have no effect.
         const bool rolling = sim.RollingOut();
         sim.Tick(rolling ? static_cast<uint16_t>(INPUT_THROTTLE | INPUT_STEER_LEFT)
                          : ThrottleWithShiftIfNeeded(sim));
@@ -1525,22 +1429,17 @@ int CountDroppedBoxes(int transClass, int seeds) {
 }
 
 TEST_CASE("Power-shifting a manual above 5000 rpm drops the transmission") {
-    // PlayerCarPhysics 0x23c80a: manual, throttle held, rpm > 5000, then
-    // PRNG(3277) < transWear/100 + 100. Fresh that is ~3% a shift, so over a
-    // race with several power-shifts it lands often enough to be a real risk -
-    // this is what puts the "dropped your transmission, klutz" bubble on screen.
+    // Manual, throttle held, rpm > 5000, then PRNG(3277) < transWear/100 + 100: ~3% a shift when fresh.
     const int dropped = CountDroppedBoxes(2, 60);
     CHECK(dropped > 0);
     CHECK(dropped < 60);  // and not so likely that every race ends this way
 
-    // 0x23c7f8 skips the roll entirely on an automatic.
+    // No roll at all on an automatic.
     CHECK(CountDroppedBoxes(0, 60) == 0);
 }
 
 
-// Per-race tire wear (InitRaceState 0x244250 / DOS 1000:b0d8). Stock tires wear
-// about twice as fast as brand-name or slicks, and the 2.5-mile road course
-// wears more than the quarter mile. See docs/driving/tires.md.
+// Stock tires wear about twice as fast, and the road course more than the drag strip.
 TEST_CASE("TireWearForRace: stock tires wear fastest, road more than drag") {
     CHECK(TireWearForRace(0, true,  0) == 700);   // stock, road
     CHECK(TireWearForRace(0, false, 0) == 300);   // stock, drag
@@ -1551,8 +1450,7 @@ TEST_CASE("TireWearForRace: stock tires wear fastest, road more than drag") {
     CHECK(TireWearForRace(0, true, 299) == 999);
 }
 
-// A fresh set never blows; a worn one can, and only in the back half of the
-// course, never past the line.
+// A fresh set never blows; a worn one only in the back half, never past the line.
 TEST_CASE("tire blowout is rolled once and lands before the finish") {
     TrackData track = MakeFlatTrack();
     CarSetup fresh;
@@ -1576,8 +1474,7 @@ TEST_CASE("tire blowout is rolled once and lands before the finish") {
     CHECK(blowouts > 0);
 }
 
-// Blown tires replace the curve drift with a flat pull, so the car walks
-// sideways at a fixed rate no matter what the road is doing.
+// A flat pull replaces the curve drift.
 TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
     TrackData track = MakeFlatTrack();
     CarSetup worn;
@@ -1592,8 +1489,7 @@ TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
     REQUIRE(seed != 0);
 
     sim.Init(&track, 1, worn, worn, seed);
-    // Put the car just past the blowout segment rather than driving the whole
-    // course to it - the trip there is not what this is testing.
+    // Just past the blowout segment instead of driving the course.
     sim.SetCameraState(sim.TireBlowSegment() + 1, 0, 0, 2560, 0);
     sim.Tick(0);
     REQUIRE(sim.PlayerTiresBlown());
@@ -1619,9 +1515,7 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     CarSetup npcSetup = setup;
     npcSetup.transClass = 0;
 
-    // Rolling and straight. Steering is then applied in short bursts: held hard
-    // over for long enough the car leaves the road and the sim freezes, which
-    // would make every later tick a no-op.
+    // Steering in short bursts: held too long the car leaves the road and the sim freezes.
     auto rolling = [&](RaceSim& sim) {
         sim.Init(&track, 1, setup, npcSetup, 0x5566u);
         RunOutCountdown(sim);
@@ -1715,4 +1609,4 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     }
 }
 
-}  // namespace srrace
+}

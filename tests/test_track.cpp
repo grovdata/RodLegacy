@@ -3,23 +3,17 @@
 
 using namespace std;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Write a big-endian int16 into a vector at position pos
 static void WriteBE16(std::vector<uint8_t>& buf, size_t pos, int16_t val) {
     buf[pos]     = (val >> 8) & 0xFF;
     buf[pos + 1] = val & 0xFF;
 }
 
-// Build a synthetic "binary" buffer large enough to hold track data at
-// a given offset, containing N 12-byte coord segments.
+// A synthetic buffer holding N 12-byte coord segments at offset.
 static std::vector<uint8_t> MakeTrackBinary(
     uint32_t offset,
     const std::vector<SrTrackCoordSegment>& segments)
 {
-    size_t needed = offset + segments.size() * 12 + 12; // +12 for safety
+    size_t needed = offset + segments.size() * 12 + 12;
     std::vector<uint8_t> buf(needed, 0);
 
     for (size_t i = 0; i < segments.size(); i++) {
@@ -35,10 +29,6 @@ static std::vector<uint8_t> MakeTrackBinary(
     }
     return buf;
 }
-
-// ---------------------------------------------------------------------------
-// SrTrackSegment methods
-// ---------------------------------------------------------------------------
 
 TEST_SUITE("SrTrackSegment") {
 
@@ -77,11 +67,7 @@ TEST_CASE("GetBoundingBox returns the four trap fields") {
     CHECK(maxY ==  15);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// Static coordinate/sprite scaling helpers
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("TrackReader static helpers") {
 
@@ -121,11 +107,7 @@ TEST_CASE("ScaleSpritePosition divides both position fields by SR_COORDINATE_SCA
     CHECK(rec.spriteId2 == 32);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// TrackReader::LoadTrackData (vector overload)
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("TrackReader::LoadTrackData") {
 
@@ -147,16 +129,11 @@ TEST_CASE("after failed load, ExtractTrackCoordinates returns empty") {
     CHECK(segs.empty());
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// TrackReader::ExtractTrackCoordinates (with synthetic data)
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("TrackReader::ExtractTrackCoordinates") {
 
 TEST_CASE("extracts coordinates from synthetic drag-race offset") {
-    // Build one segment: xStart=10, xEnd=20, yStart=5, yEnd=15, sprites=0
     SrTrackCoordSegment expected;
     expected.xStart = 10; expected.xEnd = 20;
     expected.yStart = 5;  expected.yEnd = 15;
@@ -203,7 +180,6 @@ TEST_CASE("stops at maxSegments") {
 }
 
 TEST_CASE("stops when coordinates are unreasonably large") {
-    // First segment is fine, second has extreme coords that trigger the validation check
     SrTrackCoordSegment good = {}, bad = {};
     good.xStart = 5; good.xEnd = 10; good.yStart = 3; good.yEnd = 8;
     // Coordinates are already scaled by MakeTrackBinary, so 500*16 = 8000 > 400 limit
@@ -214,16 +190,11 @@ TEST_CASE("stops when coordinates are unreasonably large") {
     tr.LoadTrackData(buf);
     auto segs = tr.ExtractTrackCoordinates(SR_TRACK_DRAG_RACE, 10);
 
-    // Should stop after the good segment
     CHECK(segs.size() == 1);
     CHECK(segs[0].xStart == 5);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// TrackReader::AnalyzeTrack
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("TrackReader::AnalyzeTrack") {
 
@@ -294,9 +265,8 @@ TEST_CASE("unique sprite IDs are collected (zeros excluded)") {
     TrackReader tr;
     auto analysis = tr.AnalyzeTrack({s1, s2});
     REQUIRE(analysis.uniqueSprites.size() == 2);
-    // Check 31 and 32 are present (sorted order)
     CHECK(analysis.uniqueSprites[0] == 31);
     CHECK(analysis.uniqueSprites[1] == 32);
 }
 
-} // TEST_SUITE
+}

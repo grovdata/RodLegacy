@@ -5,11 +5,7 @@
 #include <vector>
 #include "core/save_loader.h"
 
-// Builds a minimal but structurally complete synthetic .sav file matching
-// RodLegacyResearch/docs/formats/save_game.md exactly, so the parser can be
-// unit tested without depending on any real save file living outside this
-// repo. One car (with 3 installed parts), one spare part, and a fully
-// populated trailer.
+// A minimal synthetic .sav: one car with 3 installed parts, one spare part, a full trailer.
 namespace {
 
 void AppendU16BE(std::vector<uint8_t>& d, uint16_t v) {
@@ -24,9 +20,6 @@ void AppendU32BE(std::vector<uint8_t>& d, uint32_t v) {
     d.push_back(static_cast<uint8_t>(v & 0xFF));
 }
 
-// A NULL-terminated 10-byte part record (real data in bytes 0-5, next-ptr
-// bytes 6-9 are pointer garbage on disk -- always 0 here since this is the
-// last/only node in every list this fixture builds).
 void AppendPartRecord(std::vector<uint8_t>& d, uint16_t value, uint16_t wearRaw, uint8_t variant) {
     AppendU16BE(d, value);
     AppendU16BE(d, wearRaw);
@@ -38,7 +31,6 @@ void AppendPartRecord(std::vector<uint8_t>& d, uint16_t value, uint16_t wearRaw,
 std::vector<uint8_t> BuildSyntheticSave() {
     std::vector<uint8_t> d;
 
-    // --- Header (46 bytes) ---
     const char name[] = "TESTDRIVER";
     for (char c : std::string(name)) d.push_back(static_cast<uint8_t>(c));
     while (d.size() < 14) d.push_back(0);       // NUL-pad to 14
@@ -58,9 +50,8 @@ std::vector<uint8_t> BuildSyntheticSave() {
     d.push_back(5);        // specIndex
     d.push_back(3);        // colorIndex
     d.push_back(0);        // unmapped rel+5
-    // 7 sub-list pointers (0x06,0x0A,0x0E,0x12,0x16,0x1A,0x1E) -- slot 0
-    // (Transmission), 1 (Engine), 6 (Tires) populated; 2/3/4/5 empty.
-    uint32_t nonZeroPtr = 1; // any non-zero placeholder; real value is pointer garbage
+    // Slots 0 (Transmission), 1 (Engine) and 6 (Tires) populated.
+    uint32_t nonZeroPtr = 1;
     AppendU32BE(d, nonZeroPtr); // 0x06 slot0 Transmission
     AppendU32BE(d, nonZeroPtr); // 0x0A slot1 Engine
     AppendU32BE(d, 0);          // 0x0E slot2 Manifold (empty)
@@ -80,10 +71,8 @@ std::vector<uint8_t> BuildSyntheticSave() {
     AppendU32BE(d, 0);      // 0x30 next-car ptr (pointer garbage)
     REQUIRE(d.size() == carStart + 52);
 
-    // Sub-lists, in slot order 0..6 (matches ReadCarRecord's read order).
     AppendPartRecord(d, 250, 150, 9);   // slot0 Transmission: $250, 1% worn, variant 9
     AppendPartRecord(d, 500, 0, 6);     // slot1 Engine: $500, 0% worn, variant 6 (GM V8 327)
-    // slots 2,3,4,5 empty, no records
     AppendPartRecord(d, 80, 250, 41);   // slot6 Tires: $80, 2% worn, variant 41
 
     // --- Segment 3: owned roster (carcount-1 = 0 records) ---
@@ -93,9 +82,7 @@ std::vector<uint8_t> BuildSyntheticSave() {
 
     // --- Trailer (190 bytes, always the last 190 bytes of the file) ---
     size_t trailerStart = d.size();
-    // Chunk 5: races_completed, road_rep, drag_rep, last_race_won (see
-    // save_loader.h). road_rep is deliberately negative here - a losing
-    // streak drives it below zero, and it is read as a signed int16.
+    // road_rep is negative: it is read as a signed int16.
     AppendU16BE(d, 10);      // races completed
     AppendU16BE(d, 0xFFFD);  // road_rep = -3
     AppendU16BE(d, 6);       // drag_rep = 6
@@ -120,7 +107,7 @@ std::filesystem::path WriteTempSave(const std::vector<uint8_t>& bytes) {
     return path;
 }
 
-} // namespace
+}
 
 TEST_CASE("SaveGameLoader: parses a synthetic save matching save_game.md exactly") {
     auto path = WriteTempSave(BuildSyntheticSave());
@@ -174,9 +161,7 @@ TEST_CASE("SaveGameLoader: parses a synthetic save matching save_game.md exactly
     for (int i = 0; i < 22; ++i) CHECK(save.opponentCarSpec[i] == i);
 
     CHECK(save.elapsedTicks == 12345);
-    // Trailer chunk 8: the profile's road-course template. The original
-    // rolls it once in maybeInitSomeGameState (TrackGenerator(100)) and
-    // never per race, so it has to survive the round trip.
+    // The template is rolled once per profile, so it has to survive the round trip.
     CHECK(save.trackVariant == 4);
 }
 

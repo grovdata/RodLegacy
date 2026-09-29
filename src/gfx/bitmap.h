@@ -22,7 +22,7 @@ class Bitmap : public IDrawable {
     public:
         Bitmap();
         Bitmap(int width, int height, int depth);
-        Bitmap(const Bitmap& other);  // Copy constructor
+        Bitmap(const Bitmap& other);
         virtual ~Bitmap();
 
         void     LoadBitmap(std::string filename);
@@ -53,9 +53,8 @@ class Bitmap : public IDrawable {
         virtual void Draw() override;
         void DrawWithRects(const SDL_Rect& src, const SDL_Rect& dst);
 
-        //Remove later
-        SDL_Surface* GetSurface();  // Returns raw pointer for compatibility
-        SDL_Texture* GetTexture();  // Returns raw pointer for compatibility
+        SDL_Surface* GetSurface();
+        SDL_Texture* GetTexture();
 
         void UpdateFromSurface();
         void ReplaceSurface(SDL_Surface* newSurface);

@@ -1,11 +1,5 @@
 #pragma once
-// Race simulation port: BuildCarPhysicsTables (0x2437f0), base performance
-// (0x2435f0), PlayerCarPhysics (0x23c5d6), UpdateRaceScroll (0x244818),
-// AdvanceTrackSegment (0x23b4a0), UpdateNPCEngine (0x2444c2),
-// UpdateNPCAI (0x244870), CheckTrackEdgeCollision (0x23b620).
-// See RodLegacyResearch/docs/driving/physics.md and track-data.md.
-// One Tick() = one original frame (the Amiga ran this once per rendered
-// frame; we tick at a fixed 50 Hz).
+// One Tick() = one original frame.
 
 #include <cstdint>
 #include <cstdlib>
@@ -14,32 +8,26 @@
 
 namespace srrace {
 
-// Input word bits (original A4-0x3f0c).
+// Input word bits.
 constexpr uint16_t INPUT_THROTTLE = 0x01;
 constexpr uint16_t INPUT_BRAKE = 0x02;
 constexpr uint16_t INPUT_STEER_LEFT = 0x04;   // steer -1
 constexpr uint16_t INPUT_STEER_RIGHT = 0x08;  // steer +1
 constexpr uint16_t INPUT_SHIFT = 0x10;        // consumed each tick
 
-// End/crash flag bits (original A4+0x4bc6).
+// End/crash flag bits.
 constexpr uint16_t END_FINISHED = 0x01;
 constexpr uint16_t END_HIT_NPC = 0x02;  // rear-ended the opponent (RaceLogicUpdate |= 3)
 constexpr uint16_t END_ENGINE_BLOWN = 0x04;
-// The tires let go mid-race (original A4+0x4ccc -> `A4+0x4bc7 |= 8`). NOT a
-// failure bit: the car keeps going, it just pulls hard to one side for the rest
-// of the race (see ApplyLateralDrift). At the finish it selects the "Blew your
-// tires again?" / "But you need new tires." wordings and makes the garage fit a
-// fresh set. See RodLegacyResearch/docs/driving/tires.md.
+// Not a failure bit: the car pulls hard to one side for the rest of the race. At the finish it picks the
+// blown-tire wordings and makes the garage fit a fresh set.
 constexpr uint16_t END_TIRES_BLOWN = 0x08;
 constexpr uint16_t END_TRANS_DROPPED = 0x10;
 constexpr uint16_t END_WALL_HIT = 0x20;
-// Pulled over for speeding. The original's own bit: the `| 0x41` in
-// RaceLogicUpdate is the only place 0x40 is ever set in the whole binary, so it
-// means this and nothing else. See RodLegacyResearch/docs/driving/cop.md.
+// The only place the original sets 0x40.
 constexpr uint16_t END_COP_CAUGHT = 0x40;
 constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false start
-// NPC-only, and not an original flag: our own "the opponent conceded in the
-// last quarter" marker (NpcAiUpdate), kept clear of the original's 8 bits.
+// NPC-only and not an original flag: the opponent conceded in the last quarter.
 constexpr uint16_t END_GAVE_UP = 0x0100;
 
 // Player failure states that freeze the car and end the race as a loss.
@@ -50,12 +38,8 @@ constexpr uint16_t END_FAILURE_MASK =
 // The two impacts that bend metal and put the wrecked interior on screen.
 constexpr uint16_t END_WRECK_MASK = END_WALL_HIT | END_HIT_NPC;
 
-// Tires wear once per race, not per tick: InitRaceState (Amiga 0x244250,
-// DOS 1000:b0d8) applies this on return from the race, and only if the player
-// covered more than TIRE_WEAR_MIN_SEGMENTS. Stock tires wear roughly twice as
-// fast as brand-name or slicks, and the road course wears more than the strip.
-// `roll300` is rand(300). Units are the original's 0..10000.
-// See RodLegacyResearch/docs/driving/tires.md.
+// Tires wear once per race, only past TIRE_WEAR_MIN_SEGMENTS. Stock tires wear about twice as fast, and
+// the road course more than the strip. `roll300` is rand(300). Units are 0..10000.
 constexpr int TIRE_WEAR_MIN_SEGMENTS = 200;
 inline int TireWearForRace(int tireClass, bool isRoadRace, int roll300) {
     const int base = (tireClass == 0) ? (isRoadRace ? 700 : 300)
@@ -63,11 +47,9 @@ inline int TireWearForRace(int tireClass, bool isRoadRace, int roll300) {
     return base + roll300;
 }
 
-// Race phase: staging countdown -> running -> ended (matches the UpdatePhysics
-// 0x2364e8 state machine: launch light, then the race, then a frozen car).
+// Staging countdown (launch light) -> running -> ended (frozen car).
 enum class RacePhase : uint8_t { Countdown, Running, Ended };
 
-// Car configuration in original part-class terms.
 struct CarSetup {
     int carbClass = 0;      // 0=2bbl, 1=4bbl, 2=racing
     int transClass = 2;     // 0=auto, 1=3spd, 2=4spd, 3=racing
@@ -80,26 +62,16 @@ struct CarSetup {
     int engineWear = 0;
     int transWear = 0;
     int tireWear = 0;
-    // Body mods, scored separately (car record byte 0x2E bits 2/0/1). A mod the
-    // body cannot take at all scores as if it were done - see
-    // ComputeBasePerformance.
+    // Body mods. A mod the body cannot take scores as if it were done.
     bool roofChopped = false;         // +9
     bool frontBumperRemoved = false;  // +5
     bool rearBumperRemoved = false;   // +1
     bool supercharger = false;
     int driverSkill = 130;  // 0..130 (0x82); player uses 130
-    // SR_data driver record byte [2]: 0x04 (best driver) .. 0x0c (worst). The
-    // original reads it straight off the challenger record (A4+0x19ce + 2) for
-    // the side-swipe roll and the cornering speed cap. 8 is mid-pack.
+    // Driver record byte [2]: 0x04 (best) .. 0x0c (worst), for the side-swipe roll and cornering cap.
     int aggression = 8;
-    // SR_data driver record byte [1]: 0x0a (best) .. 0x14 (worst). It is the
-    // opponent's SHIFT POINT, not a start-line delay:
-    // BuildCarPhysicsTables 0x2437f0 writes the car's band-end rpm to the
-    // physics struct at +0x1e (the table at A4-0x3a3a is {4500, 5000, 5200},
-    // the same kBandEnd this port indexes by carbClass), and UpdateNPCEngine
-    // shifts at `that - reaction * 100`. So the best driver in the game still
-    // gives up 1000 rpm of the power band and the worst gives up 2000. Only
-    // manuals: the original guards the whole thing on `automatic == 0`.
+    // Driver record byte [1]: 0x0a (best) .. 0x14 (worst). The opponent's shift point, band end - reaction * 100.
+    // Manuals only.
     int reaction = 10;
 };
 
@@ -109,7 +81,6 @@ struct PowerRow {
     int16_t rpmLoss;
 };
 
-// Tables built once per race per car (original A4+0x4b1e..0x4b9e block).
 // Gear 0 is neutral; driving gears are 1..numGears.
 struct CarTables {
     int numGears = 4;          // driving gears, 3 or 4
@@ -123,37 +94,28 @@ struct CarTables {
     int16_t topSpeed = 91;     // mph, ComputeTopSpeed - the gear ratios key off it
 };
 
-// Purist mode: score the engine tune the way the 68k does, (1 - |tune|) * 20/8,
-// which is confirmed against the running game - a stock, correctly tuned 1940
-// Chevrolet 2-dr coupe reads 92 mph on both. Off by default, where the term is
-// (8 - |tune|) * 20/8 instead: 18 points more, 97 mph for that Chevy, and a
-// perfect car reaching the 130 the cap allows rather than topping out at 122.
-// The --purist flag turns it on. See RodLegacyResearch/docs/driving/top_speed.md.
+// Purist: tune scored as (1 - |tune|) * 20/8 as on the 68k (the stock 1940 Chevy reads 92 mph). Default is
+// (8 - |tune|) * 20/8, which lets a perfect car reach the 130 cap.
 void SetPuristScoring(bool enabled);
 bool PuristScoring();
 
-// Base performance score (FUN_002435f0). 70 + a 0..100 point score scaled by
-// the transmission, so 70..100 (67..94 in purist mode).
+// 70 + a 0..100 point score scaled by the transmission, so 70..100 (67..94 in purist mode).
 int ComputeBasePerformance(const CarSetup& setup);
 
-// The car's top speed in mph (ComputeCarTopSpeed 0x243b9c): base * 13/10,
-// capped at 130. This is the number the original prints on the car info screen
-// as "Max speed %3d mph", the value the racer pool matches opponents on, and
-// the speed the top gear ratio is built to reach at redline.
+// base * 13/10, capped at 130: the car info screen's "Max speed", the pool's match value, and what the top
+// gear is built to reach at redline.
 int ComputeTopSpeed(const CarSetup& setup);
 
-// Fills tables from the setup (BuildCarPhysicsTables).
 void BuildCarTables(const CarSetup& setup, CarTables& tables);
 
-// Per-car dynamic state.
 struct CarState {
     int16_t speed = 0;       // mph
     int16_t rpm = 1500;      // idle 1500, redline 5700
     int16_t gear = 0;        // 0 = neutral, 1..numGears driving
-    // Automatic selector (original A4+0x4b2e, 1 = N, 2 = D). Unused on manuals.
+    // 1 = N, 2 = D. Unused on manuals.
     bool autoDrive = false;
-    int16_t steerVel = 0;    // input integrator, +-24 (A4+0x4b0c)
-    int16_t slideVel = 0;    // decaying steer momentum (A4+0x4b0e)
+    int16_t steerVel = 0;    // input integrator, +-24
+    int16_t slideVel = 0;    // decaying steer momentum
     int16_t heading = 0;     // road-direction the car is pointing
     int16_t elevAtCar = 0;  // snapshot of track.elev[pos] on segment advance
     int16_t lateral = 2560;  // road spans 1500..3300
@@ -171,9 +133,7 @@ struct CarState {
     int32_t tireWearDelta = 0;
 };
 
-// NPC AI extras.
-// What the opponent's engine logic decided on the last tick. Purely for the
-// debug UI; nothing in the sim reads it back.
+// What the opponent's engine logic decided last tick, for the debug UI only.
 enum class NpcBranch : uint8_t {
     Accelerating,   // nothing capping it
     HoldingLevel,   // eased off to player speed + 16 while alongside
@@ -189,21 +149,15 @@ struct NpcState {
     int16_t targetSpeedRisky = 0;   // perf*80/100
     int16_t stallTicks = 0;
     bool gaveUp = false;
-    // Sticky lane preference (original A4-0x39a8), the "fell a long way behind"
-    // latch (A4+0x4cb2) that arms one lane swap on the way back up, and the
-    // "swerved into a blocking lane" latch (A4+0x4cb4) that arms one side-swipe.
+    // Sticky lane preference, a latch arming one lane swap after falling far behind, and one arming a side-swipe.
     bool preferLeft = false;
     bool wasDroppedBack = false;
     bool swervedToBlock = false;
-    // "Already braked for this corner" latch (original A4-0x39a6): the cornering
-    // cap fires on the first curve segment and is re-armed by the next straight.
+    // Fires on the first curve segment and re-arms on the next straight.
     bool corneringCapped = false;
 
-    // Render view state (original A4-0x1388) and the two contact flags derived
-    // from it (A4-0x1386, A4-0x1384). 0/1 = alongside to our left, 2..8 = ahead
-    // in 16 gap-unit steps, 9..12 = behind us, drawn in the mirror. It moves at
-    // most one step per frame, which is what keeps the sprite from snapping
-    // between sizes. See docs/driving/npc_ai_and_view_state.md.
+    // 0/1 = alongside to our left, 2..8 = ahead in 16 gap-unit steps, 9..12 = behind in the mirror. Moves at most
+    // one step per frame so the sprite does not snap between sizes.
     int16_t viewState = 0;
     int16_t prevViewState = 0;
     bool viewHidden = false;    // walked off the end of the range: draw nothing
@@ -218,20 +172,13 @@ struct NpcState {
 
 class RaceSim {
 public:
-    // track must outlive the sim. raceType: 0 = drag (finish 380),
-    // 1 = road (finish 1020).
-    // kingRace suppresses the cop entirely (InitRaceState 0x244250 gates the
-    // spawn roll on A4+0x19da == 0).
+    // track must outlive the sim. raceType: 0 = drag (finish 380), 1 = road (finish 1020). kingRace suppresses the cop.
     void Init(const TrackData* track, int raceType,
               const CarSetup& playerSetup, const CarSetup& npcSetup,
               uint32_t rngSeed, bool kingRace = false);
 
-    // Advances one frame. inputBits = INPUT_* mask.
-    //
-    // steerAmount scales how far the wheel is turned, 0..1. The original has no
-    // such thing: its steering is a held direction, so 1.0 reproduces it exactly
-    // and is what the keyboard and the D-pad pass. Only an analog stick passes
-    // anything else, and only with analog_steering=1 - see UpdateSteering.
+    // steerAmount 0..1; 1.0 reproduces the original's held-direction steering. Only an analog stick with
+    // analog_steering=1 passes anything else.
     void Tick(uint16_t inputBits, float steerAmount = 1.0f);
 
     const CarState& Player() const { return player; }
@@ -241,16 +188,11 @@ public:
     const NpcState& NpcAi() const { return npcAi; }
     int RaceType() const { return raceType; }
     int FinishSegment() const { return finishSeg; }
-    // Drive cutscene: the same sim started further back down the approach
-    // section. InitDriveScene (0x23ab2c) starts a cruise at segment 10, 65 or
-    // 115 instead of 200 and lets it run to the ordinary drag finish at the
-    // arch - see docs/driving/cruising.md.
+    // A cruise starts further back and runs to the drag finish at the arch.
     void BeginCruiseAt(int seg) {
         player.segPos = seg;
         npc.segPos = seg;
-        // A cruise has no start line, so it must not go through the staging
-        // countdown: that state calls any movement a false start and ends the
-        // race on the spot, which left the car sitting still.
+        // A cruise has no start line: the staging countdown would call any movement a false start.
         phase = RacePhase::Running;
         countdownTicks = 0;
     }
@@ -259,13 +201,8 @@ public:
     bool InCountdown() const { return phase == RacePhase::Countdown; }
     int CountdownTicks() const { return countdownTicks; }
 
-    // Crossing the line does NOT end the race. The original runs a roll-out
-    // past the finish (throttle and steering cut, brake forced on, the car
-    // autopiloted back into a lane) and only stops the frame loop once the car
-    // has come to a standstill - see UpdateRaceScroll 0x244818 and
-    // RodLegacyResearch/docs/driving/physics.md. RaceOver() is that loop-exit
-    // condition; PlayerWonAtLine() is the verdict latched as the line was
-    // crossed, which is what decides the outcome.
+    // Crossing the line does not end the race: a roll-out follows until the car stops. PlayerWonAtLine() is the
+    // verdict latched at the line.
     bool RaceOver() const {
         return ((player.endFlags | npc.endFlags) & END_FINISHED) != 0;
     }
@@ -273,16 +210,13 @@ public:
     bool RollingOut() const { return player.segPos > finishSeg; }
 
     bool PlayerFinished() const { return (player.endFlags & END_FINISHED) != 0; }
-    // Any race-ending failure, not just a crash: a blown engine, a dropped
-    // transmission and a jumped start all end the race without wrecking the car.
-    // Use PlayerWrecked() for the ones that bend metal.
+    // Any race-ending failure; PlayerWrecked() is the subset that bends metal.
     bool PlayerFailed() const {
         return (player.endFlags & END_FAILURE_MASK) != 0;
     }
     bool PlayerWrecked() const { return (player.endFlags & END_WRECK_MASK) != 0; }
 
-    // True for one tick after a side-swipe with the opponent, for the audio
-    // layer to hang the impact sound on. Consuming it clears it.
+    // True for one tick after a side-swipe; consuming clears it.
     bool ConsumeNpcBump() {
         const bool hit = npcBumpEvent;
         npcBumpEvent = false;
@@ -290,8 +224,7 @@ public:
     }
     bool NpcFinished() const { return (npc.endFlags & END_FINISHED) != 0; }
 
-    // Debug aid: suppresses the crash and blown-engine outcomes so a race can be
-    // driven without ending. Does not affect the cop, the finish or a false start.
+    // Suppresses crashes and blown engines; not the cop, the finish or a false start.
     void SetInvulnerable(bool on) { invulnerable = on; }
     bool Invulnerable() const { return invulnerable; }
 
@@ -300,28 +233,18 @@ public:
                         int16_t lateral, int16_t elevAtCar);
     void SetNpcDebugPose(int32_t segPos, int16_t lateral);
 
-    // Road edges at the player's current segment (updated per tick).
     int16_t RoadEdgeLeft() const { return edgeLeft; }
     int16_t RoadEdgeRight() const { return edgeRight; }
 
-    // Tire screech gate (RaceLogicUpdate 0x244d50): the original triggers the
-    // squeal sample only when the slide momentum is at least half its clamp
-    // (|slideVel| >= 12 of +-24) AND the car is doing more than 20 mph. Below
-    // that it is silent - there is a dead zone down to |slideVel| < 10 where
-    // the call is a no-op (param 0 short-circuits before AudioDevice_PlaySample
-    // in the original), so nothing plays and nothing needs to be stopped.
+    // |slideVel| >= 12 of +-24 and over 20 mph.
     bool PlayerSkidding() const {
         return std::abs(player.slideVel) >= 12 && player.speed > 20;
     }
 
-    // --- Cop pursuit (see RodLegacyResearch/docs/driving/cop.md) ---
-    // 0 = no cop this race, 1 = armed and waiting for the trigger segment,
-    // 2 = the cop has taken over the opponent slot and is chasing,
-    // 3 = close enough that the siren is going.
+    // 0 = no cop this race, 1 = armed, 2 = chasing in the opponent slot, 3 = siren.
     int CopState() const { return copState; }
     int32_t CopTriggerSegment() const { return copTriggerSeg; }
-    // Where the tires are rolled to go this race (0 = they hold), and whether
-    // they already have. See RodLegacyResearch/docs/driving/tires.md.
+    // 0 = they hold this race.
     int32_t TireBlowSegment() const { return tireBlowSeg; }
     bool PlayerTiresBlown() const { return (player.endFlags & END_TIRES_BLOWN) != 0; }
     // The opponent car IS the cop from state 2 on, so the renderer should be
@@ -335,9 +258,7 @@ public:
         return spawned;
     }
     bool PlayerBusted() const { return (player.endFlags & END_COP_CAUGHT) != 0; }
-    // Ticket price, tiered on the speed at the moment of capture
-    // (ProcessRaceOutcome 0x23eaa2). The original adds the crash-repair bill on
-    // top when its damage bit is set; we have no equivalent of that bit.
+    // Tiered on the speed at capture. The original adds a crash bill on its damage bit, which we lack.
     int SpeedingFine() const {
         if (!PlayerBusted()) return 0;
         if (copCaughtSpeed < 51) return 20;
@@ -353,22 +274,18 @@ private:
     void CheckFinish();
     void UpdateSteering(uint16_t inputBits, float steerAmount);
     void ApplyLateralDrift(CarState& car, int16_t handling);
-    // All player end flags go through here so the invulnerable toggle has one
-    // place to filter them.
+    // One place for the invulnerable toggle to filter.
     void AddPlayerEndFlags(uint16_t flags);
     void CheckEdgeCollision();
     void CheckNpcContact();
     void SpawnCop();
     void UpdateCopPursuit();
     void ApplyCopRaceEnd();
-    // FUN_0024441c: re-gears the opponent and snaps it to a speed, rather than
-    // decelerating toward it.
+    // Re-gears the opponent and snaps it to a speed.
     void NpcSettleAtSpeed(int targetSpeed);
     void NpcEngine();
     void NpcAiUpdate();
-    // RenderNPCCarAndUpdateCopState 0x237ea8's state half. Lives in the sim
-    // because the AI and the contact test both read it; the original shares it
-    // through A4-0x1388 for the same reason.
+    // In the sim because the AI and the contact test both read it.
     void UpdateNpcViewState();
     void EngineTick(CarState& car, const CarTables& tables, bool throttle,
                     bool brake, bool shift);
@@ -380,25 +297,18 @@ private:
     CarTables playerTables, npcTables;
     CarState player, npc;
     NpcState npcAi;
-    // Side-swipe bookkeeping (original A4-0x39a4 / A4-0x39a2 / A4-0x1386).
     int16_t npcContactTicks = 0;   // consecutive ticks running alongside the NPC
-    bool npcScrapeAlt = false;     // A4-0x39aa: only every other scrape costs it a segment
+    bool npcScrapeAlt = false;     // only every other scrape costs it a segment
     int16_t bumpStunTicks = 0;     // throttle cut for a couple of ticks after an impact
     bool npcBumpEvent = false;     // one-shot for the audio layer
-    // Finish bookkeeping. `finishSnapshot` is the original's A4-0x3994 latch,
-    // set the first tick either car is at or past the line; `playerAheadAtFinish`
-    // is A4+0x4cc4, the win/loss verdict taken at that instant.
+    // finishSnapshot is set the first tick either car reaches the line; playerAheadAtFinish is the verdict then.
     bool finishSnapshot = false;
     bool playerAheadAtFinish = false;
-    // Where the opponent upshifts (original A4+0x4bf0 minus its driver's
-    // reaction, latched into A4+0x4cac). Derived at Init and again when the cop
-    // takes the slot over, since the swap brings a different car and driver.
+    // Re-derived when the cop takes the slot, which brings a different car and driver.
     int16_t npcShiftRpm = 0;
-    // Cop pursuit (original A4+0x4cb6 state / A4+0x4cb8 trigger segment).
     int16_t copState = 0;
     int32_t copTriggerSeg = 0;
-    // Segment the tires are set to let go at, 0 = they hold this race. Rolled
-    // once at Init; crossing it sets END_TIRES_BLOWN and the flat drift.
+    // 0 = they hold this race. Rolled at Init.
     int32_t tireBlowSeg = 0;
     bool copSpawnEvent = false;
     bool copSirenOn = false;
@@ -412,7 +322,7 @@ private:
     int countdownTicks = 0;
 };
 
-// Speed (mph) -> scroll step 0..16 (SpeedToScrollStep 0x24476c).
+// Speed (mph) -> scroll step 0..16.
 int SpeedToScrollStep(int speedMph);
 
-}  // namespace srrace
+}

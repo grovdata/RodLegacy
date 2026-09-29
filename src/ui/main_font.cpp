@@ -3,8 +3,6 @@
 #include "core/log.h"
 
 SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
-    // Amiga embedded font offsets in the Street_Rod binary.
-    // See RodLegacyResearch/docs/formats/amiga_sr_font.md for derivation.
     constexpr size_t   BITMAP_OFFSET    = 0x0295A0;
     constexpr size_t   CHARLOC_OFFSET   = 0x029740;
     constexpr size_t   CHARSPACE_OFFSET = 0x0298B0;
@@ -12,7 +10,7 @@ SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
     constexpr int      MODULO           = 52;
     constexpr int      LO_CHAR          = 0x20;
     constexpr int      HI_CHAR          = 0x7A;
-    constexpr int      NUM_GLYPHS       = HI_CHAR - LO_CHAR + 1; // 91
+    constexpr int      NUM_GLYPHS       = HI_CHAR - LO_CHAR + 1;
 
     const size_t min_size = CHARSPACE_OFFSET + NUM_GLYPHS * 2;
     if (srExeData.size() < min_size) {
@@ -23,7 +21,7 @@ SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
 
     // Unpack the 1-bit strip into a byte-per-pixel array (1=set, 0=clear).
     // Bitmap layout: MODULO bytes per row, YSIZE rows; MSB = leftmost pixel.
-    const int STRIP_W = MODULO * 8; // 416 pixel columns
+    const int STRIP_W = MODULO * 8;
     std::vector<uint8_t> unpacked(YSIZE * STRIP_W);
     const uint8_t* bitmap = srExeData.data() + BITMAP_OFFSET;
     for (int row = 0; row < YSIZE; row++) {
@@ -38,7 +36,7 @@ SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
     // Read CharSpace (big-endian WORD advance widths).
     // Skip space (0x20); encode '!' (0x21) through 'z' (0x7A).
     constexpr int FIRST_CHAR = 0x21;
-    constexpr int NUM_CHARS  = HI_CHAR - FIRST_CHAR + 1; // 90
+    constexpr int NUM_CHARS  = HI_CHAR - FIRST_CHAR + 1;
 
     const uint8_t* cl = srExeData.data() + CHARLOC_OFFSET;
     const uint8_t* cs = srExeData.data() + CHARSPACE_OFFSET;

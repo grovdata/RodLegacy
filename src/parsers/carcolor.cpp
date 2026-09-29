@@ -56,11 +56,7 @@ uint16_t GetCarRaceColor(StandardCarColor col) {
         case CarColorKing:
             return std::vector<uint16_t>(PAL_CAR_COLOR_KING);
         default:
-            // Never an empty palette: every caller indexes the result
-            // directly (BitmapParser::PrepareCarPalette reads 9 entries), so
-            // returning nothing here is an out-of-bounds read rather than a
-            // missing colour. Save files carry a raw colour index, which
-            // makes this reachable from data rather than only from a bug.
+            // Never empty: callers index the result directly, and save files carry a raw colour index.
             return std::vector<uint16_t>(PAL_CAR_COLOR_RED);
     }
 }

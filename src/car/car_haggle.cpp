@@ -2,10 +2,7 @@
 
 #include <cstdint>
 
-// Round a counter-offer down to whole dollars-times-five, but never to
-// nothing. ShowSellCounterOffer (0x00242a8e) does this in place, so the
-// rounded figure is what the rest of the haggle compares against - which is
-// why it only happens on the branch that actually shows an offer.
+// The rounded figure is what the rest of the haggle compares against.
 static int RoundOffer(int amount) {
     const int remainder = amount % 5;
     if (remainder == 0) return amount;
@@ -77,9 +74,7 @@ HaggleStep CarHaggle::AfterCounter1() {
     return Settle();
 }
 
-// Second counter-offer: 91-95% of the opening ceiling, so it is always the
-// better of the two. Both derive from the opening ceiling, not from the
-// current one, which is what makes refusing the first offer worthwhile.
+// Both offers derive from the opening ceiling, which makes refusing the first worthwhile.
 HaggleStep CarHaggle::AfterSecondPrice(int roll5) {
     if (price > offer) {
         offer = base * (91 + roll5) / 100;
@@ -113,10 +108,7 @@ HaggleStep CarHaggle::AnswerCounterOffer(bool accepted) {
 }
 
 HaggleStep CarHaggle::Settle() {
-    // price * 9 and price * 2 are 16-bit multiplies in the original, and the
-    // payout is a sign-extended word. Kept: the wrap in the first of them is
-    // the $22,001 money cheat, and the sign extension is why a price over
-    // 32767 pays out negative.
+    // 16-bit multiplies and a sign-extended payout as in the original: the wrap is the $22,001 money cheat.
     const int ninetyPercent = static_cast<uint16_t>(price * 9) / 10;
     if (ninetyPercent > offer) {
         return End(HaggleOutcome::Rejected, HaggleMessage::NoThanks);

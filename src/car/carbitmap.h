@@ -6,27 +6,15 @@
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 
-// Loads one of a car's sprites (body, chopped roof, bumper patch) from
-// whichever lib the model draws from. Pair it with CarBodySprite and friends
-// in types.h; a negative index gives nullptr. Amiga lib.p art is recoloured
-// through carPalette, while Street Rod SE cars are fixed 16-colour DOS
-// sprites that already carry their paint, so carPalette is ignored for those.
+// A negative index gives nullptr. SE cars are fixed-colour DOS sprites, so carPalette is ignored for them.
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette);
 
-// One wheel rotation cell, for callers that want a still image rather than an
-// animated CarWheel (the newspaper preview). outSourceRect receives the
-// sub-rect to blit - a cell of the lib.p spritesheet, or a zero rect for a DOS
-// car set, where the whole sprite is the frame. outSize receives the size to
-// draw at, which differs between sets.
+// A still wheel cell. outSourceRect is a lib.p sheet cell, or zero for a DOS set; outSize differs per set.
 Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
                          SDL_Rect* outSourceRect, SDL_Point* outSize);
 
-// A car's wheel: the rotation cells, however its set happens to store them.
-// lib.p packs all four into one 1x4 spritesheet; a DOS car set gives each cell
-// its own sprite id. Both are just N frames you pick between and draw, and
-// this hides that difference and nothing else - the frames keep their own
-// natural size, which differs between the two (32x31 vs 40x28).
+// lib.p packs the cells into one sheet (32x31), a DOS set gives each its own sprite (40x28).
 class CarWheel {
 public:
     void SetSpritesheet(const AnimatedBitmap& sheet, int drawW, int drawH);
@@ -65,8 +53,7 @@ class CarShadow: public Bitmap {
 
 class CarBitmap {
 private:
-    // Shared so a cached CarBitmap can never outlive its car (loading a save
-    // replaces State's whole roster).
+    // Shared so a cached CarBitmap never outlives its car when a save replaces the roster.
     CarPtr car;
     Bitmap bodyOriginal;
     Bitmap bodyChopped;
@@ -105,16 +92,12 @@ private:
     float stickerWipeProgress = 0.0f;
     Bitmap stickerRoll;
 
-    // Reloads body/bodyChopped from assets with the current palette, honoring
-    // isRoofChopped. Shared by RestoreFrontBumper/RestoreRearBumper.
     void ReloadBodyFromAssets();
 
 public:
    
-    // Main constructor
     CarBitmap(CarPtr car, Driver* driverInfo, StandardCarColor color);
     
-    // No need for destructor anymore as members clean up automatically
     void LoadCarParts(CarPtr car, Driver *driver, StandardCarColor color);
 
     void Draw();
@@ -127,29 +110,22 @@ public:
     void UpdateTextures();  
     void UpdateColor(StandardCarColor newColor);
 
-    // Add missing methods
     void MoveBody(SDL_Point p);
     void MoveWheelsYOffset(int offset);
     int GetWheelsYOffset() const { return wheelsYOffset; }
 
-    // Live nudge on the driver portrait, on top of the model's own offsets.
-    // See CarDebug; the driver's Y has no per-car source today.
     void MoveDriverOffset(int dx, int dy);
     SDL_Point GetDriverOffset() const { return driverOffset; }
-    // Where the driver ends up relative to the top-left of the car body, which
-    // is the frame SpriteInfo's x_driver / y_driver are expressed in.
+    // The frame SpriteInfo's x_driver / y_driver are expressed in.
     SDL_Point GetDriverOffsetFromBody();
     StandardCarColor GetCurrentColor() const { return currentColor; }
     Car* GetCar() const { return car.get(); }
     const CarPtr& GetCarPtr() const { return car; }
     BitmapOffset_t GetOffset();
 
-    // Tire change animation methods
     SDL_Rect GetFrontWheelPos() const { return frontWheelPos; }
     SDL_Rect GetRearWheelPos() const { return rearWheelPos; }
     void SetWheelsVisible(bool visible) { wheelsVisible = visible; }
-    // For the win cutscene: once she has climbed out, the portrait behind the
-    // windscreen has to go.
     void SetDriverVisible(bool visible) { driver.SetVisible(visible); }
     void ResetWheelFrame() { wheels.SelectFrame(0); }
     void SetWheelhousesVisible(bool visible);
@@ -157,13 +133,11 @@ public:
     void SetShadowYOffset(int yAdjust);
     void LoadNewTireSprite(CarWheelType type);
 
-    // Gas station methods
     void SetGasCapRemoved(bool removed);
     void SetShadowVisible(bool visible);
 
     bool IsGasCapRemoved() const { return gasCapRemoved; }
     
-    // Bumper methods
     void StripFrontBumper();
     void StripRearBumper();
     void RestoreFrontBumper();
@@ -171,7 +145,6 @@ public:
     bool IsFrontBumperStripped() const { return isFrontBumperStripped; }
     bool IsRearBumperStripped() const { return isRearBumperStripped; }
     
-    // Roof methods
     bool IsRoofChopped() const { return isRoofChopped; }
 
     void StartStickerWipe();

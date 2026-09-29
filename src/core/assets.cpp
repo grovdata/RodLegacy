@@ -15,7 +15,6 @@
 #include <functional>
 #include <fstream>
 
-// Hash function for palette vectors
 static size_t hashPalette(const std::vector<uint16_t>& palette) {
     size_t hash = 0;
     for (uint16_t val : palette) {
@@ -24,14 +23,12 @@ static size_t hashPalette(const std::vector<uint16_t>& palette) {
     return hash;
 }
 
-// Generated embedded resources
 extern "C" {
     #include "embedded_resources.h"
 }
 
 AssetManager::AssetManager() : carDecals(nullptr), audioManager(nullptr) {
-    // Sized up front so LoadSettings, which runs before the packs are read,
-    // has somewhere to record which optional sets are switched on.
+    // Sized up front: LoadSettings runs before the packs are read.
     carSets.resize(GetCarSetDefs().size());
 }
 
@@ -56,7 +53,6 @@ AssetManager::~AssetManager() {
 void AssetManager::InitFonts() {
     LOG_INFO("Loading fonts from embedded resources");
 
-    // Load newspaper font from embedded data
     SDL_Surface* newspaperFontSurface = LoadSurfaceFromMemory(
         embedded_bee_png,
         embedded_bee_png_len
@@ -70,7 +66,6 @@ void AssetManager::InitFonts() {
         throw AssetLoadError("Failed to initialize newspaper font");
     }
 
-    // Load debug font from embedded data
     SDL_Surface* debugFontSurface = LoadSurfaceFromMemory(
         embedded_lemon_png,
         embedded_lemon_png_len
@@ -137,8 +132,8 @@ static byte_vector ExtractFromAdf(const fs::path* adfPath,
 }
 
 void AssetManager::InitGameFiles() {
-    const char* disk1Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1]; // "SR1AMIGA_DISK1.adf"
-    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2]; // "SR1AMIGA_DISK2.adf"
+    const char* disk1Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1];
+    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
 
     fs::path disk1Direct = gameBasePath / disk1Name;
     fs::path disk2Direct = gameBasePath / disk2Name;
@@ -151,7 +146,6 @@ void AssetManager::InitGameFiles() {
         throw AssetLoadError("No ADF files or sr1amiga.zip found in game directory");
     }
 
-    // For direct ADF files, verify checksums (existing behaviour).
     if (useDirectAdfs) {
         SrLibStatus s1 = SrLibVerifyChecksum(disk1Direct.string().c_str(),
                                               SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
@@ -165,14 +159,12 @@ void AssetManager::InitGameFiles() {
         }
     }
 
-    // Load ADF bytes: either read file path or extract from zip into memory.
     const fs::path* path1 = nullptr;
     const fs::path* path2 = nullptr;
     byte_vector disk1Buf, disk2Buf;
 
     if (useDirectAdfs) {
         LOG_INFO("Loading game files from ADF files in %s", gameBasePath.string().c_str());
-        // Read full disk1 ADF into memory for audio use
         std::ifstream f(disk1Direct, std::ios::binary | std::ios::ate);
         if (f) {
             auto sz = f.tellg();
@@ -180,8 +172,7 @@ void AssetManager::InitGameFiles() {
             disk1Adf_vec.resize(static_cast<size_t>(sz));
             f.read(reinterpret_cast<char*>(disk1Adf_vec.data()), sz);
         }
-        // Read full disk2 ADF into memory too -- it ships sample .sav files
-        // in its root directory, listed later for the Load Game menu.
+        // Disk2 ships sample .sav files in its root.
         std::ifstream f2(disk2Direct, std::ios::binary | std::ios::ate);
         if (f2) {
             auto sz = f2.tellg();
@@ -198,8 +189,8 @@ void AssetManager::InitGameFiles() {
         if (disk1Buf.empty() || disk2Buf.empty()) {
             throw AssetLoadError("Failed to extract ADF files from sr1amiga.zip");
         }
-        disk1Adf_vec = disk1Buf;  // keep a copy for audio
-        disk2Adf_vec = disk2Buf;  // keep a copy for sample-save listing
+        disk1Adf_vec = disk1Buf;
+        disk2Adf_vec = disk2Buf;
     }
 
     srExeData_vec    = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "Street_Rod");
@@ -237,7 +228,6 @@ void AssetManager::InitAudio(bool muteAudio) {
             audioManager->InitAmigaMusic(disk1Adf_vec.data(), disk1Adf_vec.size());
         }
 
-        // Load SR.EXE: try on-disk first, then inside sr1pc.zip.
         byte_vector srExePacked;
         fs::path srExePath    = gameBasePath / "SR.EXE";
         fs::path sr1pcZipPath = gameBasePath / "sr1pc.zip";
@@ -347,15 +337,8 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
 }
 
 
-/// @brief Reads the actual bitmap data for a bitmap
-/// @param libfile
-/// @param index
-/// @param carPalette
 void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
-    // Guard the subscript: index is a lib.p asset id, and anything sourced
-    // from a car pool key can be outside it (Street Rod SE cars carry a
-    // shifted index). Log rather than trap - the caller wanted lib.p art and
-    // there is none, so there is nothing to draw.
+    // A pool key can be outside lib.p (SE cars carry a shifted index).
     if (index < 0 || index >= (int)imageEntries.second.size()) {
         LOG_ERROR("UpdateAsset: index %d outside lib.p (%zu entries)", index, imageEntries.second.size());
         return;
@@ -373,8 +356,6 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
 
     bool isMask = a.type == LibAssetMask;
     const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index);
-    // Bumper overlays use normal transparency (black = transparent, colors = opaque)
-    // They don't need special handling
 
     if (a.type == LibAssetSpritesheet) {
         std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
@@ -397,7 +378,7 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
 void AssetManager::UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette) {
     std::vector<uint16_t> carPalette = GetStandardCarColor(palette);
     Palette newPalette = bp.PrepareCarPalette(carPalette);
-    UpdateAsset(libfile, index, newPalette); // Update the asset with the new color
+    UpdateAsset(libfile, index, newPalette);
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
@@ -416,17 +397,14 @@ AnimatedBitmap* AssetManager::GetCarDecals() {
 }
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const std::vector<uint16_t>& carPalette) {
-    // Create cache key: asset ID + palette hash
     size_t paletteHash = hashPalette(carPalette);
     AssetPaletteKey cacheKey{asset.id, paletteHash};
 
-    // Check if this asset+palette combination is already cached
     auto it = paletteVariantCache.find(cacheKey);
     if (it != paletteVariantCache.end()) {
-        return it->second.get();  // Return cached version
+        return it->second.get();
     }
 
-    // Not in cache, create new variant and cache it
     CreateAndCachePaletteVariant(libfile, asset.id, carPalette, cacheKey);
     return paletteVariantCache[cacheKey].get();
 }
@@ -441,11 +419,9 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
 
-    // Convert car palette to RGB format
     Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
     Palette basePal = bp.PreparePalette(palData, true);
 
-    // Use provided car palette for color ranges
     std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette, index);
 
     Asset a;
@@ -460,7 +436,7 @@ void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index,
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
     bitmap->SetDimensions(b.width, b.height);
 
-    // Store in palette variant cache (not in imageAssets to prevent unbounded growth)
+    // Not in imageAssets, to prevent unbounded growth.
     paletteVariantCache[cacheKey] = std::move(bitmap);
 }
 
@@ -512,14 +488,10 @@ std::unique_ptr<Bitmap> AssetManager::DecodeDosSprite(byte_vector& libData,
     std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(planarData, entry, palette);
 
     auto bitmap = std::make_unique<Bitmap>();
-    // Load as opaque so black pixels are preserved (not made transparent)
+    // Opaque, so black pixels are preserved.
     bitmap->LoadBitmapFromChunky(chunkyData, entry.width, entry.height, false, true);
 
-    // Type 1 sprites key palette index 0 out as the background. Punch the
-    // alpha directly rather than using SDL_SetColorKey: LoadBitmapFromChunky
-    // hands back a surface that already has a full alpha channel, and a colour
-    // key is ignored when converting one of those to a texture, so the key
-    // colour would render as an opaque rectangle around the sprite.
+    // Punch alpha directly: a colour key is ignored when converting a surface that already has alpha.
     if (entry.type == 1) {
         SDL_Surface* surf = bitmap->GetSurface();
         if (surf) {
@@ -540,10 +512,7 @@ std::unique_ptr<Bitmap> AssetManager::DecodeDosSprite(byte_vector& libData,
 }
 
 void AssetManager::InitDosAssets() {
-    // The 8 stickers are the Street Rod SE redraws (SRSE/LIB2 shares stock
-    // DOS LIB2's 268-entry index, and 186-193 are among the sprites it
-    // replaces - see libp.h's SrseLib2Asset). Stock SR1 LIB2 is the fallback
-    // for an install that has no SE data disk.
+    // The stickers are the SE redraws; stock SR1 LIB2 is the fallback without the SE data disk.
     lib2Data_vec = LoadDosDataFile(gameBasePath / "SRSE" / "LIB2", gameBasePath / "srsepc.zip",
                                    "SRSE/LIB2", "SE decals");
     if (lib2Data_vec.empty()) {
@@ -583,7 +552,6 @@ void AssetManager::InitCarSets() {
     for (size_t i = 0; i < defs.size(); i++) {
         const CarSetDef& def = defs[i];
         if (def.art == CarSetArt::AmigaLibP) {
-            // Comes out of lib.p/SR_data, already loaded.
             carSets[i].enabled = true;
             continue;
         }
@@ -597,8 +565,7 @@ void AssetManager::InitCarSets() {
             continue;
         }
 
-        // Stats, sprite numbers and pixel offsets all live in the data file,
-        // so the art on its own is not usable.
+        // Stats, sprite numbers and offsets live in the data file.
         set.carData = LoadDosDataFile(gameBasePath / def.looseDir / fs::path(def.dataEntry).filename(),
                                       zip, def.dataEntry, def.name.c_str());
         if (set.carData.empty()) {
@@ -708,11 +675,7 @@ std::vector<AssetManager::GameSearchPath> AssetManager::GameSearchPaths() {
         { fs::current_path() / ".." / "..", "grandparent directory" },
     };
 
-    // Launched from Finder or a file manager the working directory is not the
-    // one the executable sits in, so look around the executable as well.
-    // Three levels up from the binary is the folder holding RodLegacy.app
-    // (Contents/MacOS -> Contents -> RodLegacy.app -> here); elsewhere that
-    // last level is just a harmless miss.
+    // Launched from Finder the working directory differs; three levels up is the folder holding RodLegacy.app.
     if (char* base = SDL_GetBasePath()) {
         const fs::path dir(base);
         SDL_free(base);
@@ -729,7 +692,6 @@ std::vector<AssetManager::GameSearchPath> AssetManager::GameSearchPaths() {
 }
 
 fs::path AssetManager::FindGameDirectory() {
-    // First try loading from saved config
     fs::path savedPath = LoadSavedGamePath();
     if (!savedPath.empty() && ValidateGamePath(savedPath)) {
         LOG_INFO("Game data: %s (saved config)", savedPath.string().c_str());
@@ -746,7 +708,6 @@ fs::path AssetManager::FindGameDirectory() {
         }
     }
 
-    // If we get here, no valid path was found - now we can log the details
     LOG_WARN("No valid game directory found in search paths:");
     for (const auto& entry : searchPaths) {
         LOG_WARN("  checked %s: %s", entry.source, entry.path.string().c_str());
@@ -756,11 +717,9 @@ fs::path AssetManager::FindGameDirectory() {
 }
 
 bool AssetManager::ValidateGamePath(const fs::path& path) {
-    // Accept raw ADF files side by side
     if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
         return true;
     }
-    // Accept sr1amiga.zip containing both disks
     fs::path zip = path / "sr1amiga.zip";
     if (fs::exists(zip) &&
         ZipContainsFile(zip, "SR1AMIGA_DISK1.adf") &&
@@ -795,10 +754,6 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
     }
     return fullPath;
 }
-
-// ---------------------------------------------------------------------------
-// Unified config.txt  (key=value, one per line)
-// ---------------------------------------------------------------------------
 
 fs::path AssetManager::GetPrefDir() {
     char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
@@ -867,8 +822,7 @@ static AudioManager::MusicSource DefaultMusicSource(AudioManager* am) {
 static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioManager* am) {
     if (s == "amiga" && am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (s == "dos"   && am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
-    // "none" may have been saved when no music source was available (e.g. broken zip loading).
-    // Fall back to the best available source so the user gets music after a fix.
+    // "none" may have been saved while no source was available.
     return DefaultMusicSource(am);
 }
 
@@ -883,7 +837,6 @@ static std::string MusicSourceName(AudioManager::MusicSource src) {
 void AssetManager::LoadSettings() {
     auto kv = ReadConfigFile();
     if (kv.empty()) {
-        // No saved settings: pick the best available music source and start it.
         // The intro starts the music itself, partway in.
         if (audioManager) audioManager->SetMusicSource(DefaultMusicSource(audioManager), skipIntro);
         return;
@@ -906,11 +859,10 @@ void AssetManager::LoadSettings() {
 
         auto puristIt = kv.find("purist_scoring");
         if (puristIt != kv.end()) puristScoring = std::stoi(puristIt->second) != 0;
-        // race_sim is standalone (no assets, no SDL), so it holds its own copy.
+        // race_sim holds its own copy.
         srrace::SetPuristScoring(puristScoring);
 
-        // Optional car sets, stored by id ("car_set_srse=1") so adding or
-        // reordering sets in the registry cannot flip what is enabled.
+        // Stored by id, so reordering the registry cannot flip what is enabled.
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
         for (size_t i = 0; i < defs.size() && i < carSets.size(); i++) {
             if (defs[i].mandatory) continue;

@@ -2,12 +2,8 @@
 
 #include <cstdint>
 
-// The Amiga music engine's volume envelope, as the CIA interrupt runs it
-// (0x22d2ca -> MusicEnvelopeTick 0x22d130 / EnvelopeStep 0x22cf56).
-// An srl.env entry is 8 levels then 8 rates; segment s ramps toward level[s]
-// at rate[s]. Rate high byte: step size per tick. Low byte only: one unit
-// every n ticks. Zero: jump to the level and hold. Volume 0 ends the note.
-// See RodLegacyResearch/docs/formats/music.md.
+// An srl.env entry is 8 levels then 8 rates; segment s ramps toward level[s] at rate[s].
+// Rate high byte: step per tick. Low byte only: one unit every n ticks. Zero: jump and hold.
 struct AmigaEnvelope {
     const int16_t* points = nullptr;  // the entry's 16 words
     int prevLast = 0;                 // word before the entry: level[-1]
@@ -17,7 +13,6 @@ struct AmigaEnvelope {
     int hold = 0;
     int volume = 0;
 
-    // 0x22c83a + 0x22c61c: initial volume from rate[0]'s high byte, segment 1.
     void Start(const int16_t* entry, int previousLast, int noteVol, int masterVol) {
         points = entry;
         prevLast = previousLast;
@@ -51,7 +46,6 @@ struct AmigaEnvelope {
             return;
         }
         hold = wait - 1;
-        // MusicEnvelopeTick: one unit toward the level.
         const int target = Scale(points[s]);
         if (points[s] - Level(s - 1) > 0) {
             if (volume < target) volume++;
@@ -68,7 +62,6 @@ private:
     int Scale(int level) const { return ((level * noteVolume) / 64) * master / 15; }
     int Level(int s) const { return s < 0 ? prevLast : points[s]; }
 
-    // EnvelopeStep: move by delta toward the level (0 = jump and hold).
     void Move(int s, int delta) {
         const int target = Scale(points[s]);
         if (delta == 0) {

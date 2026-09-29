@@ -5,7 +5,7 @@
 #include "gfx/animated_bitmap.h"
 #include "ui/zone.h"
 #include <vector>
-#include <algorithm>  // std::sort
+#include <algorithm>
 
 Dialog::Dialog(const DialogConfig& config) : mainBitmap(nullptr), config(config) {
     mainBitmap = new Bitmap(GAME_WIDTH, GAME_HEIGHT, 32);
@@ -83,9 +83,8 @@ void Dialog::AddLine(SDL_Rect rect, SDL_Color color) {
 }
 
 void Dialog::AddButton(const ButtonConfig& buttonConfig) {
-    ButtonConfig config = buttonConfig;  // Make a copy so we can modify it
+    ButtonConfig config = buttonConfig;
     
-    // Only override onClick if no custom callback was provided
     if (!config.onClick) {
         config.onClick = [this, buttonConfig]() {
             this->OnButtonPressed(buttonConfig.index);
@@ -106,27 +105,20 @@ void Dialog::Draw() {
         rect->Draw();
     }
 
-    // Sort in z-order
     std::vector<DialogBitmap> sortedBitmaps;
     for (const auto& bitmap : bitmaps) {
         sortedBitmaps.push_back(bitmap.second);
     }
-    // Stable: entries sharing a zOrder keep the map's own (name) order rather
-    // than an arbitrary one, so two overlapping bitmaps on the same layer
-    // don't swap which is on top from one build or frame to the next.
+    // Stable, so overlapping bitmaps on the same layer keep a consistent order.
     std::stable_sort(sortedBitmaps.begin(), sortedBitmaps.end(),
         [](const auto& a, const auto& b) { return a.zOrder < b.zOrder; });
     
-    // Update animations
     for (const auto& bitmap : sortedBitmaps) {
         if (auto* animBitmap = dynamic_cast<AnimatedBitmap*>(bitmap.bitmap)) {
-            animBitmap->Update(1.0f/60.0f);  // Assume 60 FPS
+            animBitmap->Update(1.0f/60.0f);
         }
     }
     
-    // Draw bitmaps; if sourceRect is set, blit only that sub-region of the
-    // texture (works uniformly for any Bitmap subclass, e.g. AnimatedBitmap,
-    // whose texture already holds the full sheet)
     for (const auto& bitmap : sortedBitmaps) {
         if (bitmap.sourceRect.w > 0 && bitmap.sourceRect.h > 0) {
             if (bitmap.bitmap->IsVisible()) {
@@ -143,9 +135,7 @@ void Dialog::Draw() {
         button->Draw();
     }
 
-    // Only draw mainBitmap when dialog has content (text/areas/lines); bitmap-only dialogs skip it.
-    // mainBitmapHasContent covers subclasses that write to it themselves
-    // (ListDialog draws its rows there), whose config carries none of the above.
+    // Bitmap-only dialogs skip mainBitmap; subclasses that draw into it set mainBitmapHasContent.
     bool hasContent = mainBitmapHasContent || !contentAreas.empty() ||
                       !config.texts.empty() || !config.lines.empty();
     if (hasContent) {
@@ -221,15 +211,13 @@ void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect log
 bool Dialog::HandleEvent(SDL_Event* event) {
     if (!IsVisible()) return false;
 
-    // Handle button events
     for (auto button : buttons) {
         button->HandleEvent(event);
     }
 
     bool handled = false;
 
-    // Handle Enter key for default button. Always consumed while a dialog is
-    // up, whether or not a default button exists - matches Escape below.
+    // Always consumed while a dialog is up, matching Escape.
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_RETURN) {
         handled = true;
         for (auto button : buttons) {
@@ -240,11 +228,7 @@ bool Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
-    // Escape is always consumed while a dialog is up, even if the dialog has
-    // no cancelChoice/onDismiss wired - otherwise an unconsumed Escape quits
-    // the game outright via main.cpp. See SaveLoadScene::PushEvent for the
-    // same reasoning. A cancelChoice button (if any) takes priority over
-    // onDismiss so a dialog can wire either one without double-firing.
+    // Always consumed, or an unhandled Escape quits the game via main.cpp. cancelChoice takes priority over onDismiss.
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
         handled = true;
         Button* cancelButton = nullptr;
@@ -258,7 +242,6 @@ bool Dialog::HandleEvent(SDL_Event* event) {
         else if (config.onDismiss) config.onDismiss();
     }
 
-    // Any other key wired as a button's hotkey triggers that button too.
     if (event->type == SDL_KEYDOWN) {
         for (auto button : buttons) {
             if (button->MatchesHotkey(event->key.keysym.sym)) {
@@ -269,7 +252,6 @@ bool Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
-    // Dismiss on click outside dialog bounds
     if (config.onDismiss && event->type == SDL_MOUSEBUTTONDOWN) {
         const SDL_Rect& b = config.bounds;
         int x = event->button.x;
@@ -280,7 +262,6 @@ bool Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
-    // Zone click: inside dialog bounds, check which zone was hit
     if (event->type == SDL_MOUSEBUTTONDOWN && config.onZoneClick && event->button.button == SDL_BUTTON_LEFT) {
         int x = event->button.x;
         int y = event->button.y;
@@ -304,9 +285,7 @@ bool Dialog::HandleEvent(SDL_Event* event) {
         }
     }
 
-    // Dialogs stay fully mouse-modal: any mouse event is consumed so it never
-    // bleeds through to the scene beneath, regardless of whether it hit
-    // anything above.
+    // Dialogs are mouse-modal: every mouse event is consumed.
     switch (event->type) {
         case SDL_MOUSEMOTION:
         case SDL_MOUSEBUTTONDOWN:

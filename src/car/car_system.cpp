@@ -1,11 +1,7 @@
 #include "car/car_system.h"
 #include <algorithm>
 
-// The original gates every engine bay part on make before anything else:
-// `carSpec.brand & part.brand & 0xF000` (Street_Rod.c's engine bay loop,
-// all three slot groups). The brand is a 1/2/4 bitmask, one bit per car -
-// it matches the real manufacturer of all 26 specs, so this is a plain
-// equality. A car with no known make takes anything.
+// The original gates every engine bay part on make first. A car with no known make takes anything.
 bool PartsCompatibilityManager::IsVendorCompatible(CarVendor_t part, CarVendor_t car) {
     if (car == CarVendorCustom || car == CarVendorUnknown) return true;
     if (part == CarVendorCustom || part == CarVendorUnknown) return true;
@@ -38,7 +34,6 @@ int CarburetorsPerManifold(ManifoldType type) {
     return kPerClass[ManifoldClass(type)];
 }
 
-// Parts compatibility manager implementation
 bool PartsCompatibilityManager::IsTransmissionCompatible(TransmissionType transmission, CarEngine_t engine) {
     auto compatible = GetCompatibleTransmissions(engine);
     return std::find(compatible.begin(), compatible.end(), transmission) != compatible.end();
@@ -78,16 +73,11 @@ std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissi
     }
 }
 
-// Straight off the original's fitment table at A4-0x4672, a 3x5 byte matrix
-// of [engine tier][manifold class] - see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md:
+// The original's fitment table, [engine tier][manifold class]:
 //
 //   V6      1 0 1 0 0
 //   V8      1 1 0 1 1
 //   V8 big  1 1 0 1 1     (cols: 2brl, 4brl, triple, dual quad, racing)
-//
-// So a V6 takes the two 2-barrel manifolds and nothing else, and no V8 takes
-// the triple.
 std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarEngine_t engine) {
     switch (engine) {
         case CarEngineGM_V6:
@@ -110,18 +100,13 @@ std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(
     }
 }
 
-// The original's other fitment table, A4-0x4663, a 5x3 byte matrix of
-// [manifold class][carb type]:
+// The original's carb fitment table, [manifold class][carb type]:
 //
 //   2brl        1 0 0
 //   4brl        0 1 1
 //   triple      1 0 0
 //   dual quad   0 1 1
 //   racing      0 1 1     (cols: 2brl, 4brl, racing 4brl)
-//
-// A 2-barrel manifold takes 2-barrels; everything else takes a 4-barrel of
-// either kind. Note a dual quad will not take 2-barrels, and a plain
-// 4-barrel manifold does accept the racing carb.
 std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(ManifoldType manifold) {
     switch (manifold) {
         case MANIFOLD_2BARREL:

@@ -5,18 +5,7 @@
 #include <random>
 #include <SDL2/SDL.h>
 
-// ---------------------------------------------------------------------------
-// SR.EXE parser
-// ---------------------------------------------------------------------------
-//
-// Memory layout (Ghidra view, load base = 0):
-//   CODE_0  at 1000:0000  (linear 0x10000) -- audio/game logic
-//   CODE_24 at 3e6b:0000  (linear 0x3E6B0) -- 4736 bytes of music data
-//   DS      at 4e96:0000  (linear 0x4E960)
-//
-// CODE_24 stores (duration_u16, pit_u16) pairs.
-// The first 4 bytes are a null header; music starts at offset 4.
-// A pair with duration == 0 terminates the current segment.
+// CODE_24 stores (duration_u16, pit_u16) pairs after a 4-byte null header; duration 0 ends a segment.
 
 static constexpr uint32_t GHIDRA_BASE   = 0x10000;
 static constexpr uint32_t CODE24_LINEAR = 0x3E6B0;
@@ -30,7 +19,7 @@ static const uint8_t MUSIC_SIG[] = {
     0x05, 0x00, 0xF1, 0x05,  // (5, 0x05F1) G5
 };
 
-// Teardown signature at 1000:0fb7 used to validate the EXE
+// Validates the EXE.
 static const uint8_t TEARDOWN_SIG[] = {
     0xFA, 0xB8, 0x36, 0x00, 0xE6, 0x43, 0x2B, 0xC0, 0xE6, 0x40, 0xE6, 0x40
 };
@@ -83,7 +72,6 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
                         std::vector<std::vector<SrNote>>& out_songs,
                         std::vector<SrNote>& out_bridge)
 {
-    // Validate and locate EXE sections (same checks as sr_exe_parse_music_bytes).
     if (size < 0x20 || data[0] != 'M' || data[1] != 'Z') return false;
 
     uint16_t header_para = (uint16_t)(data[8] | (data[9] << 8));
@@ -99,7 +87,6 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
     if (c24_fo + CODE24_SKIP + sizeof(MUSIC_SIG) > size) return false;
     if (memcmp(data + c24_fo + CODE24_SKIP, MUSIC_SIG, sizeof(MUSIC_SIG)) != 0) return false;
 
-    // Parse CODE_24 into raw segments.
     std::vector<std::vector<SrNote>> segs;
     {
         const uint8_t* base = data + c24_fo;
@@ -118,10 +105,7 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
     }
     if (segs.empty()) return false;
 
-    // Map playlist pattern indices 0-4 to segments:
-    //   index 0 = intro (ascending scale; first note is C6 at pit=0x0474)
-    //   indices 1-4 = non-intro/non-rest segments in CODE_24 order
-    // A rest segment has all notes with pit_divisor == 0.
+    // Pattern 0 is the intro scale; 1-4 are the non-intro, non-rest segments in order.
     auto isIntro = [](const std::vector<SrNote>& s) {
         return !s.empty() && s[0].duration_ticks == 5 && s[0].pit_divisor == 0x0474;
     };
@@ -131,7 +115,6 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
         return !s.empty();
     };
 
-    // pat[0..4]: pointers into segs (stable; segs not modified after this).
     const std::vector<SrNote>* pat[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
     int nSongs = 0;
     for (const auto& seg : segs) {
@@ -144,21 +127,11 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
     }
     if (!pat[0]) return false;
 
-    // Locate the playlist in the file:
-    //   DS segment base: 0x4E960 (linear, Ghidra view)
-    //   Playlist offset within DS: 0x5858
-    //   playlist_linear = 0x4E960 + 0x5858 = 0x541B8
-    //   playlist_fo = (0x541B8 - GHIDRA_BASE) + load_base
-    //               = c24_fo + (0x541B8 - CODE24_LINEAR)
-    //               = c24_fo + 0x15B08
+    // Playlist at DS:0x5858, a fixed distance from CODE_24.
     uint32_t pl_fo = c24_fo + 0x15B08u;
     if (pl_fo + 2 > size) return false;
 
-    // Read playlist: uint16_t stream.
-    //   0-4      = pattern index
-    //   0x79AA   = runtime random pattern (BSS; pick random 1..nSongs at runtime)
-    //   0xFFFF   = block terminator; empty block after terminator = playlist end
-    //   anything else = end of playlist data
+    // Playlist words: 0-4 pattern index, 0x79AA random pattern, 0xFFFF block end (an empty block ends the list).
     std::vector<std::vector<uint16_t>> blocks;
     {
         std::vector<uint16_t> cur;
@@ -179,11 +152,9 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
     }
     if (blocks.empty()) return false;
 
-    // Bridge = intro scale (pattern 0) played once.
     out_bridge = *pat[0];
 
-    // Build songs from blocks that contain any non-zero pattern index.
-    // Blocks containing only index 0 are bridge/intro-only -- skip them.
+    // Blocks with only index 0 are intro-only, so skip them.
     std::mt19937 rng(std::random_device{}());
     out_songs.clear();
 
@@ -197,7 +168,6 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
         for (uint16_t e : block) {
             int idx;
             if (e == 0x79AA) {
-                // Runtime random: pick a random non-intro pattern.
                 idx = nSongs >= 1 ? std::uniform_int_distribution<int>(1, nSongs)(rng) : 0;
             } else {
                 idx = (int)e;
@@ -248,12 +218,8 @@ bool sr_exe_parse_music(const std::string& path,
     return sr_exe_parse_music_bytes(data.data(), data.size(), out_segments);
 }
 
-// ---------------------------------------------------------------------------
-// PCSpeaker implementation
-// ---------------------------------------------------------------------------
-
 // ISR rate: PIT_CLOCK / 0x4000 = 1193182 / 16384
-static constexpr float ISR_RATE_HZ = 1193182.0f / 16384.0f;  // ~72.82 Hz
+static constexpr float ISR_RATE_HZ = 1193182.0f / 16384.0f;
 
 PCSpeaker::PCSpeaker() = default;
 
@@ -309,8 +275,7 @@ void PCSpeaker::Stop()
     playing_.store(false);
     gate_      = false;
     frequency_ = 0.0f;
-    Resume();  // AmigaMusic::Stop clears its pause too; without this a paused
-               // speaker stays dead across a music-source switch.
+    Resume();  // AmigaMusic::Stop clears its pause too, so a paused speaker would stay dead across a source switch.
 }
 
 void PCSpeaker::Pause()
@@ -348,15 +313,13 @@ void PCSpeaker::TickISR()
         return;
     }
 
-    // Advance to next note, looping at end
     if (note_idx_ >= (int)notes_.size()) {
         note_idx_ = 0;
         looped_.store(true);
     }
 
     const SrNote& n = notes_[note_idx_++];
-    // duration_ticks is how many ISR ticks to hold the note; subtract 1 because
-    // the current tick already counts as the first tick of the new note.
+    // Minus 1: the current tick is already the note's first.
     note_ticks_ = (n.duration_ticks > 0) ? (n.duration_ticks - 1) : 0;
 
     if (n.pit_divisor == 0) {

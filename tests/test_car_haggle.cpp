@@ -2,12 +2,10 @@
 
 #include "car/car_haggle.h"
 
-// A $1000 car with roll20 = 0 has an opening ceiling of exactly $750, which
-// keeps the numbers below easy to check by hand:
+// A $1000 car with roll20 = 0:
 //   ceiling         = 1000 * 75 / 100 = 750
 //   counter-offer 1 =  750 * 85 / 100 = 637 -> rounded to 635
 //   counter-offer 2 =  750 * 91 / 100 = 682 -> rounded to 680
-// He closes at anything whose 90% is within the current ceiling.
 
 TEST_SUITE("CarHaggle - sanity ceilings") {
 
@@ -59,7 +57,7 @@ TEST_CASE("the ceilings are not re-tested on later prompts") {
     CHECK(s.message == HaggleMessage::NoThanks);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("CarHaggle - closing the deal") {
 
@@ -72,10 +70,6 @@ TEST_CASE("at or under the opening ceiling he buys straight away") {
 }
 
 TEST_CASE("anything over the ceiling gets a counter-offer, never a sale") {
-    // The final "90% of the price is within the ceiling" test is only reached
-    // once the price is already inside the ceiling, so it never closes a deal
-    // the ceiling would not have. The one prompt that skips that guard is the
-    // third one - see the test below.
     CarHaggle h(1000, 0);
     CHECK(h.SubmitPrice(751, 0).outcome == HaggleOutcome::CounterOffer);
 }
@@ -155,13 +149,11 @@ TEST_CASE("dropping under the ceiling on a later prompt still sells") {
     CHECK(s.amount == 600);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("CarHaggle - the 16-bit money cheat") {
 
-// price * 9 is a word multiply, so a price whose ninefold wraps past 65536
-// lands on a tiny remainder and sails through the final test. The windows
-// open at 7282, 14564, 21846 and 29128.
+// price * 9 is a word multiply, so a ninefold wrapping past 65536 sails through the final test.
 
 TEST_CASE("$22,001 sells a $1000 car for $22,001") {
     CarHaggle h(1000, 0);
@@ -216,7 +208,7 @@ TEST_CASE("the typed number itself wraps at 16 bits") {
     CHECK(s.amount == 750);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("CarHaggle - the opening ceiling") {
 
@@ -225,4 +217,4 @@ TEST_CASE("roll20 moves it across 75-94% of value") {
     CHECK(CarHaggle(1000, 19).BuyerCeiling() == 940);
 }
 
-} // TEST_SUITE
+}

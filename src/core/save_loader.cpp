@@ -12,9 +12,7 @@ uint32_t ReadU32BE(const std::vector<uint8_t>& d, size_t off) {
            (static_cast<uint32_t>(d[off + 2]) << 8) | static_cast<uint32_t>(d[off + 3]);
 }
 
-// Reads a NULL-terminated (by next-pointer) linked list of 10-byte part
-// records starting at pos, advancing pos past the list. Real data is only
-// bytes 0-5 of each record; bytes 6-9 are stale pointer garbage on disk.
+// Only bytes 0-5 of each 10-byte record are real; 6-9 are stale pointers.
 std::vector<LoadedPartRecord> ReadPartList(const std::vector<uint8_t>& d, size_t& pos) {
     std::vector<LoadedPartRecord> entries;
     while (true) {
@@ -31,8 +29,6 @@ std::vector<LoadedPartRecord> ReadPartList(const std::vector<uint8_t>& d, size_t
     return entries;
 }
 
-// Reads one 52-byte car record at pos, then its 7 sub-lists (each read only
-// if that slot's pointer is non-zero), advancing pos past all of it.
 LoadedCarRecord ReadCarRecord(const std::vector<uint8_t>& d, size_t& pos) {
     if (pos + 52 > d.size()) throw SaveLoadError("car record ran past end of file");
     LoadedCarRecord car;
@@ -58,7 +54,7 @@ LoadedCarRecord ReadCarRecord(const std::vector<uint8_t>& d, size_t& pos) {
     return car;
 }
 
-}  // namespace
+}
 
 LoadedSave SaveGameLoader::Load(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
@@ -73,36 +69,30 @@ LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
 
     LoadedSave save;
 
-    // --- Header (46 bytes) ---
     size_t nameEnd = 0;
     while (nameEnd < 14 && data[nameEnd] != 0) ++nameEnd;
     save.name.assign(reinterpret_cast<const char*>(data.data()), nameEnd);
     save.bankroll = static_cast<int>(ReadU32BE(data, 0x10));
     save.ownedCarCount = ReadU16BE(data, 0x22);
 
-    // --- Segment 2: active car (0 or 1 record, gated by header count) ---
     size_t pos = 46;
     if (save.ownedCarCount >= 1) {
         save.hasActiveCar = true;
         save.activeCar = ReadCarRecord(data, pos);
     }
 
-    // --- Segment 3: owned roster (ownedCarCount - 1 records) ---
     int rosterCount = save.ownedCarCount >= 1 ? save.ownedCarCount - 1 : 0;
     save.roster.reserve(rosterCount);
     for (int i = 0; i < rosterCount; ++i) {
         save.roster.push_back(ReadCarRecord(data, pos));
     }
 
-    // --- Segment 4: flat spare-parts list (NULL-terminated, may be empty) ---
     if (pos < data.size() - 190) {
         save.spareParts = ReadPartList(data, pos);
     }
 
-    // --- Trailer: always the last 190 bytes ---
     size_t trailerStart = data.size() - 190;
-    // Reputation is signed: it goes negative on a losing streak (road -3 /
-    // drag -2 per loss, confirmed in ChallengeRaceLoop 0023e60c).
+    // Reputation goes negative on a losing streak.
     save.racesCompleted = static_cast<int16_t>(ReadU16BE(data, trailerStart + 0));
     save.roadRep        = static_cast<int16_t>(ReadU16BE(data, trailerStart + 2));
     save.dragRep        = static_cast<int16_t>(ReadU16BE(data, trailerStart + 4));
@@ -111,9 +101,7 @@ LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
         save.opponentCarSpec[i] = data[trailerStart + 8 + i * 8 + 1];
     }
     save.elapsedTicks = ReadU32BE(data, trailerStart + 184);
-    // Trailer chunk 8: the road-course template index this profile was
-    // created with. TrackGenerator(100) rolls it once on a new game and it
-    // stays fixed for that profile's life (save_game.md).
+    // The road-course template index, fixed for the profile's life.
     save.trackVariant = static_cast<int16_t>(ReadU16BE(data, trailerStart + 188));
 
     return save;

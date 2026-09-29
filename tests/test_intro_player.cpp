@@ -24,7 +24,7 @@ int RunToEnd(IntroPlayer& p, std::vector<IntroSound>& sounds) {
     return ticks;
 }
 
-}  // namespace
+}
 
 TEST_CASE("PlanarToIndices reads plane-sequential bitplanes") {
     BitmapEntry_t e = {};
@@ -83,7 +83,7 @@ TEST_CASE("music note on srl.env entry 0: up in one tick, then down 1 per tick")
     const int16_t env0[16] = {64, 0, 0, 0, 0, 0, 0, 0, 16384, 256, 0, 0, 0, 0, 0, 0};
     AmigaEnvelope e;
     e.Start(env0, 0, 64, 9);
-    e.volume = 0;   // MusicTick zeroes it after MusicPlayNote
+    e.volume = 0;
     e.Tick();
     CHECK(e.volume == 38);   // 64 * 9 / 15
     int ticks = 1;

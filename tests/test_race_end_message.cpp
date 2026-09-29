@@ -64,7 +64,7 @@ TEST_CASE("stalled / jumped the light") {
     CHECK(BuildRaceEndReason(ctx).text == "Ya jumped the light, speedy`!");
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("BuildRaceEndReason - wins") {
 
@@ -118,7 +118,7 @@ TEST_CASE("win with an unlisted bet amount falls back to the no-bet line") {
     CHECK(BuildRaceEndReason(ctx).text == "You won! Too bad you didn't bet, though.");
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("BuildRaceEndReason - losses") {
 
@@ -138,7 +138,6 @@ TEST_CASE("road race, loss with tire wear") {
           "Lucky you're so slow. You only lost\nthe race. But you need new tires.");
 }
 
-// Drag races get their own plain-loss line, confirmed by playtesting.
 TEST_CASE("drag race, plain loss - drag-specific line, not the road one") {
     RaceEndContext ctx;
     ctx.playerLost = true;
@@ -155,10 +154,8 @@ TEST_CASE("drag race loss ignores tire wear (that variant is road-only)") {
     CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
 }
 
-} // TEST_SUITE
+}
 
-// The crash tree of ProcessRaceOutcome (0x23eaa2): the speed at the impact
-// decides whether you drive away, get a repair quote, or lose the car.
 TEST_SUITE("ClassifyCrash - wreck tiers") {
 
 using srrace::ClassifyCrash;
@@ -223,7 +220,7 @@ TEST_CASE("payout and quote arithmetic") {
     CHECK(srrace::RepairRollRange(61) == 40);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("SettlesBet - the cop branch returns before the stake") {
 
@@ -247,7 +244,7 @@ TEST_CASE("every other loss settles normally") {
     CHECK(SettlesBet(ctx) == true);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("BuildRaceEndReason - fallback") {
 
@@ -256,4 +253,4 @@ TEST_CASE("no flags, not won, not lost -> no message") {
     CHECK(BuildRaceEndReason(ctx).text == "");
 }
 
-} // TEST_SUITE
+}

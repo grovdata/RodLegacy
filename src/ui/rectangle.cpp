@@ -9,8 +9,7 @@ void Rectangle::Fill() {
     surface.reset(SDL_CreateRGBSurface(0, config.rect.w, config.rect.h, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 
     SDL_Surface *s = surface.get();
-    // SDL refuses dimensions it cannot represent, so a bad rect leaves no
-    // surface to draw into - every FillRect below would dereference null.
+    // SDL rejects unrepresentable sizes, leaving no surface.
     if (!s) {
         LOG_ERROR("Rectangle::Fill: no surface for %dx%d: %s", config.rect.w, config.rect.h,
                   SDL_GetError());

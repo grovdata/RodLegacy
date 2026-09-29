@@ -1,7 +1,6 @@
 #include "doctest/doctest.h"
 #include "car/part.h"
 
-// SellSparePartsLoop (Amiga 0x0024284a); see docs/gameplay.md "Selling".
 TEST_CASE("PartSalePrice: engines and gearboxes are priced on wear") {
     // 90% of value at zero wear, then rounded down to a multiple of 5.
     CHECK(PartSalePrice(PartCategory::Engine, 500, 0, 0) == 450);
@@ -24,13 +23,9 @@ TEST_CASE("PartSalePrice: tires always fetch nothing") {
     CHECK(PartSalePrice(PartCategory::Tire, 150, 0, 19) == 0);
 }
 
-// Race wear. Part::wear is the original's own 0..10000 unit - the same one the
-// sim counts in and the same one its save file stores - so a race's worth goes
-// on as-is, with nothing to convert and no remainder to lose.
+// Part::wear is the original's 0..10000 unit, so a race's worth goes on as-is.
 TEST_CASE("ApplyWearRaw: adds a race's worth straight on") {
     int wear = 0;
-    // Four drag races' worth. Under the old percent field this needed a
-    // carried remainder or it truncated to 4% instead of 6.6%.
     for (int i = 0; i < 4; ++i) ApplyWearRaw(wear, 165);
     CHECK(wear == 660);
     CHECK(WearPercent(wear) == 6);
@@ -58,10 +53,7 @@ TEST_CASE("WearPercent: what the screen shows") {
     CHECK(WearPercent(-1) == 0);      // clamped, never negative
 }
 
-// The master parts table the whole economy is priced from (Amiga A4-0x48ec,
-// 44 records of 14 bytes, price at +0). Read straight out of the binary, so
-// these are the values, not a balance choice - a wrong one moves every car's
-// worth, every scrap payout and every part sale with it.
+// The master parts table, read from the binary; a wrong value moves the whole economy.
 TEST_CASE("PartCatalogPrice: the original's master parts table") {
     // 9 engines: three V6s at a flat $100, then small then big V8s per brand.
     CHECK(PartCatalogPrice(CarEngineGM_V6) == 100);

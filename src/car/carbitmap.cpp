@@ -7,14 +7,9 @@
 
 const int wheelSize = 31;
 
-// Where each piece lives is resolved into CarModel::sprites when the model is
-// built; only which lib to read from differs per set. Both sources take the
-// car's paint, they just apply it differently - see GetDOSCarPalette for the
-// DOS side.
+// Sprites are resolved into CarModel::sprites; only the lib differs per set.
 namespace {
 
-// The four wheel rotation cells for a tire type in a DOS car set's lib. lib.p
-// has one spritesheet asset per type instead; see CarWheel.
 int DosWheelFirstSprite(CarWheelType type) {
     switch (type) {
         case BRAND:  return SRSE_LIB2_BRAND_WHEEL_1;
@@ -25,7 +20,6 @@ int DosWheelFirstSprite(CarWheelType type) {
 }
 constexpr int kDosWheelFrames = 4;
 
-// Loads a car's wheel from whichever lib its set uses.
 void LoadWheelForModel(const CarModel& model, CarWheelType type, CarWheel& wheel) {
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
         const int first = DosWheelFirstSprite(type);
@@ -56,7 +50,6 @@ void LoadWheelForModel(const CarModel& model, CarWheelType type, CarWheel& wheel
     }
 }
 
-// The wheel arch. lib.p has one shared asset; a DOS car set keeps its own.
 Bitmap* LoadWheelhouse(const CarModel& model, const std::vector<uint16_t>& carPalette) {
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
         return state.GetAssets().GetCarSetSpriteWithPalette(
@@ -67,7 +60,7 @@ Bitmap* LoadWheelhouse(const CarModel& model, const std::vector<uint16_t>& carPa
         libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
 }
 
-} // namespace
+}
 
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette) {
@@ -167,10 +160,10 @@ void CarWheel::DrawAt(int x, int y) {
 CarShadow::CarShadow(int width) {
     this->width = width;
     this->surface = sdl2::SurfacePtr(SDL_CreateRGBSurface(0, width, 4, 32,
-        0xFF000000,  // Red mask
-        0x00FF0000,  // Green mask
-        0x0000FF00,  // Blue mask
-        0x000000FF   // Alpha mask
+        0xFF000000,
+        0x00FF0000,
+        0x0000FF00,
+        0x000000FF
     ));
 }
 
@@ -178,9 +171,9 @@ CarShadow::~CarShadow() {
 }
 
 void CarShadow::Draw() {
-    SDL_FillRect(surface.get(), NULL, SDL_MapRGB(surface->format, 0, 0, 0));  // Fill black
+    SDL_FillRect(surface.get(), NULL, SDL_MapRGB(surface->format, 0, 0, 0));
     SDL_Rect clearRect;
-    Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);  // Transparent black
+    Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);
     clearRect = {0, 0, 3, 1};
     SDL_FillRect(surface.get(), &clearRect, transparent);
     clearRect = {width - 3, 0, 3, 1};
@@ -223,31 +216,25 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
     CarModel model = car->GetModel();
     byte_vector& libFile = state.GetAssets().GetLibPData();
 
-    // Initialize the member variable offsets from the car model
     offsets = model.offsets;
 
-    // Load original body
     std::vector<uint16_t> carPalette = GetStandardCarColor(color);
     auto* originalAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
     if (originalAsset) {
-        bodyOriginal = *originalAsset;  // Copy the bitmap
+        bodyOriginal = *originalAsset;
         bodyOriginal.SetVisible(true);  // Cached asset may have been hidden by a dialog
     }
 
-    // Load chopped body if available
     const int choppedRoofIndex = model.sprites.choppedRoof;
     if (choppedRoofIndex >= 0) {
         auto* choppedAsset = LoadCarModelSprite(model, choppedRoofIndex, carPalette);
         if (choppedAsset) {
-            bodyChopped = *choppedAsset;  // Copy the bitmap (keeps its natural sprite dimensions)
-            // Position it with the chopped roof offset from car model
+            bodyChopped = *choppedAsset;
             SDL_Rect origPos = bodyOriginal.GetPosition();
             bodyChopped.SetPosition(origPos.x + model.offsets.offsetXChoppedRoof, origPos.y);
-            // Only visible if roof is already chopped
             isRoofChopped = car->IsRoofChopped();
             bodyChopped.SetVisible(isRoofChopped);
             if (isRoofChopped) {
-                // Mask out the stock roof on the freshly loaded body to match
                 bodyOriginal.ApplyBumperOverlay(&bodyChopped, model.offsets.offsetXChoppedRoof, 0);
             }
             LOG_DEBUG("Loaded chopped body: %dx%d at (%d,%d) [offset=%d], visible=%d",
@@ -259,13 +246,11 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
         }
     }
 
-    // Load "chopped bumper" overlays (these will be composited into body texture when stripped)
     const int rearBumperIndex = model.sprites.rearBumperStripped;
     const int frontBumperIndex = model.sprites.frontBumperStripped;
     if (rearBumperIndex >= 0 || frontBumperIndex >= 0) {
         LOG_DEBUG("Loading bumper overlays for car %d: rear=%d, front=%d", model.index, rearBumperIndex, frontBumperIndex);
 
-        // These are overlays that will be applied to the body texture
         if (rearBumperIndex >= 0) {
             auto* rearBumperAsset = LoadCarModelSprite(model, rearBumperIndex, carPalette);
             if (rearBumperAsset) {
@@ -289,7 +274,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
 
         LOG_INFO("Car bumpers stripped status on load: %s", car->IsBumpersStripped() ? "YES" : "NO");
 
-        // If already stripped, apply the overlays to the body texture
         if (isFrontBumperStripped && body && frontBumperIndex >= 0) {
             CarModel model = car->GetModel();
             BitmapOffset_t offsets = model.offsets;
@@ -321,7 +305,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
         }
     }
 
-    // Load wheelhouse - the arch where wheels sit; wheels overlay on top when equipped
     auto* wheelhouseAsset = LoadWheelhouse(model, carPalette);
     if (wheelhouseAsset) {
         rearWheelhouse = *wheelhouseAsset;
@@ -330,11 +313,8 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
         frontWheelhouse.SetVisible(true);
     }
 
-    // Load wheels
     LoadWheelForModel(model, car->GetWheelType(), wheels);
 
-    // Hood scoop: which one is fixed per car body, whether it shows is the
-    // engine's business (V8s come with one).
     auto* scoopAsset = LoadCarModelSprite(model, model.sprites.airScoop, carPalette);
     if (scoopAsset) {
         hoodScoop = *scoopAsset;
@@ -349,7 +329,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
 
     customDecal.SetVisible(false);
     if (car->GetDecal() == SrLibCarDecalCustom) {
-        // Load custom PNG sticker
         const std::string& path = car->GetCustomDecalPath();
         if (!path.empty()) {
             customDecal.LoadBitmap(path);
@@ -357,7 +336,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
         }
         decal.SetVisible(false);
     } else if (car->GetDecal() >= SrLibCarDecalDosSeDecal1 && car->GetDecal() <= SrLibCarDecalDosSeDecal8) {
-        // DOS SE decal - load from DOS decal bitmaps
         int dosIndex = car->GetDecal() - SrLibCarDecalDosSeDecal1;
         Bitmap* dosBmp = state.GetAssets().GetDosDecal(dosIndex);
         if (dosBmp) {
@@ -409,7 +387,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
         decal.SetVisible(false);
     }
 
-    // Make sure we're pointing to the right body
     body = isRoofChopped ? &bodyChopped : &bodyOriginal;
 
     UpdatePositions();
@@ -417,29 +394,19 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
 }
 
 void CarBitmap::UpdatePositions() {
-    // Always use bodyOriginal for position calculations (it's the full car)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    // Update wheel positions. wheelsYOffset is a live nudge on top of the
-    // model's offsetYTires, used to measure a car's real wheel line - see
-    // CarDebug. It was stored but never applied here, which is why the diner's
-    // left/right keys appeared to do nothing.
+    // wheelsYOffset is CarDebug's live nudge.
     const int tiresY = bodyRect.y + offsets.offsetYTires + wheelsYOffset;
     const int wheelW = wheels.IsLoaded() ? wheels.Width() : wheelSize;
     const int wheelH = wheels.IsLoaded() ? wheels.Height() : wheelSize;
     rearWheelPos = {bodyRect.x + offsets.offsetXRearTire, tiresY, wheelW, wheelH};
     frontWheelPos = {bodyRect.x + offsets.offsetXFrontTire, tiresY, wheelW, wheelH};
 
-    // The shadow lies under the tires, overlapping their last rows. It has to
-    // come off the wheel cell's height, not a constant: a lib.p tire cell is
-    // 31 tall and a DOS one 28, so a fixed number floats the car over its
-    // shadow on every Street Rod SE car.
+    // Off the wheel cell height: lib.p cells are 31 tall, DOS ones 28.
     shadow.SetPosition(bodyRect.x, tiresY + wheelH - 3);
 
-    // Update other part positions
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
-
-    // Note: bumper overlays are positioned in Draw() to match body exactly
 }
 
 void CarBitmap::Draw() {
@@ -459,17 +426,13 @@ void CarBitmap::Draw() {
         wheels.DrawAt(rearWheelPos.x, rearWheelPos.y);
     }
 
-    // Always draw the original body
     if (bodyOriginal.IsVisible()) {
         bodyOriginal.Draw();
     }
 
-    // If roof is chopped, draw the chopped roof piece on top
     if (isRoofChopped && bodyChopped.IsVisible()) {
         bodyChopped.Draw();
     }
-
-    // Bumper overlays are now applied directly to body texture, not drawn separately
 
     if (gasCap.IsVisible()) {
         gasCap.Draw();
@@ -534,9 +497,7 @@ void CarBitmap::Draw() {
 void CarBitmap::ToggleChoppedRoof() {
 
     isRoofChopped = !isRoofChopped;
-    // body = isRoofChopped ? bodyChopped : bodyOriginal;
 
-    // Update position and visibility
     SDL_Rect pos = bodyOriginal.GetPosition();
     body->SetPosition(pos.x, pos.y);
     body->SetVisible(true);
@@ -548,7 +509,6 @@ void CarBitmap::ChopRoof() {
     CarModel model = car->GetModel();
     AmigaLibAsset bodyAssetNo = (AmigaLibAsset)model.index;
 
-    // Check if this car can have its roof chopped
     if (!CarQuery::SrLibQueryCanChopRoof(bodyAssetNo)) {
         LOG_INFO("This car cannot have its roof chopped");
         return;
@@ -557,13 +517,11 @@ void CarBitmap::ChopRoof() {
     isRoofChopped = true;
     car->SetRoofChopped(true);
 
-    // Apply the chopped roof overlay to mask out the original roof area
     if (bodyChopped.GetSurface()) {
         BitmapOffset_t offsets = model.offsets;
         bodyOriginal.ApplyBumperOverlay(&bodyChopped, offsets.offsetXChoppedRoof, 0);
     }
 
-    // Show the chopped roof piece on top
     bodyChopped.SetVisible(true);
 
     LOG_INFO("Roof chopped - masked original roof and showing chopped overlay");
@@ -575,7 +533,6 @@ void CarBitmap::RestoreRoof() {
     isRoofChopped = false;
     car->SetRoofChopped(false);
 
-    // Reload the original body to restore the roof (removes the mask)
     CarModel model = car->GetModel();
     std::vector<uint16_t> carPalette = GetStandardCarColor(currentColor);
 
@@ -588,7 +545,6 @@ void CarBitmap::RestoreRoof() {
         bodyOriginal.SetPosition(currentPos.x, currentPos.y);
         bodyOriginal.SetVisible(currentVis);
 
-        // Reapply any stripped bumpers to the fresh body
         if (isFrontBumperStripped && frontBumper.GetSurface()) {
             BitmapOffset_t offsets = model.offsets;
             bodyOriginal.ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
@@ -599,7 +555,6 @@ void CarBitmap::RestoreRoof() {
         }
     }
 
-    // Hide the chopped roof piece
     bodyChopped.SetVisible(false);
 
     LOG_INFO("Roof restored - reloaded original body and reapplied bumpers");
@@ -610,21 +565,17 @@ void CarBitmap::SetGasCapRemoved(bool removed) {
 }
 
 void CarBitmap::Move(SDL_Point p) {
-    // Update both bodies so they move together
     bodyOriginal.SetPosition(p.x, p.y);
 
-    // Apply chopped roof offset
     CarModel model = car->GetModel();
     bodyChopped.SetPosition(p.x + model.offsets.offsetXChoppedRoof, p.y);
     UpdateTextures();
 }
 
-// Move the body only, not the driver, wheels, etc.
-// Debug purposes
 void CarBitmap::MoveBody(SDL_Point p) {
     if (body) {
         body->SetPosition(p.x, p.y);
-        UpdatePositions();  // Update all other parts relative to body
+        UpdatePositions();
     }
 }
 
@@ -641,20 +592,14 @@ SDL_Point CarBitmap::GetDriverOffsetFromBody() {
 
 void CarBitmap::MoveWheelsYOffset(int offset) {
     wheelsYOffset = offset;
-    UpdatePositions();  // Recalculate positions with new wheel offset
+    UpdatePositions();
 }
 
 void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
-    // Always use bodyOriginal as the reference position (not body, which might be bodyChopped)
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    // SpriteInfo's y_driver is the portrait's BOTTOM edge relative to the body
-    // top, not its top: it lands 1 to 3 px under the window sill on every car
-    // in lib.p, SR1's LIB2 and SRSE's, so the shoulders are cut off by the
-    // door line. Anchoring the top on a constant instead put the taller
-    // portraits too low - DRIVER_15 (356) is 20 px because it draws a hat
-    // above the same head, and all you saw through the window was the hat.
+    // y_driver is the portrait's bottom edge relative to the body top.
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver + driverOffset.x,
                        bodyRect.y + offsets.offsetYDriver - driver.GetNaturalSize().h +
                            driverOffset.y);
@@ -663,22 +608,15 @@ void CarBitmap::UpdateTextures() {
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);
     gasCap.SetPosition(bodyRect.x + offsets.offsetXGasCap, bodyRect.y + offsets.offsetYGasCap);
 
-    // Note: bumper overlays are positioned in Draw() to match body exactly
     rearWheelhouse.SetPosition(bodyRect.x + offsets.offsetXRearTire, bodyRect.y + offsets.offsetYTires);
     frontWheelhouse.SetPosition(bodyRect.x + offsets.offsetXFrontTire, bodyRect.y + offsets.offsetYTires);
-    // Update black background positions to match wheelhouses
     rearWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXRearTire - 2, bodyRect.y + bodyRect.h - wheelSize);
     frontWheelhouseBackground.SetPosition(bodyRect.x + offsets.offsetXFrontTire - 2, bodyRect.y + bodyRect.h - wheelSize);
-    // Wheels and shadow, with the live CarDebug nudge applied.
     UpdatePositions();
 }
 
 void CarBitmap::UpdateWheelRotation(int carX) {
-    // The frame comes off the car's X, never off a clock: DOS
-    // car_animation_tick (SR.EXE 1f38:a5a5) reads the car's X and switches on
-    // (x & 7), so one turn of the tire is 8 px travelled. Driving backwards
-    // walks the frames back with no special case, and a car that crawls in at
-    // 2 px/step spins its wheels a quarter of the speed of one leaving at 8.
+    // Off the car's X, never a clock: one tire turn is 8 px travelled, and reversing walks the frames back.
     wheels.SelectFrame(carX >> 1);
 }
 
@@ -686,26 +624,17 @@ BitmapOffset_t CarBitmap::GetOffset() {
     return offsets;
 }
 
-// void CarBitmap::SetCarYBottom(int y) {
-//     // Position the car so the wheels' bottom edge is at y
-//     this->position.y = y - (31); // 31 is wheel height
-//     UpdateTextures(); // Ensure wheels and other parts are updated with new position
-// }
-
 void CarBitmap::UpdateColor(StandardCarColor newColor) {
     currentColor = newColor;
     CarModel model = car->GetModel();
 
     std::vector<uint16_t> carPalette = GetStandardCarColor(newColor);
 
-    // Save current state - always use bodyOriginal as the reference position
     SDL_Rect currentPos = bodyOriginal.GetPosition();
     bool currentVis = bodyOriginal.IsVisible();
 
-    // Preserve the offsets (they don't change with color)
     BitmapOffset_t savedOffsets = offsets;
 
-    // Reload body bitmap with new palette
     auto* bodyAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
     if (bodyAsset) {
         bodyOriginal = *bodyAsset;
@@ -713,18 +642,15 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         bodyOriginal.SetVisible(currentVis);
     }
 
-    // Reload chopped body if available
     const int choppedRoofIndex = model.sprites.choppedRoof;
     if (choppedRoofIndex >= 0) {
         auto* choppedAsset = LoadCarModelSprite(model, choppedRoofIndex, carPalette);
         if (choppedAsset) {
             bodyChopped = *choppedAsset;
 
-            // Position chopped body relative to bodyOriginal's position
             bodyChopped.SetPosition(currentPos.x + model.offsets.offsetXChoppedRoof, currentPos.y);
             bodyChopped.SetVisible(isRoofChopped);
 
-            // If roof is currently chopped, reapply the mask to the freshly colored body
             if (isRoofChopped) {
                 BitmapOffset_t offsets = model.offsets;
                 bodyOriginal.ApplyBumperOverlay(&bodyChopped, offsets.offsetXChoppedRoof, 0);
@@ -732,7 +658,6 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         }
     }
 
-    // Reload bumper overlays with new color
     const int rearBumperIndex = model.sprites.rearBumperStripped;
     if (rearBumperIndex >= 0) {
         auto* rearBumperAsset = LoadCarModelSprite(model, rearBumperIndex, carPalette);
@@ -749,7 +674,6 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         }
     }
 
-    // Reapply stripped bumpers to the active body with new colors
     if (isFrontBumperStripped && frontBumper.GetSurface()) {
         BitmapOffset_t offsets = model.offsets;
         bodyOriginal.ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
@@ -772,7 +696,6 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         hoodScoop.SetVisible(true);
     }
 
-    // Reload wheelhouse with new palette
     auto* wheelhouseAsset = LoadWheelhouse(model, carPalette);
     if (wheelhouseAsset) {
         bool rearVis = rearWheelhouse.IsVisible();
@@ -783,13 +706,10 @@ void CarBitmap::UpdateColor(StandardCarColor newColor) {
         frontWheelhouse.SetVisible(frontVis);
     }
 
-    // Update the body pointer to point to the correct bitmap
     body = isRoofChopped ? &bodyChopped : &bodyOriginal;
 
-    // Restore the offsets (they were saved at the beginning)
     offsets = savedOffsets;
 
-    // Update positions to ensure wheels and other parts are aligned correctly
     UpdatePositions();
     UpdateTextures();  // Also update decal, driver, hoodScoop, etc. positions
 }
@@ -839,7 +759,6 @@ void CarBitmap::StripFrontBumper() {
     if (car && body && frontBumper.GetSurface()) {
         CarModel model = car->GetModel();
         BitmapOffset_t offsets = model.offsets;
-        // Apply the overlay directly to the body texture
         body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
         car->SetBumpersStripped(true);
         LOG_INFO("Front bumper stripped");
@@ -851,7 +770,6 @@ void CarBitmap::StripRearBumper() {
     if (car && body && rearBumper.GetSurface()) {
         CarModel model = car->GetModel();
         BitmapOffset_t offsets = model.offsets;
-        // Apply the overlay directly to the body texture (no X offset in data)
         body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
         car->SetBumpersStripped(true);
         LOG_INFO("Rear bumper stripped");
@@ -868,14 +786,14 @@ void CarBitmap::ReloadBodyFromAssets() {
         auto* choppedAsset = LoadCarModelSprite(model, model.sprites.choppedRoof, carPalette);
         if (choppedAsset) {
             bodyChopped = *choppedAsset;
-            bodyChopped.UpdateFromSurface(); // Update texture after reloading
+            bodyChopped.UpdateFromSurface();
             body = &bodyChopped;
         }
     } else {
         auto* bodyAsset = LoadCarModelSprite(model, model.sprites.body, carPalette);
         if (bodyAsset) {
             bodyOriginal = *bodyAsset;
-            bodyOriginal.UpdateFromSurface(); // Update texture after reloading
+            bodyOriginal.UpdateFromSurface();
             body = &bodyOriginal;
         }
     }
@@ -884,17 +802,14 @@ void CarBitmap::ReloadBodyFromAssets() {
 void CarBitmap::RestoreFrontBumper() {
     isFrontBumperStripped = false;
     if (car) {
-        // Restore by reloading the body from assets
         CarModel model = car->GetModel();
         ReloadBodyFromAssets();
 
-        // Only set car's bumper state to false if both bumpers are now restored
         if (!isRearBumperStripped) {
             car->SetBumpersStripped(false);
         }
         LOG_INFO("Front bumper restored");
 
-        // Reapply any remaining stripped bumpers
         if (isRearBumperStripped && rearBumper.GetSurface()) {
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&rearBumper, 0, offsets.offsetYRearBumper);
@@ -907,17 +822,14 @@ void CarBitmap::RestoreFrontBumper() {
 void CarBitmap::RestoreRearBumper() {
     isRearBumperStripped = false;
     if (car) {
-        // Restore by reloading the body from assets
         CarModel model = car->GetModel();
         ReloadBodyFromAssets();
 
-        // Only set car's bumper state to false if both bumpers are now restored
         if (!isFrontBumperStripped) {
             car->SetBumpersStripped(false);
         }
         LOG_INFO("Rear bumper restored");
 
-        // Reapply any remaining stripped bumpers
         if (isFrontBumperStripped && frontBumper.GetSurface()) {
             BitmapOffset_t offsets = model.offsets;
             body->ApplyBumperOverlay(&frontBumper, offsets.offsetXFrontBumper, offsets.offsetYFrontBumper);
@@ -981,10 +893,8 @@ SDL_Surface* CarBitmap::CreateColorSwatch(StandardCarColor color, int width, int
     SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
     if (!surface) return nullptr;
 
-    // White border
     SDL_FillRect(surface, nullptr, SDL_MapRGB(surface->format, 255, 255, 255));
 
-    // Fill interior with gradient from palette entries 1..8
     std::vector<uint16_t> palette = GetStandardCarColor(color);
     int innerW = width - 2;
     int innerH = height - 2;

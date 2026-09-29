@@ -72,8 +72,7 @@ void Roster::Initialize(CarData& carData) {
 
     auto& gen = RandomEngine();
 
-    // Opponents drive anything buyable from any enabled car set, not just the
-    // stock 25. The merged table's -1 entries are The King's slot in each set.
+    // Any buyable car from any enabled set. The merged table's -1 entries are The King's slot in each set.
     std::vector<int> poolCarIndices;
     for (int assetId : state.GetCarSpecModelIndex()) {
         if (assetId >= 0) poolCarIndices.push_back(assetId);
@@ -97,7 +96,6 @@ void Roster::Initialize(CarData& carData) {
         opponents.back().car = car;
     }
 
-    // Add one opponent per custom driver
     for (const auto& path : customDriverPaths) {
         int preferredCarIndex = poolCarIndices[distrCar(gen)];
         CarModel model = carData.GetModelFromIndex(preferredCarIndex);
@@ -112,7 +110,7 @@ void Roster::Initialize(CarData& carData) {
         }
         driver.name = stem;
         driver.preferredCar = preferredCarIndex;
-        driver.spriteIndex = DRIVER_01; // fallback
+        driver.spriteIndex = DRIVER_01;
 
         opponents.emplace_back();
         opponents.back().driver = std::move(driver);
@@ -136,15 +134,12 @@ void Roster::Initialize(CarData& carData) {
 CarPtr Roster::GenerateRandomCar(const CarModel& model) {
     CarPtr car = CarBuilder::BuildRandomCar(model);
     
-    // Random color selection
     auto& gen = RandomEngine();
     std::uniform_int_distribution<> colorDist(0, StandardCarColor::CarColorCount - 1);
     StandardCarColor randomColor = static_cast<StandardCarColor>(colorDist(gen));
     
-    // Set the car color
     car->SetColor(randomColor);
 
-    // Randomize roof chopping
     std::uniform_int_distribution<> roofDist(0, 1);
     bool isRoofChopped = roofDist(gen) == 1;
     car->SetRoofChopped(isRoofChopped);
@@ -164,23 +159,18 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
     }
     
     car->SetBumpersStripped(areBumpersStripped);
-    // Update the asset with the selected color. Only lib.p art is recoloured;
-    // a DOS set's cars are 16-colour sprites that carry their own paint, and
-    // their index is not a lib.p asset to look up.
+    // Only lib.p art is recoloured; DOS cars carry their own paint.
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::AmigaLibP) {
         state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor);
     }
 
     std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
 
-    // Random customization. Wear stays 0: the original's generator does the
-    // same (parts_catalog.md, "A fresh part's wear is always zero").
-    // Introduce a 25% chance to set CarDecal to CarDecalNone
-    std::uniform_int_distribution<> chanceDist(0, 3); // 0 to 3 for 25% chance
+    // Wear stays 0, as in the original's generator.
+    std::uniform_int_distribution<> chanceDist(0, 3);
     if (chanceDist(gen) == 0) {
         car->SetDecal(SrLibCarDecalNone);
     } else if (!customStickerPaths.empty()) {
-        // Pool: 8 stock stickers + N custom stickers
         int totalStickers = (int)SrLibCarDecalNone + (int)customStickerPaths.size();
         std::uniform_int_distribution<> poolDist(0, totalStickers - 1);
         int pick = poolDist(gen);
@@ -194,7 +184,6 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
         car->SetDecal((SrLibCarDecal)stickerDist(gen));
     }
 
-    // Tuning level is divided into 13 steps
     std::uniform_int_distribution<> tuningDist(0, kTuneLevelCount - 1);
     std::uniform_int_distribution<> optimalTuningDist(0, 3);
     if (optimalTuningDist(gen) == 0) {
@@ -203,23 +192,14 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
         car->SetTuneLevel(tuningDist(gen));
     }
 
-    // Drivetrain is not random: the original reads it straight off the car's
-    // own SR_data spec config word (GenerateOpponentCar 0x23bd6a - engine
-    // variant = brand + (cfg & 7) * 3, carb = ((cfg & 0xc0) >> 6) + 0x16), and
-    // its pool record carries only the spec index, a paint and appearance
-    // flags. Rolling one here gave every opponent the vendor's V6, because
-    // CarModel::compatibleEngines is never populated and
-    // CarBuilder::SelectCompatibleEngine falls through to the default - so a
-    // 1952 Olds 88 whose ad says V-8 327 turned up at the diner as a V6.
-    // Must come last: SetManifold/SetCarburator clear the spec classes.
+    // Drivetrain comes from the car's SR_data spec, not random. Must come last: SetManifold/SetCarburator
+    // clear the spec classes.
     ApplyCarSpecFor(car.get(), model);
 
     return car;
 }
 
-// Finds the car's row in the merged spec table (keyed by CarModel::index) and
-// fits the drivetrain it describes. No row - a TOML-only custom car - leaves
-// whatever CarBuilder put in.
+// No row (a TOML-only custom car) leaves whatever CarBuilder put in.
 void Roster::ApplyCarSpecFor(Car* car, const CarModel& model) {  // NOLINT
 
     const std::vector<SrCarSpecEntry>& specs = state.GetMergedCarSpecs();
@@ -244,9 +224,7 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     auto& gen = RandomEngine();
     std::uniform_int_distribution<> spriteIndexDist(DRIVER_01, DRIVER_01 + DRIVER_COUNT - 1);
     Driver driver;
-    // Name and portrait are a pair held in SR_data - the portrait is a stored
-    // per-driver assignment, not a sequential run, so it cannot be derived from
-    // the name's position and must not be picked at random.
+    // Name and portrait are a stored pair in SR_data; the portrait cannot be derived or picked at random.
     const bool haveSrDrivers =
         nextSrDriver < static_cast<int>(srDrivers.size()) &&
         nextSrDriver < static_cast<int>(srDriverNames.size()) &&
@@ -273,7 +251,6 @@ Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     driver.preferredCar = preferredCarIndex;
 
     if (!customDriverPaths.empty()) {
-        // Pool: DRIVER_COUNT stock sprites + N custom PNGs
         int totalChoices = DRIVER_COUNT + (int)customDriverPaths.size();
         std::uniform_int_distribution<> poolDist(0, totalChoices - 1);
         int pick = poolDist(gen);
@@ -299,7 +276,7 @@ Opponent* Roster::GetNextOpponent() {
         return activeOpponent;
     }
     if (currentOpponent == opponents.end()) {
-        currentOpponent = opponents.begin();  // Wrap around to start
+        currentOpponent = opponents.begin();
     }
     activeOpponent = &*(currentOpponent++);
     return activeOpponent;
@@ -332,7 +309,7 @@ void Roster::SetNextOpponent(Opponent* opp) {
 }
 
 bool Roster::HasMoreOpponents() const {
-    return !opponents.empty();  // Only return false if there are no opponents at all
+    return !opponents.empty();
 }
 
 void Roster::ShuffleOpponents() {
@@ -342,9 +319,7 @@ void Roster::ShuffleOpponents() {
 }
 
 Opponent* Roster::GetCurrentOpponent() {
-    // The opponent handed out by GetNextOpponent(), not wherever the iterator
-    // now points: it is post-incremented past them, and a forced pick never
-    // moves it at all. Null until one has been handed out.
+    // currentOpponent is post-incremented past them, and a forced pick never moves it.
     return activeOpponent;
 }
 
@@ -354,8 +329,7 @@ Opponent* Roster::GetOpponentByIndex(int index) {
 }
 
 Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec) {
-    // Rebuild if his car was taken in a pink-slip race - cached but carless
-    // is the one state callers cannot handle.
+    // Rebuild if his car was taken in a pink-slip race.
     if (kingOpponentBuilt && kingOpponent.car) return &kingOpponent;
 
     if (SR_DATA_KING_DRIVER_INDEX < static_cast<int>(srDrivers.size()) &&
@@ -369,25 +343,17 @@ Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSp
     }
     kingOpponent.driver.preferredCar = CHEVROLET_CORVETTE_1963;
 
-    // ponytail: no CarData metadata exists for the King's own body id (272 -
-    // it is deliberately excluded from kCarIndex, the buyable-car table), so
-    // build a real, working '63 Corvette and only swap in his paint. Bytes
-    // 2..7 of car specs 5 and 25 are byte-identical (king.md), so this is his
-    // real car, not a stand-in. Upgrade if the King ever needs his own
-    // metadata row (gas cap / wheel offsets) instead of borrowing the plain
-    // Corvette's.
+    // ponytail: the King's body id has no CarData metadata, so build a '63 Corvette and swap in his paint.
+    // Its spec bytes match his, so this is his real car. Upgrade if he ever needs his own metadata row.
     CarModel model = carData.GetModelFromIndex(CHEVROLET_CORVETTE_1963);
     model.sprites.body = THE_KING_CHEVROLET_CORVETTE_1963_BODY;
-    // His body art is drawn with the scoop already on it, unlike the plain
-    // Corvette's, so the separate overlay would give him two.
+    // His body art already has the scoop.
     model.sprites.airScoop = -1;
     CarPtr car = CarBuilder::BuildCar(model);
     car->SetRoofChopped(false);
     car->SetBumpersStripped(false);
     car->SetDecal(SrLibCarDecalNone);
-    // Paint 13, straight out of his pool record (InitRacerPool writes
-    // `A4-0x2b8e = 0xd`). It is the 14th ramp in the colour table and no other
-    // car ever gets it.
+    // Paint 13; no other car ever gets it.
     car->SetColor(CarColorKing);
     CarBuilder::ApplySpec(car.get(), kingSpec, model.vendor);
     kingOpponent.car = car;

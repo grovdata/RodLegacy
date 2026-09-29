@@ -29,17 +29,12 @@ GasStation::GasStation()
         }
         SetPointer(SrLibAmigaSpriteAssetMousePointerPump);
     };
-    // ponytail: the original walks handle-grab -> handle-at-cap through three
-    // separate click flags; RodLegacy has two zones (pump, gas_cap), so this
-    // is the "insert and start" click. Clicking it again mid-fill pulls the
-    // handle back out early, matching the manual's two-click sequence.
+    // ponytail: the original uses three click flags; with two zones this click inserts and starts, and a second
+    // click mid-fill pulls the handle back early.
     GetZone("gas_cap").onClick = [this] {
         if (!CanInteract() || !carBitmap) return;
         if (sceneState == GAS_STATION_HANDLEOFF) {
-            // Message 70 ("Pay attention, dummy!"): confirmed from
-            // GasStationPumpLoop, refuses to start dispensing when the tank
-            // is already full or the player can't cover the next tick -
-            // see gas_station.md. No state change on refusal.
+            // "Pay attention, dummy!": refuses when the tank is full or the next tick is unaffordable.
             Car* car = state.GetCurrentCar();
             bool tankFull = car && car->GetFuelTenths() >= TANK_CAP_TENTHS;
             bool cantAfford = state.GetBankroll() < pricePerTick;
@@ -52,18 +47,12 @@ GasStation::GasStation()
                 if (pumpNoHandle) pumpNoHandle->SetVisible(true);
             }
         } else if (sceneState == GAS_STATION_PUMPING) {
-            // Message 69 ("It's not full, speedy!"): confirmed from
-            // GasStationPumpLoop - GasPumpDisplayBlink(STOP) fires right
-            // before this check, so it belongs to putting the handle back
-            // EARLY, not grabbing it. Shown only if the tank could still
-            // have taken more and there was money left to pay for it -
-            // see gas_station.md.
+            // "It's not full, speedy!": for putting the handle back early with room and money left.
             Car* car = state.GetCurrentCar();
             if (car && car->GetFuelTenths() < TANK_CAP_TENTHS &&
                 state.GetBankroll() >= pricePerTick) {
                 ShowPumpMessage("It's not full, speedy`!");
             }
-            // Handle back on the pump: cap closes, asset 307 overlay hides.
             sceneState = GAS_STATION_IDLE;
             StopPumpDisplay();
             SetPumpSound(false);
@@ -77,11 +66,7 @@ GasStation::GasStation()
         if (!CanInteract()) return;
         SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
     };
-    // Message 71 ("Get out of my face, dummy!"): confirmed message ID from
-    // GasStationPumpLoop, but its exact trigger wasn't pinned down in the
-    // disassembly (reached via the scene's input switch, not a branch this
-    // session could trace back to a specific zone) - best guess is clicking
-    // Gus himself, which had no handler at all before this. See gas_station.md.
+    // "Get out of my face, dummy!": the trigger is unconfirmed; best guess is clicking Gus.
     GetZone("attendant").onClick = [this] {
         if (!CanInteract()) return;
         ShowPumpMessage("Get out of my face, dummy`!");
@@ -110,10 +95,8 @@ GasStation::~GasStation() {
 void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
-    // Set audio manager for engine sound
     SetAudioManager(state.GetAssets().GetAudioManager());
 
-    // Create a mask for gas pump
     auto maskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
     const SDL_Rect maskRect = {0, 107, 312, 69};
@@ -122,7 +105,6 @@ void GasStation::Init(bool initialDebugMode) {
     maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
     SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
 
-    // Create road mask to hide car wheels below y=175 (similar to diner scene)
     roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 15, 32, 0, 0, 0, 0));
     if (roadMaskSurface) {
         SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
@@ -135,18 +117,12 @@ void GasStation::Init(bool initialDebugMode) {
         LOG_INFO("Failed to create road mask surface");
     }
 
-    // Asset-owned, non-owning ref. 338 is the background slice with the pump's
-    // hanging handle painted out; it draws behind the car while the handle is
-    // off, since the background bitmap itself still has the handle in place.
+    // 338 is the background slice with the handle painted out, drawn behind the car while the handle is off.
     pumpNoHandle = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP2});
     pumpNoHandle->SetPosition(PUMP_POS.x, PUMP_POS.y);
     pumpNoHandle->SetVisible(false);
 
-    // Handle-off foreground. Mask 341's pump region covers the hanging handle
-    // too, so with the handle off it painted what is behind the handle (the
-    // brick wall) over the car's nose. Asset 339 is the pump's front edge
-    // without the handle, so inside the pump rect it replaces the mask's
-    // output outright - art and alpha both.
+    // Mask 341 covers the hanging handle too, so with the handle off 339 replaces its output in the pump rect.
     pumpSideMask = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP3_MASK});
     maskedBackgroundNoHandle.reset(SDL_CreateRGBSurfaceWithFormat(0, 312, 69, 32, SDL_PIXELFORMAT_RGBA8888));
     SDL_SetSurfaceBlendMode(maskedBackground.get(), SDL_BLENDMODE_NONE);
@@ -167,13 +143,9 @@ void GasStation::Init(bool initialDebugMode) {
     attendantAnim->SetAnimationFrames(47, 47, 4, 1); // 2x2 grid
     attendantAnim->SetSpeed(0.5f); // 0.5s per frame
     attendantAnim->SetLoop(false);
-    // Gus sits in the scene the whole time on frame 0; only the stand-up
-    // animation waits for the idle countdown.
+    // Only the stand-up animation waits for the idle countdown.
     attendantAnim->SetVisible(true);
 
-    // The original shows the bottom status bar here too (GasStationPumpLoop
-    // calls SetupStatusBar(3) via 0x002259fa), with the bankroll string
-    // redrawn on every charge.
     hud->SetVisible(true);
 
     initStartTime = GameTicks();
@@ -196,14 +168,12 @@ void GasStation::DrawScene() {
     // synchronously, switching the active scene away mid-call.
     if (state.GetCurrentScene() != this) return;
 
-    // Update attendant animation
     if (attendantAnim) {
         attendantAnim->Update(deltaTime);
     }
 
     Scene::DrawScene();
 
-    // Wait 2s
     if (initialDelay) {
         if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
@@ -237,7 +207,6 @@ void GasStation::DrawScene() {
 }
 
 void GasStation::DrawMaskAfterCar() {
-    // Draw the gas pump mask
     const bool handleOff = pumpNoHandle && pumpNoHandle->IsVisible();
     SDL_Rect rect = {0, 107, 312, 69};
     SDL_RenderCopy(renderer,
@@ -255,17 +224,11 @@ void GasStation::DrawMaskAfterCar() {
 
     CarScene::DrawMaskAfterCar();
 
-    // Asset 306 (the pump front with the handle) used to be drawn here; it is
-    // pixel-identical to the background it covers, so the masked overlay above
-    // already puts it in front of the car.
-
     if (pumpFilling && pumpFilling->IsVisible()) {
         pumpFilling->Draw();
     }
 
-    // Pump display: a direct pixel fill in the original (see
-    // PUMP_DISPLAY_FAST's comment). Lit is PAL_GAS index 0xf (0x0999)
-    // converted to RGB: 0x9 * 17 = 153; unlit is index 0, black.
+    // Lit is PAL_GAS index 0xf (0x0999): 0x9 * 17 = 153.
     if (sceneState == GAS_STATION_PUMPING && !waitingForAttendant) {
         auto drawDot = [](const SDL_Rect& rect, bool lit) {
             const Uint8 v = lit ? 153 : 0;
@@ -352,7 +315,6 @@ void GasStation::UpdatePumping(double deltaTime) {
             if (loopTimer < LOOP_ITERATION_SEC) return;
             loopTimer -= LOOP_ITERATION_SEC;
 
-            // Dispense fuel every 4th blink from the dispplay
             pumpDisplayFastLit = (pumpDisplayCounter & 1) != 0;
             pumpDisplayCounter++;
             if ((pumpDisplayCounter & 3) != 0) return;
@@ -368,7 +330,6 @@ void GasStation::UpdatePumping(double deltaTime) {
             }
 
             if (tick.done) {
-                // Tank full or out of money
                 sceneState = GAS_STATION_IDLE;
                 StopPumpDisplay();
                 SetPumpSound(false);
@@ -441,10 +402,7 @@ void GasStation::UpdateDebugInfo() {
 }
 
 bool GasStation::PushEvent(SDL_Event* event) {
-    // Only reset the handle/cap visuals on a stray click before the player
-    // has started interacting with the pump - once handle-off or pumping,
-    // clicks are routed through the pump/gas_cap zone handlers instead, so
-    // e.g. wiping a window mid-fill does not silently cancel the fill.
+    // Only before the player has started with the pump, so e.g. wiping a window cannot cancel a fill.
     if (event->type == SDL_MOUSEBUTTONDOWN && sceneState == GAS_STATION_IDLE && CanInteract()) {
         if (carBitmap) {
             carBitmap->SetGasCapRemoved(false);
@@ -526,10 +484,7 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
         carBitmap = currentCarBitmap.get();
         if (carBitmap) carBitmap->SetShadowVisible(false);
 
-        // Palette-matched to this car, same as gasCap/CAR_GAS_CAP in
-        // carbitmap.cpp - refreshed here (car changed or OnSceneExit tore
-        // the old one down) rather than in Init(), which the scene lifecycle
-        // only ever calls once at program start, not per visit.
+        // Palette-matched to this car; refreshed per visit since Init() only runs once.
         byte_vector& libFile = state.GetAssets().GetLibPData();
         std::vector<uint16_t> carPalette = GetStandardCarColor(cur->GetColor());
         pumpFilling = state.GetAssets().GetBitmapAssetWithPalette(
@@ -543,7 +498,6 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
 
 
 void GasStation::OnSceneExit() {
-    // Reset gas station specific state
     sceneState = GAS_STATION_IDLE;
     currentCarBitmap.reset();
     idleTimer = 0.0;
@@ -554,7 +508,6 @@ void GasStation::OnSceneExit() {
     StartPumpDisplay();
     waitingForAttendant = false;
 
-    // Reset pump overlay visibility to initial state
     if (pumpNoHandle) {
         pumpNoHandle->SetVisible(false);
     }
@@ -572,7 +525,6 @@ void GasStation::OnSceneExit() {
         pumpMessageBubble->SetVisible(false);
     }
 
-    // Call parent CarScene implementation (which handles common animation state)
     CarScene::OnSceneExit();
 }
 

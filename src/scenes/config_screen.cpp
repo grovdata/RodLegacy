@@ -19,12 +19,7 @@ extern "C" {
 #define GAME_WIDTH  320
 #define GAME_HEIGHT 200
 
-// ---------------------------------------------------------------------------
-// Pack definitions
-// ---------------------------------------------------------------------------
-
 const std::vector<ZipPack>& GetZipPacks() {
-    // Add more later, as they are supported
     static const std::vector<ZipPack> packs = {
         {
             "sr1amiga.zip", true, "Amiga disks (required)",
@@ -51,19 +46,14 @@ std::vector<ZipPackStatus> ScanDirectory(const fs::path& dir) {
                     break;
                 }
             }
-            // A pack with no required contents is considered valid when found.
+            // A pack with no required contents is valid when found.
         }
         results.push_back(s);
     }
     return results;
 }
 
-// ---------------------------------------------------------------------------
-// Folder browser helpers
-// ---------------------------------------------------------------------------
-
-// Resolve "..", symlinks and any trailing separator, so parent_path() steps up
-// once per press instead of chewing on a trailing slash.
+// So parent_path() steps up once per press.
 static fs::path Normalize(const fs::path& p) {
     std::error_code ec;
     fs::path c = fs::weakly_canonical(p, ec);
@@ -95,10 +85,7 @@ static std::vector<fs::path> ListDirs(const fs::path& dir) {
     return out;
 }
 
-// Cheap "worth looking in here" test for the rows: the mandatory zips exist by
-// name. No zip is opened - that would mean unpacking every sibling folder just
-// to draw a list. The folder the user actually picks is checked properly by
-// ScanDirectory.
+// Checks by name only; the picked folder is checked properly by ScanDirectory.
 static bool HasMandatoryZips(const fs::path& dir) {
     bool any = false;
     for (const ZipPack& pack : GetZipPacks()) {
@@ -122,12 +109,6 @@ static std::string FitRight(SFont_Font* f, std::string s, int maxW) {
     return s;
 }
 
-// ---------------------------------------------------------------------------
-// ConfigScreen rendering helpers
-// ---------------------------------------------------------------------------
-
-// Dialog green background (matches in-game dialogs, e.g. engine_bay.cpp) with
-// a white border.
 static void DrawFrame(SDL_Surface* surf) {
     SDL_FillRect(surf, nullptr, SDL_MapRGB(surf->format, 0, 208, 0));
 
@@ -156,7 +137,6 @@ static void DrawBrowser(SDL_Surface* surf,
     SFont_WriteCenter(surf, headingFont, 4, "Select folder");
     SFont_Write(surf, bodyFont, 5, top - rowH * 2 - 2,
                 FitLeft(bodyFont, dir.string(), GAME_WIDTH - 10).c_str());
-    // The list only shows folders, so say outright what this one holds.
     SFont_Write(surf, bodyFont, 5, top - rowH - 2,
                 FitRight(bodyFont, status, GAME_WIDTH - 10).c_str());
 
@@ -202,7 +182,6 @@ static void DrawScreen(SDL_Surface* surf,
     SFont_WriteCenter(surf, bodyFont, y, "game files are located.");
     y += lineH * 2;
 
-    // Current directory (just the folder name; full path can be too long to fit)
     if (!currentDir.empty()) {
         // A trailing separator (e.g. from the folder picker) makes filename()
         // return empty; fall back to the parent path's filename in that case.
@@ -213,7 +192,6 @@ static void DrawScreen(SDL_Surface* surf,
     }
     y += lineH / 2;
 
-    // Pack status list
     for (const ZipPackStatus& s : status) {
         const char* tag = (s.zipValid ? "[FOUND]  " : "[MISSING]");
         std::string line = std::string(tag) + " " + s.pack.filename;
@@ -231,15 +209,10 @@ static void DrawScreen(SDL_Surface* surf,
     SFont_WriteCenter(surf, bodyFont, y, "or drop a folder or zip on this window");
 }
 
-// ---------------------------------------------------------------------------
-// ConfigScreen::Run
-// ---------------------------------------------------------------------------
-
 fs::path RunConfigScreen(SDL_Renderer* renderer) {
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
-    // Heading font: bee.png
     SDL_Surface* beeSurf = LoadSurfaceFromMemory(embedded_bee_png, embedded_bee_png_len);
     if (!beeSurf) {
         LOG_WARN("ConfigScreen: failed to load embedded bee font");
@@ -254,7 +227,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         return {};
     }
 
-    // Body font: g1-7x8
     SDL_Surface* g1Surf = LoadSurfaceFromMemory(embedded_g1_7x8_sfont_png, embedded_g1_7x8_sfont_png_len);
     if (!g1Surf) {
         SFont_FreeFont(headingFont);
@@ -271,7 +243,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         return {};
     }
 
-    // Working surface (320x200, ARGB)
     SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32,
                                                         SDL_PIXELFORMAT_ARGB8888);
     if (!surf) {
@@ -281,8 +252,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         return {};
     }
 
-    // The exact list FindGameDirectory() would have tried, so what this screen
-    // offers matches what the game would have found by itself.
+    // The list FindGameDirectory() would try.
     std::vector<fs::path> searchDirs;
     for (const auto& entry : AssetManager::GameSearchPaths()) {
         searchDirs.push_back(entry.path);
@@ -292,7 +262,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     std::vector<ZipPackStatus> packStatus;
     bool canStart = false;
 
-    // Find best pre-populated directory (prefer one with mandatory pack)
     for (const fs::path& d : searchDirs) {
         auto s = ScanDirectory(d);
         for (const auto& ps : s) {
@@ -305,7 +274,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         }
         if (canStart) break;
     }
-    // Fallback: use current dir with whatever status
     if (currentDir.empty()) {
         currentDir = fs::current_path();
         packStatus = ScanDirectory(currentDir);
@@ -334,9 +302,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         rowTargets.clear();
         browseAnyMarked = false;
 
-        // Full check (opens the zips) for the folder being shown - it is the
-        // one the user can accept, so it gets the same verdict as the main
-        // screen rather than a guess.
+        // Full check for the folder being shown, since it is the one the user can accept.
         browseStatus.clear();
         for (const ZipPackStatus& ps : ScanDirectory(browseDir)) {
             if (!browseStatus.empty()) browseStatus += "  ";
@@ -418,7 +384,6 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         }
     };
 
-    // Bottom-anchored Browse / Start game / Quit buttons.
     const int btnW = 90, btnH = 16, btnY = GAME_HEIGHT - 22, btnGap = 10;
     const int btnX = (GAME_WIDTH - (btnW * 3 + btnGap * 2)) / 2;
 
@@ -432,9 +397,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     browseCfg.textColor = {255, 255, 255, 255};
     Button browseButton(browseCfg);
 
-    // Start game is disabled (greyed out, unclickable) while canStart is
-    // false. Button has no live enable/disable toggle, so it's rebuilt
-    // whenever canStart changes instead.
+    // Button has no live enable toggle, so it is rebuilt when canStart changes.
     const SDL_Color startEnabledColor  = {255, 255, 255, 255};
     const SDL_Color startDisabledColor = {110, 110, 110, 255};
     auto makeStartButton = [&]() {
@@ -461,8 +424,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     quitCfg.textColor = {255, 255, 255, 255};
     Button quitButton(quitCfg);
 
-    // Focus for keyboard/gamepad: 0 Browse, 1 Start game, 2 Quit. Start is
-    // skipped while it is disabled, so focus never lands on a dead button.
+    // Start is skipped while disabled.
     int focus = canStart ? 1 : 0;
     auto focusEnabled = [&](int i) { return i != 1 || canStart; };
     auto moveFocus = [&](int delta) {
@@ -487,8 +449,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
             }
             gamepad.HandleEvent(e);
 
-            // Dropping the zip itself is the obvious thing to try, so take a
-            // file to mean its folder. Works in the browser too.
+            // A dropped file means its folder.
             if (e.type == SDL_DROPFILE) {
                 fs::path dropped = e.drop.file ? fs::path(e.drop.file) : fs::path();
                 SDL_free(e.drop.file);
@@ -610,10 +571,9 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         if (canStart != startButtonWasEnabled) {
             startButton = makeStartButton();
             startButtonWasEnabled = canStart;
-            focus = canStart ? 1 : 0;  // point at whatever now matters
+            focus = canStart ? 1 : 0;
         }
 
-        // Render
         if (browsing) {
             DrawBrowser(surf, headingFont, bodyFont, browseDir, rowLabels,
                         browseStatus, browseAnyMarked,

@@ -8,12 +8,11 @@
 #include "core/state.h"
 #include "race/driving.h"
 
-extern Mouse mouse;  // defined in main.cpp
+extern Mouse mouse;
 
 std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     std::vector<DebugPanel> panels;
 
-    // Jump straight to a scene
     DebugPanel scenes{"Scenes", {}, DebugDock::Left};
     scenes.buttons.push_back({"Garage",         [] { state.MoveToScene(SCENE_GARAGE); }});
     scenes.buttons.push_back({"Diner",          [] { state.MoveToScene(SCENE_DINER); }});
@@ -39,7 +38,6 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     scenes.buttons.push_back({"Car Debug",      [] { state.MoveToScene(SCENE_CAR_DEBUG); }});
     panels.push_back(std::move(scenes));
 
-    // One left-hand panel: frame timing, player/world state and input.
     DebugPanel session{"Session", {}, DebugDock::Left};
     session.rows.push_back({"frame", ""});
     session.rows.push_back({"delta", std::to_string(frameDelta) + " ms"});
@@ -69,7 +67,6 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     }
     panels.push_back(std::move(session));
 
-    // Whatever the active scene wants to expose.
     Scene* scene = state.GetCurrentScene();
     if (scene) {
         for (DebugPanel& panel : scene->GetDebugPanels()) {

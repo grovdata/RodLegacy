@@ -1,10 +1,6 @@
 #include <doctest/doctest.h>
 #include "parsers/libp.h"
 
-// ---------------------------------------------------------------------------
-// CarQuery
-// ---------------------------------------------------------------------------
-
 TEST_SUITE("CarQuery::SrLibQueryCanChopRoof") {
 
 TEST_CASE("Corvettes cannot have roof chopped") {
@@ -20,7 +16,7 @@ TEST_CASE("other cars can have roof chopped") {
     CHECK(CarQuery::SrLibQueryCanChopRoof(DODGE_POLARA_1962_BODY)        == true);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("CarQuery::SrLibQueryCanStripBumpers") {
 
@@ -44,7 +40,7 @@ TEST_CASE("Corvettes can strip bumpers") {
     CHECK(CarQuery::SrLibQueryCanStripBumpers(CHEVROLET_CORVETTE_1963_BODY) == true);
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("CarQuery::GetChoppedBumperIndex") {
 
@@ -55,10 +51,7 @@ TEST_CASE("rear bumper index is body + 2 for standard cars") {
           FORD_DELUXE_2DR_1940_BODY + 2);
 }
 
-// A car's assets run BODY, [CHOPPED_ROOF], CHOPPED_REARBUMPER,
-// CHOPPED_FRONTBUMPER, and the chopped-roof slot only exists for bodies that
-// can be chopped. The Corvettes cannot, so their bumper overlays sit one index
-// earlier than everyone else's.
+// The chopped-roof slot only exists for choppable bodies, so the Corvettes' bumper overlays sit one index earlier.
 TEST_CASE("bumper overlays are body + 2/3, or body + 1/2 with no chopped roof") {
     CHECK(CarQuery::SrLibQueryGetChoppedBumberRearIndex(CHEVROLET_2DR_COUPE_1940_BODY) ==
           CHEVROLET_2DR_COUPE_1940_CHOPPED_REARBUMPER);
@@ -83,11 +76,7 @@ TEST_CASE("bumper overlays are body + 2/3, or body + 1/2 with no chopped roof") 
           CHEVROLET_CORVETTE_1963_CHOPPED_FRONTBUMPER);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// SrLibQueryGetCarIdleX
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("SrLibQueryGetCarIdleX") {
 
@@ -107,22 +96,16 @@ TEST_CASE("unknown scene returns default 35") {
     CHECK(SrLibQueryGetCarIdleX((SrLibGameScene)99) == 35);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// SrLibQueryGetCarRoofYOffset
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("SrLibQueryGetCarRoofYOffset") {
 
-// Garage/Diner/GasStation are all bottom-aligned against sprite height -
-// live-verified with Copperline, see gas_station.md. No per-car table.
+// Bottom-aligned against sprite height; no per-car table.
 TEST_CASE("known car and height returns the live-verified garage offset") {
     CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, 69) == 82);
 }
 
 TEST_CASE("same height, different scenes return different offsets") {
-    // Corvette 1956 body sprite height (lib.p), see gas_station.md.
     const int height = 56;
     int garage = SrLibQueryGetCarRoofYOffset(SCENE_GARAGE, height);
     int diner  = SrLibQueryGetCarRoofYOffset(SCENE_DINER, height);
@@ -137,11 +120,7 @@ TEST_CASE("all three scenes are bottom-aligned to sprite height") {
     CHECK(SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, 69) == 112);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// SrLibQueryGetCarVendor
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("SrLibQueryGetCarVendor") {
 
@@ -170,11 +149,7 @@ TEST_CASE("unknown car index returns CarVendorUnknown") {
     CHECK(SrLibQueryGetCarVendor(9999) == CarVendorUnknown);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// DataParser::GetCarIndex
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("DataParser::GetCarIndex") {
 
@@ -203,11 +178,7 @@ TEST_CASE("consecutive car models produce consecutive indices") {
     CHECK(idx3 == idx2 + 1);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetSpriteAnimationInfo / GetAnimationFrameRect
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("Sprite animation helpers") {
 
@@ -234,11 +205,7 @@ TEST_CASE("GetAnimationFrameRect returns correct frame") {
     CHECK(r.h == 53);
 }
 
-// The original picks a frame with srcX = (counter & 3) * w, srcY = row ? h : 0
-// (FUN_002416bc), off the blit record's own width and height - so frames are
-// packed at exactly their own size and any slack sits at the sheet's right
-// edge. Spacing them by the sheet divided by its grid instead drags in a
-// strip of the next frame.
+// The original picks frames off the blit record's own size, so slack sits at the sheet's right edge.
 TEST_CASE("engine animation frames are packed at their own size") {
     struct Case { uint16_t id; int sheetW, sheetH, cols, rows; };
     const Case cases[] = {
@@ -291,7 +258,6 @@ TEST_CASE("all known animated sprites have valid frame data") {
         const SpriteAnimationInfo* info = GetSpriteAnimationInfo(id);
         REQUIRE(info != nullptr);
         CHECK(info->frameCount > 0);
-        // Every frame should have non-zero dimensions
         for (int f = 0; f < info->frameCount; f++) {
             SpriteRect r = GetAnimationFrameRect(info, f);
             CHECK(r.w > 0);
@@ -300,11 +266,7 @@ TEST_CASE("all known animated sprites have valid frame data") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// CalculateSampleDuration
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("CalculateSampleDuration") {
 
@@ -322,4 +284,4 @@ TEST_CASE("known engine start duration (~0.710 seconds)") {
     CHECK(d == doctest::Approx(0.71f).epsilon(0.01f));
 }
 
-} // TEST_SUITE
+}

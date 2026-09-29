@@ -1,5 +1,4 @@
 // Street Rod (Amiga) music player - SDL3
-// Goal: mirror MusicTick/MusicControlByte behavior from Street_Rod.c.
 
 #include "tools/music_player/amiga_music_player.h"
 
@@ -36,8 +35,7 @@ struct ChannelState {
     int wait_ticks = 0;
     int instrument = 0;
     int note_volume = 64;
-    // The game's own envelope engine, shared with src/audio/amiga_music.cpp so
-    // the two cannot drift apart again.
+    // Shared with src/audio/amiga_music.cpp so the two cannot drift apart.
     AmigaEnvelope env;
     bool has_env = false;
     bool sample_active = false;
@@ -73,14 +71,11 @@ struct RuntimeState {
     bool debug_truncated = false;
     int debug_events_left = 0;
 
-    // Bit N mutes instrument N. Written from the main thread while the audio
-    // callback reads it, so it has to be atomic.
+    // Bit N mutes instrument N. Written by the main thread, read by the audio callback.
     std::atomic<uint32_t> muted_instruments{0};
-    // Notes started per instrument, so an unused instrument can be told apart
-    // from a wrong-sounding one.
+    // Tells an unused instrument apart from a wrong-sounding one.
     std::array<uint64_t, 32> inst_note_count = {};
-    // Pattern the main thread wants to jump to, -1 for none. Applied by the
-    // sequencer so it never fights the audio callback for channel state.
+    // -1 for none. Applied by the sequencer so it never fights the audio callback.
     std::atomic<int> jump_request{-1};
 
     double sample_tick_accum = 0.0;
@@ -180,9 +175,7 @@ bool ParsePatterns(const std::vector<uint8_t>& note_bytes, std::vector<std::arra
 }
 
 bool ParseInstruments(const std::vector<uint8_t>& ins_bytes, std::vector<InstrumentDef>& out_instruments) {
-    // SR1 packs an instrument into 10 bytes, SR2 into 18: the same five fields
-    // in the same order, then four words SR1 does not have. See
-    // RodLegacyResearch/docs/formats/music.md.
+    // SR1 packs an instrument into 10 bytes, SR2 into 18: the same five fields, then four more words.
     size_t stride = 0;
     if (ins_bytes.size() % 10 == 0) {
         stride = 10;
@@ -226,8 +219,7 @@ bool ParseEnvelopes(const std::vector<uint8_t>& env_bytes, std::vector<EnvelopeD
 }
 
 int NoteToPeriod(int note) {
-    // Match MusicPlayNote behavior: semitone uses modulo 12, octave shift uses
-    // (10 - note/12). For notes above 10 octaves, no left-shift is applied.
+    // Semitone is note % 12, octave shift (10 - note/12); above 10 octaves, no shift.
     if (note < 0) {
         note = 0;
     }
@@ -260,7 +252,6 @@ void StartSample(RuntimeState& s, int ch_index, int note_byte) {
     }
     const std::vector<int8_t>& bank = s.wave_bank[inst.bank_index];
     size_t off = inst.sample_offset_bytes;
-    // Decompile shows this field passed directly as sample length to audio.device.
     size_t len = static_cast<size_t>(inst.sample_length_words);
     if (off >= bank.size()) {
         return;
@@ -305,8 +296,7 @@ void StartSample(RuntimeState& s, int ch_index, int note_byte) {
         ch.sample_step);
 }
 
-// Restart every channel at the given pattern. Only ever called from the
-// sequencer side, so the main thread asks for a jump through jump_request.
+// Sequencer side only; the main thread asks through jump_request.
 void SetArrangement(RuntimeState& s, int index) {
     if (s.arrangement_len <= 0) {
         return;
@@ -694,7 +684,7 @@ bool ExtractAdfFile(const std::string& adf_path, const char* name, std::vector<u
     return true;
 }
 
-}  // namespace
+}
 
 bool LoadSongDataFromDirectory(const std::string& directory, SongData& out_data, std::string& out_error) {
     out_data.note_bytes = ReadFileBytes(directory + "/msr.note");
@@ -753,8 +743,7 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
                    int start_pattern) {
     RuntimeState s;
     s.notes = song.note_bytes;
-    // Executable behavior indicates instrument bank index 1 points at the
-    // main music sample bank (srl1.wave) for Street Rod.
+    // Instrument bank index 1 is the main music bank (srl1.wave).
     s.wave_bank[0] = song.wave1_bytes;
     s.wave_bank[1] = song.wave0_bytes;
 
@@ -795,7 +784,6 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
     if (start_pattern > 0) {
         SetArrangement(s, start_pattern);
     }
-    // Printed so a wrong-sounding instrument can be named by index.
     std::printf("  inst  env  bank  offset  length\n");
     for (size_t i = 0; i < s.instruments.size(); i++) {
         const InstrumentDef& d = s.instruments[i];
@@ -826,8 +814,6 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
     SDL_ResumeAudioStreamDevice(stream);
 
     if (scan_irqs > 0) {
-        // Run the sequencer with no audio device, then report which
-        // instruments the song actually plays.
         for (int i = 0; i < scan_irqs && s.playing; i++) {
             EnvelopeTick(s);
             if ((s.speed_counter % static_cast<uint64_t>(std::max(1, s.speed_ticks))) == 0) {
@@ -906,7 +892,7 @@ int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debu
     return 0;
 }
 
-}  // namespace sr
+}
 
 int main(int argc, char* argv[]) {
     std::string source_dir = ".";
@@ -943,7 +929,6 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "--pattern") == 0 && i + 1 < argc) {
             start_pattern = std::max(0, std::atoi(argv[++i]));
         } else if (std::strcmp(argv[i], "--bank") == 0 && i + 1 < argc) {
-            // --bank <inst>:<bank>, to hear an instrument out of the other bank.
             const char* a = argv[++i];
             const char* colon = std::strchr(a, ':');
             if (colon) {

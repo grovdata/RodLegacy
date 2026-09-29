@@ -40,11 +40,11 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
     if (tireChangePhase == TireChangePhase::IDLE) return;
 
     constexpr float JACK_SLIDE_DUR   = 0.5f;
-    constexpr float CRANK_ANIM_DUR   = 0.36f; // 3 frames × 0.12s each
+    constexpr float CRANK_ANIM_DUR   = 0.36f; // 3 frames x 0.12s each
     constexpr float CRANK_PAUSE_DUR  = 0.15f;
     constexpr float CRANK_TOTAL_DUR  = CRANK_ANIM_DUR + CRANK_PAUSE_DUR;
     constexpr float WHEEL_DROP_DUR   = 0.3f;
-    constexpr float WHEEL_ROLL_SPEED = 100.0f; // pixels per second — adjust to taste
+    constexpr float WHEEL_ROLL_SPEED = 100.0f;
     constexpr float WHEEL_RISE_DUR   = 0.3f;
     const int   wheelSize    = 31;
     const float rearRollDur  = (initialRearWheelPos.x  + wheelSize) / WHEEL_ROLL_SPEED;
@@ -84,13 +84,11 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             }
 
             if (localT < CRANK_ANIM_DUR) {
-                // animate jack; car lifts after the animation ends
                 int frame = (int)(localT / CRANK_ANIM_DUR * jackTotalFrames);
                 frame = std::min(frame, jackTotalFrames - 1);
                 if (jackAnim) jackAnim->SetFrame(frame);
                 tireChangeLiftY = crankNum;
             } else {
-                // pause: car already lifted by this crank
                 if (jackAnim) jackAnim->SetFrame(jackTotalFrames - 1);
                 tireChangeLiftY = crankNum + 1;
             }
@@ -217,7 +215,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 tireChangeLiftY = JACK_CRANKS - crankNum - 1;
             }
 
-            // Keep wheels snapped to wheelhouse as car descends
             animRearWheelY  = (float)(initialRearWheelPos.y  - tireChangeLiftY);
             animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
 
@@ -234,7 +231,6 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             float t = clamp01(tireChangeTimer / JACK_SLIDE_DUR);
             jackYPos = lerp(123.0f, jackStartY, t);
 
-            // Keep wheels at floor level (car fully lowered)
             animRearWheelY  = (float)initialRearWheelPos.y;
             animFrontWheelY = (float)initialFrontWheelPos.y;
 

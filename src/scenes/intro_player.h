@@ -4,10 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-// The Amiga intro (IntroSequence) as a 50 Hz tick machine over two indexed
-// 320x200 buffers and a 32-register RGB4 palette. No SDL, so it is testable;
-// the Intro scene renders it and plays the sounds.
-// See RodLegacyResearch/docs/intro.md.
+// The Amiga intro as a 50 Hz tick machine over two indexed 320x200 buffers. SDL-free for tests.
 
 enum class IntroSound {
     ChimeA,
@@ -38,7 +35,6 @@ public:
     // One PAL vblank. Sounds due on this tick are appended.
     void Tick(std::vector<IntroSound>& sounds);
 
-    // The credits plate is up and fully faded in.
     bool Done() const { return pc >= ops.size(); }
 
     const uint8_t* Front() const { return buffers[front].data(); }

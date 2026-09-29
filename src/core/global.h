@@ -3,7 +3,7 @@
 #define GAME_WIDTH 320
 #define GAME_HEIGHT 200
 #define GAME_RACING_HEIGHT 120
-#define GAME_RACING_HORIZON 60  // Fixed horizon position (where sky meets road)
+#define GAME_RACING_HORIZON 60
 #define GAME_STATUSBAR_HEIGHT 10
 #define GAME_FPS 60
 
@@ -30,7 +30,5 @@ extern SDL_Window *win;
 extern SDL_Renderer *renderer;
 extern bool isFullScreen;
 
-// Milliseconds since start, minus every millisecond spent paused. Scenes time
-// their animations, fades and bubbles against this rather than SDL_GetTicks64,
-// so a pause freezes them wherever they are driven from.
+// Milliseconds since start excluding pauses; scene timing uses this so a pause freezes it.
 Uint64 GameTicks();

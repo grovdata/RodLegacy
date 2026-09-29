@@ -10,9 +10,7 @@
 using EngineBaySlot = Garage::EngineBaySlot;
 using PartInstallPhase = Garage::PartInstallPhase;
 
-// EngineBay's own overview bounds/porthole (engine_bay.cpp's engineBayRect /
-// engineBayFillRect) - reused here so slide-ins stay clipped inside the
-// window's visible art, same idea as the transmission's kTransViewportMask.
+// Same bounds as EngineBay's overview, so slide-ins stay inside the window art.
 static const SDL_Rect kEngineBayBounds = {24, 0, 200, 189};
 static const SDL_Rect kEngineBayMask = {28, 4, 193, 181};
 
@@ -20,10 +18,7 @@ static constexpr float kScrewFallDuration = 0.35f;
 static constexpr float kSlideUpDuration = 1.1f;
 static constexpr float kSlideRightDuration = 0.4f;
 
-// The bay's tool sound (0x2287a8 - srl0 + 0x5dc8, 800 bytes). Its two callers
-// roll different bands: `random % 50 + 400` at volume 60 and `random % 50 +
-// 600` at volume 40, both +0xdc. A fresh pitch every time, never the same
-// twice. See RodLegacyResearch/docs/audio.md, "The part-mount tool sound".
+// Two pitch bands, fresh every time: random % 50 + 400 at volume 60, random % 50 + 600 at volume 40.
 void Garage::PlayBayToolSound(bool seating) {
     if (!audioManager) return;
     const int period = (seating ? SRL0_PART_MOUNT_PERIOD_BASE : SRL0_PART_MOUNT_PERIOD_HIGH) +
@@ -48,19 +43,13 @@ static void SetSlotVisible(EngineBay* bay, EngineBaySlot slot, bool visible) {
     if (bay) bay->SetPartVisible((int)slot, visible);
 }
 
-// Touching anything in the engine bay knocks the timing out. The original
-// does `car+0x2b = rand(13) - 8` after every install and every removal
-// (Street_Rod.asm:46017 and :46250, both `MOVEQ #13,D0` into the RNG), so
-// the knob lands anywhere across its 13 positions and only 1 in 13 comes out
-// perfectly tuned. RodLegacy stores the same knob unsigned - see car.h's
-// kPerfectTuneLevel and docs/garage/engine_bay_layout.md.
+// Every install and removal knocks the timing to a random one of the 13 positions, as in the original.
 static void ShakeTuning(Car* car, EngineBay* bay) {
     if (!car) return;
     std::uniform_int_distribution<int> knob(0, kTuneLevelCount - 1);
     int level = knob(RandomEngine());
     car->SetTuneLevel(level);
-    // The tuning window's indicator and its animation speeds run off
-    // EngineBay's own copy of the level, so it has to be told too.
+    // EngineBay keeps its own copy of the level.
     if (bay) bay->SetKnobPosition(level);
 }
 
@@ -69,16 +58,13 @@ static SDL_Point ScrewPos(EngineBay* bay, int screwIndex) {
     return bay ? bay->GetScrewAnchor(screwIndex) : SDL_Point{0, 0};
 }
 
-// ENGINE_BOLT is one image, not a frame sheet: the game crops it from the
-// top and blits it bottom-aligned on the mount, so backing a screw out grows
-// it upwards a third at a time - seated, half out, all the way out.
+// ENGINE_BOLT is one image cropped from the top and bottom-aligned, so backing out grows it a third at a time.
 static SDL_Rect ScrewFrameCrop(const SDL_Point& natural, int state) {
     int frameH = natural.y / 3;
     return {0, 0, natural.x, frameH * (state + 1)};
 }
 
-// bottomY is the screw's bottom edge - the crop shrinks as it is driven in,
-// so anchoring the top would slide it off its mount.
+// Anchored at the bottom: the crop shrinks as the screw is driven in.
 void Garage::ApplyEngineBayScrewGeometry(int screwIndex, int bottomY) {
     if (!engineBay) return;
     Dialog* dlg = engineBay->GetDialog();
@@ -158,8 +144,7 @@ void Garage::UpdateEngineBayScrewFallAnimations(double deltaTime) {
     }
 }
 
-// The engine slot additionally needs its ground wire unplugged/replugged -
-// everyone else just needs their screws done.
+// The engine slot also needs its ground wire unplugged.
 bool Garage::IsEngineBaySlotFullyOut(EngineBaySlot slot) {
     int first = SlotFirstScrew(slot);
     for (int i = first; i < first + SlotScrewCount(slot); i++) {
@@ -178,9 +163,7 @@ bool Garage::IsEngineBaySlotFullySeated(EngineBaySlot slot) {
     return true;
 }
 
-// The part really leaves the car and lands in spares, so it is available in
-// the picker straight away and the car stops running until something is put
-// back - the original nulls the matching pointer on its car struct.
+// The part really leaves the car for spares, and the car stops running until something is put back.
 void Garage::ReleaseEngineBayPartToSpares(EngineBaySlot slot) {
     Car* car = state.GetCurrentCar();
     if (!car) return;
@@ -212,19 +195,14 @@ void Garage::ReleaseEngineBayPartToSpares(EngineBaySlot slot) {
     car->RemoveManifold();
 }
 
-// A slot comes apart: its part goes back to spares and its screws are gone.
-// The manifold bolts to the block and the carbs bolt to the manifold, so
-// pulling the engine brings the whole stack out with it - each piece then
-// has to be picked and fitted again on its own.
+// Pulling the engine brings the manifold and carbs out with it.
 void Garage::EmptyEngineBaySlot(EngineBaySlot slot) {
     int idx = (int)slot;
     if (engineBaySlotPhase[idx] == PartInstallPhase::EMPTY) return;
 
     ShakeTuning(state.GetCurrentCar(), engineBay.get());
 
-    // Top of the stack downwards: every carburetor bolts to the manifold and
-    // the manifold to the block, so they come off before whatever holds
-    // them, and the manifold is still known while its carbs are counted.
+    // Top of the stack downwards, while the manifold is still known for counting its carbs.
     if (slot == EngineBaySlot::ENGINE || slot == EngineBaySlot::MANIFOLD) {
         for (int i = kMaxCarburetors - 1; i >= 0; i--) {
             EmptyEngineBaySlot((EngineBaySlot)((int)EngineBaySlot::CARB0 + i));
@@ -240,10 +218,7 @@ void Garage::EmptyEngineBaySlot(EngineBaySlot slot) {
     for (int i = first; i < first + SlotScrewCount(slot); i++) {
         engineBayScrewState[i] = 2;
         engineBayScrewFallDelay[i] = 0.0f;
-        // A screw already dropping out is left to finish - it hides itself
-        // on landing. Cancelling it here is what made a one-screw slot's
-        // screw vanish on the click that freed the part instead of falling,
-        // since that click both starts the drop and empties the slot.
+        // Left to finish: cancelling it made a one-screw slot's screw vanish instead of falling.
         if (engineBayScrewFalling[i] && engineBayScrewFallingOut[i]) continue;
         engineBayScrewFalling[i] = false;
         if (engineBay->GetScrewBitmap(i)) engineBay->GetScrewBitmap(i)->SetVisible(false);
@@ -277,7 +252,6 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
             engineBaySlotPhase[slotIdx] = PartInstallPhase::MOUNTED;
         }
     }
-    // EMPTY/SLIDING_IN: nothing to click on, ignore.
 }
 
 void Garage::OnEngineWireClicked() {
@@ -308,8 +282,7 @@ void Garage::OnEngineBayPartClicked(EngineBaySlot slot) {
     Car* car = state.GetCurrentCar();
     // A mount this manifold doesn't have isn't a slot you can fill.
     if (IsCarbSlot(slot) && car && CarbIndex(slot) >= car->GetCarburetorSlots()) return;
-    // The stack goes back in the order it came out - a manifold has nothing
-    // to bolt to without a block, and a carb has nothing without a manifold.
+    // Back in the order it came out.
     if (slot != EngineBaySlot::ENGINE) {
         EngineBaySlot under = IsCarbSlot(slot) ? EngineBaySlot::MANIFOLD : EngineBaySlot::ENGINE;
         if (engineBaySlotPhase[(int)under] != PartInstallPhase::MOUNTED) {
@@ -325,11 +298,7 @@ void Garage::OnEngineBayPartClicked(EngineBaySlot slot) {
     else ShowCarburetorDialog(CarbIndex(slot));
 }
 
-// The pre-existing "Parts" button used to open a hardcoded sample list
-// unrelated to the car. Now it's a second way into whichever slot is
-// currently disassembled (the main way is clicking the emptied part
-// itself - see OnEngineBayPartClicked/part_N zones). Walking the slots in
-// order is what makes a stripped engine go back together one part at a time.
+// A second way into the currently disassembled slot, walking the slots in order.
 void Garage::OnEngineBayPartsButtonClicked() {
     for (int i = 0; i < kEngineBayPartSlots; i++) {
         if (engineBaySlotPhase[i] == PartInstallPhase::EMPTY) {
@@ -366,9 +335,7 @@ void Garage::ApplyEngineBaySlideFrame(EngineBaySlot slot, int y, const SDL_Rect&
     if (db) ClipDialogBitmapToRect(*db, kEngineBayMask, {mount.x, y, mount.w, mount.h});
 }
 
-// The mount rect has to come from the part being fitted, not the one still
-// on the car - a bigger block sits at a different spot, not just a bigger
-// box at the same one.
+// From the part being fitted: a bigger block sits at a different spot.
 void Garage::StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, const SDL_Rect& mount) {
     int idx = (int)slot;
     BeginSlide(mount, engineBaySlideStart[idx], engineBaySlideEnd[idx]);
@@ -413,11 +380,7 @@ void Garage::StartCarbSlideIn(int carbIndex, const Part& newCarb) {
         CarbBodyRect(bmp->GetNaturalSize(), car->GetManifoldType(), car->GetEngineType(), carbIndex));
 }
 
-// The Garage outlives every car it shows, and engineWireAttached is
-// re-derived per car by SyncEngineBayPhasesFromCar, so the sprite has to be
-// re-applied from it rather than only where it gets toggled - otherwise a
-// car bought while the last one's engine was out drives in with an unplugged
-// wire.
+// Re-applied per car, or a car bought while the last one's engine was out drives in unplugged.
 void Garage::ApplyEngineWireVisual() {
     if (!engineBay || !engineBay->GetDialog()) return;
     DialogBitmap* db = engineBay->GetDialog()->GetBitmap("engine_wire");
@@ -427,11 +390,7 @@ void Garage::ApplyEngineWireVisual() {
          engineWireAttached ? ENGINE_WIRE_ATTACHED : ENGINE_WIRE_DETACHED});
 }
 
-// Dialog::Show() turns every bitmap in the dialog back on, and the bay is
-// re-shown every time a picker closes - so anything currently apart has to
-// be hidden again afterwards. Also the tail of a refresh, which reassembles
-// the bay wholesale: fitting an engine leaves the manifold and carbs out
-// until they are fitted too.
+// Dialog::Show() turns every bitmap on, so whatever is apart is hidden again.
 void Garage::ApplyEngineBayAssemblyState() {
     if (!engineBay) return;
     ApplyEngineWireVisual();
@@ -439,8 +398,7 @@ void Garage::ApplyEngineBayAssemblyState() {
         EngineBaySlot slot = (EngineBaySlot)idx;
         PartInstallPhase phase = engineBaySlotPhase[idx];
 
-        // Only a missing part is hidden - one still sliding in is on screen
-        // even though the car doesn't own it yet.
+        // A part sliding in is shown even though the car doesn't own it yet.
         SetSlotVisible(engineBay.get(), slot, phase != PartInstallPhase::EMPTY);
 
         // SCREWING_IN screws are mid drop-in - the fall animation owns them.
@@ -456,10 +414,7 @@ void Garage::ApplyEngineBayAssemblyState() {
     }
 }
 
-// The phases mirror what the car actually has fitted. A manifold swap can
-// change how many carburetor mounts exist, and loading a save or driving in
-// a different car replaces the lot, so slots sitting at rest are re-derived
-// from the car; anything mid-animation is left to finish.
+// Slots at rest are re-derived from the car; anything mid-animation is left to finish.
 void Garage::SyncEngineBayPhasesFromCar() {
     Car* car = state.GetCurrentCar();
     if (!car || !engineBay) return;
@@ -486,11 +441,7 @@ void Garage::RefreshEngineBayGeometry() {
     ApplyEngineBayAssemblyState();
 }
 
-// The old part was already handed to spares in ReleaseEngineBayPartToSpares
-// when the slot was unscrewed - this just installs the new one. The refresh
-// afterwards re-seats everything the new part moves: a different block
-// shifts its own screw and ground wire, and a different manifold shifts the
-// carburetor sitting on it.
+// The old part already went to spares. The refresh re-seats everything the new part moves.
 void Garage::CommitEngineBaySwap(EngineBaySlot slot) {
     Car* car = state.GetCurrentCar();
     if (!car) return;
@@ -499,8 +450,7 @@ void Garage::CommitEngineBaySwap(EngineBaySlot slot) {
         car->SetEngine(pendingEngine);
     } else if (slot == EngineBaySlot::MANIFOLD) {
         state.RemoveSpareManifold(pendingManifold.partType.manifoldType);
-        // SetManifold would fill every mount with a carb; this manifold
-        // arrives bare and its carbs get fitted one at a time after it.
+        // SetManifold would fill every mount; this one arrives bare.
         car->SetManifold(pendingManifold);
         for (int i = 0; i < kMaxCarburetors; i++) car->RemoveCarburetor(i);
     } else {
@@ -538,10 +488,7 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
             ApplyEngineBaySlideFrame(slot, engineBaySlideEnd[idx].y, mount);
 
             if (engineBaySlotRejected[idx]) {
-                // Doesn't fit - the original still shows it sliding into the
-                // mount before bouncing it back out, rather than blocking
-                // the pick up front. No screws, no commit, no spares change
-                // - the part just goes back to being a spare.
+                // Doesn't fit: the original shows it sliding in before bouncing it out. The part stays a spare.
                 engineBaySlotRejected[idx] = false;
                 SetSlotVisible(engineBay.get(), slot, false);
                 engineBaySlotPhase[idx] = PartInstallPhase::EMPTY;

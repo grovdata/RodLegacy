@@ -5,12 +5,7 @@
 #include "race/racer_pool.h"
 #include "parsers/libp.h"
 
-// ============================================================================
-// Test fixtures
-// ============================================================================
-
-// Builds a spec the way SR_data stores one: a class byte plus the packed config
-// word. See RodLegacyResearch/docs/formats/sr_data.md for the bit layout.
+// A class byte plus the packed config word, as SR_data stores one.
 static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
                                int trans = 0, int carb = 0,
                                int tires = 0, int manifold = 0,
@@ -19,9 +14,7 @@ static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
     s.car_class = car_class;
     s.price[0]  = static_cast<uint8_t>((price >> 8) & 0xff);
     s.price[1]  = static_cast<uint8_t>(price & 0xff);
-    // Carb is the 2-bit field at bit 6, manifold the 3-bit field at bit 3, and
-    // engine the 3-bit field at bit 0 - the same layout the Amiga's parts table
-    // uses for a part's own class word. See SrCarSpecEntry.
+    // Carb is the 2-bit field at bit 6, manifold the 3-bit field at bit 3, engine the 3-bit field at bit 0.
     const int cfg = ((brand & 0x7) << 13) | ((tires & 0x3) << 10) |
                     ((trans & 0x3) << 8)  | ((carb & 0x3) << 6) |
                     ((manifold & 0x7) << 3) |  (engine & 0x7);
@@ -30,35 +23,25 @@ static SrCarSpecEntry MakeSpec(uint8_t car_class, int engine = 0,
     return s;
 }
 
-// 26 car specs. Tiering is car_class/3, so classes 0/3/6 land in tiers 0/1/2.
+// Tiering is car_class/3, so classes 0/3/6 land in tiers 0/1/2.
 static std::vector<SrCarSpecEntry> MakeCarSpecTable() {
     std::vector<SrCarSpecEntry> v;
     for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(0));  // tier 0
     for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(3));  // tier 1
     for (int i = 0; i < 7; ++i) v.push_back(MakeSpec(6));  // tier 2
     for (int i = 0; i < 4; ++i) v.push_back(MakeSpec(8));  // tier 2 spares
-    // The King, index 25: fully specced, and never for sale (price 0).
-    // Matches the real King (spec 25, config 0x1ba2): racing carb, racing
-    // 4-speed, racing slicks, engine class 2 with the class-4 racing manifold.
+    // The King, index 25: fully specced and never for sale, like the real spec 25.
     v.push_back(MakeSpec(8, /*engine*/2, /*trans*/3, /*carb*/2, /*tires*/2,
                          /*manifold*/4, /*brand*/0, /*price*/0));
     return v;
 }
 
-// ============================================================================
-// ComputeCarPerformanceScore
-// ============================================================================
-
 TEST_SUITE("ComputeCarPerformanceScore") {
 
-// Scoring goes through srrace::ComputeBasePerformance (the FUN_002435f0 port),
-// so these assert behaviour - ordering, bounds, round-tripping - rather than
-// pinning constants that would just restate the formula.
+// Assert behaviour rather than constants that restate the formula.
 
 TEST_CASE("an all-stock spec scores the floor") {
-    // A spec carries no weight or tune data, so it keeps CarSetup's defaults
-    // (weightClass 4, tuneOffset 0) and scores above the bare 70 floor of an
-    // all-worst setup. Assert the property rather than the number.
+    // A spec keeps CarSetup's default weight and tune, so it scores above the bare 70 floor.
     const SrCarSpecEntry stock{};
     const int floorScore = ComputeCarPerformanceScore(stock);
     CHECK(floorScore >= 70);
@@ -120,11 +103,7 @@ TEST_CASE("a price of zero means never for sale - only The King") {
     CHECK_FALSE(table[SR_DATA_KING_CARSPEC_INDEX].ForSale());
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool::Init
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::Init") {
 
@@ -166,11 +145,7 @@ TEST_CASE("King driver index not in pool") {
     }
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool::CountActive / IsEliminated
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::CountActive") {
 
@@ -196,11 +171,7 @@ TEST_CASE("IsEliminated returns true for out-of-range index") {
     CHECK(rp.IsEliminated(RACER_POOL_SIZE) == true);
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool::BuildSelectionPool
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::BuildSelectionPool") {
 
@@ -252,11 +223,7 @@ TEST_CASE("last_chosen kept if only one active entry remains") {
     CHECK(sel[0] == 0);
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool::OnRaceWon
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::OnRaceWon") {
 
@@ -269,7 +236,7 @@ TEST_CASE("non-pink-slip win: entry stays active") {
 }
 
 TEST_CASE("pink-slip win: entry eliminated when no lower-class car available") {
-    // Give pool[0] a class-0 car — nothing lower exists.
+    // Give pool[0] a class-0 car - nothing lower exists.
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
     rp.pool[0].car_spec_index = 0; // classification=0
@@ -282,7 +249,6 @@ TEST_CASE("pink-slip win: entry replaced with lower-class car when available") {
     // Give pool[0] a class-2 car; class-1 and class-0 cars are available.
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
-    // Find a class-2 spec index.
     int class2_spec = -1;
     auto specs = MakeCarSpecTable();
     for (int i = 0; i < static_cast<int>(specs.size()); ++i) {
@@ -314,9 +280,7 @@ TEST_CASE("pink-slip win: replaced car has lower classification") {
     }
 }
 
-// ProcessRaceOutcome gates the whole replacement search on `record + 7 == 0`
-// and sets that byte after a successful downgrade, so a second pink slip falls
-// through to `record + 3 = 0xff`.
+// A second pink slip eliminates a driver who was already downgraded.
 TEST_CASE("pink-slip win: a driver is downgraded once, then eliminated") {
     RacerPool rp;
     auto specs = MakeCarSpecTable();
@@ -365,11 +329,7 @@ TEST_CASE("a new car starts the rivalry over") {
     CHECK(rp.pool[0].opp_wins == 0);
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool rivalry counters - the original's pool record bytes 4 and 5
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool rivalry") {
 
@@ -433,11 +393,7 @@ TEST_CASE("out-of-range index is safely ignored") {
     CHECK_NOTHROW(rp.OnRaceWon(RACER_POOL_SIZE, false));
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// RacerPool::OnRaceLost
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::OnRaceLost") {
 
@@ -456,11 +412,7 @@ TEST_CASE("out-of-range index is safely ignored") {
     CHECK_NOTHROW(rp.OnRaceLost(RACER_POOL_SIZE));
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// DataParser::ParseDriverData / ParseCarSpecTable
-// ============================================================================
+}
 
 TEST_SUITE("DataParser::ParseDriverData") {
 
@@ -490,7 +442,6 @@ TEST_CASE("all 22 entries are parsed") {
     DataParser parser;
     const size_t block_size = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
     std::vector<uint8_t> buf(block_size, 0);
-    // Set tier for each entry.
     for (int i = 0; i < SR_DATA_DRIVER_ENTRY_COUNT; ++i) {
         buf[i * sizeof(SrDriverData)] = static_cast<uint8_t>(i % 3);
     }
@@ -501,7 +452,7 @@ TEST_CASE("all 22 entries are parsed") {
     }
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("DataParser::ParseCarSpecTable") {
 
@@ -540,11 +491,7 @@ TEST_CASE("all 26 entries are parsed") {
     }
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// SR_data driver names and portraits, against the shipped file
-// ============================================================================
+}
 
 static std::vector<uint8_t> LoadRealSrData() {
     const char* paths[] = {
@@ -596,13 +543,9 @@ TEST_CASE("driver names and portraits come out of SR_data") {
     }
 }
 
-} // TEST_SUITE
+}
 
-// ============================================================================
-// Gas cap visual offset vs. click box: they must agree, or the visible
-// removed-cap sprite and the clickable "put the handle in" zone drift apart.
-// See RodLegacyResearch/docs/driving/gas_station.md.
-// ============================================================================
+// The removed-cap sprite and the "put the handle in" zone must agree.
 
 TEST_SUITE("SrDataGasCap") {
 
@@ -628,8 +571,7 @@ TEST_CASE("Amiga gas cap visual offset matches the gas station click box") {
     free(meta);
 }
 
-// The hood scoop is picked per car body by the SR_data sprite-ref table, not
-// by engine or vendor - see RodLegacyResearch/docs/garage/car_asset_table.md.
+// Picked per body by the sprite-ref table, not by engine or vendor.
 TEST_CASE("Amiga hood scoop is one of CAR_SCOOP1..4 per car body") {
     const std::vector<uint8_t> data = LoadRealSrData();
     if (data.empty()) {
@@ -658,19 +600,9 @@ TEST_CASE("Amiga hood scoop is one of CAR_SCOOP1..4 per car body") {
     free(meta);
 }
 
-// Garage, Diner and GasStation are all bottom-aligned against each car's
-// real sprite height (from lib.p), live-verified with Copperline against
-// the Amiga binary - see RodLegacyResearch/docs/driving/gas_station.md.
-// A chopped roof doesn't change this: CarBitmap::ChopRoof() composites the
-// small chopped-roof patch onto bodyOriginal's existing canvas in place,
-// and every position calculation deliberately keeps using bodyOriginal's
-// full height (see the "Always use bodyOriginal for position calculations"
-// comments in carbitmap.cpp), so the formula only needs the body height.
+// Bottom-aligned to the body height; a chopped roof doesn't change it.
 TEST_CASE("Garage, Diner and GasStation Y offsets are bottom-aligned to real sprite height") {
-    // Body sprite heights from lib.p for all 26 cars (see
-    // RodLegacyResearch/docs/driving/gas_station.md) - fixed here as
-    // literals so this test doesn't depend on the shipped game data being
-    // present.
+    // lib.p body heights, as literals so the test needs no game data.
     const int kHeights[] = {69, 69, 68, 56, 54, 59, 63, 69, 62, 62, 68, 69,
                              63, 63, 63, 66, 69, 63, 66, 66, 66, 62, 62, 62, 66, 59};
     REQUIRE(sizeof(kHeights) / sizeof(kHeights[0]) == 26);
@@ -682,11 +614,7 @@ TEST_CASE("Garage, Diner and GasStation Y offsets are bottom-aligned to real spr
     }
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// Pool identity: regression cover for the driver-assignment bug
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::Init driver identity") {
 
@@ -695,10 +623,7 @@ TEST_CASE("every pool slot has a distinct driver, covering 0..RACER_POOL_SIZE-1"
     rp.Init(MakeCarSpecTable());
     REQUIRE(rp.pool.size() == RACER_POOL_SIZE);
 
-    // A slot's position IS the opponent's identity in the original's pool
-    // record, so these must be exactly 0..20 with no repeats. The old
-    // tier-grouped assignment produced three duplicates and left three
-    // drivers out entirely.
+    // A slot's position is the opponent's identity, so these are exactly 0..20.
     std::vector<int> seen(RACER_POOL_SIZE, 0);
     for (const auto& e : rp.pool) {
         REQUIRE(e.driver_index >= 0);
@@ -718,18 +643,12 @@ TEST_CASE("driver index never collides with the King's slot") {
     }
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// Car draw: random without replacement within each class band
-// ============================================================================
+}
 
 TEST_SUITE("RacerPool::Init car draw") {
 
 TEST_CASE("each slot's car comes from its own class band") {
-    // MakeCarSpecTable lays out classes 0 / 3 / 6+8, so band N maps to
-    // car_class/3 == N. The original fills 7 slots per band in easy/mid/hard
-    // order, so a slot's band is simply its index / 7.
+    // Band N is car_class/3 == N; a slot's band is its index / 7.
     RacerPool rp;
     const auto specs = MakeCarSpecTable();
     rp.Init(specs);
@@ -744,9 +663,7 @@ TEST_CASE("each slot's car comes from its own class band") {
 }
 
 TEST_CASE("the draw actually varies between runs") {
-    // Without replacement, but still random: two fresh pools should differ.
-    // Each band draws 7 of 7/7/11, so the odds of an identical 21-slot layout
-    // by chance are negligible - a failure here means the draw is fixed.
+    // Two fresh pools should differ; an identical layout by chance is negligible.
     const auto specs = MakeCarSpecTable();
     std::vector<int> first;
     RacerPool a;
@@ -778,17 +695,12 @@ TEST_CASE("no duplicate cars, over many draws") {
     }
 }
 
-} // TEST_SUITE
-
-// ============================================================================
-// Opponent appearance (FUN_0023eac0)
-// ============================================================================
+}
 
 TEST_SUITE("Car body byte encoding") {
 
 TEST_CASE("sticker nibble is one-based, 0 means no sticker") {
-    // The regression this guards: reading the nibble as a plain index gave
-    // decal 0 to every unstickered car, which is most of them.
+    // The nibble is one-based: 0 means no decal.
     CHECK(CarBodyDecal(0x00) == SrLibCarDecalNone);
     CHECK(CarBodyDecal(0x0F) == SrLibCarDecalNone);  // low nibble must not leak
     CHECK(CarBodyDecal(0x10) == SrLibCarDecalAmigaHotLips);      // 1 -> decal 0
@@ -806,7 +718,7 @@ TEST_CASE("roof and bumper bits decode independently") {
     CHECK(CarBodyBumpersStripped(0x07) == true);   // with roof also chopped
 }
 
-} // TEST_SUITE
+}
 
 TEST_SUITE("RacerPool::Init appearance") {
 
@@ -871,16 +783,13 @@ TEST_CASE("sticker index stays inside the Amiga decal sheet") {
     }
 }
 
-} // TEST_SUITE
+}
 
 
 TEST_SUITE("SrDataCarScores") {
 
-// ComputeTopSpeed is base*13/10 capped at 130, and ComputeBasePerformance
-// floors at 70, so no car in the game can score below 91. State::GetChallenger
-// Score used to fall back to 70 for an unknown challenger, which made the
-// player read as stronger than every opponent alive - and the pink-slip
-// threshold for "player stronger" is 0, i.e. never accepted.
+// base*13/10 capped at 130 with a floor of 70 means nothing scores below 91; a 70 fallback made the
+// player look stronger than everyone.
 TEST_CASE("no car spec can score below the 91 mph floor") {
     const std::vector<uint8_t> data = LoadRealSrData();
     if (data.empty()) {
@@ -898,4 +807,4 @@ TEST_CASE("no car spec can score below the 91 mph floor") {
     }
 }
 
-} // TEST_SUITE
+}

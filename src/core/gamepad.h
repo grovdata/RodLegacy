@@ -10,9 +10,7 @@ class Gamepad {
 public:
     ~Gamepad() { Close(); }
 
-    // Opens the first attached pad. Safe to call before any is plugged in.
     void OpenFirst();
-    // Feed CONTROLLERDEVICEADDED / CONTROLLERDEVICEREMOVED for hotplug.
     void HandleEvent(const SDL_Event& event);
     void Update();
 

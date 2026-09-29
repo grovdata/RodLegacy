@@ -2,16 +2,8 @@
 #include <cstdint>
 #include <string>
 
-// Street Rod's in-game elapsed-time/calendar model, confirmed this session
-// against the Amiga binary's own code (RodLegacyResearch/docs/formats/
-// save_game.md -- "Chunk 7 fully decoded"). Deliberately free of any
-// dependency on State so it's cheap to unit test: every function here is a
-// pure function of a raw tick count.
-//
-//   ticks advance 1 per 6 VBlanks (CarEventLoop's own event loop, PAL 50Hz
-//   -> ~8.333 ticks/second), independent of any player action.
-//   day_number = min(ticks / 3600, 91); 0 = June 16, 1963 (new-game epoch).
-//   Season is a fixed ~91-day window, capped at September 15, 1963.
+// Ticks advance 1 per 6 PAL VBlanks (~8.333/s), independent of player action.
+// day_number = min(ticks / 3600, 91); 0 = June 16, 1963.
 
 namespace GameClock {
 
@@ -31,12 +23,7 @@ struct GameTime {
     int minute;  // 0-59
 };
 
-// Where the 24x9 "current date" highlight goes on a calendar sheet, relative to
-// that sheet's top-left. lib.p 320 holds June+July, 319 holds August+September;
-// both are 168x150 with day columns Sunday..Saturday on an 18px pitch and week
-// rows on a 7px pitch. Measured off the bitmaps: each sheet has a cyan ring
-// drawn over a season boundary (June 15 / September 15) that is exactly 24x9
-// and lands on the cell this returns.
+// lib.p 320 holds June+July, 319 August+September; 18px day columns, 7px week rows.
 struct CalendarPos {
     int x;
     int y;
@@ -50,9 +37,7 @@ GameTime GetTime(uint32_t elapsedTicks);
 std::string FormatDate(uint32_t elapsedTicks);   // "June 16, 1963"
 std::string FormatClock(uint32_t elapsedTicks);  // "00:00"
 
-// Hours-granularity convenience conversions, for callers (existing State
-// call sites, CalculateScore) that work in hours rather than raw ticks.
 int TicksToHours(uint32_t elapsedTicks);
 uint32_t HoursToTicks(int hours);
 
-}  // namespace GameClock
+}

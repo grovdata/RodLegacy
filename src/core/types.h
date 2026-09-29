@@ -15,7 +15,6 @@ class IDrawable {
 };
 
 struct CarModel {
-    // For custom cars
     std::string id;
     std::string filename;
 
@@ -23,30 +22,21 @@ struct CarModel {
     int baseSpeed;
     int baseAcceleration;
     
-    // From SR_data
     int year;
-    // List price in dollars, 0 = never for sale. The car's own value starts
-    // here - see Car::SetValue.
+    // List price in dollars, 0 = never for sale.
     int price = 0;
     std::string name;
     CarVendor_t vendor;
     BitmapOffset_t offsets;
     
-    // From lib.p
     int width, height;
-    // Pool key. For the Amiga set this is the lib.p car body asset; other sets
-    // shift theirs clear of that range so the key stays unique (see
-    // CarData::ReadCarSet). Use sprites.body to draw, not this.
+    // Pool key: the lib.p body asset for the Amiga set, shifted clear of it for other sets. Draw with sprites.body.
     int index;
 
-    // Which car set the model came from, and where its art sits in that set's
-    // lib. Both are resolved when the model is built, so nothing downstream
-    // needs to know a set's sprite-numbering conventions.
     int        carSet = kAmigaCarSet;
     CarSprites sprites;
 
 
-    // Modification constraints (will be set by CarModelConfigLoader)
     struct {
         bool canChopRoof = true;
         bool canStripBumpers = true;
@@ -54,7 +44,6 @@ struct CarModel {
         std::string constraintReason = "";
     } constraints;
     
-    // Compatible engines (will be set by CarModelConfigLoader)
     std::vector<CarEngine_t> compatibleEngines;
 
     void Log() const {
@@ -66,14 +55,9 @@ struct CarModel {
 
 bool operator<(const CarModel &a, const CarModel &b);
 
-// Whether a car can take each modification. Answered from the resolved sprite
-// numbers rather than a lookup keyed on CarModel::index, which is only a lib.p
-// asset for the Amiga set.
 inline bool CarModelCanChopRoof(const CarModel &model) { return model.sprites.choppedRoof >= 0; }
 inline bool CarModelCanStripBumpers(const CarModel &model) {
     return model.sprites.rearBumperStripped >= 0 || model.sprites.frontBumperStripped >= 0;
 }
 
-// Fills in sprites for a car in the Amiga stock set, where the chopped roof
-// and bumper patches sit at fixed offsets from the body asset.
 CarSprites AmigaCarSprites(int bodyAsset);

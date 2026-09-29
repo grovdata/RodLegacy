@@ -7,14 +7,12 @@
 
 struct CheckboxConfig {
     SDL_Rect bounds;
-    bool* value;  // Pointer to the boolean value to control
-    std::function<void(bool)> onChange;  // Called when checkbox value changes
+    bool* value;
+    std::function<void(bool)> onChange;
     bool visible = true;
-    int index = 0;  // For button compatibility
+    int index = 0;
 };
 
-// Rendered entirely from checkbox-on.png / checkbox-off.png (see UpdateIcon) -
-// the button base class contributes only click handling, not visuals.
 class Checkbox : public Button {
 private:
     bool* valuePtr;

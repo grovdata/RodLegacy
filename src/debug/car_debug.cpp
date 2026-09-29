@@ -7,7 +7,6 @@
 #include "gfx/SFont.h"
 
 namespace {
-// The car sits high enough to leave room for the readout underneath.
 constexpr int kCarX = 30;
 constexpr int kCarY = 55;
 constexpr SDL_Rect kPrevRect = {8,   170, 26, 16};
@@ -23,8 +22,6 @@ void CarDebug::Init(bool debugMode) {
 
     LoadModels();
 
-    // Any portrait will do; the point is having something to line up against
-    // the windscreen. P cycles through the rest.
     debugDriver.name = "Debug";
     debugDriver.spriteIndex = DRIVER_01 + portraitIndex;
 
@@ -84,8 +81,6 @@ void CarDebug::RefreshLabels() {
 }
 
 namespace {
-// The 12-byte sprite offset record is byte-identical in field order on both
-// platforms, so one reader does for either file.
 BitmapOffset_t ReadSpriteOffsets(const byte_vector& data, size_t tableStart, int carIndex) {
     BitmapOffset_t offsets = {};
     const size_t o = tableStart + static_cast<size_t>(carIndex) * 12;
@@ -105,7 +100,7 @@ BitmapOffset_t ReadSpriteOffsets(const byte_vector& data, size_t tableStart, int
     offsets.offsetYDecal       = p[11];
     return offsets;
 }
-} // namespace
+}
 
 void CarDebug::LoadModels() {
     models.clear();
@@ -154,8 +149,7 @@ void CarDebug::AppendKingModels() {
             model.height = entries.second[model.sprites.body].height;
         }
 
-        // The King's row in the sprite table is all zeros in both files: his
-        // car has no chop and no strippable bumpers.
+        // The King's sprite-table row is all zeros: no chop, no strippable bumpers.
         model.offsets.offsetYTires = CarSetWheelY(set, model.height);
         model.baseSpeed = 100;
         models.push_back(model);
@@ -183,8 +177,6 @@ void CarDebug::ShowModel(int index) {
     if (models.empty()) return;
     currentIndex = index;
 
-    // A plain stock car: no chop, no stripped bumpers, no sticker, so the
-    // wheel line is measured against the car as drawn in the dealer ad.
     car = std::make_shared<Car>(models[currentIndex]);
     car->SetTires(STOCK);
     carBitmap = std::make_unique<CarBitmap>(car, &debugDriver, CarColorRed);
@@ -215,7 +207,6 @@ void CarDebug::AdjustWheelY(int delta) {
     carBitmap->MoveWheelsYOffset(adjust);
     RefreshLabels();
 
-    // The number worth writing down is the corrected absolute value.
     LOG_INFO("CarDebug: %s (set '%s', index %d) offsetYTires %d -> %d (%+d)",
              model.name.c_str(), GetCarSetDefs()[model.carSet].id.c_str(),
              model.index, StockWheelY(), StockWheelY() + adjust, adjust);
@@ -231,9 +222,6 @@ void CarDebug::AdjustDriver(int dx, int dy) {
     carBitmap->MoveDriverOffset(dx, dy);
     RefreshLabels();
 
-    // Report where the driver sits relative to the body's top-left, the same
-    // frame SpriteInfo's x_driver / y_driver use, so the numbers are directly
-    // comparable with the data.
     const SDL_Point at = carBitmap->GetDriverOffsetFromBody();
     LOG_INFO("CarDebug: %s (set '%s', index %d) driver x=%d y=%d (data x_driver=%d y_driver=%d)",
              model.name.c_str(), GetCarSetDefs()[model.carSet].id.c_str(), model.index,
@@ -264,9 +252,7 @@ void CarDebug::DumpAdjustments() const {
         return;
     }
 
-    // A model nudged and then brought back to zero has been looked at and
-    // found correct, which is different from one never visited - list both so
-    // a second pass knows what is left.
+    // Zeroed after a nudge means checked and correct, so list it separately from unvisited ones.
     int changed = 0;
     for (const auto& entry : wheelYAdjust) {
         if (entry.second != 0) changed++;

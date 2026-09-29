@@ -1,14 +1,8 @@
 #include <doctest/doctest.h>
 #include "car/engine_bay_layout.h"
 
-// Pins the positions transcribed from the Amiga binary's tables. The
-// class 4 / V8_BIG case is measured pixel-exact off
-// RodLegacyResearch/screenshots/010.png - see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md.
-
 namespace {
 
-// lib.p natural sizes of the assets each case draws.
 const SDL_Rect kV6 = {0, 0, 136, 112};
 const SDL_Rect kV8 = {0, 0, 152, 112};
 const SDL_Rect kV8Big = {0, 0, 176, 125};
@@ -22,7 +16,7 @@ bool Same(SDL_Rect a, SDL_Rect b) {
     return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h;
 }
 
-}  // namespace
+}
 
 TEST_SUITE("Engine bay layout") {
 
@@ -35,7 +29,6 @@ TEST_CASE("engine bodies sit where the binary's table puts them") {
 TEST_CASE("engine ground wire tracks the block") {
     CHECK(Same(EngineWireRect(kWire, CarEngineGM_V6), {138, 138, 40, 23}));
     CHECK(Same(EngineWireRect(kWire, CarEngineGM_V8_282), {156, 139, 40, 23}));
-    // Verified: this wire's last drawn row is y 169 in screenshot 010.png.
     CHECK(Same(EngineWireRect(kWire, CarEngineGM_V8_327), {162, 147, 40, 23}));
 }
 
@@ -51,7 +44,6 @@ TEST_CASE("the 2-barrel manifold has a narrow body for the V6 block") {
     // On a V8 the same part is the 112px body.
     CHECK(ManifoldBodyIsNarrow(MANIFOLD_2BARREL, CarEngineGM_V8_282) == false);
     CHECK(ManifoldBodyIsNarrow(MANIFOLD_2BARREL, CarEngineFord_V8_351) == false);
-    // Nothing else changes with the block.
     CHECK(ManifoldBodyIsNarrow(MANIFOLD_4BARREL, CarEngineGM_V6) == false);
     CHECK(ManifoldBodyIsNarrow(MANIFOLD_RACING, CarEngineGM_V6) == false);
     CHECK(ManifoldBodyIsNarrow(MANIFOLD_TRIPLE_2BARREL, CarEngineGM_V8_327) == true);
@@ -70,8 +62,6 @@ TEST_CASE("carb position is decided by the manifold under it") {
     CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V6, 0), {104, 27, 32, 29}));
     CHECK(Same(CarbBodyRect(kCarb2Brl, MANIFOLD_2BARREL, CarEngineGM_V8_327, 0), {111, 22, 32, 29}));
     CHECK(Same(CarbBodyRect(kCarb4Brl, MANIFOLD_4BARREL, CarEngineGM_V6, 0), {104, 13, 40, 38}));
-    // Verified: these carbs' topmost drawn row is y 5 in screenshot 010.png,
-    // at x 88 and 128.
     CHECK(Same(CarbBodyRect(kCarbRacing, MANIFOLD_RACING, CarEngineGM_V8_327, 0), {88, 5, 40, 47}));
     CHECK(Same(CarbBodyRect(kCarbRacing, MANIFOLD_RACING, CarEngineGM_V8_327, 1), {128, 5, 40, 47}));
 }
@@ -101,8 +91,6 @@ TEST_CASE("screws mount on the part they hold") {
     CHECK(EngineBayScrewAnchor(2, CarEngineGM_V6, MANIFOLD_2BARREL, CARB_2BARREL).x == 155);
     CHECK(EngineBayScrewAnchor(2, CarEngineGM_V8_282, MANIFOLD_2BARREL, CARB_2BARREL).x == 177);
 
-    // Verified: this screw's head is at x 119-124, y 46-49 in screenshot
-    // 010.png, i.e. bottom-aligned on y 50.
     SDL_Point carbScrew =
         EngineBayScrewAnchor(3, CarEngineGM_V8_327, MANIFOLD_RACING, CARB_4BARREL_RACING);
     CHECK(carbScrew.x == 118);
@@ -123,4 +111,4 @@ TEST_CASE("screw hotspot covers the sprite") {
     CHECK(zone.y + zone.h >= anchor.y);
 }
 
-}  // TEST_SUITE
+}

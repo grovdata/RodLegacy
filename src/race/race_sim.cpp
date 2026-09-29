@@ -29,7 +29,7 @@ int ClampTrackIndex(int seg) {
 
 bool gPuristScoring = false;
 
-}  // namespace
+}
 
 void SetPuristScoring(bool enabled) {
     gPuristScoring = enabled;
@@ -58,16 +58,13 @@ int ComputeBasePerformance(const CarSetup& setup) {
     const int tuneOffset = ClampValue(setup.tuneOffset, 0, 8);
     const int carbWear = ClampValue(setup.carbWear, 0, 10000);
 
-    // The terms are weighted to add up to 100 for a perfect car: carb 25,
-    // transmission 15, engine/manifold 15, tune 20, weight 10, body mods 15.
+    // Weighted to 100 for a perfect car: carb 25, transmission 15, engine/manifold 15, tune 20, weight 10, body mods 15.
     int pts = 0;
     pts += (kCarbPts[carbClass] * 25) / 100;
     pts += (kTransPts[transClass] * 15) / 100;
     pts += (kEngByManifold[engineClass * 5 + manifoldClass] * 15) / 100;
-    // The tune term is the one place we do not follow the 68k by default. The
-    // original writes (1 - |tune|), which tops out at +2 instead of the +20
-    // the rest of the scale is built around and leaves the 130 mph cap
-    // unreachable; --purist restores it. See top_speed.md.
+    // The one deviation by default: the original's (1 - |tune|) tops out at +2 and leaves the 130 cap unreachable.
+    // --purist restores it.
     pts += (((gPuristScoring ? 1 : 8) - tuneOffset) * 20) / 8;
     pts += (kWeightPts[weightClass] * 10) / 88;
     if (setup.roofChopped) {
@@ -162,11 +159,8 @@ void BuildCarTables(const CarSetup& setup, CarTables& tables) {
     tables.handling = static_cast<int16_t>(kHandling[tireClass][wearBucket]);
 }
 
-// Where the opponent upshifts (UpdateNPCEngine, A4+0x4cac). The car's band-end
-// rpm, docked 100 per point of the driver's reaction byte - so even the best
-// driver in the game (0x0a) leaves 1000 rpm of the power band unused, and the
-// worst (0x14) leaves 2000. Automatics are exempt: the original computes this
-// only under `automatic == 0` and shifts them on their own threshold.
+// Band end minus 100 per point of reaction: the best driver leaves 1000 rpm unused, the worst 2000.
+// Automatics are exempt.
 int16_t NpcShiftRpm(const CarSetup& setup, const CarTables& tables) {
     if (tables.automatic) {
         return tables.autoShiftRpm;
@@ -240,13 +234,8 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     player.autoDrive = false;   // automatics stage in N
     npc.autoDrive = false;
 
-    // Starting lanes. The player sits at a fixed 0xa00, and the opponent is
-    // placed 200 left of the road centre - NOT on the centre line (the original
-    // race init does `lateral = ((edgeLeft + edgeRight) >> 1) - 200` and seeds
-    // its steering target with the same value). That matters: centring the
-    // opponent leaves only a 160-unit gap, inside the 180 that CheckNpcContact
-    // counts as laterally overlapping, so the pair start the race already
-    // touching and the first car to pull ahead "rear-ends" the other.
+    // The opponent starts 200 left of the road centre, not on it: centred, the 160 gap is inside the 180 that
+    // CheckNpcContact counts as overlapping.
     {
         int startSeg = ClampTrackIndex(RACE_START_SEG);
         int16_t startLeft = 1500;
@@ -267,21 +256,12 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npcAi.stallTicks = 0;
     npcAi.gaveUp = false;
 
-    // Staging countdown before the green (UpdatePhysics 0x2364e8 picks a random
-    // launch time). ~2-3s at 50 Hz; leaving the line early is a false start.
+    // Random launch time, ~2-3s at 50 Hz; leaving early is a false start.
     phase = RacePhase::Countdown;
     countdownTicks = 100 + rng.Next(50);
 
-    // Cop spawn roll (InitRaceState 0x244250). Road races only, never the
-    // King's, 1 in 4, and the trigger sits at 510 + rand(255) - which on a road
-    // course running 200..1020 always lands in the middle-to-late stretch.
-    //
-    // Drawn from a seed derived off the main one rather than from `rng` itself.
-    // The original spends draws from its shared stream here, but ours is not
-    // bit-identical to the original's anyway, so there is no fidelity to gain -
-    // and taking two draws at init would shift every later draw in the race,
-    // silently re-rolling NPC behaviour and the wear/failure checks that the
-    // existing races are tuned and regression-tested against.
+    // Road races only, never the King's: 1 in 4, trigger at 510 + rand(255). From a derived seed so the extra
+    // draws don't shift every later roll the races are regression-tested against.
     copState = 0;
     copTriggerSeg = 0;
     copSpawnEvent = false;
@@ -293,13 +273,9 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
         copTriggerSeg = 510 + copRng.Next(255);
     }
 
-    // Tire blowout roll (ResetCarPhysicsState, Amiga 0x243fd0 / DOS 1000:ae7d,
-    // byte-for-byte the same on both). Tires under 80% worn always hold; past
-    // that it is `wear + rand(2000) > 9500` once per race, and the blowout is
-    // placed halfway down what is left of the course:
+    // Tires under 80% worn hold; past that `wear + rand(2000) > 9500` once per race, placed at
     //   blowSeg = 200 + (finish-200)/2 + rand((finish-200)/4)
-    // which is 610..814 on the road course and 290..334 on the strip. Own RNG
-    // stream, same reasoning as the cop above.
+    // Own RNG stream, as for the cop.
     tireBlowSeg = 0;
     if (playerSetup.tireWear >= 8000) {
         RaceRng tireRng(rngSeed ^ 0x71235u);
@@ -358,15 +334,13 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
         return;
     }
 
-    // A player failure (crash, blown engine, dropped trans, false start) freezes
-    // the car; the race is over (UpdatePhysics returns non-zero on flags 0x4bc6).
+    // A player failure freezes the car and ends the race.
     if (phase == RacePhase::Ended) {
         return;
     }
 
     if (phase == RacePhase::Countdown) {
-        // The engine can rev on the line, but if the car actually rolls before
-        // the green it is a false start (UpdatePhysics 0x2364e8 state 1).
+        // The engine can rev on the line, but rolling before the green is a false start.
         if ((player.endFlags & END_FAILURE_MASK) == 0) {
             PlayerPhysics(inputBits);
             UpdateSteering(inputBits, steerAmount);
@@ -392,16 +366,12 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
 
     NpcAiUpdate();
     NpcEngine();
-    // The cop machine runs straight after the NPC engine and BEFORE the finish
-    // is detected, exactly as in RaceLogicUpdate 0x244d50. The order matters:
-    // ApplyCopRaceEnd below has to see the finish result of this same tick.
+    // Before the finish check: ApplyCopRaceEnd must see this tick's finish result.
     UpdateCopPursuit();
 
     UpdateScroll(player);
     UpdateScroll(npc);
 
-    // The tires go the moment the car passes the rolled segment (RaceLogicUpdate
-    // 0x244d50 / DOS 1000:b9bf: `blowSeg != 0 && blowSeg < playerSeg`).
     if (tireBlowSeg != 0 && player.segPos > tireBlowSeg) {
         player.endFlags |= END_TIRES_BLOWN;
     }
@@ -414,18 +384,14 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
     RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
 
     CheckEdgeCollision();
-    // All car-to-car contact is gated on the player still being short of the
-    // line (RaceLogicUpdate 0x244d50 tests `pos < finish` before either the
-    // rear-end or the side-swipe), so the roll-out cannot be crashed out.
+    // All car-to-car contact needs the player short of the line, so the roll-out cannot be crashed out.
     if (player.segPos < finishSeg) {
         CheckNpcContact();
     }
     CheckFinish();
     ApplyCopRaceEnd();
 
-    // Last, so the AI and the contact test above read the state the original's
-    // render pass left behind on the PREVIOUS frame - RaceLogicUpdate 0x244d50
-    // acts on its flags one frame after RenderNPCCarAndUpdateCopState sets them.
+    // Last, so the AI and contact test read the previous frame's state, as in the original.
     UpdateNpcViewState();
 
     if ((player.endFlags & END_FAILURE_MASK) != 0) {
@@ -433,11 +399,8 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
     }
 }
 
-// The state half of RenderNPCCarAndUpdateCopState 0x237ea8. A raw state is read
-// off the fine gap, then walked toward - at most one step per frame - through a
-// transition table. The rate limit is the whole point: the states pick both the
-// sprite and its projected distance, so snapping to the raw value makes the
-// opponent jump between sizes and positions whenever the gap crosses a boundary.
+// A raw state is read off the gap, then walked toward at most one step per frame, so the sprite doesn't jump
+// between sizes and positions.
 void RaceSim::UpdateNpcViewState() {
     const int longGap = (static_cast<int>(npc.segPos) - static_cast<int>(player.segPos)) * 8 +
                         (npc.scrollAcc - player.scrollAcc);
@@ -451,8 +414,7 @@ void RaceSim::UpdateNpcViewState() {
     } else if (longGap >= 9) {
         raw = (latGap < -180) ? 1 : 3;
     } else if (longGap >= -7) {
-        // Level. Overlapping laterally reads as 2 unless we are already behind,
-        // and only a clear gap to our LEFT gets the alongside view.
+        // Overlapping laterally reads as 2 unless already behind; only a clear gap to our left gets the alongside view.
         if (std::abs(latGap) < 180) {
             raw = (npcAi.viewState < 9) ? 2 : 9;
         } else {
@@ -478,8 +440,7 @@ void RaceSim::UpdateNpcViewState() {
             }
             next = cur + 1;
         } else if (npcAi.prevViewState != raw) {
-            // prevViewState == raw means the gap has come straight back to where
-            // it was two frames ago, and the original snaps rather than crawling.
+            // The gap came straight back to where it was two frames ago, so snap.
             if ((raw <= 8 && cur > 9) || (raw >= 9 && cur <= 8 && cur > 0)) {
                 next = cur - 1;
             } else if (cur == 0) {
@@ -504,15 +465,9 @@ void RaceSim::UpdateNpcViewState() {
     npcAi.viewState = static_cast<int16_t>(next);
 }
 
-// The opponent slot becomes the police car (SpawnCopCar 0x244ca2). The original
-// swaps the car record for a fixed cop one, re-gears the car so it carries on at
-// the speed it already had, and recomputes the AI's target speeds from that
-// car's performance - a police interceptor is not limited to whatever the
-// challenger happened to be driving.
+// The cop is re-geared to keep its speed and gets its own target speeds, not the challenger's.
 void RaceSim::SpawnCop() {
-    // Car spec 25 in SR_data, which the original scores the cop against: GM,
-    // racing carburettor, racing transmission, racing slicks. See
-    // RodLegacyResearch/docs/formats/sr_data.md.
+    // Car spec 25: GM, racing carb, racing transmission, racing slicks.
     CarSetup copSetup{};
     copSetup.carbClass = 2;
     copSetup.transClass = 3;
@@ -525,16 +480,11 @@ void RaceSim::SpawnCop() {
     const int16_t speedBefore = npc.speed;
     BuildCarTables(npcSetup, npcTables);
 
-    // 60% and 80% of the cop's performance, against the 70/80 an ordinary
-    // opponent uses (the multipliers are 0x1770/0x1f40 over 0x2710 in the
-    // original). Its performance is high enough that both still beat a typical
-    // challenger.
+    // 60% and 80% of the cop's performance, against an ordinary opponent's 70/80.
     npcAi.targetSpeedNormal = static_cast<int16_t>((npcTables.perfScore * 60) / 100);
     npcAi.targetSpeedRisky = static_cast<int16_t>((npcTables.perfScore * 80) / 100);
 
-    // A cop does not concede. Without this it inherits the challenger's
-    // give-up state, which by this point in the race it has usually entered -
-    // the conditions for conceding and for the cop appearing nearly coincide.
+    // Otherwise it inherits the challenger's give-up state, which usually coincides with the cop appearing.
     npcAi.gaveUp = false;
     npcAi.stallTicks = 0;
     npc.endFlags &= static_cast<uint16_t>(~END_GAVE_UP);
@@ -545,10 +495,7 @@ void RaceSim::SpawnCop() {
     copSpawnEvent = true;
 }
 
-// Cop pursuit state machine (RaceLogicUpdate 0x244d50). The cop does not spawn
-// as a third car: from state 2 it IS the opponent, because the original swaps
-// the opponent's car record and its 13 sprite pointers for the police ones
-// (SpawnCop 0x244ca2). Here that swap is just a flag the renderer reads.
+// From state 2 the opponent is the cop; the swap is a flag the renderer reads.
 void RaceSim::UpdateCopPursuit() {
     if (copState == 0) {
         return;
@@ -559,8 +506,7 @@ void RaceSim::UpdateCopPursuit() {
     if (copState == 1) {
         if (pSeg >= copTriggerSeg) {
             if (pSeg < nSeg + 5) {
-                // Not far enough clear of the opponent: no cop at all this race.
-                // You only get pulled over for leading.
+                // Not far enough clear of the opponent: no cop this race. You only get pulled over for leading.
                 copState = 0;
             } else {
                 copState = 2;
@@ -578,7 +524,7 @@ void RaceSim::UpdateCopPursuit() {
         return;
     }
 
-    // State 3: caught the moment it is more than 2 segments ahead of us.
+    // State 3: caught the moment it is more than 2 segments ahead.
     if (pSeg < nSeg - 2) {
         copCaughtSpeed = player.speed;
         player.endFlags |= (END_FINISHED | END_COP_CAUGHT);
@@ -586,20 +532,14 @@ void RaceSim::UpdateCopPursuit() {
     }
 }
 
-// The tail of RaceLogicUpdate, run after the finish has been resolved. This is
-// where winning saves you: the original re-tests its failure word before ORing
-// in the caught bit, and UpdateRaceScroll 0x244818 records a WIN in a different
-// word (0x4c8e) than a LOSS (0x4bc6). So a win leaves the failure word at zero,
-// skips the OR and only silences the siren. See docs/driving/cop.md.
+// Winning saves you: a win is recorded in a different word than the failure bits, so the caught bit is never
+// ORed in and only the siren stops.
 void RaceSim::ApplyCopRaceEnd() {
     if (copState < 2) {
         return;
     }
-    // END_TIRES_BLOWN is ours to carry mid-race; the original's outcome word
-    // does not have it yet. Its tire flag lives in A4+0x4ccc during the race and
-    // is only ORed into the word (`A4+0x4bc7 |= 8`) by ProcessRaceOutcome after
-    // it. Testing it here handed the player a ticket the moment the tires let
-    // go, with the cop still hundreds of segments back.
+    // The original only folds the tire flag into its outcome word after the race; testing it here handed out a
+    // ticket the moment the tires let go.
     const bool playerEnded = (player.endFlags & ~END_TIRES_BLOWN) != 0;
     const bool playerWon = (npc.endFlags & END_FINISHED) != 0;
     if (!playerEnded && !playerWon) {
@@ -618,8 +558,7 @@ void RaceSim::PlayerPhysics(uint16_t inputBits) {
     bool throttle = (inputBits & INPUT_THROTTLE) != 0;
     const bool brake = (inputBits & INPUT_BRAKE) != 0;
     const bool shift = (inputBits & INPUT_SHIFT) != 0;
-    // A side-swipe knocks the throttle out for a couple of ticks (original
-    // A4-0x39a2, decremented at the top of PlayerCarPhysics 0x23c5d6).
+    // A side-swipe knocks the throttle out for a couple of ticks.
     if (bumpStunTicks > 0) {
         bumpStunTicks -= 1;
         throttle = false;
@@ -629,19 +568,11 @@ void RaceSim::PlayerPhysics(uint16_t inputBits) {
 
 void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
                          bool brake, bool shift) {
-    // Gear 0 is neutral (original A4+0x4b22 "0 = neutral/1st index base");
-    // driving gears are 1..numGears.
+    // Gear 0 is neutral; driving gears are 1..numGears.
     const int gear = ClampValue<int>(car.gear, 0, tables.numGears);
     const PowerRow* gearRows = tables.rows[gear];
-    // rpmThreshold is the row's UPPER bound: the three rows span [0, bandStart],
-    // [bandStart, bandEnd] and [bandEnd, 5700]. The original walks them with
-    // `while (row[i].upper < rpm) ++i` capped at 2 (BuildCarPhysicsTables
-    // 0x2437f0 lays the bounds out in pairs, PlayerCarPhysics 0x23c5d6 walks
-    // them), i.e. the first row whose upper bound still covers the current rpm.
-    // We were comparing against rows 1 and 2 instead of 0 and 1, which shifted
-    // the whole power band up one row: full power was applied from bandEnd all
-    // the way to the limiter, where the original drops to a tenth of it. That is
-    // what made the engine so easy to wind past the redline.
+    // rpmThreshold is each row's upper bound: [0, bandStart], [bandStart, bandEnd], [bandEnd, 5700]. Use the first
+    // row whose bound covers the rpm.
     int rowIndex = 0;
     if (car.rpm > gearRows[0].rpmThreshold) {
         rowIndex = 1;
@@ -652,13 +583,8 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     const int gain = gearRows[rowIndex].rpmGain;
     const int loss = gearRows[rowIndex].rpmLoss;
 
-    // Roll-out past the line (PlayerCarPhysics 0x23c5d6, at the very top of the
-    // function): once `finish < pos` - strictly past, so the finish segment
-    // itself is still raced - the throttle and the steering are taken away, the
-    // brake is forced on, and speed sheds a flat 15 mph a tick on top of the
-    // braking below. The forced brake is the point: it puts the speed model in
-    // its decay branch, which is the only path that reaches 0, and a standstill
-    // is what ends the race (CheckFinish).
+    // Strictly past the finish, throttle and steering are taken away and the brake is forced on, shedding a flat
+    // 15 mph a tick. The forced brake is the only path to 0, and a standstill ends the race.
     const bool pastFinish = (car.segPos > finishSeg);
     if (pastFinish) {
         throttle = false;
@@ -674,24 +600,13 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         car.rpm = static_cast<int16_t>(std::max(1500, car.rpm - loss));
     }
 
-    // An automatic is governed ten rpm below the redline (PlayerCarPhysics
-    // 0x23c5d6 caps it at 0x163a = 5690 in the `automatic` branch), while the
-    // over-rev blow counts ticks spent past a FIXED 0x1644 = 5700. The gap is the
-    // point: a governed automatic can never reach the threshold, so it cannot be
-    // blown by holding the throttle. Testing the counter against the cap instead
-    // of against 5700 blew automatics the instant they hit the governor - the
-    // exact opposite of the original.
+    // Automatics are governed at 5690 while the blow counts ticks past a fixed 5700, so they can't be blown by revving.
     constexpr int kRedlineRpm = 5700;
     if (tables.automatic && car.rpm > 5690) {
         car.rpm = 5690;
     }
 
-    // The original (0x23c708) tests `rpm > 5700` BEFORE clamping, so a tick that
-    // lands exactly on the limiter costs nothing, and the counter only advances
-    // on a tick that actually overshot. Clamping first and then testing `>=`
-    // armed it a tick early on every rev. The reset at 0x23c75c is a separate
-    // test that keeps the counter while rpm >= 5700, so sitting pinned on the
-    // limiter holds the count without adding to it.
+    // Tested before clamping, so a tick landing exactly on the limiter costs nothing; sitting on it holds the count.
     const bool overRevved = (car.rpm > kRedlineRpm);
     if (car.rpm > kRedlineRpm) {
         car.rpm = static_cast<int16_t>(kRedlineRpm);
@@ -705,8 +620,7 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         } else {
             wearNow = ClampValue(npcSetup.engineWear + static_cast<int>(car.engineWearDelta), 0, 10000);
         }
-        // 0x23c724: `moveq #$f` then `divs.w #$3e8`, and the blow at 0x23c730
-        // is `cmp/ble` - strictly greater, so the limit-th tick still survives.
+        // Strictly greater: the limit-th tick still survives.
         const int blowLimit = std::max(1, 15 - (wearNow / 1000));
         if (car.redlineTicks > blowLimit) {
             if (&car == &player) {
@@ -727,11 +641,7 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         car.engineWearDelta += 1;
     }
 
-    // Engine grenades once its wear passes 0x26ab (0x23c6da, `cmpi.w #$26ac` on
-    // the part at car+0xa, then `moveq #$5`). This is the ENGINE part and the
-    // 0x05 outcome; the transmission is the part at car+0x6 and fails with 0x11
-    // in the shift block below. Checked every tick, independent of the
-    // redline-hold blow above.
+    // The engine part blows past 0x26ab wear (outcome 0x05), independent of the redline hold.
     const int baseEngineWear = (&car == &player) ? playerSetup.engineWear : npcSetup.engineWear;
     if (baseEngineWear + static_cast<int>(car.engineWearDelta) > 0x26ab) {
         if (&car == &player) {
@@ -745,9 +655,7 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     if (shift) {
         doShift = (throttle && car.gear < tables.numGears) || (!throttle && car.gear > 0);
     } else if (tables.automatic && throttle && (car.autoDrive || &car != &player)) {
-        // Automatic in D: engage first gear from neutral, then upshift at the
-        // carb power-band rpm. The original gates this on the selector being past
-        // N (PlayerCarPhysics 0x23c5d6: `automatic && 1 < A4+0x4b2e`).
+        // Only past N does an automatic engage first and upshift at the carb band rpm.
         if (car.gear == 0 || (car.rpm >= tables.autoShiftRpm && car.gear < tables.numGears)) {
             doShift = true;
         }
@@ -756,14 +664,8 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
     if (doShift) {
         car.transWearDelta += (car.rpm < 5001) ? 3 : 15;
 
-        // Transmission drops (PlayerCarPhysics 0x23c5d6): worn past 0x26ab, or a
-        // money-shift - a manual box banged under throttle above 5000 rpm, at a
-        // wear-scaled random chance.
-        //
-        // The bound is 0x23c80c `move.w #$ccd` = 3277, so this is ~3% a shift
-        // when fresh and grows with wear. A 15-bit roll made it ~0.3%, ten times
-        // rarer, which is why the "dropped your transmission" bubble effectively
-        // never fired.
+        // Worn past 0x26ab, or a money-shift: a manual banged under throttle above 5000 rpm, PRNG(3277) against wear,
+        // ~3% a shift when fresh.
         const int baseTransWear = (&car == &player) ? playerSetup.transWear : npcSetup.transWear;
         const int totalTransWear = baseTransWear + static_cast<int>(car.transWearDelta);
         const bool moneyShift = !tables.automatic && throttle && car.rpm > 5000 &&
@@ -787,17 +689,10 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         }
     }
 
-    // Player only: the NPC has no selector (the original drives it from
-    // UpdateNPCEngine 0x2444c2, and NpcEngine below synthesises a shift on every
-    // upshift, which would toggle a selector straight back to N).
+    // Player only: NpcEngine synthesises a shift on every upshift, which would toggle a selector back to N.
     if (tables.automatic && &car == &player) {
-        // Automatic selector, N <-> D (original A4+0x4b2e, PlayerCarPhysics
-        // 0x23c5d6). The shift input toggles it; it drops back to N whenever the
-        // box ends up out of gear or the car coasts to a crawl off the throttle;
-        // and while it is in N the box is held in neutral. That last rule is what
-        // lets an automatic sit on the line and rev without rolling - the throttle
-        // used to engage first gear straight out of neutral, which moved the car
-        // and read as a jumped start.
+        // The shift input toggles N/D. It drops to N out of gear or coasting to a crawl, and N holds the box in
+        // neutral so an automatic can rev on the line without rolling.
         if (shift) {
             car.autoDrive = !car.autoDrive;
         }
@@ -810,27 +705,17 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         }
     }
 
-    // Speed. This is one if/else in the original, NOT a drive step followed by a
-    // braking pass (PlayerCarPhysics 0x23c5d6):
+    // One if/else, not a drive step then a braking pass:
     //
     //   if !braking && (!offroad || speed < 9):   drive - speed follows rpm
     //   else:                                     decay - rpm follows speed
     //
-    // Which way the dependency runs is the whole game. In the decay branch speed
-    // is never re-derived from rpm, so it walks down to 0 while rpm bottoms out
-    // at its 1500 idle floor. Running the two as sequential steps instead let the
-    // next tick recompute `speed = rpm/ratio` from that floored rpm, which pinned
-    // a braking car at ~14 mph forever - nothing could ever come to a stop, and
-    // the roll-out past the finish had no way to terminate.
+    // In decay speed is never re-derived from rpm, so it walks down to 0 while rpm floors at idle.
     const int curRatio = std::max<int>(tables.ratio[std::max<int>(car.gear, 1)], 1);
     const bool decaying = brake || (car.offRoad && car.speed >= 9);
     if (!decaying) {
         if (car.gear == 0) {
-            // Neutral. Standing still the engine revs freely - that is the blip
-            // on the start line, and the rpm gain above is all that moves the
-            // needle. ROLLING, though, the original pins the needle straight to
-            // road speed (`speed -= 1; rpm = speed*30 + 1500`), so you cannot
-            // wind it up while coasting out of gear.
+            // Standing, the engine revs freely: the start-line blip. Rolling, the needle is pinned to road speed.
             if (car.speed > 0) {
                 car.speed = static_cast<int16_t>(car.speed - 1);
                 car.rpm = static_cast<int16_t>(car.speed * 30 + 1500);
@@ -857,20 +742,13 @@ void RaceSim::UpdateSteering(uint16_t inputBits, float steerAmount) {
     if ((inputBits & INPUT_STEER_RIGHT) != 0) {
         steer += 1;
     }
-    // Past the line the wheel is taken away (PlayerCarPhysics clears its steering
-    // flag, which zeroes steerVel and leaves only the slide decay running). The
-    // autopilot writes slideVel directly on each segment advance.
+    // Past the line the wheel is taken away; the autopilot writes slideVel on each segment advance.
     if (player.segPos > finishSeg) {
         steer = 0;
     }
 
-    // Steer/slide velocity model (PlayerCarPhysics 0x23c5d6). steerVel is the
-    // input integrator (+-24); slideVel carries the momentum and decays, so the
-    // car keeps drifting briefly after the stick is released or reversed.
-    //
-    // steerAmount moves the +-24 clamp in instead of the ramp rate: half a stick
-    // settles at half lock and holds there, which is what an analog wheel does.
-    // At 1.0 the limit is 24 and every step below is the original's.
+    // steerVel is the input integrator (+-24); slideVel carries the momentum and decays. steerAmount moves the clamp
+    // in rather than the ramp, so half a stick settles at half lock. At 1.0 every step is the original's.
     const int steerLimit = ClampValue<int>(
         static_cast<int>(std::lround(24.0f * ClampValue<float>(steerAmount, 0.0f, 1.0f))),
         0, 24);
@@ -883,9 +761,7 @@ void RaceSim::UpdateSteering(uint16_t inputBits, float steerAmount) {
             sv = pv;
         }
         int target = sv + 2 * steer;
-        // Past what the stick is asking for, unwind at the same rate it wound
-        // on instead of dropping straight to the new limit. At steerLimit 24
-        // this is exactly the original's clamp.
+        // Unwind at the same rate it wound on; at steerLimit 24 this is the original's clamp.
         if (std::abs(target) > steerLimit) {
             target = Sign(sv) * std::max(steerLimit, std::abs(sv) - 2);
         }
@@ -901,15 +777,10 @@ void RaceSim::UpdateSteering(uint16_t inputBits, float steerAmount) {
     player.steerVel = static_cast<int16_t>(sv);
     player.slideVel = static_cast<int16_t>(pv);
 
-    // Heading follows steer velocity (RenderTrackFrame 0x23b77c):
     //   heading -= steerVel/2 + 1
-    // only while the car is moving and its heading stays within +-200 of the
-    // road direction. (No steering-strength scaling here; the original uses a
-    // fixed /2.)
+    // only while moving and within +-200 of the road direction.
     if (sv != 0 && player.speed != 0) {
-        // Heading is measured against the road-direction array, which in this
-        // engine is curve[] (A4+0x1098) - the same array that drives the lateral
-        // drift and the horizontal road projection (RenderTrackFrame 0x23b77c).
+        // The road direction is curve[], the same array driving the drift and the horizontal projection.
         const int roadDir = track->curve[ClampTrackIndex(player.segPos)];
         if (std::abs(player.heading - sv - roadDir) < 200) {
             player.heading = static_cast<int16_t>(player.heading - ((sv >> 1) + 1));
@@ -918,17 +789,13 @@ void RaceSim::UpdateSteering(uint16_t inputBits, float steerAmount) {
 }
 
 void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
-    // Blown tires replace the curve drift outright with a flat pull to one side
-    // (RenderTrackFrame's `A4+0x4ccc` branch: `lateral += 25` every frame, the
-    // bend ignored). You can still steer against it, and you have to.
+    // Blown tires replace the curve drift with a flat 25 a frame to one side. You can steer against it.
     if (&car == &player && (player.endFlags & END_TIRES_BLOWN) != 0) {
         car.lateral = static_cast<int16_t>(car.lateral + 25);
         return;
     }
     const int seg = ClampTrackIndex(car.segPos);
-    // Lateral drift uses the road-direction array curve[] (A4+0x1098), NOT elev[]
-    // - physics.md had this backwards. This is the same array the horizontal road
-    // projection reads, so the road and the car stay coupled through a bend.
+    // Lateral drift uses curve[], not elev[], keeping the road and the car coupled through a bend.
     const int roadDir = track->curve[seg];
     const int drift = (car.heading - roadDir) * (car.scrollStep + handling) / 4;
     car.lateral = static_cast<int16_t>(car.lateral - drift);
@@ -944,30 +811,23 @@ void RaceSim::UpdateScroll(CarState& car) {
     }
     if (car.segPos != prevSeg && track != nullptr) {
         car.elevAtCar = track->elev[ClampTrackIndex(car.segPos)];
-        // The original hangs the roll-out autopilot off the segment advance, not
-        // off the frame (AdvanceTrackSegment 0x23b4a0), so it only steps when the
-        // car crosses into a new segment.
+        // The roll-out autopilot steps on segment advance, not per frame.
         if (&car == &player && player.segPos > finishSeg) {
             PostFinishAutopilot();
         }
     }
 }
 
-// Steering past the finish line (AdvanceTrackSegment 0x23b4a0, the `finish < pos`
-// tail). The player no longer has the wheel: the car is walked into a lane and
-// its heading is snapped to the road direction so it tracks straight while it
-// brakes. This also runs for the cop takeover, which reaches the same block.
+// The car is walked into a lane and its heading snapped to the road so it tracks straight while braking.
+// Also runs for the cop takeover.
 void RaceSim::PostFinishAutopilot() {
-    // Lane choice depends on where the opponent sits, so the two cars part to
-    // opposite sides for the drive-off: opponent left of 0x961 -> we take 0xa00,
-    // otherwise we take 0x820.
+    // The cars part to opposite sides: opponent left of 0x961 -> we take 0xa00, otherwise 0x820.
     const int16_t lane = (npc.lateral < 0x961) ? 0xa00 : 0x820;
     const int delta = std::abs(static_cast<int>(player.lateral) - lane);
     if (delta < 0x65) {
         player.lateral = lane;
     } else {
-        // Step to within 100 of the lane on whichever side we are; the next
-        // segment lands exactly on it.
+        // Within 100 of the lane; the next segment lands on it.
         player.lateral = static_cast<int16_t>(lane + ((player.lateral <= lane) ? -100 : 100));
     }
 
@@ -977,14 +837,11 @@ void RaceSim::PostFinishAutopilot() {
         slide = ClampValue<int>(slide, -24, 24);
         player.slideVel = static_cast<int16_t>(slide);
     }
-    // Heading snaps to the road, so ApplyLateralDrift stops pushing the car
-    // sideways for the rest of the roll-out.
+    // Snapped to the road, so the drift stops pushing.
     player.heading = static_cast<int16_t>(roadDir);
 }
 
-// The race is over once the car has stopped past the line (UpdateRaceScroll
-// 0x244818). The win/loss verdict is NOT decided here - it was latched the first
-// tick either car reached the finish (ComputeNPCPosition 0x243f1c).
+// Over once the car has stopped past the line. The verdict was latched the first tick either car reached it.
 void RaceSim::CheckFinish() {
     if (!finishSnapshot &&
         (player.segPos >= finishSeg || npc.segPos >= finishSeg)) {
@@ -995,8 +852,7 @@ void RaceSim::CheckFinish() {
     }
 
     if (finishSnapshot && player.segPos >= finishSeg && player.speed < 1) {
-        // The original flags whichever car "finished" in the losing sense, and
-        // the frame loop exits on either flag word being set.
+        // Whichever car "finished" in the losing sense is flagged; either flag word exits the loop.
         if (playerAheadAtFinish) {
             npc.endFlags |= END_FINISHED;
         } else {
@@ -1005,8 +861,7 @@ void RaceSim::CheckFinish() {
     }
 }
 
-// An event carrying a suppressed bit is dropped whole, END_FINISHED included -
-// otherwise a suppressed crash would still end the race, just without the cause.
+// An event carrying a suppressed bit is dropped whole, or a suppressed crash would still end the race.
 void RaceSim::AddPlayerEndFlags(uint16_t flags) {
     if (invulnerable) {
         constexpr uint16_t kSuppressed = END_WALL_HIT | END_HIT_NPC | END_ENGINE_BLOWN;
@@ -1051,16 +906,10 @@ void RaceSim::CheckEdgeCollision() {
     }
 }
 
-// Car-to-car contact (RaceLogicUpdate 0x244d50). Nothing here measures the gap
-// itself: the whole thing runs off the two flags the view-state pass leaves
-// behind, `inContactRange` (A4-0x1386) and `rearEnding` (A4-0x1384). That matters
-// because the view state is rate-limited, so it has to SETTLE on 2 before a
-// rear-end can fire - a gap that flicks through the window for one frame does
-// not total your car.
+// Runs off the two view-state flags, not the gap itself. The view state is rate-limited, so it must settle on 2
+// before a rear-end fires; a one-frame flick does not total the car.
 //
-// Rear-ending sets endFlags |= 3 (bit 0 ends the race, bit 1 is the crash) - the
-// wreck screen. Otherwise the opponent has to be in view state 0, alongside and
-// clear to our LEFT, and then it splits on which way we are steering:
+// Rear-ending sets endFlags |= 3. Otherwise, with the opponent alongside and clear to our left:
 //   steering left into it -> it scrapes and, every other tick, loses a segment
 //   otherwise             -> if it swerved into a blocking lane, it eventually
 //                            shoves us right: lateral +300, heading +-15,
@@ -1074,9 +923,7 @@ void RaceSim::CheckNpcContact() {
         return;
     }
 
-    // While the cop is chasing you cannot total yourself on it: the original
-    // gates the rear-end branch on `copState <= 1` and falls through to the
-    // side-contact path instead.
+    // Chased by the cop you cannot total yourself on it.
     if (npcAi.rearEnding && copState < 2) {
         AddPlayerEndFlags(END_FINISHED | END_HIT_NPC);
         return;
@@ -1093,9 +940,7 @@ void RaceSim::CheckNpcContact() {
     npcContactTicks = static_cast<int16_t>(npcContactTicks + 1);
 
     if (player.steerVel < 0) {
-        // Leaning left onto it. Only bites if the road is not already carrying us
-        // away from it - the bend must not be turning right, or we must be left
-        // of the road centre.
+        // Only bites if the road is not carrying us away from it.
         const int seg = ClampTrackIndex(player.segPos);
         const int segNext = ClampTrackIndex(player.segPos + 1);
         const int center = (edgeLeft + edgeRight) >> 1;
@@ -1111,15 +956,13 @@ void RaceSim::CheckNpcContact() {
         return;
     }
 
-    // The cop never shoves you off the road (same `copState < 2` gate).
+    // The cop never shoves you off the road.
     if (!npcAi.swervedToBlock || npcContactTicks <= 3 || copState >= 2) {
         return;
     }
-    // Rolled rather than bumped every tick, against the driver's aggression byte
-    // (0x00244f96: rand(rec[2] / 4 + 2)). Lower is a better driver, so the good
-    // ones lean on you roughly a third of the time and the worst a fifth.
+    // rand(aggression / 4 + 2): good drivers lean on you about a third of the time, the worst a fifth.
     if (rng.Next(ClampValue(npcSetup.aggression, 0, 120) / 4 + 2) == 0) {
-        // Always +300: view state 0 only ever has the opponent on our left.
+        // Always +300: view state 0 only has the opponent on our left.
         player.lateral = static_cast<int16_t>(player.lateral + 300);
         if (player.speed > 20) {
             bumpStunTicks = 2;
@@ -1132,30 +975,22 @@ void RaceSim::CheckNpcContact() {
 }
 
 void RaceSim::NpcAiUpdate() {
-    // Aim for the midpoint of the road a few segments ahead (UpdateNPCAI 0x244870
-    // steers to the average of the look-ahead edges, not a fixed center).
+    // The midpoint of the road a few segments ahead, not a fixed centre.
     const int aheadSeg = ClampTrackIndex(npc.segPos + 4);
     int16_t aheadLeft = 1500;
     int16_t aheadRight = 3300;
     RoadEdges(track->flags[aheadSeg], aheadLeft, aheadRight);
     const int center = (aheadLeft + aheadRight) / 2;
 
-    // Most of UpdateNPCAI's segDiff bands leave the target where it was and only
-    // a few write it. Defaulting it to the road centre every tick is what let the
-    // opponent be walked across the player's lane off the line.
+    // Most bands leave the target where it was; defaulting to the centre walked the opponent across our lane.
     int target = npcAi.lateralTarget;
 
     const int segDiff = npc.segPos - player.segPos;
-    // The render view state, from the previous frame - the same one-frame lag the
-    // original carries by reading A4-0x1388 here. 0/1 = alongside to our left,
-    // 2..8 = ahead, 9..12 = behind.
+    // From the previous frame. 0/1 = alongside to our left, 2..8 = ahead, 9..12 = behind.
     const int view = npcAi.viewState;
 
-    // The offset lane every band outside +-3 segments uses. The side comes from a
-    // sticky preference flipped by the road's curvature (A4-0x39a8), NOT from
-    // which side of the centre line the player is on - the original never steers
-    // the opponent at the player, and doing so parked it inside the 180 units
-    // CheckNpcContact reads as overlapping. A narrowed road cancels the offset.
+    // The side comes from a sticky preference flipped by curvature, never from the player's side, which would
+    // park it inside the contact window. A narrowed road cancels the offset.
     const int curveHere = track->curve[ClampTrackIndex(player.segPos + 4)];
     const int curveNext = track->curve[ClampTrackIndex(player.segPos + 5)];
     const bool straight = (curveHere == curveNext);
@@ -1174,23 +1009,15 @@ void RaceSim::NpcAiUpdate() {
         }
     };
 
-    // The two cars never collide in the original: nothing anywhere in the Amiga
-    // binary compares the two laterals for overlap, and END_WALL_HIT comes only
-    // from CheckTrackEdgeCollision (0x23b620), which tests the player against the
-    // road edges and the roadside-object bits. What the original does instead is
-    // refuse the pass. Once the cars are roughly level (segDiff in [-3,3)) and the
-    // NPC is the faster of the two, it stops aiming at the road centre and lines
-    // up a pass; if it is behind and no side has room it aborts and locks itself
-    // one or two segments behind the player, so it sits on your bumper and cannot
-    // get by. Original: UpdateNPCAI 0x244870.
+    // The cars never collide in the original; it refuses the pass instead. Roughly level and faster, the NPC lines
+    // up a pass; behind with no room, it locks itself one or two segments back, on your bumper.
     if (segDiff >= 13) {
         // Gone; the target is left alone.
     } else if (segDiff >= 7) {
         npcAi.swervedToBlock = true;
         offsetLane();
     } else if (segDiff >= 3) {
-        // Coming back up past the player after having been dropped: one lane
-        // swap, then the latch is spent.
+        // Coming back up after being dropped: one lane swap, then the latch is spent.
         if (straight && !narrow) {
             if (npcAi.wasDroppedBack) {
                 target = center + (npcAi.preferLeft ? 300 : -200);
@@ -1227,9 +1054,7 @@ void RaceSim::NpcAiUpdate() {
                                                         : (player.lateral + 530);
             }
         } else if (view == 0) {
-            // Level, no quicker, and sitting off our left: move further away.
-            // Every other case here leaves the target untouched, which is what
-            // keeps the opponent in its starting lane off the line.
+            // Every other case leaves the target alone, keeping the opponent in its starting lane off the line.
             target = player.lateral - 330;
         }
     } else if (segDiff >= -5) {
@@ -1243,9 +1068,7 @@ void RaceSim::NpcAiUpdate() {
     npcAi.lateralTarget = static_cast<int16_t>(target);
     npc.lateral = static_cast<int16_t>(npc.lateral + ((npcAi.lateralTarget - npc.lateral) / 8));
 
-    // A police pursuit never concedes. The conditions for conceding and for the
-    // cop appearing nearly coincide - both want the player well clear and late
-    // in the race - so without this the cop gives up moments after taking over.
+    // A police pursuit never concedes; otherwise the cop gives up moments after taking over.
     const int raceThreeQuarter = RACE_START_SEG + ((finishSeg - RACE_START_SEG) * 3) / 4;
     if (copState < 2 && !npcAi.gaveUp &&
         player.segPos > raceThreeQuarter && player.segPos > npc.segPos + 2) {
@@ -1254,9 +1077,7 @@ void RaceSim::NpcAiUpdate() {
     }
 }
 
-// FUN_0024441c. The original does not decelerate an opponent toward a target:
-// it walks up from first gear to whichever gear puts the resulting rpm inside
-// its power band, then assigns the speed outright.
+// Walks up from first gear to the one whose rpm sits in the power band, then assigns the speed outright.
 void RaceSim::NpcSettleAtSpeed(int targetSpeed) {
     targetSpeed = ClampValue(targetSpeed, 0, 130);
     int gear = 1;
@@ -1270,11 +1091,8 @@ void RaceSim::NpcSettleAtSpeed(int targetSpeed) {
         ClampValue((targetSpeed * npcTables.ratio[gear]) / 100, 1500, 5700));
 }
 
-// UpdateNPCEngine 0x2444c2. Three outcomes rather than one speed cap: ease off
-// to a target, hold station under the cop's closing cap, or accelerate. Which
-// one applies depends on where the opponent is relative to the player, and the
-// whole thing only runs on straights - through a curve the original leaves the
-// rpm alone, so the car simply holds its speed.
+// Ease off to a target, hold under the cop's closing cap, or accelerate. Straights only; in a curve the rpm is
+// left alone.
 void RaceSim::NpcEngine() {
     const int segDiff = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
     if (segDiff >= 4 && rng.Next(64) == 0) {
@@ -1296,12 +1114,9 @@ void RaceSim::NpcEngine() {
     if (onStraight) {
         npcAi.corneringCapped = false;   // re-arm the corner brake
 
-        // The King never eases off for being far ahead in a road race: it stays
-        // in the level branch whatever the gap, so nothing throttles it back.
+        // The King never eases off for being far ahead in a road race.
         if (segDiff < 13 || (raceType == 1 && kingRace)) {
-            // Level with the player: run 16 mph up on them, but never below the
-            // car's own cruising pace. This is the rubber band that keeps a
-            // close race close.
+            // Level: 16 mph up on the player, never below its own cruise. The rubber band that keeps a close race close.
             if (segDiff > -5 && segDiff < 5) {
                 int target = static_cast<int>(player.speed) + 16;
                 if (target < npcAi.targetSpeedNormal) {
@@ -1315,8 +1130,7 @@ void RaceSim::NpcEngine() {
                 }
             }
         } else {
-            // Well clear ahead: drop back to a cruise. The King is the exception
-            // and keeps the higher target (see docs/driving/king.md).
+            // Well clear ahead: drop back to a cruise. The King keeps the higher target.
             const int target = (player.speed < 97 && !kingRace) ? npcAi.targetSpeedNormal
                                                                 : npcAi.targetSpeedRisky;
             if (target < npc.speed) {
@@ -1328,8 +1142,7 @@ void RaceSim::NpcEngine() {
         }
 
         if (!settled) {
-            // The cop's closing cap gates the acceleration itself: over the cap
-            // it settles back to it instead of accelerating further.
+            // Over the cop's closing cap it settles back instead of accelerating.
             if (copState >= 2 && player.speed >= 51 && npc.speed > player.speed + 32) {
                 NpcSettleAtSpeed(static_cast<int>(player.speed) + 32);
                 settled = true;
@@ -1351,12 +1164,8 @@ void RaceSim::NpcEngine() {
             }
         }
     } else if (!npcAi.corneringCapped) {
-        // Entering a curve the opponent brakes once, to its performance score
-        // minus the driver's aggression byte (0x04 best .. 0x0c worst), and the
-        // latch above keeps it from braking again before the next straight.
-        // The penalty is HALVED while the opponent is not ahead of the player
-        // (`asr.w #1` on the ble branch at 0x244536), so the car chasing you
-        // corners harder than the one defending a lead.
+        // Entering a curve it brakes once to perfScore - aggression, halved while it is not ahead, so a chaser
+        // corners harder than a leader.
         npcAi.corneringCapped = true;
         int penalty = ClampValue(npcSetup.aggression, 0, 120);
         if (npc.segPos <= player.segPos) {
@@ -1370,12 +1179,11 @@ void RaceSim::NpcEngine() {
         }
     }
 
-    // Past the line the opponent sheds a flat 5 mph a tick, or 10 while it is
-    // still close to the player, applied to the speed it had coming in.
+    // Past the line it sheds a flat 5 mph a tick, or 10 while close to the player.
     if (npc.segPos >= finishSeg) {
         const int drop = (player.segPos + 5 < npc.segPos) ? 5 : 10;
         npc.speed = (drop < speedBefore) ? static_cast<int16_t>(speedBefore - drop) : 0;
     }
 }
 
-}  // namespace srrace
+}

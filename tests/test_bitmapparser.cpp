@@ -2,18 +2,13 @@
 #include "parsers/libp.h"
 #include <cstring>
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Build a minimal Amiga lib binary: 2-byte BE count + N * sizeof(BitmapEntry_t) headers
 static std::vector<uint8_t> MakeAmigaLibHeader(const std::vector<BitmapEntry_t>& entries) {
     std::vector<uint8_t> out;
     uint16_t count = (uint16_t)entries.size();
     out.push_back(count >> 8);
     out.push_back(count & 0xFF);
     for (const auto& e : entries) {
-        // Fields in wire order (BE): width(2), height(2), depth(1), unknown1(1), rleDict(16), offset(4), sizePacked(2)
+        // Wire order (BE): width(2), height(2), depth(1), unknown1(1), rleDict(16), offset(4), sizePacked(2)
         out.push_back(e.width >> 8);   out.push_back(e.width & 0xFF);
         out.push_back(e.height >> 8);  out.push_back(e.height & 0xFF);
         out.push_back(e.depth);
@@ -28,10 +23,6 @@ static std::vector<uint8_t> MakeAmigaLibHeader(const std::vector<BitmapEntry_t>&
     }
     return out;
 }
-
-// ---------------------------------------------------------------------------
-// GetRGBFromRGB4
-// ---------------------------------------------------------------------------
 
 TEST_SUITE("BitmapParser::GetRGBFromRGB4") {
 
@@ -73,7 +64,7 @@ TEST_CASE("pure blue (0x00F)") {
 }
 
 TEST_CASE("nibble extraction is independent per channel") {
-    // 0x810: R=0x8 → 0x80, G=0x1 → 0x10, B=0x0 → 0x00
+    // 0x810: R=0x8 -> 0x80, G=0x1 -> 0x10, B=0x0 -> 0x00
     SrLibColor c = BitmapParser::GetRGBFromRGB4(0x810);
     CHECK(c.r == 0x80);
     CHECK(c.g == 0x10);
@@ -86,11 +77,7 @@ TEST_CASE("alpha is always 255") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// PreparePalette
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::PreparePalette") {
 
@@ -141,18 +128,14 @@ TEST_CASE("with EHB: second half is half-brightness") {
     CHECK(result[1].a == 255);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// PrepareCarPalette
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::PrepareCarPalette") {
 
 TEST_CASE("output has 32 normal + palette.size() EHB entries") {
     BitmapParser p;
     // The function adds 32 normal entries then palette.size() EHB entries
-    std::vector<uint16_t> pal(32, 0xF00); // 32-entry palette → 32+32=64
+    std::vector<uint16_t> pal(32, 0xF00); // 32-entry palette -> 32+32=64
     auto result = p.PrepareCarPalette(pal);
     CHECK(result.size() == 64);
 }
@@ -193,11 +176,7 @@ TEST_CASE("indices 10-31 are black") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetDOSPalette
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetDOSPalette") {
 
@@ -242,11 +221,7 @@ TEST_CASE("type 1 and 2 only differ at index 0") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetStockPalette
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetStockPalette") {
 
@@ -270,11 +245,7 @@ TEST_CASE("unknown enum falls back to Diner palette") {
     CHECK(fallback == diner);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetAssetType
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetAssetType") {
 
@@ -302,11 +273,7 @@ TEST_CASE("non-libp files default to regular") {
     CHECK(p.GetAssetType(SrLibFileAmigaLibStart, 0) == LibAssetRegular);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// LoadsOpaque
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::LoadsOpaque") {
 
@@ -316,8 +283,7 @@ TEST_CASE("mask assets keep their black") {
     CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, DINER_SCREEN_MASK) == true);
 }
 
-// Each frame has to paint over the one before it, so its black background is
-// part of the picture rather than a colour key.
+// Each frame paints over the last, so its black is part of the picture.
 TEST_CASE("engine tuning animations keep their black") {
     BitmapParser p;
     CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION)         == true);
@@ -339,11 +305,7 @@ TEST_CASE("non-libp files key their black out") {
     CHECK(p.LoadsOpaque(SrLibFileAmigaLibStart, 0) == false);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetSpritesheetInfo
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetSpritesheetInfo") {
 
@@ -375,11 +337,7 @@ TEST_CASE("unknown asset returns (0, 0)") {
     CHECK(cols == 0);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetPalette
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetPalette") {
 
@@ -422,9 +380,7 @@ TEST_CASE("high index (>176) returns PAL1") {
 }
 
 TEST_CASE("newspaper assets (5-10) return PAL1, not driving-low") {
-    // Regression test: newspaper indices sit inside the <45 driving-backdrop
-    // bucket and were previously dragged onto PAL_DRIVING_LOW's olive tones
-    // by that bucket, corrupting the newspaper scene's colors.
+    // Regression: newspaper indices sit inside the <45 driving-backdrop bucket.
     BitmapParser p;
     auto pal1 = BitmapParser::GetStockPalette(StockPaletteAmigaDiner);
     for (int i = NEWSPAPER_MENU; i <= NEWSPAPER_NO_SOLDIERS_IN_VIETNAM; i++) {
@@ -433,11 +389,7 @@ TEST_CASE("newspaper assets (5-10) return PAL1, not driving-low") {
     }
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// ReadEntries (vector overload) with synthetic data
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::ReadEntries") {
 
@@ -506,11 +458,7 @@ TEST_CASE("multiple entries are all parsed") {
     CHECK(entries[1].width == 128);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// GetPackedData (vector overload)
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::GetPackedData") {
 
@@ -549,15 +497,10 @@ TEST_CASE("throws when offset + size exceeds data") {
     CHECK_THROWS_AS(p.GetPackedData(header, e, 1), std::runtime_error);
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// UnpackData
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::UnpackData") {
 
-// Helper: make a minimal BitmapEntry_t for unpacking
 static BitmapEntry_t MakeEntry(int width, int height, int depth, uint8_t dict0 = 0) {
     BitmapEntry_t e = {};
     e.width  = (uint16_t)width;
@@ -570,7 +513,7 @@ static BitmapEntry_t MakeEntry(int width, int height, int depth, uint8_t dict0 =
 const std::vector<std::pair<int, uint8_t>> RLE_TABLE = RLE;
 
 TEST_CASE("literal bytes pass through unchanged") {
-    // 8px wide, 1 row, 1 plane → expects 1 byte output
+    // 8px wide, 1 row, 1 plane -> expects 1 byte output
     auto e = MakeEntry(8, 1, 1);
     std::vector<uint8_t> data = {0x42};
     BitmapParser p;
@@ -580,8 +523,8 @@ TEST_CASE("literal bytes pass through unchanged") {
 }
 
 TEST_CASE("0x00 run-length escape expands correctly") {
-    // 16px, 1 row, 1 plane → 2 bytes output
-    // [0x00, 0x01] → repeat 0x00 for (1+1)=2 times
+    // 16px, 1 row, 1 plane -> 2 bytes output
+    // [0x00, 0x01] -> repeat 0x00 for (1+1)=2 times
     auto e = MakeEntry(16, 1, 1);
     std::vector<uint8_t> data = {0x00, 0x01};
     BitmapParser p;
@@ -592,8 +535,8 @@ TEST_CASE("0x00 run-length escape expands correctly") {
 }
 
 TEST_CASE("0xFF run-length escape expands correctly") {
-    // 24px, 1 row, 1 plane → 3 bytes output
-    // [0xFF, 0x02] → repeat 0xFF for (2+1)=3 times
+    // 24px, 1 row, 1 plane -> 3 bytes output
+    // [0xFF, 0x02] -> repeat 0xFF for (2+1)=3 times
     auto e = MakeEntry(24, 1, 1);
     std::vector<uint8_t> data = {0xFF, 0x02};
     BitmapParser p;
@@ -605,8 +548,8 @@ TEST_CASE("0xFF run-length escape expands correctly") {
 }
 
 TEST_CASE("dictionary match emits rle count/value") {
-    // rle[0] = {1, 0x00}: dict byte → 1 copy of 0x00
-    // Set rleDictionary[0] to 0xAA → 0xAA becomes 1 copy of 0x00
+    // rle[0] = {1, 0x00}: dict byte -> 1 copy of 0x00
+    // Set rleDictionary[0] to 0xAA -> 0xAA becomes 1 copy of 0x00
     auto e = MakeEntry(8, 1, 1, /*dict0=*/0xAA);
     std::vector<uint8_t> data = {0xAA};
     BitmapParser p;
@@ -616,7 +559,7 @@ TEST_CASE("dictionary match emits rle count/value") {
 }
 
 TEST_CASE("two literal bytes for 16-pixel wide bitmap") {
-    // width=16, height=1, depth=1 → expects 2 bytes of planar data
+    // width=16, height=1, depth=1 -> expects 2 bytes of planar data
     auto e = MakeEntry(16, 1, 1);
     std::vector<uint8_t> data = {0x42, 0x55};
     BitmapParser p;
@@ -635,11 +578,7 @@ TEST_CASE("empty rle table returns empty output") {
     CHECK(result.empty());
 }
 
-} // TEST_SUITE
-
-// ---------------------------------------------------------------------------
-// PlanarToChunky (Amiga variant)
-// ---------------------------------------------------------------------------
+}
 
 TEST_SUITE("BitmapParser::PlanarToChunky (Amiga)") {
 
@@ -648,7 +587,7 @@ TEST_CASE("single plane all-ones: all pixels get palette index 1") {
     BitmapEntry_t e = {};
     e.width = 8; e.height = 1; e.depth = 1;
 
-    std::vector<uint8_t> planar = {0xFF}; // all 8 bits set → index 1 for every pixel
+    std::vector<uint8_t> planar = {0xFF}; // all 8 bits set -> index 1 for every pixel
 
     Palette pal = {
         {0, 0, 0, 255},       // index 0: black
@@ -686,10 +625,10 @@ TEST_CASE("single plane all-zeros: all pixels get palette index 0") {
 }
 
 TEST_CASE("two planes combine bits correctly") {
-    // depth=2, width=8, height=1 → planeSize=1
-    // plane 0 = 0xFF (all bits set → bit 0 = 1 for all pixels)
-    // plane 1 = 0xFF (all bits set → bit 1 = 1 for all pixels)
-    // → every pixel has value = 0b11 = 3
+    // depth=2, width=8, height=1 -> planeSize=1
+    // plane 0 = 0xFF (all bits set -> bit 0 = 1 for all pixels)
+    // plane 1 = 0xFF (all bits set -> bit 1 = 1 for all pixels)
+    // -> every pixel has value = 0b11 = 3
     BitmapParser p;
     BitmapEntry_t e = {};
     e.width = 8; e.height = 1; e.depth = 2;
@@ -712,7 +651,7 @@ TEST_CASE("MSB of plane byte becomes leftmost pixel") {
     BitmapEntry_t e = {};
     e.width = 8; e.height = 1; e.depth = 1;
 
-    std::vector<uint8_t> planar = {0x80}; // only bit 7 set → pixel 0 = index 1
+    std::vector<uint8_t> planar = {0x80}; // only bit 7 set -> pixel 0 = index 1
 
     Palette pal = {
         {0,0,0,255},
@@ -727,4 +666,4 @@ TEST_CASE("MSB of plane byte becomes leftmost pixel") {
     }
 }
 
-} // TEST_SUITE
+}

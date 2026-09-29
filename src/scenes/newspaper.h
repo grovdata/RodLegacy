@@ -10,10 +10,7 @@
 #include <vector>
 #include <memory>
 
-// One of the 40 fixed AUTO PARTS classified slots (see LoadClassifiedsData /
-// kPartCatalog in newspaper.cpp). Name and price always come from the parsed
-// ClassifiedEntry_t, not from here -- only category/vendor/specific type are
-// hardcoded, since PartMetadata_t carries ad text only, not part identity.
+// Name and price come from the parsed ClassifiedEntry_t; only the part's identity is hardcoded here.
 struct PartCatalogEntry {
     PartCategory category;
     CarVendor_t vendor;
@@ -33,56 +30,42 @@ private:
     Bitmap next;
 
     Bitmap adsArea;
-    Bitmap allAdsSurface; // Large surface containing all ads
-    SDL_Rect adsViewport; // Current viewport into the large surface
+    Bitmap allAdsSurface;
+    SDL_Rect adsViewport;
 
-    // Page 0
     Label date;
-    // Generation of state.classifiedCars this page was built from. The ad list
-    // here has to stay index-aligned with that one, so a new or loaded game
-    // rebuilding it means rebuilding this too.
+    // The ad list must stay index-aligned with state.classifiedCars.
     uint32_t lastClassifiedsGeneration = 0;
     std::string lastDateText;  // detects a changed game date (e.g. after loading a save) to refresh `date`
-    // Which of the five front-page slabs is on the paper right now.
     int headlineIndex = 0;
 
-    // Headers are now part of the large surface, no individual labels needed
-
-    // Dynamic classifieds
     std::vector<Label> classifiedAds;
     std::vector<Label> usedCarAds;
 
-    // Current page data
     int currentPage = 0;
     int totalPages = 0;      // used-car pages
     int totalPartsPages = 0; // AUTO PARTS pages
-    int adsPerPage = 6; // Number of ads that fit on one page (multi-line ads)
+    int adsPerPage = 6;
 
-    // Car metadata for classifieds
     std::vector<CarMetadata_t> carMetadata;
     std::vector<int> carAssetIds; // Parallel to carMetadata: the AmigaLibAsset index
 
-    // AUTO PARTS classifieds: ad text/price parsed from the Street_Rod exe,
-    // parallel to the fixed kPartCatalog category table (newspaper.cpp).
+    // Parallel to kPartCatalog.
     std::vector<PartMetadata_t> partMetadata;
 
-    // Surface dimensions
     int allAdsSurfaceHeight = 0;
     int partsSectionHeight = 0; // measured height of the AUTO PARTS block, set by CreateAllAdsSurface
 
-    // Smooth scrolling
     int smoothScrollOffset = 0;
 
-    // Ad position mapping
     struct AdPosition {
         int adIndex;        // Index into carMetadata (isUsedCar) or partMetadata/kPartCatalog (!isUsedCar)
-        int startY;         // Start Y position in the large surface
-        int endY;           // End Y position in the large surface
-        bool isUsedCar;     // true for used car ads, false for AUTO PARTS ads
+        int startY;
+        int endY;
+        bool isUsedCar;
     };
     std::vector<AdPosition> adPositions;
 
-    // Dialog system
     std::unique_ptr<Dialog> carPurchaseDialog;
     std::unique_ptr<Dialog> carViewDialog;
     std::unique_ptr<Dialog> partPurchaseDialog;
@@ -98,9 +81,8 @@ private:
     void CreateUsedCarAds();
     using Scene::Update; // un-hide Scene::Update(Uint64); this Update() is unrelated (page content refresh)
     void Update();
-    void Update(Uint64 deltaTime) override; // the real per-frame entry point (fade + date refresh)
+    void Update(Uint64 deltaTime) override;
     void UpdatePageContent();
-    // Rebuilds the ad list and its rendered page from the current classifieds.
     void RefreshClassifieds();
     void AddDivider(int y);
     void HandleAdClick(int adIndex);
@@ -112,11 +94,7 @@ private:
     void ShowCarViewDialog(int carIndex);
     void ShowPartPurchaseDialog(int partIndex);
 
-    // Shared lookup behind the FindXCatalogName wrappers below - scans the
-    // fixed 40-slot kPartCatalog for a category+vendor+type match and
-    // returns that slot's classified-ad name. Carb/tire ads aren't
-    // vendor-specific (their kPartCatalog entries always carry
-    // CarVendorUnknown), so vendor is ignored for those two categories.
+    // Carb and tire ads are not vendor-specific, so vendor is ignored for those.
     std::string FindCatalogName(PartCategory category, CarVendor_t vendor, int typeValue) const;
 public:
     Newspaper();
@@ -126,19 +104,10 @@ public:
     void DrawScene() override;
     bool PushEvent(SDL_Event *event) override;
 
-    // Newspaper is a persistent scene object (constructed once at startup),
-    // so currentPage would otherwise still be wherever the player last left
-    // it. Called from State::MoveToScene every time the player walks back
-    // in, so it always opens on the front page.
+    // Newspaper is constructed once, so this reopens it on the front page.
     void ResetToFrontPage();
 
-    // Authentic classified-ad name for a part, keyed by its logical type
-    // (+vendor where the ad text is vendor-specific) - lets other screens
-    // (e.g. the garage's spare-parts pickers) match the newspaper's own
-    // wording for parts that weren't bought there (stock/savegame parts,
-    // whose Part::name is empty) instead of falling back to a generic
-    // description. Returns "" if this exact type/vendor never appears in
-    // the fixed 40-slot classified catalog.
+    // The newspaper's own wording for parts not bought there. "" if the type/vendor is not in the catalog.
     std::string FindEngineCatalogName(CarEngine_t type, CarVendor_t vendor) const;
     std::string FindTransmissionCatalogName(TransmissionType type, CarVendor_t vendor) const;
     std::string FindCarburetorCatalogName(CarburetorType type) const;

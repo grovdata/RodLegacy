@@ -55,15 +55,11 @@ void NumberEntryDialog::Draw() {
     SDL_Rect clearRect = fieldRect;
     SDL_FillRect(mainBitmap->GetSurface(), &clearRect, 0);
 
-    // A trailing underscore stands in for a caret; the font has no cursor
-    // glyph and a blinking one would need per-frame state nothing else here
-    // keeps.
+    // The font has no cursor glyph.
     const std::string line = prompt + digits + "_";
     SFont_Write(mainBitmap->GetSurface(), config.font, fieldRect.x, fieldRect.y, line.c_str());
 
-    // UpdateFromSurface recreates the texture, so the colour mod has to come
-    // after it. Like ListDialog, the new content reaches the screen on the
-    // next frame's Dialog::Draw rather than being blitted twice in this one.
+    // UpdateFromSurface recreates the texture, so the colour mod must come after it.
     mainBitmap->UpdateFromSurface();
     SDL_SetTextureColorMod(mainBitmap->GetTexture(), textColor.r, textColor.g, textColor.b);
 }

@@ -16,7 +16,6 @@ AnimatedBitmap::~AnimatedBitmap() {
 void AnimatedBitmap::Draw() {
     if (!IsVisible()) return;
 
-    // Only draw if we have animation frames - don't call Bitmap::Draw()
     if (animation.frameCount > 0 && static_cast<size_t>(animation.currentFrame) < animation.frameRects.size() && texture != NULL) {
         SDL_Rect srcRect = animation.frameRects[animation.currentFrame];
         SDL_RenderCopy(renderer, texture.get(), &srcRect, &rect);
@@ -87,7 +86,7 @@ void AnimatedBitmap::SetAnimationFrames(const std::vector<SDL_Rect>& frames) {
 void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int columns, int rows) {
     animation.frameRects.clear();
     animation.frameCount = columns * rows;
-    animation.currentFrame = 0; // Reset to first frame
+    animation.currentFrame = 0;
 
     for (int y = 0; y < rows; y++) {
         for (int x = 0; x < columns; x++) {
@@ -101,7 +100,6 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
         }
     }
 
-    // Immediately set the source rect to the first frame
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
     }
@@ -110,7 +108,6 @@ void AnimatedBitmap::SetAnimationFrames(int frameWidth, int frameHeight, int col
 void AnimatedBitmap::SetAnimationFromInfo(const SpriteAnimationInfo* animInfo) {
     if (!animInfo) return;
 
-    // Convert SpriteRect array to SDL_Rect vector
     animation.frameRects.clear();
     for (uint8_t i = 0; i < animInfo->frameCount; i++) {
         const SpriteRect& rect = animInfo->frames[i];
@@ -121,10 +118,8 @@ void AnimatedBitmap::SetAnimationFromInfo(const SpriteAnimationInfo* animInfo) {
     animation.loop = animInfo->isLooping;
     animation.currentFrame = 0;
 
-    // Set speed based on milliseconds per frame
-    animation.frameDuration = animInfo->animationSpeed / 1000.0f;  // Convert ms to seconds
+    animation.frameDuration = animInfo->animationSpeed / 1000.0f;
 
-    // Set source rect to first frame
     if (animation.frameCount > 0) {
         SetSourceRect(animation.frameRects[0]);
     }
@@ -151,8 +146,6 @@ void AnimatedBitmap::SelectFrame(int row, int col) {
     animation.frameCount = 1;
     animation.currentFrame = 0;
 
-    // Default to drawing the cell unscaled; callers wanting a different
-    // on-screen size can override with SetDimensions after selecting.
     SetDimensions(cellW, cellH);
 }
 

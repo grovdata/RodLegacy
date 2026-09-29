@@ -27,7 +27,6 @@ CarModel CarData::GetModel(char* carModel) {
             return m;
         }
     }
-    // Not sure about this
     return CarModel();
 }
 
@@ -36,18 +35,15 @@ CarModel CarData::GetModelFromIndex(int index) {
         bool equals = m.index == index;
         if (equals) {
             LOG_INFO("Found model %s\n", m.name.c_str());
-            // m.Log();
             return m;
         }
     }
-    // Not sure about this
     LOG_WARN("No model found for id %d", index);
     return CarModel();
 }
 
 CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata) {
     CarModel m;
-    // FIXME Speed is unknown
 
     LOG_INFO("bitmap w %d h%d", bitmap.width, bitmap.height);
 
@@ -76,11 +72,9 @@ bool CarData::CarIsValid(toml::table *table) {
 
     for (const auto& key : mandatoryKeys) {
         if (table->find(key) == table->end()) {
-            // Key not found
             return false;
         }
     }
-    // All keys found
     return true;
 }
 
@@ -92,19 +86,15 @@ bool CarData::MapContainsKey(toml::table *table, const char *key) {
 void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
     int metadataCount;
 
-    // Convert vector<unsigned char> to unsigned char*
     unsigned char* buffer = reinterpret_cast<uint8_t*>(datafilebuf.data());
     CarMetadata_t* metadata = dp.SrLibDataReadDataFromBuffer(buffer, datafilebuf.size(), &metadataCount);
     
-    // Resize vector and copy array data
     carMetadata.clear();
     carMetadata.assign(metadata, metadata + metadataCount);
     
     for (int i = 0; i < metadataCount; i++) {   
-        // Get the car's stock model index from kCarIndex array
         int stockIndex = kCarIndex[i];
         
-        // Get the corresponding bitmap for this car model
         BitmapEntry_t& bitmap = bitmaps.second[stockIndex];
         
         LOG_INFO("Creating car %d (stock index %d) with bitmap w:%d h: %d", i, stockIndex, bitmap.width, bitmap.height);         
@@ -113,7 +103,6 @@ void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, s
         // sprite, which only the caller knows the height of.
         carMetadata[i].offsets.offsetYTires = CarSetWheelY(kAmigaCarSet, bitmap.height);
 
-        // Create the car model using the stock index
         CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
         metadataByIndex[newModel.index] = carMetadata[i];
         allCarModels.insert(newModel);
@@ -164,10 +153,7 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
         const DOSBitmapEntry_t& bitmap = bitmaps.second[bodySprite];
 
         CarModel model;
-        // A DOS set's body sprite numbers (39..179 for SRSE) overlap lib.p's
-        // car assets (179..272), so shift each set clear of the last to keep
-        // CarModel::index a unique pool key. The base is the same +1000
-        // HOT_DATA itself uses, stepped once per set.
+        // DOS body sprite numbers overlap lib.p's car assets, so shift each set clear to keep CarModel::index unique.
         model.index = carSet * HOT_DATA_SPRITE_BASE + bodySprite;
         model.carSet = carSet;
         model.sprites.body = sprites[i].body;
@@ -198,9 +184,7 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
         added++;
     }
 
-    // Only the array itself. The classified strings are malloc'd separately
-    // and the shallow copies in metadataByIndex still point at them, exactly
-    // as ReadCarsBuiltin leaves the stock cars' strings alive for the run.
+    // Only the array: metadataByIndex still points at the classified strings.
     free(metadata);
 
     LOG_INFO("Added %d Street Rod SE cars", added);
@@ -242,21 +226,15 @@ void CarData::ReadCarsFromTomlFile(std::string filename) {
             newModel.width = car["width"].as_integer();
             newModel.height = car["height"].as_integer();
             newModel.offsets.offsetXRearTire = car["rearWheelX"].as_integer();
-            //newModel.offsets.rearWheelY = car["rearWheelY"].as_integer();
-            //newModel.offsets. = car["gasCapX"].as_integer();
-            //newModel.offsets.gasCapY = car["gasCapY"].as_integer();
             newModel.offsets.offsetXAirScoop = car["hoodScoopX"].as_integer();
             newModel.offsets.offsetYAirScoop = car["hoodScoopY"].as_integer();
             newModel.offsets.offsetXFrontTire = car["frontWheelX"].as_integer();
-            //newModel.offsets.frontWheelY = car["frontWheelY"].as_integer();
             newModel.offsets.offsetXDriver = car["driverX"].as_integer();
             newModel.offsets.offsetYDriver = car["driverY"].as_integer();
             newModel.index = car["index"].as_integer();
-            // A TOML car names a lib.p body asset, so it follows the Amiga
-            // set's conventions for where its variants live.
+            // A TOML car names a lib.p body asset, so it follows the Amiga set's conventions.
             newModel.carSet = kAmigaCarSet;
             newModel.sprites = AmigaCarSprites(newModel.index);
-            // PrintModel(newModel);
             allCarModels.insert(newModel);
         }
     } catch (const toml::type_error &e) {

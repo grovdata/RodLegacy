@@ -106,7 +106,7 @@ int64_t ChecksumRight(const TrackData& track) {
     return sum;
 }
 
-}  // namespace
+}
 
 TEST_SUITE("track generation") {
 
@@ -177,10 +177,7 @@ TEST_CASE("RoadLayoutInit builds city, countryside, finish, and S-curve structur
     CHECK((track.left[130] & 0x0800) != 0);
 }
 
-// TrackGenerator (0x239e2e) re-clears 380..1119 with three masks, taken from
-// `andi.w #0xf117 / #0x87ff / #0xe7ff` at 0x239e66/0x239e70/0x239e7a. It is NOT
-// the 0x1801 mask the shape functions use: the arch/gantry nibble and the
-// roadside scenery road_layout_init already placed here have to survive.
+// The re-clear uses its own masks so arches and scenery from RoadLayoutInit survive.
 TEST_CASE("GenerateTrackShapes re-clear keeps arch and scenery bits") {
     TrackData stale = {};
     TrackData masked = {};
@@ -219,13 +216,9 @@ TEST_CASE("Road race keeps its finish gantry and mid-course arches") {
         srrace::RoadLayoutInit(track, rng, 1);
         srrace::GenerateTrackShapes(track, seed % 10);
 
-        // Finish gantry at 1019 (flags |= 0x2010) and the drag-strip gantry at
-        // 379 (0x1010) both survive.
         CHECK((track.flags[1019] & 0x2000) != 0);
         CHECK((track.flags[379] & 0x1000) != 0);
 
-        // At least one arch on the pre-finish straight and one in the generated
-        // terrain, i.e. the road race is not down to two.
         int cityStraight = 0;
         for (int i = 200; i < 380; ++i) {
             if ((track.flags[i] & 0xf000) != 0) ++cityStraight;
@@ -234,4 +227,4 @@ TEST_CASE("Road race keeps its finish gantry and mid-course arches") {
     }
 }
 
-}  // TEST_SUITE
+}

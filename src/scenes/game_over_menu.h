@@ -6,11 +6,6 @@
 
 #include <memory>
 
-// Where every game-over sequence ends up, straight after the hall of fame
-// (KingOfCounty) - whether the run ended in the slammer or by beating The
-// King. A bare black screen with one panel: Load Game, New Game, Quit. There
-// is deliberately no way back into the run; it is over.
-
 class GameOverMenu : public Scene {
 public:
     GameOverMenu();

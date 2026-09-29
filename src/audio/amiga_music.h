@@ -25,19 +25,12 @@ public:
               const uint8_t* env_data, size_t env_size);
 
     void Play();
-    // Start one specific arrangement step at its own tick period, skipping the
-    // random pick Play() does. The win ending is the original's only user of
-    // this path (step 3 at period 42000); that step carries no advance command,
-    // so it plays once and stops. See RodLegacyResearch/docs/audio.md.
-    // channelInstruments / channelVolumes are 4 entries each, or null to leave
-    // the channels at their defaults; the original presets both before it
-    // starts the victory piece.
+    // Plays one arrangement step at its own tick period, skipping Play()'s random pick. Used by the win ending.
+    // channelInstruments / channelVolumes are 4 entries each, or null for defaults.
     void PlayArrangement(int index, int ciaPeriod,
                          const int* channelInstruments = nullptr,
                          const int* channelVolumes = nullptr);
-    // One instrument note outside the arrangement, at a Paula period rather
-    // than a note number. Plays even while no song is running; MusicTick
-    // does not touch it. The intro chimes (0x22c83a) are the only user.
+    // A note at a Paula period, independent of the running song. Used by the intro chimes.
     void PlayEffectNote(int channel, int instrument, int period, int volume);
     void Stop();
     void Pause();
@@ -70,8 +63,6 @@ private:
         double sample_pos = 0.0;
         double sample_step = 0.0;
 
-        // Volume comes from env when the instrument has one, else it stays
-        // at noteVolume * master / 15. loop: audio.device cycles 0.
         bool loop = false;
         bool has_env = false;
         AmigaEnvelope env;

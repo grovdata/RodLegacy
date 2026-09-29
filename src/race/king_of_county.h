@@ -8,10 +8,8 @@
 class KingOfCounty : public Scene {
 private:
     bool wonGame;
-    int newEntryIndex = -1;  // index in table of newly inserted entry, -1 if not inserted
+    int newEntryIndex = -1;
 
-    // One label per row: "NAME                 SCORE"
-    // We render name and score separately for alignment.
     struct Row {
         Label name;
         Label score;

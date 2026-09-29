@@ -2,10 +2,7 @@
 
 #include <algorithm>
 
-// Start of the three tables in SR_data, 60 bytes in total. Confirmed live: the
-// Amiga runtime reads them A4-relative at -0x2B88 / -0x2B76 / -0x2B64, 0x12
-// bytes apart, and a runtime dump of the threshold table decoded to the same
-// bytes the asset carries at 0x74C.
+// Strength, handicap and threshold tables, 0x12 bytes apart.
 constexpr size_t kTableOffset = 0x728;
 constexpr size_t kTableBytes  = 60;
 
@@ -44,7 +41,6 @@ void LoadBetTables(const std::vector<uint8_t>& srData) {
     ReadBE16(p + 36, &kThreshold[0][0], 12);
 }
 
-// FUN_0023d006: the car-spec class byte collapsed to a strength-table row.
 static int CarClassTier(int carClass) {
     if (carClass < 3) return 0;
     if (carClass < 7) return 1;
@@ -75,11 +71,8 @@ bool OpponentAcceptsBet(const BetContext& ctx, BetType bet, int roll) {
     const int threshold = kThreshold[static_cast<int>(bet)][rel];
     const int bonus = ctx.stickerIndex == 0 ? 0 : (ctx.stickerIndex & 1) ? 4 : 6;
 
-    // The rivalry with this one driver, from bytes 4 and 5 of their pool
-    // record: (opp_wins * 2 - races) * threshold / 4. A driver who keeps
-    // beating the player is readier to take the bet; one the player keeps
-    // beating starts turning them down. The original divides by shifting, so
-    // it adds 3 first to round a negative product toward zero rather than down.
+    // Rivalry: (opp_wins * 2 - races) * threshold / 4. The original divides by shifting,
+    // so it adds 3 first to round a negative product toward zero.
     int rivalry = ctx.rivalryMargin * threshold;
     if (rivalry < 0) rivalry += 3;
     rivalry >>= 2;

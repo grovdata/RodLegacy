@@ -8,14 +8,10 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     : Dialog(config),         
       listConfig(listConfig)
 {
-    // The rows are written into mainBitmap, so it has to be blitted even for
-    // a list whose config carries no text, content areas or lines of its own.
+    // Rows are written into mainBitmap, so it must be blitted even without config content.
     mainBitmapHasContent = true;
     rowHeight = listConfig.rowHeight > 0 ? listConfig.rowHeight
                                         : SFont_TextHeight(config.font);
-    // How many rows actually fit, rather than a fixed 10 - a taller list box
-    // used to draw 10 rows and leave the rest of itself blank, and a shorter
-    // one used to overflow its own border.
     if (rowHeight > 0 && listConfig.listBoxRect.h > 0) {
         visibleItems = SDL_max(1, listConfig.listBoxRect.h / rowHeight);
     }
@@ -25,7 +21,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     topConfig.bounds = listConfig.scrollButtons.topRect;
     topConfig.fillColor = config.backgroundColor;
     topConfig.borderColor = config.borderColor;
-    topConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
+    topConfig.textColor = ButtonDefaultChoiceColor;
     topConfig.onClick = [this]() {
         scrollOffset = 0;
     };
@@ -36,7 +32,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     upConfig.bounds = listConfig.scrollButtons.upRect;
     upConfig.fillColor = config.backgroundColor;
     upConfig.borderColor = config.borderColor;
-    upConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
+    upConfig.textColor = ButtonDefaultChoiceColor;
     upConfig.onClick = [this]() {
         if (scrollOffset > 0) scrollOffset--;
     };
@@ -47,7 +43,7 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     downConfig.bounds = listConfig.scrollButtons.downRect;
     downConfig.fillColor = config.backgroundColor;
     downConfig.borderColor = config.borderColor;
-    downConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
+    downConfig.textColor = ButtonDefaultChoiceColor;
     downConfig.onClick = [this]() {
         if (scrollOffset + visibleItems < static_cast<int>(this->listConfig.labels.size())) 
             scrollOffset++;
@@ -59,14 +55,13 @@ ListDialog::ListDialog(DialogConfig config, ListDialogConfig listConfig)
     bottomConfig.bounds = listConfig.scrollButtons.bottomRect;
     bottomConfig.fillColor = config.backgroundColor;
     bottomConfig.borderColor = config.borderColor;
-    bottomConfig.textColor = ButtonDefaultChoiceColor;//config.borderColor;
+    bottomConfig.textColor = ButtonDefaultChoiceColor;
     bottomConfig.onClick = [this]() {
         scrollOffset = static_cast<int>(this->listConfig.labels.size()) - visibleItems;
         if (scrollOffset < 0) scrollOffset = 0;
     };
     scrollBottomBtn = new Button(bottomConfig);
     
-    // Add scroll buttons to Dialog's button list
     buttons.push_back(scrollTopBtn);
     buttons.push_back(scrollUpBtn);
     buttons.push_back(scrollDownBtn);
@@ -83,21 +78,18 @@ void ListDialog::Draw() {
 
     if (!IsVisible()) return;
 
-    // Clear list box area
     SDL_Rect clearRect = listConfig.listBoxRect;
     SDL_FillRect(mainBitmap->GetSurface(), &clearRect, 0);
 
     const int lastVisible =
         SDL_min(scrollOffset + visibleItems, (int)listConfig.labels.size());
 
-    // Draw list items
     for (int i = scrollOffset; i < lastVisible; i++) {
         const int rowY = listConfig.listBoxRect.y + (i - scrollOffset) * rowHeight;
 
         SFont_Write(mainBitmap->GetSurface(), config.font,
                     listConfig.listBoxRect.x, rowY, listConfig.labels[i].c_str());
 
-        // Draw swatch if provided
         if (!listConfig.swatches.empty() && i < static_cast<int>(listConfig.swatches.size()) && listConfig.swatches[i]) {
             SDL_Surface* swatch = listConfig.swatches[i];
             int swatchX = listConfig.listBoxRect.x + listConfig.listBoxRect.w - swatch->w - 2;
@@ -106,9 +98,7 @@ void ListDialog::Draw() {
         }
     }
 
-    // The centred read-out of the current pick is optional: a caller with no
-    // room for it (or whose list already highlights the selection clearly
-    // enough) leaves selectedItemRect empty.
+    // Optional: callers without room leave selectedItemRect empty.
     const bool hasReadout = listConfig.selectedItemRect.w > 0 &&
                             listConfig.selectedItemRect.h > 0;
     if (selectedIndex != -1 && hasReadout) {
@@ -123,18 +113,14 @@ void ListDialog::Draw() {
                     listConfig.labels[selectedIndex].c_str());
     }
 
-    // One texture rebuild for the whole list, not one per row. This also has
-    // to come after every write: UpdateFromSurface recreates the texture, so
-    // a colour mod set before it is thrown away - which is why the per-row
-    // colours this used to set never appeared.
+    // After every write: UpdateFromSurface recreates the texture and drops the colour mod.
     mainBitmap->UpdateFromSurface();
     if (listConfig.textColor.a > 0) {
         SDL_SetTextureColorMod(mainBitmap->GetTexture(), listConfig.textColor.r,
                                listConfig.textColor.g, listConfig.textColor.b);
     }
 
-    // Selection box, drawn straight to the renderer so the list's colour mod
-    // does not tint it.
+    // Straight to the renderer so the list's colour mod does not tint it.
     if (listConfig.selectionBoxColor.a > 0 &&
         selectedIndex >= scrollOffset && selectedIndex < lastVisible) {
         SDL_Rect box = {listConfig.listBoxRect.x - 1,
@@ -175,8 +161,7 @@ void ListDialog::SetSelectedIndex(int index) {
         return;
     }
     selectedIndex = index;
-    // Only the visible window is drawn, so a row picked past its end has to
-    // be scrolled to or the highlight lands on nothing.
+    // Only the visible window is drawn, so scroll to the pick.
     if (index < scrollOffset) {
         scrollOffset = index;
     } else if (index >= scrollOffset + visibleItems) {
@@ -198,8 +183,7 @@ SDL_Rect ListDialog::GetRowRect(int index) const {
 void ListDialog::ActivateRow(int index) {
     if (index < 0) return;
     if (listConfig.activateOnClick) {
-        // A list whose rows toggle in place has nothing to confirm, so acting
-        // on one must not dismiss the screen.
+        // A toggle list has nothing to confirm, so acting must not dismiss it.
         if (listConfig.onItemSelected) listConfig.onItemSelected(index);
         return;
     }
@@ -217,13 +201,11 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
     bool handled = Dialog::HandleEvent(event);
     if (!IsVisible()) return handled;
 
-    // Handle mouse motion
     if (event->type == SDL_MOUSEMOTION) {
         mousePos.x = event->motion.x;
         mousePos.y = event->motion.y;
     }
 
-    // Handle mousewheel scrolling when mouse is over listbox
     if (event->type == SDL_MOUSEWHEEL) {
         
         int wheelY = event->wheel.y;
@@ -233,12 +215,12 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
             mousePos.y >= listConfig.listBoxRect.y &&
             mousePos.y <= listConfig.listBoxRect.y + listConfig.listBoxRect.h) {
             
-            if (wheelY > 0) { // Scroll up
+            if (wheelY > 0) {
                 if (scrollOffset > 0) {
                     scrollOffset--;
                 }
             }
-            else if (wheelY < 0) { // Scroll down
+            else if (wheelY < 0) {
                 if (scrollOffset + visibleItems < static_cast<int>(listConfig.labels.size())) {
                     scrollOffset++;
                 }
@@ -246,7 +228,6 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
         }
     }
 
-    // Handle list clicks
     if (event->type == SDL_MOUSEBUTTONDOWN) {
         if (event->button.x >= listConfig.listBoxRect.x && 
             event->button.x <= listConfig.listBoxRect.x + listConfig.listBoxRect.w &&
@@ -263,32 +244,26 @@ bool ListDialog::HandleEvent(SDL_Event *event) {
         }
     }
 
-    // Handle keyboard events
     if (event->type == SDL_KEYDOWN) {
         if (event->key.keysym.sym == SDLK_ESCAPE) {
             Hide();
         }
         else if (event->key.keysym.sym == SDLK_RETURN && selectedIndex >= 0) {
-            // If Enter is pressed and an item is selected, trigger the selection
             ActivateRow(selectedIndex);
         }
         else if (event->key.keysym.sym == SDLK_UP) {
-            // Move selection up
             handled = true;
             if (selectedIndex > 0) {
                 selectedIndex--;
-                // Ensure the selected item is visible
                 if (selectedIndex < scrollOffset) {
                     scrollOffset = selectedIndex;
                 }
             }
         }
         else if (event->key.keysym.sym == SDLK_DOWN) {
-            // Move selection down
             handled = true;
             if (selectedIndex < static_cast<int>(listConfig.labels.size()) - 1) {
                 selectedIndex++;
-                // Ensure the selected item is visible
                 if (selectedIndex >= scrollOffset + visibleItems) {
                     scrollOffset = selectedIndex - visibleItems + 1;
                 }

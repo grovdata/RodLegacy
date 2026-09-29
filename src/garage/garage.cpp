@@ -44,9 +44,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (!CanInteract()) return;
         Car* car = state.GetCurrentCar();
         if (!car) { bubbles[7]->SetVisible(true); return; }
-        // Confirmed against FUN_002430d2 (messages 38/39): 140 tenths = 14.0
-        // gal is "full enough, not worth the trip"; below that, no trip
-        // without at least a dollar to spend on it.
+        // 14.0 gal is full enough; below that, no trip without a dollar to spend.
         if (car->GetFuelTenths() >= 140) { bubbles[kFullTankBubble]->SetVisible(true); return; }
         if (state.GetBankroll() == 0) { bubbles[kGasNotFreeBubble]->SetVisible(true); return; }
         state.MoveToScene(SCENE_GAS_STATION);
@@ -107,9 +105,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (!CanInteract()) return;
         Car* car = state.GetCurrentCar();
         if (!car) { bubbles[7]->SetVisible(true); return; }
-        // A car with its engine apart doesn't go anywhere.
         if (!car->IsRunning()) { bubbles[13]->SetVisible(true); return; }
-        // Confirmed against FUN_002430d2 (message 37): 9 tenths = 0.9 gal.
         if (car->GetFuelTenths() < 9) { bubbles[kNotEnoughGasBubble]->SetVisible(true); return; }
         state.MoveToScene(SCENE_DINER);
     };
@@ -128,10 +124,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     GetZone("transmission").onClick = [this] {
         if (!CanInteract()) return;
         if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
-        // The window opens whether or not you own a spare - you may just want
-        // to unscrew what's in there, and a car that dropped its transmission
-        // in a race has to be able to get in to fit a new one. "No spares" is
-        // SELECT's problem, same as the engine bay's pickers.
+        // Opens without a spare too: you may just unscrew, or fit a new box after dropping one.
         ShowTransmissionInstallDialog();
     };
     GetZone("engine").onClick = [this] {
@@ -155,12 +148,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto customizationBubble = std::make_unique<Bubble>("Customization ain't free`!", BUBBLE_RIGHT, true);
     customizationBubble->SetVisible(false);
     bubbles.push_back(std::move(customizationBubble));
-    // Original string, 0x247226. The backtick renders as a space.
+    // The backtick renders as a space.
     auto roofConstraintBubble = std::make_unique<Bubble>("Ya can't chop this roof, dummy`!", BUBBLE_LEFT, true);
     roofConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(roofConstraintBubble));
-    // Message 33, shown when the clicked bumper has no entry in the car's
-    // modification record (0x2403b4).
     auto bumperConstraintBubble = std::make_unique<Bubble>("You've already lost your bumper`!", BUBBLE_LEFT, true);
     bumperConstraintBubble->SetVisible(false);
     bubbles.push_back(std::move(bumperConstraintBubble));
@@ -187,9 +178,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto notRunningBubble = std::make_unique<Bubble>("Your car's not running, speedy`!", BUBBLE_LEFT, true);
     notRunningBubble->SetVisible(false);
     bubbles.push_back(std::move(notRunningBubble));
-    // bubbles[kSellerBubble] - every line a buyer says, car or part; the text
-    // is set per message by ShowHaggleMessage (garage_sell_car.cpp) and by the
-    // spare-parts sell-out above.
+    // Every buyer line, car or part; text set per message.
     auto haggleBubble = std::make_unique<Bubble>("No thanks`!", BUBBLE_RIGHT, true);
     haggleBubble->SetVisible(false);
     bubbles.push_back(std::move(haggleBubble));
@@ -199,8 +188,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         BUBBLE_RIGHT_TWO_LINES, false);
     outOfDoughBubble->SetVisible(false);
     bubbles.push_back(std::move(outOfDoughBubble));
-    // bubbles[kNotEnoughGasBubble/kFullTankBubble/kGasNotFreeBubble] - see
-    // garage.h for the confirmed fuel thresholds.
     auto notEnoughGasBubble = std::make_unique<Bubble>(
         "You don't got enough gas to cruise down\nto Bob's.", BUBBLE_RIGHT_TWO_LINES, true);
     notEnoughGasBubble->SetVisible(false);
@@ -217,18 +204,13 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     signSurface = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
     SDL_SetSurfaceBlendMode(signSurface, SDL_BLENDMODE_BLEND);
 
-    // Clear the entire sign area initially
     SDL_FillRect(signSurface, NULL, SDL_MapRGBA(signSurface->format, 0, 0, 0, 0));
 
-    // Create initial texture
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
 
-    // Set audio manager for engine sound
     SetAudioManager(state.GetAssets().GetAudioManager());
-
-    // Don't start animation here - it will be started after initialDelay in Draw()
 
     std::vector<std::string> labels;
     for (const auto& car : state.GetOwnedCars()) {
@@ -254,7 +236,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     SDL_Rect scrollDownRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 31, 15, 15}; // down
     SDL_Rect scrollBottomRect = {topRect.x + topRect.w + 2, topRect.y + topRect.h - 15, 15, 15};  // bottom
 
-    // Dialog zones
     Zone switchItZone("switch_it",    "Switch it", switchItRect);
     Zone sellItZone  ("sell_it",      "Sell it",   sellItRect);
     Zone forgetItZone("car_forget_it","Forget it", forgetItRect);
@@ -267,9 +248,9 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         {
             switchItRect,
             "Switch it",
-            nullptr,  // onClick will be set by Dialog
-            true,     // defaultChoice
-            0        // index
+            nullptr,
+            true,
+            0
         },
         {
             sellItRect,
@@ -296,7 +277,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         {40, 39, 240, 1},
     };
 
-    // Add dialog zones to config
     std::vector<Zone> dialogZones = {
         switchItZone,
         sellItZone,
@@ -313,7 +293,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     dialogConfig.borderColor = {0, 111, 239, 255};
     dialogConfig.buttons = buttons;
     dialogConfig.lines = lines;
-    dialogConfig.zones = dialogZones;  // Add the dialog zones here
+    dialogConfig.zones = dialogZones;
     dialogConfig.contentAreas = std::vector<SDL_Rect>{topRect, bottomRect};
     dialogConfig.font = state.GetAssets().GetMainFont();
     dialogConfig.onZoneHover = [this](Zone& zone) {
@@ -330,11 +310,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                         originalColor = previewColor;
                         UpdatePaintCanPreview();
                         if (state.GetCurrentCar() == nullptr) {
-                            // Nothing parked here to back out first - selling
-                            // the car you were driving leaves the rest of the
-                            // garage sitting there. Take one straight away, or
-                            // StartAnimateCar's "no current car" guard would
-                            // drop the switch and keep the player carless.
+                            // Nothing parked to back out first, so take one straight away or the switch leaves the player carless.
                             state.SetCurrentCar(selectedCar);
                             needsNewAnimation = true;
                             UpdateSign();
@@ -383,16 +359,14 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                    selectedCar->GetModel().name.c_str(),
                    (void*)selectedCar.get());
 
-            // Update paint can to show the selected car's color
             previewColor = selectedCar->GetColor();
             originalColor = previewColor;
             LOG_INFO("Car list: Updating paint can to color %d for selected car", (int)previewColor);
             UpdatePaintCanPreview();
 
-            // Only switch if selecting a different car
             if (selectedCar != state.GetCurrentCarPtr()) {
                 pendingCar = selectedCar;
-                carSelectDialog->Hide();  // Hide dialog immediately when switching cars
+                carSelectDialog->Hide();
                 StartAnimateCar(state.GetCurrentCarPtr(), nullptr, CarAnimationType::SINGLE_CAR_REVERSE);
                 LOG_INFO("Garage::ListDialog: Switching from current car (ptr: %p) to pending car (ptr: %p)",
                        (void*)state.GetCurrentCar(),
@@ -411,17 +385,15 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         }
     });
 
-    // Initialize paint color tracking to current car's color
     StandardCarColor currentCarColor = state.GetCurrentCar() ? state.GetCurrentCar()->GetColor() : CarColorRed;
     previewColor = currentCarColor;
     originalColor = currentCarColor;
     LOG_INFO("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
 
-    // Initialize paint can preview (always visible)
     paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
     paintCanPreview->SetPosition(233, 166);
     paintCanPreview->SetVisible(true);
-    UpdatePaintCanPreview();  // Set initial color
+    UpdatePaintCanPreview();
 
     InitGameMenuDialog();
     InitOptionsDialog();
@@ -451,7 +423,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                     OnEngineBayPartsButtonClicked();
                     break;
                 case 2: // Done
-                    //state.SetGameState(GAME_STATE_GARAGE);
                     engineBay->GetDialog()->Hide();
                     SetActiveDialog(nullptr);
                     break;
@@ -469,7 +440,6 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     );
 
 
-    // Load jack animation
     auto* jackBitmap = state.GetAssets().GetBitmapAsset(
         {LibAssetRegular, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
     if (jackBitmap) {
@@ -480,7 +450,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             jackAnim->SetAnimationFromInfo(animInfo);
             jackAnim->SetLoop(false);
             jackTotalFrames = animInfo->frameCount;
-            // Frame after the animation frames is the background mask
+            // The frame after the animation frames is the background mask.
             const SpriteRect& maskFrame = CAR_JACK_FRAMES[animInfo->frameCount];
             jackLastFrameRect = {maskFrame.x, maskFrame.y, maskFrame.w, maskFrame.h};
             LOG_INFO("Garage: Loaded jack animation: %d frames, mask frame at %d,%d %dx%d",
@@ -501,29 +471,24 @@ SDL_Point Garage::GetCarIdlePosition() {
 void Garage::UpdateSign() {
 
     LOG_INFO("Garage::UpdateSign");
-    // The garage can be carless - after a New Game, or after selling the car
-    // that was parked here - and then the sign simply says nothing.
+    // The garage can be carless, and then the sign says nothing.
     Car* current = state.GetCurrentCar();
     char text[50];
     snprintf(text, 50, "%s", current ? current->GetModel().name.c_str() : "");
 
-    // Clear the surface
     Uint32 transparent = SDL_MapRGBA(signSurface->format, 0, 0, 0, 0);
     SDL_FillRect(signSurface, NULL, transparent);
 
-    // Write new text
     if (text[0] != '\0') {
         int textWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), text);
         int x = signRect.x + (signRect.w - textWidth) / 2;
         SFont_Write(signSurface, state.GetAssets().GetMainFont(), x, 45, text);
     }
 
-    // Destroy old texture if it exists
     if (signTexture) {
         SDL_DestroyTexture(signTexture);
     }
 
-    // Create new texture
     signTexture = SDL_CreateTextureFromSurface(renderer, signSurface);
     SDL_SetTextureBlendMode(signTexture, SDL_BLENDMODE_BLEND);
     SDL_SetTextureColorMod(signTexture, 0, 0, 0);
@@ -547,13 +512,11 @@ void Garage::DrawScene() {
         rebuildRadio_ = false;
         ShowRadioDialog();
     }
-    // Back to the spare-parts list once the take-it-or-leave-it offer is gone,
-    // rebuilt so a sold part drops off it.
+    // Rebuilt so a sold part drops off.
     if (sparePartsNeedsReopen && GetActiveDialog() == nullptr) {
         sparePartsNeedsReopen = false;
         if (CollectSpares().empty()) {
-            // Selling out closes the screen with this, not the "no spare
-            // parts, dummy" line - that one is for opening it empty.
+            // Selling out closes with this, not the "no spare parts" line.
             bubbles[kSellerBubble]->SetText("All parts gone`!", BUBBLE_RIGHT);
             bubbles[kSellerBubble]->SetVisible(true);
         } else {
@@ -572,26 +535,20 @@ void Garage::DrawScene() {
 
     Scene::DrawScene();
 
-    // Mask the static car jack in the background with the last animation frame
     if (tireChangePhase != TireChangePhase::IDLE && jackAnim && jackLastFrameRect.w > 0) {
         SDL_Rect dstRect = {138, 157, jackLastFrameRect.w, jackLastFrameRect.h};
         jackAnim->DrawWithRects(jackLastFrameRect, dstRect);
     }
 
-    // Handle initial delay
     if (initialDelay) {
         if (GameTicks() - fadeCompleteTime >= 2000) {
             initialDelay = false;
             const CarPtr& current = state.GetCurrentCarPtr();
-            // Repaint the sign first: with no car left (totaled, sold) nothing
-            // below runs, and the wreck's name would stay up on the board.
+            // Repaint the sign first, or a totaled car's name stays up.
             UpdateSign();
-            // Nothing to drive in before the player's bought their first car.
             if (current) {
                 if (current == lastParkedCar) {
-                    // Same car that was already sitting here (e.g. just came
-                    // back from the newspaper) - pop it back into place
-                    // instantly instead of replaying the off-screen drive-in.
+                    // The car that was already here pops into place instead of driving in again.
                     carBitmap = GetOrCreateCarBitmap(current);
                     SDL_Point idlePos = GetCarIdlePosition();
                     carx = idlePos.x;
@@ -599,7 +556,7 @@ void Garage::DrawScene() {
                     carBitmap->Move({carx, cary});
                     UpdateSign();
                 } else {
-                    needsNewAnimation = true;  // Ensure parent's initialization logic runs
+                    needsNewAnimation = true;
                     StartAnimateCar(current, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
                     animatingCar = true;
                 }
@@ -621,9 +578,7 @@ void Garage::DrawScene() {
         }
         carBitmap->Draw();
 
-        // Draw tire change animation overlays
         if (tireChangePhase != TireChangePhase::IDLE) {
-            // Jack: centered between wheel positions, at animated Y
             if (jackAnim) {
                 int jackX = (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
                 jackAnim->SetPosition(jackX, (int)jackYPos);
@@ -631,7 +586,6 @@ void Garage::DrawScene() {
                 jackAnim->Draw();
             }
 
-            // Draw wheels at their individually animated positions
             switch (tireChangePhase) {
                 case TireChangePhase::JACK_SLIDE_UP:
                 case TireChangePhase::JACK_CRANK_UP:
@@ -687,30 +641,23 @@ void Garage::DrawScene() {
 
     SDL_RenderCopy(renderer, signTexture, NULL, NULL);
 
-    // Draw paint can preview if paint dialog is active
     if (paintCanPreview && paintCanPreview->IsVisible()) {
         paintCanPreview->Draw();
     }
 
-    // Deferred sticker dialog refresh (avoids use-after-free when scrolling)
     if (stickerNeedsRefresh) {
         stickerNeedsRefresh = false;
         stickerDialog->Hide();
         ShowStickerDialog();
     }
 
-    // The spare-transmissions picker is its own Dialog opened on top of the
-    // transmission install window (not a replacement for it): draw the
-    // install window here whenever it's open but not the active dialog, so
-    // it stays visible underneath the picker.
+    // The install window stays visible under its spare-transmission picker.
     if (transmissionInstallDialog && transmissionInstallDialog->IsVisible() &&
         activeDialog != transmissionInstallDialog.get()) {
         transmissionInstallDialog->Draw();
     }
 
-    // Same idea for the engine bay: its own overview dialog stays visible
-    // underneath whichever spare-part picker (engine/manifold/carb) is on
-    // top of it.
+    // Same for the engine bay under its part pickers.
     bool engineBayPickerActive =
         (engineSwapDialog && activeDialog == engineSwapDialog.get()) ||
         (manifoldSwapDialog && activeDialog == manifoldSwapDialog.get()) ||
@@ -723,11 +670,9 @@ void Garage::DrawScene() {
         activeDialog->Draw();
     }
 
-    // Bubbles time themselves out after a few seconds; this one is the end of
-    // the run and has to stay up until the player acknowledges it.
+    // This one has to stay up until acknowledged.
     if (outOfDough) bubbles[kOutOfDoughBubble]->SetVisible(true);
 
-    // Draw bubbles last so they appear on top of dialogs
     for (auto& b : bubbles) {
         b->Draw();
     }
@@ -735,15 +680,12 @@ void Garage::DrawScene() {
 
 void Garage::OnFadeComplete() {
     DropUnownedCarBitmaps();
-    // The overview may still be showing the parts of whatever car it last
-    // synced to, which a purchase or a save load can have replaced.
+    // A purchase or save load may have replaced the car it last synced to.
     RefreshEngineBayGeometry();
     CarScene::OnFadeComplete();
 }
 
-// The original runs this check every time the garage loop comes round
-// (FUN_0023fe24): with the car gone, nothing left to sell and no money, the
-// run is over and the hall of fame follows.
+// With the car gone, nothing to sell and no money, the run is over.
 void Garage::OnSceneEnter() {
     CarScene::OnSceneEnter();
     outOfDough = state.IsOutOfDough();
@@ -767,11 +709,9 @@ void Garage::OnSceneExit() {
 }
 
 void Garage::SetActiveDialog(Dialog *dialog) {
-    // Call the base class implementation
     CarScene::SetActiveDialog(dialog);
 
-    // Show() just turned every bitmap in the dialog on - put back the
-    // mounts this manifold doesn't use, then whatever is still apart.
+    // Show() turned every bitmap on; hide the unused mounts, then whatever is apart.
     if (dialog == engineBay->GetDialog()) {
         engineBay->OnDialogShown();
         ApplyEngineBayAssemblyState();
@@ -779,8 +719,7 @@ void Garage::SetActiveDialog(Dialog *dialog) {
 }
 
 bool Garage::PushEvent(SDL_Event* event) {
-    // Nothing in the garage is worth clicking once the run is over; the next
-    // key or click rolls the hall of fame.
+    // Once the run is over, the next key or click rolls the hall of fame.
     if (outOfDough) {
         if (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN) {
             outOfDough = false;
@@ -792,9 +731,8 @@ bool Garage::PushEvent(SDL_Event* event) {
     if (activeDialog && activeDialog->IsVisible()) {
         return activeDialog->HandleEvent(event);
     }
-    // Right-click on the radio opens the song control dialog.
+    // Right-click on the radio opens the song control dialog. Disabled until #42.
     if (false) {
-    // TODO: Disabled until milestone 0.2
     //if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
         static const SDL_Rect radioRect = {259, 61, 25, 12};
         int mx = event->button.x, my = event->button.y;
@@ -817,22 +755,16 @@ void Garage::OnCarAnimationComplete() {
         state.SetCurrentCar(pendingCar);
 
         UpdateSign();
-        // The new car's engine bay art was frozen at whatever car was
-        // current when EngineBay was built - resync now that a different
-        // car is actually being driven in.
         RefreshEngineBayGeometry();
 
-        // Mark that we need a new animation (important for parent's StartAnimateCar logic)
         needsNewAnimation = true;
 
-        // Start the drive-in animation for the new car (this will set up audio, bitmap, position, etc.)
         LOG_INFO("Garage::OnCarAnimationComplete - Starting drive-in animation for new car");
         StartAnimateCar(pendingCar, nullptr, CarAnimationType::SINGLE_CAR_DRIVE);
 
         pendingCar = nullptr;
     }
 
-    // Update paint preview color to match the current car
     if (carBitmap) {
         StandardCarColor newColor = carBitmap->GetCurrentColor();
         LOG_INFO("OnCarAnimationComplete: carBitmap color is %d, updating paint can", (int)newColor);
@@ -841,7 +773,6 @@ void Garage::OnCarAnimationComplete() {
         UpdatePaintCanPreview();
     }
 
-    // Update car zones after animation completes
     UpdateCarZones();
 }
 
@@ -852,10 +783,7 @@ void Garage::UpdateCarZones() {
         carBitmap->Move(p);
         carBitmap->Draw();
 
-        // Click boxes belong to the car being drawn, not to whatever State
-        // currently calls the player's car - the two can differ (a carless
-        // player still has a bitmap mid-exit-animation), and carBitmap keeps
-        // its own car alive, so this is the source that cannot be null here.
+        // From the car being drawn: carBitmap keeps it alive, and State's current car may already differ.
         CarMetadata_t metadata =
             state.carData.GetCarMetadata(carBitmap->GetCar()->GetModelRef().index);
         CarClickBoxes_t clickBoxes = metadata.clickBoxes;
@@ -886,29 +814,18 @@ CarBitmap* Garage::GetOrCreateCarBitmap(const CarPtr& car) {
 }
 
 void Garage::DropUnownedCarBitmaps() {
-    // Cars can have been bought, sold, or replaced wholesale (a save load)
-    // since this scene was last on screen, and nothing tells the Garage that.
-    // So it checks for itself on the way in rather than relying on every
-    // mutation site to remember to call something.
-    //
-    // Cars are shared-owned, so an entry for a car that is no longer in the
-    // roster is only wasted memory - never a dangling pointer. That makes
-    // this housekeeping, not a correctness requirement, which is why it can
-    // safely skip the one entry the scene is currently drawing.
+    // Cars can be bought, sold or replaced by a save load without the Garage knowing. Housekeeping only:
+    // cars are shared-owned, so a stale entry never dangles.
     const std::vector<CarPtr>& owned = state.GetOwnedCars();
     for (auto it = carBitmaps.begin(); it != carBitmaps.end(); ) {
         if (std::find(owned.begin(), owned.end(), it->first) == owned.end()) {
-            // Stop drawing a car the player no longer has. Without this a
-            // New Game (which empties the roster) would leave the previous
-            // car on screen, and every "is there a car?" check that reads
-            // carBitmap would answer yes while State says otherwise.
+            // Or a New Game would leave the previous car on screen.
             if (it->second.get() == carBitmap) carBitmap = nullptr;
             it = carBitmaps.erase(it);
         } else {
             ++it;
         }
     }
-    // Both are rebuilt from State when the car-select list is next opened.
     FreeCarListSwatches();
     sortedOwnedCars.clear();
 }
@@ -931,30 +848,22 @@ void Garage::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animTy
 
     LOG_INFO("Garage::StartAnimateCar - car=%p, type=%d", (void*)car.get(), animType);
 
-    // Garage-specific setup BEFORE calling parent
-    // Create/get car bitmap
     carBitmap = GetOrCreateCarBitmap(state.GetCurrentCarPtr());
     cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), state.GetCurrentCar()->GetModel().height);
 
-    // Set initial position based on animation type
     if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
-        // Reverse: start at idle position (car is already visible)
         SDL_Point idlePos = GetCarIdlePosition();
         carx = idlePos.x;
         LOG_INFO("Garage::StartAnimateCar - Reverse animation, car at idle x=%d", carx);
     } else {
-        // Drive in: start off-screen left
         carx = -GAME_WIDTH;
         LOG_INFO("Garage::StartAnimateCar - Drive in animation, car off-screen x=%d", carx);
     }
 
     carBitmap->Move({carx, cary});
 
-    // Call parent method to start engine sound and set up animation
-    // Parent will NOT override our position for reverse animations
     CarScene::StartAnimateCar(std::move(car), driver, animType);
 
-    // Update sign for initial car
     UpdateSign();
 
     currentAnimationType = animType;

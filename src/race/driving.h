@@ -29,47 +29,33 @@ class Driving: public Scene {
     SDL_Rect roadRect = {0, 14, GAME_WIDTH, GAME_RACING_HEIGHT};
     SDL_Texture *roadTexture;
     
-    // Crash overlay bitmap
     std::unique_ptr<Bitmap> crashOverlayBitmap;
     std::unique_ptr<Bitmap> crashBloodBitmap;
-    bool lastCrashState = false; // Track previous crash state to avoid blinking
+    bool lastCrashState = false;
 
-    // Music is silenced for the duration of a race; remember whether the player
-    // had already paused it so leaving does not un-pause it for them.
+    // Remembers whether the player had paused music, so leaving does not un-pause it.
     bool musicWasPaused = false;
 
     DrivingState currentState = DRIVING_STATE_NORMAL;
 
-    // Race-end pause: freeze the scene, show the reason in a bubble, and wait for
-    // any key to return to the garage.
     bool raceEnded = false;
     bool raceEndPendingKing = false;  // King beaten in a drag -> end-game screen instead
-    // The wreck was bad enough to end the evening: ProcessRaceOutcome's 1
-    // (repaired) or 2 (totaled), the only two ordinary outcomes that break out
-    // of the original's diner loop. See Driving::LeaveAfterRace.
+    // A wreck that ends the evening: repaired or totaled.
     bool raceEndLeftTheDiner = false;
     std::unique_ptr<Bubble> raceEndBubble;
-    // Earliest tick at which a keypress may dismiss the race-end screen. A crash
-    // holds the screen for a minimum time so the crash view is actually seen.
+    // A crash holds the screen for a minimum time.
     Uint32 raceEndDismissAllowedMs = 0;
-    // Wreck at 31..90 mph: the original replaces the bubble with a repair quote
-    // and lets you pay it or junk the car - see race/race_end_message.h.
+    // 31..90 mph wreck: a repair quote to pay or junk the car.
     std::unique_ptr<Dialog> wreckDialog;
     void ShowWreckDialog(const srrace::RaceEndContext& ctx);
-    // The race ends with the whole view fading out and straight back in before
-    // the message appears (RoadRaceMainLoop fades to black, ProcessRaceOutcome
-    // fades back in) - see RodLegacyResearch/docs/palette_fade.md. What the
-    // message needs is held here for the length of the dip.
+    // The view fades out and back in before the message; its data is held for the dip.
     bool raceEndDipping = false;
     bool raceEndWon = false;
     bool raceEndWreck = false;
     srrace::RaceEndMessage raceEndReason;
     srrace::RaceEndContext raceEndCtx;
     void ShowRaceEndMessage();
-    // Time / distance / average speed panel across the top of the race-end
-    // screen (original dialog 24, built by BuildResultText 0x2452c6). Only
-    // shown when the race was actually decided at the line; snapshotted when
-    // the race ends because the dip runs before it goes up.
+    // Only when the race was decided at the line; snapshotted before the dip.
     std::unique_ptr<Dialog> statsDialog;
     bool raceEndShowStats = false;
     int raceEndTimeTenths = 0;
@@ -77,14 +63,10 @@ class Driving: public Scene {
     int raceEndPercent = 0;
     void ShowStatsDialog();
     void OnFadeComplete() override;
-    // Leaves the driving scene once the race-end screen is done with.
     void LeaveAfterRace();
 
 public:
-    // Cruising in town: the drive cutscene between locations. startSeg is the
-    // original's per-destination start (10 hub / 65 diner / 115 gas station);
-    // the drive runs to the arch at segment 380 and then enters `destination`.
-    // Any key skips it. See RodLegacyResearch/docs/driving/cruising.md.
+    // startSeg is the destination's start (10 hub / 65 diner / 115 gas station); runs to the arch at 380.
     void StartCruise(int startSeg, SrLibGameScene destination);
     static int CruiseStartSegment(SrLibGameScene destination);
 
@@ -92,15 +74,11 @@ private:
     bool cruising = false;
     SrLibGameScene cruiseDestination = SCENE_DINER;
     void EndCruise();
-    // Strips whatever the race broke off the car: the whole engine assembly
-    // on a blown engine, the gearbox on a dropped transmission.
     void ApplyDrivetrainDamage(uint16_t endFlags);
     void ApplyRaceWear();
-    // Returns what is still owed for the new set (0 unless the $50 could not
-    // be covered) - see the definition.
+    // What is still owed for the new set; 0 unless the $50 could not be covered.
     int ApplyBlownTires();
 
-    // Wheel drawable references (raw pointers - lifetime managed by drawable container)
     Bitmap* wheelLeftHand1;
     Bitmap* wheelLeftHand2;
     Bitmap* wheelLeftHand3;
@@ -114,26 +92,20 @@ private:
     Bitmap* wheelTurningLeftOpposite;
     Bitmap* wheelTurningRightOpposite;
 
-    // Dice animation state
     int currentDiceIndex = 0;          // Current visible dice frame (0 = NEUTRAL..4)
-    int diceTilt = 0;                  // Pendulum position -2..2 (original A4-0x1380)
-    int diceDir = 1;                   // Swing direction +-1 (original A4-0x137e)
-    float diceStepTimer = 0.0f;        // Accumulator for one +-1 pendulum step
-    // Milliseconds per +-1 pendulum step (the original advances one step per race
-    // frame; this decouples the swing rate from our display frame rate).
+    int diceTilt = 0;                  // Pendulum position -2..2
+    int diceDir = 1;                   // Swing direction +-1
+    float diceStepTimer = 0.0f;
+    // The original steps once per race frame; this decouples the swing from our frame rate.
     static constexpr float DICE_SWING_STEP_MS = 130.0f;
 
-    // Gear shifter - RodLegacyResearch/docs/driving/shifter.md.
-    // Indexed 0 = automatic, 1 = 3-speed, 2 = 4-speed, the same order the
-    // original's asset table at A4-0x42d4 uses.
+    // Indexed 0 = automatic, 1 = 3-speed, 2 = 4-speed.
     Bitmap* shifterPlate[3] = {nullptr, nullptr, nullptr};
     Bitmap* shifterKnob[3] = {nullptr, nullptr, nullptr};
     Bitmap* shifterHand = nullptr;
     int shifterKind = 2;             // which of the three is on screen
     SDL_Point shifterOrigin{};       // plate top-left on screen
-    // Nothing of the gearbox is drawn at rest - the dashboard already has one
-    // painted in. A shift shows the plate, the bare knob for one frame at each
-    // end, and the hand on the knob for the slide between them.
+    // Nothing is drawn at rest: the dashboard has one painted in.
     enum class ShiftPhase { Idle, KnobStart, Slide, KnobEnd };
     ShiftPhase shiftPhase = ShiftPhase::Idle;
     int shiftStop = 0;               // where the knob rests, a gate-path index
@@ -141,14 +113,11 @@ private:
     int shiftTarget = 0;
     int shiftStep = 0;
     float shiftStepTimer = 0.0f;
-    // ponytail: the original advances one animation phase per race frame, but
-    // that frame rate is not pinned down; this is the calibration knob. Same
-    // value as the dice swing, which is the other per-race-frame animation.
+    // ponytail: the original steps once per race frame, whose rate is unknown; this is the calibration knob.
     static constexpr float SHIFT_STEP_MS = 130.0f;
 
 private:
     void AddWheelDrawable(const std::string& id, Bitmap* bitmap);
-    // Rebuilds the cockpit bitmaps that carry the car's own colour.
     void ApplyCarLivery();
     void LoadTrackData();
     void LoadShifter();
@@ -164,12 +133,6 @@ private:
 
         void Init(bool debugMode) override;
 
-        // MousePointer GetPointerType() override;
-
-        // SDL_Point GetCarIdlePosition() override;
-        // SDL_Point GetCarOffscreenPosition() override;
-
-        // void Action(ZoneId zone) override;
         void Start();
 
         void DrawScene() override;
@@ -180,7 +143,6 @@ private:
         void SetState(DrivingState state);
         void OnSceneEnter() override;
         void OnSceneExit() override;
-        // Driven with the wheel/pedals; no pointer cursor in this scene, except
-        // for the wreck quote, whose buttons have to be clicked.
+        // No pointer, except for the wreck quote's buttons.
         bool WantsPointer() const override { return wreckDialog != nullptr; }
 };

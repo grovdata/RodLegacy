@@ -7,13 +7,7 @@
 const int buttonWidth = 39;
 const int buttonHeight = 9;
 
-// Which lib.p body bitmap represents each part. Carb is confirmed
-// (car_builder.cpp's CreateCarburetorPart uses the exact same mapping).
-// Engine is inferred by displacement tier - only 3 lib.p engine bodies exist
-// (V6/V8/V8_BIG) for 9 CarEngine_t values across 3 vendors, and the body art
-// isn't vendor-specific elsewhere (transmission, manifold, carb all reuse one
-// bitmap across GM/Ford/Chrysler too) - flag if a particular engine shows the
-// wrong body.
+// Engine art is inferred by tier: only 3 bodies exist for 9 engines, and no part art is vendor-specific.
 AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
     switch (type) {
         case CarEngineGM_V6:
@@ -32,16 +26,8 @@ AmigaLibAsset EngineBodyAsset(CarEngine_t type) {
     return ENGINE_V8;
 }
 
-// Read straight out of the Amiga part table (A4-0x48ea, 14-byte records,
-// asset id at +0x02, manifold class in flag bits 3-5) - see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md. The binary's asset ids
-// are lib.p index + 1, and its class order is not ManifoldType's: it has
-// triple 2-barrel at class 2 and dual quad at class 3.
-//
-// No part record names MANIFOLD5: it is the 88x30 narrow twin of the 2-barrel
-// body, and FUN_00241afa substitutes it for MANIFOLD4 after the table lookup
-// whenever the fitted engine is a V6. A V6 only takes the two 2-barrel
-// manifolds, and the other one (triple) is already an 88-wide body.
+// Asset ids are lib.p index + 1 in the part table, and its class order has triple 2-barrel at 2, dual quad at 3.
+// MANIFOLD5 is the narrow 2-barrel body, substituted for MANIFOLD4 on a V6.
 AmigaLibAsset ManifoldBodyAsset(ManifoldType type, CarEngine_t engine) {
     switch (type) {
         case MANIFOLD_2BARREL:
@@ -64,25 +50,22 @@ AmigaLibAsset CarbBodyAsset(CarburetorType type) {
 }
 
 namespace {
-// The button sidebar is drawn immediately right of the engine window frame, at
-// the art's own size. Scaling it even slightly wrecks the 1-bit lettering.
+// At the art's own size: scaling wrecks the 1-bit lettering.
 SDL_Rect SidebarRect(Bitmap* sidebar) {
     const int x = 225;
     if (!sidebar) return {x, 0, 71, 190};
     const SDL_Rect natural = sidebar->GetNaturalSize();
     return {x, 0, natural.w, natural.h};
 }
-}  // namespace
+}
 
 EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback,
                       ZoneClickCallback zoneClickCallback)
     : state(&state), currentState(ENGINE_BAY_OVERVIEW) {
 
-    // Initial level
     this->tuneLevel = tuneLevel;
     this->engineSpeed = tuneLevel;
     
-    // Common dialog configuration
     SDL_Rect engineBayRect = {24, 0, 200, 189};
     SDL_Rect engineBayFillRect = {28, 4, 193, 181};
     SDL_Rect sidebarRect = {225, 1, 71, 189};
@@ -97,11 +80,7 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect retardRect = {98, 9, 10, 11};
     SDL_Rect advanceRect = {143, 9, 10, 11};
     SDL_Rect tuningGadgetRect = {98, 9, 56, 11};
-    // Position and size of every moving part, straight out of the original's
-    // own blit records (A4-0x3b40 and A4-0x3b1c, read by FUN_002416bc) - see
-    // RodLegacyResearch/docs/garage/engine_bay_layout.md. These had been
-    // within a pixel or two by eye, which is enough for the parts not to
-    // line up with each other.
+    // From the original's blit records; by-eye values did not line up.
     SDL_Rect beltAnimationRect = {65, 37, 86, 53};
     SDL_Rect leftPistonRect = {53, 68, 42, 55};
     SDL_Rect rightPistonRect = {134, 68, 41, 54};
@@ -118,9 +97,6 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     Zone advanceZone("advance", "Advance", advanceRect);
     Zone doneTuneZone("done_tune", "Done", partsRect);
 
-    // Every part/screw/wire rect below comes from engine_bay_layout.h, i.e.
-    // from the original's own position tables, so they track the fitted
-    // parts instead of being fixed boxes.
     auto& assets = state.GetAssets();
     Car* currentCar = state.GetCurrentCar();
     CarEngine_t engineType = currentCar->GetEngineType();
@@ -136,36 +112,25 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     SDL_Rect manifoldBodyRect = ManifoldBodyRect(manifoldBmp->GetNaturalSize(), manifoldType);
     SDL_Rect wireRect = EngineWireRect(wireBmp->GetNaturalSize(), engineType);
 
-    // Part-swap screws (engine x1, manifold x2, one per carburetor) - see
-    // garage/garage_engine_bay_install.cpp for the click-driven state
-    // machine.
     SDL_Point screwAnchor[kEngineBayScrewCount];
     for (int i = 0; i < kEngineBayScrewCount; i++) {
         screwAnchor[i] = EngineBayScrewAnchor(i, engineType, manifoldType, carbType);
     }
 
-    // Same rects as the body bitmaps - click to open the spare-parts picker
-    // once a slot is fully unscrewed (Garage ignores the click otherwise).
-    // This is also the only way back in after "Forget it".
+    // Click to open the picker once a slot is unscrewed; also the only way back in after "Forget it".
     Zone enginePartZone("part_0", "Engine", engineBodyRect);
     Zone manifoldPartZone("part_1", "Manifold", manifoldBodyRect);
 
-    // The engine's ground wire has to be unplugged (as well as its screw
-    // backed out) before the engine can come out.
     Zone wireZone("wire_0", "Wire", wireRect);
 
-    // Dialog hit-testing takes the first zone that contains the click, so
-    // these run smallest-on-top first: the part bodies overlap each other
-    // and swallow the screws and the wire otherwise (the engine body alone
-    // covers most of the bay).
+    // Hit-testing takes the first containing zone, so the smallest go first.
     std::vector<Zone> engineDialogZones = {tuneZone, partsZone, doneZone};
     for (int i = 0; i < kEngineBayScrewCount; i++) {
         engineDialogZones.emplace_back("screw_" + std::to_string(i), "Screw",
                                        EngineBayScrewZone(screwAnchor[i]));
     }
     engineDialogZones.push_back(wireZone);
-    // Always three carb zones (part_2..part_4); RefreshPartsForCurrentCar
-    // disables the ones this manifold doesn't mount.
+    // RefreshPartsForCurrentCar disables the mounts this manifold lacks.
     for (int i = 0; i < kMaxCarburetors; i++) {
         engineDialogZones.emplace_back("part_" + std::to_string(2 + i), "Carburetor",
                                        CarbBodyRect(carbBmp->GetNaturalSize(), manifoldType, engineType, i),
@@ -175,7 +140,6 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     engineDialogZones.push_back(enginePartZone);
     std::vector<Zone> tuneDialogZones = {retardZone, advanceZone, doneTuneZone};
 
-    // Common button configuration
     Bitmap* buttonBitmap = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS});
     Bitmap* buttonBitmapDone = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWBUTTONS_DONE});
     
@@ -260,13 +224,11 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         }
     };
 
-    // Debug: Log the tuning button indices
     LOG_INFO("Tuning buttons created:");
     for (size_t i = 0; i < tuningButtons.size(); i++) {
         LOG_INFO("  Button %zu: %s (index: %d)", i, tuningButtons[i].text.c_str(), tuningButtons[i].index);
     }
 
-    // Common callback setup
     auto buttonCallbackWrapper = [buttonCallback](const int buttonIndex) {
         LOG_INFO("=== OVERVIEW BUTTON CALLBACK ===");
         LOG_INFO("Overview button index: %d", buttonIndex);
@@ -280,24 +242,19 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         LOG_INFO("=== END OVERVIEW BUTTON CALLBACK ===");
     };
     
-    // Tuning-specific callback setup
     auto tuningButtonCallbackWrapper = [this, buttonCallback](const int buttonIndex) {
         LOG_INFO("=== TUNING BUTTON CALLBACK ===");
         LOG_INFO("tunelevel %d, buttonIndex: %d", this->tuneLevel, buttonIndex);
         if (buttonIndex == 0) { // Retard button
             LOG_INFO("Retard button pressed - decreasing tune level");
             SetKnobPosition(this->tuneLevel - 1);
-            // Don't call original callback for Retard button
         } else if (buttonIndex == 1) { // Advance button
             LOG_INFO("Advance button pressed - increasing tune level");
             SetKnobPosition(this->tuneLevel + 1);
-            // Don't call original callback for Advance button
         } else if (buttonIndex == 2) { // Done button
             LOG_INFO("Done button pressed - switching back to overview");
-            // Switch back to overview dialog
             SwitchToState(ENGINE_BAY_OVERVIEW);
             LOG_INFO("Current state after switch: %d", this->currentState);
-            // Call original callback with a special index to just update the dialog
             if (buttonCallback) {
                 buttonCallback(99); // Special index to just update dialog without state change
             }
@@ -314,7 +271,6 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         LOG_INFO("Engine Bay Zone Hover: %s (Zone ID: %s)", zone.GetText().c_str(), zone.GetId().c_str());
     };
 
-    // Create overview dialog
     DialogConfig overviewConfig;
     overviewConfig.bounds = engineBayRect;
     overviewConfig.backgroundColor = {0, 0, 0, 255};
@@ -327,25 +283,16 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
     overviewConfig.onZoneHover = zoneHoverWrapper;
     overviewConfig.onZoneClick = zoneClickCallback;
 
-    // Overview dialog bitmaps
     overviewConfig.bitmaps["background"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
-    // The sidebar carries the button faces and their lettering. Drawn at its
-    // own size: the art is 72x189, and the 71x190 it used to be squeezed into
-    // resampled every glyph by a fraction of a pixel, which is what made the
-    // labels look jagged against the rest of the screen.
+    // At its own size (72x189); squeezing it jagged the labels.
     overviewConfig.bitmaps["button_sidebar"] = {
         buttonBitmap, SidebarRect(buttonBitmap), 1
     };
-    // Engine/manifold/carb bitmaps track the current car's actual parts.
-    // Swapping updates these via GetBitmap() rather than rebuilding the
-    // dialog - see garage/garage_engine_bay_install.cpp.
     overviewConfig.bitmaps["engine_body"] = {engineBmp, engineBodyRect, 2};
     overviewConfig.bitmaps["manifold_body"] = {manifoldBmp, manifoldBodyRect, 2};
-    // One carb bitmap per mount the manifold has; own copies so the unused
-    // ones can be hidden without hiding the others.
     for (int i = 0; i < kMaxCarburetors; i++) {
         carbBitmap[i] = std::make_unique<Bitmap>(*carbBmp);
         carbBitmap[i]->SetVisible(currentCar->HasCarburetor(i));
@@ -354,15 +301,10 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
             CarbBodyRect(carbBmp->GetNaturalSize(), manifoldType, engineType, i), 4
         };
     }
-    // "engine_wire" (not "..._attached") since garage_engine_bay_install.cpp
-    // toggles this between ENGINE_WIRE_ATTACHED/ENGINE_WIRE_DETACHED.
+    // Toggled between ENGINE_WIRE_ATTACHED/ENGINE_WIRE_DETACHED.
     overviewConfig.bitmaps["engine_wire"] = {wireBmp, wireRect, 3};
 
-    // Part-mount screws: independent ENGINE_BOLT copies (not a shared
-    // pointer - same reasoning as the transmission screws, so hiding one
-    // via SetVisible can't affect the others), turn state selected by a
-    // growing crop off the top of the image - see
-    // garage_engine_bay_install.cpp's ScrewFrameCrop.
+    // Independent copies, so hiding one screw can't affect the others.
     Bitmap* boltSrc = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BOLT});
     for (int i = 0; i < kEngineBayScrewCount; i++) {
         screwBitmap[i] = std::make_unique<Bitmap>(*boltSrc);
@@ -379,21 +321,18 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     engineDialog = new Dialog(overviewConfig);
 
-    // Create tuning dialog
-    DialogConfig tuningConfig = overviewConfig; // Copy common config
+    DialogConfig tuningConfig = overviewConfig;
     
-    // Update buttons for tuning dialog
     tuningConfig.buttons = tuningButtons;
     tuningConfig.zones = tuneDialogZones;
     tuningConfig.onButtonPressed = tuningButtonCallbackWrapper;
     
-    // Replace sidebar and content bitmaps for tuning
     tuningConfig.bitmaps.clear();
     tuningConfig.bitmaps["background"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_WINDOWFRAME}),
         engineBayRect, 0
     };
-    // Same art, Done-only variant, so the same 1:1 rule applies.
+    // Same 1:1 rule.
     tuningConfig.bitmaps["button_sidebar_done"] = {
         buttonBitmapDone, SidebarRect(buttonBitmapDone), 1
     };
@@ -402,14 +341,12 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
         tuningGadgetRect, 3
     };
 
-    // The still engine behind the moving parts: above the window frame,
-    // below everything that animates.
+    // Above the window frame, below everything that animates.
     tuningConfig.bitmaps["engine_backdrop"] = {
         state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,ENGINE_TUNING_SCREEN}),
         engineBackdropRect, 2
     };
 
-    // Create animated engine tune bitmap - using animation data from libp.h
     Bitmap* engineTuneAnimationBelt = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_BELT_ANIMATION});
     AnimatedBitmap* engineTuneAnimation = new AnimatedBitmap(engineTuneAnimationBelt, beltAnimationRect);
     engineTuneAnimation->SetAnimationFromInfo(GetSpriteAnimationInfo(ENGINE_BELT_ANIMATION));
@@ -486,33 +423,23 @@ EngineBay::EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback,
 
     tuneDialog = new Dialog(tuningConfig);
     
-    // Create parts dialog
     InitPartsDialog();
     
-    // Set initial knob position
     SetKnobPosition(tuneLevel);
 }
 
 EngineBay::~EngineBay() {
-    // Don't delete dialogs - they're owned by the Garage class.
-    // Do stop the drone, or it outlives the screen.
+    // The dialogs are owned by the Garage. Stop the drone or it outlives the screen.
     UpdateBayDrone(false);
 }
 
-// 0x00233c10's opening sequence: play the ignition once (0x22818e, 6912 bytes
-// of srl0, ioa_Cycles = 1), wait Delay(32) for it to finish, then hold the
-// ordinary engine loop as the idle. Re-rolls the idle's small period wobble
-// whenever the tune level moves.
+// Play the ignition once, then hold the ordinary engine loop as the idle.
 void EngineBay::UpdateBayDrone(bool wanted) {
     AudioManager* audio = state ? state->GetAssets().GetAudioManager() : nullptr;
     if (!audio) {
         return;
     }
-    // The drone belongs to the tuning window and nothing else. Gating on the
-    // state here rather than at the call sites makes that true by
-    // construction: the level also moves from the parts view (ShakeTuning on
-    // every install and unscrew, RefreshPartsForCurrentCar after a swap), and
-    // none of that may start the engine running.
+    // Only the tuning window runs the drone; the level also moves from the parts view.
     if (!wanted || currentState != ENGINE_BAY_TUNING) {
         if (bayDronePlaying) {
             audio->StopEngineBayDrone();
@@ -557,8 +484,7 @@ Dialog* EngineBay::GetDialog() {
     }
 }
 
-// A slot holds a part when the car actually has one fitted there - the bay
-// is the car's own assembly state, not a picture of a complete engine.
+// The bay shows the car's own assembly state.
 bool EngineBay::IsPartFitted(int partSlot) {
     Car* car = state->GetCurrentCar();
     if (!car) return false;
@@ -567,10 +493,7 @@ bool EngineBay::IsPartFitted(int partSlot) {
     return car->HasCarburetor(partSlot - 2);
 }
 
-// Whether this slot is a mount the current manifold actually has. A 2-barrel
-// manifold's second and third carb mounts exist as bitmaps but are never
-// shown - and their positions clamp onto a real mount, so leaving one on
-// would park a phantom carburetor on top of a real one.
+// A 2-barrel's extra carb mounts clamp onto a real one, so leaving them on parks a phantom carburetor.
 bool EngineBay::IsPartSlotUsed(int partSlot) {
     Car* car = state->GetCurrentCar();
     if (partSlot < 2 || !car) return true;
@@ -578,10 +501,7 @@ bool EngineBay::IsPartSlotUsed(int partSlot) {
 }
 
 void EngineBay::OnDialogShown() {
-    // Dialog::Show() turns every bitmap on, including mounts this manifold
-    // doesn't have. Garage owns what's fitted vs. mid-animation and fixes
-    // that straight after (ApplyEngineBayAssemblyState), so only the mounts
-    // that can never be shown are dealt with here.
+    // Show() turns every bitmap on; Garage fixes what's fitted, this only hides impossible mounts.
     if (!engineDialog) return;
     for (int slot = 2; slot < kEngineBayPartSlots; slot++) {
         if (IsPartSlotUsed(slot)) continue;
@@ -623,8 +543,7 @@ void EngineBay::SetPartAsset(int partSlot, AmigaLibAsset asset) {
     if (!db) return;
     Bitmap* src = state->GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
     if (partSlot >= 2) {
-        // Carb mounts need their own copies: they often share one asset, and
-        // SetVisible on a shared Bitmap would hide the lot.
+        // Mounts often share one asset, so each needs its own copy.
         carbBitmap[partSlot - 2] = std::make_unique<Bitmap>(*src);
         db->bitmap = carbBitmap[partSlot - 2].get();
     } else {
@@ -651,8 +570,7 @@ void EngineBay::RefreshPartsForCurrentCar() {
     Car* car = state->GetCurrentCar();
     if (!car || !engineDialog) return;
 
-    // The tuning window keeps its own copy of the level - a different car
-    // (or a rebuild that knocked the timing out) has to move the indicator.
+    // The tuning window keeps its own copy of the level.
     SetKnobPosition(car->GetTuneLevel());
 
     CarEngine_t engineType = car->GetEngineType();
@@ -670,7 +588,6 @@ void EngineBay::RefreshPartsForCurrentCar() {
         db->sourceRect = {0, 0, 0, 0};
         if (Zone* z = engineDialog->GetZone("part_" + std::to_string(slot))) {
             z->SetRect(db->rect);
-            // A mount this manifold doesn't have is not clickable at all.
             z->SetEnabled(slot < 2 || slot - 2 < carbSlots);
         }
     }
@@ -681,8 +598,6 @@ void EngineBay::RefreshPartsForCurrentCar() {
         if (Zone* z = engineDialog->GetZone("wire_0")) z->SetRect(db->rect);
     }
 
-    // Screws go back to their seated crop at the new mount points; Garage
-    // re-applies whatever turn state each is really in.
     for (int i = 0; i < kEngineBayScrewCount; i++) {
         bool used = i < 3 || i - 3 < carbSlots;
         SDL_Point anchor = GetScrewAnchor(i);
@@ -703,11 +618,7 @@ void EngineBay::SetKnobPosition(int level) {
     if (level < 0) level = 0;
     if (level > 12) level = 12;
 
-    // Re-roll the drone's jitter on a real change, which is what makes the
-    // engine note shift as you work the knobs. Hooked here rather than in the
-    // button callback because Retard/Advance exist both as invisible buttons
-    // and as zones, so a click can arrive by either route. UpdateBayDrone
-    // ignores this outside the tuning view.
+    // Hooked here: Retard/Advance exist as both buttons and zones.
     if (level != tuneLevel) {
         UpdateBayDrone(true);
     }
@@ -719,8 +630,7 @@ void EngineBay::SetKnobPosition(int level) {
         state->GetCurrentCar()->SetTuneLevel(level);
     }
 
-    // Update animation speeds for all engine animations
-    // Higher tune level = faster animations, so use inverse of engineSpeed for frame duration
+    // Higher tune level = faster animations.
     const char* animationNames[] = {
         "engine_tune_animation", "left_piston_animation", "right_piston_animation",
         "crank_animation", "flywheel_animation", "cam_animation"
@@ -730,25 +640,21 @@ void EngineBay::SetKnobPosition(int level) {
         DialogBitmap* bitmap = tuneDialog->GetBitmap(name);
         if (bitmap && bitmap->bitmap) {
             if (AnimatedBitmap* anim = dynamic_cast<AnimatedBitmap*>(bitmap->bitmap)) {
-                // Invert the speed: higher engineSpeed = lower frameDuration = faster animation
                 float frameDuration = 1.0f - engineSpeed;
                 anim->SetSpeed(frameDuration);
             }
         }
     }
 
-    // Move the dialog entry's own draw rect, not the Bitmap's position:
-    // Dialog::Draw re-applies db.rect to the bitmap every frame for entries
-    // without a sourceRect, so setting the bitmap directly never showed.
+    // Move the dialog entry's rect: Dialog::Draw re-applies it to the bitmap every frame.
     DialogBitmap* knobBitmap = tuneDialog->GetBitmap("tune_knob");
     if (knobBitmap) {
-        // Position 8 is where the indicator's own static rect sits (124).
+        // Level 8 is where the indicator's own rect sits (124).
         knobBitmap->rect.x = 108 + level * 2;
     }
 }
 
 void EngineBay::InitPartsDialog() {
-    // Parts dialog configuration
     SDL_Rect partsDialogRect = {36, 26, 260, 136};
     SDL_Rect partsListRect = {40, 40, 242, 80};
     SDL_Rect topRect = {37, 27, 246, 95};
@@ -767,7 +673,6 @@ void EngineBay::InitPartsDialog() {
     SDL_Rect scrollDownRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + partsDialogRect.h - 31, 15, 15};
     SDL_Rect scrollBottomRect = {partsDialogRect.x + partsDialogRect.w + 2, partsDialogRect.y + partsDialogRect.h - 15, 15, 15};
     
-    // Sample parts list (you can replace this with actual parts from the car/state)
     std::vector<std::string> partsLabels = {
         "Engine Block",
         "Carburetor",
@@ -838,7 +743,6 @@ void EngineBay::InitPartsDialog() {
                 break;
             case 1: // Forget it
                 LOG_INFO("Forget it selected");
-                // Switch back to overview
                 SwitchToState(ENGINE_BAY_OVERVIEW);
                 break;
         }
@@ -871,8 +775,7 @@ EngineBayView::EngineBayView(Car& car, State& state, std::function<void()> onClo
     ManifoldType manifoldType = car.GetManifoldType();
     CarburetorType carbType = car.GetCarburator().partType.carburetorType;
 
-    // Same bay rect as the garage's overview, so every position table in
-    // engine_bay_layout.h lands where it does there - just on black.
+    // Same bay rect as the garage, so every position table lands the same, on black.
     SDL_Rect bounds = {24, 0, 200, 189};
 
     DialogConfig cfg;
@@ -885,12 +788,10 @@ EngineBayView::EngineBayView(Car& car, State& state, std::function<void()> onClo
     cfg.onZoneClick = [onClose](Zone&) { if (onClose) onClose(); };
     cfg.onDismiss = onClose;
 
-    // Same window border the garage bay wears (lib.p 288), minus its sidebar.
+    // The garage bay's window border (lib.p 288), minus its sidebar.
     cfg.bitmaps["background"] = {lib(ENGINE_WINDOWFRAME), bounds, 0};
 
-    // Only what is actually bolted on gets an entry: Dialog::Show() turns
-    // every bitmap it holds visible, so a missing part has to be absent
-    // rather than hidden.
+    // Only fitted parts get an entry: Show() turns every bitmap visible.
     Bitmap* boltBmp = lib(ENGINE_BOLT);
     SDL_Rect boltNatural = boltBmp->GetNaturalSize();
     SDL_Rect boltCrop = {0, 0, boltNatural.w, boltNatural.h / 3};  // seated frame
@@ -913,8 +814,7 @@ EngineBayView::EngineBayView(Car& car, State& state, std::function<void()> onClo
         addScrew(1);
         addScrew(2);
     }
-    // One shared carb asset across the mounts is fine here: nothing is ever
-    // hidden individually, and Dialog::Draw re-applies each entry's own rect.
+    // A shared carb asset is fine: nothing is hidden individually.
     Bitmap* carbBmp = lib(CarbBodyAsset(carbType));
     for (int i = 0; i < car.GetCarburetorSlots(); i++) {
         if (!car.HasCarburetor(i)) continue;

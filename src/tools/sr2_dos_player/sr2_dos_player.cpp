@@ -1,11 +1,7 @@
 // Street Rod 2 (DOS) AdLib music player - Nuked-OPL3 + SDL3.
 //
-// Two modes:
 //   --mus <file.MUS>  synthesise a song from MSR.SND + the .MUS event stream
-//   --dro <file.dro>  replay a DOSBox Raw OPL capture, which is the real
-//                     game's own register stream and therefore the reference
-//
-// Formats are documented in RodLegacyResearch/docs/sr2_dos/adlib.md.
+//   --dro <file.dro>  replay a DOSBox Raw OPL capture, the game's own register stream
 
 #include <SDL3/SDL.h>
 
@@ -29,7 +25,6 @@ constexpr int kPatchLen = 56;
 constexpr int kNameLen = 9;
 constexpr int kTicksPerSecond = 480;
 
-// One scheduled register write.
 struct RegWrite {
     uint32_t sample;   // when to apply, in output samples
     uint16_t reg;
@@ -146,10 +141,7 @@ bool ParseMus(const std::vector<uint8_t>& d, std::vector<MusEvent>& out, uint32_
     uint8_t status = 0;
     out.clear();
     while (i < n) {
-        // Delta time is ONE byte, 0..255, not a MIDI variable-length
-        // quantity: a delta of 0xa0 is 160 ticks, not the start of a
-        // multi-byte value. 0xF8 is reserved as a bare clock tick and may
-        // precede the delta byte.
+        // Delta time is one byte, not a MIDI variable-length quantity. 0xF8 is a bare clock tick.
         uint32_t dt = 0;
         while (i < n && b[i] == 0xF8) { dt++; i++; }
         if (i < n) { dt += b[i]; i++; }
@@ -211,11 +203,7 @@ const uint16_t kFNum[12] = {343, 364, 385, 408, 433, 459, 486, 515, 546, 579, 61
 
 class Scheduler {
 public:
-    // Writes land at least one sample apart. On the real chip a player writes
-    // registers one after another and the chip keeps running between them, so
-    // a key-off is always seen before the key-on that follows it. Collapsing a
-    // tick's writes onto a single sample loses that: the envelope never
-    // retriggers and the voice stays silent after its first note.
+    // At least one sample apart, so a key-off is seen before the next key-on and the envelope retriggers.
     void Write(uint32_t sample, uint16_t reg, uint8_t value) {
         if (!writes_.empty() && sample <= writes_.back().sample) {
             sample = writes_.back().sample + 1;
@@ -237,7 +225,6 @@ void ProgramOperator(Scheduler& s, uint32_t at, int slot, const Operator& op, in
     s.Write(at, 0xE0 + slot, static_cast<uint8_t>(op.ws & 0x03));
 }
 
-// Build the register stream for a song.
 void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>& patches,
                   int tick_rate, Scheduler& s) {
     const double samples_per_tick = static_cast<double>(kSampleRate) / tick_rate;
@@ -247,8 +234,7 @@ void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>&
     s.Write(0, 0xBD, 0x20);        // rhythm mode on, as the game does
 
     uint8_t rhythm = 0x20;
-    // Last frequency written to each percussion host channel, so it is only
-    // rewritten when it changes, as the game does.
+    // Only rewritten when it changes, as the game does.
     int perc_fnum[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
     int perc_block[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
     for (const MusEvent& e : events) {
@@ -260,8 +246,7 @@ void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>&
                 if (e.a >= static_cast<int>(patches.size())) break;
                 const Patch& p = patches[e.a];
                 if (IsPercussion(ch)) {
-                    // A percussion voice is one operator, except the bass
-                    // drum which keeps both.
+                    // One operator, except the bass drum which keeps both.
                     const int* slots = kPercussionSlot[ch - kFirstPercussionChannel];
                     ProgramOperator(s, at, slots[0], p.op[0], p.op[0].tl);
                     if (slots[1] >= 0) {
@@ -279,12 +264,10 @@ void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>&
             }
             case 0x90: {
                 const int note = e.a, vel = e.b;
-                if (IsPercussion(ch)) {              // percussion via 0xBD
+                if (IsPercussion(ch)) {
                     const uint8_t bit = static_cast<uint8_t>(1 << RhythmBit(ch));
                     if (vel > 0) {
-                        // Velocity sets the voice's total level, on its
-                        // carrier: the bass drum's second operator, or the
-                        // single operator the other voices get.
+                        // Velocity sets the carrier's total level.
                         const int* slots = kPercussionSlot[ch - kFirstPercussionChannel];
                         const int slot = slots[1] >= 0 ? slots[1] : slots[0];
                         const int prog = program[ch];
@@ -294,10 +277,7 @@ void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>&
                         s.Write(at, 0x40 + slot,
                                 static_cast<uint8_t>(((ksl & 3) << 6) |
                                                      (std::clamp(0x3F - (vel >> 1), 0, 0x3F))));
-                        // A percussion voice still needs a pitch, taken from
-                        // its host channel's F-number with the key-on bit
-                        // left clear. The game sets it once per song rather
-                        // than per note, so only write it when it changes.
+                        // Pitch comes from the host channel's F-number, key-on bit clear. Written only when it changes.
                         const int opl = kPercussionOplChannel[ch - kFirstPercussionChannel];
                         const int oct = std::clamp(note / 12 - 1, 0, 7);
                         const uint16_t f = kFNum[note % 12];
@@ -353,7 +333,6 @@ void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>&
     }
 }
 
-// Build the register stream from a DRO v2 capture.
 bool BuildFromDro(const std::vector<uint8_t>& d, Scheduler& s, std::string& err) {
     if (d.size() < 26 || std::memcmp(d.data(), "DBRAWOPL", 8) != 0) {
         err = "not a DRO file";
@@ -409,8 +388,7 @@ void SDLCALL AudioCallback(void* userdata, SDL_AudioStream* stream, int addition
     SDL_PutAudioStreamData(stream, buf.data(), static_cast<int>(buf.size() * sizeof(int16_t)));
 }
 
-// Render the whole stream offline to a 16-bit stereo WAV, so timing and
-// balance can be checked without a sound device in the loop.
+// Offline render to a 16-bit stereo WAV.
 bool WriteWav(const std::string& path, std::vector<RegWrite>& writes) {
     opl3_chip chip{};
     OPL3_Reset(&chip, kSampleRate);
@@ -455,7 +433,7 @@ void Usage() {
     std::puts("  --tickrate N   .MUS ticks per second (default 480)");
 }
 
-}  // namespace
+}
 
 int main(int argc, char* argv[]) {
     std::string mus, dro, snd, wav;

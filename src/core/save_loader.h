@@ -5,20 +5,12 @@
 #include <string>
 #include <vector>
 
-// Pure binary parser for the Amiga Street Rod .sav format. Format reference:
-// RodLegacyResearch/docs/formats/save_game.md -- every offset/field here
-// matches that doc exactly. This file has no State dependency; State wires
-// a LoadedSave into itself separately (see State::LoadSaveGame).
+// Parser for the Amiga .sav format; no State dependency.
 //
-// Known gaps carried over from the format doc, not resolved here:
-//  - Segment 4 (spare parts) is a flat list with no per-entry category byte,
-//    unlike installed parts (whose category comes from car sub-list slot
-//    position) -- spareParts below cannot be sorted by category from the
-//    raw bytes alone.
-//  - Part variant index -> named part type is only confirmed for a handful
-//    of values (see save_game.md); everything else is an opaque index here.
-//  - The King (opponent slot 21) has no known car-spec source distinct from
-//    the fixed constant already used elsewhere; not populated here.
+// Known gaps:
+//  - Spare parts have no per-entry category byte, so they cannot be sorted by category.
+//  - Part variant -> named type is only confirmed for a few values.
+//  - The King (opponent slot 21) is not populated.
 //  - Header offset 0x2C counter is parsed but unused.
 
 struct LoadedPartRecord {
@@ -37,9 +29,7 @@ struct LoadedCarRecord {
     uint8_t fuelTenths = 0;   // gallons * 10
     uint8_t bodyByte = 0;     // low nibble: bumper/roof flags; high nibble: sticker index
 
-    // Slot 0=Transmission, 1=Engine, 2=Manifold, 3=Carb, 4=second Carb,
-    // 5=third Carb (dual-quad/triple-2bbl manifolds pair with 2 or 3
-    // carbs), 6=Tires.
+    // Slot 0=Transmission, 1=Engine, 2=Manifold, 3..5=Carb, 6=Tires.
     std::vector<LoadedPartRecord> sublists[7];
 };
 
@@ -52,22 +42,13 @@ struct LoadedSave {
     std::vector<LoadedCarRecord> roster;       // ownedCarCount - 1 entries
     std::vector<LoadedPartRecord> spareParts;  // flat, category unknown per-entry
 
-    // Trailer chunk 5, four int16 BE fields. Confirmed against the Amiga
-    // binary: saveGame (0023f3aa) writes 8 bytes from A4-0x467a, and
-    // GetOpponentDifficulty (0023d03a) names them races_completed
-    // (A4-0x467a), road_race_rep (A4-0x4678), drag_race_rep (A4-0x4676)
-    // and last_race_won (A4-0x4674), in ascending address order.
-    //
-    // There is NO races-won field: the original tracks standing, not wins.
+    // There is no races-won field: the original tracks standing, not wins.
     int racesCompleted = 0;
     int roadRep = 0;
     int dragRep = 0;
     bool lastRaceWon = false;
 
-    // Trailer chunk 6: 22 records, position i = driver slot i (0-20 = pool
-    // drivers, 21 = The King -- see save_game.md; inferred from matching
-    // count + King driving his own signature car, not independently
-    // confirmed in-game). Value is the car spec that driver currently drives.
+    // Index = driver slot (0-20 pool, 21 The King, inferred). Value is the car spec they drive.
     int opponentCarSpec[22] = {0};
 
     uint32_t elapsedTicks = 0;  // trailer chunk 7, raw
@@ -83,8 +64,6 @@ public:
     // Throws SaveLoadError on malformed or too-small input.
     static LoadedSave Load(const std::filesystem::path& path);
 
-    // Pure in-memory parse, for save bytes that didn't come from a plain
-    // file on disk (e.g. extracted from an ADF image). Load() is a thin
-    // wrapper: read the file, then call this.
+    // For save bytes that are not a plain file, e.g. from an ADF image.
     static LoadedSave Parse(const std::vector<uint8_t>& data);
 };

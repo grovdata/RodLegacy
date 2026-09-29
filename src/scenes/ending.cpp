@@ -6,10 +6,8 @@
 
 namespace {
 
-// The original's frame table, 29 entries of 6 bytes at A4-0x3e0e (static
-// 0x24afca): srcX, srcY, w, h, dstX, dstY. Entries 1..19 are the girl getting
-// out (dstY unused, they bottom-align in an 80x44 window); 20..28 are the kiss
-// growing at the camera and use dstX/dstY as screen coordinates.
+// srcX, srcY, w, h, dstX, dstY. Entries 1..19 are the girl (bottom-aligned in an 80x44 window);
+// 20..28 are the kiss, at screen coordinates.
 struct Frame {
     int sx, sy, w, h, dx, dy;
 };
@@ -47,17 +45,15 @@ constexpr Frame kKiss[9] = {
     {  0, 99, 224, 101,  80,  51},
 };
 
-// Where the girl animation is composited and lands.
 constexpr int kWinX = 103;
 constexpr int kWinY = 67;
 constexpr int kWinH = 44;
 
-// Delay(10) / Delay(20) in dos.library ticks, 1 tick = 1/50 s.
 constexpr Uint64 kFrameMs = 200;
 constexpr int kBeatFrame = 13;   // this one is held twice as long
 constexpr Uint64 kBeatExtraMs = 400;
 
-}  // namespace
+}
 
 Ending::Ending() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {}
 
@@ -67,8 +63,6 @@ void Ending::OnSceneEnter() {
     frame = 1;
     phaseStart = GameTicks();
 
-    // The original starts this back in ProcessRaceOutcome, on the result
-    // screen; the scene opening is the closest point we have to that.
     SetAudioManager(state.GetAssets().GetAudioManager());
     if (audioManager != nullptr) {
         audioManager->PlayVictoryMusic();
@@ -80,7 +74,6 @@ void Ending::OnSceneEnter() {
     winPic = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, WIN_SCREEN});
 }
 
-// The King parks where any car parks in the garage.
 SDL_Point Ending::GetCarIdlePosition() {
     Opponent* king = state.GetKingOpponent();
     const int height = (king && king->car) ? king->car->GetModel().height : 0;
@@ -93,8 +86,6 @@ void Ending::OnCarAnimationComplete() {
         phase = Phase::Girl;
         frame = 1;
         phaseStart = GameTicks();
-        // She is the one getting out, so the portrait behind the windscreen
-        // goes the moment her animation starts.
         if (kingCarBitmap) {
             kingCarBitmap->SetDriverVisible(false);
         }
@@ -107,7 +98,6 @@ void Ending::DrawScene() {
     lastFrameTime = currentTime;
 
     if (phase == Phase::Win) {
-        // 299 is a full-screen picture with its own text, so it stands alone.
         if (winPic != nullptr) {
             winPic->SetPosition(0, 0);
             winPic->Draw();
@@ -120,7 +110,6 @@ void Ending::DrawScene() {
         return;   // UpdateCarAnimation can switch scenes under us
     }
 
-    // Frame pacing for whichever animation is running.
     const Uint64 now = GameTicks();
     if (phase == Phase::Girl || phase == Phase::Kiss) {
         Uint64 due = kFrameMs;
@@ -141,10 +130,8 @@ void Ending::DrawScene() {
         }
     }
 
-    CarScene::DrawScene();   // the garage
+    CarScene::DrawScene();
 
-    // She is getting out of the car, so she is behind it. Once the animation
-    // is done she stays on her last frame for the rest of the scene.
     if (girl != nullptr && phase != Phase::DriveIn) {
         const Frame& f = kGirl[phase == Phase::Girl ? frame : girlFrame];
         girl->DrawWithRects({f.sx, f.sy, f.w, f.h},
@@ -168,7 +155,6 @@ void Ending::OnFadeComplete() {
 }
 
 bool Ending::PushEvent(SDL_Event* event) {
-    // The cutscene has no cursor, so a pad has only its buttons to advance with.
     const bool pressed = event->type == SDL_KEYDOWN ||
                          event->type == SDL_MOUSEBUTTONDOWN ||
                          event->type == SDL_CONTROLLERBUTTONDOWN;
@@ -184,9 +170,7 @@ bool Ending::PushEvent(SDL_Event* event) {
                 king->car, &girlfriendDriver,
                 static_cast<StandardCarColor>(king->car->GetColor()));
             carBitmap = kingCarBitmap.get();
-            // StartAnimateCar does the placing, but it takes the roof offset
-            // for the *current* scene, and SCENE_ENDING is not in that table -
-            // so put the car back on the garage floor afterwards.
+            // StartAnimateCar takes the roof offset for the current scene, which SCENE_ENDING lacks.
             needsNewAnimation = true;
             StartAnimateCar(king->car, &girlfriendDriver, CarAnimationType::SINGLE_CAR_DRIVE);
             cary = GetCarIdlePosition().y;

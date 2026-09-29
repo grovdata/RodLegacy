@@ -12,7 +12,6 @@
 #include <random>
 #include <set>
 
-// Helper to read big-endian values
 static uint32_t ReadBE32(const uint8_t* data) {
     return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
 }
@@ -31,7 +30,6 @@ AudioManager::~AudioManager() {
 bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) {
     LOG_INFO("AudioManager: Initializing...");
 
-    // Initialize SDL audio subsystem if not already done
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
             LOG_INFO("Failed to initialize SDL audio: %s", SDL_GetError());
@@ -39,7 +37,6 @@ bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) 
         }
     }
 
-    // Load audio files from ADF image
     if (disk1AdfData && disk1AdfSize > 0) {
         if (!LoadAudioFromADF(disk1AdfData, disk1AdfSize, "srl0.wave")) {
             LOG_INFO("Warning: Failed to load srl0.wave (engine loop and effects)");
@@ -49,7 +46,6 @@ bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) 
         }
     }
 
-    // Initialize engine sound system with the extracted engine sample
     engineSound = std::make_unique<EngineSound>();
     AudioSample* engineSample = GetSample(AudioSampleType::ENGINE_LOOP);
     if (engineSample && !engineSample->data.empty()) {
@@ -64,7 +60,6 @@ bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) 
         engineSound.reset();
     }
 
-    // Open a second audio device for one-shot sounds (using queue mode)
     SDL_AudioSpec desired, obtained;
     SDL_zero(desired);
     desired.freq = 22050;
@@ -78,15 +73,14 @@ bool AudioManager::Initialize(const uint8_t* disk1AdfData, size_t disk1AdfSize) 
         LOG_INFO("Warning: Failed to open audio device for one-shots: %s", SDL_GetError());
     } else {
         LOG_INFO("AudioManager: One-shot audio device opened successfully");
-        SDL_PauseAudioDevice(audioDevice, 0);  // Unpause to allow queueing
+        SDL_PauseAudioDevice(audioDevice, 0);
     }
 
     LOG_INFO("AudioManager: Loaded %zu audio samples", samples.size());
-    return true;  // Return true even if samples not loaded, engine sound might work
+    return true;  // True even without samples: the engine sound may still work.
 }
 
 void AudioManager::Shutdown() {
-    // Shutdown PC speaker music
     if (pcSpeaker_) {
         pcSpeaker_->Stop();
         pcSpeaker_->Shutdown();
@@ -99,13 +93,11 @@ void AudioManager::Shutdown() {
         amigaMusic_.reset();
     }
 
-    // Shutdown engine sound
     if (engineSound) {
         engineSound->Shutdown();
         engineSound.reset();
     }
 
-    // Close one-shot audio device
     if (audioDevice) {
         SDL_CloseAudioDevice(audioDevice);
         audioDevice = 0;
@@ -121,8 +113,7 @@ void AudioManager::PlayVictoryMusic() {
     musicSource_ = MusicSource::AMIGA;
     if (pcSpeaker_) pcSpeaker_->Stop();
     amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
-    // The two 4-entry tables LAB_0560 copies into the channel state before it
-    // starts: instruments from A4-0x48fc, note volumes from A4-0x48f4.
+    // Instrument and note-volume presets for the victory piece.
     static const int kVictoryInstruments[4] = {0, 5, 1, 2};
     static const int kVictoryVolumes[4] = {64, 22, 64, 64};
     amigaMusic_->PlayArrangement(3, 42000, kVictoryInstruments, kVictoryVolumes);
@@ -195,18 +186,13 @@ AudioManager::MusicSource AudioManager::GetMusicSource() const {
 }
 
 void AudioManager::SetMusicSource(MusicSource src, bool start) {
-    // Stop whatever is currently playing.
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
 
     musicSource_ = src;
     if (!start) return;
 
-    // Muting is a gain control, not a reason to skip starting the source.
-    // Returning early here used to leave the player never started: LoadSettings
-    // applies music_muted before music_source, so a config with music_muted=1
-    // meant Play() was never reached, and unmuting later only re-applied volume
-    // to something that had never begun. Music stayed dead for the whole run.
+    // Muting is a gain control; returning early here once left music never started.
     switch (src) {
         case MusicSource::DOS:
             if (pcSpeaker_) {
@@ -236,21 +222,17 @@ bool AudioManager::LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, cons
 
     bool success = false;
 
-    // Check if this is srl0.wave (engine loop and effects)
     if (strcmp(filename, "srl0.wave") == 0) {
         ExtractSRL0Samples(fileData->data, fileData->size);
         success = true;
     }
-    // Check if this is srl1.wave (music samples)
     else if (strcmp(filename, "srl1.wave") == 0) {
         ExtractSRL1Samples(fileData->data, fileData->size);
         success = true;
     }
-    // Try to load as 8SVX format
     else if (fileData->size > 8 && memcmp(fileData->data, "FORM", 4) == 0) {
         AudioSample sample;
         if (Load8SVX(fileData->data, fileData->size, sample)) {
-            // Store with generic type for now
             samples[AudioSampleType::MUSIC_TONE] = sample;
             success = true;
         }
@@ -263,8 +245,7 @@ bool AudioManager::LoadAudioFromADF(const uint8_t* adfData, size_t adfSize, cons
 void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
     LOG_INFO("AudioManager: Extracting samples from srl0.wave (%zu bytes)", size);
 
-    // Racing engine loop - LOOPED and pitch-modulated per tick.
-    // Periods: idle=252 (~14204 Hz), redline=193 (~18548 Hz). SIGNED 8-bit.
+    // Looped and pitch-modulated per tick. Signed 8-bit.
     if (size >= size_t{SRL0_ENGINE_LOOP_OFFSET} + SRL0_ENGINE_LOOP_LENGTH) {
         AudioSample engineSample;
         LoadRawAudio(data + SRL0_ENGINE_LOOP_OFFSET, SRL0_ENGINE_LOOP_LENGTH,
@@ -277,14 +258,12 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_ENGINE_LOOP_LENGTH, SRL0_ENGINE_LOOP_OFFSET);
     }
 
-    // Engine starting sound - for car startup in garage/gas station
-    // Amiga period 320 = 3579545 / 320 = 11186 Hz
-    // Audio is SIGNED 8-bit (not unsigned!)
+    // Period 320 = 11186 Hz. Signed 8-bit.
     if (size >= SRL0_ENGINE_START_LENGTH) {
         AudioSample engineStartSample;
         LoadRawAudio(data + SRL0_ENGINE_START_OFFSET, SRL0_ENGINE_START_LENGTH,
                      engineStartSample, SRL0_ENGINE_START_RATE);
-        engineStartSample.isLooped = false;  // One-shot sound
+        engineStartSample.isLooped = false;
         engineStartSample.loopStart = 0;
         engineStartSample.loopLength = 0;
         samples[AudioSampleType::ENGINE_START] = engineStartSample;
@@ -292,12 +271,11 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     }
 
-    // Car bash/impact sound - for chopping roof and stripping bumpers
     if (size >= SRL0_CAR_BASH_OFFSET + SRL0_CAR_BASH_LENGTH) {
         AudioSample carBashSample;
         LoadRawAudio(data + SRL0_CAR_BASH_OFFSET, SRL0_CAR_BASH_LENGTH,
                      carBashSample, SRL0_CAR_BASH_RATE);
-        carBashSample.isLooped = false;  // One-shot sound
+        carBashSample.isLooped = false;
         carBashSample.loopStart = 0;
         carBashSample.loopLength = 0;
         samples[AudioSampleType::CAR_BASH] = carBashSample;
@@ -305,11 +283,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_BASH_LENGTH, SRL0_CAR_BASH_RATE);
     }
 
-    // The wreck. Same sample start as the bash, but the whole 0x254c of it -
-    // the original lays it across all four channels at once at four fixed
-    // periods (0x2284a8). We play one voice, at the lowest of the four, so it
-    // reads as the same longer, deeper version of the bash rather than a
-    // second copy of it.
+    // The original lays the full sample across four channels at four periods; one voice at the lowest reads the same.
     if (size >= size_t{SRL0_CRASH_OFFSET} + SRL0_CRASH_LENGTH) {
         AudioSample crashSample;
         LoadRawAudio(data + SRL0_CRASH_OFFSET, SRL0_CRASH_LENGTH, crashSample,
@@ -322,13 +296,11 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CRASH_LENGTH, SRL0_CRASH_PERIODS[3]);
     }
 
-    // Engine bay drone - a long slice of the engine sample, looped on two
-    // voices at independently randomised periods (see StartEngineBayDrone).
     if (size >= size_t{SRL0_BAY_IGNITION_OFFSET} + SRL0_BAY_IGNITION_LENGTH) {
         AudioSample baySample;
         LoadRawAudio(data + SRL0_BAY_IGNITION_OFFSET, SRL0_BAY_IGNITION_LENGTH, baySample,
                      3579545u / SRL0_BAY_IGNITION_PERIOD_BASE);
-        baySample.isLooped = false;   // ioa_Cycles = 1 at 0x2281b4: plays once
+        baySample.isLooped = false;   // Plays once.
         baySample.loopStart = 0;
         baySample.loopLength = 0;
         samples[AudioSampleType::BAY_IGNITION] = baySample;
@@ -336,8 +308,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_BAY_IGNITION_LENGTH, SRL0_BAY_IGNITION_OFFSET);
     }
 
-    // Part mounting - the short sound the original re-pitches on every press
-    // (0x2287a8). The stored rate is the un-rolled base; callers override it.
+    // Re-pitched on every press; callers override the rate.
     if (size >= size_t{SRL0_PART_MOUNT_OFFSET} + SRL0_PART_MOUNT_LENGTH) {
         AudioSample toolSample;
         LoadRawAudio(data + SRL0_PART_MOUNT_OFFSET, SRL0_PART_MOUNT_LENGTH, toolSample,
@@ -357,7 +328,6 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
         samples[AudioSampleType::CUTSCENE_HIT] = hitSample;
     }
 
-    // Car jack sound - for raising/lowering car during tire change
     if (size >= SRL0_CAR_JACK_OFFSET + SRL0_CAR_JACK_LENGTH) {
         AudioSample carJackSample;
         LoadRawAudio(data + SRL0_CAR_JACK_OFFSET, SRL0_CAR_JACK_LENGTH,
@@ -370,7 +340,6 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_CAR_JACK_LENGTH, SRL0_CAR_JACK_RATE);
     }
 
-    // Tire screech sound - RaceLogicUpdate (0x244d50), see RodLegacyResearch/docs/audio.md
     if (size >= SRL0_TIRE_SCREECH_OFFSET + SRL0_TIRE_SCREECH_LENGTH) {
         AudioSample tireScreechSample;
         LoadRawAudio(data + SRL0_TIRE_SCREECH_OFFSET, SRL0_TIRE_SCREECH_LENGTH,
@@ -383,9 +352,7 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_TIRE_SCREECH_LENGTH, SRL0_TIRE_SCREECH_RATE);
     }
 
-    // Cop siren - the in-race speeding pursuit. The original plays this on two
-    // Paula channels at volume 0x36 (AudioStartCopSiren 0x228994), retriggered
-    // while the cop is closing. See RodLegacyResearch/docs/driving/cop.md
+    // Two Paula channels at volume 0x36, retriggered while the cop closes.
     if (size >= SRL0_COP_SIREN_OFFSET + SRL0_COP_SIREN_LENGTH) {
         AudioSample copSirenSample;
         LoadRawAudio(data + SRL0_COP_SIREN_OFFSET, SRL0_COP_SIREN_LENGTH,
@@ -398,11 +365,6 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
                 SRL0_COP_SIREN_LENGTH, SRL0_COP_SIREN_RATE);
     }
 
-    // TODO: Extract other samples from srl0.wave
-    // The exact offsets for ignition, honk and crash
-    // need to be determined from the Amiga disassembly or by analyzing the file
-
-    // For now, we'll just note that the rest exists
     if (size > 12000) {
         LOG_INFO("  - Additional sound effects: %zu bytes (offsets TBD)", size - 12000);
     }
@@ -411,10 +373,6 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
 void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
     LOG_INFO("AudioManager: Extracting samples from srl1.wave (%zu bytes)", size);
 
-    // Music samples - used by California Dreams custom music format
-    // See libp.h for detailed offset documentation
-
-    // Tone sample (lead melody)
     if (size >= SRL1_TONE_OFFSET + SRL1_TONE_LENGTH) {
         AudioSample toneSample;
         LoadRawAudio(data + SRL1_TONE_OFFSET, SRL1_TONE_LENGTH,
@@ -423,7 +381,6 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LOG_INFO("  - Tone: %u bytes at offset 0x%04X", SRL1_TONE_LENGTH, SRL1_TONE_OFFSET);
     }
 
-    // Bassdrum percussion
     if (size >= SRL1_BASSDRUM_OFFSET + SRL1_BASSDRUM_LENGTH) {
         AudioSample bassSample;
         LoadRawAudio(data + SRL1_BASSDRUM_OFFSET, SRL1_BASSDRUM_LENGTH,
@@ -432,7 +389,6 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LOG_INFO("  - Bassdrum: %u bytes at offset 0x%04X", SRL1_BASSDRUM_LENGTH, SRL1_BASSDRUM_OFFSET);
     }
 
-    // Hihat percussion
     if (size >= SRL1_HIHAT_OFFSET + SRL1_HIHAT_LENGTH) {
         AudioSample hihatSample;
         LoadRawAudio(data + SRL1_HIHAT_OFFSET, SRL1_HIHAT_LENGTH,
@@ -441,7 +397,6 @@ void AudioManager::ExtractSRL1Samples(const uint8_t* data, size_t size) {
         LOG_INFO("  - Hihat: %u bytes at offset 0x%04X", SRL1_HIHAT_LENGTH, SRL1_HIHAT_OFFSET);
     }
 
-    // Buzz effect (rest of file)
     if (size >= SRL1_BUZZ_OFFSET) {
         uint32_t buzzLength = size - SRL1_BUZZ_OFFSET;
         AudioSample buzzSample;
@@ -468,12 +423,10 @@ bool AudioManager::LoadRawAudio(const uint8_t* data, size_t size, AudioSample& s
 bool AudioManager::Load8SVX(const uint8_t* data, size_t size, AudioSample& sample) {
     if (size < 12) return false;
 
-    // Check for FORM chunk
     if (memcmp(data, "FORM", 4) != 0) return false;
 
     uint32_t formSize = ReadBE32(data + 4);
 
-    // Check for 8SVX identifier
     if (size < 12 || memcmp(data + 8, "8SVX", 4) != 0) return false;
 
     return Parse8SVXChunks(data + 12, std::min(formSize, static_cast<uint32_t>(size - 8)), sample);
@@ -495,7 +448,6 @@ bool AudioManager::Parse8SVXChunks(const uint8_t* data, size_t size, AudioSample
         if (offset + chunkSize > size) break;
 
         if (strcmp(chunkID, "VHDR") == 0 && chunkSize >= 20) {
-            // Voice header
             header.oneShotHiSamples = ReadBE32(data + offset);
             header.repeatHiSamples = ReadBE32(data + offset + 4);
             header.samplesPerHiCycle = ReadBE32(data + offset + 8);
@@ -515,7 +467,6 @@ bool AudioManager::Parse8SVXChunks(const uint8_t* data, size_t size, AudioSample
                     header.repeatHiSamples, sample.isLooped);
         }
         else if (strcmp(chunkID, "BODY") == 0) {
-            // Sample data (already signed 8-bit)
             sample.data.assign(
                 reinterpret_cast<const int8_t*>(data + offset),
                 reinterpret_cast<const int8_t*>(data + offset + chunkSize)
@@ -541,9 +492,7 @@ AudioSample* AudioManager::GetSample(AudioSampleType type) {
 }
 
 void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateOverride) {
-    // A missing sample or a dead device is a standing condition, and callers
-    // retrigger sounds every few ticks, so report each of these once rather
-    // than on every call.
+    // Standing conditions with frequent retriggers, so report each once.
     static std::set<int> reportedMissing;
     static bool reportedNoDevice = false;
 
@@ -565,8 +514,6 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
         return;
     }
 
-    // Create an audio stream to convert the sample to device format
-    // One-shot device is 22050 Hz, stereo, 16-bit (see Initialize)
     SDL_AudioStream* stream = SDL_NewAudioStream(
         AUDIO_S8, 1, sampleRateOverride > 0 ? sampleRateOverride : static_cast<int>(sample.sampleRate),
         AUDIO_S16SYS, 2, 22050                              // Dest: 16-bit stereo at 22050 Hz
@@ -577,28 +524,24 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
         return;
     }
 
-    // Put the sample data into the stream
     if (SDL_AudioStreamPut(stream, sample.data.data(), static_cast<int>(sample.data.size())) < 0) {
         LOG_INFO("AudioManager::PlaySound - Failed to put data in stream: %s", SDL_GetError());
         SDL_FreeAudioStream(stream);
         return;
     }
 
-    // Flush and get converted data
     SDL_AudioStreamFlush(stream);
     int available = SDL_AudioStreamAvailable(stream);
     if (available > 0) {
-        std::vector<int16_t> convertedData(available / 2);  // 16-bit = 2 bytes per sample
+        std::vector<int16_t> convertedData(available / 2);
         int got = SDL_AudioStreamGet(stream, convertedData.data(), available);
 
         if (got > 0) {
-            // Apply volume (caller volume * sfx master volume)
             float effectiveVolume = volume * (sfxVolume_ / 10.0f);
             for (size_t i = 0; i < convertedData.size(); i++) {
                 convertedData[i] = static_cast<int16_t>(convertedData[i] * effectiveVolume);
             }
 
-            // Queue the audio for playback on the engine sound device
             SDL_QueueAudio(audioDevice, convertedData.data(), got);
         }
     }
@@ -608,14 +551,14 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
 
 int AudioManager::StartLoop(AudioSampleType type, float volume) {
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
-        // The bay swaps in its own, longer slice, so put the racing loop back.
+        // The bay swaps in its own slice, so put the racing loop back.
         if (AudioSample* loop = GetSample(AudioSampleType::ENGINE_LOOP)) {
             engineSound->SetSample(loop->data);
         }
         engineSound->SetVolume(volume * (sfxVolume_ / 10.0f));
         engineSound->Start();
         LOG_INFO("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
-        return 0;  // Return channel 0 for engine sound
+        return 0;
     }
 
     LOG_INFO("AudioManager::StartLoop(%d) - not yet implemented for this type", static_cast<int>(type));
@@ -643,10 +586,7 @@ void AudioManager::UpdateEnginePeriod(int16_t period) {
 }
 
 void AudioManager::PlayBayIgnition() {
-    // 0x22818e plays 6912 bytes of srl0 ONCE (ioa_Cycles = 1, against the
-    // racing drone's 0 = loop forever). Reading Copperline's live memory in the
-    // bay shows no channel playing it, so it is not the bay's engine sound -
-    // left here unhooked rather than guessed at again.
+    // A one-shot slice not heard in the bay on hardware; left unhooked.
 }
 
 void AudioManager::StartEngineBayDrone(int tuneOffset) {
@@ -661,10 +601,8 @@ void AudioManager::SetEngineBayTune(int tuneOffset) {
     if (!engineSound) {
         return;
     }
-    // All four channels meet at 670 at perfect tune, and the gap - so the
-    // phasing - widens with the mistune. The two directions use different
-    // multipliers (Retard 10/11, Advance 13/12), so advancing detunes faster.
-    // We render two voices rather than two pairs, so give one each.
+    // All channels meet at 670 at perfect tune; the gap widens with the mistune, faster when advancing.
+    // Two voices rather than two pairs, one each.
     const int left  = BayDronePeriodA(tuneOffset);
     const int right = BayDronePeriodB(tuneOffset);
     engineSound->UpdatePeriodPair(static_cast<int16_t>(left), static_cast<int16_t>(right));
@@ -675,10 +613,7 @@ void AudioManager::StopEngineBayDrone() {
     StopLoop(0);
 }
 
-// The pump. GasStationPumpLoop runs 0x227e6e for as long as fuel is going in:
-// the racing loop at periods 2850 and 1850, which is far too slow to be an
-// engine note - it comes out as a slow mechanical chug. Same two-voice
-// EngineSound the bay drone borrows, so starting this stops that and vice versa.
+// The racing loop at 2850 and 1850, a slow mechanical chug. Shares the bay drone's EngineSound.
 void AudioManager::StartGasPumpLoop() {
     if (!engineSound) {
         return;
@@ -705,24 +640,19 @@ void AudioManager::StopMusicPlayback() {
 }
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
-    // not yet implemented
 }
 
-// CODE_24 segment classification helpers.
-// Intro = ascending scale: first note is (dur=5, pit=0x0474).
 static bool IsIntroSegment(const std::vector<SrNote>& seg) {
     return !seg.empty() && seg[0].duration_ticks == 5 && seg[0].pit_divisor == 0x0474;
 }
 
-// Rest = all notes are silent (pit_divisor == 0).
 static bool IsRestSegment(const std::vector<SrNote>& seg) {
     for (const auto& n : seg)
         if (n.pit_divisor != 0) return false;
     return !seg.empty();
 }
 
-// Fallback: build a shuffled playlist treating each CODE_24 segment as a song.
-// Used when the segment count doesn't match the expected 18-segment SR.EXE layout.
+// Fallback when the segment count doesn't match the expected 18-segment layout.
 static std::vector<SrNote> BuildShuffledPlaylist(const std::vector<std::vector<SrNote>>& segments) {
     const std::vector<SrNote>* intro = nullptr;
     std::vector<size_t> songIdxs;
@@ -736,7 +666,6 @@ static std::vector<SrNote> BuildShuffledPlaylist(const std::vector<std::vector<S
     }
 
     if (songIdxs.empty()) {
-        // No songs identified -- fall back to flat concatenation.
         std::vector<SrNote> all;
         for (const auto& seg : segments)
             for (const auto& n : seg)
@@ -781,7 +710,6 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
         LOG_INFO("AudioManager: PC speaker: %zu songs loaded", pcSongs_.size());
     } else {
         LOG_INFO("AudioManager: unexpected segment count (%zu), using fallback", segs.size());
-        // Fallback: one big playlist as a single "song".
         pcSongs_.clear();
         pcSongs_.push_back(BuildShuffledPlaylist(segs));
         pcSongNames_ = {"Music"};
@@ -856,8 +784,6 @@ std::string AudioManager::GetCurrentPCSongName() const {
     return pcSongNames_[(size_t)currentPCSong_];
 }
 
-// --- Source-agnostic music control ---
-
 bool AudioManager::HasActiveMusic() const {
     if (musicSource_ == MusicSource::DOS)   return HasPCSpeaker();
     if (musicSource_ == MusicSource::AMIGA) return HasAmigaMusic();
@@ -866,7 +792,6 @@ bool AudioManager::HasActiveMusic() const {
 
 void AudioManager::NextSong() {
     if (musicSource_ == MusicSource::DOS) NextPCSong();
-    // Amiga has a single continuous track -- no-op
 }
 
 void AudioManager::PrevSong() {
@@ -943,7 +868,6 @@ void AudioManager::SetMusicMuted(bool muted) {
         if (pcSpeaker_)  pcSpeaker_->SetAmplitude(0);
         if (amigaMusic_) amigaMusic_->SetVolume(0.0f);
     } else {
-        // Re-apply volume only to the active source.
         if (musicSource_ == MusicSource::DOS && pcSpeaker_)
             pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
         if (musicSource_ == MusicSource::AMIGA && amigaMusic_)
@@ -952,7 +876,6 @@ void AudioManager::SetMusicMuted(bool muted) {
 }
 
 float AudioManager::RPMToPitchMultiplier(int16_t rpm) {
-    // Map RPM 1500-7000 to pitch multiplier 0.7-2.2
     const float MIN_RPM = 1500.0f;
     const float MAX_RPM = 7000.0f;
     const float MIN_FREQ = 0.7f;

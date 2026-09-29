@@ -17,7 +17,7 @@
 
 struct DrawableEntry {
     std::string id;
-    IDrawable* drawable;  // Non-owning; ownership is elsewhere (e.g. AssetManager or scene)
+    IDrawable* drawable;
 };
 
 typedef enum {
@@ -48,7 +48,7 @@ class Scene {
     StockPalette palette;
     Bitmap *background;
     std::unique_ptr<HUD> hud;
-    Dialog *activeDialog = nullptr;  // Non-owning pointer - dialogs owned by derived classes
+    Dialog *activeDialog = nullptr;
 
     sdl2::SurfacePtr surface;
     sdl2::TexturePtr texture;
@@ -65,20 +65,16 @@ class Scene {
     DebugOverlay* debugOverlay;
     bool debugMode;
     bool debugEnabled;
-    // Debug text collected by UpdateDebugInfo() for this frame, rebuilt each
-    // time it is asked for. Prefer AddDebugValue() for anything that reads as
-    // "key: value"; AddDebugLine() is for free-form text.
+    // Rebuilt each time it is asked for.
     std::vector<std::string> debugLines;
     std::vector<DebugRow> debugRows;
     
-    // Amiga fade state: fadeLevel is the 4-bit ceiling every colour channel is
-    // clamped to, 15 = untouched, 0 = black. One step per PAL frame.
-    // See RodLegacyResearch/docs/palette_fade.md.
+    // fadeLevel is the 4-bit ceiling every channel is clamped to, 15 = untouched. One step per PAL frame.
     Uint8 fadeLevel = 0;
-    Uint32 lastActionTimestamp = 0;  // SDL event timestamp for debouncing
+    Uint32 lastActionTimestamp = 0;
     Uint64 fadeStartTime = 0;
     static constexpr Uint64 FADE_STEP_MS = 35;    // 20ms = one PAL frame, adjusted slightly to look better
-    static constexpr Uint8 FADE_LEVELS = 15;      // top 4-bit colour level
+    static constexpr Uint8 FADE_LEVELS = 15;
     static constexpr Uint64 FADE_IN_STEPS = 16;   // 320ms, as the Amiga
     static constexpr Uint64 FADE_OUT_STEPS = 15;  // 300ms, as the Amiga
 
@@ -86,14 +82,13 @@ class Scene {
     
     virtual void ToggleDebugMode();
     virtual void DrawDebugZones();
-    // Draws the debug text into the game view. Only does anything in builds
-    // without the ImGui debug UI, which otherwise owns the text.
+    // Only without the ImGui debug UI.
     void DrawLegacyDebugOverlay();
 
    public:
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     Scene(std::string backgroundName);
-    Scene(); // No background constructor
+    Scene();
     ~Scene();
     virtual void Init(bool debugMode);
 
@@ -101,30 +96,22 @@ class Scene {
 
     virtual SrLibAmigaSpriteAsset GetPointerType() { return currentPointer; }
 
-    // Sets currentPointer and applies it to the actual cursor right away.
-    // currentPointer alone is only picked up on scene entry (FadeIn) - a
-    // scene that wants the pointer to change on click (e.g. gas station's
-    // pump vs. rag) needs this instead of assigning currentPointer directly.
+    // Applies the pointer now; currentPointer alone is only picked up on scene entry.
     void SetPointer(SrLibAmigaSpriteAsset type);
 
     virtual void FadeOut();
     void FadeIn();
     virtual void OnFadeComplete();
-    virtual void Update(Uint64 deltaTime); // Update fade and other per-frame logic
-    // Called on entry, before the fade-in starts and so before the scene is
-    // drawn once. Per-entry state belongs here, not in OnFadeComplete: that
-    // runs 560ms later, and everything drawn until then is the previous
-    // visit's leftovers fading up.
+    virtual void Update(Uint64 deltaTime);
+    // Before the fade-in. Per-entry state belongs here: OnFadeComplete runs 560ms later.
     virtual void OnSceneEnter();
     virtual void OnSceneExit();
 
-    // Whether the custom mouse pointer should show in this scene. Applied
-    // centrally on scene entry (FadeIn); override to false to hide it.
     virtual bool WantsPointer() const { return true; }
 
-    void Draw();                // Non-virtual: manages render target + fade clamp
-    virtual void DrawScene();  // Override in derived classes for scene-specific drawing
-    virtual void DrawExtra() {} // Override in derived classes for additional drawing
+    void Draw();
+    virtual void DrawScene();
+    virtual void DrawExtra() {}
     virtual bool PushEvent(SDL_Event *event);
 
     virtual Dialog *GetActiveDialog();
@@ -137,28 +124,20 @@ class Scene {
     const std::vector<Zone>& GetZones() const { return zones; }
     virtual void DrawDebugUI() {}
 
-    // Fills debugLines. Override to add scene specific information; call the
-    // base first to keep the common lines.
     virtual void UpdateDebugInfo();
     void AddDebugLine(const std::string& text) { debugLines.push_back(text); }
     void AddDebugValue(const std::string& key, const std::string& value) {
         debugRows.push_back(DebugRow{key, value});
     }
 
-    // Inspector text for the debug UI: runs UpdateDebugInfo() and returns the
-    // result as one panel titled after the scene. Override to supply several
-    // panels instead.
     virtual std::vector<DebugPanel> GetDebugPanels();
 
-    // Debug methods
     void AddGamepadDebugInfo(const Mouse& mouse);
 
     void AddDrawable(const std::string& id, IDrawable* drawable) {
         drawables.push_back({id, drawable});
     }
 
-    // Swaps what an id points at without moving it in the list, so draw order
-    // survives. Adds it at the end if the id is new.
     void SetDrawable(const std::string& id, IDrawable* drawable) {
         for (auto& entry : drawables) {
             if (entry.id == id) {
@@ -219,34 +198,25 @@ enum class CarAnimationType {
 
 class CarScene: public Scene {
 private:
-    // Original game: 2 pixels/frame at 50 Hz PAL = 100 px/s constant linear speed
+    // 2 pixels/frame at 50 Hz PAL.
     static constexpr double CAR_SPEED_PX_PER_SEC = 100.0;
     double carAnimationTime = 0;
     double carExitAnimationTime = 0;
     double waitTimer = 0;
-    double engineStartTimer = 0;  // Timer for engine start sample duration
+    double engineStartTimer = 0;
     bool exitingCar = false;
-    bool waitingForEngineStart = false;  // True when playing engine start sample
-    int16_t lastAnimationEnginePeriod = -1;  // Avoid continuous period rewrites
+    bool waitingForEngineStart = false;
+    int16_t lastAnimationEnginePeriod = -1;
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
     const double ENGINE_START_DURATION = CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
     bool isPaused = false;
 
 protected:
-    // Sub-pixel accumulator driving carx during drive-in/exit animations
-    // (see CarScene::UpdateCarAnimation). A subclass that overrides
-    // StartAnimateCar without delegating to CarScene::StartAnimateCar must
-    // sync this itself, or the next animation starts from wherever this was
-    // left (e.g. past GAME_WIDTH after driving off), which can make
-    // UpdateCarAnimation see it as already "done" and skip the animation.
+    // A subclass overriding StartAnimateCar without delegating must sync this, or the next animation may be skipped.
     double carxFloat = 0.0;
-    // The original never puts the car on an in-between pixel: it walks a
-    // {repeat, dx, dy} phase table once per video frame, dx being a whole 2, 4
-    // or 8 (DOS car_anim_advance_frame, SR.EXE 1f38:aa37). Moving by
-    // speed * deltaTime instead lands on pixels it never visits, which at 60+
-    // fps makes the distance-driven wheel frame strobe. StepCarX keeps the
-    // same average speed and puts the car back on the original's grid.
+    // The original steps whole 2/4/8 px per video frame. StepCarX keeps its average speed on its pixel grid, or
+    // the wheel frame strobes at 60+ fps.
     static constexpr double SCENE_STEP_HZ = 35.0;
     double stepAccumulator = 0.0;
     double StepCarX(double deltaTime, double pxPerSecond);
@@ -263,15 +233,11 @@ protected:
     virtual void OnCarAnimationComplete() {};
     virtual void OnCarExitComplete() {}
 
-    // Return false to hold the opponent in place (e.g. while a dialog is open).
-    // The wait timer is reset while this returns false so the car stays the
-    // full idle period after the block is lifted.
+    // The wait timer resets while this is false, so the car idles its full period afterwards.
     virtual bool CanStartCarExit() const { return true; }
 
-    // Immediately start the car exit animation (bypasses idle wait timer).
     void TriggerCarExit();
 
-    // Helper to get Amiga period for car animations
     int16_t GetCarAnimationPeriod(double progress, bool isDrivingIn);
 
     bool needsNewAnimation = true;
@@ -281,7 +247,7 @@ public:
     CarScene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     void Init(bool debugMode) override;
     virtual void DrawMaskAfterCar();
-    virtual void DrawExtra() override; // Call DrawMaskAfterCar for car scenes
+    virtual void DrawExtra() override;
     virtual void StartAnimateCar(CarPtr car, Driver *driver, CarAnimationType animType);
     virtual SDL_Point GetCarIdlePosition();
     virtual void UpdateDebugInfo() override;
@@ -291,10 +257,7 @@ public:
     
     void SetAudioManager(AudioManager* audioMgr) { audioManager = audioMgr; }
 
-    // Whether a zone click should be handled right now: no scene fade and no
-    // car drive-in/out animation in progress. A subclass with more ways to
-    // be mid-action (e.g. Garage's tire-change animation) should shadow this
-    // with its own CanInteract() that also checks CarScene::CanInteract().
+    // Subclasses with more ways to be busy shadow this and also check CarScene::CanInteract().
     bool CanInteract() const { return sceneTransition == SCENE_SOLID && !animatingCar; }
 
     CarBitmap *carBitmap = nullptr;

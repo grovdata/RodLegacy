@@ -18,20 +18,12 @@ Car::Car(CarModel model) {
     isBackBumperStripped = false;
     isRoofChopped = false;
     RecalculatePerformance();
-    // Engine will be initialized by CarBuilder
 }
 
 Car::~Car() {
 
 }
 
-// ============================================================================
-// Fitted parts
-// ============================================================================
-
-// The SR_data engine class is the master parts table's engine tier: the nine
-// engines are three tiers by three brands, and the ad text names them "V-6",
-// "V-8 283 cu.in." and "V-8 327 cu.in." (docs/formats/parts_catalog.md).
 CarEngine_t Car::GetEngineType() const {
     if (specEngineClass >= 0) {
         // Hardcoding GM here gave a Ford's spec engine GM displacement.
@@ -42,29 +34,19 @@ CarEngine_t Car::GetEngineType() const {
     return engine.engineType;
 }
 
-// The scoring tier of the engine in the car: the spec's own class while the
-// spec engine is still in, otherwise the fitted part's tier. CarEngine_t runs
-// brand-major with the three tiers in order, so a part's tier is its index
-// mod 3 - which is how the original reads it off the parts table (+2).
+// The spec's class while the spec engine is in, otherwise the fitted part's tier (index mod 3).
 int Car::GetEngineClass() const {
     if (specEngineClass >= 0) return specEngineClass;
     return static_cast<int>(engine.engineType) % 3;
 }
 
-// A car loaded from its SR_data spec (i.e. never had this part explicitly
-// fitted - see specManifoldClass above) never gets a concrete manifold Part;
-// the default-constructed one's fields are garbage for this purpose (Part's
-// union field reads back as whichever enum bit-pattern TRANS_4SPD_UNIVERSAL
-// happens to be), so resolve from the spec class instead.
+// A car on its SR_data spec has no concrete manifold Part, and the default one's union reads as garbage.
 ManifoldType Car::GetManifoldType() const {
     if (specManifoldClass >= 0) return ManifoldTypeForClass(specManifoldClass);
     return manifold.partType.manifoldType;
 }
 
-// The first fitted carburetor, or - while the car is apart - the last one
-// that was in mount 0. A default-constructed Part is no good here: its union
-// reads back as whatever bit pattern another enum happens to have, and
-// callers index tables with the carburetor type.
+// The first fitted carburetor, or the last one in mount 0 while the car is apart.
 Part Car::GetCarburator() const {
     for (int i = 0; i < kMaxCarburetors; i++) {
         if (carbFitted[i]) return carburetors[i];
@@ -85,12 +67,8 @@ void Car::SetCarburator(Part carburator) {
     RefitCarburetorMounts();
 }
 
-// Every mount on an assembled car carries the same carburetor - confirmed by
-// a real save, where a triple-2bbl car holds the identical entry in all three
-// slots. Re-run whenever the manifold changes, since it decides how many
-// mounts there are, and because the car builders fit the carb before they
-// know the manifold. The garage clears the mounts again straight after
-// installing a bare manifold, so they get filled one at a time there.
+// Every mount on an assembled car carries the same carburetor. Re-run on manifold change, since it decides
+// the mount count.
 void Car::RefitCarburetorMounts() {
     int slots = GetCarburetorSlots();
     Part fitted = GetCarburator();
@@ -143,9 +121,7 @@ int Car::GetStrippedValue() const {
     return std::max(0, GetValue() - (GetPartsValue() - tires.cost));
 }
 
-// The original won't move a car whose engine is apart. Every mount the
-// manifold has must be filled, so a triple-2bbl with one carb still off is
-// just as dead as one with no block in it.
+// Every mount the manifold has must be filled.
 bool Car::IsRunning() const {
     if (!engineFitted || !manifoldFitted || !gearboxFitted) return false;
     int slots = GetCarburetorSlots();
@@ -179,8 +155,7 @@ AmigaLibAsset TireAssetForType(CarWheelType type) {
 }
 
 void Car::SetTires(CarWheelType type, int wear, int cost) {
-    // model.vendor is already resolved for both sources; the lookup only knows
-    // lib.p assets and would answer Unknown for a Street Rod SE car.
+    // The lookup only knows lib.p assets.
     CarVendor_t vendor = model.vendor;
     if (vendor == CarVendorUnknown) {
         vendor = SrLibQueryGetCarVendor(model.index);
@@ -193,12 +168,7 @@ void Car::SetTires(CarWheelType type, int wear, int cost) {
     RecalculatePerformance();
 }
 
-// ============================================================================
-// Top speed
-// The original derives it from one number: ComputeBasePerformance scores the
-// installed parts, and the top speed is that score * 13/10 capped at 130 mph.
-// See RodLegacyResearch/docs/driving/top_speed.md.
-// ============================================================================
+// Top speed is ComputeBasePerformance's score * 13/10, capped at 130 mph.
 
 srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     srrace::CarSetup setup;
@@ -241,9 +211,7 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
         setup.transClass = 0;
     }
 
-    // A car that still carries its spec's engine and manifold scores on the
-    // spec's own classes; once the player fits a different part the class comes
-    // from that part instead.
+    // Spec classes while the spec parts are in; once replaced, the fitted part's class.
     setup.engineClass = car.GetEngineClass();
 
     if (car.GetSpecManifoldClass() >= 0) {
@@ -263,28 +231,13 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // |distance from perfect|, which over the original's -8..+4 knob is just
     // |knob| - see car_system.h's kPerfectTuneLevel.
     setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - kPerfectTuneLevel), 0, 8);
-    // Part::wear is RodLegacy's 0..100 percent (state.cpp divides the save
-    // file's raw value by 100 on load); the race sim works in the original's
-    // 0..10000, which is what every threshold in PlayerCarPhysics is written
-    // against - `divs.w #$3e8` for the redline hold limit, `cmpi.w #$26ac` for
-    // the wear blow, `divs.w #$64` for the money-shift odds. Passing the
-    // percentage straight through left all three effectively pinned at the
-    // healthiest end: 15 - wear/1000 was always 15, and neither 9,900 test
-    // could ever be reached. Scale it back up.
     setup.carbWear = std::clamp(car.GetCarburator().wear, 0, WEAR_MAX);
     setup.engineWear = std::clamp(car.GetEngine().wear, 0, WEAR_MAX);
     setup.transWear = std::clamp(car.GetGearbox().wear, 0, WEAR_MAX);
     setup.tireWear = std::clamp(car.GetTires().wear, 0, WEAR_MAX);
 
-    // A body that cannot take a mod at all scores as if the mod were done: the
-    // original checks the model's sprite table and hands out the points when
-    // the sprite is missing, so no car is penalised for what it cannot do.
-    // That freebie is worth 9 mph-points on a Corvette, which has no
-    // chopped-roof sprite - it is the difference between the 1963's real
-    // 119 mph and the 110 it would otherwise score.
-    //
-    // These read the sprite tables directly rather than CarModel::constraints,
-    // which nothing ever populates (it is stuck at "everything allowed").
+    // A body that cannot take a mod scores as if it were done, as in the original: the 1963 Corvette's
+    // real 119 mph depends on it. CarModel::constraints is never populated, so read the sprite tables.
     const bool canChop = CarModelCanChopRoof(car.GetModelRef());
     const bool canDebumper = CarModelCanStripBumpers(car.GetModelRef());
     setup.roofChopped = car.IsRoofChopped() || !canChop;

@@ -14,7 +14,7 @@ class Diner: public CarScene {
 
     sdl2::SurfacePtr roadMaskSurface;
     sdl2::TexturePtr roadMaskTexture;
-    SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10}; //200-45-11};
+    SDL_Rect roadMaskSrcRect  = {0, 155, 320, 10};
     SDL_Rect roadMaskDestRect = {0, 0, 320, 10};
 
     sdl2::SurfacePtr maskedScreenBackground;
@@ -29,15 +29,9 @@ class Diner: public CarScene {
 
     std::string GetOpponentText(Opponent *opponent);
 
-    // Add a map to store opponent car bitmaps
-    // Keyed by car, not by driver - see StartAnimateCar. Same shape the Garage
-    // uses for its own cache.
+    // Keyed by car, not driver.
     std::map<CarPtr, std::unique_ptr<CarBitmap>> opponentCarBitmaps;
 
-    // Scene-owned animated drawables (asset sheets are owned by AssetManager).
-    // Both actors are table-driven one-shots, not free-running loops - see
-    // RodLegacyResearch/docs/diner.md.
-    //
     // The phone guy's 20 frames live on two sheets, 0-9 and 10-19.
     std::unique_ptr<AnimatedBitmap> guyAnim[2];
     // The waitress has a sheet per direction: 0 walks right, 1 walks left.
@@ -58,17 +52,14 @@ class Diner: public CarScene {
     int waitressDir = 0;
     bool waitressOnScreen = false;
     bool waitressTurnAround = false;  // walked in, rolled to walk straight out
-    // The original gates her on a counter that has to reach 3, and raises the
-    // odds the longer she has been away; this stands in for that.
+    // Stands in for the original's counter that must reach 3, with odds rising the longer she has been away.
     int waitressWaits = 0;
     float waitressStepTimer = 0.0f;
-    // extra_animations only: >= 0 while she is standing still partway in,
-    // and one stop per walk. Not the original's - see diner_actors.h.
+    // extra_animations only: >= 0 while she stands still partway in.
     float waitressPauseTimer = -1.0f;
     bool waitressPauseDone = true;
 
-    // Jail: the diner seen from a cell. The scene keeps running behind the
-    // bars, nothing can be clicked. See RodLegacyResearch/docs/diner.md.
+    // Jail: the diner behind bars, nothing clickable.
     Bitmap* jailBars = nullptr;
 
     // Phone guy: -1 when idle, otherwise the step into the 44-entry table.
@@ -77,17 +68,10 @@ class Diner: public CarScene {
 
     float dinerRollTimer = 0.0f;
 
-    // One pass of the original's animation loops. The flip it waits on
-    // (FUN_00223120) spins on graphics.library VBeamPos until the beam hits
-    // line 245, so the code asks for one PAL frame per step - but each step
-    // also restores a 256x41 background patch and blits a 40x41 six-plane
-    // sprite, which overruns that on the hardware and takes the beam round
-    // again. Measured by eye against the original, a step is nearer three
-    // frames, so these stay a tuning knob rather than 20.0f.
+    // Each original step overruns its one-frame target on hardware; by eye a step is nearer three frames.
     static constexpr float WAITRESS_STEP_MS = 60.0f;
     static constexpr float GUY_STEP_MS = 120.0f;
-    // How often the appear/leave/phone rolls are made. The original rolls once
-    // per pass of the challenger dialog, which RodLegacy has no equivalent of.
+    // The original rolls once per pass of a challenger dialog loop RodLegacy lacks.
     static constexpr float ROLL_SECONDS = 1.0f;
     bool engineSoundStarted = false;
     double debugWaitTimer = 0.0;
@@ -95,10 +79,7 @@ class Diner: public CarScene {
     // starter sample has run. -1 = not cranking.
     double exitCrankTimer = -1.0;
 
-    // Is there a challenger out there to talk to? False from the moment the
-    // starter cranks: StartOpponentExit commits the exit and nothing cancels
-    // it, so anything opened during the crank would still be on screen 0.7 s
-    // later with the car gone.
+    // False from the moment the starter cranks: the exit is committed and anything opened would outlive the car.
     bool OpponentPresent() const {
         return carBitmap && currentOpponent && !animatingCar && !exitingCar &&
                exitCrankTimer < 0.0;
@@ -109,16 +90,11 @@ class Diner: public CarScene {
 
     std::unique_ptr<Challenge> challenge;
 
-    // "Pop the hood": the challenger's engine bay in the garage's own window
-    // frame. Click anywhere to close, and it times out on its own - you don't
-    // get to stand there studying it. One look per challenger (reset when the
-    // next car drives in); asking the same guy again just gets you an earful.
+    // One timed look per challenger; asking again gets an earful.
     std::unique_ptr<EngineBayView> hoodView;
     float hoodTimer = 0.0f;
     bool hoodPopped = false;
-    // ponytail: the original's own timeout is a frame count I could not read
-    // (the Ghidra decompiler is down on the Amiga binary) - replace this with
-    // the real value once it can be looked up.
+    // ponytail: the original's timeout is unknown, replace once it can be read from the binary.
     static constexpr float HOOD_SECONDS = 5.0f;
     bool IsHoodViewOpen() const;
     void CloseHoodView();
@@ -132,7 +108,6 @@ class Diner: public CarScene {
 
         void DrawScene() override;
         void DrawMaskAfterCar() override;
-        // void SetStatusBar(char *text) override;
 
         void StartAnimateCar(CarPtr car, Driver *driver, CarAnimationType animType) override;
         void UpdateCarAnimation(double deltaTime) override;
@@ -158,8 +133,6 @@ class Diner: public CarScene {
         // The challenger waits while his hood is up, same as during a challenge.
         bool CanStartCarExit() const override { return !challenge->IsActive() && !IsHoodViewOpen(); }
 
-        // The one way the challenger leaves: crank the starter, then pull out
-        // once the sample has run. Both the idle timeout and a finished
-        // challenge go through here, so neither can drive off silently.
+        // The one way the challenger leaves, so neither the idle timeout nor a finished challenge drives off silently.
         void StartOpponentExit();
 };

@@ -7,19 +7,12 @@
 #include <random>
 
 namespace {
-// rand() is never seeded anywhere in RodLegacy, so it replays the same
-// sequence on every launch - which made a bet's outcome a fixed function of
-// how many draws had happened, identical in every new game. RandomEngine()
-// is the seeded one the rest of the code already uses.
+// rand() is never seeded, so it would replay the same sequence every launch.
 int Roll(int n) {
     std::uniform_int_distribution<int> dist(0, n - 1);
     return dist(RandomEngine());
 }
-}  // namespace
-
-// ---------------------------------------------------------------------------
-// String tables
-// ---------------------------------------------------------------------------
+}
 
 // Messages 43-47 and 66, all box 0 (the narrow bubble).
 const std::vector<std::string> Challenge::kInsults = {
@@ -40,10 +33,6 @@ const std::vector<std::string> Challenge::kAcceptances = {
     "O.K. !",
     "Let's hit it`!"
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 static Dialog* MakeDialog(const std::vector<std::string>& labels,
                            SFont_Font* font,
@@ -68,8 +57,7 @@ static Dialog* MakeDialog(const std::vector<std::string>& labels,
     int y = dlgY + topPad;
     for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
         ButtonConfig btn = {{btnX, y, btnW, btnH}, labels[i], nullptr, i == 0, i};
-        // Every one of these dialogs ends its label list with "Forget it" -
-        // Escape should back out the same way clicking it does.
+        // Every label list ends with "Forget it", so Escape backs out the same way.
         btn.cancelChoice = (i == static_cast<int>(labels.size()) - 1);
         cfg.buttons.push_back(btn);
         y += btnH + spacing;
@@ -79,10 +67,6 @@ static Dialog* MakeDialog(const std::vector<std::string>& labels,
     dlg->Show();
     return dlg;
 }
-
-// ---------------------------------------------------------------------------
-// Challenge
-// ---------------------------------------------------------------------------
 
 Challenge::Challenge() = default;
 
@@ -125,15 +109,11 @@ void Challenge::Open(SFont_Font* f) {
     ShowRaceTypeDialog();
 }
 
-// All lines (messages 62/63/64) confirmed from the disassembly's string table.
 void Challenge::OpenKing(SFont_Font* f) {
     if (IsActive()) return;
     font = f;
 
-    // Ported from RaceSetupLoop's GetOpponentDifficulty() dispatch
-    // (Amiga 0x0023d03a / 0x0023d8e2-0x0023d92a): before he's unlocked, a
-    // click on The King is rebuffed with one of four lines picked by
-    // reputation tier - tier 1 (total rep < 3) is silent, not even a bubble.
+    // Before he is unlocked, one of four lines by reputation tier; tier 1 is silent.
     const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive());
     if (tier != 0) {
         const char* line = nullptr;
@@ -173,12 +153,9 @@ void Challenge::OpenKing(SFont_Font* f) {
     }
 
     state.SetPendingRace(qualified ? RaceType::Road : RaceType::Drag, 0, qualified);
-    // Inline the tail of Accept(): it always picks a random line from
-    // kAcceptances, which would stomp the King-specific one below.
+    // Accept() would pick a random acceptance line over the King's own.
     step = Step::None;
     dialog.reset();
-    // Confirmed against RaceSetupLoop (Amiga 0x0023d954/0x0023d96e) and its
-    // string table (messages 0x3e/0x3f, LAB_153F and LAB_1540+LAB_1541).
     if (qualified) {
         ShowSpeech("Cool, dude`! Get your pink slip out,\nand let's go`!",
                    BUBBLE_RIGHT_TWO_LINES);
@@ -189,8 +166,7 @@ void Challenge::OpenKing(SFont_Font* f) {
     LOG_INFO("Challenge::OpenKing - race pending, qualified=%d", qualified);
 }
 
-// The move trick: temporarily take ownership so HandleEvent can't destroy
-// the dialog while iterating its buttons — callbacks may freely replace `dialog`.
+// Take ownership so callbacks can replace `dialog` while its buttons are iterated.
 bool Challenge::HandleEvent(SDL_Event* event) {
     if (!dialog || !dialog->IsVisible()) return false;
     auto d = std::move(dialog);
@@ -222,9 +198,7 @@ void Challenge::Draw(float deltaTime) {
             insultTimer = -1.0f;
             bubble.reset();
             if (tauntOnly) { tauntOnly = false; return; }
-            // The opponent gets a second look at a bet before the player is
-            // sent packing (RaceSetupLoop's 2-attempt loop); the player's own
-            // "Forget it" always ends things on the spot.
+            // The opponent gets a second look at a bet; the player's own "Forget it" ends things on the spot.
             if (insultFromOpponent && betAttempts < kMaxBetAttempts) {
                 ShowRaceTypeDialog();
             } else {
@@ -234,10 +208,6 @@ void Challenge::Draw(float deltaTime) {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
 
 void Challenge::ShowRaceTypeDialog() {
     step = Step::RaceType;
@@ -326,9 +296,7 @@ void Challenge::Reject() {
     LOG_INFO("Challenge::Reject - player backed out");
 }
 
-// Opponent turned down a proposed bet. Ported from RaceSetupLoop (Amiga
-// 0x0023d8c8): up to kMaxBetAttempts tries before the encounter ends, not
-// just one - see RodLegacyResearch/docs/diner_challenge.md.
+// Up to kMaxBetAttempts tries before the encounter ends.
 void Challenge::OpponentRejectsBet() {
     step = Step::None;
     dialog.reset();

@@ -16,10 +16,7 @@ class Opponent {
 
 class Roster {
     private:
-        // Filled from SR_data by SetDriverTable(); each entry carries the
-        // driver's name and the portrait the data assigns them. Falls back to
-        // this hardcoded list only when SR_data is unavailable - note it is
-        // missing Jim and Tom, so it is not a faithful roster.
+        // Fallback only when SR_data is unavailable; it lacks Jim and Tom.
         std::vector<std::string> stockDriverNames = {"Mike", "Ralph", "Kirk", "Biff", "Butch", "Wally", "Chip", "Eddie", "Ernie", "Dick", "Steve", "John", "Charlie", "George", "Clyde", "Erica", "Spike", "Bill", "Vinnie"};
         std::vector<SrDriverData> srDrivers;
         std::vector<std::string> srDriverNames;
@@ -30,19 +27,13 @@ class Roster {
         std::vector<std::string> customStickerPaths;
         std::vector<Opponent*> knownOpponents;
         Opponent* forcedNextOpponent = nullptr;
-        // Whoever GetNextOpponent() last handed out - the opponent actually in
-        // play. Not derivable from currentOpponent, which has already advanced
-        // past them, and which a forced pick bypasses entirely.
+        // The opponent actually in play; currentOpponent has already advanced past them.
         Opponent* activeOpponent = nullptr;
-        // The King: fixed driver+car, built once, never part of opponents[]
-        // (SR_data driver index 21 is deliberately excluded from the random
-        // roster - see GenerateRandomDriver). See king.md.
+        // Never part of opponents[]: SR_data driver 21 is excluded from the random roster.
         Opponent kingOpponent;
         bool kingOpponentBuilt = false;
         Driver GenerateRandomDriver(int preferredCarIndex);
     public:
-        // Supply the parsed SR_data driver table before Initialize() so drivers
-        // get their real names and portraits instead of random sprites.
         void SetDriverTable(const std::vector<SrDriverData>& drivers,
                             const std::vector<std::string>& names);
     private:
@@ -52,7 +43,6 @@ class Roster {
         Roster();
         void Initialize(CarData& carData);
         CarPtr GenerateRandomCar(const CarModel& model);
-        // Fits the drivetrain the car's SR_data spec describes, if it has one.
         static void ApplyCarSpecFor(Car* car, const CarModel& model);
         Opponent* GetNextOpponent();
         Opponent* GetCurrentOpponent();
@@ -67,14 +57,9 @@ class Roster {
         bool HasForcedOpponent() const { return forcedNextOpponent != nullptr; }
         Opponent* GetOpponentByIndex(int index);
 
-        // The King, built lazily on first request. His car is mechanically
-        // the stock '63 Corvette (kingSpec) wearing his own paint job - see
-        // king.md's "His car is mechanically a stock '63 Corvette".
+        // Built lazily: a stock '63 Corvette (kingSpec) in his own paint.
         Opponent* GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec);
 
-        // Identity, not a pool index. lastChallengerPoolIndex moves whenever
-        // anything re-picks a challenger (a phoned opponent forces a pick and
-        // leaves it alone entirely), so it cannot be trusted to say who is
-        // standing in the diner right now.
+        // Compared by identity, since lastChallengerPoolIndex moves whenever a challenger is re-picked.
         bool IsKing(const Opponent* opp) const { return opp == &kingOpponent; }
 };

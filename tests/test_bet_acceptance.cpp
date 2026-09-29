@@ -36,7 +36,7 @@ BetContext PlayerStronger() {
     return ctx;
 }
 
-}  // namespace
+}
 
 TEST_SUITE("OpponentAcceptsBet - relative strength") {
 
@@ -77,7 +77,7 @@ TEST_CASE("car class tiers at 3 and 7") {
     CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 91) == false);
 }
 
-}  // TEST_SUITE
+}
 
 TEST_SUITE("OpponentAcceptsBet - handicap") {
 
@@ -115,7 +115,7 @@ TEST_CASE("a harder driver hands out less handicap") {
     CHECK(OpponentAcceptsBet(ctx, BetType::NoMoney, 41) == false);
 }
 
-}  // TEST_SUITE
+}
 
 TEST_SUITE("OpponentAcceptsBet - sticker bonus") {
 
@@ -137,12 +137,9 @@ TEST_CASE("the bonus can beat a zero threshold") {
     CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 7) == false);
 }
 
-}  // TEST_SUITE
+}
 
-// ============================================================================
-// The rivalry term: (opp_wins * 2 - races) * threshold / 4, from bytes 4 and 5
-// of the challenger's pool record.
-// ============================================================================
+// Rivalry: (opp_wins * 2 - races) * threshold / 4.
 
 TEST_SUITE("OpponentAcceptsBet - rivalry") {
 
@@ -176,7 +173,7 @@ TEST_CASE("a negative term rounds toward zero, not down") {
     CHECK(OpponentAcceptsBet(ctx, BetType::PinkSlips, 28) == false);
 }
 
-}  // TEST_SUITE
+}
 
 TEST_SUITE("LoadBetTables") {
 
@@ -232,4 +229,4 @@ TEST_CASE("too-short buffer leaves the tables unchanged") {
     CHECK(OpponentAcceptsBet(PlayerWeaker(), BetType::PinkSlips, 91) == false);
 }
 
-}  // TEST_SUITE
+}

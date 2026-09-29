@@ -36,4 +36,4 @@ bool LoadSongDataFromAdf(const std::string& adf_path, SongData& out_data, std::s
 int RunMusicPlayer(const SongData& song, bool loop_forever, bool debug, int debug_events, int base_transpose, uint32_t muted, int scan_irqs,
                    const std::vector<std::pair<int,int>>& bank_overrides, int start_pattern);
 
-}  // namespace sr
+}

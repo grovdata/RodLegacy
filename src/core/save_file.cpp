@@ -5,7 +5,7 @@
 #include "core/assets.h"
 #include "car/car.h"
 #include "car/car_builder.h"
-#include "car/engine_bay.h"  // EngineBodyAsset
+#include "car/engine_bay.h"
 #include "car/car_set.h"
 #include "core/game_clock.h"
 
@@ -39,9 +39,7 @@ void CheckVersion(const SaveValue& root) {
     }
 }
 
-// ---- parts -------------------------------------------------------------
-// The union in Part means the type value has to be named by the caller, which
-// is why these are per-category rather than one generic pair.
+// Part's union means the type value is named by the caller, hence per-category functions.
 
 SaveValue PartToToml(const Part& p, int typeValue) {
     SaveValue v;
@@ -81,9 +79,7 @@ RawPart ReadRawPart(const SaveValue& v) {
     return r;
 }
 
-// Rebuilds through the same CarBuilder factory the rest of the game uses, so
-// asset ids and generated names stay defined in one place, then restores the
-// fields the save actually carries.
+// Rebuilds through CarBuilder so asset ids and names stay defined in one place.
 Part ApplyRaw(Part p, const RawPart& r) {
     p.wear = r.wear;
     p.cost = r.cost;
@@ -127,12 +123,9 @@ EnginePart EngineFromToml(const SaveValue& v) {
     return e;
 }
 
-// ---- cars --------------------------------------------------------------
-
 SaveValue CarToToml(Car& c) {
     SaveValue v;
-    // CarModel::index, the pool key - unique across car sets, and what
-    // CarData::GetModelFromIndex takes. Not the .sav format's spec index.
+    // The pool key, not the .sav format's spec index.
     v["model_index"]         = c.GetModelRef().index;
     v["color"]               = static_cast<int>(c.GetColor());
     v["decal"]               = static_cast<int>(c.GetDecal());
@@ -155,10 +148,7 @@ SaveValue CarToToml(Car& c) {
     v["tires"]      = PartToToml(tires,    static_cast<int>(tires.partType.tireType));
     v["engine"]     = EngineToToml(c.GetEngine());
 
-    // Which mounts actually hold a carburetor, and whether the block and
-    // manifold are in at all - a car can be left half apart in the garage.
-    // "carburetor" above stays the first fitted one so an older reader still
-    // sees something sane.
+    // A car can be left half apart. "carburetor" stays the first fitted one for older readers.
     std::vector<int> fittedCarbs;
     for (int i = 0; i < kMaxCarburetors; i++) {
         if (c.HasCarburetor(i)) fittedCarbs.push_back(i);
@@ -186,24 +176,19 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
 
     if (v.contains("gearbox"))    car->SetGearbox(TransmissionFromToml(toml::find(v, "gearbox")));
     if (v.contains("manifold"))   car->SetManifold(ManifoldFromToml(toml::find(v, "manifold")));
-    // SetCarburator fills every mount the manifold has, which is right for
-    // an assembled car and for saves written before mounts were tracked;
-    // carburetor_mounts then narrows it to the ones really fitted.
+    // SetCarburator fills every mount; carburetor_mounts then narrows it.
     if (v.contains("carburetor")) car->SetCarburator(CarburetorFromToml(toml::find(v, "carburetor")));
-    // The whole Part, not just its type/wear/cost: the tires carry the
-    // classified-ad name the garage lists them under.
+    // The whole Part: tires carry the classified-ad name.
     if (v.contains("tires")) car->SetTires(TireFromToml(toml::find(v, "tires")));
     if (v.contains("engine"))     car->SetEngine(EngineFromToml(toml::find(v, "engine")));
 
-    // Last: SetEngine/SetManifold each reset the spec classes to -1, so the
-    // car's own SR_data classes have to go back on after the parts.
+    // Last: SetEngine/SetManifold reset the spec classes.
     const int engineClass   = toml::find_or(v, "spec_engine_class", -1);
     const int manifoldClass = toml::find_or(v, "spec_manifold_class", -1);
     if (engineClass >= 0 || manifoldClass >= 0) {
         car->SetSpecPartClasses(engineClass, manifoldClass);
     }
 
-    // Anything left apart in the garage stays apart across a save.
     if (v.contains("carburetor_mounts")) {
         const auto mounts = toml::find<std::vector<int>>(v, "carburetor_mounts");
         for (int i = 0; i < kMaxCarburetors; i++) {
@@ -213,14 +198,10 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     if (!toml::find_or(v, "engine_fitted", true)) car->RemoveEngine();
     if (!toml::find_or(v, "manifold_fitted", true)) car->RemoveManifold();
     if (!toml::find_or(v, "gearbox_fitted", true)) car->RemoveGearbox();
-    // Last, once the parts are settled. Saves written before the car carried a
-    // value of its own fall back to the model's list price, which is where a
-    // fresh car starts anyway.
+    // Older saves without a value fall back to the list price.
     car->SetValue(toml::find_or(v, "value", model.price));
     return car;
 }
-
-// ---- spare-part lists --------------------------------------------------
 
 template <typename PartT, typename TypeOf>
 SaveValue SparesToToml(const std::vector<PartT>& parts, TypeOf typeOf) {
@@ -237,7 +218,7 @@ void ReadSpares(const SaveValue& parent, const std::string& key,
     for (const SaveValue& v : toml::find<SaveArray>(parent, key)) out.push_back(fromToml(v));
 }
 
-} // namespace
+}
 
 SaveSummary PeekSave(const fs::path& path) {
     std::ifstream f(path);
@@ -270,15 +251,10 @@ bool State::SaveGameToml(const fs::path& path) {
     root["version"]  = kSaveVersion;
     root["name"]     = playerName;
     root["bankroll"] = bankroll;
-    // TOML integers are signed 64-bit; elapsedTicks never approaches the range
-    // where the round trip through int64 could lose anything.
     root["elapsed_ticks"] = static_cast<std::int64_t>(elapsedTicks);
     root["track_variant"] = GetTrackVariant();
 
-    // Which car sets this game was generated against. Every model_index below
-    // is an index into the spec table those sets produce, so a save loaded with
-    // a different set switched on would resolve its cars to the wrong models or
-    // to nothing at all - see State::RebuildCarSets.
+    // Every model_index resolves through the spec table these sets produce.
     std::vector<std::string> enabledSets;
     const std::vector<CarSetDef>& saveDefs = GetCarSetDefs();
     for (size_t i = 0; i < saveDefs.size(); ++i) {
@@ -320,9 +296,7 @@ bool State::SaveGameToml(const fs::path& path) {
     spares["engines"] = SaveValue(engines);
     root["spares"] = spares;
 
-    // Each racer is one inline row, which keeps 21 opponents to 21 readable
-    // lines: [driver_index, car_spec_index, status, color_index, body_byte,
-    // downgraded, races, opp_wins].
+    // [driver_index, car_spec_index, status, color_index, body_byte, downgraded, races, opp_wins].
     SaveArray racers;
     for (const RacerEntry& e : racerPool.pool) {
         racers.push_back(SaveArray{e.driver_index, e.car_spec_index,
@@ -368,10 +342,7 @@ bool State::LoadGameToml(const fs::path& path) {
         return false;
     }
 
-    // Put the car sets back before a single car is resolved: CarFromToml turns
-    // model_index into a model through carData, and a set's models only exist
-    // there once RebuildCarSets has read it. Saves written before this key
-    // existed leave the current selection alone.
+    // Before any car is resolved: a set's models only exist once RebuildCarSets has read it.
     if (root.contains("car_sets")) {
         const std::vector<std::string> ids =
             toml::find_or(root, "car_sets", std::vector<std::string>{});
@@ -388,9 +359,7 @@ bool State::LoadGameToml(const fs::path& path) {
         RebuildCarSets();
     }
 
-    // Everything below only reads the document, so a malformed field throws
-    // before any of State has been touched -- except the car rebuild, which
-    // is why that runs into a local list first.
+    // Only reads the document, so a malformed field throws before State is touched.
     std::vector<CarPtr> rebuilt;
     int currentIndex = -1;
     try {
@@ -442,8 +411,6 @@ bool State::LoadGameToml(const fs::path& path) {
         ReadSpares(sp, "engines",       spareEngines,       EngineFromToml);
     }
 
-    // Unlike the .sav path, this format carries every pool field, so status
-    // (beaten / currently challenging) survives too.
     if (root.contains("racer_pool")) {
         const SaveValue& pool = toml::find(root, "racer_pool");
         lastChallengerPoolIndex = toml::find_or(pool, "last_challenger", -1);
@@ -464,8 +431,7 @@ bool State::LoadGameToml(const fs::path& path) {
         }
     }
 
-    // A fresh newspaper for the loaded game. The ads are not saved, and the
-    // sold-out slots left by the previous game would otherwise carry over.
+    // The ads are not saved.
     GenerateClassifieds();
 
     LOG_INFO("LoadGameToml: loaded '%s', bankroll=%d, %d owned car(s)",
@@ -473,12 +439,8 @@ bool State::LoadGameToml(const fs::path& path) {
     return true;
 }
 
-// --------------------------------------------------------------------------
-// Round-trip self-test (--selftest-save).
-
 namespace {
 
-// One comparable snapshot of everything the save is supposed to carry.
 struct Snapshot {
     std::string text;
     bool operator==(const Snapshot& o) const { return text == o.text; }
@@ -507,7 +469,6 @@ Snapshot TakeSnapshot() {
           << " roof=" << c->IsRoofChopped()
           << " bumpers=" << c->IsBumpersStripped()
           << " decalpath=" << c->GetCustomDecalPath()
-          // Derived, so it also catches a part that came back subtly wrong.
           << " top=" << c->GetTopSpeed()
           << " eng=" << (int)c->GetEngine().engineType << "," << c->GetEngine().wear
           << "," << c->GetEngine().cost << "," << (int)c->GetEngine().vendor
@@ -548,8 +509,7 @@ Snapshot TakeSnapshot() {
     return Snapshot{o.str()};
 }
 
-// Puts distinctive, non-default values everywhere so a field the writer drops
-// shows up as a mismatch rather than coincidentally matching a default.
+// Non-default values everywhere, so a dropped field shows as a mismatch.
 void ScrambleState() {
     state.SetPlayerName("SELFTEST");
     state.SetBankroll(4242);
@@ -579,7 +539,7 @@ void ScrambleState() {
     }
 }
 
-} // namespace
+}
 
 bool RunSaveRoundTripSelfTest() {
     ScrambleState();

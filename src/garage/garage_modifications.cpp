@@ -16,13 +16,11 @@
 #include <algorithm>
 
 void Garage::ShowBumperDialog(bool isFront) {
-    // Hide any previous error bubble
     if (bubbles.size() > 4) {
         bubbles[4]->SetVisible(false);
     }
 
-    // The original checks the clicked bumper on its own (0x24039c-0x2403b2):
-    // a car with no record for that end gets message 33 instead of the dialog.
+    // A car with no record for the clicked bumper gets message 33 instead of the dialog.
     if (state.GetCurrentCar()) {
         const CarSprites& sprites = state.GetCurrentCar()->GetModelRef().sprites;
         bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
@@ -36,7 +34,6 @@ void Garage::ShowBumperDialog(bool isFront) {
         }
     }
 
-    // Check current bumper status
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
     const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20")
                                     : (isStripped ? "Restore bumper - $20" : "Strip bumper - $20");
@@ -45,12 +42,11 @@ void Garage::ShowBumperDialog(bool isFront) {
 
     auto onConfirm = [this, isFront, isStripped, &dialogPtr]() {
         if (carBitmap) {
-            // Play sound before the operation so it isn't delayed by texture loading
+            // Before the operation, so texture loading doesn't delay it.
             if (audioManager) {
                 audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
             }
             if (isStripped) {
-                // Restore
                 if (isFront) {
                     carBitmap->RestoreFrontBumper();
                     LOG_INFO("Front bumper restored for $20");
@@ -59,7 +55,6 @@ void Garage::ShowBumperDialog(bool isFront) {
                     LOG_INFO("Rear bumper restored for $20");
                 }
             } else {
-                // Strip
                 if (isFront) {
                     carBitmap->StripFrontBumper();
                     LOG_INFO("Front bumper stripped for $20");
@@ -79,19 +74,15 @@ void Garage::ShowBumperDialog(bool isFront) {
 }
 
 void Garage::ShowRoofDialog() {
-    // Hide any previous error bubble
     if (bubbles.size() > 4) {
         bubbles[4]->SetVisible(false);
     }
 
-    // Check if car can chop roof
     if (state.GetCurrentCar()) {
         CarModel model = state.GetCurrentCar()->GetModel();
 
-        // If trying to chop roof, check if car supports it
         bool isChopped = carBitmap->IsRoofChopped();
         if (!isChopped && !CarModelCanChopRoof(model)) {
-            // Show constraint bubble instead of dialog
             if (bubbles.size() > 5) {
                 bubbles[5]->SetVisible(true);  // roofConstraintBubble
             }
@@ -99,22 +90,19 @@ void Garage::ShowRoofDialog() {
         }
     }
 
-    // Check current roof status
     bool isChopped = carBitmap->IsRoofChopped();
     const char* titleText = isChopped ? "Restore roof - $70" : "Chop roof - $70";
 
     auto onConfirm = [this, isChopped]() {
         if (carBitmap) {
-            // Play sound before the operation so it isn't delayed by texture loading
+            // Before the operation, so texture loading doesn't delay it.
             if (audioManager) {
                 audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f);
             }
             if (isChopped) {
-                // Restore
                 carBitmap->RestoreRoof();
                 LOG_INFO("Roof restored for $70");
             } else {
-                // Chop
                 carBitmap->ChopRoof();
                 LOG_INFO("Roof chopped for $70");
             }
@@ -132,7 +120,6 @@ void Garage::CycleNextColor() {
     int nextColor = (previewColor + 1) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(nextColor);
     UpdatePaintCanPreview();
-    // Hide any error bubble when cycling colors
     if (bubbles.size() > 3) {
         bubbles[3]->SetVisible(false);
     }
@@ -142,7 +129,6 @@ void Garage::CyclePreviousColor() {
     int prevColor = (previewColor - 1 + CarColorCount) % CarColorCount;
     previewColor = static_cast<StandardCarColor>(prevColor);
     UpdatePaintCanPreview();
-    // Hide any error bubble when cycling colors
     if (bubbles.size() > 3) {
         bubbles[3]->SetVisible(false);
     }
@@ -151,7 +137,6 @@ void Garage::CyclePreviousColor() {
 void Garage::ApplyPreviewColor() {
     if (carBitmap) {
         carBitmap->UpdateColor(previewColor);
-        // Update paint can to show the new current color
         UpdatePaintCanPreview();
     }
 }
@@ -159,7 +144,6 @@ void Garage::ApplyPreviewColor() {
 void Garage::UpdatePaintCanPreview() {
     if (!paintCanPreview) return;
 
-    // Load the paint can mask image from embedded resource
     extern const unsigned char embedded_paintcan_png[];
     extern const size_t embedded_paintcan_png_len;
 
@@ -169,10 +153,8 @@ void Garage::UpdatePaintCanPreview() {
         return;
     }
 
-    // Get the preview color palette
     std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
 
-    // Convert the mask surface to 32-bit RGBA
     SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(maskSurface, SDL_PIXELFORMAT_RGBA8888, 0);
     SDL_FreeSurface(maskSurface);
 
@@ -181,9 +163,7 @@ void Garage::UpdatePaintCanPreview() {
         return;
     }
 
-    // Apply the car color palette to the paint can.
-    // The mask PNG is a grayscale+alpha image. Transparent pixels are background.
-    // Opaque pixel brightness (0-255) maps linearly to the 9-entry color palette.
+    // The mask is grayscale+alpha: opaque brightness maps linearly onto the 9-entry colour ramp.
     SDL_LockSurface(rgbaSurface);
     uint32_t* pixels = static_cast<uint32_t*>(rgbaSurface->pixels);
     int palSize = static_cast<int>(colorPalette.size());
@@ -212,26 +192,21 @@ void Garage::UpdatePaintCanPreview() {
 
     SDL_UnlockSurface(rgbaSurface);
 
-    // Update the bitmap with the new surface
     paintCanPreview->ReplaceSurface(rgbaSurface);
 }
 
 void Garage::ShowPaintDialog() {
-    // Store the original color so we can restore it if user cancels
     if (carBitmap) {
         originalColor = carBitmap->GetCurrentColor();
         previewColor = originalColor;
     }
 
-    // Hide any previous error bubble
     if (bubbles.size() > 3) {
         bubbles[3]->SetVisible(false);
     }
 
-    // Update paint can to show preview color
     UpdatePaintCanPreview();
 
-    // Button positions as specified
     SDL_Rect nextColorRect = {149, 127, 78, 16};
     SDL_Rect prevColorRect = {233, 127, 78, 16};
     SDL_Rect goAheadRect = {149, 145, 78, 16};
@@ -239,14 +214,14 @@ void Garage::ShowPaintDialog() {
 
     ButtonConfig nextColorButton = {nextColorRect, "Next color", nullptr, false, 0};
     ButtonConfig prevColorButton = {prevColorRect, "Previous color", nullptr, false, 1};
-    ButtonConfig goAheadButton = {goAheadRect, "Go ahead", nullptr, true, 2}; // Default
+    ButtonConfig goAheadButton = {goAheadRect, "Go ahead", nullptr, true, 2};
     ButtonConfig forgetItButton = {forgetItRect, "Forget it", nullptr, false, 3};
     forgetItButton.cancelChoice = true;
 
     std::vector<ButtonConfig> buttons = {nextColorButton, prevColorButton, goAheadButton, forgetItButton};
 
     DialogConfig paintDialogConfig;
-    paintDialogConfig.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT}; // Full screen but transparent
+    paintDialogConfig.bounds = {0, 0, GAME_WIDTH, GAME_HEIGHT};
     paintDialogConfig.backgroundColor = {0, 0, 0, 0}; // Transparent
     paintDialogConfig.borderColor = {0, 111, 239, 255};
     paintDialogConfig.buttons = buttons;
@@ -282,7 +257,6 @@ void Garage::ShowPaintDialog() {
                         paintDialog->Hide();
                         SetActiveDialog(nullptr);
                     } else {
-                        // Show "Paint ain't free!" bubble and keep dialog open
                         LOG_INFO("Not enough money! Need $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(true);  // paintBubble
@@ -291,7 +265,6 @@ void Garage::ShowPaintDialog() {
                 }
                 break;
             case 3: // Forget it
-                // Just close - restore original color on paint can
                 previewColor = originalColor;
                 UpdatePaintCanPreview();
                 if (bubbles.size() > 3) {
@@ -303,25 +276,20 @@ void Garage::ShowPaintDialog() {
         }
     };
 
-    // Create and show the dialog
     paintDialog = std::make_unique<Dialog>(paintDialogConfig);
     SetActiveDialog(paintDialog.get());
 }
 
 void Garage::ShowCarInfoDialog() {
-    // Create dialog bounds
     SDL_Rect dialogRect = {37, 27, 246, 116};
 
     std::vector<DialogTextConfig> texts;
-    // Title centered
     texts.push_back(DialogTextConfig{SDL_Rect{dialogRect.x + 3, dialogRect.y + 3, dialogRect.w - 6, 10}, "Car parts", {0xFF, 0xFF, 0xFF, 0xFF}, true});
 
-    // Horizontal line under title
     std::vector<SDL_Rect> lines = {
         {dialogRect.x + 3, dialogRect.y + 14, dialogRect.w - 6, 1}
     };
 
-    // Content text area start Y
     int y = dialogRect.y + 20;
     int xLeft = dialogRect.x + 8;
     int xRightAlign = dialogRect.x + dialogRect.w - 12; // right margin for right-aligned notes
@@ -335,14 +303,12 @@ void Garage::ShowCarInfoDialog() {
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addRightNote = [&](const char* left, const char* note) {
-        // Render left, then compute right-aligned note position using measured width
         texts.push_back(DialogTextConfig{SDL_Rect{xLeft, y, dialogRect.w - 16, 10}, left, {0xFF, 0xFF, 0xFF, 0xFF}, false});
         int noteWidth = SFont_TextWidth(state.GetAssets().GetMainFont(), note);
         texts.push_back(DialogTextConfig{SDL_Rect{xRightAlign - noteWidth, y, noteWidth, 10}, note, {0xFF, 0xFF, 0xFF, 0xFF}, false});
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
 
-    // Populate from current car parts (engine, manifold, carb, transmission, tires)
     const CarPtr& car = state.GetCurrentCarPtr();
     if (car) {
         CarModel model = car->GetModel();
@@ -377,15 +343,12 @@ void Garage::ShowCarInfoDialog() {
                 case SR_TRANS_RACING_FORD: return "Racing 4-spd Ford.";
                 case SR_TRANS_RACING_CHRYSLER: return "Racing 4-spd Chrysler.";
                 default: {
-                    // Fallback to vendor auto
                     std::string v = vendorToStr(vendor);
                     return std::string("Auto Trnsmsn ") + v + ".";
                 }
             }
         };
-        // Carbs aren't brand-locked (newspaper.cpp's catalog comment: "Fits
-        // all" -- not brand-locked in the ad text), so no vendor prefix,
-        // unlike manifold/transmission below.
+        // Carbs aren't brand-locked, so no vendor prefix.
         auto carbName = [](CarburetorType type) -> const char* {
             switch (type) {
                 case CARB_2BARREL: return "2-brl carb. Fits all models.";
@@ -394,9 +357,7 @@ void Garage::ShowCarInfoDialog() {
             }
             return "carburetor. Fits all models.";
         };
-        // Only the RACING wording is confirmed ("GM racing manifold.",
-        // matching transmission's own vendor-prefixed style); the other 4
-        // tiers follow the same pattern by extrapolation, unconfirmed.
+        // Only the RACING wording is confirmed; the other tiers follow its pattern.
         auto manifoldName = [](ManifoldType type, const char* v) -> std::string {
             switch (type) {
                 case MANIFOLD_2BARREL: return std::string(v) + " 2-brl manifold.";
@@ -407,8 +368,7 @@ void Garage::ShowCarInfoDialog() {
             }
             return std::string(v) + " manifold.";
         };
-        // Only RACING ("Racing slicks.") is confirmed; STOCK/BRAND are best-
-        // effort, matching the wording used elsewhere (WheelTypeName).
+        // Only "Racing slicks." is confirmed.
         auto tireName = [](CarWheelType type) -> const char* {
             switch (type) {
                 case STOCK: return "Stock tires.";
@@ -417,8 +377,6 @@ void Garage::ShowCarInfoDialog() {
             }
             return "Tires.";
         };
-        // "GM V-8 engine. 327 cu.in." - cylinder count isn't stored
-        // directly on EnginePart, only derivable from engineType.
         auto cylinderLabel = [](CarEngine_t type) -> const char* {
             switch (type) {
                 case CarEngineGM_V6:
@@ -436,16 +394,8 @@ void Garage::ShowCarInfoDialog() {
         }
         const char* vendorStr = vendorToStr(vendor);
 
-        // Engine line. Read the type through GetEngineType(), not off the
-        // stored EnginePart: a car still on its SR_data spec never had a
-        // concrete engine fitted, so its part is CarBuilder's placeholder V6
-        // no matter what the spec says - which is how a '56 Corvette came to
-        // read "V-6" next to a V8 in the engine bay.
-        // Each line is listed only while the part is actually bolted in: the
-        // Part structs survive a RemoveEngine/StripEngineAssembly (a blown
-        // engine leaves engine, manifold and carbs behind, unfitted), so
-        // printing them unconditionally claimed a full engine on a car whose
-        // bay is visibly empty.
+        // GetEngineType(), not the stored EnginePart, which is a placeholder V6 on a spec car. Each line only while
+        // the part is fitted: the Part structs survive a removal.
         if (car->HasEngine()) {
             const CarEngine_t engineType = car->GetEngineType();
             const EnginePart engine = car->GetEngine();
@@ -457,14 +407,12 @@ void Garage::ShowCarInfoDialog() {
                      vendorStr, cylinderLabel(engineType), displacement);
             addRightNote(engineBuf, wearNote(engine.wear).c_str());
         }
-        // Manifold line
         if (car->HasManifold()) {
             const Part manifold = car->GetManifold();
             std::string maniText = std::string("  ") + manifoldName(manifold.partType.manifoldType, vendorStr);
             addIndented(maniText.c_str());
         }
-        // Carb line - a dual-quad or triple manifold carries more than one,
-        // and the original's classifieds name them as a set ("2-4brl carbs").
+        // Dual-quad and triple manifolds carry a set, named as in the classifieds ("2-4brl carbs").
         const int carbCount = car->FittedCarburetorCount();
         if (carbCount > 0) {
             const Part carb = car->GetCarburator();
@@ -474,23 +422,19 @@ void Garage::ShowCarInfoDialog() {
             if (carbCount > 1) carbText += "s";
             addIndented(carbText.c_str());
         }
-        // Transmission line
         if (car->HasGearbox()) {
             const Part trans = car->GetGearbox();
             std::string transText = transName(trans.assetId, vendor);
             addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
         }
-        // Tires line
         addRightNote(tireName(car->GetWheelType()), wearNote(car->GetTires().wear).c_str());
 
-        // Blank line
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
         char fuelBuf[64];
         snprintf(fuelBuf, sizeof(fuelBuf), "Fuel     %d gallons.", car->GetFuelTenths() / 10);
         addLeft(fuelBuf);
-        // Blank line
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
-        // Same number the original prints here (ComputeCarTopSpeed 0x243b9c).
+        // Same number the original prints here.
         char speedBuf[64];
         snprintf(speedBuf, sizeof(speedBuf), "Max speed %d mph.", car->GetTopSpeed());
         addLeft(speedBuf);
@@ -500,12 +444,12 @@ void Garage::ShowCarInfoDialog() {
     infoCfg.bounds = dialogRect;
     infoCfg.backgroundColor = {0, 208, 0, 255};
     infoCfg.borderColor = {0, 111, 239, 255};
-    infoCfg.contentAreas = { dialogRect }; // draw dialog background
+    infoCfg.contentAreas = { dialogRect };
     infoCfg.texts = texts;
     infoCfg.lines = lines;
     infoCfg.font = state.GetAssets().GetMainFont();
 
-    // No buttons - dialog is dismissed by clicking outside or pressing Escape
+    // Dismissed by clicking outside or Escape.
     infoCfg.buttons = {};
     infoCfg.onZoneHover = nullptr;
     infoCfg.onButtonPressed = nullptr;
@@ -519,14 +463,12 @@ void Garage::ShowCarInfoDialog() {
     SetActiveDialog(carInfoDialog.get());
 }
 
-// Grid lives in GameClock so it can be unit tested without SDL.
 SDL_Point Garage::GetCalendarDateHighlightPosition(int month, int day) {
     const GameClock::CalendarPos pos = GameClock::CalendarHighlightPos(month, day);
     return SDL_Point{pos.x, pos.y};
 }
 
 void Garage::ShowCalendarDialog() {
-    // Which of the two sheets to show follows the current date.
     const GameClock::GameDate today = GameClock::GetDate(state.GetElapsedTicks());
     const int month = today.monthNumber;
     const int day = today.dayOfMonth;
@@ -549,14 +491,12 @@ void Garage::ShowCalendarDialog() {
     std::map<std::string, DialogBitmap> bitmaps;
     bitmaps["calendar"] = {calBitmap, dialogRect, 0};
 
-    // Load the date rectangle highlight
     Bitmap* dateRect = state.GetAssets().GetBitmapAsset(
         {LibAssetRegular, SrLibFileAmigaLibP, CALENDAR_CURRENT_DATE_RECTANGLE});
     if (dateRect) {
         int dateW = dateRect->GetSurface()->w;
         int dateH = dateRect->GetSurface()->h;
-        // The grid is relative to the calendar bitmap; dialog bitmaps are drawn
-        // in screen coordinates, so shift by where the calendar itself sits.
+        // Shift the calendar-relative grid by where the calendar sits.
         SDL_Point datePos = GetCalendarDateHighlightPosition(month, day);
         SDL_Rect dateHighlightRect = {dialogX + datePos.x, dialogY + datePos.y, dateW, dateH};
         bitmaps["date_highlight"] = {dateRect, dateHighlightRect, 1};
@@ -595,7 +535,6 @@ void Garage::LoadCustomStickers() {
     for (const auto& entry : fs::directory_iterator(stickerDir)) {
         if (entry.is_regular_file()) {
             auto ext = entry.path().extension().string();
-            // Case-insensitive .png check
             if (ext == ".png" || ext == ".PNG") {
                 pngFiles.push_back(entry.path());
             }
@@ -624,7 +563,6 @@ void Garage::LoadCustomStickers() {
 }
 
 void Garage::ShowStickerDialog() {
-    // Only reload custom stickers on first open (scrollRow == 0 means fresh open)
     if (stickerScrollRow == 0) {
         LoadCustomStickers();
     }
@@ -647,7 +585,6 @@ void Garage::ShowStickerDialog() {
     int totalItems = 8 + dosDecalCount + customCount;  // 8 Amiga stock + DOS + custom
     int totalRows = (totalItems + 3) / 4;
 
-    // Clamp scroll position
     int maxScrollRow = std::max(0, totalRows - VISIBLE_ROWS);
     if (stickerScrollRow > maxScrollRow) stickerScrollRow = maxScrollRow;
     if (stickerScrollRow < 0) stickerScrollRow = 0;
@@ -665,8 +602,7 @@ void Garage::ShowStickerDialog() {
     std::vector<Zone> zones;
 
 
-    // Every sticker draws at its native size, centred in the cell, shrunk only
-    // if it does not fit - stretching to the cell distorted them.
+    // Native size, centred, shrunk only if it does not fit.
     auto fitInCell = [&](const SDL_Rect& cell, int w, int h) {
         if (w > cellW || h > cellH) {
             float scale = std::min((float)cellW / w, (float)cellH / h);
@@ -676,8 +612,7 @@ void Garage::ShowStickerDialog() {
         return SDL_Rect{cell.x + (cellW - w) / 2, cell.y + (cellH - h) / 2, w, h};
     };
 
-    // Populate visible cells based on scroll position
-    // Layout: items 0-7 = Amiga stock, 8-15 = DOS (if available), then custom
+    // Items 0-7 Amiga stock, 8-15 DOS (if available), then custom.
     for (int displayRow = 0; displayRow < VISIBLE_ROWS; displayRow++) {
         int actualRow = stickerScrollRow + displayRow;
         for (int c = 0; c < 4; c++) {
@@ -687,7 +622,6 @@ void Garage::ShowStickerDialog() {
             SDL_Rect dest = {GRID_LEFT + c * cellW, GRID_TOP + displayRow * cellH, cellW, cellH};
 
             if (itemIndex < 8) {
-                // Amiga stock sticker from spritesheet
                 int stockRow = itemIndex / 4;
                 int stockCol = itemIndex % 4;
                 SDL_Rect src = {stockCol * SRC_CELL_W, stockRow * SRC_CELL_H, SRC_CELL_W, SRC_CELL_H};
@@ -711,7 +645,6 @@ void Garage::ShowStickerDialog() {
                     zones.push_back(Zone("dos_" + std::to_string(dosIndex), SrLibCarDecalNames[8 + dosIndex], dest));
                 }
             } else {
-                // Custom sticker
                 int customIndex = itemIndex - 8 - dosDecalCount;
                 Bitmap* customBmp = customStickerBitmaps[customIndex].get();
                 SDL_Rect native = customBmp->GetNaturalSize();
@@ -730,7 +663,6 @@ void Garage::ShowStickerDialog() {
         }
     }
 
-    // Scroll buttons outside dialog, same pattern as car picker
     const int scrollX = 289;
     const int scrollBtnW = 15;
     const int scrollBtnH = 15;
@@ -764,7 +696,6 @@ void Garage::ShowStickerDialog() {
     buttons = {scrollTopBtn, scrollUpBtn, scrollDownBtn, scrollBottomBtn};
 
     DialogConfig stickerCfg;
-    // Bounds includes scroll buttons for dismiss hit-testing; contentAreas is the visual rect
     stickerCfg.bounds = {dialogRect.x, dialogRect.y, (scrollX + scrollBtnW) - dialogRect.x, dialogH};
     stickerCfg.backgroundColor = frameBg;
     stickerCfg.borderColor = frameBorder;
@@ -863,7 +794,6 @@ void Garage::ShowStickerDialog() {
 }
 
 void Garage::ShowModificationDialog(const char* title, int price, std::function<void()> onConfirm, std::unique_ptr<Dialog>& dialogPtr) {
-    // Dialog dimensions as specified
     const int dialogWidth = 156;
     const int dialogHeight = 36;
     const int dialogX = 82;
@@ -871,11 +801,6 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
 
     SDL_Rect dialogRect = {dialogX, dialogY, dialogWidth, dialogHeight};
 
-    // Check if player has enough money
-    // int currentMoney = state.GetBankroll();
-    // bool canAfford = currentMoney >= price;
-
-    // Button layout
     const int buttonWidth = 70;
     const int buttonHeight = 14;
     const int buttonSpacing = 4;
@@ -913,7 +838,6 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                 {
                     int currentMoney = state.GetBankroll();
                     if (currentMoney < price) {
-                        // Show "Customization ain't free!" bubble and keep dialog open
                         LOG_INFO("Not enough money! Need $%d", price);
                         if (bubbles.size() > 4) {
                             bubbles[4]->SetVisible(true);  // customizationBubble
@@ -921,13 +845,10 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                         return;
                     }
 
-                    // Deduct price
                     state.SetBankroll(currentMoney - price);
 
-                    // Execute the modification
                     onConfirm();
 
-                    // Hide bubble and close dialog
                     if (bubbles.size() > 4) {
                         bubbles[4]->SetVisible(false);
                     }
@@ -936,7 +857,6 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
                 }
                 break;
             case 1: // Forget it
-                // Hide bubble when closing
                 if (bubbles.size() > 4) {
                     bubbles[4]->SetVisible(false);
                 }
@@ -946,7 +866,6 @@ void Garage::ShowModificationDialog(const char* title, int price, std::function<
         }
     };
 
-    // Create and show the dialog
     dialogPtr = std::make_unique<Dialog>(modDialogConfig);
     SetActiveDialog(dialogPtr.get());
 }
@@ -960,10 +879,7 @@ static const char* WheelTypeName(CarWheelType type) {
     }
 }
 
-// Each of these tries the newspaper's own classified-ad name first (matches
-// what a part bought from the newspaper already gets via Part::name), and
-// only falls back to a generic description for combinations that were never
-// one of the 40 fixed AUTO PARTS slots.
+// The newspaper's own ad name first, a generic description for parts never in the catalog.
 static std::string TransmissionTypeName(TransmissionType type, CarVendor_t vendor) {
     if (Newspaper* np = state.GetNewspaper()) {
         std::string catalogName = np->FindTransmissionCatalogName(type, vendor);
@@ -1023,7 +939,6 @@ static std::string EngineDisplayName(const EnginePart& p) {
     return p.GetEngineName();
 }
 
-// Same convention ShowCarInfoDialog uses for a car's installed parts.
 static std::string WearNote(int wear) {
     if (WearPercent(wear) <= 0) return "(new)";
     char buf[32];
@@ -1033,8 +948,7 @@ static std::string WearNote(int wear) {
 
 void Garage::ShowTransmissionDialog() {
     const auto& spareTransmissions = state.GetSpareTransmissions();
-    // Say so rather than swallowing the click - the engine bay's pickers do
-    // the same with their own bubbles.
+    // Say so rather than swallow the click.
     if (spareTransmissions.empty()) { bubbles[1]->SetVisible(true); return; }
 
     std::vector<std::string> labels;
@@ -1043,23 +957,15 @@ void Garage::ShowTransmissionDialog() {
         labels.push_back(name + " " + WearNote(p.wear));
     }
 
-    // Green list-dialog style now (see below), not tied to
-    // ENGINE_TRANSMISSION_WINDOW's dimensions - eyeballed against the
-    // running game.
     SDL_Rect bounds = {20, 17, 245, 136};
 
     const int buttonWidth = 66;
     const int buttonHeight = 16;
 
-    // Proportional to bounds (same convention as EngineBay::InitPartsDialog),
-    // not absolute - these were previously stale leftovers sized for the old
-    // {60,12,200,175} bitmap-window bounds and didn't track when bounds
-    // moved to the green-list-dialog size below.
     SDL_Rect topRect = {bounds.x + 1, bounds.y + 1, bounds.w - 14, 95};
     SDL_Rect bottomRect = {bounds.x + 1, topRect.y + topRect.h, bounds.w - 14, 40};
     SDL_Rect selectedItemRect = {bounds.x + 3, bottomRect.y + 4, bounds.w - 18, 12};
     SDL_Rect listBoxRect = {bounds.x + 4, bounds.y + 14, bounds.w - 18, 80};
-    // Absolute screen coords, eyeballed against the running game.
     SDL_Rect switchItRect = {59, 127, buttonWidth, buttonHeight};
     SDL_Rect forgetItRect = {160, 127, buttonWidth, buttonHeight};
 
@@ -1091,9 +997,6 @@ void Garage::ShowTransmissionDialog() {
         scrollTopZone, scrollDownZone, scrollUpZone, scrollBottomZone
     };
 
-    // Standard green list-dialog style (matches EngineBay::InitPartsDialog
-    // and Garage's own carSelectDialog) rather than an ENGINE_TRANSMISSION_WINDOW
-    // bitmap - this is a plain spare-parts picker, not the install window.
     DialogConfig dialogConfig;
     dialogConfig.bounds = bounds;
     dialogConfig.backgroundColor = {0, 208, 0, 255};
@@ -1108,9 +1011,8 @@ void Garage::ShowTransmissionDialog() {
     };
     dialogConfig.onButtonPressed = [this](int buttonIndex) {
         switch (buttonIndex) {
-            case 0: { // Change
+            case 0: {
                 if (transInstallPhase != TransInstallPhase::EMPTY) {
-                    // Old transmission still mounted - unscrew it first.
                     bubbles[8]->SetVisible(true);
                     break;
                 }
@@ -1119,19 +1021,13 @@ void Garage::ShowTransmissionDialog() {
                 const auto& spareTransmissions = state.GetSpareTransmissions();
                 if (selectedIndex >= (int)spareTransmissions.size()) break;
                 Part newTransmission = spareTransmissions[selectedIndex];
-                // The original's only fitment test for a transmission is
-                // make: `carSpec.brand & part.brand & 0xF000` in
-                // FUN_00241304, with no class matrix the way the manifold
-                // and carb have. A mismatch still slides in and bounces
-                // back out - see UpdateTransmissionInstallAnimation.
+                // The original's only transmission fitment test is make; a mismatch still slides in and bounces back.
                 const CarPtr& car = state.GetCurrentCarPtr();
                 transRejected = car &&
                     !PartsCompatibilityManager::IsVendorCompatible(newTransmission.vendor,
                                                                    car->GetModelRef().vendor);
                 transmissionDialog->Hide();
-                // Actual swap (SetGearbox + spare-list bookkeeping) happens once
-                // the slide-in/screw-down animation completes - see
-                // Garage::CommitTransmissionSwap in garage_transmission_install.cpp.
+                // The actual swap happens once the slide-in/screw-down animation completes.
                 StartTransmissionSlideIn(newTransmission);
                 SetActiveDialog(transmissionInstallDialog.get());
                 break;
@@ -1158,12 +1054,7 @@ void Garage::ShowTransmissionDialog() {
     SetActiveDialog((Dialog*)transmissionDialog.get());
 }
 
-// Spare engine/manifold/carb pickers: same green list-dialog geometry as
-// ShowTransmissionDialog, but returning focus to engineBay->GetDialog()
-// (the engine bay's own overview) rather than a dedicated popup - see
-// garage_engine_bay_install.cpp. Only reachable while that slot is already
-// EMPTY (OnEngineBayPartClicked gates it), so no "make room first" bubble
-// needed here.
+// Only reachable while the slot is already EMPTY, so no "make room first" bubble.
 void Garage::ShowEngineDialog() {
     const auto& spareEngines = state.GetSpareEngines();
     if (spareEngines.empty()) { bubbles[9]->SetVisible(true); return; }
@@ -1231,8 +1122,7 @@ void Garage::ShowEngineDialog() {
                 if (selectedIndex >= (int)spareEngines.size()) break;
                 EnginePart newEngine = spareEngines[selectedIndex];
                 const CarPtr& car = state.GetCurrentCarPtr();
-                // The original tests make first for every engine bay slot;
-                // for the block it is the only test there is.
+                // For the block, make is the only test.
                 engineBaySlotRejected[(int)EngineBaySlot::ENGINE] = car &&
                     !PartsCompatibilityManager::IsVendorCompatible(newEngine.vendor, car->GetModelRef().vendor);
                 engineSwapDialog->Hide();
@@ -1493,8 +1383,7 @@ void Garage::ShowSparePartsDialog() {
     SDL_Rect topRect = {37, 27, 246, 95};
     SDL_Rect bottomRect = {37, 123, 246, 40};
     SDL_Rect selectedItemRect = {39, 127, 242, 12};
-    // Same idiom as "Your cars": clicking a row only highlights it, a button
-    // acts on the highlight.
+    // Clicking a row only highlights it; a button acts on the highlight.
     SDL_Rect sellItRect = {bounds.x + 52, buttonY, buttonWidth, buttonHeight};
     SDL_Rect closeRect = {bounds.x + 142, buttonY, buttonWidth, buttonHeight};
 
@@ -1553,7 +1442,7 @@ void Garage::ShowSparePartsDialog() {
         ListDialogConfig{
             labels,
             {},
-            // Enter on a highlighted row is the keyboard shortcut for Sell it.
+            // Enter on a highlighted row sells it.
             [this](int row) { SellSparePart(row); },
             listBoxRect,
             selectedItemRect,
@@ -1569,8 +1458,7 @@ void Garage::ShowTireDialog() {
 
     std::vector<std::string> labels;
     for (const Part& p : spareTires) {
-        // Same row wording as the spare-parts list: the ad name it was bought
-        // under, then how worn it is.
+        // The ad name it was bought under, then its wear.
         const std::string name = p.name.empty() ? WheelTypeName(p.partType.tireType) : p.name;
         labels.push_back(name + " " + WearNote(p.wear));
     }
@@ -1635,15 +1523,9 @@ void Garage::ShowTireDialog() {
                 const auto& spareTires = state.GetSpareTires();
                 if (selectedIndex >= (int)spareTires.size()) break;
                 Part newTire = spareTires[selectedIndex];
-                // Drop the row the player picked before adding the old set
-                // back - by type it would match the set just added when both
-                // are the same kind, and keep the worn one.
+                // By row, not type: by type it could match the set just added and keep the worn one.
                 state.RemoveSpareAt(PartCategory::Tire, static_cast<size_t>(selectedIndex));
-                // The set coming off goes back in the parts box, like any
-                // other part swap. (DetachPart 0x242b16 frees a tire instead
-                // of listing it only in the two places where it is gone for
-                // good: blown tires replaced after a race, 0x245066, and
-                // DismantleCar taking a whole car apart, 0x242b88.)
+                // The set coming off goes back in the parts box.
                 state.AddSpareTire(state.GetCurrentCar()->GetTires());
                 tireDialog->Hide();
                 SetActiveDialog(nullptr);

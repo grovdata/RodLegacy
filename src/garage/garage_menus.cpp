@@ -181,22 +181,14 @@ void Garage::InitOptionsDialog() {
 
     AudioManager* am = state.GetAssets().GetAudioManager();
 
-    // Sound/music rows only make sense when an AudioManager exists -- it's
-    // null for the whole session under --mute, and the volume buttons would
-    // just silently no-op (nothing to set the volume on).
+    // AudioManager is null under --mute.
     bool hasAudio = am != nullptr;
 
-    // Show music source row whenever Amiga music is loaded (always).
-    // The button only cycles if DOS music is also available.
     bool showMusicSource = am && am->HasAmigaMusic();
     bool canCycleMusicSource = showMusicSource && am->HasPCSpeaker();
 
-    // Rows are laid out top-down as a cursor so any row can be skipped
-    // (no audio manager, no music source) without leaving a blank gap.
-    // Same rhythm as the game menu dialog: 18px rows of 16px buttons under a
-    // title and a separator. Starting at y 40 keeps all seven rows clear of the
-    // HUD at 190 - at 50 with 20px rows the last row fell off the screen.
-    SDL_Rect optionsDialogRect = {60, 40, 200, 0};  // height fixed up below
+    // Rows advance as a cursor so skipped rows leave no gap; starting at y 40 keeps all seven clear of the HUD.
+    SDL_Rect optionsDialogRect = {60, 40, 200, 0};
 
     const int pad = 5;
     const int innerLeft  = optionsDialogRect.x + pad;
@@ -207,8 +199,6 @@ void Garage::InitOptionsDialog() {
 
     int y = optionsDialogRect.y + 17;
 
-    // Every control is right-aligned to innerRight and vertically centred in its
-    // row; labels sit at innerLeft on the same centre line.
     auto rowY = [&](int h) { return y + (rowHeight - h) / 2; };
 
     std::vector<Zone> dialogZones;
@@ -389,7 +379,6 @@ void Garage::ShowRadioDialog() {
     const int dx = (320 - dw) / 2, dy = 60;
     SDL_Rect dlgRect = {dx, dy, dw, dh};
 
-    // Button row at bottom of dialog
     const int btnY  = dy + dh - 18;
     const int btnH  = 14;
     SDL_Rect prevRect  = {dx + 4,          btnY, 24, btnH};
@@ -428,7 +417,6 @@ void Garage::ShowRadioDialog() {
     ButtonConfig nextBtn  = {nextRect,  ">>", nullptr, false, 2};
     ButtonConfig closeBtn = {closeRect, "X",  nullptr, false, 3};
 
-    // Disable prev/next for single-track sources
     if (!multiSong) {
         prevBtn.text = "";
         nextBtn.text = "";

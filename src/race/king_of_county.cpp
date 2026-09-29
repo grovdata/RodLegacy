@@ -4,12 +4,11 @@
 #include "gfx/SFont.h"
 #include <algorithm>
 
-// Layout constants (320x200 screen)
 static constexpr int TABLE_START_Y    = 58;
 static constexpr int ROW_HEIGHT       = 11;
 static constexpr int NAME_X           = 46;
-static constexpr int SCORE_RIGHT_X    = 180;  // right edge for score column
-static constexpr uint32_t COLOR_NORMAL    = 0xFFFFFFFF;  // white
+static constexpr int SCORE_RIGHT_X    = 180;
+static constexpr uint32_t COLOR_NORMAL    = 0xFFFFFFFF;
 static constexpr uint32_t COLOR_HIGHLIGHT = 0xFF00FFFF;  // yellow
 
 KingOfCounty::KingOfCounty(bool wonGame)
@@ -25,7 +24,6 @@ void KingOfCounty::Init(bool debugMode) {
         int playerScore = state.CalculateScore();
         State::HallEntry playerEntry{ state.GetPlayerName(), playerScore };
 
-        // Insert at correct ascending position
         auto it = std::lower_bound(entries.begin(), entries.end(), playerEntry,
             [](const State::HallEntry& a, const State::HallEntry& b) {
                 return a.score < b.score;
@@ -33,10 +31,9 @@ void KingOfCounty::Init(bool debugMode) {
         newEntryIndex = (int)(it - entries.begin());
         entries.insert(it, playerEntry);
 
-        // Trim to 10
         if ((int)entries.size() > 10) {
             entries.resize(10);
-            if (newEntryIndex >= 10) newEntryIndex = -1;  // pushed off table
+            if (newEntryIndex >= 10) newEntryIndex = -1;
         }
 
         if (newEntryIndex >= 0) {
@@ -81,8 +78,6 @@ void KingOfCounty::DrawScene() {
 
 bool KingOfCounty::PushEvent(SDL_Event* event) {
     if (event->type == SDL_KEYDOWN || event->type == SDL_MOUSEBUTTONDOWN) {
-        // The run is over either way it got here - won or jailed - so the only
-        // way on is the game-over menu.
         state.MoveToScene(SCENE_GAME_OVER_MENU);
         return true;
     }

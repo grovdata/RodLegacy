@@ -2,10 +2,6 @@
 #include "parsers/libp.h"
 #include <cstring>
 
-// ---------------------------------------------------------------------------
-// SrLibDataCleanupCarString
-// ---------------------------------------------------------------------------
-
 TEST_SUITE("SrLibDataCleanupCarString") {
 
 TEST_CASE("double backticks replaced by single space") {
@@ -75,4 +71,4 @@ TEST_CASE("mixed backtick types") {
     CHECK(std::string(s) == "A B`C");
 }
 
-} // TEST_SUITE
+}

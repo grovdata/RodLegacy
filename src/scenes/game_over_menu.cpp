@@ -22,10 +22,8 @@ std::unique_ptr<Button> MakeButton(const SDL_Rect& bounds, const char* text,
     cfg.textColor = kInk;
     return std::make_unique<Button>(cfg);
 }
-}  // namespace
+}
 
-// The default Scene constructor: no background asset, so Init fills the screen
-// black.
 GameOverMenu::GameOverMenu() : Scene() {}
 
 void GameOverMenu::Init(bool debugMode) {
@@ -40,12 +38,9 @@ void GameOverMenu::Init(bool debugMode) {
     panel->SetVisible(true);
 
     loadButton = MakeButton(kLoadRect, "Load Game", [] {
-        // Nowhere else to go back to if the player changes their mind.
         state.GetSaveLoadScene()->Configure(SaveLoadScene::Mode::Load, SCENE_GAME_OVER_MENU);
         state.MoveToScene(SCENE_SAVE_LOAD);
     });
-    // Name entry is the start of a new game: it takes the name, then resets
-    // bankroll and garage before dropping the player at the newspaper.
     newButton = MakeButton(kNewRect, "New Game", [] { state.MoveToScene(SCENE_NAME_ENTRY); });
     quitButton = MakeButton(kQuitRect, "Quit", [] {
         SDL_Event quit{};

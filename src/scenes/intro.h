@@ -5,9 +5,6 @@
 
 #include <array>
 
-// The Amiga intro: California Dreams logo, the sepia photo turning to colour,
-// the animated title, then the credits plate. Leaves for the name entry.
-// See RodLegacyResearch/docs/intro.md.
 class Intro : public Scene {
 public:
     void Init(bool debugMode) override;

@@ -8,14 +8,13 @@ namespace {
 constexpr int kCol0CenterX = 43;
 constexpr int kColPitch    = 18;
 constexpr int kRowPitch    = 7;
-// First week-row centre per month. The August sheet sits one pixel lower than
-// the June one, which is why these are a table and not two constants.
+// The August sheet sits one pixel lower than June's.
 constexpr int kRow0Y[4]    = {18, 111, 19, 109};  // June, July, August, September
 // Weekday of the 1st in 1963, 0 = Sunday.
 constexpr int kFirstDow[4] = {6, 1, 4, 0};        // Jun Sat, Jul Mon, Aug Thu, Sep Sun
 constexpr int kHighlightW  = 24;
 constexpr int kHighlightH  = 9;
-}  // namespace
+}
 
 CalendarPos CalendarHighlightPos(int month, int day) {
     if (month < 6 || month > 9 || day < 1 || day > 31) {
@@ -23,7 +22,6 @@ CalendarPos CalendarHighlightPos(int month, int day) {
     }
     const int m = month - 6;
     const int cell = day - 1 + kFirstDow[m];
-    // The highlight is centred on the day cell.
     return {kCol0CenterX + kColPitch * (cell % 7) - kHighlightW / 2,
             kRow0Y[m] + kRowPitch * (cell / 7) - kHighlightH / 2};
 }
@@ -71,4 +69,4 @@ uint32_t HoursToTicks(int hours) {
     return static_cast<uint32_t>(hours) * TICKS_PER_HOUR;
 }
 
-}  // namespace GameClock
+}

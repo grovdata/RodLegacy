@@ -4,37 +4,23 @@
 #include "car/car_system.h"
 #include "parsers/libp.h"
 
-// Engine bay overview geometry, read out of the Amiga binary's own position
-// tables rather than eyeballed - see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md for the addresses and
-// the pixel-exact verification. Everything below is absolute 320x200 screen
-// space.
-//
-// The tables store a bottom-left anchor, so a part's top edge depends on
-// which asset is actually loaded: pass the drawn bitmap's own rect
-// (Bitmap::GetPosition()); only its w/h are read.
+// Absolute 320x200 screen space. The tables store a bottom-left anchor, so pass the drawn bitmap's rect;
+// only its w/h are read.
 SDL_Rect EngineBodyRect(SDL_Rect asset, CarEngine_t engine);
 SDL_Rect ManifoldBodyRect(SDL_Rect asset, ManifoldType manifold);
 
-// True when the manifold draws as one of the two 88px-wide bodies rather than
-// a 112px one: the triple 2-barrel always, and the 2-barrel on a V6 block,
-// which swaps to its own narrow sprite (FUN_00241afa substitutes asset 0x14c
-// for 0x14d whenever the fitted engine is tier 0). The narrow body pulls the
-// right-hand manifold screw in with it.
+// Two 88px-wide bodies: the triple 2-barrel always, and the 2-barrel on a V6 block.
 bool ManifoldBodyIsNarrow(ManifoldType manifold, CarEngine_t engine);
 SDL_Rect EngineWireRect(SDL_Rect asset, CarEngine_t engine);
 
-// Mount `carbIndex` of however many CarburetorsPerManifold says this
-// manifold takes (car_system.h).
 SDL_Rect CarbBodyRect(SDL_Rect asset, ManifoldType manifold, CarEngine_t engine, int carbIndex);
 
 // Five drawn parts: 0=engine, 1=manifold, 2..4=carburetor 0..2 - one per
 // pointer on the original's car struct.
 constexpr int kEngineBayPartSlots = 2 + kMaxCarburetors;
 
-// Six screws: 0=engine, 1=manifold-left, 2=manifold-right, 3..5=carb 0..2.
-// Returns the mount point: x is the sprite's left edge, y its bottom edge,
-// so a screw whose visible crop shrinks stays seated at the same spot.
+// 0=engine, 1=manifold-left, 2=manifold-right, 3..5=carb 0..2. x is the sprite's left edge, y its bottom,
+// so a screw whose visible crop shrinks stays seated.
 constexpr int kEngineBayScrewCount = 6;
 SDL_Point EngineBayScrewAnchor(int screwIndex, CarEngine_t engine, ManifoldType manifold,
                                CarburetorType carb);

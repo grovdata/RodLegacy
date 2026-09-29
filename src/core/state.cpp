@@ -39,7 +39,6 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         carData.ReadEntries(assets.GetSrData(), GetTomlFile(), entries);
 
-        // Parse SR_data driver/car-spec tables and initialise pool.
         DataParser dataParser;
 
         srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
@@ -48,11 +47,9 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 
         RebuildCarSets();
 
-        // Give the roster the real driver table before it builds opponents, so
-        // names and portraits come from the data rather than a random sprite.
+        // Before it builds opponents, so names and portraits come from the data.
         roster.SetDriverTable(srDriverData, dataParser.ParseDriverNames(assets.GetSrData()));
 
-        // Initialize roster
         roster.Initialize(carData);
 
         ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_2DR_COUPE_1940)));
@@ -87,7 +84,6 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         this->currentCar = ownedCars.at(0);
         LOG_INFO("Current car tires: %d", this->currentCar->GetTires().assetId);
 
-        // Create scenes after fonts are initialized
         garage = std::make_unique<Garage>();
         diner = std::make_unique<Diner>();
         gasStation = std::make_unique<GasStation>();
@@ -117,7 +113,7 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
 #endif
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
-        throw; // Re-throw to main
+        throw;
     }
 }
 
@@ -163,13 +159,11 @@ void State::ArriveFromCruise(SrLibGameScene destination) {
 
 void State::MoveToScene(SrLibGameScene scene) {
     const SrLibGameScene previousScene = currentGameScene;
-    // The second half of a drive: the fuel and the cutscene were both dealt
-    // with on the way in, so this leg is neither charged nor driven again.
+    // The second half of a drive: fuel and cutscene were dealt with on the way in.
     const bool fromCruise = arrivingFromCruise;
     arrivingFromCruise = false;
 
-    // Every leg between two places you drive to costs fuel; the garage's
-    // newspaper, save/load and the rest are not drives.
+    // Only drives between places cost fuel.
     auto isDriveTo = [](SrLibGameScene s) {
         return s == SCENE_GARAGE || s == SCENE_DINER || s == SCENE_GAS_STATION ||
                s == SCENE_DRIVING || s == SCENE_CRUISING;
@@ -178,9 +172,7 @@ void State::MoveToScene(SrLibGameScene scene) {
         BurnFuel(FUEL_PER_TRIP_TENTHS);
     }
 
-    // Driving between two of the three places is the cruise cutscene. Driving
-    // starts it from its own OnSceneEnter, which runs at the bottom of this
-    // function - starting it here would be undone by that reset.
+    // Driving starts the cutscene from its own OnSceneEnter; starting it here would be reset.
     auto isPlace = [](SrLibGameScene s) {
         return s == SCENE_GARAGE || s == SCENE_DINER || s == SCENE_GAS_STATION;
     };
@@ -245,30 +237,22 @@ void State::MoveToScene(SrLibGameScene scene) {
             break;
     }
 
-    // Before FadeIn, so the scene is reset before it is drawn once: the fade
-    // does not hide the previous visit's leftovers, it fades them up.
+    // Before FadeIn: the fade would fade up the previous visit's leftovers.
     this->currentScene->OnSceneEnter();
     this->currentScene->FadeIn();
 }
 
-// Merges the car spec tables of every enabled set and re-seeds the racer pool
-// from the result. Init calls it once; starting a new game calls it again,
-// because the set the player picked on the way in changes the table - and the
-// table's layout is what saved model indices are resolved against.
+// Called again on a new game, since the chosen sets change the table saved model indices resolve against.
 void State::RebuildCarSets() {
     DataParser dataParser;
 
-    // The Amiga set always goes in first, so its specs keep indices 0..25
-    // - the range original .SAV files store - whatever else is switched on.
+    // Amiga set first, so its specs keep indices 0..25 as original .SAV files store them.
     mergedCarSpecs = srCarSpecData;
     mergedCarSpecModelIndex.assign(srCarSpecData.size(), -1);
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < (int)srCarSpecData.size(); i++) {
         mergedCarSpecModelIndex[i] = kCarIndex[i];
     }
 
-    // Then each optional set the player switched on. Everything a set
-    // needs - stats, sprite numbers, pixel offsets - comes out of its own
-    // data file; see RodLegacyResearch/docs/formats/hot_data_dos.md.
     const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
     for (int set = 0; set < (int)carSetDefs.size(); set++) {
         if (carSetDefs[set].mandatory || !assets.IsCarSetEnabled(set)) continue;
@@ -292,9 +276,7 @@ void State::RebuildCarSets() {
 
     if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
         srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
-        // Which cars can wear which modifications, so the pool only
-        // rolls appearance changes the model actually has sprites for -
-        // the same gate the original applies.
+        // So the pool only rolls appearance changes the model has sprites for.
         std::vector<uint8_t> specMods(mergedCarSpecs.size(), 0);
         for (size_t i = 0; i < mergedCarSpecs.size(); ++i) {
             if (i >= mergedCarSpecModelIndex.size()) break;
@@ -312,15 +294,11 @@ void State::RebuildCarSets() {
     }
 }
 
-// Fills the newspaper's used-car ads
 void State::GenerateClassifieds() {
     classifiedCars.clear();
     ++classifiedsGeneration;
 
-    // Generate classified cars for the newspaper: every buyable car from
-    // every enabled set, in merged-table order. Newspaper::LoadClassifieds
-    // walks the same table with the same skip condition, because the buy
-    // handler indexes classifiedCars by the newspaper's list position.
+    // Merged-table order: the newspaper walks the same table and its buy handler indexes by list position.
     for (int spec = 0; spec < static_cast<int>(mergedCarSpecs.size()); spec++) {
         const int carAssetId = mergedCarSpecModelIndex[spec];
         if (carAssetId < 0) continue;  // The King's slot, not for sale
@@ -330,11 +308,9 @@ void State::GenerateClassifieds() {
         }
         CarModel model = carData.GetModelFromIndex(carAssetId);
         CarPtr car = roster.GenerateRandomCar(model);
-        // Stock appearance for classifieds...
         car->SetRoofChopped(false);
         car->SetBumpersStripped(false);
         car->SetDecal(SrLibCarDecalNone);
-        // ...and the drivetrain the car is actually advertised with.
         CarBuilder::ApplySpec(car.get(), mergedCarSpecs[spec], model.vendor);
         classifiedCars.push_back(car);
     }
@@ -342,16 +318,14 @@ void State::GenerateClassifieds() {
 }
 
 void State::StartNewGame() {
-    // The car sets chosen for this game decide the spec table, so rebuild
-    // before anything generates a car against it.
+    // The chosen car sets decide the spec table.
     RebuildCarSets();
     GenerateClassifieds();
     ownedCars.clear();
     currentCar.reset();
     jailed = false;
     kingQualifierWon = false;
-    // Matches TrackGenerator(100) in maybeInitSomeGameState: one roll per
-    // profile, then fixed for its life.
+    // One roll per profile, fixed for its life.
     SetTrackVariant(std::uniform_int_distribution<int>(0, 9)(RandomEngine()));
 }
 
@@ -380,8 +354,7 @@ void State::RemoveOwnedCar(const CarPtr& car) {
     }
 }
 
-// $400 is the cheapest car in SR_data (the 1940 Chevrolet coupe), and the
-// original hardcodes the same number.
+// The cheapest car in SR_data; the original hardcodes the same.
 bool State::IsOutOfDough() const {
     return currentCar == nullptr && ownedCars.empty() &&
            spareTires.empty() && spareTransmissions.empty() && spareManifolds.empty() &&
@@ -390,8 +363,7 @@ bool State::IsOutOfDough() const {
 }
 
 void State::ScrapCurrentCar() {
-    // The car stays alive as long as anything is still showing it (a cached
-    // CarBitmap, a scene mid-animation) and is freed once they let go.
+    // Freed once nothing shows it any more.
     CarPtr gone = currentCar;
     if (!gone) return;
     RemoveOwnedCar(gone);
@@ -410,17 +382,8 @@ int State::GetCarStrippedValue(const Car* car) {
 
 namespace {
 
-// Builds one Car* from a parsed car record. Shared by the active car and
-// every roster car in State::LoadSaveGame.
-//
-// rec.specIndex is the confirmed save-format index (0-25, sr_data.md's
-// 26-entry car table). CarData::GetModelFromIndex does NOT take that index
-// directly -- CarModel.index is set from kCarIndex[i] (libp.h), a separate
-// lib.p bitmap-asset ID, not the plain spec position. kCarIndex[] is
-// positionally ordered to match sr_data.md exactly (confirmed: index 0 =
-// CHEVROLET_2DR_COUPE_1940 ... 24 = CHEVROLET_BELAIR_SPORTS_COUPE), but
-// only holds the 25 player-ownable cars -- The King (spec index 25) isn't
-// in it, since his car is never actually owned by the player in practice.
+// rec.specIndex is the save's 0-25 spec index, not the lib.p asset id CarData::GetModelFromIndex takes;
+// kCarIndex maps between them for the 25 ownable cars.
 CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                         const std::vector<SrCarSpecEntry>& specs) {
     if (rec.specIndex < 0 || rec.specIndex >= CAR_INDEX_COUNT) {
@@ -430,27 +393,20 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
     CarModel model = carData.GetModelFromIndex(assetId);
     CarPtr car = CarBuilder::BuildCar(model);
 
-    // The saved car keeps its own parts (loaded below), but the class byte is
-    // a property of the model, not of the save, so it comes from the spec.
+    // The class byte belongs to the model, so it comes from the spec.
     if (rec.specIndex >= 0 && rec.specIndex < static_cast<int>(specs.size())) {
         car->SetWeightClass(specs[rec.specIndex].car_class);
     }
 
     car->SetColor(static_cast<StandardCarColor>(rec.colorIndex));
-    // Shared decoders (libp.h). The sticker nibble is one-based, so reading it
-    // as a plain index used to give every unstickered car decal 0 - which is
-    // most of them, since the original leaves the nibble at 0 by default.
+    // The sticker nibble is one-based.
     car->SetRoofChopped(CarBodyRoofChopped(rec.bodyByte));
     car->SetBumpersStripped(CarBodyBumpersStripped(rec.bodyByte));
     car->SetDecal(CarBodyDecal(rec.bodyByte));
-    // Confirmed save byte is signed -8..+4, 0=perfectly tuned. RodLegacy's
-    // own tuneLevel is the same knob stored unsigned, perfect at
-    // kPerfectTuneLevel - so the save byte maps onto it directly and the
-    // full -8..+4 range lands inside 0..12 with nothing clamped off.
+    // Signed -8..+4 in the save maps onto the unsigned knob with nothing clamped.
     car->SetTuneLevel(kPerfectTuneLevel + rec.tuningKnob);
     car->SetFuelTenths(rec.fuelTenths);
 
-    // Sub-list slot -> category, confirmed in save_game.md.
     for (int slot = 0; slot < 7; ++slot) {
         if (rec.sublists[slot].empty()) continue;
         const LoadedPartRecord& p = rec.sublists[slot][0];
@@ -472,7 +428,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                     car->SetEngine(enginePart);
                 } else {
                     Part enginePart(p.wearRaw, p.value, model.vendor, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
-                    car->SetEngine(enginePart); // EnginePart::FromPart picks a vendor-appropriate type
+                    car->SetEngine(enginePart);
                 }
                 break;
             }
@@ -480,8 +436,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 ManifoldType type;
                 if (!CarBuilder::ManifoldTypeFromSaveVariant(p.variant, type)) type = MANIFOLD_2BARREL;
                 Part part = CarBuilder::CreateManifoldPart(type, model.vendor);
-                // wearRaw is the fixed sentinel 0xFF80 here, not a real wear
-                // value - manifolds don't track wear (save_game.md:100).
+                // Manifolds don't track wear; wearRaw is the 0xFF80 sentinel.
                 part.cost = p.value;
                 car->SetManifold(part);
                 break;
@@ -492,8 +447,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 CarburetorType type;
                 if (!CarBuilder::CarburetorTypeFromSaveVariant(p.variant, type)) type = CARB_4BARREL;
                 Part part = CarBuilder::CreateCarburetorPart(type, model.vendor);
-                // wearRaw is the fixed sentinel 0xFF80 here, not a real wear
-                // value - carbs don't track wear (save_game.md:100).
+                // Carbs don't track wear; wearRaw is the 0xFF80 sentinel.
                 part.cost = p.value;
                 car->SetCarburetor(slot - 3, part);
                 break;
@@ -508,13 +462,12 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
                 break;
         }
     }
-    // Last, against the parts just fitted: the save carries the original's own
-    // live value word (save_game.md, car record 0x00).
+    // Last, against the fitted parts: the save carries the car's live value.
     car->SetValue(rec.value);
     return car;
 }
 
-} // namespace
+}
 
 bool State::LoadSaveGame(const fs::path& path) {
     LoadedSave loaded;
@@ -529,9 +482,7 @@ bool State::LoadSaveGame(const fs::path& path) {
     SetElapsedTicks(loaded.elapsedTicks);
     SetTrackVariant(loaded.trackVariant);
 
-    // Replace the owned-car roster. Anything still showing one of the old
-    // cars (a cached CarBitmap, a scene mid-animation) keeps it alive until
-    // it lets go, so dropping them here cannot dangle.
+    // Anything still showing an old car keeps it alive.
     ownedCars.clear();
     currentCar.reset();
 
@@ -545,28 +496,19 @@ bool State::LoadSaveGame(const fs::path& path) {
     }
     if (!currentCar && !ownedCars.empty()) currentCar = ownedCars.at(0);
 
-    // Known opponents (trailer chunk 6): slot 21 is The King, who has no
-    // mutable storage in RacerPool (RACER_KING_SLOT is a sentinel, not a
-    // pool[] entry) -- only slots 0-20 are loaded.
+    // Slot 21 is The King, who has no pool entry.
     for (int i = 0; i < RACER_POOL_SIZE; ++i) {
         racerPool.SetCarSpecForSlot(i, loaded.opponentCarSpec[i]);
         if (i < static_cast<int>(racerPool.pool.size())) racerPool.pool[i].status = 0;
     }
 
-    // Race record. The save stores standing directly (trailer chunk 5 - see
-    // save_loader.h), so both reputations round-trip exactly.
-    //
-    // It does NOT store win counts: the original tracks only reputation and
-    // races completed. drag_wins/road_wins are a RodLegacy addition, so the
-    // best that can be done is leave them at 0 - reputation, which is what
-    // actually gates opponent difficulty and the King, is exact.
+    // The save stores standing, not wins, so drag_wins/road_wins stay 0.
     reputation = Reputation();
     reputation.races_completed = loaded.racesCompleted;
     reputation.drag_rep        = loaded.dragRep;
     reputation.road_rep        = loaded.roadRep;
     reputation.last_race_won   = loaded.lastRaceWon;
 
-    // The header carries the profile name, space-padded (save_game.md).
     std::string savedName = loaded.name;
     while (!savedName.empty() && savedName.back() == ' ') savedName.pop_back();
     if (!savedName.empty()) SetPlayerName(savedName);
@@ -590,10 +532,7 @@ std::string State::GetGameClockString() const {
 }
 
 int State::CalculateScore() const {
-    // Amiga: elapsedTicks advances 1 tick every 6 VBlanks (150 ticks/hour,
-    // confirmed this session; DOS's own tick rate is different, 546/hour,
-    // and not assumed to carry over). Epoch is midnight June 16 (hour 0),
-    // so hours elapsed is a direct, un-offset proxy for time survived.
+    // 150 ticks/hour from midnight June 16, so hours elapsed is time survived.
     return GameClock::TicksToHours(elapsedTicks);
 }
 
@@ -618,10 +557,7 @@ void State::SetNextOpponent(Opponent* opp) {
 }
 
 int State::GetPlayerScore() const {
-    // Scored the same way an opponent's car spec is (see racer_pool.cpp): the
-    // car's top speed in mph. SrCarSpecEntry is not involved - it is a raw
-    // 14-byte SR_data record and has no room for player state - so this goes
-    // through the Car's own parts instead.
+    // Top speed from the Car's own parts, the same score an opponent's spec gets.
     if (!currentCar) {
         return srrace::ComputeTopSpeed(srrace::CarSetup{});
     }
@@ -629,9 +565,7 @@ int State::GetPlayerScore() const {
 }
 
 const SrDriverData* State::GetCurrentDriverData() {
-    // The opponent carries the SR_data row it was built from, which is valid
-    // whoever selected them. The pool index only exists when the pool picked
-    // this challenger, so it is the fallback rather than the primary lookup.
+    // The opponent's own SR_data row, valid whoever selected them; the pool index is the fallback.
     const Opponent* opp = GetCurrentOpponent();
     if (opp != nullptr && opp->driver.srDriverIndex >= 0 &&
         opp->driver.srDriverIndex < static_cast<int>(srDriverData.size())) {
@@ -655,8 +589,7 @@ BetContext State::GetBetContext() {
         ctx.playerCarClass    = currentCar->GetWeightClass();
         ctx.playerEngineClass = currentCar->GetEngineClass();
         const SrLibCarDecal decal = currentCar->GetDecal();
-        // The sticker nibble is one-based; a custom decal is not in the
-        // original's set, so it counts as the first one.
+        // A custom decal counts as the first sticker.
         ctx.stickerIndex = decal == SrLibCarDecalNone   ? 0
                          : decal == SrLibCarDecalCustom ? 1
                                                         : static_cast<int>(decal) + 1;
@@ -667,7 +600,7 @@ BetContext State::GetBetContext() {
         ctx.oppCarClass = spec->car_class;
         ctx.oppEngineClass = spec->EngineClass();
     } else {
-        // No pool-backed challenger: read as evenly matched.
+        // No pool-backed challenger: evenly matched.
         ctx.oppCarClass    = ctx.playerCarClass;
         ctx.oppEngineClass = ctx.playerEngineClass;
     }
@@ -679,8 +612,7 @@ BetContext State::GetBetContext() {
 }
 
 const SrCarSpecEntry* State::GetChallengerSpec() const {
-    // The King sits at RACER_KING_SLOT, one past the pool, so his car is not
-    // in pool[] - it is the last SR_data spec.
+    // The King's car is the last SR_data spec, not in pool[].
     if (lastChallengerPoolIndex == RACER_KING_SLOT &&
         SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
         return &mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX];
@@ -697,15 +629,12 @@ const SrCarSpecEntry* State::GetChallengerSpec() const {
 }
 
 int State::GetChallengerScore() const {
-    // The King sits at RACER_KING_SLOT, one past the pool, so his car is not
-    // in pool[] - it is the last SR_data spec.
+    // The King's car is the last SR_data spec, not in pool[].
     if (lastChallengerPoolIndex == RACER_KING_SLOT &&
         SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
         return ComputeCarPerformanceScore(mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
     }
-    // No pool-backed challenger: read as evenly matched. Anything below 91 is
-    // a score no car in the game can have (ComputeTopSpeed's floor), and would
-    // make the player look stronger than every opponent alive.
+    // Evenly matched. Below 91 is a score no car can have and would make the player look stronger than everyone.
     if (lastChallengerPoolIndex < 0 ||
         lastChallengerPoolIndex >= RACER_POOL_SIZE) return GetPlayerScore();
     return racerPool.GetEntryScore(lastChallengerPoolIndex);
@@ -733,28 +662,20 @@ Opponent* State::GetKingOpponent() {
 }
 
 void State::PickNextOpponent() {
-    // Fall back to Roster shuffle if pool is not initialised.
     if (racerPool.pool.empty()) {
         return;
     }
 
-    // Somebody already queued a specific challenger (the diner's phone list),
-    // so leave their pick alone.
+    // A specific challenger was already queued (the diner's phone list).
     if (roster.HasForcedOpponent()) {
         return;
     }
 
     int playerScore = GetPlayerScore();
 
-    // Check for King unlock. Winning his drag qualifier forces the road race
-    // right back at him, bypassing the normal tier check entirely (king.md:
-    // "before the player gets to choose anything, SetupChallengerEncounter(21)").
+    // Winning his drag qualifier forces the road race, bypassing the tier check.
     bool kingUnlocked = kingQualifierWon || reputation.IsKingUnlocked(racerPool.CountActive());
-    // ShowOpponentRefusal (0x0023e904): after an opponent turns down a bet,
-    // the reroll has a flat 1/100 chance of being The King regardless of
-    // reputation - confirmed via SelectNextChallenger's GetRandom16or32(100)
-    // roll. He is still gated by the tier/fuel checks in Challenge::OpenKing
-    // if the player actually tries to challenge him this early.
+    // After a refused bet, a flat 1/100 chance of The King; Challenge::OpenKing still gates him.
     bool kingCameo = false;
     if (!kingUnlocked && pendingKingCameoRoll) {
         kingCameo = std::uniform_int_distribution<int>(0, 99)(RandomEngine()) == 0;
@@ -776,20 +697,13 @@ void State::PickNextOpponent() {
     }
     lastChallengerPoolIndex = poolIdx;
 
-    // A rival who has been turning up for a while has been spending money on
-    // their own car - see RacerPool::ApplyRivalryUpgrades. Runs before the
-    // look is handed to the Roster below.
     racerPool.ApplyRivalryUpgrades(poolIdx);
 
-    // Map pool entry → Roster Opponent so existing Diner code works unchanged.
     RacerEntry& entry = racerPool.pool[poolIdx];
     int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
     Opponent* opp = roster.GetOpponentByIndex(driverIdx);
     if (opp) {
-        // Carless: the player took this driver's car in a pink-slip race
-        // (OnRaceFinished resets it). RacerPool::OnRaceWon already dropped
-        // them to a lower-classification spec, so build that car - a driver
-        // with no car at all crashes everything downstream that reads it.
+        // The player took this driver's car; OnRaceWon already gave them a cheaper spec.
         if (!opp->car) {
             opp->car = BuildCarForSpec(entry.car_spec_index);
             if (!opp->car) {
@@ -798,10 +712,7 @@ void State::PickNextOpponent() {
                 return;
             }
         }
-        // Give the opponent the look the pool rolled for this slot, so the
-        // same rival always turns up in the same paint and body trim. The
-        // car itself still comes from the Roster - wiring the pool's
-        // car_spec_index through to the raced car is a separate gap.
+        // The same rival turns up in the same paint and trim.
         if (opp->car) {
             opp->car->SetColor(static_cast<StandardCarColor>(entry.color_index));
             opp->car->SetDecal(CarBodyDecal(entry.body_byte));
@@ -832,15 +743,13 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             racerPool.OnRaceWon(lastChallengerPoolIndex, pinkSlip);
         }
         if (pinkSlip) {
-            // The stake was the cars: take theirs. They are left without one -
-            // they have just lost it, after all.
+            // The stake was the cars: take theirs.
             Opponent* opponent = GetCurrentOpponent();
             if (opponent != nullptr && opponent->car) {
                 CarPtr wonCar = opponent->car;
                 opponent->car.reset();
                 ownedCars.push_back(wonCar);
-                // Drive it away: winning the pink slip means it is yours now,
-                // and the old car stays in the garage alongside it.
+                // The old car stays in the garage alongside it.
                 currentCar = wonCar;
                 LOG_INFO("State::OnRaceFinished - pink slip win: now driving %s",
                          wonCar->GetModel().name.c_str());
@@ -854,7 +763,7 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
 
         if (lastChallengerPoolIndex == RACER_KING_SLOT) {
             if (raceType == RaceType::Drag) {
-                // Qualifier only; his road race (forced next) is the decider.
+                // Qualifier only; his road race is the decider.
                 kingQualifierWon = true;
             } else {
                 LOG_INFO("State::OnRaceFinished - King beaten in the ROAD race! Triggering end-game.");
@@ -867,8 +776,7 @@ bool State::OnRaceFinished(RaceType raceType, bool won) {
             lastChallengerPoolIndex < RACER_POOL_SIZE) {
             racerPool.OnRaceLost(lastChallengerPoolIndex);
         }
-        // Losing either King race clears the qualifier: the drag must be won
-        // again before the road race is offered.
+        // Losing either King race clears the qualifier.
         if (lastChallengerPoolIndex == RACER_KING_SLOT) {
             kingQualifierWon = false;
         }
@@ -901,7 +809,6 @@ static std::vector<State::HallEntry> ParseHallDat(const uint8_t* data, size_t si
     int count = (int)((data[0] << 8) | data[1]);
     if (count <= 0 || count > HALL_DAT_ENTRY_COUNT) count = HALL_DAT_ENTRY_COUNT;
 
-    // Only iterate as many complete entries as fit in the file
     int entries_that_fit = ((int)size - HALL_DAT_HEADER_SIZE) / HALL_DAT_ENTRY_SIZE;
     if (count > entries_that_fit) count = entries_that_fit;
 
@@ -923,10 +830,8 @@ static std::vector<State::HallEntry> ParseHallDat(const uint8_t* data, size_t si
     return entries;
 }
 
-// Where the hall of fame is kept. Neither Amiga disk ships a hall_dat - the
-// original creates it on first save - so the pref dir is the only copy, and
-// the game directory is only read as a fallback (a DOS install has HALL_DAT
-// next to SR.EXE, and older RodLegacy builds wrote it there).
+// Neither Amiga disk ships a hall_dat, so the pref dir is the only copy; the game directory is a read
+// fallback (a DOS install keeps HALL_DAT next to SR.EXE).
 static std::vector<fs::path> HallDatPaths(const fs::path& gameBase) {
     std::vector<fs::path> paths;
     fs::path pref = AssetManager::GetPrefDir();
@@ -954,7 +859,6 @@ std::vector<State::HallEntry> State::LoadHallDat() const {
 void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
     uint8_t buf[HALL_DAT_FILE_SIZE] = {};
 
-    // Header: int16 entry count (big-endian)
     buf[0] = (HALL_DAT_ENTRY_COUNT >> 8) & 0xFF;
     buf[1] = HALL_DAT_ENTRY_COUNT & 0xFF;
 
@@ -962,12 +866,10 @@ void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
     int count = std::min((int)entries.size(), HALL_DAT_ENTRY_COUNT);
     for (int i = 0; i < count; i++) {
         int offset = HALL_DAT_HEADER_SIZE + i * HALL_DAT_ENTRY_SIZE;
-        // name[16]
         for (int b = 0; b < HALL_DAT_NAME_LEN; b++) {
             char c = (b < (int)entries[i].name.size()) ? entries[i].name[b] : '\0';
             buf[offset + b] = (uint8_t)(c ^ HALL_DAT_XOR_KEY);
         }
-        // score[7] as decimal string
         char scoreBuf[HALL_DAT_SCORE_LEN + 1] = {};
         snprintf(scoreBuf, sizeof(scoreBuf), "%d", entries[i].score);
         for (int b = 0; b < HALL_DAT_SCORE_LEN; b++) {
@@ -993,5 +895,4 @@ void State::SaveHallDat(const std::vector<HallEntry>& entries) const {
     }
 }
 
-// Global object
 State state;

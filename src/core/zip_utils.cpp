@@ -1,8 +1,7 @@
 #include "core/zip_utils.h"
 #include "core/log.h"
 
-// miniz.h declares zlib-compat shims as static that this file doesn't call;
-// not our code to fix warnings in.
+// miniz's unused static zlib shims warn; not our code.
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-function"

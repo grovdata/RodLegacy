@@ -5,15 +5,11 @@
 
 #include <memory>
 
-// The win ending: beat The King in the road race and the original plays this
-// before the hall of fame. A cutscene on the garage screen - see
-// RodLegacyResearch/docs/game_over.md ("The win ending") for the traced
-// original (FUN_0023e062).
 class Ending : public CarScene {
 public:
     Ending();
 
-    bool WantsPointer() const override { return false; }   // it is a cutscene
+    bool WantsPointer() const override { return false; }
     void OnSceneEnter() override;
     void DrawScene() override;
     void OnFadeComplete() override;
@@ -33,7 +29,7 @@ private:
 
     Phase phase = Phase::Win;
     int frame = 1;
-    int girlFrame = 1;   // held on her last frame once she is out
+    int girlFrame = 1;
 
     Uint64 phaseStart = 0;
 

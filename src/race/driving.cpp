@@ -13,13 +13,10 @@
 #include <cmath>
 #include <algorithm>
 
-extern Mouse mouse;  // defined in main.cpp
+extern Mouse mouse;
 
-// The original writes the door mirror straight into the interior bitmap
-// (RenderMirrorView 0x238318); RodLegacy lets Racing paint the same pixels into
-// the road surface instead, so punch the glass out of the interior and the copy
-// shows through. The bitmap bottom-aligns at screen y 100, so bitmap y is screen
-// y - 100. kSideMirrorGlass (racing.h) carries the shape both sides share.
+// Racing paints the door mirror into the road surface, so make the glass transparent.
+// Bitmap y is screen y - 100.
 static void PunchSideMirrorGlass(Bitmap* interior) {
     SDL_Surface* s = interior ? interior->GetSurface() : nullptr;
     if (!s || s->format->BytesPerPixel != 4) {
@@ -45,12 +42,10 @@ static void PunchSideMirrorGlass(Bitmap* interior) {
 
 Driving::Driving() : Scene() {
     LOG_INFO("Driving::Driving() constructor called\n");
-    // Create racing component with audio manager
     racing = std::make_unique<Racing>(state.GetAssets().GetAudioManager());
     roadTexture = nullptr;
     lastEvent = nullptr;
     
-    // Initialize track reader
     trackReader = std::make_unique<TrackReader>();
     LOG_INFO("Driving constructor completed - trackReader created\n");
 }
@@ -59,7 +54,6 @@ void Driving::Init(bool debugMode) {
     LOG_INFO("Driving::Init() called with debugMode=%s\n", debugMode ? "true" : "false");
     Scene::Init(debugMode);
 
-    // Fresh race: clear any leftover race-end pause state.
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
@@ -70,37 +64,26 @@ void Driving::Init(bool debugMode) {
 
     Bitmap* dashboard = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
 
-    // Load pillar (windshield beam)
     auto pillar = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
     pillar->AlignAbove(dashboard);
     pillar->SetVisible(true);
     AddDrawable("pillar", pillar);
 
-    // Load roof (ceiling)
     auto roof = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CEILING});
     roof->AlignAbove(pillar);
     roof->SetVisible(true);
     AddDrawable("roof", roof);
 
-    // Load mirror stem
-    // auto mirrorStem = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_UNKNOWN_THING3});
-    // mirrorStem->SetPosition(72, GAME_HEIGHT - 107 - GAME_STATUSBAR_HEIGHT);
-    // mirrorStem->SetVisible(true);
-    // AddDrawable("mirror_stem", mirrorStem);
-
-    // Load mirror
     auto mirror = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_REARVIEWMIRROR_FRAME});
     mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
     AddDrawable("mirror", mirror);
     
-    // Load clock for automatic transmission cars (will overlap tachometer)
     auto clock = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_CLOCK_11_50});
     clock->SetPosition(120, 115);
-    clock->SetVisible(false); // Will be shown only for automatic transmission
+    clock->SetVisible(false);
     AddDrawable("clock", clock);
 
-    // Load plush dice
     auto plushDice = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_DICE1_NEUTRAL});
     plushDice->SetPosition(259, 45);
     plushDice->SetVisible(true);
@@ -126,7 +109,6 @@ void Driving::Init(bool debugMode) {
     plushDice->SetVisible(false);
     AddDrawable("plush_dice5", plushDice);
 
-    // Load wheel left hand 1
     wheelLeftHand1 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_LEFT_HAND_1});
     wheelLeftHand1->SetPosition(72, 144);
     wheelLeftHand1->SetVisible(true);
@@ -147,25 +129,21 @@ void Driving::Init(bool debugMode) {
     wheelLeftHand4->SetVisible(false);
     AddWheelDrawable("wheel_left_hand_4", wheelLeftHand4);
 
-    // Load wheel right hand 1
     wheelRightHand1 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_1});
     wheelRightHand1->SetPosition(216, 144);
     wheelRightHand1->SetVisible(true);
     AddWheelDrawable("wheel_right_hand_1", wheelRightHand1);
 
-    // Load wheel right hand 2
     wheelRightHand2 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_2});
     wheelRightHand2->SetPosition(216, 120);
     wheelRightHand2->SetVisible(false);
     AddWheelDrawable("wheel_right_hand_2", wheelRightHand2);
 
-    // Load wheel right hand 3
     wheelRightHand3 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_3});
     wheelRightHand3->SetPosition(216, 144);
     wheelRightHand3->SetVisible(false);
     AddWheelDrawable("wheel_right_hand_3", wheelRightHand3);
 
-    // Load wheel right hand 4
     wheelRightHand4 = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WHEEL_RIGHT_HAND_4});
     wheelRightHand4->SetPosition(272, 144);
     wheelRightHand4->SetVisible(false);
@@ -195,8 +173,7 @@ void Driving::Init(bool debugMode) {
 
     SetState(DRIVING_STATE_NORMAL);
     
-    // Blood on the windscreen, drawn over the wrecked interior on a hard enough
-    // impact. Not car-coloured, so it keeps the plain driving palette.
+    // Not car-coloured, so the plain driving palette.
     auto* crashBloodAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_BLOOD});
     if (crashBloodAsset) {
         crashBloodBitmap = std::make_unique<Bitmap>(*crashBloodAsset);
@@ -204,7 +181,6 @@ void Driving::Init(bool debugMode) {
         crashBloodBitmap->SetPosition(104, 27);
     }
     
-    // Load track data for debugging/development
     LoadTrackData();
 
     if (racing) {
@@ -215,13 +191,11 @@ void Driving::Init(bool debugMode) {
 void Driving::LoadTrackData() {
     LOG_INFO("Driving::LoadTrackData() called\n");
     
-    // Check if trackReader exists
     if (!trackReader) {
         LOG_INFO("ERROR: trackReader is null!\n");
         return;
     }
     
-    // Check if AssetManager has executable data (where track data is stored)
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     LOG_INFO("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
     
@@ -230,11 +204,9 @@ void Driving::LoadTrackData() {
         return;
     }
     
-    // Load Street Rod executable data from AssetManager
     if (trackReader->LoadTrackData(srExeData)) {
         LOG_INFO("=== Street Rod Track Data Loaded ===\n");
         
-        // Load road race track
         LOG_INFO("Extracting road race track coordinates...\n");
         auto roadRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_ROAD_RACE, 500);
         LOG_INFO("Found %zu road race segments\n", roadRaceSegments.size());
@@ -248,7 +220,6 @@ void Driving::LoadTrackData() {
             LOG_INFO("  Unique sprites: %zu\n", analysis.uniqueSprites.size());
         }
         
-        // Load drag race track
         LOG_INFO("Extracting drag race track coordinates...\n");
         auto dragRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_DRAG_RACE, 200);
         LOG_INFO("Found %zu drag race segments\n", dragRaceSegments.size());
@@ -261,14 +232,12 @@ void Driving::LoadTrackData() {
             LOG_INFO("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
         }
         
-        // Load roadside sprites
         LOG_INFO("Extracting roadside sprites...\n");
         auto roadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
         LOG_INFO("Found %zu roadside sprite records\n", roadsideSprites.size());
         if (!roadsideSprites.empty()) {
             LOG_INFO("Roadside Sprites: %zu records\n", roadsideSprites.size());
             
-            // Show first few sprites for debugging
             for (size_t i = 0; i < std::min<size_t>(5, roadsideSprites.size()); ++i) {
                 const auto& sprite = roadsideSprites[i];
                 LOG_INFO("  %s at pos %d, %s at pos %d\n",
@@ -277,14 +246,11 @@ void Driving::LoadTrackData() {
             }
         }
         
-        // Load track data into racing component
         if (racing) {
             LOG_INFO("Loading track data into racing component...\n");
-            // Builds the race sim off whatever car is current, gearbox
-            // included - nothing to configure separately here.
+            // Builds the race sim off the current car, gearbox included.
             racing->LoadTrackData(srExeData, SR_TRACK_ROAD_RACE);
 
-            // Initialize opponent for the race
             LOG_INFO("Initializing race opponent...\n");
             racing->InitializeOpponent();
         }
@@ -297,29 +263,19 @@ void Driving::LoadTrackData() {
 }
 
 Driving::~Driving() {
-    // Timer no longer used
-    // SDL_RemoveTimer(timerID);
-    
-    // Clean up road texture
     if (roadTexture) {
         SDL_DestroyTexture(roadTexture);
         roadTexture = nullptr;
     }
 }
 
-// Everything in the cockpit that carries the car's own colour. Init runs once
-// at game start, so this has to re-run per race (OnFadeComplete) or every race
-// after the first is driven in whatever car was current at startup.
+// Init runs once at game start, so this re-runs per race.
 void Driving::ApplyCarLivery() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
 
-    // Hood colour ramp for the assets that carry hood pixels. The Amiga
-    // copperlist reloads the hood scanlines' COLOR06/COLOR07 with shades 2 and 3
-    // of the car's ramp: the reference frame's hood is 0x0962/0x0A73, and those
-    // two words occur exactly once in the Amiga executable, as entries 2 and 3
-    // of the golden brown ramp. GetBitmapAssetWithPalette maps palette slot N to
-    // carPalette[N-1], so the two shades have to sit at 5 and 6.
+    // The copperlist loads the hood's COLOR06/COLOR07 with shades 2 and 3 of the car's ramp. Palette slot N maps
+    // to carPalette[N-1], so they sit at 5 and 6.
     std::vector<uint16_t> hoodPalette = GetStandardCarColor(car->GetColor());
     if (hoodPalette.size() >= 7) {
         hoodPalette[5] = hoodPalette[2];
@@ -328,8 +284,7 @@ void Driving::ApplyCarLivery() {
 
     byte_vector& libFile = state.GetAssets().GetLibPData();
 
-    // The dashboard bitmap includes the hood's left edge, so it takes the same
-    // palette as the hood itself.
+    // The dashboard includes the hood's left edge.
     Bitmap* dashboard = state.GetAssets().GetBitmapAssetWithPalette(
         libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
     PunchSideMirrorGlass(dashboard);
@@ -343,8 +298,7 @@ void Driving::ApplyCarLivery() {
     hood->SetVisible(true);
     SetDrawable("hood", hood);
 
-    // The wrecked interior shows the buckled hood, so it takes the same ramp as
-    // the intact one rather than the raw car palette.
+    // The wrecked interior shows the buckled hood.
     Bitmap* crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(
         libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_INTERIOR}, hoodPalette);
     if (crashOverlayAsset) {
@@ -359,12 +313,9 @@ void Driving::AddWheelDrawable(const std::string& id, Bitmap* bitmap) {
 }
 
 void Driving::Start() {
-    // Timer no longer needed as racing is updated in Draw() method
-    // timerID = SDL_AddTimer(250, AnimationTimerCallback, this);
 }
 
 void Driving::SetState(DrivingState state) {
-    // Hide all wheel elements first
     wheelLeftHand1->SetVisible(false);
     wheelLeftHand2->SetVisible(false);
     wheelLeftHand3->SetVisible(false);
@@ -381,7 +332,6 @@ void Driving::SetState(DrivingState state) {
     this->currentState = state;
     switch (state) {
         case DRIVING_STATE_NORMAL:
-            // Show default hand positions
             wheelLeftHand1->SetVisible(true);
             wheelRightHand1->SetVisible(true);
             break;
@@ -400,13 +350,10 @@ void Driving::SetState(DrivingState state) {
             wheelTurningRightOpposite->SetVisible(true);
             break;
         case DRIVING_STATE_CRASHED:
-            // All wheels are already hidden, do nothing
             break;
     }
 
-    // The right hand is on the shifter for the length of a shift, so it cannot
-    // also be on the wheel. Here rather than in UpdateShifter because the
-    // steering can re-run SetState mid-shift.
+    // The right hand is on the shifter during a shift; steering can re-run SetState mid-shift.
     if (shiftPhase != ShiftPhase::Idle) {
         wheelRightHand1->SetVisible(false);
         wheelRightHand2->SetVisible(false);
@@ -416,8 +363,7 @@ void Driving::SetState(DrivingState state) {
 }
 
 void Driving::OnSceneEnter() {
-    // No music while racing. Init() runs once at game start for every scene,
-    // so pausing there would kill music for the whole session.
+    // Init() runs once for every scene, so pausing music there would kill it for the session.
     if (AudioManager* am = state.GetAssets().GetAudioManager()) {
         musicWasPaused = am->IsMusicPaused();
         am->PauseMusic();
@@ -425,16 +371,13 @@ void Driving::OnSceneEnter() {
 
     if (!racing) return;
 
-    // Before the track loads (which builds the race sim off the current car):
-    // this race may be in a different car than the last one, or than the one
-    // that was current when Init ran.
+    // Before the track loads, which builds the race sim off the current car.
     ApplyCarLivery();
 
     RaceType pendingType = state.GetPendingRaceType();
     SrTrackType trackType = (pendingType == RaceType::Drag)
                             ? SR_TRACK_DRAG_RACE : SR_TRACK_ROAD_RACE;
 
-    // Load the appropriate track (falls back to existing data if EXE not available)
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     if (!srExeData.empty()) {
         racing->LoadTrackData(srExeData, trackType);
@@ -442,8 +385,7 @@ void Driving::OnSceneEnter() {
         racing->SetTrackType(trackType);
     }
 
-    // Scene-side per-race state. Init() runs once at game start, so the
-    // race-end pause and its bubble are cleared here instead.
+    // Init() runs once, so per-race scene state is cleared here.
     raceEnded = false;
     raceEndPendingKing = false;
     raceEndBubble.reset();
@@ -453,7 +395,6 @@ void Driving::OnSceneEnter() {
     raceEndDismissAllowedMs = 0;
     mouse.SetVisible(false);
 
-    // Dice pendulum starts from rest.
     currentDiceIndex = 0;
     diceTilt = 0;
     diceDir = 1;
@@ -462,12 +403,10 @@ void Driving::OnSceneEnter() {
     racing->ResetForNewRace();
     racing->InitializeOpponent();
 
-    // After ResetForNewRace: the gate plate to show depends on this car's box.
+    // After ResetForNewRace: the gate plate depends on this car's box.
     ResetShifter();
 
-    // A drive between two places comes through here as SCENE_CRUISING with the
-    // real destination parked in State. Last, so the reset above cannot undo
-    // it.
+    // A drive arrives as SCENE_CRUISING with the destination in State. Last, so the reset cannot undo it.
     cruising = false;
     SrLibGameScene cruiseTo = SCENE_DINER;
     if (state.TakePendingCruise(cruiseTo)) {
@@ -482,13 +421,8 @@ void Driving::OnSceneEnter() {
              state.GetPendingIsPinkSlip() ? 1 : 0);
 }
 
-// The gear shifter. RodLegacyResearch/docs/driving/shifter.md has the full
-// write-up; the short version is that the knob walks a gate path one stop per
-// race frame with a hand on it, and sits bare at each end.
-//
-// Gate paths, offsets from the plate's top-left. The manual one is an
-// H-pattern whose odd entries are the route through the gate, so 2 -> 3 walks
-// back to centre-left, across, then up-right.
+// The knob walks a gate path one stop per race frame with a hand on it, bare at each end. Offsets from the
+// plate's top-left; the manual H-pattern's odd entries route through the gate.
 static constexpr SDL_Point kGateManual[9] = {
     {22, 19}, {22, 11}, {22, 19}, {22, 29}, {22, 19},
     {31, 19}, {31, 11}, {31, 19}, {31, 29}
@@ -514,9 +448,7 @@ void Driving::LoadShifter() {
     shifterHand->SetVisible(false);
     AddDrawable("shifter_hand", shifterHand);
 
-    // The plate sits at (0x110, 0x2c) in the dashboard bitmap, which we draw
-    // bottom-aligned, so anchor to it rather than to the screen. The dashboard
-    // is positioned once, just above, and never moves.
+    // The plate sits at (0x110, 0x2c) in the bottom-aligned dashboard bitmap.
     auto* dash = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
     SDL_Rect dashRect = dash ? dash->GetPosition() : SDL_Rect{0, 0, 0, 0};
     shifterOrigin = {dashRect.x + 0x110, dashRect.y + 0x2c};
@@ -586,8 +518,6 @@ void Driving::UpdateShifter(float deltaTime) {
         }
     }
 
-    // Nothing of the gearbox shows at rest; during a shift the plate is up,
-    // with the bare knob at each end and the hand on it for the slide.
     const bool active = (shiftPhase != ShiftPhase::Idle);
     shifterPlate[shifterKind]->SetVisible(active);
     shifterKnob[shifterKind]->SetVisible(active && shiftPhase != ShiftPhase::Slide);
@@ -595,8 +525,7 @@ void Driving::UpdateShifter(float deltaTime) {
     if (!active) return;
 
     if (shiftPhase == ShiftPhase::Slide) {
-        // Top-left anchored at (0xfc, 0x22) - up and left of the plate, since
-        // the arm reaches in from that side.
+        // Top-left at (0xfc, 0x22): the arm reaches in from there.
         const SDL_Point at = gate[shiftCursor];
         shifterHand->SetPosition(shifterOrigin.x + at.x - 20, shifterOrigin.y + at.y - 10);
     } else {
@@ -608,11 +537,8 @@ void Driving::UpdateShifter(float deltaTime) {
 }
 
 void Driving::UpdateDiceAnimation(float deltaTime) {
-    // The plush dice swing as a continuous pendulum, matching the original
-    // (RenderPlayerCar 0x238b28): a tilt -2..2 steps +-1 each race frame and
-    // reverses at its bounds, so the dice keep moving even on a straight road.
-    // Steering shifts one bound so the swing biases away from the turn (inertia).
-    // When the car is stopped it swings on until it crosses centre, then settles.
+    // A continuous pendulum: tilt -2..2 steps each race frame, reversing at its bounds. Steering shifts one bound;
+    // stopped, it settles once it crosses centre.
     const bool moving = racing && racing->GetSpeed() > 0.1f;
     const int steer = racing ? racing->GetSteerDisplay() : 0;   // <0 left, >0 right
     int lo = -2;
@@ -638,8 +564,7 @@ void Driving::UpdateDiceAnimation(float deltaTime) {
         diceTilt += diceDir;
     }
 
-    // Map tilt -2..2 to the frame in screen-x order: -2 LEFT2(2), -1 LEFT1(1),
-    // 0 NEUTRAL(0), +1 RIGHT1(3), +2 RIGHT2(4).
+    // -2 LEFT2(2), -1 LEFT1(1), 0 NEUTRAL(0), +1 RIGHT1(3), +2 RIGHT2(4).
     const int mag = std::abs(diceTilt);
     const int idx = (diceTilt < 0) ? mag : (diceTilt > 0 ? 2 + mag : 0);
     if (idx == currentDiceIndex) {
@@ -659,12 +584,9 @@ void Driving::UpdateDiceAnimation(float deltaTime) {
 void Driving::DrawScene() {
     Scene::DrawScene();
 
-    // Update racing simulation
     if (racing) {
-        // While the race-end bubble is up the scene is frozen (no ticking); the
-        // last rendered frame stays on screen until any key returns to the garage.
+        // Frozen while the race-end bubble is up.
         if (!raceEnded) {
-            // Get frame delta time in seconds, with a reasonable maximum to prevent huge jumps
             float deltaTime = state.GetElapsedTime() / 1000.0f;
             if (deltaTime > 0.1f) deltaTime = 0.1f; // Cap at 100ms to prevent huge jumps
 
@@ -676,7 +598,6 @@ void Driving::DrawScene() {
                     return;
                 }
             } else if (!racing->IsFlybyMode()) {
-                // Race ended: record the result, then pause and show the reason.
                 RaceOutcome outcome = racing->GetRaceOutcome();
                 if (outcome != RaceOutcome::Ongoing) {
                     bool won = (outcome == RaceOutcome::PlayerWon);
@@ -685,41 +606,26 @@ void Driving::DrawScene() {
                     const srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
                     srrace::RaceEndMessage reason = srrace::BuildRaceEndReason(endCtx);
                     const srrace::CrashOutcome crash = srrace::ClassifyCrash(endCtx);
-                    // Speeding ticket. Read here because ResetRaceOutcome below
-                    // clears the sim's cop state; it is charged further down,
-                    // after the tires, because what the player still owes for
-                    // those is added to the fine.
+                    // Read before ResetRaceOutcome clears it; charged after the tires, whose debt is added to the fine.
                     const bool busted = racing->PlayerBusted();
                     const int speedingFine = busted ? racing->SpeedingFine() : 0;
 
-                    // The rivalry with this driver, tallied whatever the
-                    // outcome - a ticket voids the race for everything else
-                    // but still counts as a meeting.
+                    // A ticket voids the race but still counts as a meeting.
                     state.RecordChallengerRace(!won && !busted);
-                    // Read before OnRaceFinished, which does not clear it, but
-                    // checking first is one less thing to get wrong later.
                     const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
-                    // A ticket is the whole outcome (srrace::SettlesBet): the
-                    // stake, the reputation and the racer pool are left alone,
-                    // so being pulled over in a pink-slip race no longer takes
-                    // the car with it.
+                    // A ticket is the whole outcome: stake, reputation and pool are left alone.
                     raceEndPendingKing = srrace::SettlesBet(endCtx)
                                              ? state.OnRaceFinished(raceType, won)
                                              : false;
                     racing->ResetRaceOutcome();
-                    // Running the race itself costs fuel, on top of the drive
-                    // legs State::MoveToScene charges.
+                    // On top of the drive legs State::MoveToScene charges.
                     state.BurnFuel(raceType == RaceType::Drag
                                        ? State::FUEL_PER_DRAG_RACE_TENTHS
                                        : State::FUEL_PER_ROAD_RACE_TENTHS);
-                    // King races advance the clock 600/1050 ticks (@150/hr =
-                    // 4h/7h) instead of the usual flat 2h - see king.md.
+                    // King races advance the clock 4h/7h instead of 2h.
                     if (wasKingRace) {
                         state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : 7);
-                        // Confirmed from the disassembly's string table
-                        // (LAB_1551 / LAB_1552+LAB_1553). No King-specific
-                        // loss line has turned up, so a loss still uses the
-                        // generic crash/lose reason below.
+                        // No King-specific loss line is known, so a loss uses the generic reason.
                         if (won) {
                             reason = raceType == RaceType::Drag
                                 ? srrace::RaceEndMessage{"Beginner's luck, punk`!",
@@ -732,43 +638,26 @@ void Driving::DrawScene() {
                         state.AdvanceGameHours(2);
                     }
 
-                    // Wear first, damage second: a race that blew the engine
-                    // strips it straight after, so the order only matters for
-                    // the races that end intact - which is all of them.
                     ApplyRaceWear();
-                    // What a fresh set of tires left unpaid, if the player could
-                    // not cover the $50. The original returns it from
-                    // ReplaceBlownTires (0x245044, named ApplyCrashDamage until
-                    // the evidence said otherwise) and both its callers spend it.
+                    // What a fresh set left unpaid if the $50 could not be covered.
                     int tireDebt = 0;
                     if (endCtx.tiresBlown) {
                         tireDebt = ApplyBlownTires();
                     }
                     ApplyDrivetrainDamage(endCtx.endFlags);
 
-                    // Charged here rather than where it is read: ProcessRaceOutcome's
-                    // cop-caught block runs `sVar8 = ApplyCrashDamage()` and then
-                    // adds the speed-tiered fine to it, so the tires come out of
-                    // the bankroll first and whatever they could not cover is
-                    // billed on top of the ticket.
+                    // Tires first, then the fine; any unpaid tire debt is billed on top of the ticket.
                     if (busted) {
                         const int owed = speedingFine + tireDebt;
                         if (state.GetBankroll() >= owed) {
                             state.SetBankroll(state.GetBankroll() - owed);
                         } else {
-                            // Short of it: hauled off to the slammer and the run
-                            // is over (outcome 4). The diner draws itself behind
-                            // bars from here on - docs/diner.md ("Jail").
+                            // Short of it: jail, and the run is over.
                             state.SetJailed(true);
                         }
                     }
 
-                    // Anything ProcessRaceOutcome answers 2 to sends the player
-                    // home: a wreck that cost money (repaired or totaled), a
-                    // drivetrain that let go, and still owing for the tires -
-                    // its ticket branch reads `(sVar8 = ApplyCrashDamage(),
-                    // sVar8 == 0)` and falls to 2 when it is not. See
-                    // LeaveAfterRace.
+                    // A wreck that cost money, a failed drivetrain, or unpaid tires send the player home.
                     const bool drivetrainFailed =
                         (endCtx.endFlags &
                          (srrace::END_ENGINE_BLOWN | srrace::END_TRANS_DROPPED)) != 0;
@@ -778,8 +667,7 @@ void Driving::DrawScene() {
                                            drivetrainFailed ||
                                            tireDebt > 0);
 
-                    // What the wreck costs, after the bet has been settled -
-                    // the order ProcessRaceOutcome uses.
+                    // After the bet is settled.
                     if (crash == srrace::CrashOutcome::Totaled) {
                         const int scrap = srrace::ScrapPayout(endCtx.carStrippedValue);
                         state.SetBankroll(state.GetBankroll() + scrap);
@@ -791,16 +679,12 @@ void Driving::DrawScene() {
                     LOG_INFO("Driving: race ended (%s); press any key for garage",
                              reason.text.c_str());
                     raceEnded = true;
-                    // Dip out and back in first; ShowRaceEndMessage puts the
-                    // message up once that is done.
+                    // ShowRaceEndMessage puts the message up after the dip.
                     raceEndReason = reason;
                     raceEndWon = won;
                     raceEndWreck = (crash == srrace::CrashOutcome::RepairOrJunk);
                     raceEndCtx = endCtx;
-                    // The stats panel is only built for a race decided at the
-                    // line: ProcessRaceOutcome calls BuildResultText on the win
-                    // branch and on a loss only when the outcome word is exactly
-                    // 1 (finished, nothing broken, no cop).
+                    // Only for a race decided at the line.
                     raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0;
                     raceEndTimeTenths = racing->RaceTimeTenths();
                     raceEndAvgSpeed = racing->AverageSpeedMph();
@@ -810,33 +694,26 @@ void Driving::DrawScene() {
                 }
             }
 
-            // Dice pendulum swing.
             UpdateDiceAnimation(deltaTime);
 
-            // Gear shifter.
             UpdateShifter(deltaTime);
         }
 
-        // Get the updated racing surface and create texture
         SDL_Surface* racingSurface = racing->GetSurface();
         if (racingSurface) {
-            // Destroy old texture if it exists
             if (roadTexture) {
                 SDL_DestroyTexture(roadTexture);
             }
             
-            // Create new texture from racing surface
             roadTexture = SDL_CreateTextureFromSurface(renderer, racingSurface);
             if (roadTexture) {
-                // Force nearest-neighbor: the global scale-quality hint is set
-                // after the renderer is created, so it isn't reliably applied.
+                // The scale-quality hint is set after the renderer exists, so it isn't reliably applied.
                 SDL_SetTextureScaleMode(roadTexture, SDL_ScaleModeNearest);
                 SDL_RenderCopy(renderer, roadTexture, NULL, &roadRect);
             }
         }
     }
 
-    // Update clock visibility based on transmission type
     bool isAutomatic = racing && racing->IsAutomatic();
     
     auto clockDrawable = GetDrawable("clock");
@@ -844,9 +721,7 @@ void Driving::DrawScene() {
         clockDrawable->SetVisible(isAutomatic);
     }
     
-    // Steering wheel follows the eased steering position (slide velocity), so the
-    // dot and hands re-center over several frames after the stick is released
-    // instead of snapping. Onset is immediate; release decays to center.
+    // Follows the eased steering, so it re-centers over several frames.
     if (racing && !racing->IsFlybyMode() && !racing->ShouldShowCrashOverlay()) {
         const int steer = racing->GetSteerDisplay();
         DrivingState wheelState = (steer > 0) ? DRIVING_STATE_TURNING_RIGHT
@@ -857,25 +732,19 @@ void Driving::DrawScene() {
         }
     }
 
-    // Draw all interior elements using drawable system
     DrawAll();
     
-    // Draw gauge needles on top of dashboard
     if (racing) {
-        // Only draw tachometer for manual transmission cars
         if (!isAutomatic) {
             racing->DrawTachometerNeedleToRenderer(renderer);
         }
         racing->DrawSpeedometerNeedleToRenderer(renderer);
     }
 
-    // Red steering-wheel dot (rides the wheel rim, re-centers with the steering).
     DrawSteeringDot();
 
-    // Handle crash state - set proper driving state
     bool isCrashed = racing && !racing->IsFlybyMode() && racing->ShouldShowCrashOverlay();
     
-    // Only change state when crash state changes
     if (isCrashed != lastCrashState) {
         if (isCrashed) {
             SetState(DRIVING_STATE_CRASHED);
@@ -885,11 +754,9 @@ void Driving::DrawScene() {
         lastCrashState = isCrashed;
     }
     
-    // Handle crash overlay
     if (isCrashed) {
         DrawCrashOverlay();
     } else if (crashOverlayBitmap && crashOverlayBitmap->IsVisible()) {
-        // Hide crash overlay when crash is over
         crashOverlayBitmap->SetVisible(false);
         if (crashBloodBitmap) {
             crashBloodBitmap->SetVisible(false);
@@ -911,7 +778,6 @@ void Driving::DrawScene() {
     if (statsDialog && statsDialog->IsVisible()) {
         statsDialog->Draw();
     }
-    // Race-end reason bubble, drawn on top of the frozen scene.
     if (raceEnded && raceEndBubble) {
         raceEndBubble->Draw();
     }
@@ -920,9 +786,7 @@ void Driving::DrawScene() {
     }
 }
 
-// The race-end dip: the Amiga fades the race view out when the frame loop
-// exits and fades the same view back in at the top of ProcessRaceOutcome, and
-// only then blits the message. See RodLegacyResearch/docs/palette_fade.md.
+// The race view fades out and back in before the message.
 void Driving::OnFadeComplete() {
     Scene::OnFadeComplete();
     if (!raceEndDipping) {
@@ -936,9 +800,7 @@ void Driving::OnFadeComplete() {
     ShowRaceEndMessage();
 }
 
-// Dialog 24: two lines of race stats across the top of the screen, no buttons.
-// The wording is verbatim from the string table (0x24b446..0x24b4b0); the
-// original's backticks are line-break markers it renders as spaces here.
+// Dialog 24: two lines of race stats, no buttons. The original's backticks render as spaces.
 void Driving::ShowStatsDialog() {
     char line1[80];
     char line2[80];
@@ -985,22 +847,14 @@ void Driving::ShowRaceEndMessage() {
         raceEndBubble = std::make_unique<Bubble>(raceEndReason.text, style, false);
         raceEndBubble->SetVisible(true);
     }
-    // Hold every race-end message on screen for a minimum time before any key
-    // can dismiss it, so a still-held accelerator (or other key) can't skip the
-    // win/loss/crash message.
+    // So a still-held accelerator can't skip the message.
     raceEndDismissAllowedMs = SDL_GetTicks() + 4000;
-    // The race-end screen brings the pointer back, thumb up or down depending
-    // on how it went.
     mouse.SetPointerType(raceEndWon ? SrLibAmigaSpriteAssetMousePointerThumbsUp
                                     : SrLibAmigaSpriteAssetMousePointerThumbsDown);
     mouse.SetVisible(true);
 }
 
-// The repair quote after a wreck at 31..90 mph (ProcessRaceOutcome dialogs 25
-// and 26). Above 60 mph the damage reads as terminal and the quote is worded
-// as a parts payout; below it, as getting the car running again. "Fix it" is
-// simply absent when the quote is more than the player has, which is what the
-// original's disabled-button flag amounts to.
+// Above 60 mph the quote is worded as a parts payout. "Fix it" is absent when the player can't afford it.
 void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
     std::uniform_int_distribution<int> roll(0, srrace::RepairRollRange(ctx.crashSpeed) - 1);
     const int cost = 100 + roll(RandomEngine());
@@ -1051,34 +905,19 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
 
     wreckDialog = std::make_unique<Dialog>(cfg);
     SetActiveDialog(wreckDialog.get());
-    // The race hid the pointer (WantsPointer is false while driving) and the
-    // scene is not re-entered, so bring it back by hand and park it on a button
-    // - the quote has to be clicked, by mouse or by pad.
+    // The race hid the pointer and the scene is not re-entered.
     mouse.SetVisible(true);
     mouse.JumpToClosestZone(this);
 }
 
-// A blown engine takes the whole assembly with it. The original's
-// StripAllDrivetrain (0x2453ca) nulls all five part pointers on the car struct
-// (engine, manifold, carb 0-2), takes their value back off the car and zeroes
-// the six engine bay screws at car+0x24. A dropped transmission is the same
-// routine one branch over (0x24540a), clearing the single pointer at car+0x06.
-// Both leave the car unable to move until it is rebuilt from bought parts -
-// Car::IsRunning goes false, and the garage refuses to drive it anywhere.
-// The sim counts wear on the player's engine and gearbox all race long
-// (PlayerCarPhysics: +1 each per tick above 5000 rpm, +1 on the engine every
-// 16 ticks, +3/+15 on the box per shift) but it works on a copy of the setup,
-// so without this the car left every race as fresh as it arrived and no part
-// ever wore out.
+// The sim wears a copy of the setup, so its wear is written back here.
 void Driving::ApplyRaceWear() {
     Car* car = state.GetCurrentCar();
     if (!car || !racing) return;
     car->AddEngineWearRaw(racing->PlayerEngineWearDelta());
     car->AddGearboxWearRaw(racing->PlayerTransWearDelta());
 
-    // Tires are the odd one out: one lump at the end of the race, and only if
-    // the car actually went anywhere (InitRaceState's `200 < playerSeg` gate,
-    // and the line starts at segment 200).
+    // Tires: one lump at the end, only if the car passed segment 200.
     const int32_t endSeg = racing->PlayerSegment();
     const bool isRoad = (racing->GetTrackType() != SR_TRACK_DRAG_RACE);
     int tireRaw = 0;
@@ -1098,13 +937,8 @@ void Driving::ApplyRaceWear() {
              tireRaw, car->GetTires().wear);
 }
 
-// A blowout is not damage you pay to repair - the original just fits a new set
-// on the spot (ApplyCrashDamage 0x245044 / DOS 1000:ba3b): the blown tires come
-// off the car and off its value, a spare goes on if there is one, and if there
-// is not you are billed $50 for a fresh set (bankroll floored at zero).
-// Returns what the player still owes for the new set - 0 unless the $50 ran
-// the bankroll below zero. ReplaceBlownTires (0x245044) returns the same number
-// and its callers add it to the speeding fine or send the player home with it.
+// The original fits a new set on the spot: a spare if there is one, otherwise $50 (bankroll floored at zero).
+// Returns what is still owed.
 int Driving::ApplyBlownTires() {
     Car* car = state.GetCurrentCar();
     if (!car) return 0;
@@ -1139,9 +973,7 @@ void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
     }
 }
 
-// Where each drive starts, from RoadLayoutInit's three building flags: the
-// garage is right[44], the diner left[108], the gas station left[156], and the
-// original starts the drive to each at 10, 65 and 115.
+// The original starts the drive to the garage, diner and gas station at 10, 65 and 115.
 int Driving::CruiseStartSegment(SrLibGameScene destination) {
     if (destination == SCENE_DINER) {
         return 65;
@@ -1152,9 +984,6 @@ int Driving::CruiseStartSegment(SrLibGameScene destination) {
     return 10;   // the garage, and anything else that drives
 }
 
-// Cruising in town. The original runs the whole drive through RunRoadRaceWithMode
-// with the race flag cleared; here it is the same Racing, started back in the
-// approach section - docs/driving/cruising.md.
 void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
     cruising = true;
     cruiseDestination = destination;
@@ -1163,11 +992,9 @@ void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
     statsDialog.reset();
     raceEndDipping = false;
     mouse.SetVisible(false);
-    // The original puts this up on the cutscene's first tick (UpdatePhysics
-    // 0x2364e8 shows the string at A4-0x3ed4, file offset 0x2c594).
+    // The original shows this on the cutscene's first tick.
     hud->SetTextOnly("Cruising in town...");
     if (racing) {
-        // Each destination's sign stands before its own building.
         int sign = RACING_SIGN_GARAGE;
         if (destination == SCENE_DINER) {
             sign = RACING_DRIVE_IN;
@@ -1184,8 +1011,7 @@ void Driving::EndCruise() {
     state.ArriveFromCruise(cruiseDestination);
 }
 
-// Called from the wreck dialog's own button callback, so the dialog is hidden
-// rather than destroyed here - OnSceneEnter clears it for the next race.
+// Called from the wreck dialog's own callback, so it is hidden, not destroyed.
 void Driving::LeaveAfterRace() {
     raceEnded = false;
     raceEndBubble.reset();
@@ -1203,33 +1029,20 @@ void Driving::LeaveAfterRace() {
         // (Garage::OnSceneEnter). With money left, the paper is a click away.
         state.MoveToScene(SCENE_GARAGE);
     } else {
-        // Back to the diner for the next challenger. CONFIRMED against
-        // ChallengeRaceLoop (0x23e60c): it switches on ProcessRaceOutcome's
-        // (0x23eaa2) return, and 1, 2 and 4 all leave the diner loop - 1 and 2
-        // via `RunRoadRaceWithMode()` (the drive-away cutscene) and a plain
-        // `return`, 4 via ShowOpponentRefusal. Only 3 falls through to the top
-        // of the loop, so the next racer walks in after an ordinary win or
-        // loss. A blown engine or a dropped transmission is NOT one of those:
-        // ProcessRaceOutcome's `else if (bVar5)` branch - taken when the
-        // outcome word A4+0x4bc6 is 0x05, 0x11 or 0x15 - strips the drivetrain
-        // and returns 2, so the player goes home. That is what
-        // raceEndLeftTheDiner covers above.
+        // Only ProcessRaceOutcome's 3 keeps the diner loop running.
         state.MoveToScene(SCENE_DINER);
     }
 }
 
 namespace {
-// "Any key" has to mean the pad's buttons too, or a player on a controller is
-// stuck on the cruise and race-end screens.
+// "Any key" includes the pad's buttons.
 bool IsDismissEvent(const SDL_Event* e) {
     return e->type == SDL_KEYDOWN || e->type == SDL_CONTROLLERBUTTONDOWN;
 }
-}  // namespace
+}
 
 bool Driving::PushEvent(SDL_Event *event) {
-    // Once the race has ended, any key dismisses the reason bubble and returns
-    // to the garage (or the end-game screen if the King was just beaten). The
-    // wreck dialog is the exception: it wants a button click, not any key.
+    // Any key dismisses the bubble, except the wreck dialog, which wants a click.
     // "You can skip the cruising by pressing the selector" (manual).
     if (cruising && (IsDismissEvent(event) || event->type == SDL_MOUSEBUTTONDOWN)) {
         EndCruise();
@@ -1312,8 +1125,7 @@ void Driving::UpdateDebugInfo() {
     }
     Scene::UpdateDebugInfo();
 
-    // In flyby the camera readout is the only thing worth the limited space of
-    // the in-game overlay, so it replaces the generic lines.
+    // In flyby the camera readout replaces the generic lines.
     if (racing && racing->IsFlybyMode()) {
         debugLines.clear();
         debugRows.clear();
@@ -1327,10 +1139,6 @@ void Driving::UpdateDebugInfo() {
 std::vector<DebugPanel> Driving::GetDebugPanels() {
     std::vector<DebugPanel> panels = Scene::GetDebugPanels();
     if (racing) {
-        // The debug UI has room for both, so the camera readout is its own
-        // panel rather than displacing the scene lines.
-        // Table of values, plus the flyby key bindings as loose lines when the
-        // camera is engaged.
         DebugPanel racingPanel{"Racing", {}};
         racingPanel.toggles.push_back(
             {"Invulnerable (no crash, no over-rev)", racing->DebugInvulnerableFlag()});
@@ -1347,8 +1155,6 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
         }
         panels.push_back(std::move(racingPanel));
 
-        // Who we are actually racing: identity and driver stats from the roster
-        // and SR_data, plus what their AI is doing right now.
         DebugPanel opponent{"Opponent", {}};
         const Opponent* opp = state.GetCurrentOpponent();
         if (opp != nullptr) {
@@ -1387,20 +1193,11 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
     return panels;
 }
 
-// Timer callback no longer needed - racing is updated in Draw() method
-// Uint32 Driving::AnimationTimerCallback(Uint32 interval, void* param) {
-//     Driving* d = static_cast<Driving*>(param);
-//     d->racing->Draw(state.GetElapsedTime() / 1000.0f, d->lastEvent);
-//     return interval;
-// }
-
 void Driving::DrawCrashOverlay() {
-    // Show the crash overlay bitmap
     if (crashOverlayBitmap) {
         crashOverlayBitmap->SetVisible(true);
         crashOverlayBitmap->Draw();
     }
-    // Blood goes on top of the wrecked interior, and only on a hard enough hit.
     if (crashBloodBitmap && racing && racing->ShouldShowCrashBlood()) {
         crashBloodBitmap->SetVisible(true);
         crashBloodBitmap->Draw();
@@ -1412,12 +1209,7 @@ void Driving::DrawSteeringDot() {
         return;
     }
 
-    // The dot rides the top of the steering-wheel rim: twelve o'clock when
-    // centered, rotating with the eased steering position so it swings out as you
-    // turn and drifts back to center over a few frames on release.
-    //
-    // Geometry is in the 320x200 dashboard space (same as the gauge needles).
-    // TUNE these four to sit the dot on your wheel rim.
+    // The dot rides the wheel rim, rotating with the eased steering. In 320x200 dashboard space.
     constexpr float kWheelCx = 171.0f;     // wheel center X (between the gauges)
     constexpr float kWheelCy = 182.0f;     // wheel center Y
     constexpr float kWheelR = 82.0f;       // rim radius the dot travels on

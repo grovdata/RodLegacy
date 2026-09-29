@@ -16,22 +16,12 @@ extern "C" {
 
 namespace {
 
-// The settings with no other UI. Each one is a plain bool the game reads
-// directly, so the row edits it in place and then persists the lot.
-//
-// Debug-only settings do not belong here - the zone overlay toggle lives in the
-// debug panel (Scene::GetDebugPanels), which is where the rest of the debug
-// switches are.
-//
-// `defaultOn` is what the game does with no config.txt at all, which is what
-// the Defaults button restores - every one of these is a deviation from the
-// original, so they all default off.
+// `defaultOn` is the behaviour with no config.txt. Every setting deviates from the original, so all default off.
 struct Setting {
     const char* label;
     bool& (AssetManager::*ref)();
     bool defaultOn;
-    // Settings the game reads straight off the bool leave this null. One that
-    // another subsystem keeps its own copy of uses it to push the new value.
+    // Null when the game reads the bool directly; otherwise pushes the value to a subsystem's own copy.
     void (*onChange)(bool);
 };
 
@@ -70,13 +60,12 @@ SDL_Surface* SwatchFor(int i) {
     return ValueOf(i) ? g_checkOn : g_checkOff;
 }
 
-// Writes a row's value and lets whoever else holds a copy of it know.
 void ApplyValue(int i, bool on) {
     ValueOf(i) = on;
     if (kSettings[i].onChange) kSettings[i].onChange(on);
 }
 
-}  // namespace
+}
 
 void FreeSettingsIcons() {
     if (g_checkOn) {
@@ -100,7 +89,6 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
         swatches.push_back(SwatchFor(i));
     }
 
-    // Same geometry as the key bindings screen so the two read as a pair.
     const int kRowHeight = 18;
     const int kScrollW = 15;
     const int kListTop = 20;
@@ -134,9 +122,7 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
     };
     cfg.lines = {{bounds.x + 4, listBox.y - 2, bounds.w - 8, 1}};
 
-    // The row and button callbacks both need the dialog, but they have to be in
-    // its config before it is built, so they reach it through a holder filled in
-    // once it exists.
+    // Callbacks go in the config before the dialog exists, so they reach it through a holder.
     auto self = std::make_shared<ListDialog*>(nullptr);
 
     auto toggleRow = [self](int row) {
@@ -175,8 +161,6 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
     listCfg.listBoxRect = listBox;
     listCfg.rowHeight = kRowHeight;
     listCfg.scrollButtons = {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect};
-    // Clicking a row flips its checkbox there and then; nothing to confirm, so
-    // no selection highlight and no separate action button.
     listCfg.activateOnClick = true;
     listCfg.onItemSelected = toggleRow;
 

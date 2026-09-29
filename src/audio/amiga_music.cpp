@@ -11,21 +11,16 @@ constexpr double kPaulaClock = 3579545.0;
 constexpr double kCiaClockHz = 709379.0;
 constexpr int kPeriodTable[12] = {270, 254, 240, 226, 214, 202, 190, 180, 169, 160, 151, 144};
 
-// The Amiga hardcodes the arrangement modulus to 3 at audio init and never
-// recomputes it from the loaded file. msr.note parses into four well-formed
-// steps, but step 3 is unreachable there: it is the only step whose channel 0
-// stream contains no 0x95, so nothing could ever advance out of it again.
+// The original fixes the modulus at 3: step 3 of msr.note has no 0x95, so nothing could advance out of it.
 constexpr int kArrangementSteps = 3;
 
-// Master volume while music plays. The game sets 0xF at audio init but drops
-// to 9 on every music start, and the envelope curve is scaled by it.
+// The game drops master volume to 9 on every music start; the envelope is scaled by it.
 constexpr int kMusicMasterVolume = 9;
 
-// Before any music has started: master volume and CIA-A period as audio init
-// leaves them (0x227a42, 0x227a62). The intro chimes play under these.
+// Before any music has started. The intro chimes play under these.
 constexpr int kIdleMasterVolume = 15;
 constexpr int kIdleCiaPeriod = 43000;
-}  // namespace
+}
 
 AmigaMusic::AmigaMusic() = default;
 
@@ -98,7 +93,6 @@ bool AmigaMusic::Load(const uint8_t* note_data, size_t note_size,
     envelopes_ = std::move(new_envelopes);
     patterns_ = std::move(new_patterns);
 
-    // Street Rod bank mapping in runtime:
     // bank 1 -> srl1.wave (music tones), bank 0 -> srl0.wave.
     wave_bank_[1] = std::move(new_wave1);
     wave_bank_[0] = std::move(new_wave0);
@@ -121,8 +115,6 @@ void AmigaMusic::PlayArrangement(int index, int ciaPeriod,
     if (!loaded_.load()) return;
     SDL_LockAudioDevice(device_);
     if (ResetState() && index >= 0 && index < static_cast<int>(patterns_.size())) {
-        // ResetState picked a random step; override it with this one. The
-        // modulus (arrangement_len_) is left alone, as the original leaves it.
         arrangement_index_ = index;
         cia_timer_period_ = std::clamp(ciaPeriod, 1000, 65535);
         const auto& start = patterns_[static_cast<size_t>(index)];
@@ -429,8 +421,6 @@ void AmigaMusic::StartNote(int ch_index, int note_byte) {
     channel_[ch_index].env.volume = 0;
 }
 
-// MusicPlayNote / PlayInstrumentNote: sample, period, and the envelope
-// started at segment 1 with volume from rate[0]'s high byte.
 void AmigaMusic::StartSample(int ch_index, int period, int master) {
     ChannelState& c = channel_[ch_index];
     if (c.instrument < 0 || static_cast<size_t>(c.instrument) >= instruments_.size()) return;
@@ -471,8 +461,7 @@ void AmigaMusic::AdvanceArrangement() {
 bool AmigaMusic::ResetState() {
     if (patterns_.empty()) return false;
 
-    // Not patterns_.size(): the original's modulus is fixed. Clamped so a note
-    // file with fewer steps than that cannot index out of bounds.
+    // The original's modulus is fixed; clamped for note files with fewer steps.
     arrangement_len_ = std::min(kArrangementSteps, static_cast<int>(patterns_.size()));
 
     // The original opens on a random step rather than always the first.

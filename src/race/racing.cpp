@@ -25,41 +25,26 @@ namespace {
 constexpr int kForwardRows = 15;
 constexpr int kTrackSegments = srrace::TRACK_SEGMENTS;
 
-// Physics tick rate (Hz). The Amiga race loop (RoadRaceMainLoop 0x2360c2) is NOT
-// vblank-locked: it runs one physics step per rendered frame, and on a stock
-// A500 that is well under 50 fps, so a true 50 Hz sim feels ~2-2.5x too fast.
-// TUNE THIS: lower = slower race, higher = faster. Rendering stays at GAME_FPS
-// and just samples the sim, so this only changes physics speed/feel.
+// The Amiga race loop is not vblank-locked: one physics step per rendered frame, well under 50 fps on an A500.
+// Tuning knob: lower = slower race. Rendering stays at GAME_FPS.
 constexpr int kPhysicsHz = 15;
 
-// The rpm the drive cutscene shifts at and then holds in top gear
-// (UpdatePhysics 0x2364e8 compares against 0x1194).
+// The rpm the drive cutscene shifts at and then holds in top gear.
 constexpr int kCruiseRpm = 4500;
-// How far ahead the arriving car turns in towards its building. At cruise
-// speed a segment is only a tick or two, and the steer integrator builds at 2
-// of 24 per tick, so one segment never develops a visible turn and twelve
-// drifts across the road long before the stop. Three is "the turn has just
-// started" when the scene cuts - tune here if it reads wrong.
+// How far ahead the arriving car turns in. One segment shows no turn, twelve drifts across the road; tune here.
 constexpr int kCruiseArrivalSegs = 3;
 constexpr float kFixedStepSeconds = 1.0f / static_cast<float>(kPhysicsHz);
 
-// Driving composites this road-view surface into the 320x200 frame at screen
-// y = 14 (Driving::roadRect), so surface_y = screen_y - kViewOffsetY. Every Y
-// constant taken from the original (which works in full-screen coordinates) has
-// to be converted, or the whole road view sits 14 rows too low and its vanishing
-// point no longer meets the base of the mountain backdrop.
+// This surface lands at screen y = 14, so every screen-space Y from the original is converted.
 constexpr int kViewOffsetY = 14;
 constexpr int kHorizonY = 60 - kViewOffsetY;    // ProjectForwardY base, screen 60
 constexpr int kClipTop = 18 - kViewOffsetY;     // forward viewport clip, screen 18..99
 constexpr int kClipBottom = 99 - kViewOffsetY;
 constexpr int kRoadCenterLat = 2400;
 
-// Races run at night in the original game. The grass green is the same green
-// baked into the mountain backdrop's foothill band, so backdrop and ground read
-// as one continuous field (see docs/driving/rendering.md).
+// Races run at night. The grass is the backdrop's foothill green, so they read as one field.
 constexpr SDL_Color kSkyColor = {0, 0, 0, 255};
-// Town walls, PAL_DRIVING entries 2, 4 and 10 - the shades FUN_00237480 asks
-// for. Cruise only; see Racing::DrawTownWalls.
+// Town walls, PAL_DRIVING entries 2, 4 and 10. Cruise only.
 constexpr SDL_Color kTownWallGrey = {0x99, 0x99, 0x99, 255};   // PAL_DRIVING[2]
 constexpr SDL_Color kTownWallDark = {0x33, 0x33, 0x33, 255};   // PAL_DRIVING[4]
 constexpr SDL_Color kTownUpper = {0xEE, 0xEE, 0xEE, 255};      // PAL_DRIVING[10]
@@ -70,21 +55,11 @@ constexpr SDL_Color kDashYellow = {235, 215, 40, 255};
 constexpr SDL_Color kCurbGray = {170, 170, 170, 255};
 constexpr SDL_Color kArchColor = {180, 32, 32, 255};  // overhead gantry: red
 
-// roadside_sprite_table in the Amiga Street_Rod binary: 20 records of 0x36
-// bytes {loadHandle:u16, bitmapPtr:u32, maskPtr:u32, frames[11]:{srcX,srcY,w,h}
-// u8 each}. Offset verified byte-for-byte against the known frame dump in
-// RodLegacyResearch/docs/driving/roadside_sprite_table.md (all 20 records,
-// including loadHandle == lib.p id + 1 for each).
+// 20 records of 0x36 bytes {loadHandle:u16, bitmapPtr:u32, maskPtr:u32, frames[11]:{srcX,srcY,w,h} u8 each}.
 constexpr size_t kSpriteScaleTableOffset = 0x28024;
 
-// The speedo and tacho share one table of needle endpoints: 82 entries of
-// {x0, y0, x1, y1} signed bytes, inner end first, relative to the dial origin.
-// Runtime address 0x231e94, which is the first thing in DATA_30 and lands at
-// file offset 0x12430 in Street_Rod. See docs/driving/gauges.md.
-//
-// The needle is not swept with trig in the original - these lines are why it
-// reaches 21px across the horizontal but only 14px over the top, and why the
-// sweep is 276.7 degrees rather than a tidy round number.
+// One needle table shared by speedo and tacho: 82 entries of {x0, y0, x1, y1} signed bytes, inner end first,
+// relative to the dial origin. The needle is drawn from these lines, not swept with trig.
 constexpr size_t kNeedleTableOffset = 0x12430;
 constexpr size_t kNeedleTableEntries = 82;
 
@@ -100,8 +75,7 @@ std::vector<NeedleLine> LoadNeedleTable(const byte_vector& exe) {
         table[i] = {static_cast<int8_t>(e[0]), static_cast<int8_t>(e[1]),
                     static_cast<int8_t>(e[2]), static_cast<int8_t>(e[3])};
     }
-    // Cheap guard against reading the wrong build: entry 0 is the bottom-left
-    // stop and entry 81 its mirror, and no needle offset exceeds 24px.
+    // Guards against the wrong build: entry 0 and 81 are mirror stops, and no offset exceeds 24px.
     const NeedleLine& lo = table.front();
     const NeedleLine& hi = table.back();
     if (lo.x0 != -2 || lo.y0 != 4 || lo.x1 != -10 || lo.y1 != 13 ||
@@ -137,9 +111,7 @@ int ClampInt(int v, int lo, int hi) {
     return std::max(lo, std::min(hi, v));
 }
 
-// Pick the pre-drawn frame for a given distance row (sr grows with distance,
-// 0 = nearest). Frame arrays may be authored smallest- or largest-first, so
-// normalize by frame area: nearest always maps to the largest frame.
+// sr grows with distance, 0 = nearest. Frames may be authored either way, so the nearest is the largest by area.
 int SelectFrameIndexForDistance(const SpriteAnimationInfo* anim, int sr) {
     const int last = anim->frameCount - 1;
     const int srClamped = ClampInt(sr, 0, last);
@@ -153,7 +125,7 @@ int ToRaceType(SrTrackType trackType) {
     return trackType == SR_TRACK_DRAG_RACE ? 0 : 1;
 }
 
-}  // namespace
+}
 
 Racing::Racing() : rng(static_cast<uint32_t>(SDL_GetTicks())) {
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -206,8 +178,7 @@ void Racing::PutPixel(SDL_Surface* s, int x, int y, SDL_Color c) {
     }
 }
 
-// gaugeValue is the dial's own 0..130 input, not the raw rpm or mph - see the
-// two callers. 0x2316ec / 0x23178e clamp it, then index = value * 63 / 100.
+// gaugeValue is the dial's own 0..130 input; index = value * 63 / 100.
 void Racing::DrawGaugeNeedle(SDL_Renderer* renderer, int originX, int originY, int gaugeValue) {
     if (!renderer || needleLines.empty()) {
         return;
@@ -229,8 +200,6 @@ void Racing::DrawNearestNeighborScaled(Bitmap* bitmap, int dstX, int dstY, int d
         return;
     }
 
-    // Default to the whole surface; otherwise sample from the given sub-rect
-    // (used to blit a single pre-drawn animation frame from a composite sheet).
     if (srcW <= 0) srcW = src->w;
     if (srcH <= 0) srcH = src->h;
     srcX0 = std::max(0, std::min(srcX0, src->w - 1));
@@ -283,15 +252,13 @@ void Racing::LoadSpriteBitmaps() {
     spriteScale = LoadSpriteScaleTable(state.GetAssets().GetSrExeData());
     needleLines = LoadNeedleTable(state.GetAssets().GetSrExeData());
     for (int slot = 0; slot < 20; ++slot) {
-        // slot is the roadside_sprite_table record index (0 = palm); record N =
-        // lib.p asset id 21 + N (see roadside_sprite_table.md).
+        // Record N is lib.p asset 21 + N.
         const int assetId = RACING_PALM_TREE + slot;
         Bitmap* asset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(assetId)});
         if (asset) {
             roadsideSprites[slot] = std::make_unique<Bitmap>(*asset);
         }
-        // Prefer pre-drawn frames (a composite sheet with one frame per distance)
-        // when the sprite has animation info; otherwise the kSpriteScale fallback runs.
+        // Pre-drawn frames when the sprite has them, else the kSpriteScale fallback.
         roadsideAnim[slot] = GetSpriteAnimationInfo(static_cast<uint16_t>(assetId));
     }
 
@@ -333,17 +300,8 @@ std::unique_ptr<Bitmap> Racing::LoadOpponentSprite(uint16_t spriteId) {
     std::vector<uint8_t> data = bp.ReadImage(libFile, entry, spriteId, imageEntries.first);
 
     std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, spriteId);
-    // Recolor the car body. Slot 7 is the register the road screens load the
-    // car colour into, but some sprites (e.g. the front-side view, asset 83)
-    // also carry the magenta placeholder (#f000c0 = Amiga RGB4 0x0F0C) at other
-    // palette indices, so replace every occurrence or those body pixels render
-    // as raw magenta.
-    //
-    // The value is the original's own single-colour-per-paint table, NOT a
-    // shade picked out of the 9-entry ramp. This used to take ramp[7], a
-    // highlight near the light end: wrong but close enough in hue for the
-    // player's 13 paints, and badly wrong for The King, whose ramp runs from
-    // near-black up to pale cyan - his car raced teal.
+    // The race colour is the original's one-colour-per-paint table, not a ramp shade. Some sprites carry the magenta
+    // placeholder at other palette indices too, so every occurrence is replaced.
     const uint16_t carColor = GetCarRaceColor(opponentColor);
     palData[7] = carColor;
     for (uint16_t& c : palData) {
@@ -443,11 +401,7 @@ void Racing::LoadOpponentCarSprites() {
 srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) const {
     srrace::CarSetup setup;
     if (car) {
-        // The car's own gearbox decides, never automaticOverride: that is set
-        // once from whatever car was current at game start (Driving::Init runs
-        // once), so honouring it here raced every later car on the startup
-        // car's tables - an automatic forced onto manual ratios, or worse.
-        // CarSetupFromCar already maps an unset gearbox to the 4-speed class.
+        // The car's own gearbox: automaticOverride is set once from the startup car.
         setup = CarSetupFromCar(*car, false);
     } else {
         setup.transClass = automaticOverride ? 0 : 2;
@@ -457,16 +411,14 @@ srrace::CarSetup Racing::BuildCarSetupFromCar(const Car* car, bool isPlayer) con
 }
 
 void Racing::InitializeRaceSimulation() {
-    // The template belongs to the profile, not the race: the original rolls
-    // it once in maybeInitSomeGameState and persists it as trailer chunk 8.
+    // The template belongs to the profile, not the race.
     trackVariant = state.GetTrackVariant();
     srrace::RoadLayoutInit(track, rng);
     srrace::GenerateTrackShapes(track, trackVariant);
 
     const Car* playerCar = state.GetCurrentCar();
     srrace::CarSetup playerSetup = BuildCarSetupFromCar(playerCar, true);
-    // Keep the carless fallback and IsAutomatic()'s pre-init answer in step
-    // with the car actually being raced.
+    // Keep the carless fallback and IsAutomatic()'s pre-init answer in step with the raced car.
     if (playerCar) {
         automaticOverride = (playerSetup.transClass == 0);
     }
@@ -479,26 +431,21 @@ void Racing::InitializeRaceSimulation() {
         npcSetup = playerSetup;
         npcSetup.driverSkill = 100;
     }
-    // SR_data driver byte [2]. The side-swipe roll is rand(aggression/4 + 2), so
-    // the best drivers (4) lean on you most and the worst (0x0c) least.
+    // The side-swipe roll is rand(aggression/4 + 2).
     if (const SrDriverData* driverData = state.GetCurrentDriverData()) {
         npcSetup.aggression = driverData->aggression;
-        // Driver byte [1], the opponent's upshift point - see CarSetup::reaction.
-        // Left unread until now, which had every opponent shifting dead on the
-        // band end: better than the best driver the data describes.
+        // The opponent's upshift point.
         npcSetup.reaction = driverData->reaction;
     }
 
-    // A previous race may have ended with the cop's sprites swapped into the
-    // opponent slot; put the real opponent back before this one starts.
+    // A previous race may have left the cop's sprites in the opponent slot.
     if (opponentCarTypeBeforeCop >= 0) {
         opponentCarType = opponentCarTypeBeforeCop;
         opponentCarTypeBeforeCop = -1;
         LoadOpponentCarSprites();
     }
 
-    // A4+0x19da. Suppresses the cop spawn roll (InitRaceState) and picks the
-    // King's two UpdateNPCEngine branches - see docs/driving/king.md.
+    // Suppresses the cop spawn and picks the King's engine branches.
     const bool kingRace = state.IsKingOpponent(opponent);
     sim.Init(&track, ToRaceType(currentTrackType), playerSetup, npcSetup,
              static_cast<uint32_t>(SDL_GetTicks()), kingRace);
@@ -512,7 +459,7 @@ void Racing::InitializeRaceSimulation() {
     firstNpcFinishTick = -1;
     simTickCounter = 0;
     speedSumMph = 0;
-    // This is the ordinary race path; StartCruise sets these again afterwards.
+    // StartCruise sets these again afterwards.
     cruiseMode = false;
     cruiseSignSprite.reset();
     cruiseSignAnim = nullptr;
@@ -520,23 +467,18 @@ void Racing::InitializeRaceSimulation() {
     bShowCrashOverlay = false;
     crashHandled = false;
     startLightHeight = 32;  // full; retracts once the car launches
-    // Per-race presentation and audio timers. The scene object outlives a race
-    // (see ResetForNewRace), so these are cleared here rather than by construction.
+    // The scene outlives a race, so per-race timers are cleared here.
     tireScreechCooldownTicks = 0;
     copSirenCooldownTicks = 0;
     cloudOffsetAccum = 0.0f;
     lastVisibleRow = -1;
 }
 
-// The drive cutscene. RunRoadRaceWithMode (0x2468a2) clears the race flag and
-// runs the ordinary race loop; InitDriveScene (0x23ab2c) is what puts the car
-// back at segment 10 / 65 / 115. The finish stays the drag finish, segment 380,
-// which is the arch a race starts under.
+// The ordinary race loop with the race flag cleared, started at segment 10 / 65 / 115. The finish is the drag
+// finish at 380, the arch a race starts under.
 void Racing::StartCruise(int startSeg, int signAsset) {
     SetTrackType(SR_TRACK_DRAG_RACE);
-    // After InitializeRaceSimulation, which clears cruiseMode - every ordinary
-    // race init has to, or the first drive would leave every later race in
-    // cruise mode.
+    // After InitializeRaceSimulation, which clears cruiseMode.
     InitializeRaceSimulation();
     cruiseMode = true;
     if (signAsset > 0) {
@@ -551,10 +493,8 @@ void Racing::StartCruise(int startSeg, int signAsset) {
     startLightHeight = 0;    // no start light on a cruise
 }
 
-// The cruise does not run to the race finish: UpdatePhysics returns 1 - which
-// is what breaks the frame loop - as soon as the next segment has flag bit 0
-// set on either side, i.e. at the next building. That is why each destination
-// gets its own start segment: the drive stops where its building is.
+// A cruise ends at the next segment with flag bit 0 on either side, i.e. the next building, so each destination
+// has its own start segment.
 bool Racing::CruiseFinished() const {
     if (!cruiseMode) {
         return false;
@@ -563,10 +503,7 @@ bool Racing::CruiseFinished() const {
     return ((track.left[seg] | track.right[seg]) & 0x0001) != 0;
 }
 
-// Which side the building the drive is about to stop at sits on, once it is
-// close enough to pull over for: -1 left, +1 right, 0 not in range yet.
-// RoadLayoutInit puts them at segment 44 (right), 108 (left) and 156 (left),
-// one per cruise.
+// -1 left, +1 right, 0 not in range yet. The buildings are at segment 44 (right), 108 (left) and 156 (left).
 int Racing::CruiseArrivalSide() const {
     if (!cruiseMode) {
         return 0;
@@ -599,18 +536,15 @@ void Racing::LoadTrackData(const std::vector<uint8_t>& binaryData, SrTrackType t
 }
 
 void Racing::ResetForNewRace() {
-    // Driving (and this Racing) are constructed once at game start and their
-    // Init() never runs again - switching scenes only repoints State's
-    // currentScene pointer - so per-race state has to be cleared here.
+    // Driving and this Racing are built once and Init() never runs again, so per-race state is cleared here.
 
-    // The engine loop may still be running if the last race was left part-way
-    // through; starting a second loop over it would stack them.
+    // A loop left running from an unfinished race would stack with the new one.
     if (engineSoundStarted && audioManager) {
         audioManager->StopLoop(0);
     }
     engineSoundStarted = false;
 
-    // The debug flyby camera is per-race; a race always starts in the cockpit.
+    // A race always starts in the cockpit.
     flybyMode = false;
     flybyNpcVisible = false;
     flybySeg = srrace::RACE_START_SEG;
@@ -636,17 +570,8 @@ void Racing::SetOpponentColor(StandardCarColor color) {
     LoadOpponentCarSprites();
 }
 
-// Maps a car's lib.p body asset (Car::GetModel().index, one of the garage-view
-// CHEVROLET_2DR_COUPE_1940_BODY..THE_KING_CHEVROLET_CORVETTE_1963_BODY ids in
-// libp.h) to the race-view NPC sprite category (see LoadOpponentCarSprites:
-// 0 chevy, 1 chrysler, 3 oldsmobile, 4 chevy2/corvette-56-61, 5 corvette-63,
-// 6 ford; 2 is the cop, which the game never selects by body).
-//
-// All 26 SR_data cars, transcribed from the game's own selector: byte 0 of the
-// per-car asset table at A4-0x2960, which the opponent-sprite loader multiplies
-// by 0x1a to index a 13-entry lib.p id list per sprite set. Read live out of
-// three Amiga save states. Full derivation and the raw table:
-// RodLegacyResearch/docs/garage/car_asset_table.md.
+// Body asset -> race-view NPC sprite set: 0 chevy, 1 chrysler, 3 oldsmobile, 4 chevy2/corvette-56-61,
+// 5 corvette-63, 6 ford; 2 is the cop, never selected by body. From the game's per-car asset table.
 static int NpcCarTypeForBodyAsset(int bodyAsset) {
     switch (bodyAsset) {
         // chevy set (selector 1)
@@ -702,12 +627,8 @@ void Racing::InitializeOpponent() {
     opponentActive = true;
     opponentColor = opponent->car->GetColor();
     const CarModel& model = opponent->car->GetModel();
-    // sprites.body, not index: they are the same number for every Amiga car
-    // except The King, whose model borrows the plain '63 Corvette's row and
-    // only overrides the body art. Keying on index handed him the chevy2 LOD
-    // set instead of his own. Other car sets number their sprites from zero,
-    // where a lib.p body id means nothing, so those still go by index and fall
-    // through to the vendor guess below.
+    // sprites.body, not index: The King borrows the plain '63 Corvette's row and only overrides the body art.
+    // Other car sets go by index and fall through to the vendor guess.
     const int bodyAsset = (model.carSet == kAmigaCarSet) ? model.sprites.body : model.index;
     const int mappedType = NpcCarTypeForBodyAsset(bodyAsset);
     if (mappedType >= 0) {
@@ -716,9 +637,7 @@ void Racing::InitializeOpponent() {
         return;
     }
 
-    // Every Amiga car is mapped, so this is reached only by a non-Amiga car
-    // set, whose model indices sit clear of the lib.p body-asset range (see
-    // CarModel::index). Fall back to the coarser vendor guess.
+    // Only a non-Amiga car set reaches here.
     switch (model.vendor) {
         case CarVendorGM:
             opponentCarType = 0;
@@ -756,9 +675,7 @@ int16_t Racing::GetSteerDisplay() const {
     return sim.Player().slideVel;
 }
 
-// Race-end bubble text. Gathers the current outcome into a context struct and
-// delegates to the pure (SDL-free, unit-tested) srrace::BuildRaceEndReason -
-// see race/race_end_message.h and RodLegacyResearch/docs/driving/race_end_messages.md.
+// Delegates to the SDL-free srrace::BuildRaceEndReason.
 srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     srrace::RaceEndContext ctx;
     ctx.endFlags = sim.Player().endFlags;
@@ -770,17 +687,14 @@ srrace::RaceEndContext Racing::BuildRaceEndContext() const {
     ctx.tiresBlown = sim.PlayerTiresBlown();
     ctx.speedingFine = sim.SpeedingFine();
     ctx.bankroll = state.GetBankroll();
-    // The car freezes on the failure bit, so this is still the impact speed -
-    // what the original reads out of A4+0x4b0a to tier the crash outcome.
+    // The car freezes on the failure bit, so this is still the impact speed.
     ctx.crashSpeed = sim.Player().speed;
     ctx.carValue = state.GetCarValue(state.GetCurrentCar());
     ctx.carStrippedValue = state.GetCarStrippedValue(state.GetCurrentCar());
     return ctx;
 }
 
-// The original converts its tick count with `ticks * 10 / 6`, i.e. it takes its
-// own race loop to run at 6 physics steps a second; ours runs at kPhysicsHz, so
-// that is the divisor here.
+// The original's `ticks * 10 / 6` assumes 6 steps a second; ours runs at kPhysicsHz.
 int Racing::RaceTimeTenths() const {
     return simTickCounter * 10 / kPhysicsHz;
 }
@@ -789,8 +703,7 @@ int Racing::AverageSpeedMph() const {
     return simTickCounter > 0 ? speedSumMph / simTickCounter : 0;
 }
 
-// (player - start) * 100 / (opponent - start), capped at 99 so a losing race
-// never reads 100%.
+// (player - start) * 100 / (opponent - start), capped at 99 so a loss never reads 100%.
 int Racing::DistancePercent() const {
     const int player = static_cast<int>(sim.Player().segPos) - srrace::RACE_START_SEG;
     const int npc = static_cast<int>(sim.Npc().segPos) - srrace::RACE_START_SEG;
@@ -823,17 +736,8 @@ bool Racing::ShouldShowCrashOverlay() const {
     return bShowCrashOverlay;
 }
 
-// Blood on the windscreen. The original only shows it on a hard enough hit -
-// normally none, a few red pixels on a middling one - but the draw itself is not
-// something I could find in the decompilation, so the trigger below is INFERRED,
-// not verified: ProcessRaceOutcome (thunk 0x23eaa2, body 0x2454c2) tiers the crash outcome off
-// the speed at impact (A4+0x4b0a) at 0x1f (31), 0x3c (60) and 0x5b (91) mph, and
-// those tiers line up with "no blood / some / lots". The car freezes on the
-// failure bit, so Player().speed still holds the impact speed here.
-// TUNE THIS once the real condition is known. See
-// RodLegacyResearch/docs/driving/crash_blood.md: lib.p handle 5 (asset 4) is
-// loaded by no call site in the Amiga binary, so the draw is not statically
-// findable - it needs checking live.
+// INFERRED, not verified: the draw is not statically findable. Blood follows the crash tiers at 31, 60 and 91 mph.
+// Tuning knob until the real condition is known.
 bool Racing::ShouldShowCrashBlood() const {
     return bShowCrashOverlay && sim.PlayerWrecked() && sim.Player().speed >= 60;
 }
@@ -863,11 +767,7 @@ int Racing::BuildRowTableAndGetLastVisible() {
             d = 12 + 8 * (k - 1) - p.scrollAcc;
             d = std::max(4, d);
         }
-        // BuildForwardRowTables (0x23abbe): the horizontal projection (road_d,
-        // ProjectForwardX) reads the curve[] array (A4+0x1098) and the vertical
-        // projection (row_c, ProjectForwardY) reads the elev[] array (A4+0x7d8).
-        // In this engine curve[] is what bends the road left/right (and drives the
-        // lateral drift); elev[] is what moves it up/down. Do NOT swap these.
+        // The horizontal projection reads curve[], the vertical elev[]. Do not swap them.
         const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
         const int roadDelta = p.heading - track.curve[seg];
         const int rowElevDelta = elevAtCar - track.elev[seg];
@@ -885,7 +785,6 @@ int Racing::BuildRowTableAndGetLastVisible() {
         row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
         row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
         row.y = ClampInt(kHorizonY + 400 / d + 4 * rowElevDelta, kClipTop, kClipBottom + 30);
-        // Overhead gantry crossbar height (RenderOverheadArch 0x237bf4):
         //   y - 4*(y - elevated_y), and elevated_y = y - 400/d, so y - 1600/d.
         row.archY = row.y - 1600 / d;
         rows[k] = row;
@@ -903,10 +802,7 @@ int Racing::BuildRowTableAndGetLastVisible() {
 }
 
 void Racing::RenderSkyAndParallax(float frameSeconds) {
-    // Clear the WHOLE surface, not just the visible clip. Row projection clamps
-    // the nearest rows to kClipBottom+30, so near sprites (the alongside NPC) can
-    // draw into rows kClipBottom+1..GAME_RACING_HEIGHT; if those are not cleared
-    // every frame the sprite ghosts there after the car drives away.
+    // The whole surface: near sprites can draw below kClipBottom and would ghost there.
     for (int y = 0; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kSkyColor);
@@ -917,12 +813,7 @@ void Racing::RenderSkyAndParallax(float frameSeconds) {
     cloudOffsetAccum += static_cast<float>(p.heading) * static_cast<float>(p.speed) * frameSeconds * 0.005f;
 }
 
-// Star/cloud band. This CANNOT be drawn with the sky clear above: RenderRoad
-// repaints everything from kClipTop down to the road's vanishing row, which would
-// erase it. The backdrop order in the original is sky, then the cloud band, then
-// the mountains on top (0x236c1e paints both bands before the road), so this runs
-// between the road's sky fill and the mountain blit, and is clipped to the
-// horizon so nothing shows through below the range's base.
+// Drawn between the road's sky fill and the mountains, which would otherwise erase it. Clipped to the horizon.
 void Racing::RenderClouds(int horizonY) {
     if (!cloudSprite || !cloudSprite->GetSurface()) {
         return;
@@ -954,30 +845,18 @@ void Racing::RenderClouds(int horizonY) {
     }
 }
 
-// Mountains are the horizon backdrop: drawn AFTER the road fill so the grass/sky
-// scanlines can't overwrite them, with the sprite's base sitting on the horizon
-// (row 60). They scroll horizontally with heading (mountainOffsetAccum) but do
-// not move vertically. horizonY tracks the road's per-frame vanishing point so
-// the mountain base meets the ground where road and sky meet.
+// Drawn after the road fill, base on the horizon. Pans with heading, never moves vertically.
 void Racing::RenderMountains(int horizonY) {
     if (!mountainSprite || !mountainSprite->GetSurface()) {
         RenderClouds(horizonY);   // no range loaded, but the sky still gets its stars
         return;
     }
     SDL_Surface* src = mountainSprite->GetSurface();
-    // Horizontal pan matches the original backdrop (0x236c1e): the mountain X
-    // offset is a DIRECT function of the current heading (heading*2 % width), not
-    // an integral of speed over time. It pans as you steer / the road curves and
-    // returns as heading returns, instead of drifting.
+    // A direct function of heading, not an integral of speed, so it returns as the heading returns.
     const int heading = sim.Player().heading;
     const int baseOffset = (((heading * 2) % src->w) + src->w) % src->w;
 
-    // Find the sprite row the range actually stands on, once. The bitmap is a
-    // mountain silhouette sitting on a solid band of the ground green (plus
-    // transparent padding below that), and in the original backdrop fill
-    // (0x236c1e) the silhouette/foothill boundary IS the horizon. Anchoring by
-    // the lowest opaque row instead pushed the whole range up by the height of
-    // the foothill band, leaving a green gap between the peaks and the road.
+    // The silhouette/foothill boundary is the horizon; anchoring the lowest opaque row left a green gap.
     if (mountainBaseRow < 0) {
         auto rowKind = [&](int y) {  // 0 = transparent, 1 = all foothill green, 2 = silhouette
             bool opaque = false;
@@ -1002,14 +881,10 @@ void Racing::RenderMountains(int horizonY) {
         }
     }
 
-    // Put the base of the silhouette on the row just above the horizon so the
-    // range stands on the ground, peaks rising into the sky. The foothill band
-    // below it falls past the horizon and is clipped away; the ground fill has
-    // already painted that same green there.
+    // The silhouette's base sits just above the horizon; the foothill band below is clipped away.
     const int startY = horizonY - 1 - mountainBaseRow;
 
-    // Repaint the mountain band as sky before blitting so nothing (e.g. the crest
-    // grass fill) shows through the transparent gaps between/above the peaks.
+    // So nothing shows through the gaps between the peaks.
     const int bandTop = std::max(kClipTop, startY);
     for (int y = bandTop; y < horizonY && y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
@@ -1017,8 +892,7 @@ void Racing::RenderMountains(int horizonY) {
         }
     }
 
-    // Stars/clouds go down after every sky fill and before the range, so the
-    // peaks stand in front of them.
+    // After every sky fill and before the range, so the peaks stand in front.
     RenderClouds(horizonY);
 
     for (int pass = 0; pass < 2; ++pass) {
@@ -1049,21 +923,17 @@ void Racing::RenderMountains(int horizonY) {
     }
 }
 
-// Start light (original DrawStartLight 0x237d5e): lib.p asset 97, a 48x32 sheet
-// with two 24x32 frames. RED during the staging countdown, GREEN once the race
-// launches, then it retracts (height 32 -> 0 by 4/frame) as the car rolls away.
+// lib.p asset 97, two 24x32 frames: red during staging, green at launch, then retracts 4/frame as the car rolls.
 void Racing::DrawStartLight() {
     if (flybyMode || !startLightSprite || !startLightSprite->GetSurface()) {
         return;
     }
     const srrace::RacePhase phase = sim.Phase();
-    // Gone once fully retracted or the race is over.
     if (phase == srrace::RacePhase::Ended || startLightHeight <= 0) {
         return;
     }
 
     const bool green = (phase != srrace::RacePhase::Countdown);
-    // Retract as the car launches; held full while stationary in staging.
     if (green && sim.Player().speed > 0) {
         startLightHeight -= 4;
         if (startLightHeight <= 0) {
@@ -1072,12 +942,10 @@ void Racing::DrawStartLight() {
         }
     }
 
-    // Frame 0 = RED (srcX 24), frame 1 = GREEN (srcX 0); see RACING_LIGHT_FRAMES.
     const SpriteRect& frame = RACING_LIGHT_FRAMES[green ? 1 : 0];
     SDL_Surface* src = startLightSprite->GetSurface();
     const int dstX = 130;               // original dest (0x82, 0x12)
-    // Original dest y is 0x12 (18) in the full 320x200 frame; convert to the
-    // surface's local space so the light hangs from the top of the windshield.
+    // 18 in the full frame, converted to this surface.
     const int dstY = 18 - kViewOffsetY;
     const int srcYoff = 32 - startLightHeight;  // retract from the bottom (srcY = 32 - h)
     for (int y = 0; y < startLightHeight; ++y) {
@@ -1121,9 +989,7 @@ void Racing::RenderRoad(int lastVisible) {
         }
     };
 
-    // Fill grass down the WHOLE surface, not just to kClipBottom: the bottom rows
-    // (kClipBottom+1..GAME_RACING_HEIGHT) are visible through the side-mirror gap,
-    // so the ground must render there too (otherwise it reads as black).
+    // The whole surface: the bottom rows show through the side-mirror gap.
     for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
             PutPixel(pixels, x, y, kGrassA);
@@ -1137,8 +1003,7 @@ void Racing::RenderRoad(int lastVisible) {
             continue;
         }
 
-        // Extend the nearest segment to the bottom of the surface so the road
-        // (not just grass) shows through the side-mirror gap below kClipBottom.
+        // Extended to the bottom so the road shows through the side-mirror gap.
         const int yStart = ClampInt(nearRow.y - 1, kClipTop, GAME_RACING_HEIGHT - 1);
         const int yEnd = ClampInt(farRow.y, kClipTop, kClipBottom);
         for (int y = yStart; y >= yEnd; --y) {
@@ -1156,8 +1021,7 @@ void Racing::RenderRoad(int lastVisible) {
             const int seg = (fromNear * 2 >= dy) ? nearRow.seg : farRow.seg;
             const uint16_t flags = track.flags[seg];
             const bool city = (flags & 0x0001) != 0;
-            // The road is black everywhere, town included - playtested. The
-            // city flag still gets its kerb, it just does not tint the asphalt.
+            // The road is black everywhere, town included (playtested).
             const SDL_Color roadColor = kRoadA;
             const int drawL = std::max(0, left);
             const int drawR = std::min(GAME_WIDTH - 1, right);
@@ -1189,7 +1053,6 @@ void Racing::RenderRoad(int lastVisible) {
         const int dy = std::max(1, row0.y - row1.y);
         const uint16_t nearFlags = track.flags[row0.seg];
         const SDL_Color nearRoadColor = kRoadA;
-        // Extend the near road to the bottom of the surface (visible via the mirror).
         for (int y = yStart; y < GAME_RACING_HEIGHT; ++y) {
             const int extra = y - row0.y;
             const int lx = row0.leftX + ((row0.leftX - row1.leftX) * extra) / dy;
@@ -1204,12 +1067,7 @@ void Racing::RenderRoad(int lastVisible) {
         }
     }
 
-    // Everything above the road's vanishing row is sky. The mountain range is
-    // anchored with its base on that row, so nothing above it is ever ground -
-    // this used to fill grass instead whenever the far row happened to be the
-    // horizon row (the flat-road case, lastVisible == kForwardRows - 1), and
-    // RenderMountains only repaints down from the top of the silhouette, so the
-    // green showed through above the peaks.
+    // Everything above the road's vanishing row is sky: the range stands on it.
     const int skyEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
     for (int y = kClipTop; y < skyEnd; ++y) {
         for (int x = 0; x < GAME_WIDTH; ++x) {
@@ -1238,7 +1096,6 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
         PutPixel(pixels, right - 1, y, kArchColor);
     }
 
-    // Thin crossbar (the arch is now tall; a quarter-height slab would look wrong).
     const int barHeight = ClampInt((yBottom - yTop) / 20, 2, 8);
     for (int y = yTop; y < std::min(GAME_RACING_HEIGHT, yTop + barHeight); ++y) {
         for (int x = std::max(0, left); x <= std::min(GAME_WIDTH - 1, right); ++x) {
@@ -1269,10 +1126,7 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
 
     const int centerX = (left + right) / 2;
 
-    // These sign assets are composite sheets of pre-drawn scale frames. Step
-    // through them by distance (same as roadside objects) so the sign grows as we
-    // approach, blitting the chosen frame at native size rather than scaling the
-    // whole sheet.
+    // Composite sheets of pre-drawn scale frames, stepped through by distance at native size.
     const SpriteAnimationInfo* anim = GetSpriteAnimationInfo(bannerId);
     if (anim && anim->frames && anim->frameCount > 0) {
         const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
@@ -1286,18 +1140,13 @@ void Racing::DrawOverheadArch(const RowProjection& row, uint16_t flags, int sr) 
     DrawNearestNeighborScaled(banner, centerX - bannerWidth / 2, yTop + 1, bannerWidth, bannerHeight, false, false);
 }
 
-// The town, drawn only during a cruise. FUN_00237a30 (0x237a30) runs this pass
-// per row when the race flag is clear, once per side, through FUN_00237480
-// (IRA LAB_0C04). Each call gets two shoulder x values and four y values - the
-// road row and the elevated 1900 row, at this row and the next one nearer - and
-// fills the quad between them: a wall panel standing on the shoulder line with
-// its top at the elevated row. See docs/driving/cruising.md.
+// The town, drawn only during a cruise: per row and side, a wall quad on the shoulder line, topped at the
+// elevated row.
 void Racing::DrawTownWalls(int lastVisible) {
     if (!cruiseMode) {
         return;
     }
 
-    // Fills the quad between two adjacent rows, interpolating top and bottom.
     auto quad = [&](int xA, int topA, int botA, int xB, int topB, int botB, SDL_Color c) {
         const int span = xB - xA;
         const int lo = std::min(xA, xB);
@@ -1312,33 +1161,16 @@ void Racing::DrawTownWalls(int lastVisible) {
         }
     };
 
-    // Far to near, so nearer blocks overdraw the ones behind them. k stops at 1:
-    // row 0 is the extra near row this port adds ahead of the original's 14
-    // (BuildRowTableAndGetLastVisible gives it d=4), and the original's town
-    // pass has no such row. Including it drew a quad 100px tall right at the
-    // camera - a wall in your face rather than a street.
+    // Far to near, so nearer blocks overdraw. k stops at 1: row 0 is an extra near row the original lacks.
     for (int k = std::min(lastVisible, kForwardRows - 2); k >= 1; --k) {
         const RowProjection& nearRow = rows[k];
         const RowProjection& farRow = rows[k + 1];
-        // The elevated row is the 1900 projection, y - 400/d (archY is 4x that).
+        // The elevated row is the 1900 projection, y - 400/d.
         const int farTop = farRow.y - 400 / std::max(1, farRow.distance);
         const int nearTop = nearRow.y - 400 / std::max(1, nearRow.distance);
 
-        // A cross street: RoadLayoutInit opens a three-segment gap in the
-        // buildings every sixteen segments (centre flag bit 2), and the side
-        // road's surface is drawn into it - the ground is green, so an empty
-        // gap reads as a field, not a street.
-        //
-        // LAB_0C0C/LAB_0C0E, when the nearer row carries the gap:
-        //   rect(clip edge .. xNear, yElevNear .. yRoadNear - 2, shade 4)
-        //   line(clip edge .. xNear, yRoadNear - 1,              shade 10)
-        // both sides using the nearer row (the two call sites swap the order of
-        // their x arguments, which is easy to misread).
-        //
-        // xNear here is the ROAD EDGE, not the 1100/3700 shoulder the wall
-        // stands on: taken from the shoulder the rect clips down to a ~33px
-        // patch at the very edge of the screen. A side road meets the main road
-        // at its edge, which is also where this puts it.
+        // A cross street every sixteen segments (centre flag bit 2). Its surface is drawn into the gap from the road
+        // edge, not the shoulder, or an empty gap reads as a field.
         if (track.flags[nearRow.seg] & 0x0004) {
             for (int side = 0; side < 2; ++side) {
                 const int xEdge = side ? nearRow.rightX : nearRow.leftX;
@@ -1356,9 +1188,7 @@ void Racing::DrawTownWalls(int lastVisible) {
                 }
             }
         }
-        // Either row: a pair with one foot in the gap would otherwise draw a
-        // wall straight across the opening, closing the notch it is supposed
-        // to leave.
+        // Either row, or a pair with one foot in the gap draws a wall across it.
         if (((track.flags[farRow.seg] | track.flags[nearRow.seg]) & 0x0004) != 0) {
             continue;
         }
@@ -1371,10 +1201,7 @@ void Racing::DrawTownWalls(int lastVisible) {
             quad(xFar, farTop, farRow.y, xNear, nearTop, nearRow.y,
                  (f & 0x0010) ? kTownWallDark : kTownWallGrey);
 
-            // Bit 2 is "there is a building on this side here" -
-            // RoadLayoutInit sets it in pairs on three of every sixteen
-            // segments per side - and it stacks a storey above the kerb wall:
-            // full height, or half when bit 3 is clear.
+            // Bit 2 stacks a storey above the kerb wall: full height, or half when bit 3 is clear.
             if (f & 0x0004) {
                 const int farH = farRow.y - farTop;
                 const int nearH = nearRow.y - nearTop;
@@ -1383,13 +1210,7 @@ void Racing::DrawTownWalls(int lastVisible) {
                 quad(xFar, farTop - farUp, farTop, xNear, nearTop - nearUp, nearTop,
                      kTownUpper);
 
-                // The end face (LAB_0C10): where this row has a building and
-                // the next row along does not, the block is starting, and the
-                // original caps it with a flat face in shade 4 - mirrored one
-                // row-step past the near edge in x, and the storey's own height
-                // above the elevated line in y. This is what gives a block a
-                // visible end, and so what makes the gap at a cross street read
-                // as a street rather than the wall just stopping.
+                // Where a block starts, cap it with a flat end face so a cross street reads as a street.
                 const uint16_t fNear = side ? track.right[nearRow.seg]
                                             : track.left[nearRow.seg];
                 if ((fNear & 0x0004) == 0) {
@@ -1415,8 +1236,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         int srcX0 = 0, srcY0 = 0, srcW = -1, srcH = -1;
         const SpriteAnimationInfo* anim = roadsideAnim[slot];
         if (anim && anim->frames && anim->frameCount > 0) {
-            // Blit the distance-appropriate frame at its native size (no scaling)
-            // straight from the composite sheet.
+            // The distance's frame at native size.
             const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
             w = fr.w;
             h = fr.h;
@@ -1425,11 +1245,8 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             srcW = fr.w;
             srcH = fr.h;
         } else {
-            // TODO: temporary fallback. Nearest-neighbor scaling of a single bitmap
-            // is not how the original game draws scenery. Once every roadside object
-            // has pre-drawn frames mapped (author them in RodEdit's composite editor
-            // and add SPRITE_ANIMATIONS[] entries in libp.h), delete this branch, the
-            // spriteScale table, and the scaling path of DrawNearestNeighborScaled.
+            // TODO: temporary fallback. Nearest-neighbor scaling is not how the original draws scenery; once every roadside
+            // object has pre-drawn frames, delete this branch, spriteScale, and the scaling path of DrawNearestNeighborScaled.
             w = spriteScale[slot][sr][0];
             h = spriteScale[slot][sr][1];
         }
@@ -1448,11 +1265,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
     };
 
-    // The destination sign: at the roadside, on the side its flag came from.
-    // (The original's town bit-0 path goes through RenderCenteredSprite, whose
-    // first argument is the midpoint of the row y and the elevated y - a
-    // height, not the road centre. Reading it as an x put the sign over the
-    // middle of the road, which is not where it stands.)
+    // At the roadside, on its flag's side, not over the middle of the road.
     auto drawCruiseSign = [&](int k, int side) {
         const RowProjection& row = rows[k];
         const int sr = ClampInt(k - 2, 0, 10);
@@ -1480,8 +1293,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             if (L & 0x0100) drawSlot(4, k, -1, false);
             if (L & 0x0800) drawSlot(3, k, -1, false);
             if (L & 0x1000) drawSlot(6, k, -1, false);
-            // The building flag, and on a cruise the destination's own sign -
-            // the drive stops at this very segment.
+            // On a cruise the destination's own sign; the drive stops here.
             if (L & 0x0001) {
                 if (cruiseMode && cruiseSignSprite) {
                     drawCruiseSign(k, -1);
@@ -1489,11 +1301,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
                     drawSlot(1, k, -1, city);
                 }
             }
-            // The countryside objects - rocks and the second tree - are in the
-            // original's `centre bit 0 == 0` branch of the sprite dispatch, so
-            // they are not drawn in town. Only the 0x40 object survives there,
-            // and it swaps to a different sprite (the `city ? 2 : 10` below).
-            // See docs/driving/cruising.md.
+            // Rocks and the second tree are countryside only; in town the 0x40 object swaps sprites.
             if (!city && (L & 0x0004)) drawSlot(7, k, -1, false);
             if (!city && (L & 0x0008)) drawSlot(8, k, -1, false);
             if (L & 0x0040) drawSlot(city ? 2 : 10, k, -1, false);
@@ -1530,10 +1338,8 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     }
 }
 
-// The opponent's 13 sprites are one contiguous asset run per car (Chevy 83..95):
-// front-side, rear-side, 7 rear LOD frames, 4 mirror frames. That is exactly the
-// original's A4-0x14a0 pointer table indexed by the view state, so index it the
-// same way instead of switching on distance.
+// 13 sprites per car in one asset run: front-side, rear-side, 7 rear LOD frames, 4 mirror frames, indexed by
+// view state.
 Bitmap* Racing::OpponentSpriteForState(int state) const {
     if (state < 0 || state > 12) {
         return nullptr;
@@ -1595,16 +1401,10 @@ void Racing::DrawNpcCar(int lastVisible) {
     }
     SDL_Surface* src = sprite->GetSurface();
 
-    // Distance comes straight from the fine gap (0x0023808e..0x002380fa), NOT
-    // from the forward row table. rows[k] threw away the sub-segment part of the
-    // gap and re-introduced the PLAYER's scroll accumulator, since the row
-    // distance is 4 + 8k - p.scrollAcc; that accumulator cycles 0..7 every few
-    // ticks, so the same lateral gap projected anywhere from x = -42 to x = +93.
+    // From the fine gap, not the row table, which mixed in the player's cycling scroll accumulator.
     const int longDist = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8
                        + (np.scrollAcc - p.scrollAcc);
     const int d = std::max(4, longDist + (state == 0 ? 20 : 4));
-    // Same segment the row table would use at this distance
-    // (rows[k].seg = playerSeg + k + 1, and k*8 ~ longDist).
     const int npcSeg = ClampInt(static_cast<int>(np.segPos) + 1, 0, kTrackSegments - 1);
     const int roadDelta = p.heading - track.curve[npcSeg];
     const int elevDelta = p.elevAtCar - track.elev[npcSeg];
@@ -1612,10 +1412,8 @@ void Racing::DrawNpcCar(int lastVisible) {
     int y = kHorizonY + 400 / d + 4 * elevDelta;
 
     if (state == 0) {
-        // Right alongside, off to our left. Anchored by its RIGHT edge 64 px left
-        // of the projected x and never drawn to the right of the screen edge
-        // (original: srcXoff = w - x + 0x40, dstX = 0). The one state that hangs
-        // DOWN from the road row instead of standing on it.
+        // Right alongside, off to our left: right edge 64 px left of x, never right of the screen edge, hanging down
+        // from the road row.
         DrawNearestNeighborScaled(sprite, std::min(0, x - 64 - src->w), y, src->w, src->h,
                                   false, false);
         return;
@@ -1625,14 +1423,8 @@ void Racing::DrawNpcCar(int lastVisible) {
         DrawNearestNeighborScaled(sprite, x, y + 0x11, src->w, src->h, true, true);
         return;
     }
-    // Ahead: centred, standing on the road, never above the horizon row.
-    // Optional deviation (Options > Hill cover): rows past the crest are not
-    // drawn, so neither is what stands on them. rows[lastVisible] IS the
-    // silhouette - .seg is the last segment in view, .y the ridge scanline -
-    // so clipping the sprite to the sky above that line hides a car in the dip
-    // and brings it back roof-first. The lastVisible < kForwardRows-1 clause
-    // keeps flat road out of it: there the furthest row is the minimum, and the
-    // opponent can be further out than the 14-row table reaches.
+    // Ahead: centred, never above the horizon row. With Hill cover on, clip to the sky above the crest row so a car
+    // in a dip is hidden. Flat road is excluded, where the opponent can be beyond the row table.
     const RowProjection& crest = rows[static_cast<size_t>(lastVisible)];
     if (state != 0 && lastVisible < kForwardRows - 1 && npcSeg > crest.seg &&
         ::state.GetAssets().GetHillOcclusionRef()) {   // local `state` is the view state
@@ -1657,9 +1449,7 @@ void Racing::DrawRearviewMirror() {
     const int mirrorW = 76;
     const int mirrorH = 21;
 
-    // Rear-view scene into the glass: horizon backdrop (asset 82), the road
-    // receding behind the player with center dashes, roadside object LODs, then
-    // the NPC. Everything is clipped to the glass rect.
+    // Horizon backdrop, the road behind with centre dashes, roadside LODs, then the NPC, clipped to the glass.
     const int gLeft = mirrorX + 1;
     const int gRight = mirrorX + mirrorW - 2;
     const int gTop = mirrorY + 1;
@@ -1669,8 +1459,7 @@ void Racing::DrawRearviewMirror() {
     const srrace::CarState& p = sim.Player();
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
 
-    // Manual, glass-clipped blit of a sprite frame with its bottom-left anchored
-    // at (dstLeft, dstBottom). Sprites in the mirror must never spill outside it.
+    // Bottom-left anchored at (dstLeft, dstBottom), never spilling outside the glass.
     auto blitClipped = [&](Bitmap* bmp, const SpriteRect& fr, int dstLeft, int dstBottom) {
         SDL_Surface* s = bmp ? bmp->GetSurface() : nullptr;
         if (!s) return;
@@ -1690,15 +1479,12 @@ void Racing::DrawRearviewMirror() {
         }
     };
 
-    // Grass base for the whole glass.
     for (int y = gTop; y <= gBottom; ++y) {
         for (int x = gLeft; x <= gRight; ++x) {
             PutPixel(pixels, x, y, kGrassA);
         }
     }
 
-    // Horizon backdrop: asset 82 (RACING_HORIZON_REARVIEWMIRROR) across the top of
-    // the glass; the road vanishes at its lower edge.
     int horizonY = gTop + 6;
     if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
         SDL_Surface* h = rearviewMirrorSprite->GetSurface();
@@ -1717,18 +1503,11 @@ void Racing::DrawRearviewMirror() {
         }
         horizonY = gTop + hh - 1;
     }
-    // The mirror's horizon is fixed at screen y 36 (rendering.md: the mirror
-    // view is the forward projection with center x 280 and horizon y 36), so
-    // trust that over wherever the backdrop bitmap happens to end.
+    // The mirror's horizon is fixed at screen y 36.
     horizonY = ClampInt(36 - kViewOffsetY, gTop, gBottom);
 
-    // The road behind, projected the way the original projects it rather than
-    // approximated. ProjectMirrorX (0x23aa86) is the forward ProjectX without
-    // its factor of 4 and centred on 280 instead of 160 - the mirror is a
-    // quarter-scale view of the same road - and BuildMirrorRowTables (0x23b016)
-    // walks 8 rows backwards from the player, one segment apart, at depths
-    // scrollAcc + 8*(row+1), taking the same 1500/2000/2800/3300 edges through
-    // the same narrowing test as the forward view.
+    // The forward projection at quarter scale centred on 280: 8 rows backwards, one segment apart, at depths
+    // scrollAcc + 8*(row+1), with the same edges and narrowing test.
     auto projectMirrorX = [&](int d, int roadDelta, int lateral) {
         const int adjustedLat = lateral + (roadDelta * d) / 4;
         const int numerator = (d >> 1) + (p.lateral - adjustedLat);
@@ -1748,9 +1527,7 @@ void Racing::DrawRearviewMirror() {
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
         MirrorRow& row = mrows[k];
         row.seg = seg;
-        // ProjectMirrorY (0x23aada) is the forward y projection at quarter
-        // scale: 36 + 100/d + row_c, where 100 is base 2000 minus the constant
-        // camera 1900 (rendering.md) and row_c is the elevation delta.
+        // 36 + 100/d + row_c at quarter scale.
         row.y = horizonY + 100 / d + (p.elevAtCar - track.elev[seg]);
         row.left = projectMirrorX(d, roadDelta, edgeLeft);
         row.right = projectMirrorX(d, roadDelta, edgeRight);
@@ -1759,7 +1536,6 @@ void Racing::DrawRearviewMirror() {
         row.center = projectMirrorX(d, roadDelta, kRoadCenterLat);
     }
 
-    // Road surface + center dashes, interpolated between the projected rows.
     auto paintRow = [&](int y, int left, int right, int center, int seg) {
         if (y < gTop || y > gBottom) return;
         const int rl = std::max(gLeft, left);
@@ -1767,7 +1543,7 @@ void Racing::DrawRearviewMirror() {
         for (int x = rl; x <= rr; ++x) {
             PutPixel(pixels, x, y, kRoadA);
         }
-        // Alternate rows so the center line reads as dashes, not a solid stripe.
+        // Alternate rows so the centre line reads as dashes.
         if ((track.flags[seg] & 0x0008) && ((y & 1) == 0) && center >= rl && center <= rr) {
             PutPixel(pixels, center, y, (track.flags[seg] & 0x0010) ? kDashWhite : kDashYellow);
         }
@@ -1791,7 +1567,6 @@ void Racing::DrawRearviewMirror() {
         }
     }
 
-    // Roadside object LODs behind: smallest frame at the road edge per behind row.
     auto slotForFlags = [](uint16_t f) -> int {
         if (f & 0x0001) return 1;   // building / main
         if (f & 0x0020) return 0;   // palm
@@ -1817,11 +1592,7 @@ void Racing::DrawRearviewMirror() {
         }
     }
 
-    // Overhead arches behind. The mirror row tables carry the same elevated y
-    // the forward view uses (lateral base 1900), which at quarter scale is
-    // row.y - 400/d, and RenderOverheadArch hangs the crossbar four times that
-    // above the road. Posts and crossbar only - the banner art does not read at
-    // 74 px across.
+    // Quarter scale: elevated y is row.y - 400/d, crossbar four times that above the road. No banner art at 74 px.
     auto putGlass = [&](int x, int y) {
         if (x >= gLeft && x <= gRight && y >= gTop && y <= gBottom) {
             PutPixel(pixels, x, y, kArchColor);
@@ -1852,7 +1623,6 @@ void Racing::DrawRearviewMirror() {
         }
     }
 
-    // Show the opponent in the mirror when it is behind us, growing as it closes.
     if (opponentActive) {
         const int delta = static_cast<int>(sim.Npc().segPos - sim.Player().segPos);
         if (delta < 0 && delta >= -8) {
@@ -1869,7 +1639,7 @@ void Racing::DrawRearviewMirror() {
             }
             if (behind && behind->GetSurface()) {
                 SDL_Surface* bs = behind->GetSurface();
-                // Native LOD frame (no scaling); crop to fit the mirror glass.
+                // Native LOD frame, cropped to fit the glass.
                 const int w = std::min(bs->w, mirrorW - 2);
                 const int h = std::min(bs->h, mirrorH - 2);
                 const int cx = mirrorX + mirrorW / 2 - w / 2;
@@ -1880,12 +1650,8 @@ void Racing::DrawRearviewMirror() {
     }
 }
 
-// Door mirror. The original projects no second view for it: at the end of the
-// mirror pass (RenderMirrorView 0x238318) it copies a block of the roof mirror's
-// glass into the interior bitmap, so the door mirror is the roof mirror's own
-// left-hand corner, re-blitted every frame. Both rects sit in the road surface
-// here (Driving composites it at screen y 14) and Driving punches the interior's
-// glass transparent, so the copy ends up on screen in the same place.
+// The door mirror is the roof mirror's left-hand corner, re-blitted every frame; Driving punches the interior's
+// glass so it shows through.
 void Racing::DrawSideMirror() {
     if (!pixels || pixels->format->BytesPerPixel != 4) {
         return;
@@ -1911,8 +1677,7 @@ void Racing::DrawHud() {
         return;
     }
     if (cruiseMode) {
-        // A cutscene has no gear readout - the drive shifts for itself, and the
-        // status line is "Cruising in town...", which Driving owns.
+        // A cutscene has no gear readout.
         return;
     }
     char gearText[16];
@@ -2010,8 +1775,7 @@ void Racing::FlybyJumpSegments(int segDelta) {
 }
 
 void Racing::UpdateFlybyMovement(float frameSeconds) {
-    // Key state is polled straight from SDL, bypassing events, so the debug UI's
-    // keyboard capture has to be checked explicitly.
+    // Key state is polled from SDL, so the debug UI's keyboard capture is checked explicitly.
     const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
     if (!keyboard) {
         return;
@@ -2138,8 +1902,6 @@ bool Racing::OnFlybyKeyDown(SDL_Keycode key) {
 std::vector<std::string> Racing::GetFlybyDebugLines(int lastVisibleRow) const {
     std::vector<std::string> lines;
 
-    // Reads the flyby camera when it is engaged and the player's car otherwise,
-    // so the track readout is useful during an ordinary race too.
     const srrace::CarState& player = sim.Player();
     const int seg = flybyMode
                         ? ClampInt(static_cast<int>(flybySeg), 0, srrace::TRACK_SEGMENTS - 1)
@@ -2246,8 +2008,7 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
         out.push_back({"far row", "-"});
     }
 
-    // Opponent. The gap is the same fine measure the contact and LOD code use:
-    // segments scaled by 8 plus the scroll remainder. Positive means ahead.
+    // Segments scaled by 8 plus the scroll remainder; positive means ahead.
     const srrace::CarState& npc = sim.Npc();
     const int segGap = static_cast<int>(npc.segPos) - static_cast<int>(player.segPos);
     const int fineGap = segGap * 8 + (npc.scrollAcc - player.scrollAcc);
@@ -2270,12 +2031,10 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     out.push_back({"view state", std::to_string(static_cast<int>(sim.NpcAi().viewState)) +
                                  (sim.NpcAi().viewHidden ? " (hidden)" : "")});
 
-    // Cop. State 0 means the spawn roll did not arm one, so none can appear at
-    // all this race - see RodLegacyResearch/docs/driving/cop.md.
+    // State 0: the spawn roll did not arm one.
     const int copState = sim.CopState();
     out.push_back({"cop", ""});
-    // Always the same three rows, whatever the answer: a row that comes and goes
-    // shifts everything below it every time the state changes.
+    // Always three rows, so nothing below shifts when the state changes.
     const bool copPossible = sim.RaceType() != 0 && copState != 0;
     out.push_back({"can appear", sim.RaceType() == 0 ? "no (drag race)"
                                  : copState == 0     ? "no (roll failed)"
@@ -2350,8 +2109,7 @@ std::vector<DebugIndicator> Racing::GetOpponentIndicators() const {
     const srrace::CarState& npc = sim.Npc();
     const srrace::NpcState& ai = sim.NpcAi();
 
-    // Same deadband the steering itself uses, so the lamp matches what the car
-    // is actually doing rather than flickering on tiny corrections.
+    // The steering's own deadband, so the lamp doesn't flicker.
     const int latDelta = ai.lateralTarget - npc.lateral;
     const bool left = latDelta < -8;
     const bool right = latDelta > 8;
@@ -2442,35 +2200,24 @@ void Racing::HandleOutcomeAfterTicks() {
         return;   // a cruise has no outcome; Driving watches CruiseFinished()
     }
 
-    // A crash / blown engine / dropped transmission / false start ends the race
-    // as a loss (original: any A4+0x4bc6 failure bit exits the frame loop). Only
-    // a wall hit wrecks the car though, so the smashed-interior overlay is gated
-    // on END_WALL_HIT - blowing the engine, dropping the transmission or jumping
-    // the light leaves you sitting in an intact car.
+    // Any failure ends the race as a loss, but only a wall hit wrecks the car.
     if (sim.PlayerFailed()) {
         if (!crashHandled) {
             crashHandled = true;
             if (sim.PlayerWrecked()) {
                 bShowCrashOverlay = true;
-                // The wreck itself. Same srl0 slice the sideswipe bash uses,
-                // but the whole 0x254c of it - the original stacks it on all
-                // four channels at 0x2284a8, we play the one low voice.
+                // The bash sample at full length, one low voice.
                 if (audioManager) {
                     audioManager->PlaySound(AudioSampleType::CRASH);
                 }
             }
-            // The drivetrain damage itself is applied by Driving, with the
-            // rest of the outcome (bankroll, fuel, reputation, scrap) - see
-            // Driving::ApplyDrivetrainDamage.
+            // Driving applies the drivetrain damage with the rest of the outcome.
         }
         raceOutcome = RaceOutcome::PlayerLost;
         return;
     }
 
-    // A clean finish is not "the player touched segment 1020" - the sim runs the
-    // roll-out past the line and only reports the race over once the car has
-    // stopped. The verdict was latched as the line was crossed, so there is no
-    // tick-order comparison to make here any more.
+    // The sim reports the race over once the car has stopped past the line; the verdict was latched at the line.
     if (sim.RaceOver()) {
         raceOutcome = sim.PlayerWonAtLine() ? RaceOutcome::PlayerWon
                                             : RaceOutcome::PlayerLost;
@@ -2495,14 +2242,11 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         fixedAccumulator += std::max(0.0f, fElapsedTime);
         fixedAccumulator = std::min(fixedAccumulator, kFixedStepSeconds * 2.0f);
 
-        // As above: consult the debug UI before reading raw key state.
+        // Consult the debug UI before reading raw key state.
         const Uint8* keyboard = DebugUiWantsKeyboard() ? nullptr : SDL_GetKeyboardState(nullptr);
         uint16_t baseInput = 0;
 
-        // Pad and keyboard drive the same four sim inputs; either can be used at
-        // any time. Steering is a bit pair, so the stick only has to clear its
-        // deadzone to register; how far it is pushed matters only to
-        // steerAmount below.
+        // Pad and keyboard drive the same four sim inputs.
         const float padSteer = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
         const bool padThrottle = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
         const bool padBrake = gamepad.TriggerDown(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
@@ -2528,10 +2272,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         }
         prevSpaceDown = space;
 
-        // How far the wheel is turned. The original has no such thing, so this
-        // is 1.0 (full lock, the original ramp) unless analog_steering is on and
-        // the analog stick is what is steering: the keyboard and the D-pad are
-        // held directions and stay original either way.
+        // 1.0 unless analog_steering is on and the stick is steering; keyboard and D-pad stay original.
         float steerAmount = 1.0f;
         if (state.GetAssets().GetAnalogSteeringRef()) {
             const bool digitalSteer =
@@ -2544,31 +2285,19 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         }
 
         if (cruiseMode) {
-            // UpdatePhysics (0x2364e8) does not run the race physics for a
-            // cutscene at all: it winds the rpm up by a fixed per-gear step,
-            // upshifts at 4500, and once in top gear sets that step to 0 so the
-            // speed simply holds. We have real physics, so hold the throttle up
-            // to the same point and then feather it - which is a cruise, not a
-            // drag run. Keys are the way out, not a way to drive: Driving turns
-            // any key into "skip".
+            // The original's cutscene winds rpm up, shifts at 4500 and holds top gear. With real physics, hold the throttle
+            // to that point and feather it. Driving turns any key into "skip".
             const srrace::CarState& pc = sim.Player();
             const bool topGear = pc.gear >= sim.PlayerTables().numGears;
             baseInput = (topGear && pc.rpm >= kCruiseRpm) ? 0 : srrace::INPUT_THROTTLE;
             pendingShift = !topGear && pc.rpm > kCruiseRpm;
 
-            // Arriving: turn towards the building the drive stops at, and only
-            // in the last segment before it. The original never slows down -
-            // its cutscene physics has no deceleration at all, and the roll-out
-            // that does brake and park is gated on passing the race finish,
-            // which a town drive never reaches. Playtested, all you see is the
-            // car starting to turn in before the scene cuts, so that is all
-            // this does: no braking, one segment of steering.
+            // Turn towards the building only in the last segment; the original never slows on a cruise.
             const int side = CruiseArrivalSide();
             if (side != 0) {
                 baseInput |= (side < 0) ? srrace::INPUT_STEER_LEFT : srrace::INPUT_STEER_RIGHT;
             }
-            // The cutscene drives itself; a stick resting off centre must not
-            // soften its turn-in.
+            // A stick resting off centre must not soften the turn-in.
             steerAmount = 1.0f;
         }
 
@@ -2580,26 +2309,18 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             }
             sim.Tick(inputBits, steerAmount);
             ++simTickCounter;
-            // The post-race stats panel's average speed: the original sums the
-            // player's mph into A4+0x4cc8 and the ticks into A4+0x4bca on every
-            // physics step, then divides the two. See
-            // docs/driving/race_end_messages.md.
+            // For the post-race stats panel's average speed.
             speedSumMph += sim.Player().speed;
 
-            // Side-swiping the opponent bashes metal (original plays the impact
-            // sound three times as the player is shoved clear).
+            // The impact sound as the player is shoved clear.
             if (sim.ConsumeNpcBump() && audioManager) {
-                // 0x22854e rolls `random % 40 + 310` per shot, so no two hits
-                // ring the same.
+                // `random % 40 + 310` per shot.
                 const int period = SRL0_CAR_BASH_PERIOD_BASE +
                                    (std::rand() % SRL0_CAR_BASH_PERIOD_SPREAD);
                 audioManager->PlaySound(AudioSampleType::CAR_BASH, 1.0f, 3579545 / period);
             }
 
-            // The cop has taken over the opponent slot, so swap the opponent's
-            // sprites for the police ones. The original does the same thing by
-            // copying 13 sprite pointers over the opponent's (SpawnCop
-            // 0x244ca2); here the renderer just switches on opponentCarType.
+            // The renderer switches on opponentCarType.
             if (sim.ConsumeCopSpawn()) {
                 if (opponentCarTypeBeforeCop < 0) {
                     opponentCarTypeBeforeCop = opponentCarType;
@@ -2608,9 +2329,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 LoadOpponentCarSprites();
             }
 
-            // Cop siren, retriggered on a cooldown for the same reason as the
-            // tire screech below: our one-shots queue rather than restarting a
-            // hardware channel.
+            // Retriggered on a cooldown: our one-shots queue rather than restart a channel.
             if (copSirenCooldownTicks > 0) {
                 --copSirenCooldownTicks;
             }
@@ -2623,15 +2342,14 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
                 copSirenCooldownTicks = 0;
             }
 
-            // Tire screech: sliding hard (|slideVel| >= 12 of its +-24 clamp)
-            // at more than 20 mph (RaceLogicUpdate 0x244d50). See PlayerSkidding().
+            // See PlayerSkidding().
             if (tireScreechCooldownTicks > 0) {
                 --tireScreechCooldownTicks;
             }
             if (sim.PlayerSkidding() && audioManager) {
                 if (tireScreechCooldownTicks == 0) {
                     audioManager->PlaySound(AudioSampleType::TIRE_SCREECH);
-                    // ~445 ms sample (SRL0_TIRE_SCREECH_LENGTH/RATE) at 15 Hz.
+                    // ~445 ms sample at 15 Hz.
                     tireScreechCooldownTicks = 7;
                 }
             } else {
@@ -2643,8 +2361,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
 
         HandleOutcomeAfterTicks();
 
-        // Race just ended: cut the engine loop so it doesn't keep running under
-        // the frozen race-end bubble.
+        // Or it keeps running under the race-end bubble.
         if (raceOutcome != RaceOutcome::Ongoing && engineSoundStarted && audioManager) {
             audioManager->StopLoop(0);
             engineSoundStarted = false;
@@ -2679,22 +2396,13 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
 }
 
 void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
-    // The tachometer face is printed 0, 10, 20 ... 60 with "X100" under the hub,
-    // so the needle spans 0..6000 rpm. It used to start at 1500 (idle), which put
-    // the needle on the printed 0 while the engine idled and left every reading
-    // 1500 rpm high - the redline band was impossible to judge against the dial.
-    // RoadRaceMainLoop 0x23633e feeds the dial `rpm / 43` (0x231ab0
-    // `divs.w #$2b`), and the dial clamps its input at 130. So full scale is
-    // 130 * 43 = 5590 rpm: the needle reaches the stop just BEFORE the 5700
-    // redline and sits pegged there. That is the visual over-rev warning, and
-    // the old 0..6000 span threw it away - at 5700 the needle was still 5% shy
-    // of the end, so being on the limiter looked like being near it.
+    // The dial takes rpm / 43 and clamps at 130, so full scale is 5590: the needle pegs just before the 5700 redline,
+    // the over-rev warning.
     DrawGaugeNeedle(renderer, 145, 129, sim.Player().rpm / 43);
 }
 
 void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
-    // 0x2361f4 passes the speed straight in; the dial clamps at 130 (0x2316ec
-    // `cmpi.w #$82`), so full scale is 130 mph, not the 140 used before.
+    // The dial clamps at 130, so full scale is 130 mph.
     DrawGaugeNeedle(renderer, 196, 129, sim.Player().speed);
 }
 

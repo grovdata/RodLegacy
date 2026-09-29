@@ -3,7 +3,6 @@
 
 using namespace srdiner;
 
-// Tables ported from the Amiga; see docs/diner.md.
 TEST_CASE("waitress: the X runs and the frame table are the same length") {
     for (int dir = 0; dir < 2; ++dir) {
         int steps = 0;
@@ -31,7 +30,6 @@ TEST_CASE("waitress: every step names a frame the sheet has") {
         CHECK(f >= 1);
         CHECK(f <= kWaitressFrameCount);
     }
-    // She ends standing, on the frame the 6x2 grid's twelfth cell is not.
     CHECK(kWaitressFrames[kWaitressSteps - 1] == 11);
 }
 

@@ -6,29 +6,13 @@
 #include <algorithm>
 #include <map>
 
-// Popup bounds: ENGINE_TRANSMISSION_WINDOW is a 200x175 window graphic (see
-// docs/garage/transmission_install.md), same bounds garage_modifications.cpp's
-// spare-transmissions list dialog uses.
 static const SDL_Rect kTransWindowBounds = {32, 10, 200, 175};
 
-// The window art's actual "porthole" - the transmission bitmap must stay
-// clipped to this area (e.g. while sliding in from below) rather than
-// spilling over the button strip or the window's border art. Clipping
-// itself is ClipDialogBitmapToRect (dialogs/dialog.h) - shared with
-// EngineBay, which needs the same treatment for its own part bitmaps.
-// Not applied to the screws: they're drawn at 2x via AnimatedBitmap's own
-// frame selection (which ClipDialogBitmapToRect's sourceRect-crop draw path
-// would bypass), and both screw positions already sit inside the mask.
+// The porthole the transmission is clipped to. Not applied to the screws, whose frame selection the
+// sourceRect path would bypass; they already sit inside it.
 static const SDL_Rect kTransViewportMask = {36, 14, 192, 135};
 
-// gear_data word 2 in the original 14-byte transmission part record was
-// originally read as this bitmap's lib.p index (283-285 lined up with
-// 3-speed/auto/4-speed exactly); asset 286, tentatively "racing" by that
-// reading, turned out on screen to be the mounting screw, not a 4th body -
-// see docs/garage/transmission_install.md. That leaves racing without a
-// documented index; by elimination it's ENGINE_TRANSMISSION1 (282), the
-// only one of the 4 body bitmaps otherwise unused. Unconfirmed - flag if a
-// transmission type shows the wrong body art.
+// Racing has no documented body asset; by elimination it is ENGINE_TRANSMISSION1 (282). Unconfirmed.
 static AmigaLibAsset TransmissionBitmapAsset(TransmissionType type) {
     switch (type) {
         case TRANS_AUTO_GM:
@@ -52,14 +36,10 @@ static AmigaLibAsset TransmissionBitmapAsset(TransmissionType type) {
     return ENGINE_TRANSMISSION3;
 }
 
-// The original doesn't table these per asset: FUN_0023236a right-aligns the
-// body at x 207 and bottom-aligns it at y 130, so the per-asset padding
-// falls out of the bitmap's own size. It reproduces all four hand-measured
-// positions exactly - see docs/garage/transmission_install.md.
+// The original right-aligns the body at x 207 and bottom-aligns it at y 130.
 static const int kTransRightEdge = 207;
 static const int kTransBottomEdge = 130;
-// A part that doesn't fit is shown 24px further left before it bounces back
-// out (the same call with its flag set: x 183 instead of 207).
+// A part that doesn't fit is shown 24px further left before it bounces back out.
 static const int kTransRejectShift = 24;
 
 static SDL_Point TransBitmapDestPos(const SDL_Point& natural, bool rejected = false) {
@@ -67,25 +47,14 @@ static SDL_Point TransBitmapDestPos(const SDL_Point& natural, bool rejected = fa
             kTransBottomEdge - natural.y};
 }
 
-// Screw mount: the head's right edge is pinned at x 203 and the two rows
-// come off the original's own table at A4-0x4442 (78 and 96, +10 for the
-// blit) - matching the positions measured by hand off the running game.
+// The head's right edge is pinned at x 203; rows 78 and 96, +10 for the blit.
 static const int kScrewRightEdge = 203;
 
 static SDL_Point ScrewPos(int index) {
     return {kScrewRightEdge, index == 0 ? 88 : 106};
 }
 
-// ENGINE_TRANSMISSION_BOLT (286, see TransmissionBitmapAsset's comment) is
-// the mounting screw for this window, already drawn facing right - no
-// rotation needed (unlike engine_bay.cpp's generic ENGINE_BOLT). It's a
-// single image, not a sprite sheet: the screw "backing out" is 3 top-left-
-// anchored crops of increasing size on the same bitmap, not distinct frames.
-// Widths straight off the original's state table at A4-0x443a: 4 seated,
-// 8 half out, 12 fully out, all 7 rows tall (the asset itself is 16x7, so
-// the last 4 columns are never drawn). The crop is taken from the left and
-// pinned by its right edge, so the screw grows out sideways rather than
-// revealing more of a fixed corner.
+// One image, not a sheet: backing out is a left crop of width 4 / 8 / 12, 7 rows tall, pinned by the right edge.
 static constexpr int kScrewCropH = 7;
 static constexpr int kScrewStateW[3] = {4, 8, 12};
 static constexpr float kScrewFallDuration = 0.35f;
@@ -95,14 +64,7 @@ static SDL_Rect ScrewCropForState(int state) {
     return {0, 0, w, kScrewCropH};
 }
 
-// Cached on first use per asset, never re-queried after: the slide-in
-// intentionally starts below the porthole (fully clipped, {0,0,0,0}), and
-// whenever a DialogBitmap's clip collapses like that, Dialog::Draw()'s
-// no-crop fallback path calls SetPosition/SetDimensions on the underlying
-// (shared, cached-by-AssetManager) Bitmap, stomping its own rect to that
-// same 0x0 - see the identical screw bug this was split out from. The first
-// read for any given asset happens here, before that asset is ever drawn,
-// so it's safe to trust once and freeze.
+// Cached on first use: Dialog::Draw's no-crop path stomps the shared bitmap's rect once a clip collapses.
 static SDL_Point TransBitmapNaturalSize(AssetManager& assets, AmigaLibAsset asset) {
     static std::map<AmigaLibAsset, SDL_Point> cache;
     auto it = cache.find(asset);
@@ -113,11 +75,7 @@ static SDL_Point TransBitmapNaturalSize(AssetManager& assets, AmigaLibAsset asse
     return size;
 }
 
-// The transmission bitmap's full-size, unclipped rect at its per-asset
-// mount position (TransBitmapDestPos). Callers that need to animate through
-// other positions (the slide-in) use this for the natural size and the
-// "arrived" endpoint, then derive their own logical rects per frame -
-// clipping (ClipDialogBitmapToRect) is applied separately, never baked in here.
+// Unclipped mount rect; callers clip separately.
 static SDL_Rect TransMountRect(AssetManager& assets, AmigaLibAsset asset) {
     SDL_Point natural = TransBitmapNaturalSize(assets, asset);
     SDL_Point pos = TransBitmapDestPos(natural);
@@ -133,31 +91,18 @@ DialogBitmap Garage::BuildTransmissionBitmapEntry(TransmissionType type) {
     return entry;
 }
 
-// The one place crop, push-out X, and porthole clip combine. `y` is
-// whatever the caller wants right now - the resting position, or a frame of
-// the fall animation.
-//
-// X pushes out by the same distance the crop has grown past the seated
-// (state 0) width, so the screw doesn't just reveal more from a fixed
-// corner - it visibly advances as it backs out. Clipped to the window's
-// porthole (ClipDialogBitmapToRect, dialogs/dialog.h) same as the
-// transmission bitmap; that clip is also what makes the screw disappear
-// mid-fall once it passes the porthole edge rather than only when the fall
-// animation itself finishes.
+// X pushes out as the crop grows, so the screw visibly advances. The porthole clip hides it mid-fall.
 void Garage::ApplyScrewGeometry(int screwIndex, int y) {
     if (!transScrewBitmap[screwIndex] || !transmissionInstallDialog) return;
     DialogBitmap* db = transmissionInstallDialog->GetBitmap("screw_" + std::to_string(screwIndex));
     if (!db) return;
 
     SDL_Rect crop = ScrewCropForState(transScrewState[screwIndex]);
-    // Right edge pinned: the screw's head stays put and its shank grows out
-    // to the left as it is backed off.
+    // Right edge pinned: the shank grows out to the left.
     SDL_Rect logical = {ScrewPos(screwIndex).x - crop.w, y, crop.w, crop.h};
     ClipDialogBitmapToRect(*db, kTransViewportMask, logical);
 }
 
-// Sets the screw's crop/size for its current click-state, at its resting
-// (non-falling) Y position.
 void Garage::UpdateTransScrewVisual(int screwIndex) {
     ApplyScrewGeometry(screwIndex, ScrewPos(screwIndex).y);
 }
@@ -178,9 +123,7 @@ void Garage::OnTransScrewClicked(int screwIndex) {
                 DialogBitmap* db = transmissionInstallDialog->GetBitmap("transmission");
                 if (db && db->bitmap) db->bitmap->SetVisible(false);
             }
-            // The gearbox really leaves the car and lands in spares the
-            // moment it is out, same as the engine bay's parts - otherwise
-            // SELECT says you own nothing while it sits on the floor.
+            // The gearbox leaves for spares the moment it is out.
             Car* car = state.GetCurrentCar();
             if (car && car->HasGearbox()) {
                 state.AddSpareTransmission(car->GetGearbox());
@@ -196,18 +139,9 @@ void Garage::OnTransScrewClicked(int screwIndex) {
             transInstallPhase = TransInstallPhase::MOUNTED;
         }
     }
-    // EMPTY/SLIDING_IN: nothing to click on, ignore.
 }
 
-// Starts the screw's cosmetic drop. `fallingOut`: drops from its resting Y
-// down past the window's bottom edge, then hides (screw fell out of the
-// window). Otherwise: starts above the window's top edge and drops down to
-// its resting Y (screw dropping in from the top for the new transmission).
-//
-// `delay` > 0 defers the actual start (used to stagger the two new screws
-// dropping in one after the other instead of together): the screw stays
-// hidden and UpdateScrewFallAnimations counts the delay down, then calls
-// back into this same function with delay=0 once it elapses.
+// fallingOut drops it past the bottom and hides it; otherwise it drops in from above. delay staggers the two.
 void Garage::StartScrewFall(int screwIndex, bool fallingOut, float delay) {
     if (!transmissionInstallDialog || !transScrewBitmap[screwIndex]) return;
 
@@ -269,8 +203,7 @@ void Garage::UpdateScrewFallAnimations(double deltaTime) {
 void Garage::CommitTransmissionSwap() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
-    // The old gearbox went to spares when it came out (OnTransScrewClicked),
-    // so this only installs the new one.
+    // The old gearbox went to spares when it came out.
     state.RemoveSpareTransmission(pendingGearbox.partType.transmissionType);
     car->SetGearbox(pendingGearbox);
 }
@@ -317,9 +250,7 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
     auto lerp = [](float a, float b, float t) { return a + (b - a) * t; };
     auto clamp01 = [](float t) { return t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t); };
 
-    // db->rect holds the last frame's *clipped* position, not the logical
-    // one - always re-derive the logical (unclipped) x/y from the timer
-    // rather than reading it back, then clip fresh each frame.
+    // db->rect holds last frame's clipped position, so re-derive from the timer.
     int logicalX;
     int logicalY;
     if (transInstallTimer < SLIDE_UP_DUR) {
@@ -340,9 +271,7 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
         ClipDialogBitmapToRect(*db, kTransViewportMask, logical);
 
         if (transRejected) {
-            // Wrong make. The original shows it in the mount - 24px short of
-            // where a fitting one sits - then takes it straight back out
-            // rather than refusing the pick up front. No screws, no commit.
+            // Wrong make: shown 24px short of the mount, then taken straight back out.
             transRejected = false;
             logical = {transSlideEnd.x - kTransRejectShift, transSlideEnd.y,
                        transNaturalSize.x, transNaturalSize.y};
@@ -356,16 +285,13 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
         transInstallPhase = TransInstallPhase::SCREWING_IN;
         transScrewState[0] = 2;
         transScrewState[1] = 2;
-        // Both StartScrewFall branches (immediate and delayed) fully own
-        // their screw's visibility/position - no separate UpdateTransScrewVisual needed.
+        // StartScrewFall owns the screws' visibility and position.
         StartScrewFall(1, /*fallingOut=*/false);
         StartScrewFall(0, /*fallingOut=*/false, /*delay=*/kScrewFallDuration);
     }
 }
 
-// Also the "changed my mind" path: backing out of a swap puts the car's own
-// gearbox back. A car that dropped its transmission in a race has none to
-// put back, so it comes up empty and has to be given a new one.
+// Also the "changed my mind" path. A car that dropped its transmission comes up empty.
 void Garage::ResetTransmissionInstallToMounted() {
     Car* car = state.GetCurrentCar();
     if (!car || !transmissionInstallDialog) return;
@@ -395,9 +321,7 @@ void Garage::ShowTransmissionInstallDialog() {
     Car* car = state.GetCurrentCar();
     if (!car) return;
 
-    // SELECT/DONE are drawn as part of ENGINE_TRANSMISSION_WINDOW itself, so
-    // these are click-only hitboxes, not drawn buttons (absolute screen
-    // coords, eyeballed against the running game).
+    // Drawn as part of the window art; click-only hitboxes.
     SDL_Rect selectRect = {43, 153, 61, 25};
     SDL_Rect doneRect = {161, 152, 61, 25};
 
@@ -421,9 +345,7 @@ void Garage::ShowTransmissionInstallDialog() {
     cfg.bounds = kTransWindowBounds;
     cfg.backgroundColor = {0, 0, 0, 255};
     cfg.borderColor = {0, 0, 0, 0};
-    // ENGINE_TRANSMISSION_WINDOW has transparent regions (same asset the
-    // spare-parts list dialog uses); without an opaque fill behind it those
-    // regions show the garage scene through instead of solid black.
+    // The window has transparent regions.
     cfg.contentAreas = {kTransWindowBounds};
     cfg.buttons = buttons;
     cfg.zones = {screwZone0, screwZone1};
@@ -434,8 +356,7 @@ void Garage::ShowTransmissionInstallDialog() {
     };
     cfg.bitmaps["transmission"] = BuildTransmissionBitmapEntry(car->GetGearbox().partType.transmissionType);
 
-    // Independent copies (not a shared pointer) so hiding one screw via
-    // SetVisible can't affect the other - see UpdateTransScrewVisual.
+    // Independent copies, so hiding one screw can't affect the other.
     Bitmap* boltSrc = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ENGINE_TRANSMISSION_BOLT});
     for (int i = 0; i < 2; i++) {
         transScrewBitmap[i] = std::make_unique<Bitmap>(*boltSrc);
@@ -460,9 +381,7 @@ void Garage::ShowTransmissionInstallDialog() {
                 ShowTransmissionDialog();
                 break;
             case 1:  // Done
-                // An unscrewed gearbox is already out and in spares, so Done
-                // just leaves - it does not put it back. Half-unscrewed is
-                // still fitted, so that only needs the screws re-seated.
+                // An unscrewed gearbox is already in spares, so Done just leaves; half-unscrewed only needs re-seating.
                 if (transInstallPhase == TransInstallPhase::UNSCREWING) {
                     ResetTransmissionInstallToMounted();
                 } else if (transInstallPhase == TransInstallPhase::MOUNTED ||
@@ -470,21 +389,14 @@ void Garage::ShowTransmissionInstallDialog() {
                     transmissionInstallDialog->Hide();
                     SetActiveDialog(nullptr);
                 }
-                // Mid slide/screw-in: no backing out, ignore Done.
                 break;
         }
     };
 
     transmissionInstallDialog = std::make_unique<Dialog>(cfg);
 
-    // SetActiveDialog first: Dialog::Show() turns every bitmap in the dialog
-    // back on, so anything this car hasn't got has to be hidden AFTER it. Doing
-    // it the other way round put the transmission back on screen for a car that
-    // dropped its box in a race.
+    // First: Show() turns every bitmap on, so whatever this car lacks is hidden after.
     SetActiveDialog(transmissionInstallDialog.get());
 
-    // Derive the opening state from the car rather than assuming a mounted
-    // gearbox: one dropped in a race leaves the window empty and waiting for
-    // a replacement.
     ResetTransmissionInstallToMounted();
 }

@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-// DOS HOT_DATA parsing. Layout: RodLegacyResearch/docs/formats/hot_data_dos.md.
-
 namespace {
 
 void PutU16LE(std::vector<uint8_t>& buf, size_t at, uint16_t v) {
@@ -17,9 +15,7 @@ void PutU16LE(std::vector<uint8_t>& buf, size_t at, uint16_t v) {
     buf[at + 1] = static_cast<uint8_t>(v >> 8);
 }
 
-// A HOT_DATA with every table present and one classified ad per buyable car.
-// Car i gets price 100+i, tier i%9, and sprite numbers derived from i so the
-// parser cannot pass by returning a constant.
+// Car i gets price 100+i, tier i%9 and sprite numbers derived from i, so the parser cannot pass on a constant.
 std::vector<uint8_t> MakeSyntheticHotData() {
     std::vector<uint8_t> buf(HOT_DATA_TEXT_START, 0);
 
@@ -79,7 +75,7 @@ std::vector<uint8_t> LoadHotData(const char* relative) {
     return {};
 }
 
-} // namespace
+}
 
 TEST_SUITE("HotDataDos") {
 
@@ -163,9 +159,7 @@ TEST_CASE("metadata reader fills offsets, click boxes and classifieds") {
 }
 
 TEST_CASE("wheel Y bottom-aligns the wheel cell to the body sprite") {
-    // The data files carry no wheel Y: the cell is bottom-aligned to the body,
-    // 31 tall on lib.p and 28 in a DOS lib. Numbers checked against the art in
-    // RodLegacyResearch/docs/formats/sr_data.md.
+    // The wheel cell is bottom-aligned to the body: 31 tall on lib.p, 28 in a DOS lib.
     int srse = -1;
     const std::vector<CarSetDef>& defs = GetCarSetDefs();
     for (int i = 0; i < (int)defs.size(); i++) {
@@ -192,10 +186,6 @@ TEST_CASE("a truncated file is rejected rather than read out of bounds") {
     CHECK(parser.SrLibDataReadDataFromBufferDOS(buf.data(), buf.size(), &count) == nullptr);
     CHECK(count == 0);
 }
-
-// ---------------------------------------------------------------------------
-// Against the shipped DOS files
-// ---------------------------------------------------------------------------
 
 TEST_CASE("stock DOS HOT_DATA matches the known car list") {
     const std::vector<uint8_t> data = LoadHotData("RodLegacyBins/dos/SR1/HOT_DATA");
@@ -285,10 +275,7 @@ TEST_CASE("SRSE HOT_DATA gives the replacement cars and their sprites") {
     CHECK(std::string(meta[0].classified.carName) == "1939 Pontiac 2-dr coupe.");
     CHECK(std::string(meta[12].classified.carName) == "1934 Ford Woodie.");
     CHECK(meta[12].classified.price == 3100);
-    // The data disk ships its own pixel offsets, so nothing needs hand
-    // measuring. A zero here is a real coordinate, not an absent variant -
-    // the Woodie's chopped roof sits flush at x=0 and it does have a roof
-    // sprite; only the sprite table says whether a variant exists.
+    // A zero is a real coordinate: only the sprite table says whether a variant exists.
     CHECK(meta[12].offsets.offsetXChoppedRoof == 0);
     CHECK(sprites[12].choppedRoof == 125);
     CHECK(meta[12].offsets.offsetXFrontTire != 0);
@@ -306,11 +293,7 @@ TEST_CASE("shifted SRSE car keys cannot collide with lib.p car assets") {
     const auto sprites = parser.ParseCarSpritesDOS(data);
     REQUIRE(sprites.size() == HOT_DATA_CAR_COUNT);
 
-    // CarModel::index is the pool's key. Raw SRSE body numbers run 39..179 and
-    // would collide with lib.p's car assets (179..272) - slot 24's body really
-    // is 179, the same number as CHEVROLET_2DR_COUPE_1940 - so CarData::ReadCarSet
-    // shifts each set by carSet * HOT_DATA_SPRITE_BASE. Check nothing lands
-    // back in lib.p's range, and that sets cannot collide with each other.
+    // Raw SRSE body numbers collide with lib.p's car assets, so each set is shifted by carSet * HOT_DATA_SPRITE_BASE.
     const int srseSet = 1;
     bool sawRawCollision = false;
     for (int i = 0; i < CAR_PLAYER_MODEL_COUNT; ++i) {
@@ -332,10 +315,7 @@ TEST_CASE("shifted SRSE car keys cannot collide with lib.p car assets") {
 }
 
 TEST_CASE("only the King's car is excluded from the racer pool by price") {
-    // RacerPool picks challenger cars by SrCarSpecEntry::ForSale() rather than
-    // an index cap, so a merged multi-set table drops each set's King's car and
-    // keeps everything else. Over a single stock table that has to come out as
-    // exactly the 25 buyable cars, or the change altered stock behaviour.
+    // Over a single stock table, ForSale() must give exactly the 25 buyable cars.
     for (const char* path : {"RodLegacyBins/dos/SR1/HOT_DATA", "RodLegacyBins/dos/SRSE/HOT_DATA"}) {
         const std::vector<uint8_t> data = LoadHotData(path);
         if (data.empty()) {
@@ -355,4 +335,4 @@ TEST_CASE("only the King's car is excluded from the racer pool by price") {
     }
 }
 
-} // TEST_SUITE
+}

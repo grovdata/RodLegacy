@@ -5,18 +5,8 @@
 namespace srrace {
 namespace {
 
-// NOTE on curve[] vs elev[]: in this engine curve[] (0x1098) renders as left/right
-// curves and drives the lateral drift; elev[] (0x7d8) renders as up/down hills.
-// The generator's shapes are named for that rendered effect:
-//   - the "ramp" shapes (ShapeCurveLeft/Right, ShapeCurveHump/Dip) write curve[]
-//     via the cur_curve accumulator -> they produce CURVES. ShapeCurveLeft sets
-//     flag 0x0200 (draws the turn-left sign, slot 16); ShapeCurveRight sets 0x0400
-//     (turn-right sign, slot 17) - these are the left/right CURVE markers (the
-//     original mislabelled them uphill/downhill markers).
-//   - the "table" shapes (ShapeHillShallow/Deep) copy the +-5 SHALLOW/DEEP tables
-//     into elev[] -> they produce HILLS.
-// (The original binary's arrays/shapes are labelled the opposite way round; the
-// names here follow what you actually see on screen.)
+// curve[] renders as left/right curves, elev[] as hills. The original labels these the opposite way;
+// names here follow what is on screen. ShapeCurveLeft/Right set the turn-sign flags 0x0200/0x0400.
 
 constexpr int GEN_START = 390;
 constexpr int GEN_LIMIT = 0x442;
@@ -71,21 +61,8 @@ void ClearAll(TrackData& track, int i) {
     track.curve[i] = 0;
 }
 
-// TrackGenerator's re-clear of segments 380..1119 (0x239e2e). The three masks
-// are exact: `andi.w #0xf117 / #0x87ff / #0xe7ff` at 0x239e66/0x239e70/0x239e7a.
-// This is NOT the 0x1801 clear the shape functions use - it deliberately keeps
-// what road_layout_init already placed here:
-//   flags  &= 0xf117 -> keeps the overhead arch/gantry nibble (0xf000), sprite
-//                       slot 5 (0x100), the line-colour bit (0x10) and city /
-//                       sign / side-street (0x7); drops width, dash and the
-//                       curve/narrow marker bits that the shapes re-place.
-//   right  &= 0x87ff / left &= 0xe7ff -> keeps trees, poles, billboards and
-//                       houses; drops only the narrow-warning and barrier bits
-//                       (and the right-side special-building bits).
-// Zeroing flags here wiped the "County line" finish gantry at 1019 and both
-// random arches in 390..989, so a road race showed two arches instead of five
-// and no banner at the finish; the 0x1801 object mask also stripped the
-// scenery from the whole generated two thirds of the course.
+// The original's re-clear keeps what RoadLayoutInit placed: arch/gantry nibble, sprite slot 5, line colour,
+// city/sign/side street, and roadside scenery. It drops width, dash, curve/narrow markers and barriers.
 void ClearGeneratedSegment(TrackData& track, int i, int roadType) {
     track.elev[i] = 0;
     track.curve[i] = 0;
@@ -359,7 +336,7 @@ bool SafeSetBit(uint16_t* values, int index, uint16_t bit) {
     return true;
 }
 
-}  // namespace
+}
 
 void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
     for (int i = 0; i < TRACK_SEGMENTS; ++i) {
@@ -453,11 +430,7 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
         }
     }
 
-    // Two overhead arches somewhere along each of the three cruises, one with
-    // each banner. The original does these with BSET #6 / #7 on byte +0 of the
-    // word (road_layout_init, IRA LAB_0D5C), which is the HIGH byte - so bits
-    // 14 and 15, not 6 and 7. Ported as 0x0040/0x0080 they landed on roadside
-    // object bits instead and the town had no arches at all.
+    // The original sets bits 6/7 of the word's high byte, i.e. 0x4000/0x8000.
     track.flags[10 + rng.Next(45)] |= 0x4000;
     track.flags[10 + rng.Next(45)] |= 0x8000;
     track.flags[65 + rng.Next(55)] |= 0x4000;
@@ -616,4 +589,4 @@ void GenerateTrackShapes(TrackData& track, int variant) {
     }
 }
 
-}  // namespace srrace
+}

@@ -26,11 +26,7 @@ struct Reputation {
         last_race_won = true;
     }
 
-    // ChallengeRaceLoop 0023e60c: a loss costs drag standing more than road
-    // standing, whichever kind of race it was. A4-0x4678 (drag, -3) and
-    // A4-0x4676 (road, -2) were labelled the wrong way round in the
-    // decompile; the race-type flag A4+0x19de is 1 for road (it is the branch
-    // that burns 15 fuel and rolls for a cop), 0 for drag.
+    // A loss costs drag rep more than road rep, whatever kind of race it was.
     void RecordLoss() {
         drag_rep -= 3;
         road_rep -= 2;
@@ -38,14 +34,12 @@ struct Reputation {
         last_race_won = false;
     }
 
-    // GetOpponentDifficulty (0023d03a), transcribed branch for branch.
     //   0 = The King will race you
     //   1 = novice, no line from The King at all
     //   2 = "I don't got time for amateurs like you!"
     //   3 = "You're doing OK kid, but you're gonna need to win more races!"
     //   4 = "You're gonna hafta win more drag races!"
     //   5 = "You're gonna hafta win more road races!"
-    // pool_remaining: number of unbeaten regular opponents still in pool
     int GetOpponentTier(int pool_remaining) const {
         if (pool_remaining == 0)
             return 0;

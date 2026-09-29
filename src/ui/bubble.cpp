@@ -6,9 +6,7 @@
 #include <vector>
 
 namespace {
-// Text layout inside a box, from SetupMessageBox (0x00222742-0x002227aa):
-// first row at box.y + 6, every row centred across the box's full width,
-// 9 pixels apart.
+// Rows start at box.y + 6, 9 px apart, centred across the box.
 constexpr int kTextTopInset = 6;
 constexpr int kRowHeight = 9;
 }
@@ -23,7 +21,6 @@ Bubble::Bubble(std::string text, BubbleStyle style, bool autoDismiss) {
 }
 
 Bubble::~Bubble() {
-    // bubble is owned by AssetManager; fontSurface/fontTexture are managed by smart pointers
 }
 
 void Bubble::ApplyStyle(BubbleStyle style) {
@@ -53,12 +50,10 @@ void Bubble::ApplyStyle(BubbleStyle style) {
 }
 
 void Bubble::SetVisible(bool visible) {
-    // Restart animation timer
     if (!this->visible && visible) {
         timerStart = GameTicks();
     }
     this->visible = visible;
-    //bubble->SetVisible(visible);
 }
 
 void Bubble::Draw() {
@@ -88,9 +83,7 @@ void Bubble::UpdateText(std::string& text) {
 
     SDL_Rect box = bubble->GetNaturalSize();
 
-    // A line wider than the box would be clipped by the surface, so grow the
-    // surface and keep it centred on the box: overflow then spills evenly to
-    // both sides instead of vanishing.
+    // Grow the surface around the box so overflow spills evenly instead of clipping.
     int widest = 0;
     for (const auto& l : lines) {
         widest = std::max(widest, SFont_TextWidth(font, l.c_str()) + kSFontClipPad);

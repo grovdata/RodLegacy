@@ -13,7 +13,7 @@
 
 extern SDL_Renderer *renderer;
 
-class Scene; // Forward declaration
+class Scene;
 
 class Mouse {
 private:
@@ -22,16 +22,12 @@ private:
     SrLibAmigaSpriteAsset pointerType = SrLibAmigaSpriteAssetMousePointerHand;
     std::map<SrLibAmigaSpriteAsset, SDL_Texture*> pointerTextures;
     
-    // When false, the custom cursor is not drawn (e.g. in the driving scene).
     bool visible = true;
 
-    // Gamepad support. The pad itself lives in the global Gamepad; this only
-    // holds what the cursor needs to remember between frames.
     bool gamepadActive = false;
     Uint32 lastDPadTime = 0;
     static const Uint32 DPAD_REPEAT_DELAY = 200; // ms between D-pad repeats
 
-    // D-pad navigation
     enum class DPadDirection {
         NONE,
         UP,
@@ -41,12 +37,10 @@ private:
     };
     DPadDirection lastDPadDirection = DPadDirection::NONE;
 
-    // Sub-pixel carry for analog cursor movement: at 320x200 a slow stick would
-    // otherwise truncate to zero pixels every frame and never move.
+    // A slow stick would otherwise truncate to zero pixels every frame.
     float subPixelX = 0.0f;
     float subPixelY = 0.0f;
 
-    // Gamepad debug info
     struct GamepadDebugInfo {
         bool connected = false;
         float leftX = 0.0f;
@@ -61,23 +55,17 @@ private:
     };
     GamepadDebugInfo gamepadDebug;
 
-    // What the D-pad can jump between: the active dialog's buttons when one is
-    // up, otherwise the scene's enabled zones.
     std::vector<SDL_Rect> NavTargets(Scene* scene) const;
     void MoveCursorTo(const SDL_Rect& target);
 
-    // Jump to closest zone in specified direction
     void JumpToClosestZoneInDirection(Scene* scene, DPadDirection direction);
 
-    // Synthesise input at the cursor and hand it to the scene.
     void SendClick(Scene* scene, Uint8 button);
     void SendKey(Scene* scene, Uint32 type, SDL_Keycode key);
-    // Hover (and so the HUD) is driven by motion events, which the pad never
-    // produces on its own - see UpdateGamepad.
+    // Hover is driven by motion events, which the pad never produces on its own.
     void SendMotion(Scene* scene);
 
-    // Last position a motion event was sent for, so one is sent only when the
-    // cursor actually moves. INT_MIN so the first update always reports.
+    // INT_MIN so the first update always reports.
     int lastMotionX = INT_MIN;
     int lastMotionY = INT_MIN;
     
@@ -139,17 +127,12 @@ public:
         }
     }
     
-    // Gamepad methods
     void SetGamepadActive(bool active) { gamepadActive = active; }
     bool IsGamepadActive() const { return gamepadActive; }
     
-    // Jump to closest zone (for D-pad navigation)
     void JumpToClosestZone(Scene* scene);
     
-    // Debug methods
     const GamepadDebugInfo& GetGamepadDebugInfo() const { return gamepadDebug; }
-    // Key/value form is the source of truth; the line form is derived from it
-    // for the plain-text overlay.
     std::vector<DebugRow> GetGamepadDebugRows() const;
     std::vector<std::string> GetGamepadDebugLines() const;
 };

@@ -4,8 +4,7 @@
 namespace srrace {
 
 CrashOutcome ClassifyCrash(const RaceEndContext& ctx) {
-    // The cop's branch is checked before the crash tree in ProcessRaceOutcome,
-    // so being busted costs you the ticket and nothing else.
+    // The cop's branch comes before the crash tree, so being busted costs only the ticket.
     if (ctx.endFlags & END_COP_CAUGHT) return CrashOutcome::None;
     if ((ctx.endFlags & END_WRECK_MASK) == 0) return CrashOutcome::None;
     if (ctx.isPinkSlip) return CrashOutcome::Forfeited;
@@ -19,11 +18,8 @@ bool SettlesBet(const RaceEndContext& ctx) {
 }
 
 RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
-    // Pulled over for speeding. Checked before the other failures because the
-    // ticket is added on top of whatever else ended the race (a crash while
-    // being chased gets you both), and the cop is the more specific news.
-    // If you cannot cover it you go to jail and the run is over - the original
-    // shows the debts line and sets its game-over bit (ProcessRaceOutcome).
+    // Before the other failures: the ticket is added on top of whatever else ended the race.
+    // Unable to pay means jail and the end of the run.
     if (ctx.endFlags & END_COP_CAUGHT) {
         if (ctx.bankroll < ctx.speedingFine) {
             return {"You've been sentenced for debts, Ace`!", MessageBox::Wide};  // 81
@@ -33,8 +29,7 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     }
     switch (ClassifyCrash(ctx)) {
         case CrashOutcome::Forfeited:
-            // The car goes with the bet either way, so there is no repair bill
-            // and no scrap money - just the short line.
+            // The car goes with the bet, so no repair bill and no scrap money.
             if (ctx.tiresBlown) {
                 return {"Blew your tires again`?\nYou lose. Take a walk, sucker.",
                         MessageBox::TwoRow};  // 91
@@ -51,8 +46,7 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
             }
             return {"Lucky you're so slow. You only lost\nthe race.", MessageBox::TwoRow};  // 93
         case CrashOutcome::RepairOrJunk:
-            // No bubble at all: the original goes straight to the repair quote
-            // dialog (Driving::ShowWreckDialog).
+            // No bubble: straight to the repair quote dialog.
             return {};
         case CrashOutcome::None:
             break;
@@ -80,8 +74,7 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     }
 
     if (ctx.playerLost) {
-        // Confirmed by playtesting: a plain drag loss shows the short "You
-        // lose, sucker." line. See RodLegacyResearch/docs/driving/race_end_messages.md.
+        // Confirmed by playtesting.
         if (ctx.isDragRace) {
             return {"You lose, sucker.", MessageBox::Narrow};  // 83
         }
@@ -91,20 +84,11 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
         }
         return {"Lucky you're so slow. You only lost\nthe race.", MessageBox::TwoRow};  // 93
     }
-    // Unresolved: the Amiga strings "Your winning time %d.%d sec., avg.
-    // speed %2d mph" / "Congratulations !" and "In %d.%d sec you covered only
-    // %2d%% of the distance. Your avg. speed %2d mph." exist in the binary
-    // (BuildResultText, called from both the win and the outcome==1 loss
-    // branches of ProcessRaceOutcome) and look drag-race-shaped, but they sit
-    // in a different string cluster than the bubble lines above (near
-    // garage/gas-station UI text, not the diner message block) and
-    // BuildResultText's win/lose gating condition doesn't cleanly map to
-    // "drag vs road" from the decompile alone. Not implemented here rather
-    // than guess wrong - see RodLegacyResearch/docs/driving/race_end_messages.md.
+    // Unresolved: the "Your winning time" / "In %d.%d sec you covered only" strings may belong to drag races,
+    // but their gating is unclear, so nothing is shown rather than guess.
 
-    // Nothing matched: no bubble at all, the same as the RepairOrJunk branch.
-    // There is no original string for this state.
+    // No original string for this state.
     return {};
 }
 
-} // namespace srrace
+}

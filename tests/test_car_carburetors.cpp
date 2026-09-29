@@ -2,13 +2,7 @@
 #include "car/car_system.h"
 #include <cstdlib>
 
-// The original carries three separate carburetor pointers on its car struct
-// and the manifold class decides how many are used - see
-// RodLegacyResearch/docs/garage/engine_bay_layout.md. Car mirrors that, so
-// pulling one carb off a dual quad leaves the other fitted and the car dead.
-//
-// Car itself pulls in SDL and the whole asset stack, so this pins the shared
-// data the model is built on rather than constructing a Car.
+// Car pulls in SDL, so this pins the shared data the model is built on.
 
 TEST_SUITE("Carburetors per manifold") {
 
@@ -21,10 +15,7 @@ TEST_CASE("manifold class order is the binary's, not ManifoldType's") {
     CHECK(ManifoldClass(MANIFOLD_RACING) == 4);
 }
 
-// Car::GetManifoldType reads a spec's class back through this. Hand-rolling
-// the inverse got classes 2 and 3 the wrong way round, which put the V6-only
-// triple 2-barrel (and its three carbs) on every big V8 whose spec says dual
-// quad - specs 2, 10 and 21 in the shipped table.
+// Hand-rolling the inverse once put the triple 2-barrel on big V8s whose spec says dual quad.
 TEST_CASE("class to type is the exact inverse of type to class") {
     const ManifoldType all[] = {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD,
                                 MANIFOLD_TRIPLE_2BARREL, MANIFOLD_RACING};
@@ -56,21 +47,17 @@ TEST_CASE("every manifold fits within the three mounts a car has") {
     }
 }
 
-}  // TEST_SUITE
+}
 
-// The tuning knob drifted apart once already: the save loader mapped it onto
-// base 9, the indicator art rests at base 8, and the top of the save's range
-// fell off the end. These pin the one mapping everything now shares.
 TEST_SUITE("Tuning knob") {
 
 TEST_CASE("the original's whole knob range fits, nothing clamped off") {
-    // car+0x2b is signed -8..+4, 0 = perfectly tuned (save_game.md).
+    // The save stores the knob signed -8..+4, 0 = perfectly tuned.
     for (int knob = -8; knob <= 4; knob++) {
         int level = kPerfectTuneLevel + knob;
         CHECK(level >= 0);
         CHECK(level <= kTuneLevelCount - 1);
     }
-    // And it fills the range exactly - 13 knob values, 13 positions.
     CHECK(kPerfectTuneLevel + -8 == 0);
     CHECK(kPerfectTuneLevel + 4 == kTuneLevelCount - 1);
 }
@@ -89,4 +76,4 @@ TEST_CASE("the indicator's resting slot is the perfect position") {
     CHECK(108 + kPerfectTuneLevel * 2 == 124);
 }
 
-}  // TEST_SUITE
+}

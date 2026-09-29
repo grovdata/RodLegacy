@@ -8,11 +8,10 @@ namespace {
 constexpr Uint64 kTickMs = 20;        // one PAL vblank
 constexpr int kMaxTicksPerUpdate = 10;
 
-// The original leaves the plate up while it loads the rest of the game, so
-// there is no fixed length to copy. Any key moves on sooner.
+// The original holds the plate while loading, so there is no fixed length to copy.
 constexpr int kPlateHoldTicks = 150;
 
-}  // namespace
+}
 
 void Intro::Init(bool debugMode) {
     Scene::Init(debugMode);
@@ -132,8 +131,6 @@ void Intro::OnFadeComplete() {
 
 bool Intro::PushEvent(SDL_Event* event) {
     const bool isKey = event->type == SDL_KEYDOWN || event->type == SDL_KEYUP;
-    // Escape and the function keys keep their global meaning, down and up
-    // (F5 screenshots on release).
     const SDL_Keycode sym = event->key.keysym.sym;
     if (isKey && (sym == SDLK_ESCAPE || (sym >= SDLK_F1 && sym <= SDLK_F12))) {
         return false;
@@ -141,8 +138,7 @@ bool Intro::PushEvent(SDL_Event* event) {
     const bool key = event->type == SDL_KEYDOWN && event->key.repeat == 0;
     const bool pressed = key || event->type == SDL_MOUSEBUTTONDOWN ||
                          event->type == SDL_CONTROLLERBUTTONDOWN;
-    // Any press skips the rest of the intro. A deviation: the original only
-    // lets you skip the title animation.
+    // Deliberate: the original only lets you skip the title animation.
     if (pressed) Leave();
     return isKey || pressed;
 }

@@ -3,16 +3,14 @@
 #include "gfx/SFont.h"
 #include "ui/zone.h"
 #include "ui/rectangle.h"
-#include "core/assets.h"   // For Asset
-#include "ui/button_config.h"  // For ButtonConfig
+#include "core/assets.h"
+#include "ui/button_config.h"
 #include <vector>
 #include <map>
 #include <string>
 #include <memory>
 #include <functional>
 
-// Forward declarations
-//class Rectangle;
 class Button;
 class Bitmap;
 class AnimatedBitmap;
@@ -32,18 +30,8 @@ struct DialogBitmap {
     SDL_Rect sourceRect = {0, 0, 0, 0};
 };
 
-/**
- * Clips `logicalRect` (a bitmap's full, unscaled on-screen rect) to `mask`,
- * writing both the destination rect and a matching texture-space sourceRect
- * crop into db - e.g. keeping a part bitmap that slides/animates confined to
- * a window's porthole instead of spilling over its border art.
- *
- * Only correct for entries drawn at 1:1 scale (dest size == the bitmap's
- * natural size, i.e. no separate up/downscale baked into `rect`). Not valid
- * for AnimatedBitmap entries that pick a frame via their own grid selection
- * (SelectFrame) rather than a plain full-texture blit - DialogBitmap's
- * sourceRect-crop draw path bypasses that frame selection entirely.
- */
+// Clips a 1:1 bitmap to `mask`, writing the destination rect and matching sourceRect into db.
+// Not valid for AnimatedBitmap frames: the sourceRect path bypasses frame selection.
 void ClipDialogBitmapToRect(DialogBitmap& db, const SDL_Rect& mask, SDL_Rect logicalRect);
 
 struct DialogConfig {
@@ -52,7 +40,7 @@ struct DialogConfig {
     SDL_Color backgroundColor = {0x60, 0x60, 0x60, 0xFF};
     SDL_Color borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
     std::vector<ButtonConfig> buttons;
-    std::vector<Button*> buttonPtrs;  // For directly passing Button/Checkbox instances
+    std::vector<Button*> buttonPtrs;
     std::vector<DialogTextConfig> texts;
     std::vector<SDL_Rect> contentAreas;
     std::vector<SDL_Rect> lines;
@@ -63,7 +51,6 @@ struct DialogConfig {
     std::function<void(int)> onButtonPressed;
     std::function<void(Zone&)> onZoneHover;
     std::function<void(Zone&)> onZoneClick;
-    /** Optional: called when dialog is dismissed by Escape or click outside bounds. */
     std::function<void()> onDismiss;
 };
 
@@ -75,9 +62,7 @@ protected:
     std::vector<Rectangle*> contentAreas;
     DialogConfig config;
     bool isVisible = false;
-    // Set by a subclass that writes its own content into mainBitmap, so
-    // Draw() blits it even when the config has no text, areas or lines of
-    // its own - see ListDialog, whose rows live there.
+    // Set by subclasses that draw into mainBitmap themselves, so Draw() blits it even without config content.
     bool mainBitmapHasContent = false;
 
 public:
@@ -97,9 +82,7 @@ public:
     void OnButtonPressed(int index);
 
     DialogBitmap* GetBitmap(const std::string& id);
-    /** Live zone, so a caller can move a hotspot that tracks a bitmap. */
     Zone* GetZone(const std::string& id);
 
-    /** Rects a gamepad cursor can jump between: visible buttons, then zones. */
     std::vector<SDL_Rect> NavTargets() const;
 }; 

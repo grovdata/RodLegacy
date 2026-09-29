@@ -17,18 +17,16 @@ std::vector<nav::Rect> ToNavRects(const std::vector<SDL_Rect>& in) {
     for (const SDL_Rect& r : in) out.push_back({r.x, r.y, r.w, r.h});
     return out;
 }
-}  // namespace
+}
 
 void Mouse::Update(SDL_Event *event, Scene*) {
     if (event->type == SDL_MOUSEMOTION) {
         rect.x = event->motion.x;
         rect.y = event->motion.y;
-        // If mouse moves, deactivate gamepad mode
         gamepadActive = false;
     }
 
-    // Reaching for the pad switches back to gamepad mode. Axis events fire on
-    // resting-stick jitter too, so they only count past a generous deadzone.
+    // Axis events fire on resting-stick jitter, so they only count past a generous deadzone.
     if (event->type == SDL_CONTROLLERAXISMOTION &&
         abs(event->caxis.value) > ACTIVATE_AXIS) {
         gamepadActive = true;
@@ -43,10 +41,7 @@ std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
     std::vector<SDL_Rect> out;
     if (!scene) return out;
 
-    // A dialog is modal: its buttons are the only thing worth jumping to, and
-    // the scene zones underneath are not clickable while it is up. A dialog
-    // with nothing to aim at falls through to the scene rather than trapping
-    // the cursor.
+    // A dialog is modal, but one with nothing to aim at falls through to the scene.
     if (Dialog* dialog = scene->GetActiveDialog()) {
         if (dialog->IsVisible()) {
             std::vector<SDL_Rect> targets = dialog->NavTargets();
@@ -60,9 +55,7 @@ std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
     return out;
 }
 
-// The hotspot is the top-left pixel of the sprite, as it is for a real mouse
-// (SDL_MOUSEMOTION sets rect.x/y straight from the event), so snapping puts
-// that pixel on the target centre and the sprite hangs down-right of it.
+// The hotspot is the sprite's top-left pixel, as for a real mouse.
 void Mouse::MoveCursorTo(const SDL_Rect& target) {
     rect.x = std::max(0, std::min(target.x + target.w / 2, GAME_WIDTH - 1));
     rect.y = std::max(0, std::min(target.y + target.h / 2, GAME_HEIGHT - 1));
@@ -117,8 +110,7 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         return;
     }
 
-    // The driving scene reads the pad itself (throttle, brake, steering); a
-    // cursor there would only fight it.
+    // The driving scene reads the pad itself.
     if (scene && !scene->WantsPointer()) {
         return;
     }
@@ -140,7 +132,6 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         gamepadDebug.lastAction = "D-pad RIGHT";
     }
 
-    // Move on the press, then on a repeat delay while it is held.
     if (currentDirection != DPadDirection::NONE) {
         if (currentDirection != lastDPadDirection ||
             (currentTime - lastDPadTime) > DPAD_REPEAT_DELAY) {
@@ -150,8 +141,6 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
     }
     lastDPadDirection = currentDirection;
 
-    // Left stick moves the cursor freely, in pixels per second so the speed
-    // does not follow the frame rate.
     const float leftX = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTX);
     const float leftY = gamepad.Axis(SDL_CONTROLLER_AXIS_LEFTY);
     gamepadDebug.leftX = leftX;
@@ -179,9 +168,7 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
     rect.x = std::max(0, std::min(rect.x, GAME_WIDTH - 1));
     rect.y = std::max(0, std::min(rect.y, GAME_HEIGHT - 1));
 
-    // Zones highlight, and the HUD names what is under the cursor, off motion
-    // events. Moving the cursor by hand produces none, so the pad has to say it
-    // moved or the scene never notices - once per actual move, not per frame.
+    // Zones highlight off motion events, which cursor moves by hand don't produce.
     if (rect.x != lastMotionX || rect.y != lastMotionY) {
         lastMotionX = rect.x;
         lastMotionY = rect.y;
@@ -195,15 +182,12 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
     gamepadDebug.buttonLB = gamepad.Down(SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
     gamepadDebug.buttonRB = gamepad.Down(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 
-    // Everything below acts on the press, not on the hold, or one tap would
-    // fire once per frame for as long as the button is down.
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_A)) {
         gamepadDebug.lastAction = "A (click)";
         SendClick(scene, SDL_BUTTON_LEFT);
     }
 
-    // B is back. Not a right click: scene zones fire onClick for any mouse
-    // button, so a right click there is indistinguishable from A.
+    // Not a right click: scene zones fire onClick for any mouse button.
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_B)) {
         gamepadDebug.lastAction = "B (back)";
         SendKey(scene, SDL_KEYDOWN, SDLK_ESCAPE);
@@ -225,7 +209,7 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         SendKey(scene, SDL_KEYUP, SDLK_d);
     }
 
-    // Start is the global pause, handled by the main loop, so Enter sits on RB.
+    // Start is the global pause, so Enter sits on RB.
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
         gamepadDebug.lastAction = "RB (enter)";
         SendKey(scene, SDL_KEYDOWN, SDLK_RETURN);

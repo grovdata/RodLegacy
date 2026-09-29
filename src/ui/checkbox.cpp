@@ -15,10 +15,9 @@ ButtonConfig Checkbox::CreateButtonConfig(const CheckboxConfig& config) {
     btnConfig.bounds = config.bounds;
     btnConfig.text = "";
     btnConfig.defaultChoice = false;
-    btnConfig.invisible = true;  // fully drawn by checkbox-on/off.png instead
+    btnConfig.invisible = true;
     btnConfig.index = config.index;
 
-    // Create a lambda that toggles the checkbox and calls onChange
     btnConfig.onClick = [this, config]() {
         bool newValue = !(valuePtr ? *valuePtr : localValue);
 
@@ -45,7 +44,6 @@ Checkbox::Checkbox(const CheckboxConfig& config)
       onChange(config.onChange),
       bounds(config.bounds)
 {
-    // Initialize local value if no external pointer provided
     if (!valuePtr) {
         localValue = false;
     }

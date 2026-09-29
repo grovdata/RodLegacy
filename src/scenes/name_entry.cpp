@@ -12,12 +12,10 @@ namespace {
     constexpr SDL_Rect kOldGameRect = {150, 162, 66, 16};
     constexpr SDL_Rect kOkRect      = {222, 162, 66, 16};
     constexpr SDL_Rect kSeCheckRect = {114, 112, 14, 14};
-    // Label sits just right of the box, derived so moving the box moves both.
     constexpr int kSeLabelX = kSeCheckRect.x + kSeCheckRect.w + 4;
     constexpr int kSeLabelY = kSeCheckRect.y + 2;
     constexpr uint32_t kBlack = 0x00000000;
 
-    // Index of the optional Street Rod SE set in GetCarSetDefs(), or -1.
     int SeCarSetIndex() {
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
         for (size_t i = 0; i < defs.size(); ++i) {
@@ -60,8 +58,7 @@ void NameEntry::Init(bool debugMode) {
     okConfig.onClick = [this]() { HandleOk(); };
     okButton = std::make_unique<Button>(okConfig);
 
-    // Offer the SE cars only when their data is actually installed - switching
-    // on a set with nothing behind it would add no cars and just look broken.
+    // A set with no data behind it would add no cars.
     seCarsCheckbox.reset();
     const int seSet = SeCarSetIndex();
     if (seSet >= 0 && state.GetAssets().HasCarSetData(seSet)) {
@@ -77,8 +74,7 @@ void NameEntry::Init(bool debugMode) {
     }
 }
 
-// Init runs once, but the scene is re-entered when "Old Game" is cancelled,
-// and leaving it stopped text input.
+// The scene is re-entered when "Old Game" is cancelled, and leaving it stopped text input.
 void NameEntry::OnSceneEnter() {
     Scene::OnSceneEnter();
     SDL_StartTextInput();
@@ -89,8 +85,7 @@ void NameEntry::RefreshNameLabel() {
 }
 
 void NameEntry::HandleOk() {
-    // Settle the car sets before StartNewGame, which rebuilds the spec table
-    // this game's cars and opponents are generated from.
+    // Before StartNewGame, which rebuilds the spec table from the car sets.
     const int seSet = SeCarSetIndex();
     if (seCarsCheckbox && seSet >= 0) {
         state.GetAssets().SetCarSetEnabled(seSet, seCarsEnabled);

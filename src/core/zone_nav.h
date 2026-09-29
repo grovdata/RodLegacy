@@ -1,8 +1,7 @@
 #ifndef ZONE_NAV_H
 #define ZONE_NAV_H
 
-// Picking the next clickable zone for D-pad navigation. Kept free of SDL so it
-// can be unit tested; callers convert their own rects to nav::Rect.
+// SDL-free for unit tests; callers convert their rects to nav::Rect.
 
 #include <cstdlib>
 #include <vector>
@@ -20,7 +19,6 @@ struct Rect {
 
 enum class Dir { Up, Down, Left, Right };
 
-// Nearest zone centre to (px, py). -1 when there are no zones.
 inline int PickNearest(const std::vector<Rect>& zones, int px, int py) {
     int best = -1;
     long bestScore = 0;
@@ -36,9 +34,7 @@ inline int PickNearest(const std::vector<Rect>& zones, int px, int py) {
     return best;
 }
 
-// Nearest zone lying in `dir` from (px, py), ignoring any zone already under
-// that point. Off-axis distance is penalised so a straight neighbour wins over
-// a slightly closer diagonal one. -1 when nothing lies that way.
+// Off-axis distance is penalised so a straight neighbour beats a closer diagonal one.
 inline int PickDirectional(const std::vector<Rect>& zones, int px, int py, Dir dir) {
     int best = -1;
     long bestScore = 0;
@@ -67,6 +63,6 @@ inline int PickDirectional(const std::vector<Rect>& zones, int px, int py, Dir d
     return best;
 }
 
-}  // namespace nav
+}
 
 #endif

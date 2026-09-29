@@ -4,14 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 
-// ============================================================================
-// ComputeCarPerformanceScore
-// The Amiga's ComputeCarTopSpeed (FUN_00243b9c): unpack the car spec's config
-// word into part classes, score them with FUN_002435f0
-// (srrace::ComputeBasePerformance), and turn that into a top speed of
-// base * 13/10 capped at 0x82 (130) mph. It is the same number the original
-// prints as "Max speed %3d mph", so a pool match is a match on top speed.
-// ============================================================================
+// Top speed: base performance * 13/10 capped at 130 mph, the original's "Max speed".
 
 srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
     srrace::CarSetup setup{};
@@ -21,14 +14,7 @@ srrace::CarSetup CarSetupFromSpec(const SrCarSpecEntry& spec) {
     setup.manifoldClass = spec.ManifoldClass();
     setup.tireClass     = spec.TireClass();
     setup.weightClass   = spec.car_class;  // 0..8, indexes weight_pts directly
-    // The spec carries no tune or wear data - a listed car is untuned and
-    // unworn, so those keep CarSetup's defaults. Body mods likewise: a spec
-    // car is stock, which is what the original's synthetic record gives it.
-    //
-    // The config word's fields drop straight into CarSetup because the spec
-    // uses the same bit layout as the Amiga's parts table, confirmed against
-    // two readings off the running game (spec 0 = 92 mph, spec 5 = 119 mph).
-    // See RodLegacyResearch/docs/driving/top_speed.md.
+    // A listed car is untuned, unworn and stock. The config word shares the parts table's bit layout.
     return setup;
 }
 
@@ -36,23 +22,15 @@ int ComputeCarPerformanceScore(const SrCarSpecEntry& spec) {
     return srrace::ComputeTopSpeed(CarSetupFromSpec(spec));
 }
 
-// ============================================================================
-// RacerPool
-// ============================================================================
-
 namespace {
 
-// The original's per-slot appearance roll (FUN_0023eac0). Every bound below is
-// taken from its disassembly; its random(n) returns 0..n-1.
+// The original's per-slot appearance roll; its random(n) returns 0..n-1.
 //
 //   threshold = (car_class >> 1) + 1        class 0..8 -> 1..5
 //   bit 3     = (spec config word & 7) == 2
 //   sticker   : random(20) < threshold, then random(9) into the high nibble
 //   bumpers   : random(25) < threshold, only if the model has the sprites
 //   roof      : random(30) < threshold, only if the model has the sprites
-//
-// So faster cars are modified more often - at class 8 a sticker is 25% likely,
-// at class 0 it is 5%.
 uint8_t RollBodyByte(const SrCarSpecEntry& spec, uint8_t mods, std::mt19937& rng) {
     auto roll = [&rng](int n) {
         return static_cast<int>(std::uniform_int_distribution<int>(0, n - 1)(rng));
@@ -74,7 +52,7 @@ uint8_t RollBodyByte(const SrCarSpecEntry& spec, uint8_t mods, std::mt19937& rng
     return body;
 }
 
-} // namespace
+}
 
 void RacerPool::Init(const std::vector<SrCarSpecEntry>& car_specs,
                      const std::vector<uint8_t>& spec_mods) {
@@ -83,14 +61,7 @@ void RacerPool::Init(const std::vector<SrCarSpecEntry>& car_specs,
     pool.clear();
     pool.reserve(RACER_POOL_SIZE);
 
-    // Group car specs into three tiers by their class byte, which runs 0..8 -
-    // so three classes per tier. Over the shipped SR_data that splits 9/8/8,
-    // enough to fill the pool's 7 slots per tier.
-    //
-    // The filter is "for sale" rather than an index cap: the table can hold
-    // more than one car set (see State::mergedCarSpecs), and each set carries
-    // its own King's car at price 0. Over the stock table alone this picks out
-    // exactly 0..24, the same set the old cap did.
+    // Three tiers of three classes each. Filtered on "for sale" since each merged set carries its own King's car.
     std::vector<int> tier_specs[3];
     for (int i = 0; i < static_cast<int>(car_specs.size()); ++i) {
         if (!car_specs[i].ForSale()) continue;
@@ -100,34 +71,15 @@ void RacerPool::Init(const std::vector<SrCarSpecEntry>& car_specs,
 
     rng_ = std::mt19937(std::random_device{}());
 
-    // Fill pool: 7 slots per class band, matching the original's InitRacerPool
-    // (0023ebfa), which fills A4-0x2c38 as 7 records from each band in
-    // easy/mid/hard order.
-    //
-    // The driver is the slot itself: the original's 8-byte pool record holds
-    // no driver field (byte 1 is the car spec, byte 2 is random, the tail is
-    // appearance flags), so opponent identity is the record's position. This
-    // used to group drivers by their SR_data tier byte and take the first 7 of
-    // each, which is not what the original does and does not fit the data:
-    // the shipped tiers are 4/7/10, so the easy band ran 3 slots short and
-    // back-filled them with indices that collided with real mid-tier drivers,
-    // putting 3 drivers in the pool twice and leaving drivers 18-20 out
-    // entirely.
-    //
-    // Cars are drawn at random without replacement within each band, as the
-    // original's per-slot filler does (FUN_0023eac0): it picks a random entry
-    // from the band, retries while that entry is already taken, then marks it
-    // taken. Shuffling and taking a prefix gives the same distribution without
-    // the retry loop - and cannot spin forever on a band of fewer than 7,
-    // which the original would.
+    // 7 slots per band, easy/mid/hard. The driver is the slot itself: the pool record has no driver field.
+    // Cars are drawn without replacement per band; shuffling avoids the original's retry loop.
     for (int tier = 0; tier < 3; ++tier) {
         std::vector<int> band = tier_specs[tier];
         std::shuffle(band.begin(), band.end(), rng_);
         for (int j = 0; j < 7; ++j) {
             RacerEntry entry;
             entry.driver_index = static_cast<int>(pool.size());
-            // A band with fewer than 7 cars cannot fill its slots; the stock
-            // table splits 9/8/8 so this only guards non-stock car sets.
+            // Only non-stock car sets can have a band of fewer than 7.
             entry.car_spec_index = (j < static_cast<int>(band.size())) ? band[j] : 0;
             entry.status = 0;
 
@@ -173,7 +125,6 @@ std::vector<int> RacerPool::BuildSelectionPool(int player_score, int last_chosen
         result.push_back(candidates[i].second);
     }
 
-    // Remove last_chosen if there are alternatives.
     if (result.size() > 1 && last_chosen_index >= 0) {
         auto it = std::find(result.begin(), result.end(), last_chosen_index);
         if (it != result.end()) result.erase(it);
@@ -192,12 +143,7 @@ int RacerPool::SelectNextChallenger(int player_score, int last_chosen_index) {
 }
 
 int RacerPool::FindReplacementCarSpec(int beaten_classification) {
-    // ProcessRaceOutcome walks all 25 specs and collects every one whose class
-    // byte is strictly below the class the beaten car was, then hands the list
-    // to FUN_0023eac0, which picks from it at random. It does not care whether
-    // another racer already drives that car - the only "already taken" rule in
-    // that function applies within one list as it is dealt, which is what stops
-    // InitRacerPool handing the same car out twice.
+    // Every spec of a strictly lower class, even ones another racer drives.
     std::vector<int> candidates;
     for (int i = 0; i < static_cast<int>(car_specs_.size()); ++i) {
         if (!car_specs_[i].ForSale()) continue;
@@ -219,9 +165,7 @@ void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
 
     RacerEntry& entry = pool[winner_pool_index];
 
-    // One downgrade per driver. ProcessRaceOutcome gates the whole search on
-    // `record + 7 == 0` and sets that byte on the way out, so the second pink
-    // slip drops straight through to `record + 3 = 0xff` - eliminated.
+    // One downgrade per driver; a second pink slip eliminates them.
     if (entry.downgraded) {
         entry.status = -1;
         return;
@@ -234,18 +178,12 @@ void RacerPool::OnRaceWon(int winner_pool_index, bool pink_slip) {
     int replacement = FindReplacementCarSpec(beaten_class);
     if (replacement >= 0) {
         entry.car_spec_index = replacement;
-        // FUN_0023eac0 rewrites the record around the new car rather than just
-        // swapping the spec: fresh paint and a fresh appearance roll, plus it
-        // zeroes the record's race and win counters. So a driver who loses
-        // their pink slip comes back in a different-looking car, not their old
-        // colours on a new body.
+        // A new car gets fresh paint and appearance, and the rivalry counters reset.
         const uint8_t mods = (replacement < static_cast<int>(spec_mods_.size()))
                              ? spec_mods_[replacement] : 0;
         entry.body_byte = RollBodyByte(car_specs_[replacement], mods, rng_);
         entry.color_index = static_cast<uint8_t>(
             std::uniform_int_distribution<int>(0, 12)(rng_));
-        // A new car starts a new rivalry: the record's race and win counters
-        // go back to zero with it.
         entry.races = 0;
         entry.opp_wins = 0;
         entry.downgraded = true;
@@ -288,9 +226,7 @@ void RacerPool::ApplyRivalryUpgrades(int pool_index) {
         return static_cast<int>(std::uniform_int_distribution<int>(0, n - 1)(rng_));
     };
 
-    // Sticker: a bare car gets one past 5 races, and past 10 an existing one
-    // can be swapped for a different design. Same roll(9) into the high nibble
-    // the initial appearance roll uses, one-based so 0 stays "no sticker".
+    // Past 5 races a bare car gets a sticker; past 10 an existing one can be swapped. One-based, 0 = none.
     const int sticker = (entry.body_byte & 0xF0) >> 4;
     if ((sticker == 0 && races > 5) || (sticker != 0 && races > 10)) {
         if (roll(20) < threshold) {
