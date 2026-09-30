@@ -5,13 +5,20 @@ It aims to stay true to the original, with some enhancements:
 
 # Features
 
-- Play the Amiga version but with glorious framerate
-- Add cars from Street Rod SE to get double the car selection
-- Gamepad Support
+- Play the Amiga version but with glorious framerate and instant loading times
+- Add cars from Street Rod SE to get twice the car selection
+- Load original save files
+- Gamepad controls
 - Hill occlusion in races
 - Extra animations and UI improvements
 - Pause button
 - Amiga and DOS soundtrack
+
+# Status
+
+This is in development, so some bugs are expected but feel free to report them.
+The game should be playable up to the end, including races against The King.
+Support for Street Rod 2 is in development.
 
 # Playing the game
 

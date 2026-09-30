@@ -26,13 +26,13 @@ struct Setting {
 };
 
 const Setting kSettings[] = {
-    {"Hill occlusion",      &AssetManager::GetHillOcclusionRef,    false, nullptr},
-    {"Extra animations",    &AssetManager::GetExtraAnimationsRef,  false, nullptr},
+    {"Hill occlusion",      &AssetManager::GetHillOcclusionRef,    true, nullptr},
+    {"Extra animations",    &AssetManager::GetExtraAnimationsRef,  true, nullptr},
     {"Analog steering",     &AssetManager::GetAnalogSteeringRef,   false, nullptr},
     {"Skip intro",          &AssetManager::GetSkipIntroRef,        false, nullptr},
     {"Purist tune scoring", &AssetManager::GetPuristScoringRef,    false,
      [](bool on) { srrace::SetPuristScoring(on); }},
-    {"Smooth racing",       &AssetManager::GetSmoothRacingRef,     false, nullptr},
+    {"Interpolate (smoother framerate during races)",       &AssetManager::GetSmoothRacingRef, true, nullptr},
 };
 constexpr int kSettingCount = sizeof(kSettings) / sizeof(kSettings[0]);
 
@@ -136,7 +136,7 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
     };
 
     ButtonConfig defaultsButton = {defaultsRect, "Defaults", nullptr, false, 0};
-    ButtonConfig backButton = {backRect, "Forget it", nullptr, true, 1};
+    ButtonConfig backButton = {backRect, "Save", nullptr, true, 1};
     backButton.cancelChoice = true;
     cfg.buttons = {defaultsButton, backButton};
 
