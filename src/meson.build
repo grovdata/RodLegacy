@@ -304,13 +304,16 @@ if host_machine.system() == 'windows'
     c_args += ['-DSDL_MAIN_HANDLED']
 endif
 
-# Dear ImGui (vendored), only when -Ddebug_ui=true. Left out entirely otherwise,
+# Dear ImGui (vendored), only in debug builds (or -Ddebug_ui=enabled). Left out entirely otherwise,
 # so a release build links no ImGui and debug_ui.cpp is never compiled - the stub
 # in debug_ui.h keeps the call sites compiling either way. The subproject builds
 # the sdl2 + sdlrenderer2 backends, the pair matching our SDL_Renderer setup.
-debug_ui_enabled = get_option('debug_ui')
+if get_option('debug')
+    cpp_args += ['-DRODLEGACY_DEBUG']
+endif
+debug_ui_enabled = get_option('debug_ui').enabled() or (get_option('debug_ui').auto() and get_option('debug'))
 if debug_ui_enabled
-    imgui_proj = subproject('imgui')
+    imgui_proj = subproject('imgui-docking', default_options: ['sdl2=enabled', 'sdl2_renderer=enabled'])
     imgui_dep = imgui_proj.get_variable('imgui_dep')
     cpp_sources += files('debug/debug_ui.cpp')
     # Car/wheel-offset inspector scene, debug builds only.

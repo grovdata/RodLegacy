@@ -141,9 +141,9 @@ public:
     // skip_intro=1 or Options -> Settings.
     bool& GetSkipIntroRef() { return skipIntro; }
 
-    // Scores the tune as the 68k does, so top speeds match (best car 122 mph, not 130). purist_scoring=1.
+    // Off: tune scored as the 68k does (best car 122 mph). On: best car reaches 130. uncap_top_speed=1.
     // race_sim keeps its own copy, updated by LoadSettings and the settings screen.
-    bool& GetPuristScoringRef() { return puristScoring; }
+    bool& GetUncapTopSpeedRef() { return uncapTopSpeed; }
 
     // Deviation, off by default: the race view blends between sim steps. smooth_racing=1.
     bool& GetSmoothRacingRef() { return smoothRacing; }
@@ -157,7 +157,7 @@ private:
     bool hillOcclusion = false;
     bool extraAnimations = false;
     bool analogSteering = false;
-    bool puristScoring = false;
+    bool uncapTopSpeed = false;
     bool smoothRacing = false;
     bool skipIntro = false;
     fs::path gameBasePath;

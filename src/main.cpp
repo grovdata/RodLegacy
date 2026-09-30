@@ -283,9 +283,12 @@ int main(int argc, char* argv[]) {
     bool forceConfig = false;
     bool selfTestSave = false;
     for (int i = 1; i < argc; i++) {
+#ifdef RODLEGACY_DEBUG
         if (strcmp(argv[i], "--debug") == 0) {
             debugMode = true;
-        } else if (strcmp(argv[i], "--original-size") == 0) {
+        } else
+#endif
+        if (strcmp(argv[i], "--original-size") == 0) {
             useOriginalSize = true;
         } else if (strcmp(argv[i], "--mute") == 0) {
             muteAudio = true;
@@ -299,7 +302,9 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("Options:\n");
+#ifdef RODLEGACY_DEBUG
             printf("  --debug          Enable debug mode\n");
+#endif
             printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
             printf("  --mute           Mute all audio\n");
             printf("  --selftest-save  Save/load round-trip check, then exit (0 = pass)\n");
@@ -491,6 +496,7 @@ int main(int argc, char* argv[]) {
                 case SDL_KEYUP:
                     if (!consumed) {
                         switch (event.key.keysym.sym) {
+#ifdef RODLEGACY_DEBUG
                             case SDLK_F1:
                                 if (event.type == SDL_KEYDOWN) {
                                     debugMode = !debugMode;
@@ -500,6 +506,7 @@ int main(int argc, char* argv[]) {
                                     }
                                 }
                                 break;
+#endif
                             case SDLK_F5:
                                 if (event.type == SDL_KEYUP) {
                                     TakeScreenshot();

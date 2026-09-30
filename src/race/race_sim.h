@@ -109,12 +109,12 @@ struct CarTables {
     int16_t topSpeed = 91;     // mph, ComputeTopSpeed - the gear ratios key off it
 };
 
-// Purist: tune scored as (1 - |tune|) * 20/8 as on the 68k (the stock 1940 Chevy reads 92 mph). Default is
-// (8 - |tune|) * 20/8, which lets a perfect car reach the 130 cap.
-void SetPuristScoring(bool enabled);
-bool PuristScoring();
+// Default: tune scored as (1 - |tune|) * 20/8 as on the 68k (the stock 1940 Chevy reads 92 mph, best car 122).
+// Uncapped: (8 - |tune|) * 20/8, which lets a perfect car reach the 130 cap.
+void SetUncapTopSpeed(bool enabled);
+bool UncapTopSpeed();
 
-// 70 + a 0..100 point score scaled by the transmission, so 70..100 (67..94 in purist mode).
+// 70 + a 0..100 point score scaled by the transmission, so 70..100 (67..94 by default).
 int ComputeBasePerformance(const CarSetup& setup);
 
 // base * 13/10, capped at 130: the car info screen's "Max speed", the pool's match value, and what the top

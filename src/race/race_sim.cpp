@@ -27,17 +27,17 @@ int ClampTrackIndex(int seg) {
     return ClampValue(seg, 0, TRACK_SEGMENTS - 1);
 }
 
-bool gPuristScoring = false;
+bool gUncapTopSpeed = false;
 int gSimHz = 12;
 
 }
 
-void SetPuristScoring(bool enabled) {
-    gPuristScoring = enabled;
+void SetUncapTopSpeed(bool enabled) {
+    gUncapTopSpeed = enabled;
 }
 
-bool PuristScoring() {
-    return gPuristScoring;
+bool UncapTopSpeed() {
+    return gUncapTopSpeed;
 }
 
 void BlendCarView(const CarState& prev, CarState& cur, float t) {
@@ -87,9 +87,7 @@ int ComputeBasePerformance(const CarSetup& setup) {
     pts += (kCarbPts[carbClass] * 25) / 100;
     pts += (kTransPts[transClass] * 15) / 100;
     pts += (kEngByManifold[engineClass * 5 + manifoldClass] * 15) / 100;
-    // The one deviation by default: the original's (1 - |tune|) tops out at +2 and leaves the 130 cap unreachable.
-    // --purist restores it.
-    pts += (((gPuristScoring ? 1 : 8) - tuneOffset) * 20) / 8;
+    pts += (((gUncapTopSpeed ? 8 : 1) - tuneOffset) * 20) / 8;
     pts += (kWeightPts[weightClass] * 10) / 88;
     if (setup.roofChopped) {
         pts += 9;

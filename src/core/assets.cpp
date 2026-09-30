@@ -857,10 +857,10 @@ void AssetManager::LoadSettings() {
         auto analogSteeringIt = kv.find("analog_steering");
         if (analogSteeringIt != kv.end()) analogSteering = std::stoi(analogSteeringIt->second) != 0;
 
-        auto puristIt = kv.find("purist_scoring");
-        if (puristIt != kv.end()) puristScoring = std::stoi(puristIt->second) != 0;
+        auto uncapIt = kv.find("uncap_top_speed");
+        if (uncapIt != kv.end()) uncapTopSpeed = std::stoi(uncapIt->second) != 0;
         // race_sim holds its own copy.
-        srrace::SetPuristScoring(puristScoring);
+        srrace::SetUncapTopSpeed(uncapTopSpeed);
 
         auto smoothIt = kv.find("smooth_racing");
         if (smoothIt != kv.end()) smoothRacing = std::stoi(smoothIt->second) != 0;
@@ -918,7 +918,7 @@ void AssetManager::SaveSettings() {
     kv["extra_animations"] = extraAnimations ? "1" : "0";
     kv["skip_intro"] = skipIntro ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
-    kv["purist_scoring"] = puristScoring ? "1" : "0";
+    kv["uncap_top_speed"] = uncapTopSpeed ? "1" : "0";
     kv["smooth_racing"] = smoothRacing ? "1" : "0";
     kv["race_speed"] = std::to_string(srrace::SimHz());
     WriteConfigFile(kv);

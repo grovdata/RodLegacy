@@ -30,8 +30,8 @@ const Setting kSettings[] = {
     {"Extra animations",    &AssetManager::GetExtraAnimationsRef,  true, nullptr},
     {"Analog steering",     &AssetManager::GetAnalogSteeringRef,   false, nullptr},
     {"Skip intro",          &AssetManager::GetSkipIntroRef,        false, nullptr},
-    {"Purist tune scoring", &AssetManager::GetPuristScoringRef,    false,
-     [](bool on) { srrace::SetPuristScoring(on); }},
+    {"Uncap top speed to 130mph (Amiga original 122mph)", &AssetManager::GetUncapTopSpeedRef, false,
+     [](bool on) { srrace::SetUncapTopSpeed(on); }},
     {"Interpolate (smoother framerate during races)",       &AssetManager::GetSmoothRacingRef, true, nullptr},
 };
 constexpr int kSettingCount = sizeof(kSettings) / sizeof(kSettings[0]);

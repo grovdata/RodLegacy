@@ -9,7 +9,8 @@ Dependencies are vendored in subprojects/.
 
 ## Conventions
 - Native res 320x200, rendered at 4x.
-- Use SDL_Log and stdlib in game code. parsers/libp.* must not depend on SDL.
+- Use LOG_* macros for logging.
+- parsers/libp.* must not depend on SDL.
 - Avoid C++ templates.
 - No emojis in log messages.
 - Never launch the app to verify visually. The user does that.

@@ -97,16 +97,14 @@ which loads SDL3 at run time, so the bundle carries `libSDL3.dylib` too.
 ## Debug UI
 
 An optional Dear ImGui debug UI docks the game alongside inspector panels. It is
-off by default, so release builds link no ImGui at all. Enable it at build time
-and switch it on at run time:
+built into debug builds only (release builds link no ImGui at all) and opened
+at run time with `--debug`. `-Ddebug_ui=enabled` or `-Ddebug_ui=disabled`
+overrides the build type.
 
 ```
-meson setup build -Ddebug_ui=true    # or: meson configure build -Ddebug_ui=true
 ninja -C build
 ./build/rodlegacy --debug
 ```
-
-Both are required: `-Ddebug_ui=true` compiles it in, `--debug` opens the panels.
 
 # Tests
 
