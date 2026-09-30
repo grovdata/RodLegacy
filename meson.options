@@ -1,5 +1,5 @@
 option('debug_ui',
-  type : 'boolean',
-  value : false,
-  description : 'Build the Dear ImGui debug UI. Off by default so release builds link no ImGui at all; the panels are additionally gated on --debug at runtime.'
+  type : 'feature',
+  value : 'auto',
+  description : 'Build the Dear ImGui debug UI. auto = on for debug builds, off for release so they link no ImGui at all; the panels are additionally gated on --debug at runtime.'
 )

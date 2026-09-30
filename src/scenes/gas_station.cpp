@@ -370,14 +370,13 @@ void GasStation::DrawTwinkle(double deltaTime) {
         return;
     }
     const int f = step < TWINKLE_FRAMES ? step : 2 * TWINKLE_FRAMES - 1 - step;
-    const int arm = f + 1;
-    const int diag = arm / 2;
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    const int x = twinklePos.x, y = twinklePos.y;
-    SDL_RenderDrawLine(renderer, x - arm, y, x + arm, y);
-    SDL_RenderDrawLine(renderer, x, y - arm, x, y + arm);
-    SDL_RenderDrawLine(renderer, x - diag, y - diag, x + diag, y + diag);
-    SDL_RenderDrawLine(renderer, x - diag, y + diag, x + diag, y - diag);
+    const int len = f + 2;
+    for (int d = -len; d <= len; d++) {
+        const Uint8 v = 255 - 80 * std::abs(d) / len;
+        SDL_SetRenderDrawColor(renderer, v, v, v, 255);
+        SDL_RenderDrawPoint(renderer, twinklePos.x + d, twinklePos.y);
+        if (d != 0) SDL_RenderDrawPoint(renderer, twinklePos.x, twinklePos.y + d);
+    }
 }
 
 void GasStation::SetPumpSound(bool on) {

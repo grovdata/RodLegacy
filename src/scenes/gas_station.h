@@ -84,7 +84,8 @@ class GasStation : public CarScene {
     void SetPumpSound(bool on);
     void ShowPumpMessage(const std::string& text);
 
-    static constexpr int TWINKLE_FRAMES = 8;         // grows then shrinks, like the intro glint
+    // A growing then shrinking + sign, like the intro glint.
+    static constexpr int TWINKLE_FRAMES = 8;
     static constexpr double TWINKLE_STEP_SEC = 0.06;
     bool ragHeld = false;
     double twinkleTime = -1.0;                       // >= 0 while playing

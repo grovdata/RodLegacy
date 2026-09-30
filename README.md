@@ -18,7 +18,7 @@ It aims to stay true to the original, with some enhancements:
 
 This is in development, so some bugs are expected but feel free to report them.
 The game should be playable up to the end, including races against The King.
-Support for Street Rod 2 is in development.
+Support for Street Rod 2 is planned.
 
 # Playing the game
 
