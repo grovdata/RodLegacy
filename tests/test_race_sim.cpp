@@ -96,12 +96,12 @@ void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup
 }
 
 // Restored afterwards so it cannot leak into the rest of the suite.
-struct PuristScope {
+struct UncapScope {
     bool previous;
-    explicit PuristScope(bool enabled) : previous(PuristScoring()) {
-        SetPuristScoring(enabled);
+    explicit UncapScope(bool enabled) : previous(UncapTopSpeed()) {
+        SetUncapTopSpeed(enabled);
     }
-    ~PuristScope() { SetPuristScoring(previous); }
+    ~UncapScope() { SetUncapTopSpeed(previous); }
 };
 
 // Every scoring term at its best: carb 25 + trans 15 + engine/manifold 15 +
@@ -136,25 +136,30 @@ TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
 
     // pts = 0 + 0 + 0 + ((8-8)*20/8 = 0) + (40*10/88 = 4) = 4
     // base = 70 + (4 * 24 / 100) = 70 (integer division)
-    CHECK(ComputeBasePerformance(setup) == 70);
+    {
+        UncapScope uncap(true);
+        CHECK(ComputeBasePerformance(setup) == 70);
+    }
 
-    // Purist: the tune term becomes (1-8)*20/8 = -17, so pts = -13 and
+    // Original scoring: the tune term becomes (1-8)*20/8 = -17, so pts = -13 and
     // base = 70 + (-13 * 24 / 100) = 67.
-    PuristScope purist(true);
     CHECK(ComputeBasePerformance(setup) == 67);
 }
 
 TEST_CASE("ComputeBasePerformance perfect car lands on the 100-point ceiling") {
     // 80 points of parts and body plus the intended 20 for a perfect tune.
-    CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (100 * 30) / 100);  // 100
+    {
+        UncapScope uncap(true);
+        CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (100 * 30) / 100);  // 100
+    }
 
-    // Purist: the tune term gives 2 instead of 20, so pts = 82.
-    PuristScope purist(true);
+    // Original scoring: the tune term gives 2 instead of 20, so pts = 82.
     CHECK(ComputeBasePerformance(PerfectCar()) == 70 + (82 * 30) / 100);  // 94
 }
 
 // The 68k's term-by-term arithmetic, with the fixed tune term.
 TEST_CASE("ComputeBasePerformance matches the formula term by term") {
+    UncapScope uncap(true);
     CarSetup setup{};
     setup.carbClass = 2;
     setup.transClass = 3;
@@ -203,7 +208,7 @@ TEST_CASE("ComputeTopSpeed is base * 13/10 capped at 130") {
 }
 
 // Reference reading from the real game: a stock, tuned 1940 Chevrolet 2-dr coupe (spec 0) shows 92 mph.
-TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph in purist mode") {
+TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph with the original scoring") {
     CarSetup chevy{};
     chevy.carbClass = 0;      // 2-brl
     chevy.transClass = 0;     // GM automatic
@@ -213,7 +218,7 @@ TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 92 mph in purist mode") {
     chevy.weightClass = 0;    // spec class byte
     chevy.tuneOffset = 0;     // "with right tuning"
 
-    PuristScope purist(true);
+    UncapScope uncap(false);
     CHECK(ComputeTopSpeed(chevy) == 92);
 }
 
@@ -232,8 +237,8 @@ CarSetup TunedCorvette() {
     return vette;
 }
 
-TEST_CASE("Tuned 1963 Corvette reads 119 mph in purist mode") {
-    PuristScope purist(true);
+TEST_CASE("Tuned 1963 Corvette reads 119 mph with the original scoring") {
+    UncapScope uncap(false);
     CHECK(ComputeTopSpeed(TunedCorvette()) == 119);
 
     // Three notches off gives the 117 the car reads before tuning.
@@ -259,7 +264,7 @@ TEST_CASE("Stock 1940 Chevrolet 2-dr coupe reads 97 mph with the fixed tune term
     chevy.weightClass = 0;
     chevy.tuneOffset = 0;
 
-    PuristScope purist(false);
+    UncapScope uncap(true);
     CHECK(ComputeTopSpeed(chevy) == 97);
 }
 
@@ -278,21 +283,23 @@ TEST_CASE("Corvettes cannot be chopped but can lose their bumpers") {
     CarSetup stripped = TunedCorvette();
     stripped.frontBumperRemoved = true;
     stripped.rearBumperRemoved = true;
-    PuristScope purist(true);
+    UncapScope uncap(false);
     CHECK(ComputeTopSpeed(stripped) == 122);
 }
 
 TEST_CASE("A perfect car reaches exactly the 130 mph cap") {
-    CHECK(ComputeTopSpeed(PerfectCar()) == 130);
+    {
+        UncapScope uncap(true);
+        CHECK(ComputeTopSpeed(PerfectCar()) == 130);
+    }
 
-    // Purist: the tune bug leaves the cap unreachable and the best car at 122.
-    PuristScope purist(true);
+    // Original scoring: the tune bug leaves the cap unreachable and the best car at 122.
     CHECK(ComputeTopSpeed(PerfectCar()) == 122);
 }
 
 TEST_CASE("No legal set of parts exceeds the cap in either mode") {
     for (int mode = 0; mode < 2; ++mode) {
-        PuristScope purist(mode == 1);
+        UncapScope uncap(mode == 0);
         int highest = 0;
         for (int carb = 0; carb <= 2; ++carb) {
             for (int trans = 0; trans <= 3; ++trans) {
@@ -418,6 +425,7 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
 
 // The curve branch caps the opponent once, at perfScore - aggression, re-armed on the next straight.
 TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") {
+    UncapScope uncap(true);
     TrackData track = MakeFlatTrack();
     // A one-segment kink far enough down the course for the opponent to exceed the cap.
     track.curve[801] = 1;
