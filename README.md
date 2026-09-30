@@ -1,16 +1,17 @@
 # RodLegacy
 
 RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
-It aims to stay true to the original, with some enhancements to make gameplay more enjoyable:
+It aims to stay true to the original, with some enhancements:
 
-# New features
+# Features
 
-- Fluid framerate, compared to the quite sluggish Amiga version
-- Hill occlusion in races
-- Some extra animation from unused graphics
+- Play the Amiga version but with glorious framerate
+- Add cars from Street Rod SE to get double the car selection
 - Gamepad Support
+- Hill occlusion in races
+- Extra animations and UI improvements
 - Pause button
-- Play with cars from Street Rod SE
+- Amiga and DOS soundtrack
 
 # Playing the game
 
@@ -19,15 +20,9 @@ Download the latest RodLegacy binaries from the release page.
 The Amiga disk images are *required* to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
 
 Start RodLegacy and point it to the folder where `sr1amiga.zip` sits.
+Add `srsepc.zip` in the same folder, if you want the DOS SE cars, music, and stickers.
 
-If you add the MS-DOS [Special Edition](https://www.streetrodonline.com/2014/07/01/street-rod-se-released/) (Data Disk add-on), you can play with 25 additional cars and extra stickers. Just put `srsepc.zip` in the same folder.
-
-## Street Rod SE cars
-
-The SE cars are off by default. Tick "Street Rod SE cars" on the new game
-screen to play with them.
-
-`config.txt` sits in RodLegacy's settings folder:
+## Config
 
 | OS | Path |
 | --- | --- |
@@ -35,23 +30,9 @@ screen to play with them.
 | Linux | `~/.local/share/se.grovdata/rodlegacy/config.txt` |
 | Windows | `%APPDATA%\se.grovdata\rodlegacy\config.txt` |
 
-## Other config.txt keys
-
-Additions and deviations, all off by default, all in the same `config.txt`.
-They are also togglable in the game under Options -> Settings, which writes the
-same file:
-
-| key | what it does |
-| --- | --- |
-| `extra_animations=1` | Small scene animations the original does not have. Right now: the diner waitress stops halfway in and stands for three seconds before carrying on. |
-| `hill_occlusion=1` | Hills hide the opponent's car instead of the original's clamp-to-the-ridge. |
-| `analog_steering=1` | How far the analog stick is pushed sets how far the wheel goes over, instead of the original's ramp to full lock. Keyboard and D-pad are unaffected. |
-| `skip_intro=1` | Start at the name entry instead of the California Dreams intro. |
-| `purist_scoring=1` | Score the engine tune the way the original does, so top speeds match the real game (best car 122 mph, not 130). |
-
 # Controls
 
-The same list is in the game under Options -> Key bindings.
+Also listed in the game under Options -> Key bindings.
 
 Keyboard and gamepad both work at any time; whichever you touch last takes over
 the cursor. Any pad SDL recognises as a game controller is picked up
@@ -75,8 +56,7 @@ Anywhere, driving included:
 | --- | --- | --- |
 | Start (Menu) | P | Pause |
 
-Pausing freezes the scene and the audio and dims the frame; nothing but quitting
-reaches the game until it is unpaused.
+Pausing freezes the scene and the audio.
 
 Driving:
 
@@ -86,11 +66,6 @@ Driving:
 | Left trigger | Down | Brake |
 | Left stick or D-pad | Left / Right | Steer |
 | A or RB | Space | Shift |
-
-Steering is the original's: a held direction that ramps the wheel to full lock.
-Set `analog_steering=1` in `config.txt` to have the left stick's deflection set
-how far the wheel goes over instead. The keyboard and the D-pad stay original
-either way.
 
 # Building
 
@@ -129,31 +104,12 @@ Both are required: `-Ddebug_ui=true` compiles it in, `--debug` opens the panels.
 # Tests
 
 ```
-meson test -C build
+meson test -C build --verbose
 ```
-
-To run with verbose output:
-
-```
-./build/tests/test_libp
-```
-
-# Notes
-
-Per-subsystem notes on how this port differs from the original, what is
-approximated, and what is still missing:
-
-- [docs/audio.md](docs/audio.md) - engine sound mismatch, music calibration and gaps
-- [docs/cars.md](docs/cars.md) - wheel offsets, driver portrait, the car-set registry
-- [docs/graphics.md](docs/graphics.md) - palette selection and its failure mode
-- [docs/gameplay.md](docs/gameplay.md) - challenge retry
-
-Research on the original game and its file formats lives in the sibling
-`RodLegacyResearch` repository.
 
 # Credits
 
-RodLegacy use these fine libraries:
+RodLegacy uses these fine libraries:
 
  - [SDL2](https://github.com/libsdl-org/SDL)
  - [SDL2_image](https://github.com/libsdl-org/SDL_image)
@@ -169,12 +125,12 @@ RodLegacy use these fine libraries:
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
  - [Nuked-OPL3](https://github.com/nukeykt/Nuked-OPL3)
 
- # License
+# License
 
 RodLegacy is licensed under the GNU General Public License v3.0 or later, see [LICENSE](LICENSE).
 Bundled third-party code keeps its own license.
 
- # Legal
+# Legal
 
-RodLegacy make no claim for Street Rod copyright, it contains no assets or original code from the game.
+RodLegacy makes no claim for Street Rod copyright, it contains no assets or original code from the game.
 The copyright sits solely with the owner of [streetrodonline.com](https://www.streetrodonline.com/about/).
