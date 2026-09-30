@@ -66,11 +66,7 @@ void Intro::PlaySound(IntroSound sound) {
     AudioManager* am = state.GetAssets().GetAudioManager();
     if (am == nullptr) return;
 
-    // LogoChimeA/B/C: instrument 6 on a detuned channel pair, volume 0x32.
-    auto chime = [am](int chA, int periodA, int chB) {
-        am->PlayInstrumentNote(chA, 6, periodA, 0x32);
-        am->PlayInstrumentNote(chB, 6, periodA + 1, 0x32);
-    };
+    auto chime = [am](int chA, int periodA, int chB) { am->PlayChime(chA, periodA, chB); };
     auto hit = [am](int param) {
         am->PlaySound(AudioSampleType::CUTSCENE_HIT, SRL0_CUTSCENE_HIT_VOLUME / 64.0f,
                       static_cast<int>(3579545u / (param + SRL0_CUTSCENE_HIT_PERIOD_BIAS)));

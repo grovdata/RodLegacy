@@ -634,6 +634,11 @@ void AudioManager::PlayInstrumentNote(int channel, int instrument, int period, i
     amigaMusic_->PlayEffectNote(channel, instrument, period, volume);
 }
 
+void AudioManager::PlayChime(int chA, int period, int chB) {
+    PlayInstrumentNote(chA, 6, period, 0x32);
+    PlayInstrumentNote(chB, 6, period + 1, 0x32);
+}
+
 void AudioManager::StopMusicPlayback() {
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();

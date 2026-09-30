@@ -66,6 +66,13 @@ GasStation::GasStation()
         if (!CanInteract()) return;
         SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
     };
+    for (const char* id : {"car_window_rear", "car_window_front"}) {
+        GetZone(id).onClick = [this, id] {
+            if (!CanInteract() || !ragHeld) return;
+            SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
+            StartTwinkle(id);
+        };
+    }
     // "Get out of my face, dummy!": the trigger is unconfirmed; best guess is clicking Gus.
     GetZone("attendant").onClick = [this] {
         if (!CanInteract()) return;
@@ -197,6 +204,8 @@ void GasStation::DrawScene() {
     if (carBitmap != nullptr) {
         carBitmap->Draw();
     }
+
+    DrawTwinkle(deltaTime);
 
     for (auto& b : bubbles) {
         b->Draw();
@@ -344,6 +353,33 @@ void GasStation::UpdatePumping(double deltaTime) {
     }
 }
 
+void GasStation::StartTwinkle(const char* windowZone) {
+    if (!state.GetAssets().GetExtraAnimationsRef()) return;
+    const SDL_Rect r = GetZone(windowZone).GetRect();
+    twinklePos = {r.x + r.w / 2, r.y + r.h / 2};
+    twinkleTime = 0.0;
+    if (audioManager) audioManager->PlayChime(0, 0x96, 3);
+}
+
+void GasStation::DrawTwinkle(double deltaTime) {
+    if (twinkleTime < 0) return;
+    twinkleTime += deltaTime;
+    const int step = static_cast<int>(twinkleTime / TWINKLE_STEP_SEC);
+    if (step >= 2 * TWINKLE_FRAMES) {
+        twinkleTime = -1.0;
+        return;
+    }
+    const int f = step < TWINKLE_FRAMES ? step : 2 * TWINKLE_FRAMES - 1 - step;
+    const int arm = f + 1;
+    const int diag = arm / 2;
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    const int x = twinklePos.x, y = twinklePos.y;
+    SDL_RenderDrawLine(renderer, x - arm, y, x + arm, y);
+    SDL_RenderDrawLine(renderer, x, y - arm, x, y + arm);
+    SDL_RenderDrawLine(renderer, x - diag, y - diag, x + diag, y + diag);
+    SDL_RenderDrawLine(renderer, x - diag, y + diag, x + diag, y - diag);
+}
+
 void GasStation::SetPumpSound(bool on) {
     if (on == pumpSoundOn || !audioManager) return;
     pumpSoundOn = on;
@@ -404,6 +440,7 @@ void GasStation::UpdateDebugInfo() {
 bool GasStation::PushEvent(SDL_Event* event) {
     // Only before the player has started with the pump, so e.g. wiping a window cannot cancel a fill.
     if (event->type == SDL_MOUSEBUTTONDOWN && sceneState == GAS_STATION_IDLE && CanInteract()) {
+        ragHeld = GetPointerType() == SrLibAmigaSpriteAssetMousePointerRag;
         if (carBitmap) {
             carBitmap->SetGasCapRemoved(false);
             if (pumpNoHandle) pumpNoHandle->SetVisible(false);

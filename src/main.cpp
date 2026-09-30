@@ -523,6 +523,11 @@ int main(int argc, char* argv[]) {
                                     ToggleFullScreen(win, isFullScreen);
                                 }
                                 break;
+                            case SDLK_F11:
+                                if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+                                    ToggleFullScreen(win, isFullScreen);
+                                }
+                                break;
                             case SDLK_ESCAPE:
                                 if (event.type == SDL_KEYDOWN) {
                                     close_requested = true;

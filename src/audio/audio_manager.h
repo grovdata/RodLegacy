@@ -96,6 +96,9 @@ public:
     // volume. No-op without Amiga music data.
     void PlayInstrumentNote(int channel, int instrument, int period, int volume);
 
+    // The intro logo chime: instrument 6 on a detuned channel pair, volume 0x32.
+    void PlayChime(int chA, int period, int chB);
+
     // Starts again from a fresh random arrangement.
     void StopMusicPlayback();
     void RestartMusic() { SetMusicSource(musicSource_); }
