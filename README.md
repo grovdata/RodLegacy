@@ -11,6 +11,7 @@ It aims to stay true to the original, with some enhancements:
 - Hill occlusion in races
 - Extra animations and UI improvements
 - Pause button
+- Windows, Linux and macOS (26+) builds
 
 # Status
 
@@ -20,7 +21,7 @@ Support for Street Rod 2 is planned.
 
 # Playing the game
 
-Download the latest RodLegacy binaries from the release page.
+Download the latest RodLegacy binaries from the [releases](releases/) page.
 
 The Amiga disk images are *required* to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
 
