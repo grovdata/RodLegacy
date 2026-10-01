@@ -2,11 +2,8 @@ name: Build
 
 on:
     push:
-        branches: [main, master]
-    pull_request:
-        branches: [main, master]
-    release:
-        types: [published]
+        branches: [main]
+        tags: ['v*']
     workflow_dispatch:
 
 permissions:
@@ -52,15 +49,11 @@ jobs:
             # start with a digit, so a sha build is the project version plus the sha
             # rather than the bare sha.
             - name: Derive version strings
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")
-                  if [ "${{ github.event_name }}" = "release" ]; then
-                    TAG=$VERSION
-                    DEBVER=$VERSION
-                  else
-                    TAG=${GITHUB_SHA:0:7}
-                    DEBVER="${VERSION}+git${TAG}"
-                  fi
+                  TAG=$VERSION
+                  DEBVER=$VERSION
                   printf 'TAG=%s\nDEBVER=%s\n' "$TAG" "$DEBVER" >> "$GITHUB_ENV"
 
             - name: Compile
@@ -70,6 +63,7 @@ jobs:
 
             # One staged tree, reused by every format below.
             - name: Stage install tree
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   install -Dm755 builddir/rodlegacy           stage/usr/bin/rodlegacy
                   install -Dm644 packaging/rodlegacy.desktop  stage/usr/share/applications/rodlegacy.desktop
@@ -78,6 +72,7 @@ jobs:
                   # install -Dm644 README.md                  stage/usr/share/doc/rodlegacy/README.md
 
             - name: Resolve runtime dependencies
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   mkdir -p shlibdeps/debian
                   printf 'Source: rodlegacy\n\nPackage: rodlegacy\nArchitecture: any\n' > shlibdeps/debian/control
@@ -85,6 +80,7 @@ jobs:
                   echo "DEPS=$DEPS" >> "$GITHUB_ENV"
 
             - name: Build .deb
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   mkdir -p stage/DEBIAN
                   cat > stage/DEBIAN/control <<EOF
@@ -103,12 +99,14 @@ jobs:
 
             # alien converts the deb rather than maintaining a second spec file.
             - name: Build .rpm
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   alien --to-rpm --keep-version "rodlegacy-${TAG}.deb"
                   mv rodlegacy-*.x86_64.rpm "rodlegacy-${TAG}.rpm"
 
             # linuxdeploy copies the shared libs the ELF needs into the AppDir.
             - name: Build .AppImage
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   base=https://github.com/linuxdeploy
                   wget -qP /usr/local/bin "$base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
@@ -123,24 +121,15 @@ jobs:
                     --output appimage
 
             - name: Build .tar.gz
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   mkdir -p "rodlegacy-${TAG}"
                   # README.md left out until it is cleaned up for shipping.
                   cp builddir/rodlegacy packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${TAG}/"
                   tar czf "rodlegacy-${TAG}.tar.gz" "rodlegacy-${TAG}"
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: rodlegacy-linux-${{ env.TAG }}
-                  path: |
-                      *.deb
-                      *.rpm
-                      *.AppImage
-                      *.tar.gz
-                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
-
             - name: Attach to release
-              if: github.event_name == 'release'
+              if: startsWith(github.ref, 'refs/tags/')
               uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
               with:
                   files: |
@@ -158,6 +147,7 @@ jobs:
             # node comes from the image - bullseye's apt node is v12 and too old for
             # the JS actions below. Only zip is missing.
             - name: Install packaging tools
+              if: startsWith(github.ref, 'refs/tags/')
               env:
                   DEBIAN_FRONTEND: noninteractive
               run: |
@@ -171,13 +161,10 @@ jobs:
             - run: meson setup builddir --cross-file /cross-mingw.txt --buildtype=release
 
             - name: Derive version string
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")
-                  if [ "${{ github.event_name }}" = "release" ]; then
-                    TAG=$VERSION
-                  else
-                    TAG=${GITHUB_SHA:0:7}
-                  fi
+                  TAG=$VERSION
                   echo "TAG=$TAG" >> "$GITHUB_ENV"
 
             - name: Compile
@@ -186,18 +173,12 @@ jobs:
                   i686-w64-mingw32-strip builddir/rodlegacy.exe
 
             - name: Build zip
+              if: startsWith(github.ref, 'refs/tags/')
               run: |
                   zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: rodlegacy-windows-${{ env.TAG }}
-                  path: |
-                      *.zip
-                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
-
             - name: Attach to release
-              if: github.event_name == 'release'
+              if: startsWith(github.ref, 'refs/tags/')
               uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
               with:
                   files: |
