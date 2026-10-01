@@ -9,6 +9,9 @@ on:
         types: [published]
     workflow_dispatch:
 
+permissions:
+    contents: write
+
 jobs:
     linux:
         runs-on: ubuntu-latest
@@ -122,46 +125,31 @@ jobs:
                   cp builddir/rodlegacy packaging/rodlegacy.desktop data/res/icon.png "rodlegacy-${TAG}/"
                   tar czf "rodlegacy-${TAG}.tar.gz" "rodlegacy-${TAG}"
 
-            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
-                  name: rodlegacy-linux-deb-${{ env.TAG }}
-                  path: "*.deb"
+                  name: rodlegacy-linux-${{ env.TAG }}
+                  path: |
+                      *.deb
+                      *.rpm
+                      *.AppImage
+                      *.tar.gz
                   retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
 
-            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
-              with:
-                  name: rodlegacy-linux-rpm-${{ env.TAG }}
-                  path: "*.rpm"
-                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
-
-            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
-              with:
-                  name: rodlegacy-linux-appimage-${{ env.TAG }}
-                  path: "*.AppImage"
-                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
-
-            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
-              with:
-                  name: rodlegacy-linux-tarball-${{ env.TAG }}
-                  path: "*.tar.gz"
-                  retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
-
-            - name: Attach packages to release
+            - name: Attach to release
               if: github.event_name == 'release'
-              run: |
-                  for f in *.deb *.rpm *.AppImage *.tar.gz; do
-                    curl -sSf -X POST \
-                      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                      -F "attachment=@${f}" \
-                      "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=${f}"
-                  done
+              uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+              with:
+                  files: |
+                      *.deb
+                      *.rpm
+                      *.AppImage
+                      *.tar.gz
 
     windows:
         runs-on: ubuntu-latest
-        # Cross toolchain from Forgejo's built-in registry. See Dockerfile.win32
-        # for how to build it and what the runner host needs.
+        # Cross toolchain image, see Dockerfile.win32.
         container:
-            image: registry.example:3000/rodlegacy/win32-builder:20260828
+            image: ghcr.io/grovdata/win32-builder:latest
         steps:
             # node comes from the image - bullseye's apt node is v12 and too old for
             # the JS actions below. Only zip is missing.
@@ -198,17 +186,16 @@ jobs:
                   cp README_dist.txt readme.txt
                   zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe readme.txt
 
-            - uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de # v3.2.2-node20, v4+ refuses to run on Forgejo (GHES check)
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
                   name: rodlegacy-windows-${{ env.TAG }}
-                  path: "*.zip"
+                  path: |
+                      *.zip
                   retention-days: ${{ github.event_name == 'release' && 30 || 7 }}
 
-            - name: Attach zip to release
+            - name: Attach to release
               if: github.event_name == 'release'
-              run: |
-                  f="rodlegacy-${TAG}-windows.zip"
-                  curl -sSf -X POST \
-                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                    -F "attachment=@${f}" \
-                    "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=${f}"
+              uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+              with:
+                  files: |
+                      rodlegacy-${{ env.TAG }}-windows.zip
