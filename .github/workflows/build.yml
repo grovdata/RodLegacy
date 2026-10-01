@@ -12,6 +12,10 @@ on:
 permissions:
     contents: write
 
+defaults:
+    run:
+        shell: bash
+
 jobs:
     linux:
         runs-on: ubuntu-latest
@@ -183,8 +187,7 @@ jobs:
 
             - name: Build zip
               run: |
-                  cp README_dist.txt readme.txt
-                  zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe readme.txt
+                  zip -j "rodlegacy-${TAG}-windows.zip" builddir/rodlegacy.exe
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
