@@ -22,9 +22,6 @@ class IDrawable {
 };
 
 struct CarModel {
-    std::string id;
-    std::string filename;
-
     // Currently not known where this is defined
     int baseSpeed;
     int baseAcceleration;
@@ -55,8 +52,8 @@ struct CarModel {
 
     void Log() const {
         LOG_INFO(
-            "CarModel: id=%s, filename=%s, baseSpeed=%d, year=%d, name=%s, vendor=%d, width=%d, height=%d, index=%d",
-            id.c_str(), filename.c_str(), baseSpeed, year, name.c_str(), vendor, width, height, index);
+            "CarModel: baseSpeed=%d, year=%d, name=%s, vendor=%d, width=%d, height=%d, index=%d",
+            baseSpeed, year, name.c_str(), vendor, width, height, index);
     }
 };
 

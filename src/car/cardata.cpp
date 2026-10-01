@@ -1,5 +1,3 @@
-#define TOML_HEADER_ONLY 0
-
 #include "core/log.h"
 #include "car/cardata.h"
 #include "core/utils.h"
@@ -14,20 +12,8 @@ CarData::~CarData() {
 
 }
 
-void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
+void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
     ReadCarsBuiltin(datafilebuf, bitmaps);
-    ReadCarsFromTomlFile(tomlfile);
-}
-
-CarModel CarData::GetModel(char* carModel) {
-    for (auto m: allCarModels) {
-        bool equals = strcmp(m.id.c_str(), carModel);
-        if (equals == 0) {
-            LOG_INFO("Found model %s\n", carModel);            
-            return m;
-        }
-    }
-    return CarModel();
 }
 
 CarModel CarData::GetModelFromIndex(int index) {
@@ -55,32 +41,14 @@ CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t met
     m.sprites = AmigaCarSprites(m.index);
     m.sprites.airScoop = metadata.airScoop;
     m.baseSpeed = 100;
-    m.filename = "";
     m.height = bitmap.height;
     m.width = bitmap.width;
-    m.id = "";
     m.name = metadata.classified.carName;
     m.offsets = metadata.offsets;
     m.vendor = SrLibQueryGetCarVendor(m.index);
     m.year = metadata.classified.year;
     m.price = metadata.classified.price;
     return m;
-}
-
-bool CarData::CarIsValid(toml::table *table) {
-    std::vector<std::string> mandatoryKeys = {"id", "index", "vendor", "name", "year", "baseSpeed", "width", "height", "rearWheelX", "rearWheelY", "gasCapX", "gasCapY", "frontWheelX", "frontWheelY", "driverX", "driverY"};
-
-    for (const auto& key : mandatoryKeys) {
-        if (table->find(key) == table->end()) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool CarData::MapContainsKey(toml::table *table, const char *key) {
-    auto search = table->find(key);
-    return search != table->end();
 }
 
 void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
@@ -190,68 +158,6 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
     LOG_INFO("Added %d Street Rod SE cars", added);
     return added;
 }
-
-void CarData::ReadCarsFromTomlFile(std::string filename) {
-    
-    std::ifstream file(filename);
-    if (!file.good()) {
-        LOG_INFO("Custom cars TOML file %s does not exist, skipping", filename.c_str());
-        return;
-    }
-    file.close();
-
-    try {
-        const auto data = toml::parse(filename);
-        const auto table = toml::find<std::vector<toml::table>>(data, "cars");
-        for (auto car : table) {
-            if (!CarIsValid(&car)) {
-                if (MapContainsKey(&car, "id")) {
-                    std::string id = car["id"].as_string();
-                    LOG_INFO("Car with id %s is incomplete, proceeding to the next one\n", id.c_str());
-                } else {
-                    LOG_INFO("Car section incomplete, proceeding to the next one\n");
-                }
-                continue;
-            }
-
-            CarModel newModel;
-            newModel.id = car["id"].as_string();
-            newModel.vendor = CarVendor_t(car["vendor"].as_integer());
-            newModel.year = car["year"].as_integer();
-            newModel.name = car["name"].as_string();
-            if (MapContainsKey(&car, "filename")) {
-                newModel.filename = car["filename"].as_string();
-            }
-            newModel.baseSpeed = car["baseSpeed"].as_integer();
-            newModel.width = car["width"].as_integer();
-            newModel.height = car["height"].as_integer();
-            newModel.offsets.offsetXRearTire = car["rearWheelX"].as_integer();
-            newModel.offsets.offsetXAirScoop = car["hoodScoopX"].as_integer();
-            newModel.offsets.offsetYAirScoop = car["hoodScoopY"].as_integer();
-            newModel.offsets.offsetXFrontTire = car["frontWheelX"].as_integer();
-            newModel.offsets.offsetXDriver = car["driverX"].as_integer();
-            newModel.offsets.offsetYDriver = car["driverY"].as_integer();
-            newModel.index = car["index"].as_integer();
-            // A TOML car names a lib.p body asset, so it follows the Amiga set's conventions.
-            newModel.carSet = kAmigaCarSet;
-            newModel.sprites = AmigaCarSprites(newModel.index);
-            allCarModels.insert(newModel);
-        }
-    } catch (const toml::type_error &e) {
-        LOG_ERROR("%s", e.what());
-    }
-}
-
-void CarData::PrintModel(CarModel model) {
-    LOG_INFO("Car ID: %s", model.id.c_str());
-    LOG_INFO("Vendor: %d", model.vendor);
-    LOG_INFO("Name: %s", model.name.c_str());
-    LOG_INFO("Index: %d", model.index);
-    LOG_INFO("Filename: %s", model.filename.c_str());
-    LOG_INFO("Year: %d", model.year);
-    LOG_INFO("Base Speed: %d", model.baseSpeed);
-    LOG_INFO("Width: %d, Height: %d", model.width, model.height);
-};
 
 CarModel CarData::GetRandomModel() {
     return getRandomElement(allCarModels);

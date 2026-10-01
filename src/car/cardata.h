@@ -10,7 +10,6 @@
 #include <set>
 #include "car/car.h"
 #include "parsers/libp.h"
-#include "include/toml.hpp"
 
 class CarData {
     private:
@@ -20,12 +19,7 @@ class CarData {
         // stock cars and the Street Rod SE ones.
         std::map<int, CarMetadata_t> metadataByIndex;
 
-        bool CarIsValid(toml::table *table);
-        bool MapContainsKey(toml::table *table, const char *key);
-
         DataParser dp;
-        std::string datafile;
-        std::string tomlfile;
 
     public:
         CarData();
@@ -33,21 +27,17 @@ class CarData {
 
         CarMetadata_t GetCarMetadata(int carIndex);
         
-        void ReadEntries(std::vector<uint8_t> datafilebuf, std::string tomlfile, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
+        void ReadEntries(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
 
         // Adds an optional DOS car set's cars. Returns the number of models added.
         int ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
                        const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps);
 
-        CarModel GetModel(char* modelId);
         CarModel GetModelFromIndex(int index);
 
         CarModel CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata);
 
-        void PrintModel(CarModel model);
-
         void ReadCarsBuiltin(std::vector<unsigned char>, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
-        void ReadCarsFromTomlFile(std::string filename);
         CarModel GetRandomModel();
 
         const std::set<CarModel>& GetAllModels() const { return allCarModels; }

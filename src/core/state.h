@@ -122,7 +122,6 @@ private:
     std::unique_ptr<CarDebug> carDebug;
 #endif
 
-    const std::string GetTomlFile();
 
 public:
     State();

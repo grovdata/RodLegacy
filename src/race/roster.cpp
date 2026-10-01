@@ -199,7 +199,7 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
     return car;
 }
 
-// No row (a TOML-only custom car) leaves whatever CarBuilder put in.
+// No row leaves whatever CarBuilder put in.
 void Roster::ApplyCarSpecFor(Car* car, const CarModel& model) {  // NOLINT
 
     const std::vector<SrCarSpecEntry>& specs = state.GetMergedCarSpecs();
