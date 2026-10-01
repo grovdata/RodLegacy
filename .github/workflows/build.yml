@@ -3,7 +3,7 @@ name: Build
 on:
     push:
         branches: [main]
-        tags: ['v*']
+        tags: ["v*"]
     workflow_dispatch:
 
 permissions:
@@ -68,7 +68,6 @@ jobs:
                   install -Dm755 builddir/rodlegacy           stage/usr/bin/rodlegacy
                   install -Dm644 packaging/rodlegacy.desktop  stage/usr/share/applications/rodlegacy.desktop
                   install -Dm644 data/res/icon.png            stage/usr/share/icons/hicolor/512x512/apps/rodlegacy.png
-                  install -Dm644 data/res/icon.svg            stage/usr/share/icons/hicolor/scalable/apps/rodlegacy.svg
                   # install -Dm644 README.md                  stage/usr/share/doc/rodlegacy/README.md
 
             - name: Resolve runtime dependencies
