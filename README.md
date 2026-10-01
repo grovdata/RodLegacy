@@ -3,20 +3,18 @@
 RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
 It aims to stay true to the original, with some enhancements:
 
-# Features
-
-- Play the Amiga version but with glorious framerate and instant loading times
+- Play the Amiga version but with glorious framerate and instant loading times!
 - Add cars from Street Rod SE to get twice the car selection
+- Enjoy both Amiga and beepy DOS soundtrack
 - Load original save files
 - Gamepad controls
 - Hill occlusion in races
 - Extra animations and UI improvements
 - Pause button
-- Amiga and DOS soundtrack
 
 # Status
 
-This is in development, so some bugs are expected but feel free to report them.
+RodLegacy is in development, so some bugs are expected but feel free to report them.
 The game should be playable up to the end, including races against The King.
 Support for Street Rod 2 is planned.
 
@@ -43,7 +41,7 @@ Also listed in the game under Options -> Key bindings.
 
 Keyboard and gamepad both work at any time; whichever you touch last takes over
 the cursor. Any pad SDL recognises as a game controller is picked up
-automatically, hotplug included.
+automatically.
 
 Menus and scenes:
 
@@ -124,7 +122,7 @@ RodLegacy uses these fine libraries:
  - [SFont](https://github.com/karlb/sfont)
  - [toml11](https://github.com/ToruNiina/toml11)
  - [lemon font](https://github.com/cmvnd/fonts)
- - [ISO88591-8x16 (data/font/bee.png), g1-7x8 font](https://github.com/epto/epto-fonts)
+ - [ISO88591-8x16, g1-7x8 fonts](https://github.com/epto/epto-fonts)
  - [doctest](https://github.com/doctest/doctest)
  - [miniz](https://github.com/richgel999/miniz)
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
