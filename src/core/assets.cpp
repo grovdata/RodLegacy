@@ -756,7 +756,7 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
 }
 
 fs::path AssetManager::GetPrefDir() {
-    char* p = SDL_GetPrefPath("se.grovdata", "rodlegacy");
+    char* p = SDL_GetPrefPath("grovdata","rodlegacy");
     if (!p) return {};
     fs::path result = fs::path(p);
     SDL_free(p);

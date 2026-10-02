@@ -28,14 +28,6 @@ The Amiga disk images are *required* to run the game. They can be found for free
 Start RodLegacy and point it to the folder where `sr1amiga.zip` sits.
 Add `srsepc.zip` in the same folder, if you want the DOS SE cars, music, and stickers.
 
-## Config
-
-| OS | Path |
-| --- | --- |
-| macOS | `~/Library/Application Support/se.grovdata/rodlegacy/config.txt` |
-| Linux | `~/.local/share/se.grovdata/rodlegacy/config.txt` |
-| Windows | `%APPDATA%\se.grovdata\rodlegacy\config.txt` |
-
 # Controls
 
 Also listed in the game under Options -> Key bindings.
