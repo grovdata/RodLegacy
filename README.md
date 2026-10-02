@@ -131,10 +131,8 @@ RodLegacy uses these fine libraries:
 
 # License
 
-RodLegacy is licensed under the GNU General Public License v3.0 or later, see [LICENSE](LICENSE).
-Bundled third-party code keeps its own license.
+RodLegacy is licensed under GPLv3 (see LICENSE). The license covers only the code in this repository, not the original game or its data. Bundled third-party code keeps its own license.
 
 # Legal
 
-RodLegacy makes no claim for Street Rod copyright, it contains no assets or original code from the game.
-The copyright sits solely with the owner of [streetrodonline.com](https://www.streetrodonline.com/about/).
+ RodLegacy is a fan-made reimplementation of Street Rod. It contains no original code or assets. Street Rod remains the property of its copyright holder, the owner of  [streetrodonline.com](https://www.streetrodonline.com/about/).
