@@ -144,52 +144,46 @@ void Garage::ApplyPreviewColor() {
 void Garage::UpdatePaintCanPreview() {
     if (!paintCanPreview) return;
 
-    extern const unsigned char embedded_paintcan_png[];
-    extern const size_t embedded_paintcan_png_len;
-
-    SDL_Surface* maskSurface = LoadSurfaceFromMemory(embedded_paintcan_png, embedded_paintcan_png_len);
-    if (!maskSurface) {
-        LOG_INFO("Failed to load embedded paintcan.png");
-        return;
-    }
+    // Car ramp index per pixel of the can in the garage background, '.' is transparent.
+    static const char* const kCan[] = {
+        "..000.00..",
+        "...0...0..",
+        ".22222222.",
+        "2222200022",
+        "22.2220002",
+        "22.2220002",
+        "22.2220002",
+        "22.2220002",
+        "22.2220002",
+        "..2.......",
+        "22.2220002",
+        ".22200002."
+    };
+    constexpr int w = 10;
+    constexpr int h = 12;
 
     std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
 
-    SDL_Surface* rgbaSurface = SDL_ConvertSurfaceFormat(maskSurface, SDL_PIXELFORMAT_RGBA8888, 0);
-    SDL_FreeSurface(maskSurface);
-
+    SDL_Surface* rgbaSurface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
     if (!rgbaSurface) {
-        LOG_INFO("Failed to convert paintcan surface");
+        LOG_INFO("Failed to create paintcan surface");
         return;
     }
 
-    // The mask is grayscale+alpha: opaque brightness maps linearly onto the 9-entry colour ramp.
     SDL_LockSurface(rgbaSurface);
     uint32_t* pixels = static_cast<uint32_t*>(rgbaSurface->pixels);
-    int palSize = static_cast<int>(colorPalette.size());
-
-    for (int y = 0; y < rgbaSurface->h; y++) {
-        for (int x = 0; x < rgbaSurface->w; x++) {
-            int idx = y * rgbaSurface->w + x;
-
-            uint8_t r, g, b, a;
-            SDL_GetRGBA(pixels[idx], rgbaSurface->format, &r, &g, &b, &a);
-
-            if (a == 0) continue;
-
-            int brightness = (r + g + b) / 3;
-            int paletteIndex = brightness * (palSize - 1) / 255;
-            if (paletteIndex >= palSize) paletteIndex = palSize - 1;
-
-            uint16_t amigaColor = colorPalette[paletteIndex];
-            uint8_t newR = ((amigaColor >> 8) & 0x0F) * 17;
-            uint8_t newG = ((amigaColor >> 4) & 0x0F) * 17;
-            uint8_t newB = (amigaColor & 0x0F) * 17;
-
-            pixels[idx] = SDL_MapRGBA(rgbaSurface->format, newR, newG, newB, a);
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            char c = kCan[y][x];
+            uint32_t px = SDL_MapRGBA(rgbaSurface->format, 0, 0, 0, 0);
+            if (c != '.') {
+                uint16_t amigaColor = colorPalette[c - '0'];
+                px = SDL_MapRGBA(rgbaSurface->format, ((amigaColor >> 8) & 0x0F) * 17,
+                                 ((amigaColor >> 4) & 0x0F) * 17, (amigaColor & 0x0F) * 17, 255);
+            }
+            pixels[y * (rgbaSurface->pitch / 4) + x] = px;
         }
     }
-
     SDL_UnlockSurface(rgbaSurface);
 
     paintCanPreview->ReplaceSurface(rgbaSurface);
