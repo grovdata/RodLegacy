@@ -1,5 +1,6 @@
 #include "race/race_end_message.h"
 #include "race/race_sim.h"
+#include "core/game_text.h"
 
 namespace srrace {
 
@@ -17,34 +18,33 @@ bool SettlesBet(const RaceEndContext& ctx) {
     return (ctx.endFlags & (END_COP_CAUGHT | END_STALLED)) == 0;
 }
 
+namespace {
+RaceEndMessage M(GameText::Message id, MessageBox box) { return {GameText::Msg(id), box, id}; }
+}
+
 RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     // Before the other failures: the ticket is added on top of whatever else ended the race.
     // Unable to pay means jail and the end of the run.
     if (ctx.endFlags & END_COP_CAUGHT) {
         if (ctx.bankroll < ctx.speedingFine) {
-            return {"You've been sentenced for debts, Ace`!", MessageBox::Wide};  // 81
+            return M(GameText::JAILED_FOR_DEBTS, MessageBox::Wide);
         }
-        return {"You have been fined $" + std::to_string(ctx.speedingFine) +
-                " for speeding.", MessageBox::Wide};
+        return {GameText::Format(GameText::FINED, ctx.speedingFine), MessageBox::Wide, kFinedMessage};
     }
     switch (ClassifyCrash(ctx)) {
         case CrashOutcome::Forfeited:
             // The car goes with the bet, so no repair bill and no scrap money.
             if (ctx.tiresBlown) {
-                return {"Blew your tires again`?\nYou lose. Take a walk, sucker.",
-                        MessageBox::TwoRow};  // 91
+                return M(GameText::TIRES_BLOWN_PINK, MessageBox::TwoRow);
             }
-            return {"You lose. Take a walk, sucker.", MessageBox::Wide};  // 90
+            return M(GameText::WRECK_PINK, MessageBox::Wide);
         case CrashOutcome::Totaled:
-            return {"Lucky you weren't killed, 'cause the car\nis totaled. You get $" +
-                    std::to_string(ScrapPayout(ctx.carStrippedValue)) + " for scrap.",
-                    MessageBox::TwoRow};  // 92
+            return {GameText::Msg(GameText::TOTALED, ScrapPayout(ctx.carStrippedValue)), MessageBox::TwoRow, GameText::TOTALED};
         case CrashOutcome::DroveAway:
             if (ctx.tiresBlown) {
-                return {"Lucky you're so slow. You only lost\nthe race. But you need new tires.",
-                        MessageBox::TwoRow};  // 94
+                return M(GameText::SLOW_CRASH_TIRES, MessageBox::TwoRow);
             }
-            return {"Lucky you're so slow. You only lost\nthe race.", MessageBox::TwoRow};  // 93
+            return M(GameText::SLOW_CRASH, MessageBox::TwoRow);
         case CrashOutcome::RepairOrJunk:
             // No bubble: straight to the repair quote dialog.
             return {};
@@ -53,47 +53,43 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
     }
     if (ctx.endFlags & END_ENGINE_BLOWN) {
         if (ctx.isPinkSlip) {
-            return {"Blew your engine again`?\nYou lose. Take a walk, sucker.",
-                    MessageBox::TwoRow};  // 89
+            return M(GameText::ENGINE_BLOWN_PINK, MessageBox::TwoRow);
         }
-        return {"Blew your engine again, huh, Ace`?", MessageBox::Wide};  // 87
+        return M(GameText::ENGINE_BLOWN, MessageBox::Wide);
     }
     if (ctx.endFlags & END_TRANS_DROPPED) {
         if (ctx.isPinkSlip) {
-            return {"You just dropped your`transmission`!\nYou lose. Take a walk, sucker.",
-                    MessageBox::TwoRow};  // 88
+            return M(GameText::TRANS_DROPPED_PINK, MessageBox::TwoRow);
         }
-        return {"You just dropped your`transmission,klutz`!", MessageBox::Wide};  // 86
+        return M(GameText::TRANS_DROPPED, MessageBox::Wide);
     }
     if (ctx.endFlags & END_STALLED) {
-        return {"Ya jumped the light, speedy`!", MessageBox::Wide};  // 80
+        return M(GameText::JUMPED_LIGHT, MessageBox::Wide);
     }
 
     if (ctx.playerWon) {
         if (ctx.vsKing) {
-            if (ctx.isDragRace) return {"Beginner's luck, punk`!", MessageBox::Wide};  // 78
-            return {"You ran a good race.\nYou deserve to be King of the County`!",
-                    MessageBox::TwoRow};  // 79
+            if (ctx.isDragRace) return M(GameText::BEAT_KING_DRAG, MessageBox::Wide);
+            return M(GameText::BEAT_KING_ROAD, MessageBox::TwoRow);
         }
-        if (ctx.isPinkSlip) return {"You just won a helluva car.", MessageBox::Wide};  // 77
+        if (ctx.isPinkSlip) return M(GameText::WON_CAR, MessageBox::Wide);
         switch (ctx.betAmount) {
-            case 10:  return {"Big deal. Ten lousy bucks.", MessageBox::Wide};      // 73
-            case 25:  return {"Big deal. Twenty-five bucks.", MessageBox::Wide};    // 74
-            case 50:  return {"Fifty smackers. Not bad.", MessageBox::Wide};        // 75
-            case 100: return {"A hundred smackers, hot shot.", MessageBox::Wide};   // 76
+            case 10:  return M(GameText::WON_10, MessageBox::Wide);
+            case 25:  return M(GameText::WON_25, MessageBox::Wide);
+            case 50:  return M(GameText::WON_50, MessageBox::Wide);
+            case 100: return M(GameText::WON_100, MessageBox::Wide);
             default:  break;
         }
-        return {"You won! Too bad you didn't bet, though.", MessageBox::Wide};  // 72
+        return M(GameText::WON_NO_BET, MessageBox::Wide);
     }
 
     if (ctx.playerLost) {
         if (ctx.vsKing) {
-            if (ctx.isDragRace) return {"Close, but no cigar punk`!", MessageBox::Wide};  // 84
-            return {"I`knew`you'd`choke`when`the`pressure`got`to`ya.\n"
-                    "Better luck next time, sucker`!", MessageBox::TwoRow};  // 85
+            if (ctx.isDragRace) return M(GameText::LOST_TO_KING_DRAG, MessageBox::Wide);
+            return M(GameText::LOST_TO_KING_ROAD, MessageBox::TwoRow);
         }
-        if (ctx.isPinkSlip) return {"Take a walk, sucker.", MessageBox::Narrow};  // 82
-        return {"You lose, sucker.", MessageBox::Narrow};  // 83
+        if (ctx.isPinkSlip) return M(GameText::LOST_PINK_SLIP, MessageBox::Narrow);
+        return M(GameText::LOST, MessageBox::Narrow);
     }
     // No original string for this state.
     return {};

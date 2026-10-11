@@ -42,10 +42,10 @@ struct Reputation {
 
     //   0 = The King will race you
     //   1 = novice, no line from The King at all
-    //   2 = "I don't got time for amateurs like you!"
-    //   3 = "You're doing OK kid, but you're gonna need to win more races!"
-    //   4 = "You're gonna hafta win more drag races!"
-    //   5 = "You're gonna hafta win more road races!"
+    //   2 = GameText::KING_AMATEUR
+    //   3 = GameText::KING_WIN_MORE
+    //   4 = GameText::KING_MORE_DRAG
+    //   5 = GameText::KING_MORE_ROAD
     int GetOpponentTier(int pool_remaining) const {
         if (pool_remaining == 0)
             return 0;

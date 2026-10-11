@@ -18,7 +18,7 @@
 
 enum class HaggleOutcome {
     AskPrice,      // prompt the player for a price, then call SubmitPrice
-    CounterOffer,  // "How about $amount ?", then call AnswerCounterOffer
+    CounterOffer,  // then call AnswerCounterOffer
     Sold,          // deal closed; amount is what the bankroll gains
     Rejected,      // no sale
 };

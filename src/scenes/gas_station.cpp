@@ -1,3 +1,4 @@
+#include "core/game_text.h"
 #include "core/log.h"
 #include "scenes/gas_station.h"
 #include "scenes/gas_station_pump.h"
@@ -34,12 +35,12 @@ GasStation::GasStation()
     GetZone("gas_cap").onClick = [this] {
         if (!CanInteract() || !carBitmap) return;
         if (sceneState == GAS_STATION_HANDLEOFF) {
-            // "Pay attention, dummy!": refuses when the tank is full or the next tick is unaffordable.
+            // Refuses when the tank is full or the next tick is unaffordable.
             Car* car = state.GetCurrentCar();
             bool tankFull = car && car->GetFuelTenths() >= TANK_CAP_TENTHS;
             bool cantAfford = state.GetBankroll() < pricePerTick;
             if (tankFull || cantAfford) {
-                ShowPumpMessage("Pay attention, dummy`!");
+                ShowPumpMessage(GameText::Msg(GameText::PUMP_PAY_ATTENTION));
             } else {
                 sceneState = GAS_STATION_PUMPING;
                 StartPumpDisplay();
@@ -47,11 +48,11 @@ GasStation::GasStation()
                 if (pumpNoHandle) pumpNoHandle->SetVisible(true);
             }
         } else if (sceneState == GAS_STATION_PUMPING) {
-            // "It's not full, speedy!": for putting the handle back early with room and money left.
+            // For putting the handle back early with room and money left.
             Car* car = state.GetCurrentCar();
             if (car && car->GetFuelTenths() < TANK_CAP_TENTHS &&
                 state.GetBankroll() >= pricePerTick) {
-                ShowPumpMessage("It's not full, speedy`!");
+                ShowPumpMessage(GameText::Msg(GameText::PUMP_NOT_FULL));
             }
             sceneState = GAS_STATION_IDLE;
             StopPumpDisplay();
@@ -73,18 +74,17 @@ GasStation::GasStation()
             StartTwinkle(id);
         };
     }
-    // "Get out of my face, dummy!": the trigger is unconfirmed; best guess is clicking Gus.
+    // The trigger is unconfirmed; best guess is clicking Gus.
     GetZone("attendant").onClick = [this] {
         if (!CanInteract()) return;
-        ShowPumpMessage("Get out of my face, dummy`!");
+        ShowPumpMessage(GameText::Msg(GameText::PUMP_GET_OUT));
     };
 
     carx = -GAME_WIDTH;
     cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height);
 
-    // Message 68, box 1 (the wide bubble); the box fixes where it lands.
     auto attendantLine = std::make_unique<Bubble>(
-        "Yo, you need full service, dummy`!", BUBBLE_LEFT, true);
+        GameText::Msg(GameText::PUMP_FULL_SERVICE), BUBBLE_LEFT, true);
     attendantBubble = attendantLine.get();
     bubbles.push_back(std::move(attendantLine));
 

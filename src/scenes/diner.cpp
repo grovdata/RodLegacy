@@ -1,3 +1,4 @@
+#include "core/game_text.h"
 #include "core/log.h"
 #include "scenes/diner.h"
 #include "core/state.h"
@@ -73,7 +74,7 @@ void Diner::Init(bool debugMode) {
     roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
     SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
 
-    auto guyBubble = std::make_unique<Bubble>("What's his name`?", BUBBLE_RIGHT, true);
+    auto guyBubble = std::make_unique<Bubble>(GameText::Msg(GameText::WHATS_HIS_NAME), BUBBLE_RIGHT, true);
     guyBubble->SetVisible(false);
     bubbles.push_back(std::move(guyBubble));
 

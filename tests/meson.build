@@ -29,6 +29,7 @@ test_sources = [
     'test_race_sim.cpp',
     'test_race_end_message.cpp',
     'test_game_clock.cpp',
+    'test_game_text.cpp',
     'test_save_loader.cpp',
     'test_gas_station_pump.cpp',
     'test_engine_bay_layout.cpp',
@@ -52,6 +53,7 @@ test_sources = [
     '../src/race/bet_acceptance.cpp',
     '../src/car/car_haggle.cpp',
     '../src/core/game_clock.cpp',
+    '../src/core/game_text.cpp',
     '../src/core/save_loader.cpp',
     '../src/scenes/gas_station_pump.cpp',
     # carcolor.cpp intentionally excluded: libp.cpp never calls GetStandardCarColor

@@ -1,6 +1,7 @@
 #include "race/challenge.h"
 #include "race/bet_acceptance.h"
 #include "core/state.h"
+#include "core/game_text.h"
 #include "core/log.h"
 #include "core/utils.h"
 #include <cstdlib>
@@ -14,25 +15,12 @@ int Roll(int n) {
 }
 }
 
-// Messages 43-47 and 66, all box 0 (the narrow bubble).
-const std::vector<std::string> Challenge::kInsults = {
-    "Get lost`!",
-    "Give me a break`!",
-    "Get outta my face`!",
-    "Buzz off`!",
-    "Whadda loser`!",
-    "Chicken`!"
-};
-
-// Messages 48-50 and 55-57, all box 0.
-const std::vector<std::string> Challenge::kAcceptances = {
-    "You're on`!",
-    "Alright`!",
-    "Let's go`!",
-    "Cool !",
-    "O.K. !",
-    "Let's hit it`!"
-};
+const std::vector<GameText::Message> Challenge::kInsults = {
+    GameText::INSULT_1, GameText::INSULT_2, GameText::INSULT_3, GameText::INSULT_4, GameText::INSULT_5,
+    GameText::CHICKEN};
+const std::vector<GameText::Message> Challenge::kAcceptances = {
+    GameText::ACCEPT_1, GameText::ACCEPT_2, GameText::ACCEPT_3,
+    GameText::DRAG_ACCEPT_1, GameText::DRAG_ACCEPT_2, GameText::DRAG_ACCEPT_3};
 
 static Dialog* MakeDialog(const std::vector<std::string>& labels,
                            SFont_Font* font,
@@ -89,7 +77,7 @@ void Challenge::Taunt() {
     dialog.reset();
     insultFromOpponent = false;
     tauntOnly = true;
-    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
+    ShowSpeech(GameText::Msg(kInsults[Roll(static_cast<int>(kInsults.size()))]));
     insultTimer = 0.0f;
     LOG_INFO("Challenge::Taunt");
 }
@@ -115,21 +103,11 @@ void Challenge::OpenKing(SFont_Font* f) {
     // Before he is unlocked, one of four lines by reputation tier; tier 1 is silent.
     const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive());
     if (tier != 0) {
-        const char* line = nullptr;
-        BubbleStyle style = BUBBLE_LEFT;
-        switch (tier) {
-            case 2: line = "I don't got time for amateurs like you`!"; break;
-            case 3:
-                line = "You're doing OK kid, but you're gonna\nneed to win more races`!";
-                style = BUBBLE_RIGHT_TWO_LINES;
-                break;
-            case 4: line = "You're gonna hafta win more drag races`!"; break;
-            case 5: line = "You're gonna hafta win more road races`!"; break;
-            default: break;  // tier 1: silent
-        }
-        if (line) {
+        static const GameText::Message kTierLines[] = {
+            GameText::KING_AMATEUR, GameText::KING_WIN_MORE, GameText::KING_MORE_DRAG, GameText::KING_MORE_ROAD};
+        if (tier >= 2 && tier <= 5) {
             step = Step::None;
-            ShowSpeech(line, style);
+            ShowSpeech(GameText::Msg(kTierLines[tier - 2]), tier == 3 ? BUBBLE_RIGHT_TWO_LINES : BUBBLE_LEFT);
             insultTimer = 0.0f;
             insultFromOpponent = false;
         }
@@ -142,8 +120,7 @@ void Challenge::OpenKing(SFont_Font* f) {
         Car* car = state.GetCurrentCar();
         if (!car || car->GetFuelTenths() < 22) {
             step = Step::None;
-            ShowSpeech("You're gonna hafta get more gas\nbefore you race.",
-                       BUBBLE_RIGHT_TWO_LINES);
+            ShowSpeech(GameText::Msg(GameText::KING_NEED_GAS), BUBBLE_RIGHT_TWO_LINES);
             insultTimer = 0.0f;
             insultFromOpponent = false;
             LOG_INFO("Challenge::OpenKing - refused, not enough fuel");
@@ -156,10 +133,9 @@ void Challenge::OpenKing(SFont_Font* f) {
     step = Step::None;
     dialog.reset();
     if (qualified) {
-        ShowSpeech("Cool, dude`! Get your pink slip out,\nand let's go`!",
-                   BUBBLE_RIGHT_TWO_LINES);
+        ShowSpeech(GameText::Msg(GameText::KING_PINK_SLIP_ON), BUBBLE_RIGHT_TWO_LINES);
     } else {
-        ShowSpeech("You're on! Let's hit the drag race`!", BUBBLE_LEFT);
+        ShowSpeech(GameText::Msg(GameText::KING_DRAG_ON), BUBBLE_LEFT);
     }
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::OpenKing - race pending, qualified=%d", qualified);
@@ -280,7 +256,7 @@ void Challenge::ShowSpeech(const std::string& text, BubbleStyle style) {
 void Challenge::Accept() {
     step = Step::None;
     dialog.reset();
-    ShowSpeech(kAcceptances[Roll(static_cast<int>(kAcceptances.size()))]);
+    ShowSpeech(GameText::Msg(kAcceptances[Roll(static_cast<int>(kAcceptances.size()))]));
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::Accept - race pending");
 }
@@ -289,7 +265,7 @@ void Challenge::Reject() {
     step = Step::None;
     dialog.reset();
     insultFromOpponent = false;
-    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
+    ShowSpeech(GameText::Msg(kInsults[Roll(static_cast<int>(kInsults.size()))]));
     insultTimer = 0.0f;
     LOG_INFO("Challenge::Reject - player backed out");
 }
@@ -300,7 +276,7 @@ void Challenge::OpponentRejectsBet() {
     dialog.reset();
     ++betAttempts;
     insultFromOpponent = true;
-    ShowSpeech(kInsults[Roll(static_cast<int>(kInsults.size()))]);
+    ShowSpeech(GameText::Msg(kInsults[Roll(static_cast<int>(kInsults.size()))]));
     insultTimer = 0.0f;
     LOG_INFO("Challenge::OpponentRejectsBet - attempt %d/%d", betAttempts, kMaxBetAttempts);
 }

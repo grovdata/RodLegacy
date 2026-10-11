@@ -2,6 +2,7 @@
 
 #include "garage/garage.h"
 #include "core/state.h"
+#include "core/game_text.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
 #include "core/utils.h"
@@ -73,9 +74,7 @@ void Garage::SellSparePart(int row) {
     const int price = PartSalePrice(spare.category, spare.value, spare.wear, roll20(RandomEngine()));
 
     // A worthless part gets its own line rather than an offer of $0.
-    const std::string title = price == 0
-        ? "I'll take it off your hands for nothing."
-        : "Will you take $" + std::to_string(price) + " ?";
+    const std::string title = price == 0 ? GameText::Msg(GameText::BUYER_FOR_NOTHING) : GameText::Msg(GameText::BUYER_OFFER, price);
 
     sparePartsDialog->Hide();
 
@@ -136,7 +135,7 @@ void Garage::ShowCounterOfferDialog(int amount) {
     cfg.font = state.GetAssets().GetMainFont();
     cfg.texts = std::vector<DialogTextConfig>{
         DialogTextConfig{SDL_Rect{38, 101, 248, 10}, haggleCar->GetModel().name, {0x00, 0x00, 0x00, 0xFF}, true},
-        DialogTextConfig{SDL_Rect{38, 111, 248, 10}, "How about $" + std::to_string(amount) + " ?",
+        DialogTextConfig{SDL_Rect{38, 111, 248, 10}, GameText::Msg(GameText::HAGGLE_COUNTER, amount),
                          {0x00, 0x00, 0x00, 0xFF}, true}
     };
     cfg.buttons = std::vector<ButtonConfig>{
@@ -184,20 +183,21 @@ void Garage::ShowHaggleMessage(HaggleMessage message) {
     if (bubbles.size() <= kSellerBubble) return;
 
     // The backtick renders as a narrow space.
-    const char* text = "";
+    GameText::Message id = GameText::HAGGLE_NO_THANKS;
     BubbleStyle style = BUBBLE_RIGHT;
     switch (message) {
-        case HaggleMessage::MustBeKidding: text = "You must be kidding`!"; break;
-        case HaggleMessage::NoWay:         text = "No way`!"; break;
-        case HaggleMessage::GetLost:       text = "Get lost`!"; break;
-        case HaggleMessage::NoThanks:      text = "No thanks`!"; break;
-        case HaggleMessage::IllTakeIt:     text = "I'll take it`!"; break;
+        case HaggleMessage::MustBeKidding: id = GameText::HAGGLE_KIDDING; break;
+        case HaggleMessage::NoWay:         id = GameText::HAGGLE_NO_WAY; break;
+        case HaggleMessage::GetLost:       id = GameText::HAGGLE_GET_LOST; break;
+        case HaggleMessage::NoThanks:      id = GameText::HAGGLE_NO_THANKS; break;
+        case HaggleMessage::IllTakeIt:     id = GameText::HAGGLE_TAKE_IT; break;
         case HaggleMessage::MustBeCrazy:
-            text = "You must be crazy. I'll take it`!";
+            id = GameText::HAGGLE_CRAZY_TAKE_IT;
             style = BUBBLE_LEFT;
             break;
         case HaggleMessage::None:          return;
     }
+    const std::string text = GameText::Msg(id);
     bubbles[kSellerBubble]->SetText(text, style);
     bubbles[kSellerBubble]->SetVisible(true);
 }

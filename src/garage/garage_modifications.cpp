@@ -20,7 +20,7 @@ void Garage::ShowBumperDialog(bool isFront) {
         bubbles[4]->SetVisible(false);
     }
 
-    // A car with no record for the clicked bumper gets message 33 instead of the dialog.
+    // A car with no record for the clicked bumper gets BUMPER_GONE instead of the dialog.
     if (state.GetCurrentCar()) {
         const CarSprites& sprites = state.GetCurrentCar()->GetModelRef().sprites;
         bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();

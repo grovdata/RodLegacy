@@ -1,3 +1,4 @@
+#include "core/game_text.h"
 #include "core/log.h"
 #include "race/driving.h"
 #include "core/state.h"
@@ -710,17 +711,16 @@ void Driving::OnFadeComplete() {
 
 // Dialog 24: two lines of race stats, no buttons. The original's backticks render as spaces.
 void Driving::ShowStatsDialog() {
-    char line1[80];
-    char line2[80];
+    std::string line1;
+    std::string line2;
     if (raceEndWon) {
-        snprintf(line1, sizeof(line1), "Your winning time %d.%d sec., avg. speed %2d mph",
-                 raceEndTimeTenths / 10, raceEndTimeTenths % 10, raceEndAvgSpeed);
-        snprintf(line2, sizeof(line2), "Congratulations !");
+        line1 = GameText::Format(GameText::WINNING_TIME, raceEndTimeTenths / 10, raceEndTimeTenths % 10,
+                                 raceEndAvgSpeed);
+        line2 = GameText::Get(GameText::CONGRATULATIONS);
     } else {
-        snprintf(line1, sizeof(line1), "In %d.%d sec you covered only %2d%%",
-                 raceEndTimeTenths / 10, raceEndTimeTenths % 10, raceEndPercent);
-        snprintf(line2, sizeof(line2), "of the distance. Your avg. speed %2d mph.",
-                 raceEndAvgSpeed);
+        line1 = GameText::Format(GameText::COVERED_ONLY, raceEndTimeTenths / 10, raceEndTimeTenths % 10,
+                                 raceEndPercent);
+        line2 = GameText::Format(GameText::OF_DISTANCE, raceEndAvgSpeed);
     }
 
     const SDL_Rect bounds = {7, 7, 255, 28};
@@ -769,18 +769,16 @@ void Driving::ShowWreckDialog(const srrace::RaceEndContext& ctx) {
     const int junk = srrace::JunkPayout(ctx.carValue);
     const bool affordable = cost <= state.GetBankroll();
 
-    const std::string quote = (ctx.crashSpeed > 60)
-        ? "$" + std::to_string(cost) + " for parts and you are back on the streets."
-        : "Damn. It'll cost $" + std::to_string(cost) + " to get this baby running.";
+    const std::string quote = GameText::Get(ctx.crashSpeed > 60 ? GameText::REPAIR_PARTS : GameText::REPAIR_COST, cost);
 
     SDL_Rect dialogRect = {34, 90, 252, 56};
     std::vector<DialogTextConfig> texts = {
-        DialogTextConfig{SDL_Rect{38, 94, 248, 10}, "Oh, well, it could have been worse.",
+        DialogTextConfig{SDL_Rect{38, 94, 248, 10}, GameText::Get(GameText::COULD_BE_WORSE),
                          {0x00, 0x00, 0x00, 0xFF}, true},
         DialogTextConfig{SDL_Rect{38, 104, 248, 10}, quote, {0x00, 0x00, 0x00, 0xFF}, true}
     };
     if (ctx.tiresBlown) {
-        texts.push_back(DialogTextConfig{SDL_Rect{38, 114, 248, 10}, "Plus tires !",
+        texts.push_back(DialogTextConfig{SDL_Rect{38, 114, 248, 10}, GameText::Get(GameText::PLUS_TIRES),
                                          {0x00, 0x00, 0x00, 0xFF}, true});
     }
 

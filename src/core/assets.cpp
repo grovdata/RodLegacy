@@ -1,5 +1,6 @@
 #include "core/log.h"
 #include "core/assets.h"
+#include "core/game_text.h"
 
 #include <exepack/unpack.hpp>
 
@@ -194,6 +195,7 @@ void AssetManager::InitGameFiles() {
     }
 
     srExeData_vec    = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "Street_Rod");
+    GameText::Load(srExeData_vec);
     libStartData_vec = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "libstart.p");
     libPData_vec     = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "lib.p");
     srData_vec       = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "SR_Data");

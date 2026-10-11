@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "core/game_text.h"
 #include "dialogs/dialog.h"
 #include "ui/bubble.h"
 #include "gfx/SFont.h"
@@ -59,8 +60,8 @@ private:
     // Set by Taunt(): nothing is pending when the insult timer runs out.
     bool tauntOnly = false;
 
-    static const std::vector<std::string> kInsults;
-    static const std::vector<std::string> kAcceptances;
+    static const std::vector<GameText::Message> kInsults;
+    static const std::vector<GameText::Message> kAcceptances;
 
     void ShowRaceTypeDialog();
     void ShowDragBetDialog();

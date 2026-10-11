@@ -102,7 +102,6 @@ class Car {
         bool HasEngine() const { return engineFitted; }
         bool HasGearbox() const { return gearboxFitted; }
         bool HasManifold() const { return manifoldFitted; }
-        // "Your car's not running, speedy!"
         bool IsRunning() const;
         int GetFuelTenths() const { return fuelTenths; }
         void SetFuelTenths(int tenths) { fuelTenths = tenths; }

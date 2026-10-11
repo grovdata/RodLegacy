@@ -164,7 +164,7 @@ public:
     void RebuildCarSets();
     void GenerateClassifieds();
 
-    // No car, no spares, and less than the cheapest car in the paper: "You're outta dough."
+    // No car, no spares, and less than the cheapest car in the paper.
     bool IsOutOfDough() const;
 
     // Fined more than you had: the diner seen from a cell.

@@ -35,9 +35,13 @@ enum class MessageBox {
     TwoRow,  // box 2: 232x46, two rows
 };
 
+// The speeding fine is not in the message table.
+constexpr int kFinedMessage = -1;
+
 struct RaceEndMessage {
     std::string text;                    // empty = no bubble at all
     MessageBox box = MessageBox::Wide;
+    int id = 0;                          // 0 = none
 };
 
 RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx);

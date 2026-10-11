@@ -174,6 +174,7 @@ cpp_sources = files(
     'core/save_loader.cpp',
     'core/save_file.cpp',
     'core/game_clock.cpp',
+    'core/game_text.cpp',
     'race/bet_acceptance.cpp',
     'debug/debug_overlay.cpp',
     'audio/audio_manager.cpp',

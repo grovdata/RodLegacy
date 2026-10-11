@@ -1,3 +1,4 @@
+#include "core/game_text.h"
 #include "core/log.h"
 #include "scenes/newspaper.h"
 #include <sstream>
@@ -151,7 +152,7 @@ Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWS
         Update();
     };
 
-    auto cantAffordBubble = std::make_unique<Bubble>("No go, hot shot.", BUBBLE_LEFT, true);
+    auto cantAffordBubble = std::make_unique<Bubble>(GameText::Msg(GameText::CANT_AFFORD_SHORT), BUBBLE_LEFT, true);
     cantAffordBubble->SetVisible(false);
     bubbles.push_back(std::move(cantAffordBubble));
 }
@@ -804,7 +805,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                     LOG_INFO("Not enough money to buy car %d (need $%d, have $%d)",
                             carIndex, price, state.GetBankroll());
                     int short_ = price - state.GetBankroll();
-                    bubbles[0]->SetText("  No go, hot shot. You're $" + std::to_string(short_) + " short.");
+                    bubbles[0]->SetText("  " + GameText::Msg(GameText::CANT_AFFORD_SHORT, short_));
                     bubbles[0]->SetVisible(true);
                 } else if (!state.GetClassifiedCars()[carIndex]) {
                     LOG_INFO("Car %d already sold", carIndex);
@@ -879,7 +880,7 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                     LOG_INFO("Not enough money to buy part %d (need $%d, have $%d)",
                             partIndex, price, state.GetBankroll());
                     int short_ = price - state.GetBankroll();
-                    bubbles[0]->SetText("  No go, hot shot. You're $" + std::to_string(short_) + " short.");
+                    bubbles[0]->SetText("  " + GameText::Msg(GameText::CANT_AFFORD_SHORT, short_));
                     bubbles[0]->SetVisible(true);
                 } else {
                     // Costs no game time, and the parts catalog is standing, so stay on the paper.

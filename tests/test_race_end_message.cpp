@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 #include "race/race_end_message.h"
 #include "race/race_sim.h"
+#include "core/game_text.h"
 
 using srrace::RaceEndContext;
 using srrace::BuildRaceEndReason;
@@ -12,7 +13,7 @@ TEST_CASE("cop caught, can afford the fine") {
     ctx.endFlags = srrace::END_COP_CAUGHT;
     ctx.speedingFine = 50;
     ctx.bankroll = 100;
-    CHECK(BuildRaceEndReason(ctx).text == "You have been fined $50 for speeding.");
+    CHECK(BuildRaceEndReason(ctx).id == srrace::kFinedMessage);
 }
 
 TEST_CASE("cop caught, cannot afford the fine") {
@@ -20,7 +21,7 @@ TEST_CASE("cop caught, cannot afford the fine") {
     ctx.endFlags = srrace::END_COP_CAUGHT;
     ctx.speedingFine = 50;
     ctx.bankroll = 49;
-    CHECK(BuildRaceEndReason(ctx).text == "You've been sentenced for debts, Ace`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::JAILED_FOR_DEBTS);
 }
 
 TEST_CASE("cop caught takes priority over a simultaneous playerLost/win flag") {
@@ -29,39 +30,39 @@ TEST_CASE("cop caught takes priority over a simultaneous playerLost/win flag") {
     ctx.speedingFine = 0;
     ctx.bankroll = 0;
     ctx.playerLost = true;
-    CHECK(BuildRaceEndReason(ctx).text == "You have been fined $0 for speeding.");
+    CHECK(BuildRaceEndReason(ctx).id == srrace::kFinedMessage);
 }
 
 TEST_CASE("hit the NPC") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_HIT_NPC;
     ctx.crashSpeed = 20;
-    CHECK(BuildRaceEndReason(ctx).text == "Lucky you're so slow. You only lost\nthe race.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::SLOW_CRASH);
 }
 
 TEST_CASE("hit the wall") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_WALL_HIT;
     ctx.crashSpeed = 20;
-    CHECK(BuildRaceEndReason(ctx).text == "Lucky you're so slow. You only lost\nthe race.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::SLOW_CRASH);
 }
 
 TEST_CASE("engine blown") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_ENGINE_BLOWN;
-    CHECK(BuildRaceEndReason(ctx).text == "Blew your engine again, huh, Ace`?");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::ENGINE_BLOWN);
 }
 
 TEST_CASE("transmission dropped") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_TRANS_DROPPED;
-    CHECK(BuildRaceEndReason(ctx).text == "You just dropped your`transmission,klutz`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::TRANS_DROPPED);
 }
 
 TEST_CASE("stalled / jumped the light") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_STALLED;
-    CHECK(BuildRaceEndReason(ctx).text == "Ya jumped the light, speedy`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::JUMPED_LIGHT);
 }
 
 }
@@ -73,49 +74,49 @@ TEST_CASE("pink slip win") {
     ctx.playerWon = true;
     ctx.isPinkSlip = true;
     ctx.betAmount = 0;  // pink slip races carry no cash stake
-    CHECK(BuildRaceEndReason(ctx).text == "You just won a helluva car.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_CAR);
 }
 
 TEST_CASE("$10 win") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 10;
-    CHECK(BuildRaceEndReason(ctx).text == "Big deal. Ten lousy bucks.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_10);
 }
 
 TEST_CASE("$25 win") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 25;
-    CHECK(BuildRaceEndReason(ctx).text == "Big deal. Twenty-five bucks.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_25);
 }
 
 TEST_CASE("$50 win") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 50;
-    CHECK(BuildRaceEndReason(ctx).text == "Fifty smackers. Not bad.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_50);
 }
 
 TEST_CASE("$100 win") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 100;
-    CHECK(BuildRaceEndReason(ctx).text == "A hundred smackers, hot shot.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_100);
 }
 
 TEST_CASE("win with no bet (just for kicks)") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 0;
-    CHECK(BuildRaceEndReason(ctx).text == "You won! Too bad you didn't bet, though.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_NO_BET);
 }
 
 TEST_CASE("win with an unlisted bet amount falls back to the no-bet line") {
     RaceEndContext ctx;
     ctx.playerWon = true;
     ctx.betAmount = 999;
-    CHECK(BuildRaceEndReason(ctx).text == "You won! Too bad you didn't bet, though.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_NO_BET);
 }
 
 }
@@ -127,18 +128,18 @@ TEST_CASE("a plain loss is the same line on the strip and the road") {
     ctx.playerLost = true;
     ctx.betAmount = 25;
     ctx.isDragRace = true;
-    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST);
     ctx.isDragRace = false;
-    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST);
     ctx.tiresBlown = true;
-    CHECK(BuildRaceEndReason(ctx).text == "You lose, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST);
 }
 
 TEST_CASE("a plain pink-slip loss") {
     RaceEndContext ctx;
     ctx.playerLost = true;
     ctx.isPinkSlip = true;
-    CHECK(BuildRaceEndReason(ctx).text == "Take a walk, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST_PINK_SLIP);
 }
 
 TEST_CASE("losing to The King") {
@@ -146,11 +147,10 @@ TEST_CASE("losing to The King") {
     ctx.playerLost = true;
     ctx.vsKing = true;
     ctx.isDragRace = true;
-    CHECK(BuildRaceEndReason(ctx).text == "Close, but no cigar punk`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST_TO_KING_DRAG);
     ctx.isDragRace = false;
     ctx.isPinkSlip = true;
-    CHECK(BuildRaceEndReason(ctx).text ==
-          "I`knew`you'd`choke`when`the`pressure`got`to`ya.\nBetter luck next time, sucker`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::LOST_TO_KING_ROAD);
 }
 
 TEST_CASE("beating The King") {
@@ -158,11 +158,10 @@ TEST_CASE("beating The King") {
     ctx.playerWon = true;
     ctx.vsKing = true;
     ctx.isDragRace = true;
-    CHECK(BuildRaceEndReason(ctx).text == "Beginner's luck, punk`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::BEAT_KING_DRAG);
     ctx.isDragRace = false;
     ctx.isPinkSlip = true;
-    CHECK(BuildRaceEndReason(ctx).text ==
-          "You ran a good race.\nYou deserve to be King of the County`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::BEAT_KING_ROAD);
 }
 
 TEST_CASE("a broken drivetrain in a pink-slip race loses the car too") {
@@ -170,12 +169,11 @@ TEST_CASE("a broken drivetrain in a pink-slip race loses the car too") {
     ctx.playerLost = true;
     ctx.isPinkSlip = true;
     ctx.endFlags = srrace::END_ENGINE_BLOWN;
-    CHECK(BuildRaceEndReason(ctx).text == "Blew your engine again`?\nYou lose. Take a walk, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::ENGINE_BLOWN_PINK);
     ctx.endFlags = srrace::END_TRANS_DROPPED;
-    CHECK(BuildRaceEndReason(ctx).text ==
-          "You just dropped your`transmission`!\nYou lose. Take a walk, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::TRANS_DROPPED_PINK);
     ctx.isPinkSlip = false;
-    CHECK(BuildRaceEndReason(ctx).text == "You just dropped your`transmission,klutz`!");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::TRANS_DROPPED);
 }
 
 }
@@ -205,7 +203,7 @@ TEST_CASE("pink slip: the car is forfeited whatever the speed") {
     ctx.isPinkSlip = true;
     ctx.crashSpeed = 120;
     CHECK(ClassifyCrash(ctx) == CrashOutcome::Forfeited);
-    CHECK(BuildRaceEndReason(ctx).text == "You lose. Take a walk, sucker.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WRECK_PINK);
 }
 
 TEST_CASE("tier boundaries: 30 drives away, 31 gets a quote, 90 too, 91 totals it") {
@@ -227,15 +225,15 @@ TEST_CASE("totaled prints the scrap payout, value/10 + 19") {
     ctx.crashSpeed = 100;
     ctx.carStrippedValue = 1000;
     CHECK(srrace::ScrapPayout(ctx.carStrippedValue) == 119);
-    CHECK(BuildRaceEndReason(ctx).text ==
-          "Lucky you weren't killed, 'cause the car\nis totaled. You get $119 for scrap.");
+    CHECK(BuildRaceEndReason(ctx).id == GameText::TOTALED);
+    CHECK(GameText::ReplaceNumber("is totaled. You get $123 for scrap.", 119) == "is totaled. You get $119 for scrap.");
 }
 
 TEST_CASE("the repair-quote tier has no bubble of its own") {
     RaceEndContext ctx;
     ctx.endFlags = srrace::END_WALL_HIT;
     ctx.crashSpeed = 50;
-    CHECK(BuildRaceEndReason(ctx).text.empty());
+    CHECK(BuildRaceEndReason(ctx).id == 0);
 }
 
 TEST_CASE("payout and quote arithmetic") {
@@ -282,7 +280,7 @@ TEST_SUITE("BuildRaceEndReason - fallback") {
 
 TEST_CASE("no flags, not won, not lost -> no message") {
     RaceEndContext ctx;
-    CHECK(BuildRaceEndReason(ctx).text == "");
+    CHECK(BuildRaceEndReason(ctx).id == 0);
 }
 
 }
