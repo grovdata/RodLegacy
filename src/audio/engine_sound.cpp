@@ -1,5 +1,6 @@
 #include "core/log.h"
 #include "audio/engine_sound.h"
+#include "audio/record_tap.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -112,13 +113,13 @@ void EngineSound::UpdateRPM(int16_t rpm) {
     rpmVolumeScale = std::min(1.0f, v);
 }
 
-void EngineSound::UpdatePeriod(int16_t period) {
+void EngineSound::UpdatePeriod(int16_t period, int paulaVolume) {
     if (period <= 0) return;
 
     // Callers pass final periods; the original's +6 is on the volume argument.
     float frequency = 3579545.0f / static_cast<float>(period);
-    // Clear any rev gain left over from a race.
-    rpmVolumeScale = 1.0f;
+    constexpr float kRedlinePaulaVolume = 28.0f;
+    rpmVolumeScale = paulaVolume > 0 ? std::min(1.0f, static_cast<float>(paulaVolume) / kRedlinePaulaVolume) : 1.0f;
     currentFreqMultiplierR = frequency / 16000.0f;
     currentFreqMultiplier = frequency / 16000.0f;
 }
@@ -148,6 +149,7 @@ void EngineSound::SetVolume(float volume) {
 void EngineSound::AudioCallback(void* userdata, Uint8* stream, int len) {
     EngineSound* engine = static_cast<EngineSound*>(userdata);
     engine->FillAudioBuffer(stream, len);
+    record_tap::Write("engine", engine->audioSpec.freq, engine->audioSpec.channels, stream, len);
 }
 
 void EngineSound::FillAudioBuffer(Uint8* stream, int len) {

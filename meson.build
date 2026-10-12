@@ -1,14 +1,12 @@
 project('streetrod_legacy', ['cpp', 'c'],
-  # Single source of truth for the version: bump it here and the binary,
-  # the Windows exe resource and the CI artifact names all follow.
-  version : '0.5.0',
+  version : '0.6.0',
   license : 'GPL-3.0-or-later',
   license_files : 'LICENSE',
   default_options : [
     'warning_level=2',
     'cpp_std=c++17', # needed for fs::path maybe rewrite
     'buildtype=debug',
-    'default_library=static', # Build dependencies as static libraries
+    'default_library=static',
   ]
 )
 
@@ -16,7 +14,6 @@ project('streetrod_legacy', ['cpp', 'c'],
 sdl2_dep = dependency('sdl2', static: true)
 
 # Platform-specific SDL2 dependencies will be handled in src/meson.build
-
 
 subdir('src')
 
@@ -83,6 +80,7 @@ if sdl3_dep.found()
     executable('sr2_dos_player',
         sources: [
             'src/tools/sr2_dos_player/sr2_dos_player.cpp',
+            'src/audio/sr2_mus.cpp',
             'src/include/opl3/opl3.c',
         ],
         include_directories: [inc_dirs],

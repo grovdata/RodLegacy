@@ -26,7 +26,11 @@ struct PartCatalogEntry {
     CarburetorType carbType;
     ManifoldType manifoldType;
     CarWheelType tireType;
+    int sr2Class;        // SrExhaustManifold / SrMuffler / SrDifferential
 };
+
+// The catalogue's own name for a part, as the original's car info prints it. Empty when there is none.
+std::string CatalogPartName(PartCategory category, CarVendor_t vendor, int typeValue);
 
 class Newspaper : public Scene {
 private:
@@ -81,7 +85,7 @@ private:
     int lastClickY = 0;
 
     void InitPageOne();
-    void SetHeadline(AmigaLibAsset asset);
+    void SetHeadline(int asset);
     void InitPageAds();
     void LoadClassifiedsData();
     void CreateClassifiedAds();

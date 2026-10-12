@@ -178,14 +178,14 @@ TEST_SUITE("RacerPool::BuildSelectionPool") {
 TEST_CASE("returns at most SELECTION_POOL_SIZE indices") {
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
-    auto sel = rp.BuildSelectionPool(85, -1);
+    auto sel = rp.BuildSelectionPool(85, 0, -1);
     CHECK(static_cast<int>(sel.size()) <= SELECTION_POOL_SIZE);
 }
 
 TEST_CASE("all indices are valid pool indices") {
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
-    auto sel = rp.BuildSelectionPool(85, -1);
+    auto sel = rp.BuildSelectionPool(85, 0, -1);
     for (int idx : sel) {
         CHECK(idx >= 0);
         CHECK(idx < RACER_POOL_SIZE);
@@ -196,7 +196,7 @@ TEST_CASE("eliminated entries are excluded") {
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
     rp.pool[0].status = -1;
-    auto sel = rp.BuildSelectionPool(85, -1);
+    auto sel = rp.BuildSelectionPool(85, 0, -1);
     CHECK(std::find(sel.begin(), sel.end(), 0) == sel.end());
 }
 
@@ -204,13 +204,37 @@ TEST_CASE("last_chosen_index is excluded when alternatives exist") {
     RacerPool rp;
     rp.Init(MakeCarSpecTable());
     // Pick first challenger, then ensure last_chosen is excluded from next pool.
-    auto sel1 = rp.BuildSelectionPool(85, -1);
+    auto sel1 = rp.BuildSelectionPool(85, 0, -1);
     REQUIRE(!sel1.empty());
     int chosen = sel1[0];
-    auto sel2 = rp.BuildSelectionPool(85, chosen);
+    auto sel2 = rp.BuildSelectionPool(85, 0, chosen);
     if (sel2.size() > 0) {
         CHECK(std::find(sel2.begin(), sel2.end(), chosen) == sel2.end());
     }
+}
+
+TEST_CASE("class swap: same class leaves the list in score order") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    for (auto& e : rp.pool) e.car_spec_index = 0;  // all class 0, all the same score
+    auto sel = rp.BuildSelectionPool(85, 0, -1);
+    CHECK(sel == std::vector<int>{0, 1, 2, 3, 4, 5, 6, 7, 8});
+}
+
+TEST_CASE("class swap: entries past the sixth give way to the closest when the class is far off") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    for (auto& e : rp.pool) e.car_spec_index = 0;
+    auto sel = rp.BuildSelectionPool(85, 6, -1);
+    CHECK(sel == std::vector<int>{0, 1, 2, 3, 4, 5, 2, 1, 0});
+}
+
+TEST_CASE("last_chosen is removed everywhere the swap duplicated it") {
+    RacerPool rp;
+    rp.Init(MakeCarSpecTable());
+    for (auto& e : rp.pool) e.car_spec_index = 0;
+    auto sel = rp.BuildSelectionPool(85, 6, 0);
+    CHECK(sel == std::vector<int>{1, 2, 3, 4, 5, 2, 1});
 }
 
 TEST_CASE("last_chosen kept if only one active entry remains") {
@@ -218,7 +242,7 @@ TEST_CASE("last_chosen kept if only one active entry remains") {
     rp.Init(MakeCarSpecTable());
     // Eliminate all but one.
     for (int i = 1; i < RACER_POOL_SIZE; ++i) rp.pool[i].status = -1;
-    auto sel = rp.BuildSelectionPool(85, 0);
+    auto sel = rp.BuildSelectionPool(85, 0, 0);
     CHECK(sel.size() == 1);
     CHECK(sel[0] == 0);
 }
@@ -467,7 +491,7 @@ TEST_CASE("returns empty vector when data is too short for both blocks") {
 TEST_CASE("parses SR_DATA_CARSPEC_ENTRY_COUNT entries") {
     DataParser parser;
     const size_t driver_block  = SR_DATA_DRIVER_ENTRY_COUNT  * sizeof(SrDriverData);
-    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * SR_DATA_CARSPEC_RECORD_SIZE;
     std::vector<uint8_t> buf(driver_block + carspec_block, 0);
     // Set entry 0's class byte (offset +2 in the record) to 2.
     buf[driver_block + 2] = 2;
@@ -479,10 +503,10 @@ TEST_CASE("parses SR_DATA_CARSPEC_ENTRY_COUNT entries") {
 TEST_CASE("all 26 entries are parsed") {
     DataParser parser;
     const size_t driver_block  = SR_DATA_DRIVER_ENTRY_COUNT  * sizeof(SrDriverData);
-    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * SR_DATA_CARSPEC_RECORD_SIZE;
     std::vector<uint8_t> buf(driver_block + carspec_block, 0);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
-        buf[driver_block + i * sizeof(SrCarSpecEntry) + 2] = static_cast<uint8_t>(i % 4);
+        buf[driver_block + i * SR_DATA_CARSPEC_RECORD_SIZE + 2] = static_cast<uint8_t>(i % 4);
     }
     auto result = parser.ParseCarSpecTable(buf);
     REQUIRE(result.size() == SR_DATA_CARSPEC_ENTRY_COUNT);
@@ -533,12 +557,12 @@ TEST_CASE("driver names and portraits come out of SR_data") {
 
     // Portraits are a stored per-driver assignment, not a sequential run.
     CHECK(drivers[0].PortraitAsset() == 344);
-    CHECK(drivers[1].PortraitAsset() == DRIVER_01);
+    CHECK(drivers[1].PortraitAsset() == DRIVER_FIRST);
     CHECK(drivers[SR_DATA_KING_DRIVER_INDEX].PortraitAsset() == DRIVER_THE_KING);
 
     // Every named driver's portrait is inside the driver sprite range.
     for (int i = 0; i < SR_DATA_KING_DRIVER_INDEX; ++i) {
-        CHECK(drivers[i].PortraitAsset() >= DRIVER_01);
+        CHECK(drivers[i].PortraitAsset() >= DRIVER_FIRST);
         CHECK(drivers[i].PortraitAsset() <= DRIVER_KINGS_GIRLFRIEND);
     }
 }

@@ -40,6 +40,8 @@ class Car {
         // Initialised: a CarBuilder car has no colour until its caller sets one.
         StandardCarColor color = CarColorRed;
         int tuneLevel = kPerfectTuneLevel;
+        // Street Rod 2's tune is a signed byte (car+0x3c), 0 perfect, its distance subtracted from the score.
+        int sr2Tune = 0;
 
         Part gearbox;
         Part tires;
@@ -62,6 +64,12 @@ class Car {
         // Scoring classes from the SR_data spec, which are finer than RodLegacy's enums. -1 = derive from the parts.
         int specEngineClass = -1;
         int specManifoldClass = -1;
+
+        // Street Rod 2's three extra fitted parts, as classes.
+        int exhaust = SR_EXHAUST_STOCK;
+        int muffler = SR_MUFFLER_STOCK;
+        bool mufflerRemoved = false;
+        int differential = SR_DIFF_3_73;
 
         int topSpeed;
 
@@ -106,6 +114,8 @@ class Car {
         int GetFuelTenths() const { return fuelTenths; }
         void SetFuelTenths(int tenths) { fuelTenths = tenths; }
         int GetTuneLevel() const { return tuneLevel; }
+        int GetSr2Tune() const { return sr2Tune; }
+        void SetSr2Tune(int tune) { sr2Tune = std::clamp(tune, -128, 127); RecalculatePerformance(); }
         CarModel GetModel();
         const CarModel& GetModelRef() const { return model; }
         SrLibCarDecal GetDecal();
@@ -120,11 +130,25 @@ class Car {
         // Tier 0..2: the spec's class while the spec engine is in, the fitted part's tier after a swap.
         int GetEngineClass() const;
         int GetSpecManifoldClass() const { return specManifoldClass; }
+
+        int GetExhaust() const { return exhaust; }
+        int GetMuffler() const { return muffler; }
+        bool IsMufflerRemoved() const { return mufflerRemoved; }
+        int GetDifferential() const { return differential; }
+        void SetSr2Parts(int exhaustCls, int mufflerCls, int differentialCls) {
+            exhaust = exhaustCls;
+            muffler = mufflerCls;
+            differential = differentialCls;
+            RecalculatePerformance();
+        }
+        // The one slot Street Rod 2 lets you leave empty.
+        void SetMufflerRemoved(bool removed) { mufflerRemoved = removed; RecalculatePerformance(); }
         void SetSpecPartClasses(int engineCls, int manifoldCls) {
             specEngineClass = engineCls;
             specManifoldClass = manifoldCls;
             // The spec's manifold class is what decides the carb mounts.
             RefitCarburetorMounts();
+            RecalculatePerformance();
         }
 
         bool CanChopRoof() const { return model.constraints.canChopRoof; }

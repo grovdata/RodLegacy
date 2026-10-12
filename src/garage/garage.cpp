@@ -1,6 +1,6 @@
+#include "core/game_text.h"
 #include "garage/garage.h"
 #include "core/state.h"
-#include "core/game_text.h"
 #include "ui/hud.h"
 #include "ui/bubble.h"
 #include "ui/checkbox.h"
@@ -14,20 +14,32 @@
 #include "car/engine_part.h"
 #include "parsers/libp.h"
 #include "scenes/scene_layout.h"
+#include "race/grudge.h"
+#include "scenes/grudge_night.h"
 #include <SDL_image.h>
 #include <algorithm>
 
-Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN}) {
+namespace {
+bool IsSr2() { return state.GetAssets().GetGame() == SrGame::SR2; }
+
+Asset GarageBackground() {
+    if (IsSr2()) return (Asset){LibAssetRegular, SrLibFileAmigaLibP, SR2_GARAGE_SCREEN, SrGame::SR2};
+    return (Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_SCREEN};
+}
+}
+
+Garage::Garage() : CarScene(GarageBackground()) {
     signRect = {72, 44, 195, 12};
 
-    zones = SceneLayout::Load(embedded_garage_toml);
+    zones = SceneLayout::Load(IsSr2() ? embedded_garage_sr2_toml : embedded_garage_toml);
 
-    GetZone("drink").onClick = [this] {
+    if (Zone* drink = ZoneById("drink")) drink->onClick = [this] {
         if (!CanInteract()) return;
         bubbles[0]->SetVisible(true);
     };
     GetZone("newspaper").onClick = [this] {
         if (!CanInteract()) return;
+        tripReturnTicks = 300;
         state.MoveToScene(SCENE_NEWSPAPER);
     };
     GetZone("tires").onClick = [this] {
@@ -45,9 +57,10 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (!CanInteract()) return;
         Car* car = state.GetCurrentCar();
         if (!car) { bubbles[7]->SetVisible(true); return; }
-        // 14.0 gal is full enough; below that, no trip without a dollar to spend.
-        if (car->GetFuelTenths() >= 140) { bubbles[kFullTankBubble]->SetVisible(true); return; }
+        // SR2's main loop 0x257ee8: full at 130.
+        if (car->GetFuelTenths() >= (IsSr2() ? 130 : 140)) { bubbles[kFullTankBubble]->SetVisible(true); return; }
         if (state.GetBankroll() == 0) { bubbles[kGasNotFreeBubble]->SetVisible(true); return; }
+        StartTrip();
         state.MoveToScene(SCENE_GAS_STATION);
     };
     GetZone("car_info").onClick = [this] {
@@ -71,7 +84,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
             state.GetAssets().SaveSettings();
         }
     };
-    GetZone("stickers").onClick = [this] {
+    if (Zone* stickers = ZoneById("stickers")) stickers->onClick = [this] {
         if (!CanInteract()) return;
         if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
         stickerScrollRow = 0;
@@ -108,7 +121,29 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
         if (!car) { bubbles[7]->SetVisible(true); return; }
         if (!car->IsRunning()) { bubbles[13]->SetVisible(true); return; }
         if (car->GetFuelTenths() < 9) { bubbles[kNotEnoughGasBubble]->SetVisible(true); return; }
+        StartTrip();
         state.MoveToScene(SCENE_DINER);
+    };
+    if (Zone* grudge = ZoneById("grudge_night")) grudge->onClick = [this] {
+        if (!CanInteract()) return;
+        Car* car = state.GetCurrentCar();
+        if (!car) { bubbles[7]->SetVisible(true); return; }
+        if (!srrace::GrudgeNightOpen(GameClock::DayNumber(state.GetElapsedTicks()))) {
+            bubbles[kNotWednesdayBubble]->SetVisible(true);
+            return;
+        }
+        if (!car->IsRunning()) { bubbles[13]->SetVisible(true); return; }
+        if (car->GetFuelTenths() < srrace::GRUDGE_MIN_GAS) { bubbles[kNotEnoughGasBubble]->SetVisible(true); return; }
+        if (state.GetBankroll() < srrace::GRUDGE_ENTRY_FEE) { bubbles[kNoGrudgeStakeBubble]->SetVisible(true); return; }
+        state.GetGrudgeNight()->Begin();
+        StartTrip();
+        state.MoveToScene(SCENE_GRUDGE_NIGHT);
+    };
+    if (Zone* underCar = ZoneById("under_car")) underCar->onClick = [this] {
+        if (!CanInteract()) return;
+        if (!state.GetCurrentCar()) { bubbles[7]->SetVisible(true); return; }
+        if (creeperPhase != CreeperPhase::REST) return;
+        StartCreeperRoll();
     };
     GetZone("rear_bumper").onClick = [this] {
         if (!CanInteract()) return;
@@ -130,6 +165,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     };
     GetZone("engine").onClick = [this] {
         if (!CanInteract()) return;
+        if (IsSr2()) { OpenSr2EngineBay(); return; }
         engineBay->ResetToOverview();
         SetActiveDialog((Dialog*)engineBay->GetDialog());
     };
@@ -189,7 +225,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     outOfDoughBubble->SetVisible(false);
     bubbles.push_back(std::move(outOfDoughBubble));
     auto notEnoughGasBubble = std::make_unique<Bubble>(
-        GameText::Msg(GameText::NOT_ENOUGH_GAS), BUBBLE_RIGHT_TWO_LINES, true);
+        GameText::Msg(GameText::NOT_ENOUGH_GAS),
+        BUBBLE_RIGHT_TWO_LINES, true);
     notEnoughGasBubble->SetVisible(false);
     bubbles.push_back(std::move(notEnoughGasBubble));
     auto fullTankBubble = std::make_unique<Bubble>(GameText::Msg(GameText::TANK_FULL), BUBBLE_RIGHT, true);
@@ -198,6 +235,16 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     auto gasNotFreeBubble = std::make_unique<Bubble>(GameText::Msg(GameText::GAS_NOT_FREE), BUBBLE_RIGHT, true);
     gasNotFreeBubble->SetVisible(false);
     bubbles.push_back(std::move(gasNotFreeBubble));
+    auto notWednesdayBubble = std::make_unique<Bubble>(GameText::Msg(GameText::NOT_WEDNESDAY), BUBBLE_RIGHT, true);
+    notWednesdayBubble->SetVisible(false);
+    bubbles.push_back(std::move(notWednesdayBubble));
+    auto noGrudgeStakeBubble = std::make_unique<Bubble>(
+        GameText::Msg(GameText::NO_GRUDGE_STAKE), BUBBLE_RIGHT, true);
+    noGrudgeStakeBubble->SetVisible(false);
+    bubbles.push_back(std::move(noGrudgeStakeBubble));
+    auto noSpareSr2Bubble = std::make_unique<Bubble>(GameText::Msg(GameText::NO_SPARE_MUFFLER), BUBBLE_LEFT, true);
+    noSpareSr2Bubble->SetVisible(false);
+    bubbles.push_back(std::move(noSpareSr2Bubble));
 
     currentPointer = SrLibAmigaSpriteAssetMousePointerWrench;
 
@@ -390,8 +437,8 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     originalColor = currentCarColor;
     LOG_INFO("Garage constructor: Initializing paint can to current car color %d", (int)currentCarColor);
 
-    paintCanPreview = std::make_unique<Bitmap>(10, 12, 2);
-    paintCanPreview->SetPosition(233, 166);
+    paintCanPreview = std::make_unique<Bitmap>(10, IsSr2() ? 9 : 12, 2);
+    paintCanPreview->SetPosition(IsSr2() ? 208 : 233, IsSr2() ? 174 : 166);
     paintCanPreview->SetVisible(true);
     UpdatePaintCanPreview();
 
@@ -399,7 +446,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     InitOptionsDialog();
     InitBumperDialogs();
 
-    engineBay = std::make_unique<EngineBay>(
+    if (!IsSr2()) engineBay = std::make_unique<EngineBay>(
         state.GetCurrentCar()->GetTuneLevel(),
         state,
         [this](int buttonIndex) {
@@ -409,7 +456,7 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
                         // Nothing to tune while the engine is in pieces.
                         Car* car = state.GetCurrentCar();
                         if (!car || !car->IsRunning()) {
-                            bubbles[13]->SetVisible(true);
+                            BayHint(GameText::Msg(GameText::CANT_TUNE));
                             break;
                         }
                         engineBay->SwitchToState(ENGINE_BAY_TUNING);
@@ -440,8 +487,11 @@ Garage::Garage() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GARAGE_
     );
 
 
-    auto* jackBitmap = state.GetAssets().GetBitmapAsset(
-        {LibAssetRegular, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
+    // Street Rod 2's jack sheet has the same frames: three poses and the floor patch.
+    auto* jackBitmap = IsSr2() ? state.GetAssets().GetBitmapAsset(
+                                     {LibAssetRegular, SrLibFileAmigaLibP, SR2_CAR_JACK, SrGame::SR2})
+                               : state.GetAssets().GetBitmapAsset(
+                                     {LibAssetRegular, SrLibFileAmigaLibP, CAR_JACK_ANIMATION});
     if (jackBitmap) {
         const SpriteAnimationInfo* animInfo = GetSpriteAnimationInfo(CAR_JACK_ANIMATION);
         if (animInfo && animInfo->frameCount > 0) {
@@ -508,6 +558,16 @@ void Garage::DrawScene() {
         InitOptionsDialog();
         SetActiveDialog(optionsDialog.get());
     }
+    if (rebuildSound_) {
+        rebuildSound_ = false;
+        InitSoundDialog();
+        SetActiveDialog(soundDialog.get());
+    }
+    if (rebuildVideo_) {
+        rebuildVideo_ = false;
+        InitVideoDialog();
+        SetActiveDialog(videoDialog.get());
+    }
     if (rebuildRadio_) {
         rebuildRadio_ = false;
         ShowRadioDialog();
@@ -532,8 +592,11 @@ void Garage::DrawScene() {
     UpdateTireChangeAnimation(deltaTime);
     UpdateTransmissionInstallAnimation(deltaTime);
     UpdateEngineBayInstallAnimation(deltaTime);
+    UpdateSr2MachineAnimation(deltaTime);
+    UpdateSr2Creeper(deltaTime);
 
     Scene::DrawScene();
+    DrawSr2Fixtures(false);
 
     if (tireChangePhase != TireChangePhase::IDLE && jackAnim && jackLastFrameRect.w > 0) {
         SDL_Rect dstRect = {138, 157, jackLastFrameRect.w, jackLastFrameRect.h};
@@ -580,7 +643,7 @@ void Garage::DrawScene() {
 
         if (tireChangePhase != TireChangePhase::IDLE) {
             if (jackAnim) {
-                int jackX = (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
+                int jackX = IsSr2() ? 138 : (carBitmap->GetRearWheelPos().x + carBitmap->GetFrontWheelPos().x) / 2;
                 jackAnim->SetPosition(jackX, (int)jackYPos);
                 jackAnim->SetVisible(true);
                 jackAnim->Draw();
@@ -637,6 +700,8 @@ void Garage::DrawScene() {
     }
 
 
+    DrawSr2Fixtures(true);
+
     DrawDebugZones();
 
     SDL_RenderCopy(renderer, signTexture, NULL, NULL);
@@ -665,6 +730,13 @@ void Garage::DrawScene() {
     if (engineBay && engineBayPickerActive && engineBay->GetDialog()->IsVisible()) {
         engineBay->GetDialog()->Draw();
     }
+    if (sr2BayDirty) {
+        sr2BayDirty = false;
+        Sr2BayRebuild();
+    }
+    if (sr2BayList && activeDialog == sr2BayList.get() && sr2BayDialog && sr2BayDialog->IsVisible()) {
+        sr2BayDialog->Draw();
+    }
 
     if (activeDialog && activeDialog->IsVisible()) {
         activeDialog->Draw();
@@ -686,8 +758,16 @@ void Garage::OnFadeComplete() {
 }
 
 // With the car gone, nothing to sell and no money, the run is over.
+// The main loop charges two hours for the cruise out and two for the way back (SR1 0x2432d0, SR2 lmain.c 0x257ec6).
+void Garage::StartTrip() {
+    state.AdvanceTicks(300);
+    tripReturnTicks = 300;
+}
+
 void Garage::OnSceneEnter() {
     CarScene::OnSceneEnter();
+    state.AdvanceTicks(tripReturnTicks);
+    tripReturnTicks = 0;
     outOfDough = state.IsOutOfDough();
     LOG_INFO("Garage: enter - car=%d owned=%zu spares(t/x/m/c/e)=%zu/%zu/%zu/%zu/%zu "
              "bank=%d -> outOfDough=%d",
@@ -712,7 +792,7 @@ void Garage::SetActiveDialog(Dialog *dialog) {
     CarScene::SetActiveDialog(dialog);
 
     // Show() turned every bitmap on; hide the unused mounts, then whatever is apart.
-    if (dialog == engineBay->GetDialog()) {
+    if (engineBay && dialog == engineBay->GetDialog()) {
         engineBay->OnDialogShown();
         ApplyEngineBayAssemblyState();
     }

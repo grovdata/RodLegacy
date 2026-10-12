@@ -21,6 +21,10 @@ struct RaceEndContext {
     bool vsKing = false;
     int betAmount = 0;
     bool isDragRace = false;      // currentTrackType == SR_TRACK_DRAG_RACE
+    bool isSr2 = false;
+    bool isAqueduct = false;
+    // Grudge Night speaks for itself.
+    bool isGrudge = false;
     bool tiresBlown = false; // endFlags & END_TIRES_BLOWN
     int speedingFine = 0;         // sim.SpeedingFine()
     int bankroll = 0;             // state.GetBankroll()

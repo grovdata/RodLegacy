@@ -39,6 +39,12 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
 bool sr_exe_build_known_songs(const std::vector<std::vector<SrNote>>& segs,
                               std::vector<std::vector<SrNote>>& out_songs);
 
+// Street Rod 2's background tune (song_select(5594, 540C, 5432)) from its unpacked SR.EXE, each section played as
+// often as the loop table says (14 sections, 22161 ticks), split like SR1's into songs that each open with the
+// same intro section: four. False if the data is not there.
+// ponytail: no vibrato, like the SR1 songs here.
+bool sr2_exe_build_songs(const uint8_t* data, size_t size, std::vector<std::vector<SrNote>>& out);
+
 // Square wave with a ~72.8 Hz scheduler in the callback, matching the original INT 8 ISR rate.
 
 class PCSpeaker {

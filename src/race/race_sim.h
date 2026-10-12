@@ -11,8 +11,10 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <vector>
 
 #include "race/race_types.h"
+#include "race/aqueduct.h"
 
 namespace srrace {
 
@@ -42,13 +44,33 @@ constexpr uint16_t END_WALL_HIT = 0x20;
 // The only place the original sets 0x40.
 constexpr uint16_t END_COP_CAUGHT = 0x40;
 constexpr uint16_t END_STALLED = 0x80;  // also used for a jumped-start false start
-// NPC-only and not an original flag: the opponent conceded in the last quarter.
-constexpr uint16_t END_GAVE_UP = 0x0100;
+// Street Rod 2 only: the grudge strip is run one car to a lane.
+constexpr uint16_t END_CROSSED_LINE = 0x0100;
+// last quarter" marker (NpcAiUpdate), kept clear of the original's bits.
+constexpr uint16_t END_GAVE_UP = 0x0200;
 
 // Player failure states that freeze the car and end the race as a loss.
 constexpr uint16_t END_FAILURE_MASK =
     END_HIT_NPC | END_ENGINE_BLOWN | END_TRANS_DROPPED | END_WALL_HIT | END_STALLED |
-    END_COP_CAUGHT;
+    END_COP_CAUGHT | END_CROSSED_LINE;
+
+// The sim's fixed step.
+constexpr int RACE_TICK_HZ = 15;
+// Countdowns and staging deadlines are NOT on that clock.
+constexpr int RACE_FRAME_HZ = 50;
+
+inline int RaceFramesToTicks(int frames) {
+    return (frames * RACE_TICK_HZ + RACE_FRAME_HZ / 2) / RACE_FRAME_HZ;
+}
+
+// The speed a scraped edge is survivable at, jroad.c 0x246830 / 0x24689e:
+// `cmpi.w #0x27` against the speedometer, so 39 mph and under.
+constexpr int EDGE_DROP_MAX_MPH = 39;
+// And how far short of the right edge the grudge strip's limit sits.
+constexpr int GRUDGE_RIGHT_LIMIT = 180;
+
+// How far right of the road's midpoint the grudge lane starts.
+constexpr int GRUDGE_CENTRE_LINE_MARGIN = 150;
 
 // The two impacts that bend metal and put the wrecked interior on screen.
 constexpr uint16_t END_WRECK_MASK = END_WALL_HIT | END_HIT_NPC;
@@ -73,6 +95,7 @@ struct CarSetup {
     int tireClass = 0;      // 0=stock, 1=brand, 2=racing slicks
     int weightClass = 4;    // SR_data car-spec class byte 0..8, indexes weight_pts
     int tuneOffset = 0;     // |tune distance from perfect|, 0..8
+    int sr2Tune = 0;        // Street Rod 2's signed tune byte, -128..127
     int carbWear = 0;       // wear values 0..10000
     int engineWear = 0;
     int transWear = 0;
@@ -82,6 +105,12 @@ struct CarSetup {
     bool frontBumperRemoved = false;  // +5
     bool rearBumperRemoved = false;   // +1
     bool supercharger = false;
+
+    // Street Rod 2's three extra fitted parts.
+    int exhaust = 0;             // 0=stock, 1=tube headers
+    int muffler = 0;             // 0=stock, 1=glass pack
+    bool mufflerRemoved = false; // SR2's "Remove current muffler"
+    int differential = 1;        // 0=2.78:1, 1=3.73:1, 2=4.11:1
     int driverSkill = 130;  // 0..130 (0x82); player uses 130
     // Driver record byte [2]: 0x04 (best) .. 0x0c (worst), for the side-swipe roll and cornering cap.
     int aggression = 8;
@@ -112,7 +141,31 @@ struct CarTables {
 // Default: tune scored as (1 - |tune|) * 20/8 as on the 68k (the stock 1940 Chevy reads 92 mph, best car 122).
 // Uncapped: (8 - |tune|) * 20/8, which lets a perfect car reach the 130 cap.
 void SetUncapTopSpeed(bool enabled);
+
+// Street Rod 2's Amiga build compares shifted part fields with unshifted masks, so tube headers, the glass pack, the
+// 4.11:1 gear and the slicks bonus never apply, and its tune is worth under 1 mph. On, the PC build's behaviour.
+void SetSr2BugFixes(bool enabled);
+bool Sr2BugFixes();
 bool UncapTopSpeed();
+
+// Both games lay the physics tables out identically at different offsets, with a differently sized scoring block in the middle.
+enum class PhysicsTableSource { StreetRod, StreetRod2 };
+
+// Replaces the physics tables with the ones in the player's own executable. Returns false and keeps the fallbacks if they are not where expected.
+bool LoadPhysicsTables(const std::vector<uint8_t>& exeData, PhysicsTableSource from);
+
+// Reads the four scoring tables (carburettor, transmission, engine x manifold grid, weight class) from the executable.
+// The grid is 3 x 5 in Street Rod and 3 x 9 in Street Rod 2. Returns false and keeps the built-in copy if not found.
+bool LoadScoringTables(const std::vector<uint8_t>& exeData, PhysicsTableSource from);
+
+// Width of the engine x manifold grid for the loaded tables.
+int ScoringManifoldCount();
+
+// Street Rod 2's muffler and differential adjust each gear's RPM gain (lmech.c FUN_0025850a). Headers, glass pack and the 4.11:1 gear never take effect in the original.
+int Sr2AdjustRpmGain(int gain, const CarSetup& setup);
+
+// Adjusts the performance score by differential: only 2.78:1 does anything, +5% top speed (lmech.c FUN_00258218).
+int Sr2AdjustScore(int score, int differential);
 
 // 70 + a 0..100 point score scaled by the transmission, so 70..100 (67..94 by default).
 int ComputeBasePerformance(const CarSetup& setup);
@@ -190,8 +243,9 @@ struct NpcState {
 
 class RaceSim {
 public:
-    // track must outlive the sim. raceType: 0 = drag (finish 380), 1 = road (finish 1020). kingRace suppresses the cop.
-    void Init(const TrackData* track, int raceType,
+    // track must outlive the sim. The kind decides where the race starts and
+    // finishes - see RaceWindowFor.
+    void Init(const TrackData* track, RaceKind kind,
               const CarSetup& playerSetup, const CarSetup& npcSetup,
               uint32_t rngSeed, bool kingRace = false);
 
@@ -204,7 +258,15 @@ public:
     const CarTables& PlayerTables() const { return playerTables; }
     const CarTables& NpcTables() const { return npcTables; }
     const NpcState& NpcAi() const { return npcAi; }
-    int RaceType() const { return raceType; }
+    RaceKind Kind() const { return kind; }
+    // Street Rod's road race is the only one this port spawns a cop in.
+    bool IsRoadRace() const { return kind == RaceKind::Road; }
+    int StartSegment() const { return window.start; }
+    int16_t RoadEdgeLeft() const { return edgeLeft; }
+    int16_t RoadEdgeRight() const { return edgeRight; }
+
+    // Which way the car went over the edge on Mulholland.
+    int FallDirection() const { return fallDir; }
     int FinishSegment() const { return finishSeg; }
     // A cruise starts further back and runs to the drag finish at the arch.
     void BeginCruiseAt(int seg) {
@@ -219,8 +281,14 @@ public:
     bool InCountdown() const { return phase == RacePhase::Countdown; }
     int CountdownTicks() const { return countdownTicks; }
 
-    // Crossing the line does not end the race: a roll-out follows until the car stops. PlayerWonAtLine() is the
-    // verdict latched at the line.
+    // The bracket handicap.
+    void SetLaunchHandicap(int playerFrames, int opponentFrames) {
+        const int playerTicks = RaceFramesToTicks(playerFrames);
+        countdownTicks = playerTicks > 0 ? playerTicks : 1;
+        npcLaunchOffset = RaceFramesToTicks(opponentFrames) - playerTicks;
+    }
+    int NpcLaunchOffset() const { return npcLaunchOffset; }
+
     bool RaceOver() const {
         return ((player.endFlags | npc.endFlags) & END_FINISHED) != 0;
     }
@@ -289,7 +357,40 @@ private:
     void ApplyLateralDrift(CarState& car, int16_t handling);
     // One place for the invulnerable toggle to filter.
     void AddPlayerEndFlags(uint16_t flags);
+    void LogCrash(const char* why) const;
     void CheckEdgeCollision();
+    void ShedEdgeSpeed();
+    // The Aqueduct's walls replace the road's edges.
+    void CheckAqueductWalls();
+
+public:
+    // The channel's own flag array, for the obstacles. Null outside an
+    // Aqueduct race, and the obstacle check is skipped then.
+    void SetAqueductTrack(const AqueductTrack* t) { aqueductTrack = t; }
+    bool BlockedByObstacle() const { return obstacleBlocked; }
+    // Set by the renderer: a block's face reached the car's scanline (A4+0x26d8). The next tick crashes on it.
+    void SetAqueductBlockHit(bool hit) { aqueductBlockHit = hit; }
+
+    // Rollover state, Aqueduct only.
+    int AqueductRoll() const { return aqueductRoll; }
+    int AqueductVjerk() const { return aqueductVjerk; }
+    bool IsRollingOver() const { return rollFrameIndex < rollFrameCount; }
+
+private:
+    // A rollover is eight steps plus a settling frame; the low-speed bank is
+    // a single frame.
+    const AqueductTrack* aqueductTrack = nullptr;
+    bool obstacleBlocked = false;
+    // lrace.c FUN_00259ad2's latch: after a stop the next frame is not checked, so the car creeps on.
+    bool obstacleLatch = false;
+    bool aqueductBlockHit = false;
+    AqueductRollFrame rollFrames[10] = {};
+    int rollFrameCount = 0;
+    int rollFrameIndex = 0;
+    int aqueductRoll = 0;
+    int aqueductVjerk = 0;
+    // Street Rod 2's rock and oil, Mulholland only.
+    void CheckOnRoadHazards();
     void CheckNpcContact();
     void SpawnCop();
     void UpdateCopPursuit();
@@ -304,7 +405,9 @@ private:
                     bool brake, bool shift);
 
     const TrackData* track = nullptr;
-    int raceType = 1;
+    int fallDir = 0;
+    RaceKind kind = RaceKind::Road;
+    RaceWindow window = RaceWindowFor(RaceKind::Road);
     int finishSeg = ROAD_FINISH_SEG;
     CarSetup playerSetup, npcSetup;
     CarTables playerTables, npcTables;
@@ -333,6 +436,8 @@ private:
     RaceRng rng;
     RacePhase phase = RacePhase::Running;
     int countdownTicks = 0;
+    // Grudge Night's bracket handicap: where the opponent's green sits relative to the player's.
+    int npcLaunchOffset = 0;
 };
 
 // Speed (mph) -> scroll step 0..16.

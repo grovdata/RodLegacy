@@ -6,13 +6,15 @@
 
 #include "parsers/libp.h"
 #include "race/race_sim.h"
+#include "race/track_gen.h"
+#include "race/grudge.h"
 #include "race/race_types.h"
 
 namespace srrace {
 namespace {
 
-TrackData MakeFlatTrack() {
-    TrackData track{};
+srrace::TrackData MakeFlatTrack() {
+    srrace::TrackData track{};
     for (int i = 0; i < TRACK_SEGMENTS; ++i) {
         track.left[i] = 0;
         track.right[i] = 0;
@@ -23,9 +25,7 @@ TrackData MakeFlatTrack() {
     return track;
 }
 
-// Shifts at or under 5000 rpm: above that a manual rolls the ~3% money-shift, which drops the box and made
-// these tests fail at random. Tests that want a dropped box power-shift explicitly.
-uint16_t ThrottleWithShiftIfNeeded(const RaceSim& sim) {
+uint16_t ThrottleWithShiftIfNeeded(const srrace::RaceSim& sim) {
     const CarState& player = sim.Player();
     const CarTables& tables = sim.PlayerTables();
     const bool canShiftUp = player.gear < tables.numGears - 1;
@@ -33,17 +33,16 @@ uint16_t ThrottleWithShiftIfNeeded(const RaceSim& sim) {
     const int shiftRpm = std::min<int>(tables.autoShiftRpm, 3600);
     uint16_t input = 0;
     if (canShiftUp && player.rpm >= shiftRpm) {
-        input |= INPUT_SHIFT | INPUT_THROTTLE;
+        input |= INPUT_SHIFT | srrace::INPUT_THROTTLE;
     } else if (player.rpm >= 5600) {
         // Lift near redline, or the engine blows after ~15 ticks on the limiter.
     } else {
-        input |= INPUT_THROTTLE;
+        input |= srrace::INPUT_THROTTLE;
     }
     return input;
 }
 
-// Idle through the countdown so the caller can floor it at the green.
-void RunOutCountdown(RaceSim& sim) {
+void RunOutCountdown(srrace::RaceSim& sim) {
     for (int i = 0; i < 400 && sim.InCountdown(); ++i) {
         sim.Tick(0);
     }
@@ -62,11 +61,10 @@ CarSetup CopTestSetup() {
     return setup;
 }
 
-// A seed where the 1-in-4 spawn roll does not arm a cop, so kingRace can be toggled alone.
-uint32_t SeedWithoutCop(const TrackData& track, const CarSetup& setup) {
+uint32_t SeedWithoutCop(const srrace::TrackData& track, const CarSetup& setup) {
     for (uint32_t seed = 1; seed < 500; ++seed) {
-        RaceSim probe;
-        probe.Init(&track, 1, setup, setup, seed);
+        srrace::RaceSim probe;
+        probe.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
         if (probe.CopState() == 0) {
             return seed;
         }
@@ -74,10 +72,10 @@ uint32_t SeedWithoutCop(const TrackData& track, const CarSetup& setup) {
     return 0;
 }
 
-uint32_t SeedThatArmsCop(const TrackData& track, const CarSetup& setup) {
+uint32_t SeedThatArmsCop(const srrace::TrackData& track, const CarSetup& setup) {
     for (uint32_t seed = 1; seed < 500; ++seed) {
-        RaceSim probe;
-        probe.Init(&track, 1, setup, setup, seed);
+        srrace::RaceSim probe;
+        probe.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
         if (probe.CopState() == 1) {
             return seed;
         }
@@ -85,10 +83,9 @@ uint32_t SeedThatArmsCop(const TrackData& track, const CarSetup& setup) {
     return 0;
 }
 
-// Arms the cop, drops the player past the trigger with the opponent well behind, and ticks once.
-void StartCopPursuit(RaceSim& sim, const TrackData& track, const CarSetup& setup,
+void StartCopPursuit(srrace::RaceSim& sim, const srrace::TrackData& track, const CarSetup& setup,
                      uint32_t seed) {
-    sim.Init(&track, 1, setup, setup, seed);
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
     REQUIRE(sim.CopState() == 1);
     sim.SetCameraState(sim.CopTriggerSegment() + 1, 0, 0, 2560, 0);
     sim.SetNpcDebugPose(sim.CopTriggerSegment() - 100, 2200);
@@ -122,6 +119,263 @@ CarSetup PerfectCar() {
     return setup;
 }
 
+}
+
+TEST_CASE("the grudge handicap stages the two cars separately") {
+    srrace::TrackData track{};
+    srrace::RaceRng rng(0x1234u);
+    srrace::RoadLayoutInit(track, rng, 1, srrace::TrackGenSource::StreetRod2);
+    srrace::BuildGrudgeStrip(track);
+    const CarSetup setup = PerfectCar();
+
+    // Nothing on the pedals while staged - throttle in gear before your own
+    // green is a false start, which is the point of having two deadlines.
+    auto stage = [](srrace::RaceSim& sim) { sim.Tick(0); };
+    auto drive = [](srrace::RaceSim& sim) {
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
+    };
+
+    // The deadlines are the original's frames, so the sim spends them at its own
+    // tick rate: 110 frames is a little over two seconds either way.
+    const int baseTicks = srrace::RaceFramesToTicks(srrace::GRUDGE_STAGE_FRAMES);
+    CHECK(baseTicks == 33);
+
+    // Equal dials: one green, and the opponent waits for it too.
+    {
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Grudge, setup, setup, 7u);
+        const auto delay = srrace::GrudgeStageDelays(120, 120);
+        sim.SetLaunchHandicap(delay.playerFrames, delay.opponentFrames);
+        CHECK(sim.NpcLaunchOffset() == 0);
+        const int16_t npcStart = sim.Npc().segPos;
+        int ticks = 0;
+        while (sim.Phase() == srrace::RacePhase::Countdown && ticks < 4000) {
+            stage(sim);
+            ++ticks;
+        }
+        CHECK(ticks == baseTicks);
+        CHECK(sim.Npc().segPos == npcStart);
+        CHECK(sim.Npc().speed == 0);
+    }
+
+    // The player's dial is the quicker one, so the player waits and the
+    // opponent is already gone by the time the player gets the green.
+    {
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Grudge, setup, setup, 7u);
+        const auto delay = srrace::GrudgeStageDelays(100, 160);
+        sim.SetLaunchHandicap(delay.playerFrames, delay.opponentFrames);
+        CHECK(delay.playerFrames == srrace::GRUDGE_STAGE_FRAMES + 60 * 7);
+        const int heldTicks = srrace::RaceFramesToTicks(delay.playerFrames);
+        CHECK(sim.NpcLaunchOffset() == baseTicks - heldTicks);
+        const int16_t npcStart = sim.Npc().segPos;
+        int ticks = 0;
+        while (sim.Phase() == srrace::RacePhase::Countdown && ticks < 4000) {
+            stage(sim);
+            ++ticks;
+        }
+        CHECK(ticks == heldTicks);
+        CHECK(sim.Npc().segPos > npcStart);
+        CHECK(sim.Player().speed == 0);
+        // Staying off the pedals is not a jumped start, however long the wait.
+        CHECK((sim.Player().endFlags & srrace::END_STALLED) == 0);
+    }
+
+    // And the other way round: the player launches on the base stage time and
+    // the opponent is pinned for the difference.
+    {
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Grudge, setup, setup, 7u);
+        const auto delay = srrace::GrudgeStageDelays(160, 100);
+        sim.SetLaunchHandicap(delay.playerFrames, delay.opponentFrames);
+        CHECK(delay.playerFrames == srrace::GRUDGE_STAGE_FRAMES);
+        const int holdTicks =
+            srrace::RaceFramesToTicks(delay.opponentFrames) - baseTicks;
+        CHECK(sim.NpcLaunchOffset() == holdTicks);
+        const int16_t npcStart = sim.Npc().segPos;
+        const int16_t playerStart = sim.Player().segPos;
+        int ticks = 0;
+        while (sim.Phase() == srrace::RacePhase::Countdown && ticks < 4000) {
+            stage(sim);
+            ++ticks;
+        }
+        CHECK(ticks == baseTicks);
+        CHECK(sim.Npc().segPos == npcStart);
+
+        // Held while the player drives away. Position, not speed: the hold runs
+        // out long after the player has left the line.
+        for (int i = 0; i < holdTicks - 1; ++i) {
+            drive(sim);
+        }
+        CHECK(sim.Npc().segPos == npcStart);
+        CHECK(sim.Player().segPos > playerStart);
+        CHECK(sim.NpcLaunchOffset() == 1);
+
+        // Then released.
+        for (int i = 0; i < 80; ++i) {
+            drive(sim);
+        }
+        CHECK(sim.NpcLaunchOffset() == 0);
+        CHECK(sim.Npc().segPos > npcStart);
+    }
+}
+
+TEST_CASE("the opponent finishing settles it once the player has stopped") {
+    // lrace.c latches from the opponent's update too, and both sites gate on the PLAYER's speed being 0.
+    srrace::TrackData track{};
+    srrace::RaceRng rng(0x1234u);
+    srrace::RoadLayoutInit(track, rng, 1, srrace::TrackGenSource::StreetRod2);
+    const CarSetup setup = PerfectCar();
+
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 7u);
+    RunOutCountdown(sim);
+
+    // Coast: the opponent drives away and the player never touches the throttle.
+    int ticks = 0;
+    while (!sim.RaceOver() && ticks < 4000) {
+        sim.Tick(0);
+        ++ticks;
+    }
+    CHECK(sim.RaceOver());
+    CHECK(sim.Player().speed == 0);
+    CHECK(sim.Player().segPos < sim.Npc().segPos);
+    // Standing still short of the line is a loss, not a win.
+    CHECK((sim.Player().endFlags & srrace::END_FINISHED) != 0);
+    CHECK((sim.Npc().endFlags & srrace::END_FINISHED) == 0);
+}
+
+TEST_CASE("the grudge strip has a right-hand limit too") {
+    // jroad.c 0x246860's `race_type & 0x0c` arm. It bites 180 short of the
+    // edge, so it fires while the car is still on the road.
+    srrace::TrackData track{};
+    srrace::RaceRng rng(0x1234u);
+    srrace::RoadLayoutInit(track, rng, 1, srrace::TrackGenSource::StreetRod2);
+    srrace::BuildGrudgeStrip(track);
+    const CarSetup setup = PerfectCar();
+
+    // At speed it ends the round, the same as the centre line on the other side.
+    srrace::RaceSim fast;
+    fast.Init(&track, srrace::RaceKind::Grudge, setup, setup, 7u);
+    RunOutCountdown(fast);
+    int ticks = 0;
+    while ((fast.Player().endFlags & srrace::END_WALL_HIT) == 0 && ticks < 600) {
+        fast.Tick(static_cast<uint16_t>(srrace::ThrottleWithShiftIfNeeded(fast) |
+                                        srrace::INPUT_STEER_RIGHT));
+        ++ticks;
+    }
+    CHECK((fast.Player().endFlags & srrace::END_WALL_HIT) != 0);
+    CHECK(fast.Player().speed > srrace::EDGE_DROP_MAX_MPH);
+
+    // Standing on it instead is a shove back across the road, not a crash.
+    srrace::RaceSim slow;
+    slow.Init(&track, srrace::RaceKind::Grudge, setup, setup, 7u);
+    slow.SetCameraState(12, 0, 0, 3100, 0);
+    const int16_t before = slow.Player().lateral;
+    slow.Tick(0);
+    CHECK((slow.Player().endFlags & srrace::END_WALL_HIT) == 0);
+    CHECK(slow.Player().lateral <= before - 150);
+    CHECK(slow.Player().heading == 0x14);
+}
+
+TEST_CASE("the drop at the right edge is read a segment ahead") {
+    // jroad.c 0x246830 tests bit 15 of right[seg+1], not of the segment the car
+    // is on, and only on Mulholland.
+    srrace::TrackData drop = MakeFlatTrack();
+    const CarSetup dropCar = PerfectCar();
+    const int seg = 210;
+    drop.right[seg + 1] = 0x8000;
+
+    srrace::RaceSim sim;
+    sim.Init(&drop, srrace::RaceKind::Mulholland, dropCar, dropCar, 7u);
+    // Off the right edge (3300) but inside the 150 tolerance, at a standstill.
+    sim.SetCameraState(seg, 0, 0, 3300, 0);
+    const int16_t before = sim.Player().lateral;
+    sim.Tick(0);
+    CHECK((sim.Player().endFlags & srrace::END_WALL_HIT) == 0);
+    CHECK(sim.Player().lateral <= before - 250);
+    CHECK(sim.Player().heading == 0x1e);
+    CHECK(sim.Player().speed == 0);
+
+    // Without the bit on the NEXT segment nothing happens, however the car sits.
+    srrace::TrackData clean = MakeFlatTrack();
+    clean.right[seg] = 0x8000;
+    srrace::RaceSim off;
+    off.Init(&clean, srrace::RaceKind::Mulholland, dropCar, dropCar, 7u);
+    off.SetCameraState(seg, 0, 0, 3300, 0);
+    const int16_t stay = off.Player().lateral;
+    off.Tick(0);
+    CHECK(off.Player().lateral == stay);
+}
+
+TEST_CASE("fall_dir is set only by going off the road over a drop") {
+    srrace::TrackData track = MakeFlatTrack();
+    const CarSetup car = PerfectCar();
+    const int seg = 210;
+    track.wallLeft[seg] = -500;
+
+    // Off the edge but inside the tolerance: no fall.
+    srrace::RaceSim near;
+    near.Init(&track, srrace::RaceKind::Mulholland, car, car, 7u);
+    near.SetCameraState(seg, 0, 0, 1450, 0);
+    near.Tick(0);
+    CHECK(near.FallDirection() == 0);
+
+    srrace::RaceSim over;
+    over.Init(&track, srrace::RaceKind::Mulholland, car, car, 7u);
+    over.SetCameraState(seg, 0, 0, 1350, 0);
+    over.Tick(0);
+    CHECK((over.Player().endFlags & srrace::END_WALL_HIT) != 0);
+    CHECK(over.FallDirection() == -1);
+}
+
+TEST_CASE("crossing the centre line loses a grudge round") {
+    srrace::TrackData track{};
+    srrace::RaceRng rng(0x1234u);
+    srrace::RoadLayoutInit(track, rng, 1, srrace::TrackGenSource::StreetRod2);
+    srrace::BuildGrudgeStrip(track);
+    const CarSetup setup = PerfectCar();
+
+    auto launch = [&](srrace::RaceSim& sim, srrace::RaceKind kind) {
+        sim.Init(&track, kind, setup, setup, 7u);
+        while (sim.Phase() == srrace::RacePhase::Countdown) {
+            sim.Tick(0);
+        }
+    };
+
+    // The lane is the right half of the strip, and the car stages ten units
+    // clear of the limit - the road's midpoint plus 150.
+    srrace::RaceSim sim;
+    launch(sim, srrace::RaceKind::Grudge);
+    CHECK(sim.Player().lateral == 2560);
+
+    int ticks = 0;
+    while ((sim.Player().endFlags & srrace::END_CROSSED_LINE) == 0 && ticks < 600) {
+        sim.Tick(static_cast<uint16_t>(srrace::ThrottleWithShiftIfNeeded(sim) |
+                                       srrace::INPUT_STEER_LEFT));
+        ++ticks;
+    }
+    CHECK((sim.Player().endFlags & srrace::END_CROSSED_LINE) != 0);
+    CHECK(sim.Player().lateral < 2400 + srrace::GRUDGE_CENTRE_LINE_MARGIN);
+    // It is a failure bit, so the race stops there.
+    CHECK(sim.Phase() == srrace::RacePhase::Ended);
+
+    // Holding the lane runs the round out clean.
+    srrace::RaceSim clean;
+    launch(clean, srrace::RaceKind::Grudge);
+    for (int i = 0; i < 600 && clean.Phase() != srrace::RacePhase::Ended; ++i) {
+        clean.Tick(srrace::ThrottleWithShiftIfNeeded(clean));
+    }
+    CHECK((clean.Player().endFlags & srrace::END_CROSSED_LINE) == 0);
+
+    // Only grudge races have a lane to leave: the same steering on the drag
+    // strip is just a line to pick.
+    srrace::RaceSim drag;
+    launch(drag, srrace::RaceKind::Drag);
+    for (int i = 0; i < 600 && drag.Phase() != srrace::RacePhase::Ended; ++i) {
+        drag.Tick(srrace::INPUT_THROTTLE | srrace::INPUT_STEER_LEFT);
+    }
+    CHECK((drag.Player().endFlags & srrace::END_CROSSED_LINE) == 0);
 }
 
 TEST_CASE("ComputeBasePerformance all-stock worst setup uses integer math") {
@@ -378,7 +632,7 @@ TEST_CASE("SpeedToScrollStep boundary mapping") {
 }
 
 TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
 
     CarSetup playerSetup{};
     playerSetup.transClass = 2;
@@ -392,15 +646,15 @@ TEST_CASE("Drag race smoke test reaches finish with sane ranges") {
     CarSetup npcSetup = playerSetup;
     npcSetup.transClass = 0;
 
-    RaceSim sim;
-    sim.Init(&track, 0, playerSetup, npcSetup, 0x12345678u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, playerSetup, npcSetup, 0x12345678u);
+    srrace::RunOutCountdown(sim);
 
     bool finished = false;
     for (int i = 0; i < 6000; ++i) {
         // Hold the opponent in the far-left lane, or the pair overlap and the race ends on a rear-end crash.
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
 
         const CarState& now = sim.Player();
         CHECK(now.speed >= 0);
@@ -435,16 +689,16 @@ TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") 
     // A slower player, so the opponent is clear ahead and takes the full penalty.
     CarSetup slowPlayer;
 
-    RaceSim sim;
-    sim.Init(&track, 1, slowPlayer, setup, SeedWithoutCop(track, setup));
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, slowPlayer, setup, SeedWithoutCop(track, setup));
+    srrace::RunOutCountdown(sim);
 
     const int perf = sim.NpcTables().perfScore;
     int caps = 0;
     int cappedTo = -1;
     for (int i = 0; i < 8000 && sim.Npc().segPos < 805; ++i) {
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);   // keep the pair apart
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if (sim.NpcAi().branch == NpcBranch::CorneringCap) {
             ++caps;
             cappedTo = sim.Npc().speed;
@@ -459,19 +713,19 @@ TEST_CASE("The opponent brakes for a corner, once, by its driver's aggression") 
 
 // The opponent upshifts at band end minus 100 per point of reaction, so none uses the top of its band.
 TEST_CASE("The opponent upshifts short of the band end, by its driver's reaction") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup = CopTestSetup();   // carb class 1 -> band end 5000
 
     auto peakRpmBeforeShift = [&](int reaction) {
         CarSetup npc = setup;
         npc.reaction = reaction;
-        RaceSim sim;
-        sim.Init(&track, 1, setup, npc, SeedWithoutCop(track, npc));
-        RunOutCountdown(sim);
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Road, setup, npc, SeedWithoutCop(track, npc));
+        srrace::RunOutCountdown(sim);
         int peak = 0;
         const int startGear = sim.Npc().gear;
         for (int i = 0; i < 400 && sim.Npc().gear <= startGear + 1; ++i) {
-            sim.Tick(ThrottleWithShiftIfNeeded(sim));
+            sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
             if (sim.Npc().gear <= startGear + 1) peak = std::max(peak, int(sim.Npc().rpm));
         }
         return peak;
@@ -488,8 +742,7 @@ TEST_CASE("The opponent upshifts short of the band end, by its driver's reaction
 }
 
 TEST_CASE("Steering input counteracts curve drift") {
-    TrackData track = MakeFlatTrack();
-    // The drift comes from curve[], not elev[].
+    srrace::TrackData track = MakeFlatTrack();
     for (int i = 300; i <= 340; ++i) {
         track.curve[i] = 4;
     }
@@ -506,8 +759,8 @@ TEST_CASE("Steering input counteracts curve drift") {
     CarSetup npcSetup = setup;
     npcSetup.transClass = 0;
 
-    RaceSim noSteer;
-    noSteer.Init(&track, 1, setup, npcSetup, 0x1122u);
+    srrace::RaceSim noSteer;
+    noSteer.Init(&track, srrace::RaceKind::Road, setup, npcSetup, 0x1122u);
     RunOutCountdown(noSteer);
     // Park the opponent far up the road, or holding the throttle rear-ends it before segment 305.
     noSteer.SetNpcDebugPose(900, 2200);
@@ -539,8 +792,8 @@ TEST_CASE("Steering input counteracts curve drift") {
     CHECK(driftNoSteer != 0);
     CHECK(monotonicDir != 0);
 
-    RaceSim withSteerAdaptive;
-    withSteerAdaptive.Init(&track, 1, setup, npcSetup, 0x3344u);
+    srrace::RaceSim withSteerAdaptive;
+    withSteerAdaptive.Init(&track, srrace::RaceKind::Road, setup, npcSetup, 0x3344u);
     RunOutCountdown(withSteerAdaptive);
     withSteerAdaptive.SetNpcDebugPose(900, 2200);   // as above: keep the opponent out of it
     for (int i = 0; i < 4000 && withSteerAdaptive.Player().segPos < 305; ++i) {
@@ -569,21 +822,21 @@ TEST_CASE("Steering input counteracts curve drift") {
 }
 
 TEST_CASE("Cop spawns only on plain road races") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
 
     int roadSpawns = 0;
     for (uint32_t seed = 1; seed < 80; ++seed) {
-        RaceSim drag;
-        drag.Init(&track, 0, setup, setup, seed);
+        srrace::RaceSim drag;
+        drag.Init(&track, srrace::RaceKind::Drag, setup, setup, seed);
         CHECK(drag.CopState() == 0);          // never on the drag strip
 
-        RaceSim king;
-        king.Init(&track, 1, setup, setup, seed, /*kingRace=*/true);
+        srrace::RaceSim king;
+        king.Init(&track, srrace::RaceKind::Road, setup, setup, seed, /*kingRace=*/true);
         CHECK(king.CopState() == 0);          // never in the King's race
 
-        RaceSim road;
-        road.Init(&track, 1, setup, setup, seed);
+        srrace::RaceSim road;
+        road.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
         if (road.CopState() == 1) {
             ++roadSpawns;
             // 510 + rand(255), in the back half of a course that runs 200..1020.
@@ -597,14 +850,13 @@ TEST_CASE("Cop spawns only on plain road races") {
 }
 
 TEST_CASE("Cop is cancelled unless the player is 5+ segments ahead") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    // Level with the opponent at the trigger: no cop. You only get pulled over for leading.
-    RaceSim level;
-    level.Init(&track, 1, setup, setup, seed);
+    srrace::RaceSim level;
+    level.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
     REQUIRE(level.CopState() == 1);
     level.SetCameraState(level.CopTriggerSegment() + 1, 0, 0, 2560, 0);
     level.SetNpcDebugPose(level.CopTriggerSegment() + 1, 2200);
@@ -613,7 +865,7 @@ TEST_CASE("Cop is cancelled unless the player is 5+ segments ahead") {
     CHECK_FALSE(level.CopChasing());
 
     // Well clear of the opponent: the cop takes over the opponent slot.
-    RaceSim leading;
+    srrace::RaceSim leading;
     StartCopPursuit(leading, track, setup, seed);
     CHECK(leading.CopState() == 2);
     CHECK(leading.CopChasing());
@@ -623,12 +875,12 @@ TEST_CASE("Cop is cancelled unless the player is 5+ segments ahead") {
 }
 
 TEST_CASE("Cop siren starts when it closes, and catching you ends the race") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
@@ -653,19 +905,19 @@ TEST_CASE("Cop siren starts when it closes, and catching you ends the race") {
 }
 
 TEST_CASE("Speeding fine is tiered on the speed at capture") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
     // Build speed with the cop held back, then force the capture and check the fine tier.
     for (int i = 0; i < 400 && sim.Player().speed < 60; ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos - 40, 2200);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if (sim.RaceOver()) {
             break;
         }
@@ -689,12 +941,12 @@ TEST_CASE("Speeding fine is tiered on the speed at capture") {
 }
 
 TEST_CASE("Winning the race shakes the cop - no ticket") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
@@ -702,7 +954,7 @@ TEST_CASE("Winning the race shakes the cop - no ticket") {
     bool sirenSounded = false;
     for (int i = 0; i < 4000 && !sim.RaceOver(); ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos - 10, 2200);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         sirenSounded = sirenSounded || sim.CopSirenOn();
     }
 
@@ -716,12 +968,12 @@ TEST_CASE("Winning the race shakes the cop - no ticket") {
 }
 
 TEST_CASE("Crashing while chased gets you a ticket on top") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
@@ -738,14 +990,14 @@ TEST_CASE("Crashing while chased gets you a ticket on top") {
 
 // END_TIRES_BLOWN is not an in-race outcome bit; reading it as the race ending handed out a ticket.
 TEST_CASE("Blowing the tires while a cop is out is not a bust") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup worn = CopTestSetup();
     worn.tireWear = 10000;
 
     uint32_t seed = 0;
     for (uint32_t s = 1; s <= 2000 && seed == 0; ++s) {
-        RaceSim probe;
-        probe.Init(&track, 1, worn, worn, s);
+        srrace::RaceSim probe;
+        probe.Init(&track, srrace::RaceKind::Road, worn, worn, s);
         if (probe.CopState() == 1 && probe.TireBlowSegment() != 0 &&
             probe.TireBlowSegment() > probe.CopTriggerSegment()) {
             seed = s;
@@ -753,7 +1005,7 @@ TEST_CASE("Blowing the tires while a cop is out is not a bust") {
     }
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, worn, seed);
     REQUIRE(sim.CopState() == 2);
 
@@ -767,43 +1019,43 @@ TEST_CASE("Blowing the tires while a cop is out is not a bust") {
 }
 
 TEST_CASE("Cop cannot be rear-ended or shove you off the road") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     StartCopPursuit(sim, track, setup, seed);
     REQUIRE(sim.CopState() == 2);
 
     // Level and overlapping while closing: the geometry that sets END_HIT_NPC without the cop gate.
     for (int i = 0; i < 30 && !sim.RaceOver(); ++i) {
         sim.SetNpcDebugPose(sim.Player().segPos, sim.Player().lateral + 20);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         CHECK((sim.Player().endFlags & END_HIT_NPC) == 0);
     }
 }
 
 TEST_CASE("Init fully resets a sim that has already been raced") {
-    // A RaceSim is reused for every race, so re-Init must be a complete reset.
-    TrackData track = MakeFlatTrack();
+    // The scene objects that own a srrace::RaceSim are built once at game start and are
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim fresh;
-    fresh.Init(&track, 1, setup, setup, seed);
+    srrace::RaceSim fresh;
+    fresh.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
 
     // Two dirty states, since capture switches the siren off: test both resets.
     SUBCASE("left mid-pursuit with the siren going") {
-        RaceSim used;
+        srrace::RaceSim used;
         StartCopPursuit(used, track, setup, seed);
         used.SetNpcDebugPose(used.Player().segPos - 10, 2200);
         used.Tick(0);
         REQUIRE(used.CopState() == 3);
         REQUIRE(used.CopSirenOn());          // genuinely dirty
 
-        used.Init(&track, 1, setup, setup, seed);
+        used.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
         CHECK_FALSE(used.CopSirenOn());
         CHECK_FALSE(used.CopChasing());
         CHECK(used.CopState()          == fresh.CopState());
@@ -813,7 +1065,7 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
     }
 
     SUBCASE("left busted at speed") {
-        RaceSim used;
+        srrace::RaceSim used;
         StartCopPursuit(used, track, setup, seed);
         for (int i = 0; i < 400 && used.Player().speed < 60; ++i) {
             used.SetNpcDebugPose(used.Player().segPos - 40, 2200);
@@ -831,7 +1083,7 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
         REQUIRE(used.CopCaughtSpeed() >= 51);   // genuinely dirty
         REQUIRE(used.SpeedingFine() > 0);
 
-        used.Init(&track, 1, setup, setup, seed);
+        used.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
         CHECK(used.CopCaughtSpeed() == 0);
         CHECK(used.SpeedingFine() == 0);
         CHECK_FALSE(used.PlayerBusted());
@@ -850,7 +1102,7 @@ TEST_CASE("Init fully resets a sim that has already been raced") {
 }
 
 TEST_CASE("The King does not ease off when it gets clear in a road race") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     // A seed with no cop, since kingRace also suppresses the spawn roll.
     const uint32_t seed = SeedWithoutCop(track, setup);
@@ -862,10 +1114,10 @@ TEST_CASE("The King does not ease off when it gets clear in a road race") {
         int risky;
     };
     auto runClearAhead = [&](bool king) {
-        RaceSim sim;
-        sim.Init(&track, 1, setup, setup, seed, king);
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Road, setup, setup, seed, king);
         REQUIRE(sim.CopState() == 0);
-        RunOutCountdown(sim);
+        srrace::RunOutCountdown(sim);
         for (int i = 0; i < 400 && !sim.RaceOver(); ++i) {
             // Pinned 30 segments ahead, past the 13-segment threshold where an ordinary opponent drops to cruise.
             sim.SetNpcDebugPose(sim.Player().segPos + 30, 2200);
@@ -885,14 +1137,14 @@ TEST_CASE("The King does not ease off when it gets clear in a road race") {
 }
 
 TEST_CASE("In a drag race the King eases to the higher of the two targets") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
 
     // In a drag race the King does reach the far-ahead branch, taking the risky target.
     auto finalSpeedClearAhead = [&](bool king) {
-        RaceSim sim;
-        sim.Init(&track, 0, setup, setup, 0x77u, king);
-        RunOutCountdown(sim);
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0x77u, king);
+        srrace::RunOutCountdown(sim);
         for (int i = 0; i < 300 && !sim.RaceOver(); ++i) {
             sim.SetNpcDebugPose(sim.Player().segPos + 30, 2200);
             sim.Tick(0);
@@ -907,13 +1159,13 @@ TEST_CASE("In a drag race the King eases to the higher of the two targets") {
 }
 
 TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
     const uint32_t seed = SeedThatArmsCop(track, setup);
     REQUIRE(seed != 0);
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, seed);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, seed);
     sim.SetCameraState(sim.CopTriggerSegment() + 1, 0, 0, 2560, 0);
     // The cop takes over wherever the opponent is, usually a long way back.
     sim.SetNpcDebugPose(sim.CopTriggerSegment() - 115, 2200);
@@ -929,7 +1181,7 @@ TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
     CHECK(sim.NpcTables().perfScore > 70);
 
     for (int i = 0; i < 900 && !sim.RaceOver() && !sim.PlayerBusted(); ++i) {
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
     }
 
     const int gapEnd =
@@ -941,12 +1193,12 @@ TEST_CASE("A spawned cop pursues and runs down a fleeing player") {
 }
 
 TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = CopTestSetup();
 
     SUBCASE("a wall hit that would normally end the race is dropped whole") {
-        RaceSim normal;
-        normal.Init(&track, 1, setup, setup, 0x2468u);
+        srrace::RaceSim normal;
+        normal.Init(&track, srrace::RaceKind::Road, setup, setup, 0x2468u);
         normal.SetCameraState(300, 0, 0, 100, 0);   // far off the left edge
         normal.SetNpcDebugPose(900, 2200);
         normal.Tick(0);
@@ -954,8 +1206,8 @@ TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
         REQUIRE(normal.PlayerWrecked());
         REQUIRE(normal.PlayerFailed());
 
-        RaceSim tough;
-        tough.Init(&track, 1, setup, setup, 0x2468u);
+        srrace::RaceSim tough;
+        tough.Init(&track, srrace::RaceKind::Road, setup, setup, 0x2468u);
         tough.SetInvulnerable(true);
         tough.SetCameraState(300, 0, 0, 100, 0);
         tough.SetNpcDebugPose(900, 2200);
@@ -967,13 +1219,13 @@ TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
     }
 
     SUBCASE("sitting on the limiter no longer grenades the engine") {
-        RaceSim tough;
-        tough.Init(&track, 1, setup, setup, 0xbeefu);
+        srrace::RaceSim tough;
+        tough.Init(&track, srrace::RaceKind::Road, setup, setup, 0xbeefu);
         tough.SetInvulnerable(true);
         RunOutCountdown(tough);
         for (int i = 0; i < 600 && !tough.RaceOver(); ++i) {
             tough.SetNpcDebugPose(900, 2200);
-            tough.Tick(INPUT_THROTTLE);   // never shifting: pinned at the redline
+            tough.Tick(srrace::INPUT_THROTTLE);   // never shifting: pinned at the redline
         }
         CHECK((tough.Player().endFlags & END_ENGINE_BLOWN) == 0);
     }
@@ -982,7 +1234,7 @@ TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
         const uint32_t seed = SeedThatArmsCop(track, setup);
         REQUIRE(seed != 0);
 
-        RaceSim busted;
+        srrace::RaceSim busted;
         StartCopPursuit(busted, track, setup, seed);
         busted.SetInvulnerable(true);
         busted.SetNpcDebugPose(busted.Player().segPos - 10, 2200);
@@ -992,19 +1244,19 @@ TEST_CASE("Invulnerable suppresses crashes and blown engines, nothing else") {
         CHECK(busted.PlayerBusted());
         CHECK(busted.RaceOver());
 
-        RaceSim jumped;
-        jumped.Init(&track, 1, setup, setup, 0xabcu);
+        srrace::RaceSim jumped;
+        jumped.Init(&track, srrace::RaceKind::Road, setup, setup, 0xabcu);
         jumped.SetInvulnerable(true);
         REQUIRE(jumped.InCountdown());
         for (int i = 0; i < 20 && jumped.InCountdown(); ++i) {
-            jumped.Tick(INPUT_THROTTLE | INPUT_SHIFT);
+            jumped.Tick(srrace::INPUT_THROTTLE | INPUT_SHIFT);
         }
-        CHECK((jumped.Player().endFlags & END_STALLED) != 0);
+        CHECK((jumped.Player().endFlags & srrace::END_STALLED) != 0);
     }
 }
 
 TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
 
     CarSetup setup{};
     setup.transClass = 2;
@@ -1018,9 +1270,9 @@ TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
     CarSetup npcSetup = setup;
     npcSetup.transClass = 0;
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, npcSetup, 0x5566u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, npcSetup, 0x5566u);
+    srrace::RunOutCountdown(sim);
     sim.SetNpcDebugPose(900, 2200);  // keep the opponent out of the way
 
     // PlayerSkidding() needs speed > 20 mph.
@@ -1031,7 +1283,7 @@ TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
 
     // slideVel ramps 2/tick toward +-24, crossing 12 within a few ticks.
     for (int i = 0; i < 200 && sim.Player().speed <= 25; ++i) {
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
     }
     REQUIRE(sim.Player().speed > 20);
 
@@ -1048,82 +1300,82 @@ TEST_CASE("Tire screech gate: hard steering at speed, not at a standstill") {
 }
 
 TEST_CASE("Rolling before the green is a false start") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0xabcu);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0xabcu);
     REQUIRE(sim.InCountdown());
     // Slam it in gear and floor it before the light.
     for (int i = 0; i < 20 && sim.InCountdown(); ++i) {
-        sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);
+        sim.Tick(srrace::INPUT_THROTTLE | INPUT_SHIFT);
     }
-    CHECK((sim.Player().endFlags & END_STALLED) != 0);
+    CHECK((sim.Player().endFlags & srrace::END_STALLED) != 0);
 }
 
 TEST_CASE("An automatic can rev on the line without jumping the start") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.transClass = 0;     // automatic
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0xabcu);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0xabcu);
     REQUIRE(sim.PlayerTables().automatic);
     REQUIRE(sim.InCountdown());
 
     // Throttle on the line in N: the engine revs, nothing moves.
     for (int i = 0; i < 20 && sim.InCountdown(); ++i) {
-        sim.Tick(INPUT_THROTTLE);
+        sim.Tick(srrace::INPUT_THROTTLE);
     }
     CHECK(sim.Player().gear == 0);
     CHECK(sim.Player().speed == 0);
-    CHECK((sim.Player().endFlags & END_STALLED) == 0);
+    CHECK((sim.Player().endFlags & srrace::END_STALLED) == 0);
     CHECK(sim.Player().rpm > 1500);   // it did actually rev
 }
 
 TEST_CASE("An automatic engages drive on the shift input and pulls away") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.transClass = 0;     // automatic
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0xabcu);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0xabcu);
+    srrace::RunOutCountdown(sim);
 
-    sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);   // N -> D
+    sim.Tick(srrace::INPUT_THROTTLE | INPUT_SHIFT);   // N -> D
     CHECK(sim.Player().gear > 0);
     for (int i = 0; i < 60; ++i) {
-        sim.Tick(INPUT_THROTTLE);             // no further shift input needed
+        sim.Tick(srrace::INPUT_THROTTLE);             // no further shift input needed
     }
     CHECK(sim.Player().speed > 0);
     CHECK(sim.Player().gear > 1);             // and it upshifts on its own
 }
 
 TEST_CASE("Rolling in neutral pins the rpm to road speed, standing still it revs") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.transClass = 2;     // manual 4-speed
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x2468u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x2468u);
+    srrace::RunOutCountdown(sim);
     sim.SetNpcDebugPose(900, 2200);
 
     // Build some speed in first, then drop it back into neutral.
     for (int i = 0; i < 12; ++i) {
-        sim.Tick(INPUT_THROTTLE | (i == 0 ? INPUT_SHIFT : 0));
+        sim.Tick(srrace::INPUT_THROTTLE | (i == 0 ? INPUT_SHIFT : 0));
     }
     REQUIRE(sim.Player().gear > 0);
     REQUIRE(sim.Player().speed > 0);
@@ -1134,62 +1386,61 @@ TEST_CASE("Rolling in neutral pins the rpm to road speed, standing still it revs
 
     // Coasting out of gear the needle tracks road speed.
     for (int i = 0; i < 20 && sim.Player().speed > 0; ++i) {
-        sim.Tick(INPUT_THROTTLE);
+        sim.Tick(srrace::INPUT_THROTTLE);
         const CarState& p = sim.Player();
         CHECK(p.rpm == p.speed * 30 + 1500);
     }
     CHECK(sim.Player().rpm < 5000);
 
-    // Stationary in neutral it must still rev: the start-line blip.
-    RaceSim standing;
-    standing.Init(&track, 1, setup, setup, 0x2468u);
+    srrace::RaceSim standing;
+    standing.Init(&track, srrace::RaceKind::Road, setup, setup, 0x2468u);
     RunOutCountdown(standing);
     REQUIRE(standing.Player().gear == 0);
     REQUIRE(standing.Player().speed == 0);
     const int16_t rpmBefore = standing.Player().rpm;
     for (int i = 0; i < 4; ++i) {
-        standing.Tick(INPUT_THROTTLE);
+        standing.Tick(srrace::INPUT_THROTTLE);
     }
     CHECK(standing.Player().speed == 0);
     CHECK(standing.Player().rpm > rpmBefore);
 }
 
 TEST_CASE("An automatic cannot be blown by holding the throttle") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.transClass = 0;     // automatic
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0x77u);
-    RunOutCountdown(sim);
-    sim.Tick(INPUT_THROTTLE | INPUT_SHIFT);   // engage drive
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0x77u);
+    srrace::RunOutCountdown(sim);
+    sim.Tick(srrace::INPUT_THROTTLE | INPUT_SHIFT);   // engage drive
 
     // Far longer than the ~15 ticks that grenade a manual; the governor holds it under redline.
     for (int i = 0; i < 400; ++i) {
-        sim.Tick(INPUT_THROTTLE);
+        sim.Tick(srrace::INPUT_THROTTLE);
     }
     CHECK((sim.Player().endFlags & END_ENGINE_BLOWN) == 0);
     CHECK(sim.Player().rpm <= 5690);
 }
 
 TEST_CASE("A manual held on the limiter still grenades") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.transClass = 2;     // manual 4-speed
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0x77u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0x77u);
+    srrace::RunOutCountdown(sim);
     // Never shift: first gear pins against the limiter and lets go.
     bool blown = false;
     for (int i = 0; i < 400; ++i) {
-        sim.Tick(INPUT_THROTTLE);
+        sim.Tick(srrace::INPUT_THROTTLE);
         if ((sim.Player().endFlags & END_ENGINE_BLOWN) != 0) {
             blown = true;
             break;
@@ -1199,19 +1450,19 @@ TEST_CASE("A manual held on the limiter still grenades") {
 }
 
 TEST_CASE("A maxed-wear engine grenades during the race") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
     setup.tireClass = 1;
     setup.engineWear = 9899;  // 0x26ab; one tick of extra wear pushes it over
 
-    RaceSim sim;
-    sim.Init(&track, 0, setup, setup, 0x5u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0x5u);
+    srrace::RunOutCountdown(sim);
     bool blown = false;
     for (int i = 0; i < 300; ++i) {
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if ((sim.Player().endFlags & END_ENGINE_BLOWN) != 0) {
             blown = true;
             break;
@@ -1221,7 +1472,7 @@ TEST_CASE("A maxed-wear engine grenades during the race") {
 }
 
 TEST_CASE("A worn manual transmission drops on a hard shift") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup setup{};
     setup.carbClass = 1;
     setup.engineClass = 1;
@@ -1229,12 +1480,12 @@ TEST_CASE("A worn manual transmission drops on a hard shift") {
     setup.transClass = 2;     // manual 4-speed
     setup.transWear = 9900;   // > 0x26ab: drops on the first shift
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x9u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x9u);
+    srrace::RunOutCountdown(sim);
     bool dropped = false;
     for (int i = 0; i < 300; ++i) {
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if ((sim.Player().endFlags & END_TRANS_DROPPED) != 0) {
             dropped = true;
             break;
@@ -1262,14 +1513,14 @@ CarSetup FastSetup() {
 // Speed recomputed from rpm every tick made a braking car spring back to the idle speed. In the original
 // the two are alternatives.
 TEST_CASE("Braking brings a car to a complete stop") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = FastSetup();
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x1234u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x1234u);
+    srrace::RunOutCountdown(sim);
     for (int i = 0; i < 200; ++i) {
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
     }
     REQUIRE(sim.Player().speed > 50);
 
@@ -1280,7 +1531,7 @@ TEST_CASE("Braking brings a car to a complete stop") {
 }
 
 TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup player = FastSetup();
     CarSetup npc = FastSetup();
     npc.transClass = 0;
@@ -1288,10 +1539,9 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     npc.engineClass = 0;
     npc.weightClass = 7;
 
-    // kingRace suppresses the cop, which would end the race before the roll-out.
-    RaceSim sim;
-    sim.Init(&track, 1, player, npc, 0x12345678u, /*kingRace=*/true);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, player, npc, 0x12345678u, /*kingRace=*/true);
+    srrace::RunOutCountdown(sim);
 
     bool crossed = false;
     int16_t speedAtLine = 0;
@@ -1299,7 +1549,7 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
     for (int i = 0; i < 4000; ++i) {
         // Held well behind: parked level in the next lane is the side-swipe view state.
         sim.SetNpcDebugPose(sim.Player().segPos - 40, 1550);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if (!crossed && sim.Player().segPos >= ROAD_FINISH_SEG) {
             crossed = true;
             speedAtLine = sim.Player().speed;
@@ -1323,12 +1573,12 @@ TEST_CASE("Crossing the line starts a roll-out, it does not end the race") {
 }
 
 TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = FastSetup();
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x777u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x777u);
+    srrace::RunOutCountdown(sim);
 
     int rollOutTicks = 0;
     int16_t topRollOutSpeed = 0;
@@ -1336,7 +1586,7 @@ TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
         // Past the line, throttle and steering have no effect.
         const bool rolling = sim.RollingOut();
-        sim.Tick(rolling ? static_cast<uint16_t>(INPUT_THROTTLE | INPUT_STEER_LEFT)
+        sim.Tick(rolling ? static_cast<uint16_t>(srrace::INPUT_THROTTLE | INPUT_STEER_LEFT)
                          : ThrottleWithShiftIfNeeded(sim));
         if (rolling) {
             ++rollOutTicks;
@@ -1356,12 +1606,12 @@ TEST_CASE("The roll-out cuts throttle and steering and cannot be crashed out") {
 }
 
 TEST_CASE("The roll-out autopilot walks the car into a lane") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = FastSetup();
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x99u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x99u);
+    srrace::RunOutCountdown(sim);
 
     for (int i = 0; i < 4000; ++i) {
         sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
@@ -1379,18 +1629,18 @@ TEST_CASE("The roll-out autopilot walks the car into a lane") {
 }
 
 TEST_CASE("Losing at the line still runs the roll-out and reports a loss") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     const CarSetup setup = FastSetup();
 
-    RaceSim sim;
-    sim.Init(&track, 1, setup, setup, 0x4242u);
-    RunOutCountdown(sim);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, setup, setup, 0x4242u);
+    srrace::RunOutCountdown(sim);
 
     for (int i = 0; i < 4000; ++i) {
         // Keep the opponent a clear 6 segments up the road and out of our lane,
         // so it takes the line first.
         sim.SetNpcDebugPose(sim.Player().segPos + 6, 1550);
-        sim.Tick(ThrottleWithShiftIfNeeded(sim));
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         if (sim.RaceOver()) {
             break;
         }
@@ -1401,13 +1651,13 @@ TEST_CASE("Losing at the line still runs the roll-out and reports a loss") {
 }
 
 // Shifts with the throttle pinned, which is what rolls the money-shift.
-uint16_t PowerShift(const RaceSim& sim) {
+uint16_t PowerShift(const srrace::RaceSim& sim) {
     const CarState& player = sim.Player();
     const CarTables& tables = sim.PlayerTables();
     if (player.gear < tables.numGears - 1 && player.rpm >= tables.autoShiftRpm) {
-        return INPUT_SHIFT | INPUT_THROTTLE;
+        return INPUT_SHIFT | srrace::INPUT_THROTTLE;
     }
-    return INPUT_THROTTLE;
+    return srrace::INPUT_THROTTLE;
 }
 
 int CountDroppedBoxes(int transClass, int seeds) {
@@ -1422,10 +1672,10 @@ int CountDroppedBoxes(int transClass, int seeds) {
         setup.weightClass = 4;
         setup.driverSkill = 130;
 
-        TrackData track = MakeFlatTrack();
-        RaceSim sim;
-        sim.Init(&track, 0, setup, setup, 0x1000u + static_cast<uint32_t>(s) * 7919u);
-        RunOutCountdown(sim);
+        srrace::TrackData track = MakeFlatTrack();
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Drag, setup, setup, 0x1000u + static_cast<uint32_t>(s) * 7919u);
+        srrace::RunOutCountdown(sim);
         for (int i = 0; i < 4000; ++i) {
             sim.SetNpcDebugPose(sim.Npc().segPos, 1550);
             sim.Tick(PowerShift(sim));
@@ -1460,18 +1710,18 @@ TEST_CASE("TireWearForRace: stock tires wear fastest, road more than drag") {
 
 // A fresh set never blows; a worn one only in the back half, never past the line.
 TEST_CASE("tire blowout is rolled once and lands before the finish") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup fresh;
     CarSetup worn;
     worn.tireWear = 10000;
 
-    RaceSim sim;
-    sim.Init(&track, 1, fresh, fresh, 12345u);
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Road, fresh, fresh, 12345u);
     CHECK(sim.TireBlowSegment() == 0);
 
     int blowouts = 0;
     for (uint32_t seed = 1; seed <= 200; ++seed) {
-        sim.Init(&track, 1, worn, fresh, seed);
+        sim.Init(&track, srrace::RaceKind::Road, worn, fresh, seed);
         const int32_t seg = sim.TireBlowSegment();
         if (seg != 0) {
             ++blowouts;
@@ -1484,20 +1734,19 @@ TEST_CASE("tire blowout is rolled once and lands before the finish") {
 
 // A flat pull replaces the curve drift.
 TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
     CarSetup worn;
     worn.tireWear = 10000;
 
-    RaceSim sim;
+    srrace::RaceSim sim;
     uint32_t seed = 0;
     for (uint32_t s = 1; s <= 500 && seed == 0; ++s) {
-        sim.Init(&track, 1, worn, worn, s);
+        sim.Init(&track, srrace::RaceKind::Road, worn, worn, s);
         if (sim.TireBlowSegment() != 0) seed = s;
     }
     REQUIRE(seed != 0);
 
-    sim.Init(&track, 1, worn, worn, seed);
-    // Just past the blowout segment instead of driving the course.
+    sim.Init(&track, srrace::RaceKind::Road, worn, worn, seed);
     sim.SetCameraState(sim.TireBlowSegment() + 1, 0, 0, 2560, 0);
     sim.Tick(0);
     REQUIRE(sim.PlayerTiresBlown());
@@ -1509,7 +1758,7 @@ TEST_CASE("blown tires pull the car aside at a fixed 25 per tick") {
 
 
 TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
-    TrackData track = MakeFlatTrack();
+    srrace::TrackData track = MakeFlatTrack();
 
     CarSetup setup{};
     setup.transClass = 2;
@@ -1523,30 +1772,29 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     CarSetup npcSetup = setup;
     npcSetup.transClass = 0;
 
-    // Steering in short bursts: held too long the car leaves the road and the sim freezes.
-    auto rolling = [&](RaceSim& sim) {
-        sim.Init(&track, 1, setup, npcSetup, 0x5566u);
-        RunOutCountdown(sim);
+    auto rolling = [&](srrace::RaceSim& sim) {
+        sim.Init(&track, srrace::RaceKind::Road, setup, npcSetup, 0x5566u);
+        srrace::RunOutCountdown(sim);
         sim.SetNpcDebugPose(900, 2200);
         for (int i = 0; i < 200 && sim.Player().speed <= 25; ++i) {
-            sim.Tick(ThrottleWithShiftIfNeeded(sim));
+            sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
         }
         REQUIRE(sim.Player().speed > 20);
-        REQUIRE(sim.Phase() == RacePhase::Running);
+        REQUIRE(sim.Phase() == srrace::RacePhase::Running);
     };
 
     // steerVel ramps 2/tick, so 12 ticks is exactly full lock from centre.
     const int kTicksToFullLock = 12;
 
     SUBCASE("full deflection is the original's ramp to +-24") {
-        RaceSim full, original;
+        srrace::RaceSim full, original;
         rolling(full);
         rolling(original);
         for (int i = 0; i < kTicksToFullLock; ++i) {
             full.Tick(INPUT_STEER_RIGHT, 1.0f);
             original.Tick(INPUT_STEER_RIGHT);
         }
-        REQUIRE(full.Phase() == RacePhase::Running);
+        REQUIRE(full.Phase() == srrace::RacePhase::Running);
         CHECK(full.Player().steerVel == 24);
         // The defaulted argument has to be exactly the old behaviour.
         CHECK(full.Player().steerVel == original.Player().steerVel);
@@ -1555,12 +1803,12 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     }
 
     SUBCASE("half a stick settles at half lock and holds there") {
-        RaceSim sim;
+        srrace::RaceSim sim;
         rolling(sim);
         for (int i = 0; i < kTicksToFullLock; ++i) {
             sim.Tick(INPUT_STEER_RIGHT, 0.5f);
         }
-        REQUIRE(sim.Phase() == RacePhase::Running);
+        REQUIRE(sim.Phase() == srrace::RacePhase::Running);
         CHECK(sim.Player().steerVel == 12);
         // Still held: it stays put rather than creeping on to full lock.
         for (int i = 0; i < 5; ++i) {
@@ -1570,7 +1818,7 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     }
 
     SUBCASE("a lighter touch turns the car less") {
-        RaceSim light, hard;
+        srrace::RaceSim light, hard;
         rolling(light);
         rolling(hard);
         const int16_t start = light.Player().heading;
@@ -1587,12 +1835,12 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
     }
 
     SUBCASE("easing the stick back unwinds instead of snapping") {
-        RaceSim sim;
+        srrace::RaceSim sim;
         rolling(sim);
         for (int i = 0; i < kTicksToFullLock; ++i) {
             sim.Tick(INPUT_STEER_RIGHT, 1.0f);
         }
-        REQUIRE(sim.Phase() == RacePhase::Running);
+        REQUIRE(sim.Phase() == srrace::RacePhase::Running);
         REQUIRE(sim.Player().steerVel == 24);
 
         // Down by 2 a tick, the same rate it wound on, not straight to 12.
@@ -1601,14 +1849,14 @@ TEST_CASE("Analog steering: the stick sets how far the wheel goes over") {
         sim.Tick(INPUT_STEER_RIGHT, 0.5f);
         CHECK(sim.Player().steerVel == 20);
 
-        for (int i = 0; i < 5 && sim.Phase() == RacePhase::Running; ++i) {
+        for (int i = 0; i < 5 && sim.Phase() == srrace::RacePhase::Running; ++i) {
             sim.Tick(INPUT_STEER_RIGHT, 0.5f);
         }
         CHECK(sim.Player().steerVel == 12);
     }
 
     SUBCASE("a centred stick is no steering at all") {
-        RaceSim sim;
+        srrace::RaceSim sim;
         rolling(sim);
         for (int i = 0; i < kTicksToFullLock; ++i) {
             sim.Tick(INPUT_STEER_RIGHT, 0.0f);
@@ -1645,4 +1893,694 @@ TEST_CASE("BlendCarView steps the drawn car between two sim steps") {
     CHECK(jump.segPos == 900);
 }
 
+}
+
+// ---------------------------------------------------------------------------
+// Street Rod 2's exhaust, muffler and differential.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("a Street Rod car is untouched by SR2's three slots") {
+    // This is what lets the whole feature exist without a game flag.
+    srrace::CarSetup stock;
+    CHECK(stock.exhaust == 0);
+    CHECK(stock.muffler == 0);
+    CHECK_FALSE(stock.mufflerRemoved);
+    CHECK(stock.differential == 1);          // 3.73:1, neutral on both
+
+    CHECK(srrace::Sr2AdjustRpmGain(1000, stock) == 1000);
+    CHECK(srrace::Sr2AdjustScore(1000, stock.differential) == 1000);
+
+    srrace::CarSetup withDiff = stock;
+    withDiff.differential = 1;
+    CHECK(srrace::ComputeTopSpeed(withDiff) == srrace::ComputeTopSpeed(stock));
+}
+
+TEST_CASE("only a missing muffler buys acceleration; headers and the glass pack are inert") {
+    // The original compares a 0/1 field with the unshifted mask, so these two never match.
+    srrace::CarSetup s;
+    s.exhaust = 1;                            // tube headers
+    CHECK(srrace::Sr2AdjustRpmGain(1000, s) == 1000);
+
+    srrace::CarSetup glass;
+    glass.muffler = 1;                        // glass pack
+    CHECK(srrace::Sr2AdjustRpmGain(1000, glass) == 1000);
+
+    srrace::CarSetup removed;
+    removed.muffler = 1;
+    removed.mufflerRemoved = true;
+    CHECK(srrace::Sr2AdjustRpmGain(1000, removed) == 1050);
+
+    // None of them touches the performance score, so none moves top speed.
+    CHECK(srrace::ComputeTopSpeed(s) == srrace::ComputeTopSpeed(srrace::CarSetup{}));
+    CHECK(srrace::ComputeTopSpeed(removed) == srrace::ComputeTopSpeed(srrace::CarSetup{}));
+}
+
+TEST_CASE("only the 2.78:1 differential does anything") {
+    srrace::CarSetup low;
+    low.differential = 0;                     // 2.78:1
+    srrace::CarSetup high;
+    high.differential = 2;                    // 4.11:1: the original's test for it never matches
+
+    CHECK(srrace::Sr2AdjustRpmGain(1000, low) == 950);
+    CHECK(srrace::Sr2AdjustRpmGain(1000, high) == 1000);
+
+    CHECK(srrace::Sr2AdjustScore(1000, 0) == 1050);
+    CHECK(srrace::Sr2AdjustScore(1000, 1) == 1000);
+    CHECK(srrace::Sr2AdjustScore(1000, 2) == 1000);
+
+    srrace::CarSetup strong;
+    strong.carbClass = 2;
+    strong.transClass = 3;
+    strong.engineClass = 2;
+    strong.manifoldClass = 4;
+    strong.weightClass = 8;
+    strong.roofChopped = true;
+    strong.frontBumperRemoved = true;
+    strong.rearBumperRemoved = true;
+
+    srrace::CarSetup strongLow = strong;
+    strongLow.differential = 0;
+    srrace::CarSetup strongHigh = strong;
+    strongHigh.differential = 2;
+    CHECK(srrace::ComputeBasePerformance(strongHigh) == srrace::ComputeBasePerformance(strong));
+    CHECK(srrace::ComputeBasePerformance(strongLow) >= srrace::ComputeBasePerformance(strong));
+    CHECK(srrace::ComputeTopSpeed(high) == srrace::ComputeTopSpeed(srrace::CarSetup{}));
+    CHECK(srrace::ComputeTopSpeed(low) >= srrace::ComputeTopSpeed(srrace::CarSetup{}));
+}
+
+TEST_CASE("the live adjustments compound in the original's order") {
+    // Of the King's three parts only the muffler's absence and the 2.78 gear count.
+    srrace::CarSetup king;
+    king.exhaust = 1;
+    king.muffler = 1;
+    king.differential = 2;
+    CHECK(srrace::Sr2AdjustRpmGain(1000, king) == 1000);
+
+    srrace::CarSetup stripped = king;
+    stripped.mufflerRemoved = true;
+    stripped.differential = 0;
+    int expected = 1000;
+    expected += expected * 5 / 100;           // no muffler
+    expected -= expected * 5 / 100;           // 2.78:1
+    CHECK(srrace::Sr2AdjustRpmGain(1000, stripped) == expected);
+}
+
+TEST_CASE("SR2's live slots reach the built physics tables") {
+    // Check the adjustment survives into BuildCarTables.
+    srrace::CarSetup stock;
+    srrace::CarSetup bare = stock;
+    bare.mufflerRemoved = true;
+    srrace::CarSetup headers = stock;
+    headers.exhaust = 1;
+
+    srrace::CarTables a{}, b{}, c{};
+    srrace::BuildCarTables(stock, a);
+    srrace::BuildCarTables(bare, b);
+    srrace::BuildCarTables(headers, c);
+
+    bool anyGearPullsHarder = false;
+    for (int g = 0; g < 5; ++g) {
+        CHECK(b.rows[g][1].rpmGain >= a.rows[g][1].rpmGain);
+        if (b.rows[g][1].rpmGain > a.rows[g][1].rpmGain) anyGearPullsHarder = true;
+        // Tube headers do nothing in the original.
+        CHECK(c.rows[g][1].rpmGain == a.rows[g][1].rpmGain);
+    }
+    CHECK(anyGearPullsHarder);
+    CHECK(b.topSpeed == a.topSpeed);
+}
+
+// ---------------------------------------------------------------------------
+// The physics tables are read from the player's own executable rather than shipped as source constants.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Offsets of each block in Street Rod's executable, the same ones LoadPhysicsTables reads.
+constexpr size_t kBlock = 0x2C9B0, kNumGearsAt = 0x2CA34;
+constexpr size_t kTireSteerAt = 0x2CA3C, kHandlingAt = 0x2CAA0;
+
+struct FakeExe {
+    std::vector<uint8_t> d = std::vector<uint8_t>(kHandlingAt + 256, 0);
+    void W(size_t at, int v) {
+        d[at] = uint8_t((v >> 8) & 0xFF);
+        d[at + 1] = uint8_t(v & 0xFF);
+    }
+    void Row(size_t at, std::initializer_list<int> vals) {
+        for (int v : vals) { W(at, v); at += 2; }
+    }
+    // The values Street Rod actually ships, which are also the fallbacks.
+    void FillStock(int racingGears = 4) {
+        Row(kBlock,        {0, 25, 50, 100, 0,  0, 25, 50, 100, 0,
+                            0, 25, 50, 75, 100, 0, 30, 50, 80, 100});
+        Row(kBlock + 0x28, {500, 600, 300, 100, 70,
+                            600, 700, 350, 120, 90,
+                            600, 760, 380, 140, 90});
+        Row(kBlock + 0x46, {2900, 4500, 2900, 5000, 2500, 5200});
+        Row(kNumGearsAt,   {3, 3, 4, racingGears});
+        Row(kTireSteerAt,  {9, 8, 5});
+        Row(kHandlingAt,   {2, 5, 8, 11, 14,  0, 2, 4, 6, 8,  0, 0, 1, 2, 4});
+    }
+};
+
+// Puts the shipped tables back, whatever a test did to them.
+void RestorePhysicsTables() {
+    FakeExe stock;
+    stock.FillStock();
+    REQUIRE(srrace::LoadPhysicsTables(stock.d, srrace::PhysicsTableSource::StreetRod));
+}
+
+} // namespace
+
+TEST_CASE("the physics tables come out of the executable") {
+    srrace::CarSetup racing;
+    racing.transClass = 3;
+
+    srrace::CarTables before{};
+    srrace::BuildCarTables(racing, before);
+    REQUIRE(before.numGears == 4);
+
+    // A racing gearbox with five forward gears is not what the game ships, so
+    // seeing it proves the number was read rather than compiled in.
+    FakeExe altered;
+    altered.FillStock(5);
+    CHECK(srrace::LoadPhysicsTables(altered.d, srrace::PhysicsTableSource::StreetRod));
+
+    srrace::CarTables after{};
+    srrace::BuildCarTables(racing, after);
+    CHECK(after.numGears == 5);
+
+    RestorePhysicsTables();
+    srrace::CarTables restored{};
+    srrace::BuildCarTables(racing, restored);
+    CHECK(restored.numGears == 4);
+}
+
+TEST_CASE("tables that do not hold together leave the fallbacks alone") {
+    srrace::CarSetup stock;
+    srrace::CarTables expected{};
+    srrace::BuildCarTables(stock, expected);
+
+    // Too short to hold them at all.
+    CHECK_FALSE(srrace::LoadPhysicsTables(std::vector<uint8_t>(1024, 0),
+                                          srrace::PhysicsTableSource::StreetRod));
+    // Right size, wrong contents: a power band that ends before it starts, and
+    // a gear count no transmission has.
+    CHECK_FALSE(srrace::LoadPhysicsTables(std::vector<uint8_t>(kHandlingAt + 256, 0xAB),
+                                          srrace::PhysicsTableSource::StreetRod));
+    FakeExe backwards;
+    backwards.FillStock();
+    backwards.Row(kBlock + 0x46, {4500, 2900, 2900, 5000, 2500, 5200});
+    CHECK_FALSE(srrace::LoadPhysicsTables(backwards.d, srrace::PhysicsTableSource::StreetRod));
+
+    FakeExe tooManyGears;
+    tooManyGears.FillStock(9);
+    CHECK_FALSE(srrace::LoadPhysicsTables(tooManyGears.d, srrace::PhysicsTableSource::StreetRod));
+
+    // A refused load must not have half-written the tables.
+    srrace::CarTables actual{};
+    srrace::BuildCarTables(stock, actual);
+    CHECK(actual.numGears == expected.numGears);
+    CHECK(actual.topSpeed == expected.topSpeed);
+    CHECK(actual.autoShiftRpm == expected.autoShiftRpm);
+    CHECK(actual.rows[1][1].rpmGain == expected.rows[1][1].rpmGain);
+}
+
+// ---------------------------------------------------------------------------
+// Race windows.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("each race runs in its own window") {
+    // Street Rod's two, pinned first so parameterising cannot move them.
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Drag).start == 200);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Drag).finish == 380);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Road).start == 200);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Road).finish == 1020);
+
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Mulholland).start == 370);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Mulholland).finish == 960);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Grudge).start == 9);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Grudge).finish == 89);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Aqueduct).start == 9);
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Aqueduct).finish == 343);
+
+    // Every window has to fit the road it runs on.
+    for (srrace::RaceKind k : {srrace::RaceKind::Mulholland, srrace::RaceKind::Grudge}) {
+        const srrace::RaceWindow w = srrace::RaceWindowFor(k);
+        CHECK(w.start < w.finish);
+        CHECK(w.finish <= 990);
+    }
+    CHECK(srrace::RaceWindowFor(srrace::RaceKind::Road).finish > 990);
+}
+
+TEST_CASE("the sim finishes where its race says") {
+    srrace::TrackData track{};
+    srrace::CarSetup setup;
+
+    srrace::RaceSim drag;
+    drag.Init(&track, srrace::RaceKind::Drag, setup, setup, 1u);
+    CHECK(drag.FinishSegment() == 380);
+    CHECK(drag.StartSegment() == 200);
+    CHECK_FALSE(drag.IsRoadRace());
+
+    srrace::RaceSim mulholland;
+    mulholland.Init(&track, srrace::RaceKind::Mulholland, setup, setup, 1u);
+    CHECK(mulholland.FinishSegment() == 960);
+    CHECK(mulholland.StartSegment() == 370);
+    // The cop is Street Rod road-race behaviour; whether Mulholland spawns one
+    // is not traced, so this port does not.
+    CHECK_FALSE(mulholland.IsRoadRace());
+
+    srrace::RaceSim road;
+    road.Init(&track, srrace::RaceKind::Road, setup, setup, 1u);
+    CHECK(road.FinishSegment() == 1020);
+    CHECK(road.IsRoadRace());
+}
+
+TEST_CASE("a race will not start on too little gas") {
+    // Checked against the car's tank before the wager dialog.
+    CHECK(srrace::RaceMinimumGas(srrace::RaceKind::Drag) == 7);
+    CHECK(srrace::RaceMinimumGas(srrace::RaceKind::Aqueduct) == 12);
+    CHECK(srrace::RaceMinimumGas(srrace::RaceKind::Mulholland) == 17);
+    // Street Rod never asked, and a grudge race is run from the strip.
+    CHECK(srrace::RaceMinimumGas(srrace::RaceKind::Road) == 0);
+    CHECK(srrace::RaceMinimumGas(srrace::RaceKind::Grudge) == 0);
+}
+
+// ---------------------------------------------------------------------------
+// Mulholland's on-road hazards and its tighter corridor. Behaviour table in
+// RodLegacyResearch/docs/sr2_amiga/races.md, "Speed limits and crashes".
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A straight, flat road with one hazard under a centred car.
+srrace::TrackData MulhollandTrackWith(uint16_t hazardFlag, int atSegment) {
+    srrace::TrackData t{};
+    t.flags[atSegment] |= hazardFlag;
+    t.lane[atSegment] = 10;
+    return t;
+}
+
+// Waits out the countdown, then drives until the car is past the given segment or the race ends.
+void DriveTo(srrace::RaceSim& sim, int pastSegment) {
+    srrace::RunOutCountdown(sim);
+    for (int tick = 0; tick < 6000; ++tick) {
+        if (sim.Player().segPos > pastSegment) break;
+        if ((sim.Player().endFlags & srrace::END_FAILURE_MASK) != 0) break;
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
+    }
+}
+
+} // namespace
+
+TEST_CASE("a rock ends the race, oil only costs you") {
+    const int at = 500;   // inside Mulholland's 370..960 window
+    srrace::CarSetup setup;
+
+    srrace::TrackData rockTrack = MulhollandTrackWith(0x0004, at);
+    srrace::RaceSim rock;
+    rock.Init(&rockTrack, srrace::RaceKind::Mulholland, setup, setup, 0x9001u);
+    CHECK(rock.Player().segPos == 370);      // the race starts in its own window
+    DriveTo(rock, at);
+    CHECK((rock.Player().endFlags & srrace::END_WALL_HIT) != 0);
+
+    // The same hazard marked as oil never ends the race, however fast.
+    srrace::TrackData oilTrack = MulhollandTrackWith(0x1000, at);
+    srrace::RaceSim oil;
+    oil.Init(&oilTrack, srrace::RaceKind::Mulholland, setup, setup, 0x9001u);
+    DriveTo(oil, at);
+    CHECK((oil.Player().endFlags & srrace::END_FAILURE_MASK) == 0);
+    CHECK(oil.Player().segPos > at);
+
+    // On Street Rod the same bit 12 is an overhead arch, which is something to
+    // hit - so the two games must read that flag differently.
+    srrace::TrackData archTrack = MulhollandTrackWith(0x1000, at);
+    srrace::RaceSim road;
+    road.Init(&archTrack, srrace::RaceKind::Road, setup, setup, 0x9001u);
+    CHECK(road.Player().segPos == 200);
+}
+
+TEST_CASE("Mulholland's corridor is tighter than the road race's") {
+    // 150 against 260: the same distance off the road ends one race and not
+    // the other. Nothing else about the two differs here.
+    srrace::TrackData track{};
+    srrace::CarSetup setup;
+
+    srrace::RaceSim mulholland;
+    mulholland.Init(&track, srrace::RaceKind::Mulholland, setup, setup, 1u);
+    srrace::RaceSim road;
+    road.Init(&track, srrace::RaceKind::Road, setup, setup, 1u);
+    CHECK(mulholland.RoadEdgeLeft() == road.RoadEdgeLeft());
+    CHECK(mulholland.RoadEdgeRight() == road.RoadEdgeRight());
+}
+
+TEST_CASE("taking a narrowing at speed ends a Mulholland race") {
+    const int at = 500;
+    srrace::CarSetup setup;
+
+    srrace::TrackData narrowed{};
+    for (int i = at; i < at + 40; ++i) narrowed.flags[i] |= 0x0040;  // road narrows
+    srrace::RaceSim fast;
+    fast.Init(&narrowed, srrace::RaceKind::Mulholland, setup, setup, 0x77u);
+    DriveTo(fast, at + 20);
+    CHECK((fast.Player().endFlags & srrace::END_WALL_HIT) != 0);
+
+    // The same narrowing on Street Rod's road race is not a speed trap.
+    srrace::TrackData sameRoad{};
+    for (int i = at; i < at + 40; ++i) sameRoad.flags[i] |= 0x0040;
+    srrace::RaceSim sr1;
+    sr1.Init(&sameRoad, srrace::RaceKind::Road, setup, setup, 0x77u);
+    DriveTo(sr1, at + 20);
+    CHECK((sr1.Player().endFlags & srrace::END_WALL_HIT) == 0);
+}
+
+TEST_CASE("a Mulholland rock pile reaches onto the road") {
+    srrace::CarSetup setup;
+    srrace::TrackData track{};
+    for (int i = 400; i < 520; ++i) track.left[i] |= 0x0010;
+
+    // Down the middle the pile is never reached.
+    srrace::RaceSim middle;
+    middle.Init(&track, srrace::RaceKind::Mulholland, setup, setup, 0x77u);
+    DriveTo(middle, 510);
+    CHECK((middle.Player().endFlags & srrace::END_WALL_HIT) == 0);
+
+    // Placed on the road but left of 0x79e + 30 the pile is hit; just right of it, not.
+    auto hitAt = [&](int16_t lateral) {
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Mulholland, setup, setup, 0x77u);
+        sim.SetCameraState(450, 0, 0, lateral, 0);
+        sim.Tick(0);
+        return (sim.Player().endFlags & srrace::END_WALL_HIT) != 0;
+    };
+    CHECK(hitAt(1960));
+    CHECK_FALSE(hitAt(2000));
+}
+
+TEST_CASE("going over the edge on Mulholland is a fall, not a wall") {
+    // A negative shoulder is ground that falls away. Street Rod has no such
+    // thing, so this only ever happens in Street Rod 2.
+    srrace::CarSetup setup;
+    srrace::TrackData track{};
+    srrace::RaceRng rng(7);
+    srrace::ScatterHazards(track, rng, srrace::TrackGenSource::StreetRod2);
+    // Straight and flat, so the car runs where it is steered.
+    for (int i = 0; i < srrace::TRACK_SEGMENTS; ++i) {
+        track.curve[i] = 0;
+        track.elev[i] = 0;
+        track.flags[i] = 0;
+        track.lane[i] = 0;
+    }
+
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Mulholland, setup, setup, 0x5150u);
+    CHECK(sim.FallDirection() == 0);
+
+    srrace::RunOutCountdown(sim);
+    // The ground only falls away from segment 380.
+    for (int tick = 0; tick < 4000; ++tick) {
+        if (sim.Player().segPos >= 385) break;
+        if ((sim.Player().endFlags & srrace::END_FAILURE_MASK) != 0) break;
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim));
+    }
+    REQUIRE(sim.Player().segPos >= 385);
+    REQUIRE(track.wallRight[sim.Player().segPos] < 0);
+
+    for (int tick = 0; tick < 4000; ++tick) {
+        if (sim.FallDirection() != 0) break;
+        if ((sim.Player().endFlags & srrace::END_FAILURE_MASK) != 0) break;
+        sim.Tick(srrace::ThrottleWithShiftIfNeeded(sim) | srrace::INPUT_STEER_RIGHT);
+    }
+    CHECK(sim.FallDirection() == 1);   // off the right, where the ground drops
+
+    // Street Rod cannot fall: the same drive on its road race never sets it.
+    srrace::TrackData sr1Track{};
+    srrace::RaceSim sr1;
+    sr1.Init(&sr1Track, srrace::RaceKind::Road, setup, setup, 0x5150u);
+    srrace::RunOutCountdown(sr1);
+    for (int tick = 0; tick < 4000; ++tick) {
+        if (sr1.Player().segPos >= 385) break;
+        if ((sr1.Player().endFlags & srrace::END_FAILURE_MASK) != 0) break;
+        sr1.Tick(srrace::ThrottleWithShiftIfNeeded(sr1));
+    }
+    for (int tick = 0; tick < 2000; ++tick) {
+        if ((sr1.Player().endFlags & srrace::END_FAILURE_MASK) != 0) break;
+        sr1.Tick(srrace::ThrottleWithShiftIfNeeded(sr1) | srrace::INPUT_STEER_RIGHT);
+    }
+    CHECK(sr1.FallDirection() == 0);
+}
+
+
+// ---------------------------------------------------------------------------
+// The Aqueduct's walls are not the road's edges.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("aqueduct walls are ridden, not crashed into") {
+    srrace::TrackData track{};
+    srrace::BuildAqueductRoad(track);
+    srrace::CarSetup setup;
+
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Aqueduct, setup, setup, 0x12345678u);
+
+    // Well up the right slope: past the channel floor at 0xcf8 but short of the lip at 0xded, where the road
+    // race would already have called it a wall hit and ended the race.
+    sim.SetCameraState(60, 0, 0, 2900, 0);
+    for (int i = 0; i < 20; ++i) {
+        sim.Tick(0);
+    }
+    CHECK((sim.Player().endFlags & srrace::END_FAILURE_MASK) == 0);
+    CHECK_FALSE(sim.Player().offRoad);
+    // The slope walks the car back down towards the middle of the channel.
+    CHECK(sim.Player().lateral < 2900);
+}
+
+TEST_CASE("going over the lip rolls the car and then wrecks it") {
+    srrace::TrackData track{};
+    srrace::BuildAqueductRoad(track);
+    srrace::CarSetup setup;
+
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Aqueduct, setup, setup, 0x12345678u);
+    // Past the right lip (car_right >= 0xded) and quick enough to go over.
+    sim.SetCameraState(60, 0, 0, 3100, 0);
+
+    bool rolled = false;
+    for (int i = 0; i < 30; ++i) {
+        sim.Tick(0);
+        if (sim.IsRollingOver() || sim.AqueductRoll() != 0) rolled = true;
+    }
+    CHECK(rolled);
+    // Going over the lip is a crash, and the wreck lands after the roll has
+    // played rather than on the frame the car leaves the concrete.
+    CHECK((sim.Player().endFlags & srrace::END_FAILURE_MASK) != 0);
+}
+
+TEST_CASE("the roll plays before the wreck lands") {
+    srrace::TrackData track{};
+    srrace::BuildAqueductRoad(track);
+    srrace::CarSetup setup;
+
+    srrace::RaceSim sim;
+    sim.Init(&track, srrace::RaceKind::Aqueduct, setup, setup, 0x12345678u);
+    sim.SetCameraState(60, 0, 0, 3100, 0);
+
+    sim.Tick(0);
+    // First tick off the lip: rolling, but not wrecked yet.
+    CHECK(sim.IsRollingOver());
+    CHECK((sim.Player().endFlags & srrace::END_FAILURE_MASK) == 0);
+
+    for (int i = 0; i < 30 && sim.IsRollingOver(); ++i) {
+        sim.Tick(0);
+    }
+    CHECK_FALSE(sim.IsRollingOver());
+    CHECK((sim.Player().endFlags & srrace::END_FAILURE_MASK) != 0);
+}
+
+
+// ---------------------------------------------------------------------------
+// Scoring tables, read from the executable rather than hardcoded.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A synthetic executable carrying the scoring block where the loader expects it.
+std::vector<uint8_t> MakeScoringExe(bool sr2, const std::vector<int>& eng,
+                                    const std::vector<int>& weight) {
+    const size_t block = sr2 ? 0x40CEC : 0x2C9B0;
+    const size_t tire = sr2 ? 0x40D90 : 0x2CA3C;
+    const int manifolds = sr2 ? 9 : 5;
+    std::vector<uint8_t> d(sr2 ? 0x41000 : 0x2D000, 0);
+
+    auto put = [&](size_t at, int v) {
+        d[at] = static_cast<uint8_t>((v >> 8) & 0xff);
+        d[at + 1] = static_cast<uint8_t>(v & 0xff);
+    };
+    const size_t engAt = block + 0x52;
+    for (size_t i = 0; i < eng.size(); ++i) put(engAt + i * 2, eng[i]);
+    const size_t carbAt = engAt + size_t(3 * manifolds) * 2;
+    put(carbAt, 0); put(carbAt + 2, 50); put(carbAt + 4, 100);
+    const size_t transAt = carbAt + 6;
+    put(transAt, 0); put(transAt + 2, 33); put(transAt + 4, 66); put(transAt + 6, 100);
+    const size_t wtAt = tire + 6;
+    for (size_t i = 0; i < weight.size(); ++i) put(wtAt + i * 2, weight[i]);
+    return d;
+}
+
+const std::vector<int> kSr1Weight = {40, 44, 48, 60, 64, 68, 80, 84, 88};
+
+}  // namespace
+
+TEST_CASE("scoring tables load from the executable") {
+    // Street Rod: a 3 x 5 grid. Restore it afterwards so later cases see the
+    // shipped values.
+    std::vector<int> eng(15, 0);
+    eng[2 * 5 + 4] = 100;   // best engine, best manifold
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(false, eng, kSr1Weight),
+                                      srrace::PhysicsTableSource::StreetRod));
+    CHECK(srrace::ScoringManifoldCount() == 5);
+
+    // Street Rod 2's grid is 3 x 9, and its weight points top out at 100
+    // rather than 88 - so a full-weight car still scores the same 10.
+    std::vector<int> eng2(27, 0);
+    eng2[2 * 9 + 8] = 100;
+    const std::vector<int> w2 = {46, 50, 55, 68, 73, 78, 91, 96, 100};
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(true, eng2, w2),
+                                      srrace::PhysicsTableSource::StreetRod2));
+    CHECK(srrace::ScoringManifoldCount() == 9);
+
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(false, eng, kSr1Weight),
+                                      srrace::PhysicsTableSource::StreetRod));
+}
+
+TEST_CASE("Street Rod 2 scores a car as one raw sum, by the original's arithmetic") {
+    // engine score 0/50/100, transmission 0/33/66/100, manifold rows per carburettor.
+    std::vector<int> grid(27, 0);
+    grid[1 * 9 + 5] = 50;    // 4-barrel carb, tunnel ram
+    grid[2 * 9 + 8] = 100;   // racing carb row, supercharger
+    const std::vector<int> w2 = {46, 50, 55, 68, 73, 78, 91, 96, 100};
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(true, grid, w2), srrace::PhysicsTableSource::StreetRod2));
+
+    srrace::CarSetup setup;
+    setup.engineClass = 2;
+    setup.transClass = 3;
+    setup.carbClass = 1;
+    setup.manifoldClass = 5;
+    setup.weightClass = 8;
+    setup.tuneOffset = 0;
+    setup.roofChopped = true;
+    setup.frontBumperRemoved = true;
+    setup.rearBumperRemoved = true;
+    // 100*25 + 100*15 + 50*15 + 100*10 + 880 + 800 + 400 + 100 = 7930 -> 79 -> 79*10*3/100 = 23 -> 93
+    CHECK(srrace::ComputeBasePerformance(setup) == 93);
+
+    // Only the 2.78:1 differential skews the raw sum, by 5% before the divide.
+    setup.differential = 0;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + (7930 + 7930 * 5 / 100) / 100 * 30 / 100);
+    setup.differential = 2;
+    // 4.11:1 does nothing: the original's test for it never matches.
+    CHECK(srrace::ComputeBasePerformance(setup) == 93);
+
+    // Engine wear scales it, and an automatic's k is 8 not 10.
+    setup.differential = 1;
+    setup.engineWear = 5000;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + 79 * 5000 / 10000 * 30 / 100);
+    setup.engineWear = 0;
+    setup.transClass = 0;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + ((7930 - 100 * 15) / 100) * 24 / 100);
+
+    // The tune byte's distance from zero comes straight off the sum, either side.
+    setup.transClass = 3;
+    setup.sr2Tune = 0;
+    const int perfect = srrace::ComputeBasePerformance(setup);
+    setup.sr2Tune = -128;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + ((7930 - 128) / 100) * 30 / 100);
+    setup.sr2Tune = 127;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + ((7930 - 127) / 100) * 30 / 100);
+    CHECK(srrace::ComputeBasePerformance(setup) <= perfect);
+    setup.sr2Tune = 0;
+
+    // Supercharger on a racing carb scores the table's 100.
+    setup.transClass = 3;
+    setup.carbClass = 2;
+    setup.manifoldClass = 8;
+    CHECK(srrace::ComputeBasePerformance(setup) == 70 + ((7930 - 50 * 15 + 100 * 15) / 100) * 30 / 100);
+
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(false, std::vector<int>(15, 0), kSr1Weight),
+                                      srrace::PhysicsTableSource::StreetRod));
+}
+
+TEST_CASE("a file that does not hold the tables is refused") {
+    // Scoring a car off the wrong data would be silent and wrong, so the
+    // loader keeps the built-in copy instead of taking what it finds.
+    const std::vector<uint8_t> empty(0x2D000, 0);
+    CHECK_FALSE(srrace::LoadScoringTables(empty, srrace::PhysicsTableSource::StreetRod));
+    CHECK_FALSE(srrace::LoadScoringTables(std::vector<uint8_t>(16, 0),
+                                          srrace::PhysicsTableSource::StreetRod));
+
+    // Weight points that do not rise are not the weight table.
+    std::vector<int> eng(15, 0);
+    std::vector<int> bad = kSr1Weight;
+    bad[4] = bad[3];
+    CHECK_FALSE(srrace::LoadScoringTables(MakeScoringExe(false, eng, bad),
+                                          srrace::PhysicsTableSource::StreetRod));
+
+    // And the shipped values are still in force afterwards.
+    CHECK(srrace::ScoringManifoldCount() == 5);
+}
+
+
+TEST_CASE("the SR2 bug fix setting turns on the PC build's part effects and tune scale") {
+    srrace::SetSr2BugFixes(true);
+
+    srrace::CarSetup headers;
+    headers.exhaust = 1;
+    CHECK(srrace::Sr2AdjustRpmGain(1000, headers) == 1050);
+    srrace::CarSetup glass;
+    glass.muffler = 1;
+    CHECK(srrace::Sr2AdjustRpmGain(1000, glass) == 1030);
+    srrace::CarSetup high;
+    high.differential = 2;
+    CHECK(srrace::Sr2AdjustRpmGain(1000, high) == 1050);
+    CHECK(srrace::Sr2AdjustScore(1000, 2) == 950);
+    CHECK(srrace::Sr2AdjustScore(1000, 0) == 1050);
+
+    // The first-gear slicks bonus is back on SR2 tables too.
+    std::vector<int> grid(27, 0);
+    const std::vector<int> w2 = {46, 50, 55, 68, 73, 78, 91, 96, 100};
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(true, grid, w2), srrace::PhysicsTableSource::StreetRod2));
+    srrace::CarSetup stock;
+    srrace::CarSetup slicks = stock;
+    slicks.tireClass = 2;
+    srrace::CarTables a{}, b{};
+    srrace::BuildCarTables(stock, a);
+    srrace::BuildCarTables(slicks, b);
+    CHECK(b.rows[1][0].rpmGain > a.rows[1][0].rpmGain);
+
+    // The tune costs the PC build's 2640 across its range, by notch step: the notch dead on the red bar
+    // (tune -16..-1) is perfect, and each step either side costs 330.
+    srrace::CarSetup tuned;
+    tuned.engineClass = 2;
+    tuned.transClass = 3;
+    tuned.weightClass = 8;
+    tuned.sr2Tune = -1;
+    const int perfect = srrace::ComputeBasePerformance(tuned);
+    tuned.sr2Tune = -16;
+    CHECK(srrace::ComputeBasePerformance(tuned) == perfect);
+    tuned.sr2Tune = 0;   // one step right of the bar, which is where the Amiga's own zero draws
+    CHECK(srrace::ComputeBasePerformance(tuned) <= perfect);
+    tuned.sr2Tune = -128;
+    CHECK(srrace::ComputeBasePerformance(tuned) < perfect);
+    tuned.sr2Tune = 127;
+    CHECK(srrace::ComputeBasePerformance(tuned) < perfect);
+
+    srrace::SetSr2BugFixes(false);
+    srrace::CarSetup off = tuned;
+    off.sr2Tune = 0;
+    const int amigaZero = srrace::ComputeBasePerformance(off);
+    off.sr2Tune = -128;
+    CHECK(srrace::ComputeBasePerformance(off) >= amigaZero - 1);
+
+    REQUIRE(srrace::LoadScoringTables(MakeScoringExe(false, std::vector<int>(15, 0), kSr1Weight),
+                                      srrace::PhysicsTableSource::StreetRod));
 }

@@ -29,7 +29,8 @@ public:
               const uint8_t* wave1_data, size_t wave1_size,
               const uint8_t* wave0_data, size_t wave0_size,
               const uint8_t* ins_data, size_t ins_size,
-              const uint8_t* env_data, size_t env_size);
+              const uint8_t* env_data, size_t env_size,
+              bool sr2 = false);
 
     void Play();
     // Plays one arrangement step at its own tick period, skipping Play()'s random pick. Used by the win ending.
@@ -93,7 +94,7 @@ private:
     double PeriodToStep(int period) const;
     static uint16_t ReadBE16(const uint8_t* p);
     static bool ParsePatterns(const std::vector<uint8_t>& note_bytes, std::vector<std::array<size_t, 4>>& out_patterns);
-    static bool ParseInstruments(const std::vector<uint8_t>& ins_bytes, std::vector<InstrumentDef>& out_instruments);
+    static bool ParseInstruments(const std::vector<uint8_t>& ins_bytes, bool sr2, std::vector<InstrumentDef>& out_instruments);
     static bool ParseEnvelopes(const std::vector<uint8_t>& env_bytes, std::vector<EnvelopeDef>& out_envelopes);
 
     std::vector<uint8_t> note_bytes_;

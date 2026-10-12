@@ -28,6 +28,9 @@ class Roster {
         std::vector<SrDriverData> srDrivers;
         std::vector<std::string> srDriverNames;
         int nextSrDriver = 0;
+        // Which set each row above came from, stamped onto the driver built
+        // from it so a portrait is drawn out of the right game's lib.p.
+        std::vector<int> srDriverSets;
         std::vector<Opponent> opponents;
         std::vector<Opponent>::iterator currentOpponent;
         std::vector<std::string> customDriverPaths;
@@ -40,9 +43,13 @@ class Roster {
         Opponent kingOpponent;
         bool kingOpponentBuilt = false;
         Driver GenerateRandomDriver(int preferredCarIndex);
+        // How many opponents the driver table can supply: every row except
+        // The King's. 0 when no table was set.
+        int SrDriverPoolSize() const;
     public:
         void SetDriverTable(const std::vector<SrDriverData>& drivers,
-                            const std::vector<std::string>& names);
+                            const std::vector<std::string>& names,
+                            const std::vector<int>& sets);
     private:
         void LoadCustomDrivers();
         void LoadCustomStickers();
@@ -64,8 +71,10 @@ class Roster {
         bool HasForcedOpponent() const { return forcedNextOpponent != nullptr; }
         Opponent* GetOpponentByIndex(int index);
 
-        // Built lazily: a stock '63 Corvette (kingSpec) in his own paint.
-        Opponent* GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec);
+        // The row a driver came from, for code that needs a field the Driver struct does not carry.
+        const SrDriverData* GetSrDriver(int srDriverIndex) const;
+
+        Opponent* GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec, SrGame game);
 
         // Compared by identity, since lastChallengerPoolIndex moves whenever a challenger is re-picked.
         bool IsKing(const Opponent* opp) const { return opp == &kingOpponent; }

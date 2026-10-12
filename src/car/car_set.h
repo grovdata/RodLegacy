@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-// The Amiga stock set is mandatory and first, keeping its car-spec indices at 0..25 as original .SAV
-// files store them. Optional sets append in registry order.
+#include "parsers/libp.h"   // SrGame
+
 
 enum class CarSetArt {
     AmigaLibP,  // recoloured through the car palette
@@ -21,7 +21,6 @@ enum class CarSetArt {
 struct CarSetDef {
     std::string id;        // stable key, safe to write into a save
     std::string name;      // shown to the player
-    bool        mandatory; // the stock set cannot be switched off
     CarSetArt   art;
 
     // Relative to the game data directory. Empty for the Amiga set, which uses lib.p/SR_data.
@@ -29,6 +28,13 @@ struct CarSetDef {
     std::string libEntry;   // path inside the zip, e.g. "SRSE/LIB2"
     std::string dataEntry;  // path inside the zip, e.g. "SRSE/HOT_DATA"
     std::string looseDir;   // directory name when unzipped beside the game data
+
+    // A set brings cars, drivers, or both.
+    bool providesCars    = true;
+    bool providesDrivers = false;
+
+    // Which game this set's content belongs to.
+    SrGame game = SrGame::SR1;
 };
 
 // Registry order is the merged car-spec table order: keep it stable, append new sets.
@@ -36,12 +42,25 @@ const std::vector<CarSetDef>& GetCarSetDefs();
 
 static constexpr int kAmigaCarSet = 0;
 
-// Not in any car data file: the wheel cell is bottom-aligned to the body sprite, and every wheel arch is
-// cut for that Y.
+// True for the set that reads `game`'s own lib.p and data file.
+inline bool CarSetIsOwnGame(const CarSetDef& def, SrGame game) {
+    return def.zipName.empty() && def.game == game;
+}
+
+// Whether a set's cars can race in a given game.
+inline bool CarSetFitsGame(const CarSetDef& def, SrGame game) {
+    return static_cast<int>(def.game) <= static_cast<int>(game);
+}
+
+// The set that reads a given game's own lib.p and data file.
+int CarSetForGame(SrGame game);
+
 int CarSetWheelY(int carSet, int bodySpriteHeight);
 
 // -1 means the car has no such variant.
 struct CarSprites {
+    int dashboard = 0;
+    int bodyStyle = 0;
     int body = -1;
     int choppedRoof = -1;
     int airScoop = -1;

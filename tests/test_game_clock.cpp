@@ -2,6 +2,7 @@
 #include "core/game_clock.h"
 
 TEST_CASE("GameClock: day-boundary dates match the confirmed epoch and month lengths") {
+    CHECK(GameClock::FormatDate(0, 1969) == "June 16, 1969");              // Street Rod 2 prints 1969
     CHECK(GameClock::FormatDate(0) == "June 16, 1963");                    // new-game epoch
     CHECK(GameClock::FormatDate(GameClock::TICKS_PER_DAY) == "June 17, 1963");
     CHECK(GameClock::FormatDate(2 * GameClock::TICKS_PER_DAY) == "June 18, 1963");

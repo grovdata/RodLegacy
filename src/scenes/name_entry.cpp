@@ -11,18 +11,11 @@ namespace {
     constexpr int kNameTextY = 65;
     constexpr SDL_Rect kOldGameRect = {150, 162, 66, 16};
     constexpr SDL_Rect kOkRect      = {222, 162, 66, 16};
-    constexpr SDL_Rect kSeCheckRect = {114, 112, 14, 14};
-    constexpr int kSeLabelX = kSeCheckRect.x + kSeCheckRect.w + 4;
-    constexpr int kSeLabelY = kSeCheckRect.y + 2;
+    constexpr SDL_Rect kSetCheckRect = {114, 112, 14, 14};
+    constexpr int kSetRowHeight = 16;
+    constexpr int kSetLabelDx = kSetCheckRect.w + 4;
+    constexpr int kSetLabelDy = 2;
     constexpr uint32_t kBlack = 0x00000000;
-
-    int SeCarSetIndex() {
-        const std::vector<CarSetDef>& defs = GetCarSetDefs();
-        for (size_t i = 0; i < defs.size(); ++i) {
-            if (!defs[i].mandatory && defs[i].id == "srse") return (int)i;
-        }
-        return -1;
-    }
 }
 
 NameEntry::NameEntry()
@@ -58,19 +51,33 @@ void NameEntry::Init(bool debugMode) {
     okConfig.onClick = [this]() { HandleOk(); };
     okButton = std::make_unique<Button>(okConfig);
 
-    // A set with no data behind it would add no cars.
-    seCarsCheckbox.reset();
-    const int seSet = SeCarSetIndex();
-    if (seSet >= 0 && state.GetAssets().HasCarSetData(seSet)) {
-        seCarsEnabled = state.GetAssets().IsCarSetEnabled(seSet);
+    // Offer a set only when its data is actually installed - switching on a
+    // set with nothing behind it would add no cars and just look broken.
+    setRows.clear();
+    const std::vector<CarSetDef>& defs = GetCarSetDefs();
+    const SrGame game = state.GetAssets().GetGame();
+    for (size_t i = 0; i < defs.size(); ++i) {
+        const int set = (int)i;
+        if (CarSetIsOwnGame(defs[i], game)) continue;   // always on, no choice
+        if (!state.GetAssets().HasCarSetData(set)) continue;
 
-        seCarsLabel.Init(font, kSeLabelX, kSeLabelY, kBlack);
-        seCarsLabel.SetText("Street Rod SE cars");
+        auto row = std::make_unique<SetRow>();
+        row->carSet = set;
+        row->enabled = state.GetAssets().IsCarSetEnabled(set);
 
-        CheckboxConfig seConfig;
-        seConfig.bounds = kSeCheckRect;
-        seConfig.value = &seCarsEnabled;
-        seCarsCheckbox = std::make_unique<Checkbox>(seConfig);
+        SDL_Rect box = kSetCheckRect;
+        box.y += (int)setRows.size() * kSetRowHeight;
+
+        row->label.Init(font, box.x + kSetLabelDx, box.y + kSetLabelDy, kBlack);
+        // A set that brings drivers brings its whole roster.
+        row->label.SetText(defs[i].name + (defs[i].providesDrivers ? " cars & drivers"
+                                                                   : " cars"));
+
+        CheckboxConfig config;
+        config.bounds = box;
+        config.value = &row->enabled;
+        row->checkbox = std::make_unique<Checkbox>(config);
+        setRows.push_back(std::move(row));
     }
 }
 
@@ -85,10 +92,12 @@ void NameEntry::RefreshNameLabel() {
 }
 
 void NameEntry::HandleOk() {
-    // Before StartNewGame, which rebuilds the spec table from the car sets.
-    const int seSet = SeCarSetIndex();
-    if (seCarsCheckbox && seSet >= 0) {
-        state.GetAssets().SetCarSetEnabled(seSet, seCarsEnabled);
+    // Settle the car sets before StartNewGame, which rebuilds the spec and
+    // driver tables this game's cars and opponents are generated from.
+    if (!setRows.empty()) {
+        for (const auto& row : setRows) {
+            state.GetAssets().SetCarSetEnabled(row->carSet, row->enabled);
+        }
         state.GetAssets().SaveSettings();
     }
 
@@ -103,9 +112,9 @@ void NameEntry::DrawScene() {
     nameLabel.Draw();    
     oldGameButton->Draw();
     okButton->Draw();
-    if (seCarsCheckbox) {
-        seCarsLabel.Draw();
-        seCarsCheckbox->Draw();
+    for (const auto& row : setRows) {
+        row->label.Draw();
+        row->checkbox->Draw();
     }
 }
 
@@ -138,7 +147,7 @@ bool NameEntry::PushEvent(SDL_Event* event) {
     if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
         oldGameButton->HandleEvent(event);
         okButton->HandleEvent(event);
-        if (seCarsCheckbox) seCarsCheckbox->HandleEvent(event);
+        for (const auto& row : setRows) row->checkbox->HandleEvent(event);
         return true;
     }
 

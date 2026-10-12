@@ -4,6 +4,7 @@
 #include <fstream>
 #include <SDL.h>
 #include "parsers/libp.h"
+#include "car/car_set.h"
 
 CarData::CarData() {
 }
@@ -12,9 +13,6 @@ CarData::~CarData() {
 
 }
 
-void CarData::ReadEntries(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
-    ReadCarsBuiltin(datafilebuf, bitmaps);
-}
 
 CarModel CarData::GetModelFromIndex(int index) {
     for (auto m: allCarModels) {
@@ -28,58 +26,83 @@ CarModel CarData::GetModelFromIndex(int index) {
     return CarModel();
 }
 
-CarModel CarData::CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata) {
-    CarModel m;
+int CarData::ReadCarSetAmiga(int carSet, const std::vector<uint8_t>& srData,
+                             const std::pair<int, std::vector<BitmapEntry_t>>& bitmaps) {
+    const CarSetDef& def = GetCarSetDefs()[carSet];
+    const bool isSr2 = def.game == SrGame::SR2;
 
-    LOG_INFO("bitmap w %d h%d", bitmap.width, bitmap.height);
-
-    if (index < int(CAR_INDEX_COUNT)) {
-        m.index = kCarIndex[index];
-        LOG_INFO("Car body ID: %d", static_cast<int>(m.index));
-    }
-    m.carSet = kAmigaCarSet;
-    m.sprites = AmigaCarSprites(m.index);
-    m.sprites.airScoop = metadata.airScoop;
-    m.baseSpeed = 100;
-    m.height = bitmap.height;
-    m.width = bitmap.width;
-    m.name = metadata.classified.carName;
-    m.offsets = metadata.offsets;
-    m.vendor = SrLibQueryGetCarVendor(m.index);
-    m.year = metadata.classified.year;
-    m.price = metadata.classified.price;
-    return m;
-}
-
-void CarData::ReadCarsBuiltin(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps) {
-    int metadataCount;
-
-    unsigned char* buffer = reinterpret_cast<uint8_t*>(datafilebuf.data());
-    CarMetadata_t* metadata = dp.SrLibDataReadDataFromBuffer(buffer, datafilebuf.size(), &metadataCount);
-    
-    carMetadata.clear();
-    carMetadata.assign(metadata, metadata + metadataCount);
-    
-    for (int i = 0; i < metadataCount; i++) {   
-        int stockIndex = kCarIndex[i];
-        
-        BitmapEntry_t& bitmap = bitmaps.second[stockIndex];
-        
-        LOG_INFO("Creating car %d (stock index %d) with bitmap w:%d h: %d", i, stockIndex, bitmap.width, bitmap.height);         
-        
-        // SR_data has no wheel Y; the wheel cell is bottom-aligned to the body
-        // sprite, which only the caller knows the height of.
-        carMetadata[i].offsets.offsetYTires = CarSetWheelY(kAmigaCarSet, bitmap.height);
-
-        CarModel newModel = CreateModel(i, bitmap, carMetadata[i]);
-        metadataByIndex[newModel.index] = carMetadata[i];
-        allCarModels.insert(newModel);
+    const std::vector<SrCarSpecEntry> specs =
+        isSr2 ? dp.ParseCarSpecTableSR2(srData) : dp.ParseCarSpecTable(srData);
+    const std::vector<CarSpriteRefs> sprites = dp.ParseCarSpritesAmiga(srData, def.game);
+    if (specs.empty() || sprites.empty()) {
+        LOG_WARN("Car set '%s': data file too short to parse, no cars added", def.id.c_str());
+        return 0;
     }
 
-    LOG_INFO("Created %zu car models:", allCarModels.size());
-    for (const auto& model : allCarModels) {                
-        model.Log();
+    int metadataCount = 0;
+    CarMetadata_t* metadata =
+        isSr2 ? dp.SrLibDataReadDataFromBufferSR2(srData.data(), srData.size(), &metadataCount)
+              : dp.SrLibDataReadDataFromBuffer(srData.data(), srData.size(), &metadataCount);
+    if (!metadata) {
+        LOG_WARN("Car set '%s': classifieds unreadable, no cars added", def.id.c_str());
+        return 0;
     }
+
+    int added = 0;
+    for (int i = 0; i < metadataCount && i < (int)sprites.size(); i++) {
+        // The King's car has no classified ad and is never bought, so it gets
+        // no model - the same slot Street Rod's reader always left out.
+        if (i < (int)specs.size() && !specs[i].ForSale()) continue;
+        const int bodySprite = sprites[i].body;
+        if (bodySprite < 0 || bodySprite >= bitmaps.first) {
+            LOG_WARN("Car set '%s': car %d names body sprite %d, outside the %d-entry lib.p - skipping",
+                     def.id.c_str(), i, bodySprite, bitmaps.first);
+            continue;
+        }
+        const BitmapEntry_t& bitmap = bitmaps.second[bodySprite];
+
+        CarModel model;
+        // Street Rod's own cars keep their raw lib.p asset id as the pool key, because original .SAV files
+        // store it.
+        model.index = carSet == kAmigaCarSet ? bodySprite
+                                             : carSet * HOT_DATA_SPRITE_BASE + bodySprite;
+        model.carSet = carSet;
+        model.sprites.body = bodySprite;
+        model.sprites.dashboard = sprites[i].dashboard;
+        model.sprites.bodyStyle = sprites[i].bodyStyle;
+        model.sprites.choppedRoof = sprites[i].choppedRoof;
+        model.sprites.airScoop = sprites[i].airScoop;
+        model.sprites.rearBumperStripped = sprites[i].rearBumperStripped;
+        model.sprites.frontBumperStripped = sprites[i].frontBumperStripped;
+        model.name = metadata[i].classified.carName ? metadata[i].classified.carName : "";
+        model.year = metadata[i].classified.year;
+        model.price = metadata[i].classified.price;
+        model.offsets = metadata[i].offsets;
+        // No data file carries a wheel Y; the wheel cell is bottom-aligned to
+        // the body sprite instead.
+        model.offsets.offsetYTires = CarSetWheelY(carSet, bitmap.height);
+        metadata[i].offsets.offsetYTires = model.offsets.offsetYTires;
+        model.width = bitmap.width;
+        model.height = bitmap.height;
+        // FIXME Speed is unknown
+        model.baseSpeed = 100;
+        switch (i < (int)specs.size() ? specs[i].Brand() : -1) {
+            case 0:  model.vendor = CarVendorGM; break;
+            case 1:  model.vendor = CarVendorFord; break;
+            case 2:  model.vendor = CarVendorChrysler; break;
+            default: model.vendor = CarVendorUnknown; break;
+        }
+
+        metadataByIndex[model.index] = metadata[i];
+        allCarModels.insert(model);
+        added++;
+    }
+
+    // Only the array.
+    free(metadata);
+
+    LOG_INFO("Car set '%s': added %d cars", def.id.c_str(), added);
+    return added;
 }
 
 CarMetadata_t CarData::GetCarMetadata(int carIndex) {
@@ -97,7 +120,7 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
                         const std::pair<int, std::vector<DOSBitmapEntry_t>>& bitmaps) {
     const std::string& setId = GetCarSetDefs()[carSet].id;
     const std::vector<SrCarSpecEntry> specs = dp.ParseCarSpecTableDOS(hotData);
-    const std::vector<DosCarSprites> sprites = dp.ParseCarSpritesDOS(hotData);
+    const std::vector<CarSpriteRefs> sprites = dp.ParseCarSpritesDOS(hotData);
     if (specs.empty() || sprites.empty()) {
         LOG_WARN("Car set '%s': data file too short to parse, no cars added", setId.c_str());
         return 0;

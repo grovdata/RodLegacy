@@ -19,16 +19,6 @@ extern "C" {
 #define GAME_WIDTH  320
 #define GAME_HEIGHT 200
 
-const std::vector<ZipPack>& GetZipPacks() {
-    static const std::vector<ZipPack> packs = {
-        {
-            "sr1amiga.zip", true, "Amiga disks (required)",
-            {"SR1AMIGA_DISK1.adf", "SR1AMIGA_DISK2.adf"}
-        },        
-        { "srsepc.zip",       false, "SE/Data Disk (stickers, cars)", {} },        
-    };
-    return packs;
-}
 
 std::vector<ZipPackStatus> ScanDirectory(const fs::path& dir) {
     std::vector<ZipPackStatus> results;
@@ -47,6 +37,10 @@ std::vector<ZipPackStatus> ScanDirectory(const fs::path& dir) {
                 }
             }
             // A pack with no required contents is valid when found.
+        }
+        if (!s.zipValid && !pack.adfContents.empty()) {
+            s.zipValid = std::all_of(pack.adfContents.begin(), pack.adfContents.end(),
+                [&](const std::string& adf) { return fs::exists(dir / adf); });
         }
         results.push_back(s);
     }
@@ -85,16 +79,16 @@ static std::vector<fs::path> ListDirs(const fs::path& dir) {
     return out;
 }
 
-// Checks by name only; the picked folder is checked properly by ScanDirectory.
-static bool HasMandatoryZips(const fs::path& dir) {
-    bool any = false;
+// Cheap "worth looking in here" test for the rows: one mandatory zip or its
+// first loose ADF exists by name. No zip is opened - that would mean unpacking every sibling folder just
+static bool HasMandatoryZip(const fs::path& dir) {
     for (const ZipPack& pack : GetZipPacks()) {
         if (!pack.mandatory) continue;
-        any = true;
         std::error_code ec;
-        if (!fs::exists(dir / pack.filename, ec) || ec) return false;
+        if (fs::exists(dir / pack.filename, ec) && !ec) return true;
+        if (!pack.adfContents.empty() && fs::exists(dir / pack.adfContents[0], ec) && !ec) return true;
     }
-    return any;
+    return false;
 }
 
 // Trim from the left, marking the cut, so a long path still shows its tail.
@@ -156,7 +150,7 @@ static void DrawBrowser(SDL_Surface* surf,
 
     if (anyMarked) {
         SFont_WriteCenter(surf, bodyFont, GAME_HEIGHT - rowH * 2 - 4,
-                          "* folder holds the game files");
+                          "* folder holds game files");
     }
     SFont_WriteCenter(surf, bodyFont, GAME_HEIGHT - rowH - 3,
                       "Enter/A open   Esc/B cancel");
@@ -177,7 +171,7 @@ static void DrawScreen(SDL_Surface* surf,
     y += headH;
     SFont_WriteCenter(surf, bodyFont, y, "Welcome to RodLegacy. You need to");
     y += lineH;
-    SFont_WriteCenter(surf, bodyFont, y, "select where Street Rod");
+    SFont_WriteCenter(surf, bodyFont, y, "select where Street Rod 1 or 2");
     y += lineH;
     SFont_WriteCenter(surf, bodyFont, y, "game files are located.");
     y += lineH * 2;
@@ -203,7 +197,7 @@ static void DrawScreen(SDL_Surface* surf,
     y += lineH / 2;
 
     if (!canStart) {
-        SFont_WriteCenter(surf, bodyFont, y, "* required to play");
+        SFont_WriteCenter(surf, bodyFont, y, "* one of these is required");
     }
     y += lineH;
     SFont_WriteCenter(surf, bodyFont, y, "or drop a folder or zip on this window");
@@ -264,15 +258,11 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
 
     for (const fs::path& d : searchDirs) {
         auto s = ScanDirectory(d);
-        for (const auto& ps : s) {
-            if (ps.pack.mandatory && ps.zipValid) {
-                currentDir = d;
-                packStatus = s;
-                canStart = true;
-                break;
-            }
-        }
-        if (canStart) break;
+        if (!AnyMandatoryValid(s)) continue;
+        currentDir = d;
+        packStatus = s;
+        canStart = true;
+        break;
     }
     if (currentDir.empty()) {
         currentDir = fs::current_path();
@@ -331,7 +321,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
         }
 
         for (const fs::path& d : ListDirs(browseDir)) {
-            const bool marked = HasMandatoryZips(d);
+            const bool marked = HasMandatoryZip(d);
             browseAnyMarked = browseAnyMarked || marked;
             rowLabels.push_back(d.filename().string() + (marked ? "  *" : ""));
             rowTargets.push_back(d);
@@ -343,13 +333,7 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     auto useFolder = [&](const fs::path& dir) {
         packStatus = ScanDirectory(dir);
         currentDir = dir;
-        canStart = false;
-        for (const auto& ps : packStatus) {
-            if (ps.pack.mandatory && ps.zipValid) {
-                canStart = true;
-                break;
-            }
-        }
+        canStart = AnyMandatoryValid(packStatus);
         browsing = false;
     };
 
@@ -614,4 +598,96 @@ fs::path RunConfigScreen(SDL_Renderer* renderer) {
     SFont_FreeFont(headingFont);
     SDL_RenderSetLogicalSize(renderer, 0, 0);
     return result;
+}
+
+bool RunGamePicker(SDL_Renderer* renderer, SrGame* game) {
+    SFont_Font* headingFont = SFont_InitFont(LoadSurfaceFromMemory(embedded_bee_png, embedded_bee_png_len));
+    SFont_Font* bodyFont = SFont_InitFont(LoadSurfaceFromMemory(embedded_g1_7x8_sfont_png,
+                                                                embedded_g1_7x8_sfont_png_len));
+    SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, GAME_WIDTH, GAME_HEIGHT, 32,
+                                                        SDL_PIXELFORMAT_ARGB8888);
+    if (!headingFont || !bodyFont || !surf) {
+        if (surf) SDL_FreeSurface(surf);
+        if (bodyFont) SFont_FreeFont(bodyFont);
+        if (headingFont) SFont_FreeFont(headingFont);
+        return true;
+    }
+    SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
+
+    bool picked = false, running = true;
+    const int btnW = 120, btnH = 20, btnX = (GAME_WIDTH - btnW) / 2;
+    const SrGame games[2] = {SrGame::SR1, SrGame::SR2};
+    const char* labels[2] = {"Street Rod", "Street Rod 2"};
+    std::vector<std::unique_ptr<Button>> buttons;
+    for (int i = 0; i < 2; ++i) {
+        ButtonConfig cfg{};
+        cfg.bounds = {btnX, 80 + i * 32, btnW, btnH};
+        cfg.text = labels[i];
+        cfg.font = bodyFont;
+        cfg.onClick = [&, i]() { *game = games[i]; picked = true; running = false; };
+        cfg.borderColor = {255, 255, 255, 255};
+        cfg.textColor = {255, 255, 255, 255};
+        buttons.push_back(std::make_unique<Button>(cfg));
+    }
+    int focus = *game == SrGame::SR2 ? 1 : 0;
+    int stickDir = 0;
+
+    while (running) {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) { running = false; break; }
+            gamepad.HandleEvent(e);
+            if (e.type == SDL_KEYDOWN) {
+                switch (e.key.keysym.scancode) {
+                    case SDL_SCANCODE_ESCAPE:   running = false; break;
+                    case SDL_SCANCODE_UP:
+                    case SDL_SCANCODE_DOWN:
+                    case SDL_SCANCODE_TAB:      focus ^= 1; break;
+                    case SDL_SCANCODE_1:        buttons[0]->SimulateClick(); break;
+                    case SDL_SCANCODE_2:        buttons[1]->SimulateClick(); break;
+                    case SDL_SCANCODE_RETURN:
+                    case SDL_SCANCODE_KP_ENTER: buttons[focus]->SimulateClick(); break;
+                    default: break;
+                }
+            } else if (e.type == SDL_CONTROLLERBUTTONDOWN) {
+                switch (e.cbutton.button) {
+                    case SDL_CONTROLLER_BUTTON_DPAD_UP:
+                    case SDL_CONTROLLER_BUTTON_DPAD_DOWN: focus ^= 1; break;
+                    case SDL_CONTROLLER_BUTTON_A:
+                    case SDL_CONTROLLER_BUTTON_START:     buttons[focus]->SimulateClick(); break;
+                    case SDL_CONTROLLER_BUTTON_B:         running = false; break;
+                    default: break;
+                }
+            } else if (e.type == SDL_CONTROLLERAXISMOTION && e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+                const int dir = e.caxis.value < -Gamepad::DEADZONE ? -1 :
+                                e.caxis.value >  Gamepad::DEADZONE ?  1 : 0;
+                if (dir != 0 && dir != stickDir) focus ^= 1;
+                stickDir = dir;
+            }
+            for (auto& b : buttons) b->HandleEvent(&e);
+        }
+
+        DrawFrame(surf);
+        SFont_WriteCenter(surf, headingFont, 30, "Pick a game");
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+        if (tex) {
+            SDL_RenderClear(renderer);
+            SDL_RenderCopy(renderer, tex, nullptr, nullptr);
+            SDL_DestroyTexture(tex);
+        }
+        for (auto& b : buttons) b->Draw();
+        SDL_Rect ring = buttons[focus]->GetBounds();
+        ring.x -= 2; ring.y -= 2; ring.w += 4; ring.h += 4;
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+        SDL_RenderDrawRect(renderer, &ring);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16);
+    }
+
+    SDL_FreeSurface(surf);
+    SFont_FreeFont(bodyFont);
+    SFont_FreeFont(headingFont);
+    SDL_RenderSetLogicalSize(renderer, 0, 0);
+    return picked;
 }

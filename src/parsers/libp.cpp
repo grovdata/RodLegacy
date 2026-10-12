@@ -52,28 +52,22 @@ const char* SrLibCarDecalNames[16] = {
 };
 
 // Indexed by SrLibFile.
-const char *SrLibFileNames[] = {
-    "lib.start",
-    "lib.p",
-    "LIB1",
-    "LIB1C",
-    "LIB2"
-};
-
-const uint32_t SrLibFileChecksums[] = {
-    0x388A781C,
-    0x3EBE203A,
-    0x3460C66A,
-    0x2DE22048,
-    0xF3EAD7B0
-};
-
 const char *SrLibArchiveNames[] = {
     "SR1AMIGA_DISK1.adf",
     "SR1AMIGA_DISK2.adf",
     "SR2AMIGA_DISK1.adf",
     "SR2AMIGA_DISK2.adf",
 };
+
+const SrGameFiles& SrGameGetFiles(SrGame game) {
+    static const SrGameFiles files[] = {
+        {SrLibArchiveSR1AmigaDisk1, SrLibArchiveSR1AmigaDisk2,
+         "sr1amiga.zip", "SR_Data",  "Street Rod"},
+        {SrLibArchiveSR2AmigaDisk1, SrLibArchiveSR2AmigaDisk2,
+         "sr2amiga.zip", "SR2_data", "Street Rod 2"},
+    };
+    return files[static_cast<int>(game)];
+}
 
 const uint32_t SrLibArchiveChecksums[] = {
     0x53587B9F,
@@ -304,13 +298,16 @@ std::vector<uint8_t> BitmapParser::PlanarToIndices(const std::vector<uint8_t>& d
 }
 
 std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>& data,
-    BitmapEntry_t entry, const Palette& palette, const Palette& carPalette, int assetIndex) {
+    BitmapEntry_t entry, const Palette& palette, const Palette& carPalette, int assetIndex, SrGame game) {
     std::vector<SrLibColor> chunkyData(entry.width * entry.height);
 
     int planeSize = (entry.width / 8) * entry.height;
 
     // RACING_INTERIOR_1, RACING_HOOD and RACING_CRASHED_INTERIOR: only their magenta placeholders take the car palette.
-    bool useMagentaDetection = (assetIndex == 3 || assetIndex == 11 || assetIndex == 19);
+    bool useMagentaDetection = game == SrGame::SR2
+        ? (assetIndex == SR2_INTERIOR_0 || assetIndex == SR2_INTERIOR_1 || assetIndex == SR2_INTERIOR_2 ||
+           assetIndex == SR2_HOOD_TALL || assetIndex == SR2_HOOD_LOW)
+        : (assetIndex == 3 || assetIndex == 11 || assetIndex == 19);
 
     for (int y = 0; y < entry.height; ++y) {
         for (int x = 0; x < entry.width; x += 8) {
@@ -690,7 +687,168 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
     return chunkyData;
 }
 
-LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
+namespace {
+
+// Big-endian readers over the executable image, bounds-checked against it.
+struct Sr2ExeReader {
+    const std::vector<uint8_t>& d;
+    bool ok = true;
+
+    int U16(size_t at) {
+        if (at + 2 > d.size()) { ok = false; return 0; }
+        return (int(d[at]) << 8) | int(d[at + 1]);
+    }
+    uint32_t U32(size_t at) {
+        if (at + 4 > d.size()) { ok = false; return 0; }
+        return (uint32_t(d[at]) << 24) | (uint32_t(d[at + 1]) << 16) |
+               (uint32_t(d[at + 2]) << 8) | uint32_t(d[at + 3]);
+    }
+    // A run of u16 out of a table at a runtime address.
+    void Row(uint32_t addr, int* out, int count) {
+        const size_t at = Sr2ExeOffset(addr);
+        for (int i = 0; i < count; i++) out[i] = U16(at + size_t(i) * 2);
+    }
+    std::string Text(size_t at) {
+        if (at >= d.size()) { ok = false; return {}; }
+        size_t end = at;
+        while (end < d.size() && d[end]) ++end;
+        return std::string(reinterpret_cast<const char*>(d.data() + at), end - at);
+    }
+};
+
+} // namespace
+
+std::vector<Sr2PartEntry> SrLibReadSr2Parts(const std::vector<uint8_t>& sr2ExeData) {
+    Sr2ExeReader r{sr2ExeData};
+    const size_t base = Sr2ExeOffset(SR2_PARTS_CATALOG_ADDR);
+
+    std::vector<Sr2PartEntry> parts;
+    parts.reserve(SR2_PARTS_CATALOG_COUNT);
+    for (int i = 0; i < SR2_PARTS_CATALOG_COUNT; i++) {
+        const size_t rec = base + size_t(i) * 16;
+        Sr2PartEntry e;
+        e.price      = r.U16(rec + 0);
+        e.configBits = r.U16(rec + 2);
+        e.typeId     = r.U16(rec + 4);
+        e.fitMask    = r.U16(rec + 6);
+        e.group      = r.U16(rec + 8);
+        // The ad pointer is stored relative to the string hunk; the Amiga
+        // loader relocates it, and reading the raw file means adding the base.
+        e.ad         = r.Text(SR2_EXE_PART_TEXT_BASE + r.U32(rec + 10));
+        e.adLayout   = sr2ExeData.size() > rec + 14 ? int(sr2ExeData[rec + 14]) : 0;
+        if (!r.ok) return {};
+        // Every record names a slot and costs something.
+        if (e.group < 0 || e.group >= Sr2PartGroupCount || e.price <= 0) return {};
+        parts.push_back(std::move(e));
+    }
+    return parts;
+}
+
+Sr2MechTables SrLibReadSr2MechTables(const std::vector<uint8_t>& sr2ExeData) {
+    Sr2ExeReader r{sr2ExeData};
+    Sr2MechTables t;
+
+    for (int i = 0; i < 3; i++) r.Row(0x263AF8 + uint32_t(i) * 10, t.rpmGain[i], 5);
+    for (int i = 0; i < 4; i++) r.Row(0x263AD0 + uint32_t(i) * 10, t.gearRatio[i], 5);
+    for (int i = 0; i < 3; i++) r.Row(0x263B16 + uint32_t(i) * 4, t.powerBand[i], 2);
+    for (int i = 0; i < 3; i++) r.Row(0x263B22 + uint32_t(i) * 18, t.manifoldScore[i], 9);
+    r.Row(0x263B66, t.redline, 3);
+    r.Row(0x263B6C, t.gearCount, 4);
+    r.Row(0x263B74, t.tireGrip, 3);
+    r.Row(0x263B7A, t.tierScore, 9);
+    r.Row(0x263B58, t.engineScore, 3);
+    r.Row(0x263B5E, t.transScore, 4);
+    if (!r.ok) return t;
+
+    // Cheap shape checks, so a file that does not hold these tables gives nothing rather than a car with a
+    // 3-rpm redline.
+    for (int i = 0; i < 3; i++) {
+        if (t.powerBand[i][0] <= 0 || t.powerBand[i][1] <= t.powerBand[i][0]) return t;
+        if (t.redline[i] != t.powerBand[i][1]) return t;
+    }
+    for (int i = 1; i < 9; i++) {
+        if (t.tierScore[i] <= t.tierScore[i - 1]) return t;
+    }
+    for (int i = 0; i < 4; i++) {
+        if (t.gearCount[i] < 3 || t.gearCount[i] > 5) return t;
+    }
+    t.valid = true;
+    return t;
+}
+
+std::vector<std::vector<std::string>> SrLibReadSr2Messages(
+        const std::vector<uint8_t>& sr2ExeData) {
+    std::vector<std::vector<std::string>> out;
+    const size_t needed = SR2_MESSAGE_TABLE_OFFSET +
+                          static_cast<size_t>(SR2_MESSAGE_COUNT) * SR2_MESSAGE_RECORD_SIZE;
+    if (sr2ExeData.size() < needed) {
+        return out;
+    }
+    auto beU16 = [&](size_t at) -> uint32_t {
+        return (static_cast<uint32_t>(sr2ExeData[at]) << 8) | sr2ExeData[at + 1];
+    };
+    auto beU32 = [&](size_t at) -> uint32_t {
+        return (static_cast<uint32_t>(sr2ExeData[at]) << 24) |
+               (static_cast<uint32_t>(sr2ExeData[at + 1]) << 16) |
+               (static_cast<uint32_t>(sr2ExeData[at + 2]) << 8) |
+                static_cast<uint32_t>(sr2ExeData[at + 3]);
+    };
+    out.resize(SR2_MESSAGE_COUNT);
+    for (int i = 0; i < SR2_MESSAGE_COUNT; ++i) {
+        const size_t rec = SR2_MESSAGE_TABLE_OFFSET +
+                           static_cast<size_t>(i) * SR2_MESSAGE_RECORD_SIZE;
+        // The style decides how many of the two pointers are drawn: style 2 is
+        // the only two line box, everything else is one line.
+        const int lines =
+            beU16(rec) == SR2_MESSAGE_TWO_LINE_STYLE ? SR2_MESSAGE_MAX_LINES : 1;
+        for (int l = 0; l < lines; ++l) {
+            const uint32_t ptr = beU32(rec + 2 + static_cast<size_t>(l) * 4);
+            // An unused record holds a null pointer rather than a string.
+            if (ptr == 0) {
+                break;
+            }
+            const size_t at = SR2_DATA67_FILE_OFFSET + ptr;
+            if (at >= sr2ExeData.size()) {
+                break;
+            }
+            size_t end = at;
+            while (end < sr2ExeData.size() && sr2ExeData[end] != 0) {
+                ++end;
+            }
+            out[static_cast<size_t>(i)].emplace_back(
+                reinterpret_cast<const char*>(sr2ExeData.data() + at), end - at);
+        }
+    }
+    return out;
+}
+
+std::vector<std::vector<uint16_t>> SrLibReadSr2Palettes(const std::vector<uint8_t>& sr2ExeData) {
+    const size_t need = SR2_EXE_PALETTE_OFFSET +
+                        size_t(SR2_PALETTE_COUNT) * SR2_PALETTE_SIZE * 2;
+    if (sr2ExeData.size() < need) return {};
+
+    std::vector<std::vector<uint16_t>> palettes;
+    const uint8_t* src = sr2ExeData.data() + SR2_EXE_PALETTE_OFFSET;
+    for (int p = 0; p < SR2_PALETTE_COUNT; p++) {
+        std::vector<uint16_t> pal(SR2_PALETTE_SIZE);
+        for (int c = 0; c < SR2_PALETTE_SIZE; c++, src += 2) {
+            pal[c] = (uint16_t(src[0]) << 8) | src[1];
+            // An Amiga 12-bit colour never sets the top nibble. Anything else
+            // means this is not the palette table, so take none of it.
+            if (pal[c] > 0x0FFF) return {};
+        }
+        palettes.push_back(std::move(pal));
+    }
+    return palettes;
+}
+
+LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index, SrGame game) {
+    // Street Rod 2's other spritesheets and masks are not indexed yet.
+    if (game == SrGame::SR2) {
+        if (index == SR2_GAS_STATION_PUMP_MASK) return LibAssetMask;
+        return ((index >= SR2_CAR_TIRES_BRAND && index <= SR2_CAR_TIRES_STOCK) ||
+                index == SR2_GAS_STATION_ATTENDANT_ANIMATION) ? LibAssetSpritesheet : LibAssetRegular;
+    }
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
@@ -718,8 +876,8 @@ LibAssetType BitmapParser::GetAssetType(SrLibFile location, int index) {
     }
 }
 
-// Whether colour 0 is drawn rather than keyed out.
-bool BitmapParser::LoadsOpaque(SrLibFile location, int index) {
+bool BitmapParser::LoadsOpaque(SrLibFile location, int index, SrGame game) {
+    if (game == SrGame::SR2) return location == SrLibFileAmigaLibP && index >= 71 && index <= 73;   // shifter plates
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset asset = static_cast<AmigaLibAsset>(index);
@@ -743,7 +901,11 @@ bool BitmapParser::LoadsOpaque(SrLibFile location, int index) {
     }
 }
 
-std::pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index) {
+std::pair<int, int> BitmapParser::GetSpritesheetInfo(SrLibFile location, int index, SrGame game) {
+    if (game == SrGame::SR2) {
+        return (index >= SR2_CAR_TIRES_BRAND && index <= SR2_CAR_TIRES_STOCK) ? std::make_pair(1, 4)
+                                                                              : std::make_pair(0, 0);
+    }
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
@@ -784,7 +946,30 @@ std::vector<uint16_t> BitmapParser::GetStockPalette(StockPalette palette) {
     }
 }
 
-std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index) {
+std::vector<uint16_t> BitmapParser::GetPalette(SrLibFile location, int index, SrGame game,
+                                               const std::vector<std::vector<uint16_t>>& gamePalettes) {
+    if (game == SrGame::SR2) {
+        // Street Rod 2 has nine palettes; which screen picks which is not traced in general.
+        // The driving copperlist reloads pens 6 to 9, 11 and 12 with a skin ramp from scanline 166 (game y 122)
+        // down, which is where the hands are drawn; the rest of the palette is the driving one.
+        const bool hands = (index >= SR2_HAND_GRIP_LEFT && index <= SR2_ARM_RIGHT) ||
+                           index == SR2_RACING_RIGHT_HAND_SHIFTING;
+        if (hands && gamePalettes.size() > 1) {
+            static constexpr struct { size_t pen; uint16_t color; } kSkin[] = {
+                {6, 0x0F96}, {7, 0x0D94}, {8, 0x0D62}, {9, 0x0A50}, {11, 0x0841}, {12, 0x0730}};
+            std::vector<uint16_t> skin = gamePalettes[1];
+            for (const auto& s : kSkin) skin[s.pen] = s.color;
+            return skin;
+        }
+        const bool driving = (index >= 36 && index <= 98) || index >= 274;
+        // The drive-in's palette is the main one with pens 30 and 31 pink instead of blue: the neon script.
+        const bool driveIn = index == SR2_DRIVE_IN_SCREEN ||
+                             (index >= SR2_DRIVE_IN_WAITRESS_MASK && index <= SR2_DINER_WAITRESS_ANIM_RIGHT);
+        const size_t pal = driving ? 1 : driveIn ? 3 : 0;
+        if (pal < gamePalettes.size()) return gamePalettes[pal];
+        return driving ? std::vector<uint16_t>(PAL_DRIVING)
+                       : std::vector<uint16_t>(PAL1);
+    }
     switch (location) {
         case SrLibFileAmigaLibP: {
             AmigaLibAsset a = (AmigaLibAsset)index;
@@ -927,7 +1112,7 @@ std::vector<std::string> SrLibReadStrings(const uint8_t* data, int offset, size_
     return result;
 }
 
-static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uint8_t*& ptr, ClassifiedEntry_t& outClassified) {
+static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uint8_t*& ptr, ClassifiedEntry_t& outClassified, int maxLines = 0) {
     if (ptr >= data + dataSize) {
         return false;
     }
@@ -958,7 +1143,8 @@ static bool ParseClassifiedEntry(const uint8_t* data, size_t dataSize, const uin
     adText[0] = '\0';
     size_t adTextLen = 0;
 
-    while (true) {
+    // Street Rod ends an ad on an empty string.
+    for (int line_i = 0; maxLines <= 0 || line_i < maxLines; ++line_i) {
         if (ptr >= data + dataSize) {
             free(name);
             free(adText);
@@ -1242,6 +1428,121 @@ cleanup:
     return NULL;
 }
 
+std::vector<CarSpriteRefs> DataParser::ParseCarSpritesAmiga(const std::vector<uint8_t>& sr_data,
+                                                            SrGame game) {
+    const bool isSr2 = game == SrGame::SR2;
+    const size_t start = isSr2 ? SR2_DATA_CAR_SPRITES_START : SR_DATA_CAR_SPRITES_START;
+    const int count = isSr2 ? SR2_DATA_CARSPEC_ENTRY_COUNT : SR_DATA_CARSPEC_ENTRY_COUNT;
+    const size_t specStart = isSr2 ? SR2_DATA_DRIVER_ENTRY_COUNT * 10
+                                   : SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    const size_t specSize = isSr2 ? SR2_DATA_CARSPEC_RECORD_SIZE : SR_DATA_CARSPEC_RECORD_SIZE;
+    const size_t bodyAt = isSr2 ? 16 : 12;
+
+    std::vector<CarSpriteRefs> out;
+    if (sr_data.size() < start + size_t(count) * 10) return out;
+    if (sr_data.size() < specStart + size_t(count) * specSize) return out;
+
+    auto be16 = [&](size_t at) {
+        return (int(sr_data[at]) << 8) | int(sr_data[at + 1]);
+    };
+    // Sprite numbers here are one-based, 0 meaning "no such variant".
+    auto sprite = [&](size_t at) { const int v = be16(at); return v ? v - 1 : -1; };
+
+    for (int i = 0; i < count; i++) {
+        const size_t rec = start + size_t(i) * 10;
+        CarSpriteRefs refs;
+        refs.dashboard           = sr_data[rec + 1];
+        refs.bodyStyle           = sr_data[rec];
+        refs.body                = sprite(specStart + size_t(i) * specSize + bodyAt);
+        refs.choppedRoof         = sprite(rec + 2);
+        refs.airScoop            = sprite(rec + 4);
+        refs.rearBumperStripped  = sprite(rec + 6);
+        refs.frontBumperStripped = sprite(rec + 8);
+        out.push_back(refs);
+    }
+    return out;
+}
+
+CarMetadata_t* DataParser::SrLibDataReadDataFromBufferSR2(const uint8_t* data, size_t dataSize, int* outCount) {
+    if (!data || !outCount) return NULL;
+    *outCount = 0;
+
+    const int count = SR2_DATA_CARSPEC_ENTRY_COUNT;
+    const size_t specBlock = SR2_DATA_DRIVER_ENTRY_COUNT * 10;
+    // Everything up to the end of the string offset table has to be there.
+    const size_t needed = SR2_DATA_STRING_TABLE_START + size_t(count) * 2;
+    if (dataSize < needed || dataSize < size_t(SR2_DATA_TEXT_BLOB_OFFSET)) return NULL;
+
+    CarMetadata_t* result = (CarMetadata_t*)calloc(count, sizeof(CarMetadata_t));
+    if (!result) return NULL;
+
+    const uint8_t* ptr = data + SR2_DATA_OFFSETS_START;
+    for (int i = 0; i < count; i++) {
+        BitmapOffset_t e = {};
+        e.offsetXRearTire     = *ptr++;
+        e.offsetXFrontTire    = *ptr++;
+        e.offsetXDriver       = *ptr++;
+        e.offsetYDriver       = *ptr++;
+        e.offsetXChoppedRoof  = *ptr++;
+        e.offsetXAirScoop     = *ptr++;
+        e.offsetYAirScoop     = *ptr++;
+        e.offsetYRearBumper   = *ptr++;
+        e.offsetXFrontBumper  = *ptr++;
+        e.offsetYFrontBumper  = *ptr++;
+        e.offsetXDecal        = *ptr++;
+        e.offsetYDecal        = *ptr++;
+        // Street Rod 2 has no stickers; these two bytes are where the gas cap sits (the car draw routine reads them
+        // into the cap position, FUN_0023760c), and the cap's click box is the same spot.
+        e.offsetXGasCap = e.offsetXDecal;
+        e.offsetYGasCap = e.offsetYDecal;
+        result[i].clickBoxes.clickBoxGasCap = {e.offsetXGasCap, e.offsetYGasCap, 12, 12};
+        // offsetYTires is the caller's, same as Street Rod's.
+        result[i].offsets = e;
+    }
+
+    // Hood scoop: the sprite ref table names one of the four scoops, one-based.
+    for (int i = 0; i < count; i++) {
+        const uint8_t* rec = data + SR2_DATA_CAR_SPRITES_START + i * 10 + 4;
+        const uint16_t raw = (uint16_t(rec[0]) << 8) | rec[1];
+        result[i].airScoop = raw ? int(raw) - 1 : -1;
+    }
+
+    ptr = data + SR2_DATA_CLICKBOX_START;
+    for (int i = 0; i < count; i++) {
+        ClickBox_t* boxes[5] = {
+            &result[i].clickBoxes.clickBoxRearBumper,
+            &result[i].clickBoxes.clickBoxChoppedRoof,
+            &result[i].clickBoxes.clickBoxTransmission,
+            &result[i].clickBoxes.clickBoxEngine,
+            &result[i].clickBoxes.clickBoxFrontBumper,
+        };
+        for (ClickBox_t* box : boxes) {
+            box->x = *ptr++;
+            box->y = *ptr++;
+            box->width = *ptr++;
+            box->height = *ptr++;
+        }
+    }
+
+    // Ads are not laid out end to end the way Street Rod's are.
+    for (int i = 0; i < count; i++) {
+        const uint8_t* spec = data + specBlock + size_t(i) * SR2_DATA_CARSPEC_RECORD_SIZE;
+        const uint16_t price = (uint16_t(spec[0]) << 8) | spec[1];
+        if (price == 0) continue;
+
+        const uint8_t* tab = data + SR2_DATA_STRING_TABLE_START + size_t(i) * 2;
+        const size_t at = size_t(SR2_DATA_TEXT_BLOB_OFFSET) +
+                          ((size_t(tab[0]) << 8) | tab[1]);
+        if (at >= dataSize) continue;
+
+        const uint8_t* adPtr = data + at;
+        ParseClassifiedEntry(data, dataSize, adPtr, result[i].classified, spec[14]);
+    }
+
+    *outCount = count;
+    return result;
+}
+
 std::vector<uint8_t> DataParser::SrLibDataWriteCarMetadataToBuffer(const std::vector<uint8_t>& data,
     const std::vector<CarMetadata_t>& metadata, std::string* error) {
     if (metadata.size() != CAR_PLAYER_MODEL_COUNT) {
@@ -1326,12 +1627,13 @@ std::vector<uint8_t> DataParser::SrLibDataWriteCarMetadataToBuffer(const std::ve
     return rebuilt;
 }
 
-PartMetadata_t* DataParser::SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount) {
-    // From the Street_Rod executable, not SR_data.
-    const int CLASSIFIEDS_PARTS_START = 0xA4CE;
-
-    // Exactly 40: 6 engines, 13 transmissions, 3 carburetors, 15 manifolds, 3 tires.
-    const int CLASSIFIEDS_PARTS_COUNT = 40;
+PartMetadata_t* DataParser::SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount,
+                                                         SrGame game) {
+    // From the executable, not SR_data. Street Rod: 6 engines, 13 transmissions, 3 carburetors, 15 manifolds, 3 tires.
+    // Street Rod 2 adds exhausts, mufflers, differentials and more engines and manifolds, 64 ads.
+    const bool sr2 = game == SrGame::SR2;
+    const int CLASSIFIEDS_PARTS_START = sr2 ? 0xE194 : 0xA4CE;
+    const int CLASSIFIEDS_PARTS_COUNT = sr2 ? 64 : 40;
 
     if (!data || !outCount || dataSize < CLASSIFIEDS_PARTS_START) return NULL;
 
@@ -1476,9 +1778,11 @@ bool CarQuery::SrLibQueryCanStripBumpers(AmigaLibAsset carAsset) {
 }
 
 // Bottom-aligned against the sprite height.
-int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight) {
-    if (scene == SCENE_DINER) return 162 - spriteHeight;
-    if (scene == SCENE_GAS_STATION) return 181 - spriteHeight;
+int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight, SrGame game) {
+    // SR1 sinks the tires 7px behind the road edge that starts at y=155
+    // FIXME:SR2's Y value here is guesswork
+    if (scene == SCENE_DINER) return (game == SrGame::SR2 ? 172 : 162) - spriteHeight;
+    if (scene == SCENE_GAS_STATION) return (game == SrGame::SR2 ? 184 : 181) - spriteHeight;
     return 151 - spriteHeight; // SCENE_GARAGE (and default for any other scene)
 }
 
@@ -1733,12 +2037,12 @@ std::vector<SrDriverData> DataParser::ParseDriverData(const std::vector<uint8_t>
 std::vector<std::string> DataParser::ParseDriverNames(const std::vector<uint8_t>& sr_data) {
     std::vector<std::string> names;
     const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
-    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * SR_DATA_CARSPEC_RECORD_SIZE;
     if (sr_data.size() < driver_block + carspec_block) return names;
 
     // The first car spec's ad text is the start of the blob, recovering the pointer base.
     SrCarSpecEntry firstSpec;
-    memcpy(&firstSpec, sr_data.data() + driver_block, sizeof(SrCarSpecEntry));
+    memcpy(&firstSpec, sr_data.data() + driver_block, SR_DATA_CARSPEC_RECORD_SIZE);
     const uint32_t base = firstSpec.AdTextPtr() - SR_DATA_TEXT_BLOB_OFFSET;
 
     names.reserve(SR_DATA_DRIVER_ENTRY_COUNT);
@@ -1816,15 +2120,99 @@ std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTableDOS(const std::vector<u
     return result;
 }
 
-std::vector<DosCarSprites> DataParser::ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data) {
-    std::vector<DosCarSprites> result;
+// SR2's car spec record, 20 bytes big-endian:
+//   +0 price  +2 a second figure  +4 class  +6 brand mask  +8 config
+//   +10 ad pointer  +14 ad lines  +16 body asset  +18 a per-car figure
+// See RodLegacyResearch/docs/formats/sr_data.md, "SR2_data".
+std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTableSR2(const std::vector<uint8_t>& sr2_data) {
+    std::vector<SrCarSpecEntry> result;
+    const size_t driverBlock = SR2_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    const size_t specBlock = static_cast<size_t>(SR2_DATA_CARSPEC_ENTRY_COUNT) *
+                             SR2_DATA_CARSPEC_RECORD_SIZE;
+    if (sr2_data.size() < driverBlock + specBlock) return result;
+
+    result.reserve(SR2_DATA_CARSPEC_ENTRY_COUNT);
+    for (int i = 0; i < SR2_DATA_CARSPEC_ENTRY_COUNT; ++i) {
+        const uint8_t* rec = sr2_data.data() + driverBlock +
+                             static_cast<size_t>(i) * SR2_DATA_CARSPEC_RECORD_SIZE;
+        auto be16 = [](const uint8_t* p) { return (p[0] << 8) | p[1]; };
+
+        // SR2 gave the brand its own field and reused bits 12..15 of the config word for the exhaust, muffler
+        // and differential it added.
+        const int brandMask = be16(rec + 6) & 0x07;   // 1=GM, 2=Ford, 4=Chrysler
+        const int cfg       = be16(rec + 8);
+        const int engine    = cfg & 0x03;
+        const int manifold  = (cfg >> 2) & 0x0F;
+        const int carb      = (cfg >> 6) & 0x03;
+        const int trans     = (cfg >> 8) & 0x03;
+        const int tires     = (cfg >> 10) & 0x03;
+        // The shipped data only uses manifold classes 0, 1 and 4, so nothing
+        // overflows SR1's three-bit field. Guard it anyway.
+        const int packed = (brandMask << 12) | (tires << 10) | (trans << 8) |
+                           (carb << 6) | ((manifold & 0x07) << 3) | engine;
+
+        SrCarSpecEntry entry = {};
+        // Bits 12..15 are the three parts SR2 added.
+        entry.exhaust      = static_cast<uint8_t>((cfg >> 12) & 0x01);
+        entry.muffler      = static_cast<uint8_t>((cfg >> 13) & 0x01);
+        entry.differential = static_cast<uint8_t>((cfg >> 14) & 0x03);
+        entry.price[0] = rec[0];
+        entry.price[1] = rec[1];
+        entry.car_class = rec[4];
+        entry.config[0] = static_cast<uint8_t>(packed >> 8);
+        entry.config[1] = static_cast<uint8_t>(packed & 0xFF);
+        memcpy(entry.ad_text_ptr, rec + 10, 4);
+        entry.ad_lines = rec[14];
+        entry.body[0] = rec[16];
+        entry.body[1] = rec[17];
+        result.push_back(entry);
+    }
+    return result;
+}
+
+std::vector<std::string> DataParser::ParseDriverNamesSR2(const std::vector<uint8_t>& sr2_data) {
+    std::vector<std::string> names;
+    const size_t driverBlock = SR2_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
+    const size_t specBlock = static_cast<size_t>(SR2_DATA_CARSPEC_ENTRY_COUNT) *
+                             SR2_DATA_CARSPEC_RECORD_SIZE;
+    if (sr2_data.size() < driverBlock + specBlock) return names;
+
+    // Same trick as SR1: the first car's ad pointer is the start of the text
+    // blob, which recovers the load base every absolute pointer is relative to.
+    const uint8_t* firstSpec = sr2_data.data() + driverBlock;
+    const uint32_t firstAd = (static_cast<uint32_t>(firstSpec[10]) << 24) |
+                             (static_cast<uint32_t>(firstSpec[11]) << 16) |
+                             (static_cast<uint32_t>(firstSpec[12]) << 8) |
+                              static_cast<uint32_t>(firstSpec[13]);
+    const uint32_t base = firstAd - SR2_DATA_TEXT_BLOB_OFFSET;
+
+    names.reserve(SR2_DATA_DRIVER_ENTRY_COUNT);
+    for (int i = 0; i < SR2_DATA_DRIVER_ENTRY_COUNT; ++i) {
+        SrDriverData entry;
+        memcpy(&entry, sr2_data.data() + i * sizeof(SrDriverData), sizeof(SrDriverData));
+        const uint32_t ptr = entry.NamePtr();
+        std::string name;
+        if (ptr >= base) {
+            size_t off = ptr - base;
+            while (off < sr2_data.size() && sr2_data[off] != 0 && name.size() < 32) {
+                name.push_back(static_cast<char>(sr2_data[off]));
+                ++off;
+            }
+        }
+        names.push_back(name);
+    }
+    return names;
+}
+
+std::vector<CarSpriteRefs> DataParser::ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data) {
+    std::vector<CarSpriteRefs> result;
     if (!DosHotDataHasTables(hot_data.size())) return result;
 
     result.reserve(HOT_DATA_CAR_COUNT);
     for (int i = 0; i < HOT_DATA_CAR_COUNT; ++i) {
         const uint8_t* spec = hot_data.data() + HOT_DATA_CARSPEC_START + i * 10;
         const uint8_t* rec = hot_data.data() + HOT_DATA_CARSPRITES_START + i * 10;
-        DosCarSprites sprites;
+        CarSpriteRefs sprites;
         sprites.body = DosSpriteRef(spec + 8);
         // rec[0..1] is a 1..4 value, meaning unknown.
         sprites.choppedRoof = DosSpriteRef(rec + 2);
@@ -1915,13 +2303,14 @@ CarMetadata_t* DataParser::SrLibDataReadDataFromBufferDOS(const uint8_t* data, s
 std::vector<SrCarSpecEntry> DataParser::ParseCarSpecTable(const std::vector<uint8_t>& sr_data) {
     std::vector<SrCarSpecEntry> result;
     const size_t driver_block = SR_DATA_DRIVER_ENTRY_COUNT * sizeof(SrDriverData);
-    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * sizeof(SrCarSpecEntry);
+    const size_t carspec_block = SR_DATA_CARSPEC_ENTRY_COUNT * SR_DATA_CARSPEC_RECORD_SIZE;
     if (sr_data.size() < driver_block + carspec_block) return result;
 
     result.reserve(SR_DATA_CARSPEC_ENTRY_COUNT);
     for (int i = 0; i < SR_DATA_CARSPEC_ENTRY_COUNT; ++i) {
         SrCarSpecEntry entry;
-        memcpy(&entry, sr_data.data() + driver_block + i * sizeof(SrCarSpecEntry), sizeof(SrCarSpecEntry));
+        memcpy(&entry, sr_data.data() + driver_block + i * SR_DATA_CARSPEC_RECORD_SIZE,
+               SR_DATA_CARSPEC_RECORD_SIZE);
         result.push_back(entry);
     }
     return result;

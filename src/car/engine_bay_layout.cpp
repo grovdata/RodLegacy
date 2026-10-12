@@ -42,7 +42,7 @@ const SDL_Point kCarbScrewOffset[3] = {{18, -4}, {30, -2}, {30, -2}};
 // A class with more than one carb uses consecutive slots.
 SDL_Point CarbSlot(ManifoldType manifold, CarEngine_t engine, int carbIndex) {
     int cls = ManifoldClass(manifold);
-    int slot = kClassFirstSlot[cls];
+    int slot = kClassFirstSlot[cls < 5 ? cls : 4];   // SR2's extra manifolds have no bay art yet
     // The single-carb 2-barrel manifold sits lower on a V6 block.
     if (cls == 0 && EngineTier(engine) == 0) slot = 4;
     slot += carbIndex;

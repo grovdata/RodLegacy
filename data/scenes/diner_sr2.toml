@@ -1,0 +1,27 @@
+# Street Rod 2's drive-in
+
+[[zones]]
+id = "call"
+text = "Look for opponent"
+rect = [296, 96, 14, 40]
+
+# Re-anchored on the arriving car's hood in Diner::StartAnimateCar. Must come before challenge_opponent.
+[[zones]]
+id = "pop_hood"
+text = "Pop the hood"
+rect = [228, 99, 64, 26]
+
+[[zones]]
+id = "challenge_opponent"
+text = "Click to challenge"
+rect = [82, 93, 200, 70]
+
+[[zones]]
+id = "goto_garage"
+text = "Back to the garage"
+rect = [0, 163, 319, 27]
+
+[[zones]]
+id = "background"
+text = ""
+rect = [0, 0, 320, 162]

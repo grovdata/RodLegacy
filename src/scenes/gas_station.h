@@ -32,6 +32,15 @@ class GasStation : public CarScene {
     sdl2::TexturePtr roadMaskTexture;
     SDL_Rect roadMaskSrcRect  = {0, 175, 320, 15}; // Mask from y=175 down, 15 pixels high
     SDL_Rect roadMaskDestRect = {0, 0, 320, 15};
+    // Street Rod 2: each pump's hose strip is the background with or without the hose and nozzle patched on.
+    // Taking a nozzle swaps its strip to the bare one; the mask and the crop strip are cut again from the result.
+    sdl2::SurfacePtr nozzleStrip[2][2];   // [pump][0 = patched, 1 = bare]
+    bool nozzleOut[2] = {false, false};
+    int activePump = -1;
+    Bitmap* sr2PumpMask = nullptr;
+    void SetNozzleOut(int pump, bool out);
+    void RebuildSr2Overlays();
+
     GasStationState sceneState = GAS_STATION_IDLE;
     std::unique_ptr<CarBitmap> currentCarBitmap;
     std::unique_ptr<AnimatedBitmap> attendantAnim;
@@ -57,6 +66,14 @@ class GasStation : public CarScene {
     // ponytail: the original targets 19.0 gal while pumping and clamps to 17.0 on leaving, a grace the
     // player cannot see. Targeting the cap directly; change if exact tick counts ever matter.
     static constexpr int TANK_CAP_TENTHS = 170;                    // 0xaa = 17.0 gal
+
+    // Street Rod 2: the pump picked sets the delivery, the tank holds 200, a loiterer waits 15 iterations.
+    static constexpr int SR2_TANK_CAP = 200;
+    static constexpr int SR2_PREMIUM_PER_TICK = 40;
+    static constexpr int SR2_REGULAR_PER_TICK = 30;
+    static constexpr double SR2_IDLE_TIMEOUT_SEC = 15 * LOOP_ITERATION_SEC;
+    int sr2PerTick = SR2_PREMIUM_PER_TICK;   // the original starts on 0x28 and the jockey uses whatever is set
+    bool TankFull(const Car* car) const;
 
     static constexpr double LEAVE_DELAY_SEC = 1.0;  // beat between handle back on and driving off
 

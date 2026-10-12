@@ -129,6 +129,7 @@ class Scene {
     void SetZoneRect(const std::string& id, SDL_Rect rect);
     void SetZoneEnabled(const std::string& id, bool enabled);
     Zone& GetZone(const std::string& id);
+    Zone* ZoneById(const std::string& id);
     const std::vector<Zone>& GetZones() const { return zones; }
     virtual void DrawDebugUI() {}
 
@@ -214,7 +215,6 @@ private:
     double engineStartTimer = 0;
     bool exitingCar = false;
     bool waitingForEngineStart = false;
-    int16_t lastAnimationEnginePeriod = -1;
     const double WAIT_BEFORE_EXIT = 3.0;
     const double WAIT_BEFORE_NEXT = 2.0;
     const double ENGINE_START_DURATION = CalculateSampleDuration(SRL0_ENGINE_START_LENGTH, SRL0_ENGINE_START_RATE);
@@ -246,7 +246,10 @@ protected:
 
     void TriggerCarExit();
 
-    int16_t GetCarAnimationPeriod(double progress, bool isDrivingIn);
+    // EngineSound::AnimationNote, sent when it changes.
+    void ApplyAnimationEngine(bool drivingIn, bool secondPhase);
+    int engineBase = 600;   // 600 + rand % 10 per animation
+    int16_t lastAnimationEnginePeriod = -1;
 
     bool needsNewAnimation = true;
 

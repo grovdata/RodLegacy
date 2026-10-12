@@ -128,6 +128,7 @@ void Garage::OnTransScrewClicked(int screwIndex) {
             if (car && car->HasGearbox()) {
                 state.AddSpareTransmission(car->GetGearbox());
                 car->RemoveGearbox();
+                state.AdvanceTicks(900);   // lhood.c 0x2561a6
             }
             transInstallPhase = TransInstallPhase::EMPTY;
         }
@@ -279,10 +280,12 @@ void Garage::UpdateTransmissionInstallAnimation(double deltaTime) {
             db->bitmap->SetVisible(false);
             transInstallPhase = TransInstallPhase::EMPTY;
             bubbles[12]->SetVisible(true);  // partIncompatibleBubble
+            state.AdvanceTicks(1200);   // lhood.c 0x2560ec
             return;
         }
 
         transInstallPhase = TransInstallPhase::SCREWING_IN;
+        state.AdvanceTicks(900);   // lhood.c 0x256070
         transScrewState[0] = 2;
         transScrewState[1] = 2;
         // StartScrewFall owns the screws' visibility and position.

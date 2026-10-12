@@ -27,6 +27,9 @@ private:
     void Leave();
 
     std::array<IntroImage, 6> images;
+    // Street Rod 2: every libstart.p picture, and its palette table.
+    std::vector<IntroImage> sr2Images;
+    std::vector<std::array<uint16_t, 32>> sr2Palettes;
     IntroPlayer player;
     sdl2::TexturePtr frame;
     Uint64 tickAccumMs = 0;

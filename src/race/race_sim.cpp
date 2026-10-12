@@ -1,10 +1,18 @@
 #include "race/race_sim.h"
 
+#include "race/aqueduct.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace srrace {
+
+// Street Rod 2's on-road hazards, as the generator marks them.
+constexpr uint16_t HAZARD_ROCK = 0x0004;
+constexpr uint16_t HAZARD_OIL  = 0x1000;
 
 namespace {
 
@@ -27,13 +35,51 @@ int ClampTrackIndex(int seg) {
     return ClampValue(seg, 0, TRACK_SEGMENTS - 1);
 }
 
+constexpr size_t kScoreBaseWithinBlock = 0x52;
+
+constexpr int kScoreEngineRows = 3;
+constexpr int kScoreManifoldsSr1 = 5;
+constexpr int kScoreManifoldsSr2 = 9;
+constexpr int kScoreManifoldsMax = kScoreManifoldsSr2;
+constexpr int kScoreWeightClasses = 9;
+
+struct ScoringTables {
+    int carb[3];
+    int trans[4];
+    int engByManifold[kScoreEngineRows * kScoreManifoldsMax];
+    int weight[kScoreWeightClasses];
+    int manifolds;
+};
+
+// Street Rod's tables as shipped; the engine grid is 3 x 5, packed at the loaded width.
+ScoringTables gScoring = {
+    {0, 50, 100},
+    {0, 33, 66, 100},
+    {
+        0, 0, 100, 0, 0,
+        0, 50, 0, 100, 75,
+        0, 0, 0, 50, 100,
+    },
+    {40, 44, 48, 60, 64, 68, 80, 84, 88},
+    kScoreManifoldsSr1,
+};
+
 bool gUncapTopSpeed = false;
+bool gSr2BugFixes = false;
 int gSimHz = 12;
 
 }
 
 void SetUncapTopSpeed(bool enabled) {
     gUncapTopSpeed = enabled;
+}
+
+void SetSr2BugFixes(bool enabled) {
+    gSr2BugFixes = enabled;
+}
+
+bool Sr2BugFixes() {
+    return gSr2BugFixes;
 }
 
 bool UncapTopSpeed() {
@@ -63,32 +109,75 @@ int SimHz() {
     return gSimHz;
 }
 
-int ComputeBasePerformance(const CarSetup& setup) {
-    static const int kCarbPts[3] = {0, 50, 100};
-    static const int kTransPts[4] = {0, 33, 66, 100};
-    static const int kEngByManifold[20] = {
-        0, 0, 100, 0, 0,
-        0, 50, 0, 100, 75,
-        0, 0, 0, 50, 100,
-        0, 50, 100, 0, 33
-    };
-    static const int kWeightPts[9] = {40, 44, 48, 60, 64, 68, 80, 84, 88};
+// Both adjustments below match the original's buggy behaviour: lmech.c compares a field shifted down to 0 or 1 with
+// the unshifted mask, so tube headers, the glass pack and the 4.11:1 differential never match. Only a missing muffler
+// and the 2.78:1 differential do anything.
+int Sr2AdjustRpmGain(int gain, const CarSetup& setup) {
+    if (setup.mufflerRemoved) gain += gain * 5 / 100;
+    else if (gSr2BugFixes && setup.muffler == 1) gain += gain * 3 / 100;
+    if (gSr2BugFixes && setup.exhaust == 1) gain += gain * 5 / 100;
+    if (setup.differential == 0) gain -= gain * 5 / 100;
+    else if (gSr2BugFixes && setup.differential == 2) gain += gain * 5 / 100;
+    return gain;
+}
 
+int Sr2AdjustScore(int score, int differential) {
+    if (differential == 0) return score + score * 5 / 100;
+    if (gSr2BugFixes && differential == 2) return score - score * 5 / 100;
+    return score;
+}
+
+// lmech.c FUN_00258218. One raw score where Street Rod weights each term out of 100: the engine and transmission
+// tables, the manifold table row picked by carburettor, the car's class, the body mods and a flat 880.
+int ComputeSr2BasePerformance(const CarSetup& setup) {
+    const int engineClass = ClampValue(setup.engineClass, 0, kScoreEngineRows - 1);
+    const int transClass = ClampValue(setup.transClass, 0, 3);
+    const int manifoldClass = ClampValue(setup.manifoldClass, 0, kScoreManifoldsSr2 - 1);
+    const int carbClass = ClampValue(setup.carbClass, 0, 2);
+    const int weightClass = ClampValue(setup.weightClass, 0, kScoreWeightClasses - 1);
+    const int engineWear = ClampValue(setup.engineWear, 0, 10000);
+    // The Amiga subtracts the byte's distance from zero, worth under 1 mph, and its zero sits one notch step right of
+    // the machine's red bar (the bar is at screen x 37, step 7; tune 0 draws at step 8). The PC build's knob costs 2640
+    // from perfect to worst, so fixed, each of the 16 notch steps off the bar costs 330 and the notch dead on the bar
+    // (tune -16..-1) is perfect.
+    const int tune = ClampValue(setup.sr2Tune, -128, 127);
+    const int tuneAbs = gSr2BugFixes ? std::abs((tune + 128) / 16 - 7) * 330 : std::abs(tune);
+
+    // gScoring.carb holds the engine score in this game (same table slot as Street Rod's carburettor points).
+    int score = gScoring.carb[engineClass] * 25 + gScoring.trans[transClass] * 15 +
+                gScoring.engByManifold[carbClass * kScoreManifoldsSr2 + manifoldClass] * 15 - tuneAbs +
+                gScoring.weight[weightClass] * 10 + 880;
+    if (setup.roofChopped) score += 800;
+    if (setup.frontBumperRemoved) score += 400;
+    if (setup.rearBumperRemoved) score += 100;
+
+    score = Sr2AdjustScore(score, setup.differential);
+    score /= 100;
+    score = score * (10000 - engineWear) / 10000;
+    const int k = transClass == 0 ? 8 : 10;
+    return 70 + score * k * 3 / 100;
+}
+
+int ComputeBasePerformance(const CarSetup& setup) {
+    if (gScoring.manifolds == kScoreManifoldsSr2) return ComputeSr2BasePerformance(setup);
     const int carbClass = ClampValue(setup.carbClass, 0, 2);
     const int transClass = ClampValue(setup.transClass, 0, 3);
-    const int engineClass = ClampValue(setup.engineClass, 0, 3);
-    const int manifoldClass = ClampValue(setup.manifoldClass, 0, 4);
-    const int weightClass = ClampValue(setup.weightClass, 0, 8);
+    // Three engines: V6, 283 and 327. engine_part.h clamps the part tier to 0..2.
+    const int engineClass = ClampValue(setup.engineClass, 0, kScoreEngineRows - 1);
+    const int manifoldClass = ClampValue(setup.manifoldClass, 0, gScoring.manifolds - 1);
+    const int weightClass = ClampValue(setup.weightClass, 0, kScoreWeightClasses - 1);
     const int tuneOffset = ClampValue(setup.tuneOffset, 0, 8);
     const int carbWear = ClampValue(setup.carbWear, 0, 10000);
 
     // Weighted to 100 for a perfect car: carb 25, transmission 15, engine/manifold 15, tune 20, weight 10, body mods 15.
     int pts = 0;
-    pts += (kCarbPts[carbClass] * 25) / 100;
-    pts += (kTransPts[transClass] * 15) / 100;
-    pts += (kEngByManifold[engineClass * 5 + manifoldClass] * 15) / 100;
+    pts += (gScoring.carb[carbClass] * 25) / 100;
+    pts += (gScoring.trans[transClass] * 15) / 100;
+    pts += (gScoring.engByManifold[engineClass * gScoring.manifolds + manifoldClass] * 15) / 100;
     pts += (((gUncapTopSpeed ? 8 : 1) - tuneOffset) * 20) / 8;
-    pts += (kWeightPts[weightClass] * 10) / 88;
+    // Divisor is the table's top entry: 88 in Street Rod, 100 in Street Rod 2.
+    const int weightMax = gScoring.weight[kScoreWeightClasses - 1];
+    pts += (gScoring.weight[weightClass] * 10) / (weightMax > 0 ? weightMax : 88);
     if (setup.roofChopped) {
         pts += 9;
     }
@@ -99,6 +188,11 @@ int ComputeBasePerformance(const CarSetup& setup) {
         pts += 1;
     }
 
+    // The differential adjusts the raw score, before the wear scaling and before the 70 floor is added.
+    pts = Sr2AdjustScore(pts, setup.differential);
+
+    // transFactor is the original's k * 3, and k is 8 for an automatic and 10
+    // for anything else, read off the transmission's class in FUN_00258218.
     const bool automatic = (transClass == 0);
     const int transFactor = automatic ? 24 : 30;
     const int wearScaledPts = (pts * (10000 - carbWear)) / 10000;
@@ -109,28 +203,158 @@ int ComputeTopSpeed(const CarSetup& setup) {
     return std::min((ComputeBasePerformance(setup) * 13) / 10, 130);
 }
 
-void BuildCarTables(const CarSetup& setup, CarTables& tables) {
-    static const int kTopFracByTrans[4][5] = {
-        {0, 25, 50, 100, 0},
-        {0, 25, 50, 100, 0},
-        {0, 25, 50, 75, 100},
-        {0, 30, 50, 80, 100},
-    };
-    static const int kPowerBase[3][5] = {
-        {500, 600, 300, 100, 70},
-        {600, 700, 350, 120, 90},
-        {600, 760, 380, 140, 90},
-    };
-    static const int kBandStart[3] = {2900, 2900, 2500};
-    static const int kBandEnd[3] = {4500, 5000, 5200};
-    static const int kNumGears[4] = {3, 3, 4, 4};
-    static const int kTireSteer[3] = {9, 8, 5};
-    static const int kHandling[3][5] = {
-        {2, 5, 8, 11, 14},
-        {0, 2, 4, 6, 8},
-        {0, 0, 1, 2, 4},
-    };
+// The physics tables, filled in by LoadPhysicsTables from the player's own executable.
+static int kTopFracByTrans[4][5] = {
+    {0, 25, 50, 100, 0},
+    {0, 25, 50, 100, 0},
+    {0, 25, 50, 75, 100},
+    {0, 30, 50, 80, 100},
+};
+static int kPowerBase[3][5] = {
+    {500, 600, 300, 100, 70},
+    {600, 700, 350, 120, 90},
+    {600, 760, 380, 140, 90},
+};
+static int kBandStart[3] = {2900, 2900, 2500};
+static int kBandEnd[3] = {4500, 5000, 5200};
+static int kNumGears[4] = {3, 3, 4, 4};
+static int kTireSteer[3] = {9, 8, 5};
+static int kHandling[3][5] = {
+    {2, 5, 8, 11, 14},
+    {0, 2, 4, 6, 8},
+    {0, 0, 1, 2, 4},
+};
 
+namespace {
+
+// Where each block sits in the two executables.
+struct PhysicsTableOffsets {
+    size_t block;      // gear ratios, then RPM gain at +0x28, power bands at +0x46
+    size_t numGears;
+    size_t tireSteer;
+    size_t handling;
+};
+constexpr PhysicsTableOffsets kStreetRodOffsets  = {0x2C9B0, 0x2CA34, 0x2CA3C, 0x2CAA0};
+constexpr PhysicsTableOffsets kStreetRod2Offsets = {0x40CEC, 0x40D88, 0x40D90, 0x40F14};
+
+constexpr size_t kPowerBaseWithinBlock = 0x28;
+constexpr size_t kPowerBandWithinBlock = 0x46;
+
+int ReadBE16At(const std::vector<uint8_t>& d, size_t at) {
+    return (int(d[at]) << 8) | int(d[at + 1]);
+}
+
+} // namespace
+
+int ScoringManifoldCount() {
+    return gScoring.manifolds;
+}
+
+bool LoadScoringTables(const std::vector<uint8_t>& exeData, PhysicsTableSource from) {
+    const bool sr2 = (from == PhysicsTableSource::StreetRod2);
+    const PhysicsTableOffsets& off = sr2 ? kStreetRod2Offsets : kStreetRodOffsets;
+    const int manifolds = sr2 ? kScoreManifoldsSr2 : kScoreManifoldsSr1;
+
+    // engine x manifold, then the carburettor and transmission tables, and the
+    // weight points sitting just past the tyre-steer table.
+    const size_t engAt = off.block + kScoreBaseWithinBlock;
+    const size_t carbAt = engAt + size_t(kScoreEngineRows * manifolds) * 2;
+    const size_t transAt = carbAt + 3 * 2;
+    const size_t weightAt = off.tireSteer + 3 * 2;
+    if (exeData.size() < std::max(transAt + 4 * 2,
+                                  weightAt + size_t(kScoreWeightClasses) * 2)) {
+        return false;
+    }
+
+    ScoringTables t{};
+    t.manifolds = manifolds;
+    for (int i = 0; i < 3; ++i) t.carb[i] = ReadBE16At(exeData, carbAt + size_t(i) * 2);
+    for (int i = 0; i < 4; ++i) t.trans[i] = ReadBE16At(exeData, transAt + size_t(i) * 2);
+    for (int i = 0; i < kScoreWeightClasses; ++i) {
+        t.weight[i] = ReadBE16At(exeData, weightAt + size_t(i) * 2);
+    }
+    for (int e = 0; e < kScoreEngineRows; ++e) {
+        for (int m = 0; m < manifolds; ++m) {
+            t.engByManifold[e * manifolds + m] =
+                ReadBE16At(exeData, engAt + size_t(e * manifolds + m) * 2);
+        }
+    }
+
+    // Both games score a car out of 100 per term, so every entry has to be a percentage.
+    if (t.carb[0] != 0 || t.carb[1] != 50 || t.carb[2] != 100) return false;
+    if (t.trans[0] != 0 || t.trans[1] != 33 || t.trans[2] != 66 || t.trans[3] != 100) {
+        return false;
+    }
+    for (int i = 0; i < kScoreWeightClasses; ++i) {
+        if (t.weight[i] < 1 || t.weight[i] > 100) return false;
+        if (i > 0 && t.weight[i] <= t.weight[i - 1]) return false;
+    }
+    for (int i = 0; i < kScoreEngineRows * manifolds; ++i) {
+        if (t.engByManifold[i] < 0 || t.engByManifold[i] > 100) return false;
+    }
+
+    gScoring = t;
+    return true;
+}
+
+bool LoadPhysicsTables(const std::vector<uint8_t>& exeData, PhysicsTableSource from) {
+    const PhysicsTableOffsets& off =
+        (from == PhysicsTableSource::StreetRod2) ? kStreetRod2Offsets : kStreetRodOffsets;
+
+    // Everything the loader touches has to be inside the file.
+    const size_t end = std::max(off.block + kPowerBandWithinBlock + 3 * 2 * 2,
+                                std::max(off.handling + 3 * 5 * 2,
+                                         std::max(off.numGears + 4 * 2, off.tireSteer + 3 * 2)));
+    if (exeData.size() < end) return false;
+
+    int topFrac[4][5], power[3][5], bandStart[3], bandEnd[3];
+    int gears[4], steer[3], handling[3][5];
+
+    for (int t = 0; t < 4; t++)
+        for (int g = 0; g < 5; g++)
+            topFrac[t][g] = ReadBE16At(exeData, off.block + size_t(t * 5 + g) * 2);
+    for (int e = 0; e < 3; e++)
+        for (int g = 0; g < 5; g++)
+            power[e][g] = ReadBE16At(exeData,
+                                     off.block + kPowerBaseWithinBlock + size_t(e * 5 + g) * 2);
+    for (int e = 0; e < 3; e++) {
+        const size_t at = off.block + kPowerBandWithinBlock + size_t(e) * 4;
+        bandStart[e] = ReadBE16At(exeData, at);
+        bandEnd[e] = ReadBE16At(exeData, at + 2);
+    }
+    for (int t = 0; t < 4; t++) gears[t] = ReadBE16At(exeData, off.numGears + size_t(t) * 2);
+    for (int i = 0; i < 3; i++) steer[i] = ReadBE16At(exeData, off.tireSteer + size_t(i) * 2);
+    for (int i = 0; i < 3; i++)
+        for (int g = 0; g < 5; g++)
+            handling[i][g] = ReadBE16At(exeData, off.handling + size_t(i * 5 + g) * 2);
+
+    // Cheap shape checks.
+    for (int e = 0; e < 3; e++) {
+        if (bandStart[e] <= 0 || bandEnd[e] <= bandStart[e]) return false;
+        for (int g = 0; g < 5; g++) {
+            if (power[e][g] <= 0) return false;
+        }
+    }
+    for (int t = 0; t < 4; t++) {
+        if (gears[t] < 3 || gears[t] > 5) return false;
+        // Every transmission starts in neutral and tops out at 100%.
+        if (topFrac[t][0] != 0 || topFrac[t][3] < topFrac[t][1]) return false;
+    }
+    for (int i = 0; i < 3; i++) {
+        if (steer[i] <= 0 || steer[i] > 20) return false;
+    }
+
+    memcpy(kTopFracByTrans, topFrac, sizeof(kTopFracByTrans));
+    memcpy(kPowerBase, power, sizeof(kPowerBase));
+    memcpy(kBandStart, bandStart, sizeof(kBandStart));
+    memcpy(kBandEnd, bandEnd, sizeof(kBandEnd));
+    memcpy(kNumGears, gears, sizeof(kNumGears));
+    memcpy(kTireSteer, steer, sizeof(kTireSteer));
+    memcpy(kHandling, handling, sizeof(kHandling));
+    return true;
+}
+
+void BuildCarTables(const CarSetup& setup, CarTables& tables) {
     const int carbClass = ClampValue(setup.carbClass, 0, 2);
     const int transClass = ClampValue(setup.transClass, 0, 3);
     const int tireClass = ClampValue(setup.tireClass, 0, 2);
@@ -149,8 +373,9 @@ void BuildCarTables(const CarSetup& setup, CarTables& tables) {
         const int speedFloor = std::max(fracSpeed, 20);
         tables.ratio[g] = static_cast<int16_t>(570000 / speedFloor);
 
-        const int power = (base * kPowerBase[carbClass][g]) / 100;
-        const int row0Mul = (g == 1) ? ((tireClass == 2) ? 3 : 2) : 1;
+        const int power = Sr2AdjustRpmGain((base * kPowerBase[carbClass][g]) / 100, setup);
+        // SR2 compares the shifted tire class with 0x800, so slicks never get the 3 there either.
+        const int row0Mul = (g == 1) ? ((tireClass == 2 && (gScoring.manifolds != kScoreManifoldsSr2 || gSr2BugFixes)) ? 3 : 2) : 1;
         const int row0Div = (g == 0) ? 1 : 5;
         const int row2Div = (g == 0) ? 1 : 10;
         const int rowLoss = (g == 0) ? power : (power / (5 - g));
@@ -222,13 +447,23 @@ int SpeedToScrollStep(int speedMph) {
     return 8 + ((speedMph - 98) / 4);
 }
 
-void RaceSim::Init(const TrackData* newTrack, int newRaceType,
+void RaceSim::Init(const TrackData* newTrack, RaceKind newKind,
                    const CarSetup& newPlayerSetup, const CarSetup& newNpcSetup,
                    uint32_t rngSeed, bool isKingRace) {
     track = newTrack;
     kingRace = isKingRace;
-    raceType = (newRaceType == 0) ? 0 : 1;
-    finishSeg = (raceType == 0) ? DRAG_FINISH_SEG : ROAD_FINISH_SEG;
+    kind = newKind;
+    window = RaceWindowFor(kind);
+    finishSeg = window.finish;
+    fallDir = 0;
+    // Drop a rollover left half played by the last race.
+    rollFrameCount = 0;
+    rollFrameIndex = 0;
+    aqueductRoll = 0;
+    aqueductVjerk = 0;
+    obstacleBlocked = false;
+    obstacleLatch = false;
+    aqueductBlockHit = false;
     playerSetup = newPlayerSetup;
     npcSetup = newNpcSetup;
     rng = RaceRng(rngSeed);
@@ -242,8 +477,9 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     npc.rpm = 1500;
     player.gear = 0;
     npc.gear = 0;
-    player.segPos = RACE_START_SEG;
-    npc.segPos = RACE_START_SEG;
+    // Mulholland starts at 370 and a grudge race at 9.
+    player.segPos = window.start;
+    npc.segPos = window.start;
     player.endFlags = 0;
     npc.endFlags = 0;
 
@@ -281,6 +517,7 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     // The light turns green 110..212 vblanks (50 Hz) after "Get ready"; leaving early is a false start.
     phase = RacePhase::Countdown;
     countdownTicks = std::max(1, (110 + rng.Next(103)) * gSimHz / 50);
+    npcLaunchOffset = 0;
 
     // Road races only, never the King's: 1 in 4, trigger at 510 + rand(255). From a derived seed so the extra
     // draws don't shift every later roll the races are regression-tested against.
@@ -290,7 +527,7 @@ void RaceSim::Init(const TrackData* newTrack, int newRaceType,
     copSirenOn = false;
     copCaughtSpeed = 0;
     RaceRng copRng(rngSeed ^ 0x5a17c09u);
-    if (raceType == 1 && !kingRace && copRng.Next(4) == 0) {
+    if (IsRoadRace() && !kingRace && copRng.Next(4) == 0) {
         copState = 1;
         copTriggerSeg = 510 + copRng.Next(255);
     }
@@ -367,7 +604,7 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
             PlayerPhysics(inputBits);
             UpdateSteering(inputBits, steerAmount);
             UpdateScroll(player);
-            if (player.speed > 0 || player.segPos > RACE_START_SEG) {
+            if (player.speed > 0 || player.segPos > window.start) {
                 player.endFlags |= END_STALLED;  // jumped the start
                 phase = RacePhase::Ended;
             }
@@ -378,6 +615,12 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
                 phase = RacePhase::Running;
             }
         }
+        // A handicapped opponent with the slower dial gets their green first.
+        if (npcLaunchOffset < 0 && countdownTicks <= -npcLaunchOffset) {
+            NpcAiUpdate();
+            NpcEngine();
+            UpdateScroll(npc);
+        }
         return;
     }
 
@@ -386,28 +629,49 @@ void RaceSim::Tick(uint16_t inputBits, float steerAmount) {
         UpdateSteering(inputBits, steerAmount);
     }
 
-    NpcAiUpdate();
-    NpcEngine();
-    // Before the finish check: ApplyCopRaceEnd must see this tick's finish result.
+    // The other side of the handicap: the player had the slower dial, so the
+    // opponent is held on the line for the difference.
+    if (npcLaunchOffset > 0) {
+        --npcLaunchOffset;
+    } else {
+        NpcAiUpdate();
+        NpcEngine();
+    }
     UpdateCopPursuit();
 
     UpdateScroll(player);
-    UpdateScroll(npc);
+    if (npcLaunchOffset <= 0) {
+        UpdateScroll(npc);
+    }
 
     if (tireBlowSeg != 0 && player.segPos > tireBlowSeg) {
         player.endFlags |= END_TIRES_BLOWN;
     }
 
     ApplyLateralDrift(player, playerTables.handling);
+    // jroad.c FUN_00246a80: on Mulholland the drift cannot carry the camera more than 0x96 past the edges.
+    if (kind == RaceKind::Mulholland) {
+        player.lateral = static_cast<int16_t>(ClampValue<int>(player.lateral, edgeLeft - 0x96, edgeRight + 0x96));
+    }
 
     const int playerSeg = ClampTrackIndex(player.segPos);
     const int playerSegAhead = ClampTrackIndex(player.segPos + 4);
-    RoadEdges(track->flags[playerSeg], edgeLeft, edgeRight);
-    RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
+    if (kind == RaceKind::Mulholland) {
+        RoadEdgesSr2(track->flags[playerSeg], false, edgeLeft, edgeRight);
+        RoadEdgesSr2(track->flags[playerSegAhead], false, edgeLeftAhead, edgeRightAhead);
+    } else {
+        RoadEdges(track->flags[playerSeg], edgeLeft, edgeRight);
+        RoadEdges(track->flags[playerSegAhead], edgeLeftAhead, edgeRightAhead);
+    }
 
     CheckEdgeCollision();
-    // All car-to-car contact needs the player short of the line, so the roll-out cannot be crashed out.
-    if (player.segPos < finishSeg) {
+    // Then the grudge lane.
+    if (kind == RaceKind::Grudge && player.segPos < finishSeg &&
+        player.lateral < ((edgeLeft + edgeRight) / 2) + GRUDGE_CENTRE_LINE_MARGIN) {
+        player.endFlags |= END_CROSSED_LINE;
+    }
+    // Nothing to hit on Grudge Night: the opponent is simulated but off screen.
+    if (player.segPos < finishSeg && kind != RaceKind::Grudge) {
         CheckNpcContact();
     }
     CheckFinish();
@@ -826,6 +1090,22 @@ void RaceSim::ApplyLateralDrift(CarState& car, int16_t handling) {
 void RaceSim::UpdateScroll(CarState& car) {
     const int32_t prevSeg = car.segPos;
     car.scrollStep = static_cast<int16_t>(SpeedToScrollStep(car.speed));
+    // lrace.c FUN_00259ad2: about to leave a segment with a block two ahead, the car is held at 0x38 of 0x40 -
+    // if the block is really in its way. The frame after a hold is not checked.
+    if (&car == &player && kind == RaceKind::Aqueduct && aqueductTrack != nullptr) {
+        obstacleBlocked = false;
+        const int ahead = static_cast<int>(car.segPos) + AQU_OBSTACLE_LOOKAHEAD;
+        if (!obstacleLatch) {
+            obstacleLatch = true;
+        } else if (car.scrollAcc + car.scrollStep > AQU_OBSTACLE_STOP_SUBPOS / 8 && ahead < AQUEDUCT_SEGMENTS &&
+                   AqueductObstacleBlocks(aqueductTrack->flags[ahead]) &&
+                   AqueductObstacleHits(aqueductTrack->flags[ahead], car.lateral)) {
+            car.scrollAcc = AQU_OBSTACLE_STOP_SUBPOS / 8;
+            car.scrollStep = 0;
+            obstacleLatch = false;
+            obstacleBlocked = true;
+        }
+    }
     car.scrollAcc = static_cast<int16_t>(car.scrollAcc + car.scrollStep);
     if (car.scrollAcc > 7) {
         car.segPos += (car.scrollAcc >> 3);
@@ -873,8 +1153,8 @@ void RaceSim::CheckFinish() {
         finishSnapshot = true;
     }
 
-    if (finishSnapshot && player.segPos >= finishSeg && player.speed < 1) {
-        // Whichever car "finished" in the losing sense is flagged; either flag word exits the loop.
+    // The original latches from two sites.
+    if (finishSnapshot && player.speed < 1) {
         if (playerAheadAtFinish) {
             npc.endFlags |= END_FINISHED;
         } else {
@@ -884,6 +1164,11 @@ void RaceSim::CheckFinish() {
 }
 
 // An event carrying a suppressed bit is dropped whole, or a suppressed crash would still end the race.
+void RaceSim::LogCrash(const char* why) const {
+    std::fprintf(stderr, "Crash: %s seg=%d lateral=%d speed=%d edges=%d..%d\n", why, int(player.segPos),
+             int(player.lateral), int(player.speed), int(edgeLeft), int(edgeRight));
+}
+
 void RaceSim::AddPlayerEndFlags(uint16_t flags) {
     if (invulnerable) {
         constexpr uint16_t kSuppressed = END_WALL_HIT | END_HIT_NPC | END_ENGINE_BLOWN;
@@ -894,11 +1179,132 @@ void RaceSim::AddPlayerEndFlags(uint16_t flags) {
     player.endFlags |= flags;
 }
 
+// Street Rod 2's two on-road hazards, both Mulholland only.
+void RaceSim::CheckOnRoadHazards() {
+    if (kind != RaceKind::Mulholland) return;
+
+    const int seg = ClampTrackIndex(player.segPos);
+    const int lane = track->lane[seg];
+    if (lane <= 0) return;
+
+    const uint16_t flags = track->flags[seg];
+    const bool rock = (flags & HAZARD_ROCK) != 0;
+    const bool oil = (flags & HAZARD_OIL) != 0;
+    if (!rock && !oil) return;
+
+    const int at = edgeLeft + ((edgeRight - edgeLeft) * lane) / 16;
+    if (at < player.lateral - 30 || at > player.lateral + 70) return;
+
+    if (rock) {
+        // Harmless if you are slow enough to have seen it coming.
+        if (player.speed > 30) {
+            LogCrash("rock");
+            AddPlayerEndFlags(END_WALL_HIT);
+        }
+        return;
+    }
+
+    // Oil never ends the race. Over 50 it turns the heading (0x2678c4) by 0x28 toward the wheels that hit it,
+    // which the drift turns into a slide; over 20 it costs speed.
+    if (player.speed > 50) {
+        // ponytail: the original picks the side from sprite overlap with screen windows at cam-61/-31 (left wheels)
+        // and cam+128/+158 (right); the midpoint between them stands in for that test.
+        const int side = at < player.lateral + 48 ? -1 : 1;
+        player.heading = static_cast<int16_t>(player.heading - 0x28 * side);
+    }
+    if (player.speed > 20) {
+        player.speed = static_cast<int16_t>(player.speed - 10);
+    }
+}
+
+// Riding up the channel is allowed, so none of the road's edge logic applies.
+void RaceSim::CheckAqueductWalls() {
+    player.offRoad = false;
+
+    // jroad.c FUN_00247154: a block that reached the car's scanline last frame is a crash.
+    if (aqueductBlockHit) {
+        aqueductBlockHit = false;
+        LogCrash("aqueduct block");
+        AddPlayerEndFlags(END_WALL_HIT);
+        return;
+    }
+
+    // A patch on the slope is solid: riding into one wrecks the car.
+    if (aqueductTrack != nullptr && !obstacleBlocked) {
+        const int seg = static_cast<int>(player.segPos);
+        if (seg >= 0 && seg < AQUEDUCT_SEGMENTS &&
+            AqueductSlopePatchHits(aqueductTrack->flags[seg], player.lateral)) {
+            AddPlayerEndFlags(END_WALL_HIT);
+            return;
+        }
+    }
+
+    // A rollover already under way plays out to the end.
+    if (rollFrameIndex < rollFrameCount) {
+        const AqueductRollFrame& f = rollFrames[rollFrameIndex++];
+        aqueductRoll = f.roll;
+        aqueductVjerk = f.vjerk;
+        player.lateral = static_cast<int16_t>(player.lateral + f.camXDelta);
+        player.heading = static_cast<int16_t>(player.heading + f.driftDelta);
+        if (rollFrameIndex >= rollFrameCount) {
+            rollFrameCount = 0;
+            rollFrameIndex = 0;
+            aqueductRoll = 0;
+            aqueductVjerk = 0;
+            AddPlayerEndFlags(END_WALL_HIT);
+        }
+        return;
+    }
+
+    const int wallState = AqueductWallState(player.lateral);
+    if (wallState != 0) {
+        // Leaving the concrete wrecks the car.
+        rollFrameCount = AqueductRollover(wallState, player.speed, player.heading,
+                                          rollFrames,
+                                          static_cast<int>(std::size(rollFrames)));
+        rollFrameIndex = 0;
+        return;
+    }
+
+    // On the slope the camera nudge is what walks the car back down.
+    const AqueductWallRide ride = AqueductRideWall(player.lateral);
+    if (ride.camXDelta != 0) {
+        player.lateral = static_cast<int16_t>(player.lateral + ride.camXDelta);
+    }
+}
+
+// What scraping an edge costs, jroad.c's `if (speed < 11) speed = 0 else -= 10`.
+void RaceSim::ShedEdgeSpeed() {
+    player.speed = static_cast<int16_t>(player.speed < 11 ? 0 : player.speed - 10);
+}
+
 void RaceSim::CheckEdgeCollision() {
+    if (kind == RaceKind::Aqueduct) {
+        CheckAqueductWalls();
+        return;
+    }
+
     const int seg = ClampTrackIndex(player.segPos);
     const uint16_t leftObj = track->left[seg];
     const uint16_t rightObj = track->right[seg];
     const uint16_t flags = track->flags[seg];
+    const bool mulholland = kind == RaceKind::Mulholland;
+
+    CheckOnRoadHazards();
+    if ((player.endFlags & END_FAILURE_MASK) != 0) {
+        return;
+    }
+
+    // Mulholland narrows the road, and taking a narrowing at speed ends the
+    // race however well placed the car is.
+    if (mulholland && player.speed > 60) {
+        const uint16_t ahead = track->flags[ClampTrackIndex(player.segPos + 1)];
+        if ((ahead & 0x0060) != 0) {
+            LogCrash("narrowing over 60 mph");
+            AddPlayerEndFlags(END_WALL_HIT);
+            return;
+        }
+    }
 
     const int carLeft = player.lateral - 30;
     const int carRight = player.lateral + 70;
@@ -906,24 +1312,89 @@ void RaceSim::CheckEdgeCollision() {
     const bool offRight = carRight > edgeRight;
     player.offRoad = offLeft || offRight;
 
+    // The grudge strip's right-hand limit, jroad.c 0x246860's `race_type & 0x0c` arm.
+    if (kind == RaceKind::Grudge && carRight >= edgeRight - GRUDGE_RIGHT_LIMIT) {
+        if (player.speed > EDGE_DROP_MAX_MPH) {
+            AddPlayerEndFlags(END_WALL_HIT);
+        } else {
+            player.lateral = static_cast<int16_t>(player.lateral - 200);
+            player.heading = static_cast<int16_t>(player.heading + 0x14);
+            ShedEdgeSpeed();
+        }
+        return;
+    }
+
+    // A Mulholland rock pile (object bit 0x10) reaches onto the road: jroad.c FUN_0024665c crashes you on it
+    // anywhere left of 0x79e or right of 0xb22, on the road or off it.
+    if (mulholland && (((leftObj & 0x0010) != 0 && carLeft < 0x79e) ||
+                       ((rightObj & 0x0010) != 0 && carRight > 0xb22))) {
+        LogCrash("rock pile");
+        AddPlayerEndFlags(END_WALL_HIT);
+        return;
+    }
+
     if (!player.offRoad) {
         return;
     }
 
-    if (carLeft < (edgeLeft - 260) || carRight > (edgeRight + 260)) {
+    // Mulholland's drivable corridor is tighter: 150 against 260 everywhere else.
+    const int tolerance = mulholland ? 150 : 260;
+
+    if (mulholland) {
+        const int16_t wallL = track->wallLeft[seg];
+        const int16_t wallR = track->wallRight[seg];
+
+        // A positive shoulder is a barrier, and it stops the car well before
+        // the general tolerance does.
+        if (offLeft && wallL > 0 && carLeft < edgeLeft - tolerance / 4) {
+            LogCrash("left barrier");
+            AddPlayerEndFlags(END_WALL_HIT);
+            return;
+        }
+        if (offRight && wallR > 0 && carRight > edgeRight + tolerance / 2) {
+            LogCrash("right barrier");
+            AddPlayerEndFlags(END_WALL_HIT);
+            return;
+        }
+
+        // Bit 15 of the right object word ONE segment ahead marks the edge the ground falls away from.
+        const uint16_t rightAhead = track->right[ClampTrackIndex(player.segPos + 1)];
+        if (offRight && (rightAhead & 0x8000) != 0) {
+            if (player.speed > EDGE_DROP_MAX_MPH) {
+                LogCrash("right drop");
+                AddPlayerEndFlags(END_WALL_HIT);
+                return;
+            }
+            player.lateral = static_cast<int16_t>(player.lateral - 300);
+            player.heading = static_cast<int16_t>(player.heading + 0x1e);
+            ShedEdgeSpeed();
+        }
+    }
+
+    if (carLeft < (edgeLeft - tolerance) || carRight > (edgeRight + tolerance)) {
+        // Over a negative wall the car goes over the edge; Racing plays the fall.
+        if (mulholland && fallDir == 0) {
+            if (offLeft && track->wallLeft[seg] < 0) fallDir = -1;
+            if (offRight && track->wallRight[seg] < 0) fallDir = 1;
+        }
+        LogCrash("off the road");
         AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
 
     if (offLeft && (leftObj & (0x0010 | 0x1000)) != 0) {
+        LogCrash("left roadside object");
         AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
     if (offRight && (rightObj & (0x0010 | 0x1000)) != 0) {
+        LogCrash("right roadside object");
         AddPlayerEndFlags(END_WALL_HIT);
         return;
     }
-    if ((flags & 0xf000) != 0) {
+    // The top flags nibble is an overhead arch. Mulholland has none: SR2's FUN_0024665c has no arch test.
+    if (!mulholland && (flags & 0xf000) != 0) {
+        LogCrash("overhead arch");
         AddPlayerEndFlags(END_WALL_HIT);
     }
 }
@@ -1087,8 +1558,21 @@ void RaceSim::NpcAiUpdate() {
         target = center;
     }
 
+    // On Grudge Night the opponent is simulated but never drawn, so the banding above.
+    if (kind == RaceKind::Grudge) {
+        target = npcAi.lateralTarget;
+    }
     npcAi.lateralTarget = static_cast<int16_t>(target);
-    npc.lateral = static_cast<int16_t>(npc.lateral + ((npcAi.lateralTarget - npc.lateral) / 8));
+    if (kind == RaceKind::Aqueduct && aqueductTrack != nullptr) {
+        // The player has not moved yet this tick, so this is the channel the last frame was drawn with.
+        const AqueductChannel drawn = AqueductRideWall(player.lateral).channel;
+        npc.lateral = static_cast<int16_t>(
+            npc.lateral + AqueductOpponentStep(npc.lateral, npcAi.lateralTarget - npc.lateral,
+                                               static_cast<int>(npc.segPos), player.lateral,
+                                               static_cast<int>(player.segPos), drawn, aqueductTrack->flags));
+    } else {
+        npc.lateral = static_cast<int16_t>(npc.lateral + ((npcAi.lateralTarget - npc.lateral) / 8));
+    }
 
     // A police pursuit never concedes; otherwise the cop gives up moments after taking over.
     const int raceThreeQuarter = RACE_START_SEG + ((finishSeg - RACE_START_SEG) * 3) / 4;
@@ -1136,9 +1620,7 @@ void RaceSim::NpcEngine() {
     if (onStraight) {
         npcAi.corneringCapped = false;   // re-arm the corner brake
 
-        // The King never eases off for being far ahead in a road race.
-        if (segDiff < 13 || (raceType == 1 && kingRace)) {
-            // Level: 16 mph up on the player, never below its own cruise. The rubber band that keeps a close race close.
+        if (segDiff < 13 || (IsRoadRace() && kingRace)) {
             if (segDiff > -5 && segDiff < 5) {
                 int target = static_cast<int>(player.speed) + 16;
                 if (target < npcAi.targetSpeedNormal) {

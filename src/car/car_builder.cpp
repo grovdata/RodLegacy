@@ -73,6 +73,9 @@ void CarBuilder::ApplySpec(Car* car, const SrCarSpecEntry& spec, CarVendor_t ven
     const int transClass = std::clamp(spec.TransClass(), 0, 3);
     const int tireClass = std::clamp(spec.TireClass(), 0, 2);
 
+    // Street Rod 2's three extra slots come off the spec too.
+    car->SetSr2Parts(spec.exhaust, spec.muffler, spec.differential);
+
     car->SetCarburator(CreateCarburetorPart(kCarbByClass[carbClass], vendor));
     car->SetGearbox(CreateTransmissionPart(kTransByClass[vendorRow][transClass], vendor));
     car->SetTires(kTiresByClass[tireClass]);

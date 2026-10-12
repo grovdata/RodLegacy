@@ -13,6 +13,20 @@
 #include <SDL_image.h>
 #include <algorithm>
 
+void Garage::Sr2TireRoll(bool on) {
+    if (!audioManager || on == sr2TireRolling) return;
+    sr2TireRolling = on;
+    if (on) audioManager->StartTireRollLoop();
+    else audioManager->StopTireRollLoop();
+}
+
+void Garage::Sr2JackCrankSound(bool up, int crank) {
+    if (!audioManager) return;
+    const int period = up ? SR2_JACK_UP_PERIOD - SR2_JACK_PERIOD_STEP * crank
+                          : SR2_JACK_DOWN_PERIOD + SR2_JACK_PERIOD_STEP * crank;
+    audioManager->PlaySound(AudioSampleType::HISS, SR2_JACK_CRANK_VOLUME / 64.0f, 3579545 / period);
+}
+
 void Garage::StartTireChangeAnimation(const Part& newTire) {
     if (!carBitmap) return;
     pendingTire = newTire;
@@ -25,7 +39,8 @@ void Garage::StartTireChangeAnimation(const Part& newTire) {
     animFrontWheelY = (float)initialFrontWheelPos.y;
     animRearWheelY  = (float)initialRearWheelPos.y;
     tireChangeLiftY = 0;
-    jackStartY = (float)(initialRearWheelPos.y + initialRearWheelPos.h);
+    jackStartY = state.GetAssets().GetGame() == SrGame::SR2 ? 157.0f
+                                                             : (float)(initialRearWheelPos.y + initialRearWheelPos.h);
     jackYPos   = jackStartY;
     carBitmap->SetWheelsVisible(false);
     carBitmap->SetWheelhousesVisible(true);
@@ -51,6 +66,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
     const float frontRollDur = (initialFrontWheelPos.x + wheelSize) / WHEEL_ROLL_SPEED;
 
     tireChangeTimer += (float)deltaTime;
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
 
     auto lerp = [](float a, float b, float t) {
         return a + (b - a) * t;
@@ -79,7 +95,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             crankNum = std::min(crankNum, JACK_CRANKS - 1);
 
             if (crankNum != lastJackCrankSounded && localT < CRANK_ANIM_DUR) {
-                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                if (sr2) Sr2JackCrankSound(true, crankNum);
+                else if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
                 lastJackCrankSounded = crankNum;
             }
 
@@ -101,6 +118,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 animFrontWheelY  = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer  = 0.0f;
                 tireChangePhase  = TireChangePhase::REAR_WHEEL_OUT;
+                // The DOS games' tyre change sounds: air wrench off, the swap, lug nuts on. Silent on the Amiga.
+                if (audioManager) audioManager->PlaySound(AudioSampleType::TIRE_AIR_WRENCH);
             }
             break;
         }
@@ -114,12 +133,15 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / rearRollDur);
                 animRearWheelY = (float)initialRearWheelPos.y;
                 animRearWheelX = lerp((float)initialRearWheelPos.x, (float)-wheelSize, t);
+                if (sr2) Sr2TireRoll(true);
             }
             if (tireChangeTimer >= WHEEL_DROP_DUR + rearRollDur) {
+                if (sr2) Sr2TireRoll(false);
                 animFrontWheelX = (float)initialFrontWheelPos.x;
                 animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::FRONT_WHEEL_OUT;
+                if (audioManager) audioManager->PlaySound(AudioSampleType::TIRE_AIR_WRENCH);
             }
             break;
         }
@@ -133,8 +155,10 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01((tireChangeTimer - WHEEL_DROP_DUR) / frontRollDur);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
                 animFrontWheelX = lerp((float)initialFrontWheelPos.x, (float)-wheelSize, t);
+                if (sr2) Sr2TireRoll(true);
             }
             if (tireChangeTimer >= WHEEL_DROP_DUR + frontRollDur) {
+                if (sr2) Sr2TireRoll(false);
                 if (carBitmap) {
                     carBitmap->LoadNewTireSprite(pendingTire.partType.tireType);
                 }
@@ -142,6 +166,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 animRearWheelY  = (float)initialRearWheelPos.y;
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::NEW_REAR_WHEEL_IN;
+                if (audioManager) audioManager->PlaySound(AudioSampleType::TIRE_PUTT);
             }
             break;
         }
@@ -151,7 +176,9 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01(tireChangeTimer / rearRollDur);
                 animRearWheelX = lerp((float)-wheelSize, (float)initialRearWheelPos.x, t);
                 animRearWheelY = (float)initialRearWheelPos.y;
+                if (sr2) Sr2TireRoll(true);
             } else {
+                if (sr2) Sr2TireRoll(false);
                 if (carBitmap) carBitmap->ResetWheelFrame();
                 float t = clamp01((tireChangeTimer - rearRollDur) / WHEEL_RISE_DUR);
                 animRearWheelX = (float)initialRearWheelPos.x;
@@ -159,12 +186,14 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                                       (float)(initialRearWheelPos.y - tireChangeLiftY), t);
             }
             if (tireChangeTimer >= rearRollDur + WHEEL_RISE_DUR) {
+                if (sr2) PlayBayToolSound(true);
                 animRearWheelX  = (float)initialRearWheelPos.x;
                 animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
                 animFrontWheelX = (float)-wheelSize;
                 animFrontWheelY = (float)initialFrontWheelPos.y;
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::NEW_FRONT_WHEEL_IN;
+                if (audioManager) audioManager->PlaySound(AudioSampleType::TIRE_PUTT);
             }
             break;
         }
@@ -174,7 +203,9 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 float t = clamp01(tireChangeTimer / frontRollDur);
                 animFrontWheelX = lerp((float)-wheelSize, (float)initialFrontWheelPos.x, t);
                 animFrontWheelY = (float)initialFrontWheelPos.y;
+                if (sr2) Sr2TireRoll(true);
             } else {
+                if (sr2) Sr2TireRoll(false);
                 if (carBitmap) carBitmap->ResetWheelFrame();
                 float t = clamp01((tireChangeTimer - frontRollDur) / WHEEL_RISE_DUR);
                 animFrontWheelX = (float)initialFrontWheelPos.x;
@@ -182,6 +213,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                                        (float)(initialFrontWheelPos.y - tireChangeLiftY), t);
             }
             if (tireChangeTimer >= frontRollDur + WHEEL_RISE_DUR) {
+                if (sr2) PlayBayToolSound(false);
                 if (carBitmap) carBitmap->SetWheelhousesVisible(false);
                 animRearWheelX  = (float)initialRearWheelPos.x;
                 animRearWheelY  = (float)(initialRearWheelPos.y - tireChangeLiftY);
@@ -189,6 +221,7 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
                 animFrontWheelY = (float)(initialFrontWheelPos.y - tireChangeLiftY);
                 tireChangeTimer = 0.0f;
                 tireChangePhase = TireChangePhase::JACK_CRANK_DOWN;
+                if (audioManager) audioManager->PlaySound(AudioSampleType::TIRE_LUG_NUT);
                 if (jackAnim) jackAnim->SetFrame(0);
                 lastJackCrankSounded = -1;
             }
@@ -201,7 +234,8 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             crankNum = std::min(crankNum, JACK_CRANKS - 1);
 
             if (crankNum != lastJackCrankSounded && localT < CRANK_ANIM_DUR) {
-                if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
+                if (sr2) Sr2JackCrankSound(false, crankNum);
+                else if (audioManager) audioManager->PlaySound(AudioSampleType::CAR_JACK);
                 lastJackCrankSounded = crankNum;
             }
 
@@ -235,7 +269,13 @@ void Garage::UpdateTireChangeAnimation(double deltaTime) {
             animFrontWheelY = (float)initialFrontWheelPos.y;
 
             if (tireChangeTimer >= JACK_SLIDE_DUR) {
+                if (sr2 && audioManager) {
+                    for (int i = 0; i < 2; ++i) {
+                        audioManager->PlaySound(AudioSampleType::HISS, 9 / 64.0f, 3579545 / (150 + std::rand() % 50));
+                    }
+                }
                 if (state.GetCurrentCar()) state.GetCurrentCar()->SetTires(pendingTire);
+                state.AdvanceTicks(600);   // lgarage.c 0x25355e
                 if (carBitmap) carBitmap->SetWheelsVisible(true);
                 tireChangeLiftY = 0;
                 tireChangePhase = TireChangePhase::IDLE;

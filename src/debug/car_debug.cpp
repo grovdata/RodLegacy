@@ -23,7 +23,7 @@ void CarDebug::Init(bool debugMode) {
     LoadModels();
 
     debugDriver.name = "Debug";
-    debugDriver.spriteIndex = DRIVER_01 + portraitIndex;
+    debugDriver.spriteIndex = DRIVER_FIRST + portraitIndex;
 
     ButtonConfig prev{};
     prev.bounds = kPrevRect;
@@ -136,7 +136,7 @@ void CarDebug::AppendKingModels() {
             }
             const byte_vector& data = state.GetAssets().GetCarSetData(set);
             DataParser parser;
-            const std::vector<DosCarSprites> sprites = parser.ParseCarSpritesDOS(data);
+            const std::vector<CarSpriteRefs> sprites = parser.ParseCarSpritesDOS(data);
             if (kingSlot >= static_cast<int>(sprites.size()) || sprites[kingSlot].body < 0) {
                 continue;
             }
@@ -230,7 +230,7 @@ void CarDebug::AdjustDriver(int dx, int dy) {
 
 void CarDebug::CyclePortrait() {
     portraitIndex = (portraitIndex + 1) % DRIVER_COUNT;
-    debugDriver.spriteIndex = DRIVER_01 + portraitIndex;
+    debugDriver.spriteIndex = DRIVER_FIRST + portraitIndex;
     ShowModel(currentIndex);
     LOG_INFO("CarDebug: driver portrait %d (asset %d)", portraitIndex, debugDriver.spriteIndex);
 }

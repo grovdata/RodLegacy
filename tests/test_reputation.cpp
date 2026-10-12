@@ -172,3 +172,49 @@ TEST_CASE("losing to The King locks him again") {
 }
 
 }
+
+TEST_SUITE("Reputation SR2") {
+TEST_CASE("Mulholland and Aqueduct wins raise their own reps; drag races never count") {
+    Reputation r;
+    r.RecordRace(RaceType::Drag, true, true, false, true);
+    CHECK(r.races_completed == 0);
+    CHECK(r.drag_wins == 1);
+    r.RecordRace(RaceType::Road, true, false, false, true);   // just for kicks: a win still counts for rep
+    CHECK(r.road_rep == 1);
+    CHECK(r.races_completed == 0);
+    r.RecordRace(RaceType::Aqueduct, true, true, false, true);
+    CHECK(r.aqueduct_rep == 1);
+    CHECK(r.races_completed == 1);
+}
+
+TEST_CASE("the King wants both reps, then Grudge Night, then wins over races") {
+    Reputation r;
+    r.road_rep = 1; r.aqueduct_rep = 1;
+    CHECK(r.GetOpponentTier(5, true) == 1);
+    r.road_rep = 3; r.aqueduct_rep = 2;
+    CHECK(r.GetOpponentTier(5, true) == 2);
+    r.road_rep = 4; r.aqueduct_rep = 4;
+    CHECK(r.GetOpponentTier(5, true) == 3);
+    r.road_rep = 5; r.aqueduct_rep = 6;
+    CHECK(r.GetOpponentTier(5, true) == 5);
+    r.road_rep = 6; r.aqueduct_rep = 5;
+    CHECK(r.GetOpponentTier(5, true) == 6);
+    r.aqueduct_rep = 6;
+    CHECK(r.GetOpponentTier(5, true) == 4);
+    r.grudge_won = 1;
+    r.races_completed = 30;
+    CHECK(r.GetOpponentTier(5, true) == 3);
+    r.races_completed = 24;
+    CHECK(r.GetOpponentTier(5, true) == 0);
+    // Every pool racer beaten: he races whatever the reps.
+    CHECK(Reputation{}.GetOpponentTier(0, true) == 0);
+}
+
+TEST_CASE("losing to the King costs 3 Mulholland and 2 Aqueduct") {
+    Reputation r;
+    r.road_rep = 6; r.aqueduct_rep = 6;
+    r.RecordRace(RaceType::Road, false, true, true, true);
+    CHECK(r.road_rep == 3);
+    CHECK(r.aqueduct_rep == 4);
+}
+}

@@ -41,7 +41,10 @@ class SaveLoadScene;
 class GameOverMenu;
 class Ending;
 class Intro;
+class Sr2Ending;
+class GrudgeNight;
 class CarDebug;
+class SfxDebug;
 
 class State {
 private:
@@ -55,7 +58,10 @@ private:
 
     Reputation reputation;
     RacerPool  racerPool;
+    // Every driver in play, from every enabled set that brings drivers, in one table.
     std::vector<SrDriverData>   srDriverData;
+    std::vector<std::string>    srDriverNames;
+    std::vector<int>            srDriverSets;   // parallel; indexes GetCarSetDefs()
     std::vector<SrCarSpecEntry> srCarSpecData;
 
     // Every enabled set's specs, Amiga set first so its entries stay at 0..25 as .SAV files store them.
@@ -86,6 +92,9 @@ private:
     std::vector<Part> spareManifolds;
     std::vector<Part> spareCarburetors;
     std::vector<EnginePart> spareEngines;
+    std::vector<Part> spareExhausts;
+    std::vector<Part> spareMufflers;
+    std::vector<Part> spareDifferentials;
 
     Roster roster;
 
@@ -100,7 +109,9 @@ private:
     // Chosen once per profile and persisted; not re-rolled per race.
     int trackVariant = 0;
 
-    // First, so it is destroyed last; scenes hold non-owning refs to its assets.
+    // Seed for the roadside scatter.
+    uint32_t scatterSeed = 0;
+
     AssetManager assets;
 
     std::unique_ptr<Garage> garage;
@@ -114,12 +125,15 @@ private:
     std::unique_ptr<SaveLoadScene> saveLoad;
     std::unique_ptr<GameOverMenu> gameOverMenu;
     std::unique_ptr<Ending> ending;
+    std::unique_ptr<Sr2Ending> sr2Ending;
     std::unique_ptr<Intro> intro;
+    std::unique_ptr<GrudgeNight> grudgeNight;
     bool pendingCruise = false;
     SrLibGameScene pendingCruiseDestination = SCENE_DINER;
     bool arrivingFromCruise = false;
 #ifdef RODLEGACY_DEBUG_UI
     std::unique_ptr<CarDebug> carDebug;
+    std::unique_ptr<SfxDebug> sfxDebug;
 #endif
 
 
@@ -146,7 +160,8 @@ public:
     const std::vector<SrCarSpecEntry>& GetMergedCarSpecs() const { return mergedCarSpecs; }
     const std::vector<int>& GetCarSpecModelIndex() const { return mergedCarSpecModelIndex; }
 
-    void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false);
+    void Init(bool debugMode, const fs::path& gamePath, bool muteAudio = false,
+              SrGame game = SrGame::SR1);
     void InitWithCustomPath(bool debugMode, const std::string& customPath);
 
     int GetBankroll();
@@ -197,9 +212,13 @@ public:
 
     // Null for the King's slot.
     CarPtr BuildCarForSpec(int specIndex);
+    Opponent* GiveOpponentPoolCar(const RacerEntry& entry);
+    void GiveOpponentsPoolCars();
 
     // Percent chance that the next arrival at the diner is The King.
     int KingArrivalChance() const;
+    // Before the player has any rep (tier 1) the King only drives past the diner (DinerCar, SR1 0x23d5ca).
+    bool KingOnlyDrivesBy() const;
     void OnPhoneListOpened();
 
     // Call for every finished race. settlesBet is false for a ticket or a jumped light, which still
@@ -227,14 +246,19 @@ public:
 
     int  GetGameHours() const { return GameClock::TicksToHours(elapsedTicks); }
     void AdvanceGameHours(int hours) { elapsedTicks += GameClock::HoursToTicks(hours); }
+    // The Amiga games' activity costs, 150 ticks an hour; both games charge the same (docs/sr2_amiga/clock.md).
+    void AdvanceTicks(uint32_t ticks) { elapsedTicks += ticks; }
 
     uint32_t GetElapsedTicks() const { return elapsedTicks; }
     void SetElapsedTicks(uint32_t ticks) { elapsedTicks = ticks; }
 
+    uint32_t GetScatterSeed() const { return scatterSeed; }
     int  GetTrackVariant() const { return trackVariant; }
     void SetTrackVariant(int v) { trackVariant = ((v % 10) + 10) % 10; }
 
-    std::string GetGameDateString() const { return GameClock::FormatDate(elapsedTicks); }
+    std::string GetGameDateString() const {
+        return GameClock::FormatDate(elapsedTicks, assets.GetGame() == SrGame::SR2 ? 1969 : 1963);
+    }
     std::string GetGameClockString() const;
     int  CalculateScore() const;
 
@@ -243,6 +267,8 @@ public:
     static constexpr int FUEL_PER_TRIP_TENTHS = 2;
     static constexpr int FUEL_PER_DRAG_RACE_TENTHS = 5;
     static constexpr int FUEL_PER_ROAD_RACE_TENTHS = 15;
+    // Street Rod 2's Aqueduct.
+    static constexpr int FUEL_PER_AQUEDUCT_RACE_TENTHS = 10;
     void BurnFuel(int tenths);
     const CarPtr& GetCurrentCarPtr() const { return currentCar; }
     void SetCurrentCar(CarPtr car);
@@ -312,7 +338,16 @@ public:
         return true;
     }
 
-    // By position, since Remove*(type) would take the first match.
+    // Street Rod 2's three under-car categories.
+    std::vector<Part>& GetSpareSr2(PartCategory category) {
+        if (category == PartCategory::Muffler) return spareMufflers;
+        if (category == PartCategory::Differential) return spareDifferentials;
+        return spareExhausts;
+    }
+    const std::vector<Part>& GetSpareSr2(PartCategory category) const {
+        return const_cast<State*>(this)->GetSpareSr2(category);
+    }
+
     bool RemoveSpareAt(PartCategory category, size_t index) {
         auto eraseAt = [index](auto& v) {
             if (index >= v.size()) return false;
@@ -325,11 +360,15 @@ public:
             case PartCategory::Manifold:     return eraseAt(spareManifolds);
             case PartCategory::Carburetor:   return eraseAt(spareCarburetors);
             case PartCategory::Tire:         return eraseAt(spareTires);
+            case PartCategory::ExhaustManifold:
+            case PartCategory::Muffler:
+            case PartCategory::Differential: return eraseAt(GetSpareSr2(category));
         }
         return false;
     }
 
     Roster& GetRoster() { return roster; }
+    GrudgeNight* GetGrudgeNight() { return grudgeNight.get(); }
     std::vector<CarPtr>& GetClassifiedCars() { return classifiedCars; }
     uint32_t GetClassifiedsGeneration() const { return classifiedsGeneration; }
     CarData carData;

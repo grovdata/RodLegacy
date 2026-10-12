@@ -1,4 +1,5 @@
 #include "audio/amiga_music.h"
+#include "audio/record_tap.h"
 #include "core/utils.h"
 
 #include <algorithm>
@@ -63,7 +64,8 @@ bool AmigaMusic::Load(const uint8_t* note_data, size_t note_size,
                       const uint8_t* wave1_data, size_t wave1_size,
                       const uint8_t* wave0_data, size_t wave0_size,
                       const uint8_t* ins_data, size_t ins_size,
-                      const uint8_t* env_data, size_t env_size) {
+                      const uint8_t* env_data, size_t env_size,
+                      bool sr2) {
     if (!note_data || !wave1_data || !wave0_data || !ins_data || !env_data) {
         return false;
     }
@@ -84,7 +86,7 @@ bool AmigaMusic::Load(const uint8_t* note_data, size_t note_size,
     std::vector<EnvelopeDef> new_envelopes;
 
     if (!ParsePatterns(new_note, new_patterns)) return false;
-    if (!ParseInstruments(new_ins, new_instruments)) return false;
+    if (!ParseInstruments(new_ins, sr2, new_instruments)) return false;
     if (!ParseEnvelopes(new_env, new_envelopes)) return false;
 
     SDL_LockAudioDevice(device_);
@@ -174,6 +176,7 @@ void AmigaMusic::AudioCallback(void* userdata, uint8_t* stream, int len) {
     auto* self = static_cast<AmigaMusic*>(userdata);
     int frames = len / static_cast<int>(sizeof(int16_t));
     self->FillBuffer(reinterpret_cast<int16_t*>(stream), frames);
+    record_tap::Write("amiga_music", self->sample_rate_, 1, stream, len);
 }
 
 void AmigaMusic::FillBuffer(int16_t* buffer, int frames) {
@@ -533,13 +536,14 @@ bool AmigaMusic::ParsePatterns(const std::vector<uint8_t>& note_bytes, std::vect
     return !out_patterns.empty();
 }
 
-bool AmigaMusic::ParseInstruments(const std::vector<uint8_t>& ins_bytes, std::vector<InstrumentDef>& out_instruments) {
-    if (ins_bytes.size() % 10 != 0) return false;
+bool AmigaMusic::ParseInstruments(const std::vector<uint8_t>& ins_bytes, bool sr2, std::vector<InstrumentDef>& out_instruments) {
+    const size_t stride = sr2 ? 18 : 10;
+    if (ins_bytes.size() % stride != 0) return false;
     out_instruments.clear();
-    size_t n = ins_bytes.size() / 10;
+    size_t n = ins_bytes.size() / stride;
     out_instruments.reserve(n);
     for (size_t i = 0; i < n; i++) {
-        const uint8_t* p = ins_bytes.data() + i * 10;
+        const uint8_t* p = ins_bytes.data() + i * stride;
         InstrumentDef d;
         d.env_index = ReadBE16(p + 0);
         d.unknown = ReadBE16(p + 2);
@@ -548,6 +552,8 @@ bool AmigaMusic::ParseInstruments(const std::vector<uint8_t>& ins_bytes, std::ve
         d.sample_offset = ReadBE16(p + 8);
         out_instruments.push_back(d);
     }
+    // SR2's shipped srl.ins gives instrument 4 bank 0 with a srl1.wave offset; instrument 5 is the same record on bank 1.
+    if (sr2 && out_instruments.size() > 4) out_instruments[4].bank_index = 1;
     return true;
 }
 

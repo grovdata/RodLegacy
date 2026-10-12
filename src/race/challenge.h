@@ -9,6 +9,7 @@
 #pragma once
 
 #include "core/game_text.h"
+#include "race/reputation.h"
 #include "dialogs/dialog.h"
 #include "ui/bubble.h"
 #include "gfx/SFont.h"
@@ -24,6 +25,7 @@ public:
 
     // The King: forced drag (free) then forced road (pink slip), no bet dialog or accept roll.
     void OpenKing(SFont_Font* font);
+    void OpenKingSr2();
 
     bool HandleEvent(SDL_Event* event);
 
@@ -54,6 +56,7 @@ private:
 
     // The opponent may reject a proposed bet twice before the encounter ends.
     static constexpr int kMaxBetAttempts = 2;
+    int lastRefusal = -1;
     int betAttempts = 0;
     // The opponent rejected, so Draw() loops back to the race-type menu once the insult clears.
     bool insultFromOpponent = false;
@@ -61,13 +64,16 @@ private:
     bool tauntOnly = false;
 
     static const std::vector<GameText::Message> kInsults;
-    static const std::vector<GameText::Message> kAcceptances;
 
     void ShowRaceTypeDialog();
     void ShowDragBetDialog();
-    void ShowRoadBetDialog();
+    void ShowRoadBetDialog(RaceType type);
+    // Street Rod 2 refuses a race the car has not the fuel for. Returns true
+    // when it refused, and the challenge is over.
+    bool RefuseForGas(RaceType type);
     void ShowSpeech(const std::string& text, BubbleStyle style = BUBBLE_RIGHT);
-    void Accept();
+    void Accept(bool drag = false);
     void Reject();
-    void OpponentRejectsBet();
+    void OpponentRejectsBet(bool drag = false);
+    void NotEnoughDough();
 };

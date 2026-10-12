@@ -9,6 +9,7 @@
 #pragma once
 #include "core/global.h"
 #include "car/car.h"
+#include "race/driver.h"
 #include "gfx/bitmap.h"
 #include "gfx/animated_bitmap.h"
 #include "parsers/libp.h"
@@ -18,7 +19,9 @@
 Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
                            const std::vector<uint16_t>& carPalette);
 
-// A still wheel cell. outSourceRect is a lib.p sheet cell, or zero for a DOS set; outSize differs per set.
+// A driver's portrait, out of whichever game's lib.p their set came from.
+Bitmap* LoadDriverPortrait(const Driver& driver);
+
 Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
                          SDL_Rect* outSourceRect, SDL_Point* outSize);
 

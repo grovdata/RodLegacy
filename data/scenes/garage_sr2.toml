@@ -1,0 +1,93 @@
+# Street Rod 2's garage. Rects are the hotspot table at 0x25fca4, converted
+# from x1,y1,x2,y2 to x,y,w,h.
+
+[[zones]]
+id = "goto_diner"
+text = "Hit the street"
+rect = [0, 40, 39, 92]
+
+[[zones]]
+id = "under_car"
+text = "Under the car"
+rect = [80, 172, 50, 10]
+
+[[zones]]
+id = "newspaper"
+text = "Check out the newspaper"
+rect = [27, 162, 41, 24]
+
+[[zones]]
+id = "select_car"
+text = "Cars"
+rect = [71, 44, 195, 11]
+
+[[zones]]
+id = "tires"
+text = "Change tires"
+rect = [138, 157, 22, 28]
+
+[[zones]]
+id = "menu"
+text = "Time to quit"
+rect = [155, 63, 27, 14]
+
+[[zones]]
+id = "sell_parts"
+text = "Sell parts"
+rect = [139, 71, 12, 13]
+
+[[zones]]
+id = "grudge_night"
+text = "Grudge Night - entry fee $30"
+rect = [192, 63, 27, 19]
+
+[[zones]]
+id = "paint_job"
+text = "New paint job - $20"
+rect = [204, 170, 19, 14]
+
+[[zones]]
+id = "music"
+text = "Squelsh it !"
+rect = [237, 76, 18, 7]
+
+[[zones]]
+id = "car_info"
+text = "Car info"
+rect = [232, 96, 19, 9]
+
+[[zones]]
+id = "gas_can"
+text = "Wanna tank ?"
+rect = [269, 161, 33, 24]
+
+[[zones]]
+id = "calendar"
+text = "Calendar"
+rect = [75, 66, 30, 30]
+
+# Updated at runtime based on car position
+[[zones]]
+id = "rear_bumper"
+text = "Rear bumper"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "front_bumper"
+text = "Front bumper"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "roof"
+text = "The roof"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "transmission"
+text = "Change transmission"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "engine"
+text = "Pop the hood"
+rect = [0, 0, 0, 0]

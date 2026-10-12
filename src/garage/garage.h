@@ -57,6 +57,20 @@ class Garage : public CarScene {
     int jackTotalFrames = 0;
     int lastJackCrankSounded = -1;
     SDL_Rect jackLastFrameRect{};
+
+    // Street Rod 2's garage floor holds the jack at (138,157) and the creeper at (80,172); neither is in the
+    // background art. Clicking the creeper rolls it to (134,144), under the car, and opens the window; Done rolls it
+    // back. 50 Hz steps: two held frames, then one pixel right a frame and 28 up over the 54.
+    enum class CreeperPhase { REST, ROLLING_OUT, PARKED, ROLLING_BACK };
+    CreeperPhase creeperPhase = CreeperPhase::REST;
+    int creeperStep = 0;
+    double creeperAcc = 0.0;
+    static constexpr int kCreeperLastStep = 55;
+    Bitmap* sr2Creeper = nullptr;
+    void StartCreeperRoll();
+    void StartCreeperBack();
+    void UpdateSr2Creeper(double deltaTime);
+    void DrawSr2Fixtures(bool front);
     static constexpr int JACK_CRANKS = 7;
 
     void ShowTireDialog();
@@ -149,6 +163,9 @@ class Garage : public CarScene {
     void OnEngineBayScrewClicked(int screwIndex);
     // seating = the part dropping in (low, loud); otherwise a screw turning (high, quieter).
     void PlayBayToolSound(bool seating);
+    void Sr2TireRoll(bool on);
+    void Sr2JackCrankSound(bool up, int crank);
+    bool sr2TireRolling = false;
     void UpdateEngineBayScrewVisual(int screwIndex);
     void ApplyEngineBayScrewGeometry(int screwIndex, int bottomY);
     void StartEngineBayScrewFall(int screwIndex, bool fallingOut, float delay = 0.0f);
@@ -208,6 +225,19 @@ class Garage : public CarScene {
     static constexpr size_t kNotEnoughGasBubble = 16;  // fuel < 9, going to the diner
     static constexpr size_t kFullTankBubble     = 17;  // fuel >= 140, going to the gas station
     static constexpr size_t kGasNotFreeBubble   = 18;  // fuel < 140 and bankroll == 0, same trip
+    static constexpr size_t kNotWednesdayBubble  = 19;
+    static constexpr size_t kNoGrudgeStakeBubble = 20;
+    static constexpr size_t kNoSpareSr2Bubble    = 21;  // text set per slot
+
+    // Street Rod 2's "Under the car" window, garage/garage_under_car.cpp.
+    std::unique_ptr<Dialog> underCarDialog;
+    std::unique_ptr<ListDialog> underCarPartsDialog;
+    PartCategory underCarSlot = PartCategory::Muffler;
+    bool underCarRemoveRow = false;
+    void ShowUnderCarDialog();
+    void RefreshUnderCarParts();
+    void ShowUnderCarPicker(PartCategory slot);
+    void PickUnderCarPart(int row);
 
     std::unique_ptr<CarHaggle> haggle;
     CarPtr haggleCar;
@@ -224,6 +254,8 @@ class Garage : public CarScene {
 
     std::unique_ptr<Dialog> gameMenuDialog;
     std::unique_ptr<Dialog> optionsDialog;
+    std::unique_ptr<Dialog> soundDialog;
+    std::unique_ptr<ListDialog> videoDialog;
     std::unique_ptr<ListDialog> keyBindingsDialog;
     std::unique_ptr<ListDialog> settingsDialog;
     std::unique_ptr<Dialog> frontBumperDialog;
@@ -231,7 +263,50 @@ class Garage : public CarScene {
     std::unique_ptr<Dialog> roofDialog;
     std::unique_ptr<Dialog> paintDialog;
     std::unique_ptr<EngineBay> engineBay;
+
+    // Street Rod 2's bay (amparts.c): the same stack of parts, but the manifold carries four or six bolts, each carb
+    // two, and the engine is held by its wire alone. Screw slots 0..5 are the manifold's, 6+2k and 7+2k carb k's.
+    static constexpr int kSr2BaySlots = 5;
+    static constexpr int kSr2BayScrews = 12;
+    void OpenSr2EngineBay();
+    void Sr2BayDeriveFromCar();
+    void Sr2BayRebuild();
+    void Sr2BayZoneClicked(const std::string& id);
+    void Sr2BayScrewClicked(int screw);
+    void Sr2BayWireClicked();
+    void Sr2BayPartsClicked();
+    void Sr2BayShowSpares(int slot);
+    void BayHint(const std::string& text);
+    Bubble* sr2HintBubble = nullptr;
+    void Sr2BayInstall(int slot, int spareIndex);
+    void Sr2BayEmptySlot(int slot);
+    void Sr2BayCommit(int slot);
+    int Sr2BayScrewFirst(int slot) const;
+    int Sr2BayScrewCount(int slot) const;
+    bool Sr2BayIsTop(int slot) const;
+    bool Sr2BaySlotOut(int slot) const;
+    bool Sr2BaySlotSeated(int slot) const;
+    std::unique_ptr<Dialog> sr2BayDialog;
+    std::unique_ptr<ListDialog> sr2BayList;
+    bool sr2BayDirty = false;
+    bool sr2Tuning = false;
+    // The machine slides in over 85 frames at 50 Hz (x -76 to 8) and out again; the tune bolts work once it is home.
+    int sr2MachineX = 8;
+    int sr2MachineDir = 0;
+    double sr2MachineAcc = 0.0;
+    void Sr2BayRatchet();
+    void UpdateSr2MachineAnimation(double deltaTime);
+    bool Sr2BayReadyToTune() const;
+    PartInstallPhase sr2Phase[kSr2BaySlots] = {};
+    int sr2Screw[kSr2BayScrews] = {};
+    bool sr2Wire = true;
+    const Car* sr2Car = nullptr;
+    EnginePart sr2PendingEngine;
+    Part sr2PendingManifold;
+    Part sr2PendingCarb[3];
     bool rebuildOptions_     = false;
+    bool rebuildSound_       = false;
+    bool rebuildVideo_       = false;
     StandardCarColor previewColor;
     StandardCarColor originalColor;
     std::unique_ptr<Bitmap> paintCanPreview;
@@ -252,6 +327,8 @@ class Garage : public CarScene {
     SDL_Rect signRect;
     void InitGameMenuDialog();
     void InitOptionsDialog();
+    void InitSoundDialog();
+    void InitVideoDialog();
     void ShowKeyBindingsDialog();
     void ShowSettingsDialog();
     void InitBumperDialogs();
@@ -286,6 +363,8 @@ class Garage : public CarScene {
     bool PushEvent(SDL_Event* event) override;
     void DrawScene() override;
     void OnSceneEnter() override;
+    void StartTrip();
+    uint32_t tripReturnTicks = 0;
     void SetActiveDialog(Dialog *dialog) override;
     void StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType animType) override;
     void OnCarAnimationComplete() override;

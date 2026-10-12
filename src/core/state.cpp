@@ -12,16 +12,22 @@
 #include "scenes/save_load_scene.h"
 #include "scenes/game_over_menu.h"
 #include "scenes/ending.h"
+#include "scenes/sr2_ending.h"
+#include "scenes/grudge_night.h"
 #include "scenes/intro.h"
 #ifdef RODLEGACY_DEBUG_UI
 #include "debug/car_debug.h"
+#include "debug/sfx_debug.h"
 #endif
 #include "race/racing.h"
 #include "debug/debug_overlay.h"
 #include "parsers/libp.h"
 #include "car/car_builder.h"
+#include "car/car_set.h"
 #include "core/save_loader.h"
 #include "race/bet_acceptance.h"
+#include "race/track_gen.h"
+#include "race/aqueduct.h"
 #include "core/utils.h"
 #include <fstream>
 #include <cstring>
@@ -30,53 +36,62 @@
 State::State() : bankroll(5750) {
 }
 
-void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
+void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio, SrGame game) {
     this->debugMode = debugMode;
     try {
-        assets.Init(gamePath, muteAudio);
+        assets.Init(gamePath, muteAudio, game);
         assets.ReadAssets();
-        std::pair<int, std::vector<BitmapEntry_t>> entries = assets.GetImageEntries();
-
-        carData.ReadEntries(assets.GetSrData(), entries);
-
         DataParser dataParser;
 
-        srDriverData  = dataParser.ParseDriverData(assets.GetSrData());
-        srCarSpecData = dataParser.ParseCarSpecTable(assets.GetSrData());
+        // The car spec record and the text blob's position are what differ
+        // between the games; the driver record is identical.
+        const bool isSr2 = assets.GetGame() == SrGame::SR2;
+        srCarSpecData = isSr2 ? dataParser.ParseCarSpecTableSR2(assets.GetSrData())
+                              : dataParser.ParseCarSpecTable(assets.GetSrData());
         LoadBetTables(assets.GetSrData());
 
+        // The physics tables come out of the player's own executable, the way the bet tables come out of
+        // SR_data.
+        if (!srrace::LoadPhysicsTables(assets.GetSrExeData(),
+                                       isSr2 ? srrace::PhysicsTableSource::StreetRod2
+                                             : srrace::PhysicsTableSource::StreetRod)) {
+            LOG_WARN("Physics tables not found in the executable, using built-in fallbacks");
+        }
+        if (!srrace::LoadScoringTables(assets.GetSrExeData(),
+                                       isSr2 ? srrace::PhysicsTableSource::StreetRod2
+                                             : srrace::PhysicsTableSource::StreetRod)) {
+            LOG_WARN("Scoring tables not found in the executable, using built-in fallbacks");
+        }
+        if (!srrace::LoadTrackTables(assets.GetSrExeData(),
+                                       isSr2 ? srrace::TrackGenSource::StreetRod2
+                                             : srrace::TrackGenSource::StreetRod)) {
+            LOG_WARN("Track variant table not found in the executable, using built-in fallbacks");
+        }
+        // The Aqueduct banks by rotating its projected rows, and the angles
+        // come out of the same executable.
+        if (isSr2 && !srrace::AqueductLoadSineTable(assets.GetSrExeData())) {
+            LOG_WARN("Sine table not found in the executable, using computed values");
+        }
+        // Its obstacles are lib.p assets sliced by a table in the same place.
+        if (isSr2 && !srrace::AqueductLoadShapeTable(assets.GetSrExeData())) {
+            LOG_WARN("Aqueduct shape table not found in the executable, using built-in copy");
+        }
+        if (isSr2 && !srrace::AqueductLoadStarTable(assets.GetSrExeData())) {
+            LOG_WARN("Aqueduct star table not found in the executable, using built-in copy");
+        }
+
+        // Reads every enabled set's cars and drivers, the played game's first,
+        // and hands the roster the merged driver table.
         RebuildCarSets();
 
-        // Before it builds opponents, so names and portraits come from the data.
-        roster.SetDriverTable(srDriverData, dataParser.ParseDriverNames(assets.GetSrData()));
-
         roster.Initialize(carData);
+        GiveOpponentsPoolCars();
 
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_2DR_COUPE_1940)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_ROADSTER_1940)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_MASTER_DELUXE_2DR_1938)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_CORVETTE_1956)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_CORVETTE_1961)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_CORVETTE_1963)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(DODGE_CUSTOM_ROYAL_LANCER_1955)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_DEUCE_COUPE_1932)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(DODGE_POLARA_1962)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(PLYMOUTH_SAVOY_2DR_1962)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_SEDAN_1932)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_DELUXE_2DR_1940)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_FAIRLANE_VICTORIA_1955)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_FAIRLANE_500_1956)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(MERCURY_MONTEREY_1954)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(MERCURY_CUSTOM_2DR_1956)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_STYLELINE_2DR_1949)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_IMPALA_1958)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(OLDSMOBILE_88_2DR_CUSTOM_1949)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(OLDSMOBILE_88_CUSTOM_1952)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(PONTIAC_SILVER_STREAK_1950)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(FORD_THUNDERBIRD_1957)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V200_1961)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(VALIANT_V100_2DR_1963)));
-        ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(CHEVROLET_BELAIR_SPORTS_COUPE)));
+        // FIXME: until cars can be bought, start with one of every car on sale.
+        for (int assetId : mergedCarSpecModelIndex) {
+            if (assetId < 0) continue;
+            ownedCars.push_back(roster.GenerateRandomCar(carData.GetModelFromIndex(assetId)));
+        }
 
         GenerateClassifieds();
 
@@ -93,9 +108,12 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         saveLoad = std::make_unique<SaveLoadScene>();
         gameOverMenu = std::make_unique<GameOverMenu>();
         ending = std::make_unique<Ending>();
+        sr2Ending = std::make_unique<Sr2Ending>();
         intro = std::make_unique<Intro>();
+        grudgeNight = std::make_unique<GrudgeNight>();
 #ifdef RODLEGACY_DEBUG_UI
         carDebug = std::make_unique<CarDebug>();
+        sfxDebug = std::make_unique<SfxDebug>();
 #endif
 
         garage->Init(debugMode);
@@ -107,9 +125,12 @@ void State::Init(bool debugMode, const fs::path& gamePath, bool muteAudio) {
         saveLoad->Init(debugMode);
         gameOverMenu->Init(debugMode);
         ending->Init(debugMode);
+        sr2Ending->Init(debugMode);
         intro->Init(debugMode);
+        grudgeNight->Init(debugMode);
 #ifdef RODLEGACY_DEBUG_UI
         carDebug->Init(debugMode);
+        sfxDebug->Init(debugMode);
 #endif
     } catch (const std::exception& e) {
         LOG_INFO("Failed to initialize game state: %s", e.what());
@@ -216,10 +237,14 @@ void State::MoveToScene(SrLibGameScene scene) {
             this->currentScene = gameOverMenu.get();
             break;
         case SCENE_ENDING:
-            this->currentScene = ending.get();
+            this->currentScene = assets.GetGame() == SrGame::SR2 ? static_cast<Scene*>(sr2Ending.get())
+                                                                 : static_cast<Scene*>(ending.get());
             break;
         case SCENE_INTRO:
             this->currentScene = intro.get();
+            break;
+        case SCENE_GRUDGE_NIGHT:
+            this->currentScene = grudgeNight.get();
             break;
         case SCENE_CAR_DEBUG:
 #ifdef RODLEGACY_DEBUG_UI
@@ -227,6 +252,15 @@ void State::MoveToScene(SrLibGameScene scene) {
 #else
             // Not built; stay where we are rather than null the scene.
             LOG_INFO("SCENE_CAR_DEBUG is only available in debug_ui builds");
+            currentGameScene = previousScene;
+            return;
+#endif
+            break;
+        case SCENE_SFX_DEBUG:
+#ifdef RODLEGACY_DEBUG_UI
+            this->currentScene = sfxDebug.get();
+#else
+            LOG_INFO("SCENE_SFX_DEBUG is only available in debug_ui builds");
             currentGameScene = previousScene;
             return;
 #endif
@@ -241,38 +275,86 @@ void State::MoveToScene(SrLibGameScene scene) {
 // Called again on a new game, since the chosen sets change the table saved model indices resolve against.
 void State::RebuildCarSets() {
     DataParser dataParser;
+    const std::vector<CarSetDef>& defs = GetCarSetDefs();
+    const int bootSet = CarSetForGame(assets.GetGame());
 
-    // Amiga set first, so its specs keep indices 0..25 as original .SAV files store them.
-    mergedCarSpecs = srCarSpecData;
-    mergedCarSpecModelIndex.assign(srCarSpecData.size(), -1);
-    for (int i = 0; i < CAR_PLAYER_MODEL_COUNT && i < (int)srCarSpecData.size(); i++) {
-        mergedCarSpecModelIndex[i] = kCarIndex[i];
+    // The played game goes in first, so its specs keep indices 0..25 - the
+    // range original .SAV files store - and its King keeps driver index 21.
+    std::vector<int> order{bootSet};
+    for (int set = 0; set < (int)defs.size(); set++) {
+        if (set != bootSet && assets.IsCarSetEnabled(set)) order.push_back(set);
     }
 
-    const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
-    for (int set = 0; set < (int)carSetDefs.size(); set++) {
-        if (carSetDefs[set].mandatory || !assets.IsCarSetEnabled(set)) continue;
+    mergedCarSpecs.clear();
+    mergedCarSpecModelIndex.clear();
+    srDriverData.clear();
+    srDriverNames.clear();
+    srDriverSets.clear();
 
-        const byte_vector& setData = assets.GetCarSetData(set);
-        const int added = carData.ReadCarSet(set, setData, assets.GetCarSetImageEntries(set));
-        if (added <= 0) continue;
+    for (int set : order) {
+        const CarSetDef& def = defs[set];
+        // A set with no files of its own reads one of the games'.
+        const bool ownFiles = def.zipName.empty();
+        const bool isSr2 = ownFiles && def.game == SrGame::SR2;
 
-        const std::vector<SrCarSpecEntry> specs = dataParser.ParseCarSpecTableDOS(setData);
-        const std::vector<DosCarSprites> sprites = dataParser.ParseCarSpritesDOS(setData);
-        for (int i = 0; i < (int)specs.size(); i++) {
-            mergedCarSpecs.push_back(specs[i]);
-            // The King's slot in each set has no buyable car behind it.
-            const bool buyable = i < CAR_PLAYER_MODEL_COUNT && i < (int)sprites.size();
-            mergedCarSpecModelIndex.push_back(
-                buyable ? set * HOT_DATA_SPRITE_BASE + sprites[i].body : -1);
+        std::vector<SrCarSpecEntry> specs;
+        std::vector<CarSpriteRefs> sprites;
+        int added = 0;
+
+        if (ownFiles) {
+            const byte_vector& data = assets.GetSrData(def.game);
+            added = carData.ReadCarSetAmiga(set, data, assets.GetImageEntries(def.game));
+            specs = isSr2 ? dataParser.ParseCarSpecTableSR2(data)
+                          : dataParser.ParseCarSpecTable(data);
+            sprites = dataParser.ParseCarSpritesAmiga(data, def.game);
+        } else {
+            const byte_vector& data = assets.GetCarSetData(set);
+            added = carData.ReadCarSet(set, data, assets.GetCarSetImageEntries(set));
+            specs = dataParser.ParseCarSpecTableDOS(data);
+            sprites = dataParser.ParseCarSpritesDOS(data);
         }
-        LOG_INFO("Car set '%s': %d cars, %zu specs", carSetDefs[set].id.c_str(), added, specs.size());
-    }
-    LOG_INFO("Merged car spec table: %zu entries across all enabled sets", mergedCarSpecs.size());
 
-    if (srDriverData.size() == SR_DATA_DRIVER_ENTRY_COUNT &&
-        srCarSpecData.size() == SR_DATA_CARSPEC_ENTRY_COUNT) {
-        // So the pool only rolls appearance changes the model has sprites for.
+        if (def.providesCars && added > 0) {
+            for (int i = 0; i < (int)specs.size(); i++) {
+                mergedCarSpecs.push_back(specs[i]);
+                // A car that is not for sale has no model behind it: that is
+                // The King's slot, one per set.
+                const bool buyable = specs[i].ForSale() && i < (int)sprites.size() &&
+                                     sprites[i].body >= 0;
+                const int body = buyable ? sprites[i].body : -1;
+                mergedCarSpecModelIndex.push_back(
+                    !buyable ? -1
+                             : (set == kAmigaCarSet && ownFiles
+                                    ? body
+                                    : set * HOT_DATA_SPRITE_BASE + body));
+            }
+        }
+
+        if (!def.providesDrivers || !ownFiles) continue;
+
+        const byte_vector& data = assets.GetSrData(def.game);
+        const std::vector<SrDriverData> drivers = dataParser.ParseDriverData(data);
+        const std::vector<std::string> names =
+            isSr2 ? dataParser.ParseDriverNamesSR2(data) : dataParser.ParseDriverNames(data);
+        for (int i = 0; i < (int)drivers.size() && i < (int)names.size(); i++) {
+            // Only the played game's King races; another game's is just a
+            // driver record with nothing behind it.
+            if (set != bootSet && i == SR_DATA_KING_DRIVER_INDEX) continue;
+            srDriverData.push_back(drivers[i]);
+            srDriverNames.push_back(names[i]);
+            srDriverSets.push_back(set);
+        }
+    }
+
+    LOG_INFO("Merged tables: %zu car specs, %zu drivers across %zu sets",
+             mergedCarSpecs.size(), srDriverData.size(), order.size());
+
+    // Give the roster the real driver table before it builds opponents, so
+    // names and portraits come from the data rather than a random sprite.
+    roster.SetDriverTable(srDriverData, srDriverNames, srDriverSets);
+
+    if (!srDriverData.empty() && !mergedCarSpecs.empty()) {
+        // Which cars can wear which modifications.
         std::vector<uint8_t> specMods(mergedCarSpecs.size(), 0);
         for (size_t i = 0; i < mergedCarSpecs.size(); ++i) {
             if (i >= mergedCarSpecModelIndex.size()) break;
@@ -285,8 +367,8 @@ void State::RebuildCarSets() {
         racerPool.Init(mergedCarSpecs, specMods);
         LOG_INFO("RacerPool initialised: %d active opponents", racerPool.CountActive());
     } else {
-        LOG_INFO("SR_data parse incomplete (drivers=%zu carspecs=%zu) — pool disabled",
-                 srDriverData.size(), srCarSpecData.size());
+        LOG_INFO("Car/driver tables empty (drivers=%zu carspecs=%zu) - pool disabled",
+                 srDriverData.size(), mergedCarSpecs.size());
     }
 }
 
@@ -314,8 +396,10 @@ void State::GenerateClassifieds() {
 }
 
 void State::StartNewGame() {
-    // The chosen car sets decide the spec table.
+    // The chosen car sets decide the spec table and the opponents' cars.
     RebuildCarSets();
+    roster.Initialize(carData);
+    GiveOpponentsPoolCars();
     GenerateClassifieds();
     ownedCars.clear();
     currentCar.reset();
@@ -324,6 +408,7 @@ void State::StartNewGame() {
     kingListed = false;
     // One roll per profile, fixed for its life.
     SetTrackVariant(std::uniform_int_distribution<int>(0, 9)(RandomEngine()));
+    scatterSeed = std::uniform_int_distribution<uint32_t>(1, 0xffffffffu)(RandomEngine());
 }
 
 Car* State::GetCurrentCar() {
@@ -611,8 +696,8 @@ BetContext State::GetBetContext() {
 const SrCarSpecEntry* State::GetChallengerSpec() const {
     // The King's car is the last SR_data spec, not in pool[].
     if (lastChallengerPoolIndex == RACER_KING_SLOT &&
-        SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
-        return &mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX];
+        SrKingCarSpecIndex(assets.GetGame()) < static_cast<int>(mergedCarSpecs.size())) {
+        return &mergedCarSpecs[SrKingCarSpecIndex(assets.GetGame())];
     }
     if (lastChallengerPoolIndex < 0 || lastChallengerPoolIndex >= RACER_POOL_SIZE ||
         lastChallengerPoolIndex >= static_cast<int>(racerPool.pool.size())) {
@@ -628,8 +713,8 @@ const SrCarSpecEntry* State::GetChallengerSpec() const {
 int State::GetChallengerScore() const {
     // The King's car is the last SR_data spec, not in pool[].
     if (lastChallengerPoolIndex == RACER_KING_SLOT &&
-        SR_DATA_KING_CARSPEC_INDEX < static_cast<int>(mergedCarSpecs.size())) {
-        return ComputeCarPerformanceScore(mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+        SrKingCarSpecIndex(assets.GetGame()) < static_cast<int>(mergedCarSpecs.size())) {
+        return ComputeCarPerformanceScore(mergedCarSpecs[SrKingCarSpecIndex(assets.GetGame())]);
     }
     // Evenly matched. Below 91 is a score no car can have and would make the player look stronger than everyone.
     if (lastChallengerPoolIndex < 0 ||
@@ -651,11 +736,29 @@ CarPtr State::BuildCarForSpec(int specIndex) {
     return car;
 }
 
+// The driver races the car the pool matched them on.
+Opponent* State::GiveOpponentPoolCar(const RacerEntry& entry) {
+    const int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
+    Opponent* opp = roster.GetOpponentByIndex(driverIdx);
+    const int spec = entry.car_spec_index;
+    if (!opp || spec < 0 || spec >= (int)mergedCarSpecModelIndex.size()) return opp;
+    const int modelIdx = mergedCarSpecModelIndex[spec];
+    if (opp->car && opp->car->GetModelRef().index == modelIdx) return opp;
+    opp->car = BuildCarForSpec(spec);
+    opp->driver.preferredCar = modelIdx;
+    return opp;
+}
+
+void State::GiveOpponentsPoolCars() {
+    for (const RacerEntry& entry : racerPool.pool) GiveOpponentPoolCar(entry);
+}
+
 Opponent* State::GetKingOpponent() {
-    if (SR_DATA_KING_CARSPEC_INDEX >= static_cast<int>(mergedCarSpecs.size())) {
+    if (SrKingCarSpecIndex(assets.GetGame()) >= static_cast<int>(mergedCarSpecs.size())) {
         return nullptr;
     }
-    return roster.GetKingOpponent(carData, mergedCarSpecs[SR_DATA_KING_CARSPEC_INDEX]);
+    return roster.GetKingOpponent(carData, mergedCarSpecs[SrKingCarSpecIndex(assets.GetGame())],
+                                  assets.GetGame());
 }
 
 void State::PickNextOpponent() {
@@ -672,6 +775,7 @@ void State::PickNextOpponent() {
 
     // After his drag qualifier the King stays for the road race; otherwise every arrival rolls for him.
     const int kingChance = KingArrivalChance();
+    // Street Rod 2's King does not wait between his three races; each one is a fresh roll (FUN_0024ff92).
     const bool king = kingQualifierWon ||
                       std::uniform_int_distribution<int>(0, 99)(RandomEngine()) < kingChance;
     if (king) {
@@ -683,7 +787,8 @@ void State::PickNextOpponent() {
         return;
     }
 
-    int poolIdx = racerPool.SelectNextChallenger(playerScore, lastChallengerPoolIndex);
+    const int playerClass = currentCar ? currentCar->GetWeightClass() : 0;
+    int poolIdx = racerPool.SelectNextChallenger(playerScore, playerClass, lastChallengerPoolIndex);
     if (poolIdx < 0) {
         LOG_INFO("State::PickNextOpponent - pool exhausted, falling back to roster");
         return;
@@ -693,18 +798,13 @@ void State::PickNextOpponent() {
     racerPool.ApplyRivalryUpgrades(poolIdx);
 
     RacerEntry& entry = racerPool.pool[poolIdx];
-    int driverIdx = std::min(entry.driver_index, (int)roster.GetOpponentCount() - 1);
-    Opponent* opp = roster.GetOpponentByIndex(driverIdx);
+    Opponent* opp = GiveOpponentPoolCar(entry);
+    if (opp && !opp->car) {
+        LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d has no car, skipping",
+                 poolIdx, entry.driver_index);
+        return;
+    }
     if (opp) {
-        // The player took this driver's car; OnRaceWon already gave them a cheaper spec.
-        if (!opp->car) {
-            opp->car = BuildCarForSpec(entry.car_spec_index);
-            if (!opp->car) {
-                LOG_INFO("State::PickNextOpponent - pool[%d] driver=%d has no car, skipping",
-                         poolIdx, entry.driver_index);
-                return;
-            }
-        }
         // The same rival turns up in the same paint and trim.
         if (opp->car) {
             opp->car->SetColor(static_cast<StandardCarColor>(entry.color_index));
@@ -723,7 +823,10 @@ void State::PickNextOpponent() {
 }
 
 int State::KingArrivalChance() const {
-    switch (reputation.GetOpponentTier(racerPool.CountActive())) {
+    const bool sr2 = assets.GetGame() == SrGame::SR2;
+    // FUN_0024fcdc: never twice running.
+    if (sr2 && lastChallengerPoolIndex == RACER_KING_SLOT) return 0;
+    switch (reputation.GetOpponentTier(racerPool.CountActive(), sr2)) {
         case 0:  return kingListed ? 10 : 50;
         case 1:  return 5;
         case 2:  return 8;
@@ -731,8 +834,12 @@ int State::KingArrivalChance() const {
     }
 }
 
+bool State::KingOnlyDrivesBy() const {
+    return reputation.GetOpponentTier(racerPool.CountActive(), assets.GetGame() == SrGame::SR2) == 1;
+}
+
 void State::OnPhoneListOpened() {
-    kingListed = reputation.IsKingUnlocked(racerPool.CountActive());
+    kingListed = reputation.IsKingUnlocked(racerPool.CountActive(), assets.GetGame() == SrGame::SR2);
 }
 
 bool State::OnRaceFinished(RaceType raceType, bool won, bool settlesBet) {
@@ -742,12 +849,14 @@ bool State::OnRaceFinished(RaceType raceType, bool won, bool settlesBet) {
     const bool inPool = !racerPool.pool.empty() && lastChallengerPoolIndex >= 0 &&
                         lastChallengerPoolIndex < RACER_POOL_SIZE;
 
-    reputation.RecordRace(raceType, won, counted, vsKing);
+    const bool sr2 = assets.GetGame() == SrGame::SR2;
+    reputation.RecordRace(raceType, won, counted, vsKing, sr2);
     if (counted && inPool) racerPool.RecordRace(lastChallengerPoolIndex, !won);
 
     if (vsKing && !won) {
         kingQualifierWon = false;
         kingListed = false;
+        reputation.king_stage = 0;
     }
 
     if (settlesBet) {
@@ -787,6 +896,15 @@ bool State::OnRaceFinished(RaceType raceType, bool won, bool settlesBet) {
              won ? "WIN" : "LOSS", pendingBetAmount, settlesBet, bankroll, reputation.drag_rep,
              reputation.road_rep, reputation.races_completed);
 
+    // Street Rod 2: drag, then Mulholland, then the Aqueduct, which wins the game (ldrivein.c 0x250eaa).
+    if (vsKing && won && sr2) {
+        if (raceType == RaceType::Aqueduct) {
+            LOG_INFO("State::OnRaceFinished - King beaten on the Aqueduct! Triggering end-game.");
+            return true;
+        }
+        reputation.king_stage = raceType == RaceType::Drag ? 1 : 2;
+        return false;
+    }
     if (vsKing && won) {
         if (raceType == RaceType::Drag) {
             // Qualifier only; his road race is the decider.

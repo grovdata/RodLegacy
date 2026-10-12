@@ -42,7 +42,8 @@ int DayNumber(uint32_t elapsedTicks);
 GameDate GetDate(uint32_t elapsedTicks);
 GameTime GetTime(uint32_t elapsedTicks);
 
-std::string FormatDate(uint32_t elapsedTicks);   // "June 16, 1963"
+// The year is only text: Street Rod 2 reuses the 1963 calendar art and prints 1969.
+std::string FormatDate(uint32_t elapsedTicks, int year = 1963);   // "June 16, 1963"
 std::string FormatClock(uint32_t elapsedTicks);  // "00:00"
 
 int TicksToHours(uint32_t elapsedTicks);

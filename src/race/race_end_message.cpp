@@ -39,7 +39,8 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
             }
             return M(GameText::WRECK_PINK, MessageBox::Wide);
         case CrashOutcome::Totaled:
-            return {GameText::Msg(GameText::TOTALED, ScrapPayout(ctx.carStrippedValue)), MessageBox::TwoRow, GameText::TOTALED};
+            return {GameText::Msg(GameText::TOTALED, ScrapPayout(ctx.carStrippedValue)), MessageBox::TwoRow,
+                    GameText::TOTALED};
         case CrashOutcome::DroveAway:
             if (ctx.tiresBlown) {
                 return M(GameText::SLOW_CRASH_TIRES, MessageBox::TwoRow);
@@ -67,9 +68,16 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
         return M(GameText::JUMPED_LIGHT, MessageBox::Wide);
     }
 
+    // A grudge round's result is the night's own message, shown on the Grudge Night screen.
+    if (ctx.isGrudge) {
+        return {};
+    }
+
     if (ctx.playerWon) {
         if (ctx.vsKing) {
-            if (ctx.isDragRace) return M(GameText::BEAT_KING_DRAG, MessageBox::Wide);
+            // Street Rod 2 crowns you only on the Aqueduct, the last of his three (lresult.c 0x25b6b2).
+            const bool final = ctx.isSr2 ? ctx.isAqueduct : !ctx.isDragRace;
+            if (!final) return M(GameText::BEAT_KING_DRAG, MessageBox::Wide);
             return M(GameText::BEAT_KING_ROAD, MessageBox::TwoRow);
         }
         if (ctx.isPinkSlip) return M(GameText::WON_CAR, MessageBox::Wide);
@@ -78,6 +86,7 @@ RaceEndMessage BuildRaceEndReason(const RaceEndContext& ctx) {
             case 25:  return M(GameText::WON_25, MessageBox::Wide);
             case 50:  return M(GameText::WON_50, MessageBox::Wide);
             case 100: return M(GameText::WON_100, MessageBox::Wide);
+            case 150: return M(GameText::WON_150, MessageBox::Wide);
             default:  break;
         }
         return M(GameText::WON_NO_BET, MessageBox::Wide);

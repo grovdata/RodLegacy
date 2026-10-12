@@ -1,0 +1,59 @@
+# Street Rod 2's forecourt. Rects are dialog 18 (0x260a58), x1,y1,x2,y2 converted to x,y,w,h. The left pump is the
+# premium one, the right the regular; the two signs only show a message (the Better clickboxes setting widens the pump zones over them). The jockey has no zone of his own.
+
+[[zones]]
+id = "pump"
+text = "The pump"
+rect = [52, 124, 12, 34]
+
+[[zones]]
+id = "pump_regular"
+text = "The pump"
+rect = [177, 124, 9, 34]
+
+# Dead strips beside the pumps: they only show a message.
+[[zones]]
+id = "dead_left"
+text = "The pump"
+rect = [10, 124, 10, 34]
+
+[[zones]]
+id = "dead_right"
+text = "The pump"
+rect = [222, 124, 8, 34]
+
+[[zones]]
+id = "premium_sign"
+text = "High octane gasoline"
+rect = [21, 124, 30, 62]
+
+[[zones]]
+id = "regular_sign"
+text = "Regular gasoline"
+rect = [187, 124, 34, 62]
+
+[[zones]]
+id = "back_to_garage"
+text = "Back to the garage"
+rect = [252, 112, 67, 68]
+
+# Street Rod's rag and windows do not exist here, so the rag stays empty. The rest follow the car.
+[[zones]]
+id = "rag"
+text = "A rag"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "gas_cap"
+text = "A gas cap"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "car_window_rear"
+text = "A rear window"
+rect = [0, 0, 0, 0]
+
+[[zones]]
+id = "car_window_front"
+text = "A front window"
+rect = [0, 0, 0, 0]

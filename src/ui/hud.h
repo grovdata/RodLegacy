@@ -26,6 +26,7 @@ class HUD: public IDrawable {
 
    public:
     HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex);
+    HUD(const Palette& rgbPalette, int backgroundColorIndex, int fontColorIndex);
     ~HUD();
     void Clear();
     void Draw() override;

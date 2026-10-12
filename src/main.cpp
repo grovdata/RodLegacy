@@ -3,6 +3,7 @@
 #include "core/global.h"
 
 #ifdef _WIN32
+#define NOGDI
 #include <windows.h>
 #endif
 
@@ -21,6 +22,9 @@
 #include "scenes/config_screen.h"
 #include "race/race_sim.h"
 #include "core/utils.h"
+#include "core/recorder.h"
+#include "dialogs/dialog.h"
+#include "core/video.h"
 #include <filesystem>
 #include <fstream>
 #include <cstring>
@@ -32,11 +36,6 @@ extern "C" {
 namespace fs = std::filesystem;
 
 #define BITPLANE_DEPTH 4
-
-#define WINDOW_WIDTH (GAME_WIDTH * 4)
-#define WINDOW_HEIGHT (GAME_HEIGHT * 4)
-#define ORIGINAL_WINDOW_WIDTH GAME_WIDTH
-#define ORIGINAL_WINDOW_HEIGHT GAME_HEIGHT
 
 #ifndef RODLEGACY_VERSION
 #define RODLEGACY_VERSION "dev"
@@ -53,8 +52,8 @@ Uint64 startTime = SDL_GetTicks64();
 
 Mouse mouse;
 bool isFullScreen = false;
-bool useOriginalSize = false;
 int screenshotCounter = 1;
+bool screenshotPending = false;
 Uint64 lastScreenshotTime = 0;
 const Uint64 SCREENSHOT_COOLDOWN_MS = 500; // 500ms cooldown
 
@@ -111,8 +110,9 @@ bool IsSteamDeck() {
 }
 
 void ToggleFullScreen(SDL_Window* window, bool currentState) {
-    isFullScreen = !currentState;
-    SDL_SetWindowFullscreen(window, isFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    (void)window;
+    video::SetFullscreen(!currentState);
+    video::Save();
 }
 
 void TakeScreenshot() {
@@ -154,6 +154,7 @@ void TakeScreenshot() {
         LOG_INFO("Failed to save screenshot: %s", SDL_GetError());
     } else {
         LOG_INFO("Screenshot saved: %s", filename.c_str());
+        recorder::ShowNotice("Saved " + filename);
     }
 }
 
@@ -244,6 +245,32 @@ SDL_Surface* BuildPauseSurface(SFont_Font* font) {
     return s;
 }
 
+// "Really quit?", for an Escape nothing else used. Built once: its texture must not outlive the renderer.
+Dialog* QuitConfirmDialog(bool* open, bool* quit) {
+    static Dialog* dialog = nullptr;
+    if (!dialog) {
+        const SDL_Rect box = {80, 77, 160, 46};
+        DialogConfig cfg;
+        cfg.bounds = box;
+        cfg.backgroundColor = {0x90, 0x90, 0x90, 0xFF};
+        cfg.borderColor = {0xFF, 0xFF, 0xFF, 0xFF};
+        cfg.contentAreas = std::vector<SDL_Rect>{box};
+        cfg.font = state.GetAssets().GetMainFont();
+        cfg.texts = {DialogTextConfig{SDL_Rect{box.x, box.y + 6, box.w, 10}, "Really quit?", {0x00, 0x00, 0x00, 0xFF}, true}};
+        ButtonConfig quitButton = {SDL_Rect{box.x + 8, box.y + 24, 66, 16}, "Quit", nullptr, true, 0};
+        ButtonConfig forgetButton = {SDL_Rect{box.x + 86, box.y + 24, 66, 16}, "Forget it", nullptr, false, 1};
+        forgetButton.cancelChoice = true;
+        cfg.buttons = {quitButton, forgetButton};
+        cfg.onButtonPressed = [open, quit](int index) {
+            *open = false;
+            if (index == 0) *quit = true;
+        };
+        cfg.onDismiss = [open] { *open = false; };
+        dialog = new Dialog(cfg);
+    }
+    return dialog;
+}
+
 void DrawPauseOverlay() {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 160);
@@ -282,6 +309,10 @@ int main(int argc, char* argv[]) {
     bool muteAudio = false;
     bool forceConfig = false;
     bool selfTestSave = false;
+    SrGame game = SrGame::SR1;
+    bool gameGiven = false;
+    int scaleArg = 0;
+    int fullscreenArg = -1;
     for (int i = 1; i < argc; i++) {
 #ifdef RODLEGACY_DEBUG
         if (strcmp(argv[i], "--debug") == 0) {
@@ -289,13 +320,25 @@ int main(int argc, char* argv[]) {
         } else
 #endif
         if (strcmp(argv[i], "--original-size") == 0) {
-            useOriginalSize = true;
+            scaleArg = 1;
+        } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
+            scaleArg = std::max(1, atoi(argv[++i]));
+        } else if (strcmp(argv[i], "--fullscreen") == 0) {
+            fullscreenArg = 1;
+        } else if (strcmp(argv[i], "--windowed") == 0) {
+            fullscreenArg = 0;
         } else if (strcmp(argv[i], "--mute") == 0) {
             muteAudio = true;
         } else if (strcmp(argv[i], "-config") == 0) {
             forceConfig = true;
         } else if (strcmp(argv[i], "--selftest-save") == 0) {
             selfTestSave = true;
+        } else if (strcmp(argv[i], "--sr1") == 0) {
+            game = SrGame::SR1;
+            gameGiven = true;
+        } else if (strcmp(argv[i], "--sr2") == 0) {
+            game = SrGame::SR2;
+            gameGiven = true;
         } else if (strcmp(argv[i], "--version") == 0) {
             printf("RodLegacy %s\n", RODLEGACY_VERSION);
             return 0;
@@ -305,9 +348,14 @@ int main(int argc, char* argv[]) {
 #ifdef RODLEGACY_DEBUG
             printf("  --debug          Enable debug mode\n");
 #endif
-            printf("  --original-size  Run in original 320x200 resolution (default: 4x upscaled)\n");
+            printf("  --scale N        Window scale, 320x200 times N (default 4, or the largest that fits)\n");
+            printf("  --original-size  Same as --scale 1\n");
+            printf("  --fullscreen     Start fullscreen\n");
+            printf("  --windowed       Start in a window\n");
             printf("  --mute           Mute all audio\n");
             printf("  --selftest-save  Save/load round-trip check, then exit (0 = pass)\n");
+            printf("  --sr1            Start Street Rod without asking\n");
+            printf("  --sr2            Start Street Rod 2 without asking\n");
             printf("  -config          Show setup screen\n");
             printf("  --version        Print version and exit\n");
             printf("  --help, -h       Show this help message\n");
@@ -315,7 +363,6 @@ int main(int argc, char* argv[]) {
         }
     }
     LOG_INFO("Debug mode: %s", debugMode ? "ENABLED" : "DISABLED");
-    LOG_INFO("Window size: %s", useOriginalSize ? "320x200 (original)" : "1280x800 (4x upscaled)");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO |
                  SDL_INIT_GAMECONTROLLER) != 0) {
@@ -329,11 +376,14 @@ int main(int argc, char* argv[]) {
         SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
     }
 
-    int windowWidth = useOriginalSize ? ORIGINAL_WINDOW_WIDTH : WINDOW_WIDTH;
-    int windowHeight = useOriginalSize ? ORIGINAL_WINDOW_HEIGHT : WINDOW_HEIGHT;
+    // The command line beats config.txt; neither is saved until the Video dialog or F11 changes something.
+    const int savedScale = video::SavedScale();
+    video::SetScale(scaleArg > 0 ? scaleArg : savedScale > 0 ? savedScale : video::kDefaultScale);
+    const int windowWidth = GAME_WIDTH * video::Scale();
+    const int windowHeight = GAME_HEIGHT * video::Scale();
+    const bool startFullscreen = fullscreenArg >= 0 ? fullscreenArg == 1 : video::SavedFullscreen();
 
-    LOG_INFO("Creating window: %dx%d (%s)", windowWidth, windowHeight,
-            useOriginalSize ? "original size" : "4x upscaled");
+    LOG_INFO("Creating window: %dx%d (%dx)", windowWidth, windowHeight, video::Scale());
 
     // Resizable only with --debug, for dragging debug panels.
     const Uint32 windowFlags = debugMode ? SDL_WINDOW_RESIZABLE : 0;
@@ -347,7 +397,7 @@ int main(int argc, char* argv[]) {
 
     // Renderer hints must be set before the renderer is created.
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // Nearest neighbor scaling
-    if (useOriginalSize) {
+    if (video::Scale() == 1) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");  // Pixel-perfect at 1x
         LOG_INFO("Using software renderer for original size mode");
     }
@@ -363,9 +413,6 @@ int main(int argc, char* argv[]) {
     // Debug UI. Only built with -Ddebug_ui=true; without that option DebugUi is a
     // stub whose Active() is constant false, so everything below folds away.
     DebugUi debugUi;
-    if (debugMode) {
-        debugUi.Init(win, renderer, GAME_WIDTH, GAME_HEIGHT);
-    }
 
 #ifndef _WIN32
     sdl2::SurfacePtr icon(LoadSurfaceFromMemory(embedded_icon_png, embedded_icon_png_len));
@@ -376,9 +423,9 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    if (!useOriginalSize) {
-        SDL_RenderSetIntegerScale(renderer, SDL_TRUE);    // Force integer scaling only for upscaled mode
-    }
+    // Whole multiples only, also in fullscreen, where the picture is letterboxed.
+    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    if (startFullscreen) video::SetFullscreen(true);
 
     if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
         LOG_INFO("error opening audio: %s\n", Mix_GetError());
@@ -424,9 +471,28 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Game data: %s (config screen)", gamePath.string().c_str());
     }
 
+    const bool hasSr1 = AssetManager::GameAvailable(gamePath, SrGame::SR1);
+    const bool hasSr2 = AssetManager::GameAvailable(gamePath, SrGame::SR2);
+    if (!gameGiven && !selfTestSave && hasSr1 && hasSr2) {
+        if (!RunGamePicker(renderer, &game)) {
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(win);
+            Mix_CloseAudio();
+            SDL_Quit();
+            return 0;
+        }
+    } else if (game == SrGame::SR1 && !hasSr1 && hasSr2) {
+        game = SrGame::SR2;
+    }
+
+    // After the setup screen and game picker, which draw on the renderer themselves.
+    if (debugMode) {
+        debugUi.Init(win, renderer, GAME_WIDTH, GAME_HEIGHT);
+    }
+
     try {
         SDL_ShowCursor(SDL_DISABLE);
-        state.Init(debugMode, gamePath, muteAudio);
+        state.Init(debugMode, gamePath, muteAudio, game);
         mouse.loadPointers(state.GetAssets().GetMousePointers());
         mouse.SetPointerType(SrLibAmigaSpriteAssetMousePointerHand);
         state.MoveToScene(state.GetAssets().GetSkipIntroRef() || selfTestSave
@@ -444,8 +510,6 @@ int main(int argc, char* argv[]) {
     if (debugUi.Active()) {
         // The dockspace decides where the game is drawn; mouse coordinates come from the viewport rect instead.
         LOG_INFO("Debug UI active - logical scaling left off, dockspace owns layout");
-    } else if (useOriginalSize) {
-        LOG_INFO("Using original size - no logical scaling applied (1:1 pixel mapping)");
     } else {
         SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
         LOG_INFO("Using upscaled window - logical size set to %dx%d", GAME_WIDTH, GAME_HEIGHT);
@@ -459,6 +523,7 @@ int main(int argc, char* argv[]) {
     dest.y = 0;
 
     bool close_requested = false;
+    bool quitConfirmOpen = false;
 
     Uint64 prevTicks = SDL_GetTicks64();
 
@@ -486,6 +551,13 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            // While the quit question is up it has the input; the pointer still moves.
+            if (quitConfirmOpen && event.type != SDL_QUIT) {
+                QuitConfirmDialog(&quitConfirmOpen, &close_requested)->HandleEvent(&event);
+                if (event.type == SDL_MOUSEMOTION) mouse.Update(&event, state.GetCurrentScene());
+                continue;
+            }
+
             bool consumed = state.GetCurrentScene()->PushEvent(&event);
             switch (event.type) {
                 case SDL_QUIT:
@@ -509,13 +581,12 @@ int main(int argc, char* argv[]) {
 #endif
                             case SDLK_F5:
                                 if (event.type == SDL_KEYUP) {
-                                    TakeScreenshot();
+                                    screenshotPending = true;
                                 }
                                 break;
-                            case SDLK_g:
-                                if (event.type == SDL_KEYUP && (event.key.keysym.mod & KMOD_CTRL) != 0) {
-                                    mouse.SetGamepadActive(!mouse.IsGamepadActive());
-                                    LOG_INFO("Gamepad mode: %s", mouse.IsGamepadActive() ? "ON" : "OFF");
+                            case SDLK_F6:
+                                if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+                                    recorder::Toggle(renderer);
                                 }
                                 break;
                             case SDLK_f:
@@ -529,8 +600,9 @@ int main(int argc, char* argv[]) {
                                 }
                                 break;
                             case SDLK_ESCAPE:
-                                if (event.type == SDL_KEYDOWN) {
-                                    close_requested = true;
+                                if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+                                    quitConfirmOpen = true;
+                                    QuitConfirmDialog(&quitConfirmOpen, &close_requested)->Show();
                                 }
                                 break;
                             default:
@@ -556,7 +628,7 @@ int main(int argc, char* argv[]) {
 
         // Once per frame, before anything reads it.
         gamepad.Update();
-        if (!paused) {
+        if (!paused && !quitConfirmOpen) {
             mouse.UpdateGamepad(state.GetCurrentScene(), delta);
         }
 
@@ -566,9 +638,11 @@ int main(int argc, char* argv[]) {
 
         Scene *scene = state.GetCurrentScene();
 
-        state.SetElapsedTime(paused ? 0 : delta);
+        // The quit question holds the game like a pause.
+        const bool frozen = paused || quitConfirmOpen;
+        state.SetElapsedTime(frozen ? 0 : delta);
 
-        if (!paused) {
+        if (!frozen) {
             scene->Update(delta);
 
             if (AudioManager* am = state.GetAssets().GetAudioManager()) {
@@ -587,6 +661,9 @@ int main(int argc, char* argv[]) {
         if (paused) {
             DrawPauseOverlay();
         }
+        if (quitConfirmOpen) {
+            QuitConfirmDialog(&quitConfirmOpen, &close_requested)->Draw();
+        }
 
         mouse.Draw();
 
@@ -597,6 +674,12 @@ int main(int argc, char* argv[]) {
             debugUi.Draw(BuildDebugPanels(delta));
         }
 
+        // Taken here, before the notice is drawn, so an earlier "Saved" line stays out of it.
+        if (screenshotPending) {
+            screenshotPending = false;
+            TakeScreenshot();
+        }
+        recorder::Frame(renderer);   // after the capture it draws its notice, so that stays out of the video
         SDL_RenderPresent(renderer);
 
         // Backup for when vsync is unavailable.
@@ -605,6 +688,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
+
+    recorder::Stop();
 
     // Raw bool* bindings have no per-change save hook.
     state.GetAssets().SaveSettings();

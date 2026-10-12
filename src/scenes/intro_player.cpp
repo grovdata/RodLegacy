@@ -1,10 +1,20 @@
 #include "scenes/intro_player.h"
 
 #include "scenes/intro_frames.h"
+#include "scenes/sr2_intro_frames.h"
 
 #include <algorithm>
 
 namespace {
+
+// Palette numbers as the original's FadePalette takes them. Street Rod 2 indexes the nine in its
+// executable, Street Rod the four tables below (0, 4, 5, 6).
+constexpr int kPaletteBlack = -1;
+constexpr int kPaletteCredits = 0;   // SR1's credits plate
+constexpr int kPaletteSepia = 4;     // SR1's photo; SR2's title once the full picture is up
+constexpr int kPaletteTitle = 5;
+constexpr int kPaletteLogo = 6;
+constexpr int kPaletteSr2Plate = 2;
 
 constexpr std::array<uint16_t, 32> kPal0 = {
     0x000, 0x810, 0x911, 0xB21, 0xD22, 0xF32, 0xF44, 0xF65, 0xF87, 0xF98, 0xFFF,
@@ -25,19 +35,33 @@ constexpr std::array<uint16_t, 32> kPalLogo = {
 
 std::array<uint16_t, 32> PaletteById(int id) {
     switch (id) {
-        case 0: return kPal0;
-        case 4: return kPalSepia;
-        case 5: return kPalTitle;
-        case 6: return kPalLogo;
+        case kPaletteCredits: return kPal0;
+        case kPaletteSepia: return kPalSepia;
+        case kPaletteTitle: return kPalTitle;
+        case kPaletteLogo: return kPalLogo;
         default: return {};
     }
 }
 
+// Index into the images given to Start (Street Rod, libstart.p 1 to 5 in order).
 constexpr int kLogoImage = 1;
 constexpr int kPlateImage = 2;
 constexpr int kTitleScreenImage = 3;
 constexpr int kTitleSheetImage = 4;
 constexpr int kPhotoImage = 5;
+
+// libstart.p indices in Street Rod 2.
+constexpr int kSr2LogoImage = 30;
+constexpr int kSr2TitleImage = 29;
+constexpr int kSr2PlateImage = 31;
+
+// Ticks, one per vblank. kFadeRate is the extra wait per step of the slow fades.
+constexpr int kFadeRate = 5;
+constexpr int kLogoHoldTicks = 150;
+constexpr int kLogoStepTicks = 2;
+
+// Guessed: the Amiga's own delays (2, 5, 5) played too fast here.
+constexpr int kSr2RunDelays[3] = {4, 10, 10};
 
 // ponytail: guessed at 2 vblanks a step, measure on hardware and change this one number.
 constexpr int kTitleExtraTicks = 2;
@@ -63,65 +87,123 @@ const std::vector<int>& TitleStarts() {
     return s;
 }
 
+int Sr2StepStart(int step) {
+    static const std::vector<int> s = StepStarts(kSr2IntroSteps, kSr2IntroStepCount);
+    return s[step];
 }
 
-void IntroPlayer::Start(const std::array<IntroImage, 6>& imgs) {
-    images = &imgs;
+}
+
+void IntroPlayer::Reset() {
     for (auto& b : buffers) b.assign(kWidth * kHeight, 0);
     front = 0;
     palette = {};
     pc = 0;
     wait = 0;
     fadeStep = -1;
+    ops.clear();
+}
+
+void IntroPlayer::Start(const std::array<IntroImage, 6>& imgs) {
+    images = &imgs;
+    sr2Images = nullptr;
+    logoImage = kLogoImage;
+    Reset();
     Build();
 }
 
-void IntroPlayer::Build() {
-    ops.clear();
-    auto add = [this](OpKind k, int a = 0, int b = 0, int c = 0) { ops.push_back({k, a, b, c}); };
-    auto sound = [&](IntroSound s) { add(OpKind::Sound, static_cast<int>(s)); };
+void IntroPlayer::StartSr2(const std::vector<IntroImage>& libstart,
+                           const std::vector<std::array<uint16_t, 32>>& palettes) {
+    images = nullptr;
+    sr2Images = &libstart;
+    sr2Palettes = palettes;
+    logoImage = kSr2LogoImage;
+    Reset();
+    BuildSr2();
+}
 
-    add(OpKind::Clear);
+const IntroImage& IntroPlayer::Image(int i) const {
+    return sr2Images ? (*sr2Images)[i] : (*images)[i];
+}
+
+std::array<uint16_t, 32> IntroPlayer::PaletteOf(int id) const {
+    if (!sr2Images) return PaletteById(id);
+    if (id < 0 || id >= static_cast<int>(sr2Palettes.size())) return {};
+    return sr2Palettes[id];
+}
+
+void IntroPlayer::BuildLogo() {
+    Emit(OpKind::Clear);
     for (int k = 0; k < kIntroLogoStepCount; k++) {
-        if (k == 0) add(OpKind::Fade, -1, 6, 5);
-        if (k == 1) add(OpKind::Wait, 150);
-        if (k == 4) sound(IntroSound::ChimeA);
-        if (k == 9) sound(IntroSound::ChimeB);
-        if (k == 15) sound(IntroSound::ChimeC);
-        add(OpKind::LogoCels, k);
-        add(OpKind::Flip);
-        add(OpKind::Wait, 2);
+        if (k == 0) Emit(OpKind::Fade, kPaletteBlack, kPaletteLogo, kFadeRate);
+        if (k == 1) Emit(OpKind::Wait, kLogoHoldTicks);
+        if (k == 4) EmitSound(IntroSound::ChimeA);
+        if (k == 9) EmitSound(IntroSound::ChimeB);
+        if (k == 15) EmitSound(IntroSound::ChimeC);
+        Emit(OpKind::LogoCels, k);
+        Emit(OpKind::Flip);
+        Emit(OpKind::Wait, kLogoStepTicks);
+    }
+    Emit(OpKind::FadeToBlack);
+}
+
+void IntroPlayer::BuildSr2() {
+    BuildLogo();
+
+    Emit(OpKind::DrawImage, kSr2TitleImage);
+    Emit(OpKind::SetPalette, kPaletteTitle);
+
+    // Three runs of steps with their own delay. The second ends on the full title picture, after
+    // which the palette settles.
+    int step = 0;
+    for (int run = 0; run < 3; run++) {
+        for (int i = 0; i < kSr2IntroRunLengths[run]; i++, step++) {
+            Emit(OpKind::Sr2Cels, step);
+            Emit(OpKind::Flip);
+            if (run == 1 && i == kSr2IntroRunLengths[1] - 1) {
+                Emit(OpKind::Fade, kPaletteTitle, kPaletteSepia, 0);
+            }
+            Emit(OpKind::Wait, kSr2RunDelays[run]);
+        }
     }
 
-    add(OpKind::FadeToBlack);
-    add(OpKind::DrawImage, kPhotoImage);
-    add(OpKind::Fade, -1, 4, 5);
-    add(OpKind::Fade, 4, 5, 5);
+    Emit(OpKind::FadeToBlack);
+    Emit(OpKind::Clear);
+    Emit(OpKind::DrawImage, kSr2PlateImage);
+    Emit(OpKind::Fade, kPaletteBlack, kPaletteSr2Plate, 0);
+}
 
-    add(OpKind::TitleSetup);
+void IntroPlayer::Build() {
+    BuildLogo();
+
+    Emit(OpKind::DrawImage, kPhotoImage);
+    Emit(OpKind::Fade, kPaletteBlack, kPaletteSepia, kFadeRate);   // black to sepia
+    Emit(OpKind::Fade, kPaletteSepia, kPaletteTitle, kFadeRate);   // and on to colour
+
+    Emit(OpKind::TitleSetup);
     for (int k = 0; k < kIntroTitleStepCount; k++) {
         switch (k) {
-            case 4:  sound(IntroSound::ChimeB); break;
-            case 12: sound(IntroSound::ChimeC); break;
-            case 19: sound(IntroSound::ChimeA); break;
+            case 4:  EmitSound(IntroSound::ChimeB); break;
+            case 12: EmitSound(IntroSound::ChimeC); break;
+            case 19: EmitSound(IntroSound::ChimeA); break;
             case 31:
-            case 38: sound(IntroSound::Ignition); break;
-            case 43: sound(IntroSound::Hit100); break;
-            case 44: sound(IntroSound::Hit200); break;
-            case 45: sound(IntroSound::Hit150); break;
-            case 48: sound(IntroSound::Screech); break;
-            case 50: sound(IntroSound::StartMusic); break;
+            case 38: EmitSound(IntroSound::Ignition); break;
+            case 43: EmitSound(IntroSound::Hit100); break;
+            case 44: EmitSound(IntroSound::Hit200); break;
+            case 45: EmitSound(IntroSound::Hit150); break;
+            case 48: EmitSound(IntroSound::Screech); break;
+            case 50: EmitSound(IntroSound::StartMusic); break;
             default: break;
         }
-        add(OpKind::TitleCels, k);
-        add(OpKind::Flip);
-        add(OpKind::Wait, kTitleExtraTicks);
+        Emit(OpKind::TitleCels, k);
+        Emit(OpKind::Flip);
+        Emit(OpKind::Wait, kTitleExtraTicks);
     }
 
-    add(OpKind::FadeToBlack);
-    add(OpKind::Clear);
-    add(OpKind::DrawImage, kPlateImage);
-    add(OpKind::Fade, -1, 0, 0);
+    Emit(OpKind::FadeToBlack);
+    Emit(OpKind::Clear);
+    Emit(OpKind::DrawImage, kPlateImage);
+    Emit(OpKind::Fade, kPaletteBlack, kPaletteCredits, 0);
 }
 
 void IntroPlayer::Tick(std::vector<IntroSound>& sounds) {
@@ -151,6 +233,25 @@ void IntroPlayer::Blit(const IntroImage& src, int sx, int sy, int w, int h,
     }
 }
 
+// The Amiga redraws each step into both buffers, so one pass here goes to both. xorBlit is minterm 0x60.
+void IntroPlayer::BlitBoth(const IntroImage& src, int w, int h, int dx, int dy, bool xorBlit) {
+    w = std::min(w, src.w);
+    h = std::min(h, src.h);
+    for (auto& dst : buffers) {
+        for (int y = 0; y < h; y++) {
+            const int ty = dy + y;
+            if (ty < 0 || ty >= kHeight) continue;
+            for (int x = 0; x < w; x++) {
+                const int tx = dx + x;
+                if (tx < 0 || tx >= kWidth) continue;
+                const uint8_t p = src.px[y * src.w + x];
+                uint8_t& d = dst[ty * kWidth + tx];
+                d = xorBlit ? d ^ p : p;
+            }
+        }
+    }
+}
+
 bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
     const Op& op = ops[pc];
     switch (op.kind) {
@@ -159,7 +260,7 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
             break;
 
         case OpKind::DrawImage: {
-            const IntroImage& img = (*images)[op.a];
+            const IntroImage& img = Image(op.a);
             const int w = std::min(img.w, kWidth);
             const int h = std::min(img.h, kHeight);
             for (auto& b : buffers) {
@@ -172,8 +273,8 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
 
         case OpKind::Fade:
             if (fadeStep < 0) {
-                palette = PaletteById(op.a);
-                fadeTarget = PaletteById(op.b);
+                palette = PaletteOf(op.a);
+                fadeTarget = PaletteOf(op.b);
                 fadeStep = 0;
             }
             for (int i = 0; i < 32; i++) {
@@ -224,7 +325,7 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
         case OpKind::LogoCels:
             for (int i = LogoStarts()[op.a]; kIntroLogoSteps[i] != -1; i++) {
                 const IntroCel& c = kIntroLogoCels[kIntroLogoSteps[i]];
-                Blit((*images)[kLogoImage], c.sx, c.sy, c.w, c.h, c.dx, c.dy, c.flags & 2);
+                Blit(Image(logoImage), c.sx, c.sy, c.w, c.h, c.dx, c.dy, c.flags & 2);
             }
             break;
 
@@ -250,6 +351,17 @@ bool IntroPlayer::Step(std::vector<IntroSound>& sounds) {
                 const IntroCel& c = kIntroTitleCels[kIntroTitleSteps[i]];
                 const int img = (c.flags & 1) ? kTitleSheetImage : kTitleScreenImage;
                 Blit((*images)[img], c.sx, c.sy, c.w, c.h, c.dx, c.dy, c.flags & 2);
+            }
+            break;
+
+        case OpKind::SetPalette:
+            palette = PaletteOf(op.a);
+            break;
+
+        case OpKind::Sr2Cels:
+            for (int i = Sr2StepStart(op.a); kSr2IntroSteps[i] != -1; i++) {
+                const Sr2IntroCel& c = kSr2IntroCels[kSr2IntroSteps[i]];
+                BlitBoth(Image(c.image), c.w, c.h, c.dx, c.dy, c.xorBlit);
             }
             break;
 

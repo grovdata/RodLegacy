@@ -93,9 +93,260 @@ int Racing::ProjectX(const srrace::CarState& player, int d, int roadDelta, int l
     return 160 - numerator / d;
 }
 
+// Street Rod 2's FUN_0024529a halves the slope term ((slope*d)>>1), so its hills rise half as far as Street Rod's.
+// lift is the projected point's height above the 1900 camera: 100 for the road surface.
+int Racing::ProjectY(int d, int elevDelta, int lift) const {
+    if (state.GetAssets().GetGame() != SrGame::SR2) {
+        return kHorizonY + lift * 4 / d + 4 * elevDelta;
+    }
+    const auto t = static_cast<int16_t>(((static_cast<int16_t>(elevDelta * d) >> 1) + lift + FallDrop()) * 4);
+    return kHorizonY + t / d;
+}
+
+namespace {
+// DATA_67 words from 0x2628b0, read in (x, y) pairs indexed by 15 - row. The far end of a bridge is shaped from
+// three windows into it: +0 (0x2628b0), +2 (0x2628b4) and +14 (0x2628cc, x only).
+constexpr int16_t kBridgeEndTable[] = {
+    30510, 25344, 20, 10, 35, 15, 50, 30, 80, 60, 200, 100, 200, 100, 70, 0, 45, 0, 20, 0,
+    -20, 50, -2000, 0, -2000, 0, 8, 6, 5, 4, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
+// Girder thickness by row, the words at 0x2628e4 (row 0 nearest).
+constexpr int kGirderWidth[15] = {8, 6, 5, 4, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0};
+}  // namespace
+
+// jdraw.c FUN_0023b498: lib.p 285 over the whole view, panned by heading and nudged up to 8 rows by the hill.
+void Racing::RenderMulhollandBackdrop() {
+    for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, kSkyColor);
+        }
+    }
+    Bitmap* bmp = Sr2Asset(SR2_MULHOLLAND_BACKGROUND);
+    SDL_Surface* src = bmp ? bmp->GetSurface() : nullptr;
+    if (!src) return;
+    const srrace::CarState& p = viewPlayer;
+    int e = p.elevAtCar - track.elev[ClampInt(static_cast<int>(p.segPos) - 4, 0, kTrackSegments - 1)];
+    // Over the edge the -8 floor is lifted, so the picture rides up and pen 0x11 fills under it.
+    e = sim.FallDirection() != 0 ? std::min(e, 8) : ClampInt(e, -8, 8);
+    const int srcY = std::min(8 - e, src->h);
+    const int h = std::min(src->h - srcY, 0x51);
+    if (sim.FallDirection() != 0) {
+        const SDL_Color cliff = Sr2Pen(0x11, {136, 85, 0, 255});
+        for (int y = kClipTop + h; y <= kClipBottom; ++y) {
+            for (int x = 0; x < GAME_WIDTH; ++x) PutPixel(pixels, x, y, cliff);
+        }
+    }
+    const int off = (((p.heading * 2) % GAME_WIDTH) + GAME_WIDTH) % GAME_WIDTH;
+    for (int y = 0; y < h; ++y) {
+        const int py = kClipTop + y;
+        if (py >= GAME_RACING_HEIGHT) break;
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            const int sx = (x + off) % GAME_WIDTH;
+            if (sx >= src->w) continue;
+            Uint32 sp = 0;
+            const Uint8* ptr = static_cast<const Uint8*>(src->pixels) + (srcY + y) * src->pitch +
+                               sx * src->format->BytesPerPixel;
+            std::memcpy(&sp, ptr, src->format->BytesPerPixel);
+            Uint8 r = 0, g = 0, b = 0, a = 255;
+            SDL_GetRGBA(sp, src->format, &r, &g, &b, &a);
+            if (a > 0) PutPixel(pixels, x, py, {r, g, b, 255});
+        }
+    }
+}
+
+// jdraw.c FUN_0023f604's canyon sides for row pair (r-1, r), pen 0x11. Right is the left mirrored about the screen.
+void Racing::DrawMulhollandWalls(int r, bool farBridgeEnd) {
+    const RowProjection& A = rows[r - 1];
+    const RowProjection& B = rows[r];
+    const RowProjection* C = r >= 2 ? &rows[r - 2] : nullptr;
+    if ((track.flags[B.seg] & 0x0080) != 0) return;
+    const bool nearBridge = (track.flags[A.seg] & 0x0080) != 0;
+    const SDL_Color brown = Sr2Pen(0x11, {136, 85, 0, 255});
+    const int bottom = kClipBottom;
+    const int bend = viewPlayer.heading - track.curve[ClampInt(static_cast<int>(viewPlayer.segPos), 0,
+                                                                kTrackSegments - 1)];
+    const int k = 15 - r;
+    const int tx = kBridgeEndTable[2 + 2 * k], ty = kBridgeEndTable[3 + 2 * k];
+    const int ux = kBridgeEndTable[2 * k], uy = kBridgeEndTable[1 + 2 * k];
+    const int vx = kBridgeEndTable[14 + 2 * k];
+
+    for (int side = 0; side < 2; ++side) {
+        // s = -1 grows toward the left screen edge, +1 toward the right.
+        const int s = side ? 1 : -1;
+        const int edge = side ? 0x13f : 0;
+        const int aWall = side ? A.wallRY : A.wallLY;
+        const int bWall = side ? B.wallRY : B.wallLY;
+        const int aVerge = side ? A.vergeRX : A.vergeLX;
+        const int bVerge = side ? B.vergeRX : B.vergeLX;
+        const int aRoad = side ? A.rightX : A.leftX;
+        if (side ? bend >= 100 : bend <= -100) continue;
+        if (aWall == A.yRaw) continue;
+
+        if (farBridgeEnd) {
+            if (bWall > B.yRaw) continue;
+            if (nearBridge && C) {
+                const int cRoad = side ? C->rightX : C->leftX;
+                const int xs[6] = {cRoad, cRoad, aRoad, aVerge, aVerge + s * tx, side ? 0x13f - vx : vx};
+                const int ys[6] = {bottom, C->yRaw, A.yRaw, A.yRaw, A.yRaw, bottom};
+                FillPolygon(xs, ys, 6, brown);
+                if (bWall < B.yRaw) {
+                    const int x3[3] = {aVerge, aVerge + s * (tx / 2), aVerge + s * tx};
+                    const int y3[3] = {A.yRaw, A.yRaw - ty, A.yRaw};
+                    FillPolygon(x3, y3, 3, brown);
+                } else {
+                    const int x4[4] = {aVerge, aVerge + s * tx, bVerge + s * tx, bVerge};
+                    const int y4[4] = {A.yRaw, A.yRaw, B.yRaw, B.yRaw};
+                    FillPolygon(x4, y4, 4, brown);
+                }
+            }
+            if (bWall < B.yRaw) {
+                const int x4[4] = {aVerge, aVerge + s * (tx / 2), bVerge + s * (ux / 2), bVerge};
+                const int y4[4] = {A.yRaw, A.yRaw - ty, B.yRaw - uy, B.yRaw};
+                FillPolygon(x4, y4, 4, brown);
+            }
+            continue;
+        }
+
+        if (r != 1 && nearBridge) {
+            const int cRoad = side ? C->rightX : C->leftX;
+            const int xs[6] = {edge, aVerge, aRoad, cRoad, cRoad, edge};
+            const int ys[6] = {aWall, A.yRaw, A.yRaw, C->yRaw, bottom, bottom};
+            FillPolygon(xs, ys, 6, brown);
+        } else if (A.vergeLX + 0x1e >= A.vergeRX) {
+            continue;
+        }
+        const int x4[4] = {edge, aVerge, bVerge, side ? 0x140 : 0};
+        const int y4[4] = {aWall, A.yRaw, B.yRaw, bWall};
+        FillPolygon(x4, y4, 4, brown);
+        if (r != 1 && nearBridge) continue;
+
+        // Where the wall ends nearer, close the ground beside the verge.
+        const bool onScreen = side ? aVerge < 0x13f : aVerge > 0;
+        const int cWall = C ? (side ? C->wallRY : C->wallLY) : 0;
+        if (onScreen && ((C && cWall == C->yRaw) || (!C && aWall < A.yRaw))) {
+            const int x3[3] = {edge, aVerge, edge};
+            const int y3[3] = {aWall, A.yRaw, A.yRaw};
+            FillPolygon(x3, y3, 3, brown);
+        }
+    }
+}
+
+// jdraw.c FUN_0023cd14 / FUN_0023cedc: the red girder bridge over a narrow crossing (flags 0x80), pen 0xf.
+void Racing::DrawMulhollandBridge(int r) {
+    const RowProjection& A = rows[r - 1];
+    const RowProjection& B = rows[r];
+    if ((track.flags[B.seg] & 0x0080) == 0) return;
+    const SDL_Color red = Sr2Pen(0xf, {204, 34, 34, 255});
+    const int w = kGirderWidth[r];
+    auto rect = [&](int x0, int x1, int y0, int y1) {
+        if (x0 > x1) std::swap(x0, x1);
+        for (int y = std::max(y0, kClipTop); y <= std::min(y1, kClipBottom); ++y) {
+            for (int x = std::max(x0, 0); x <= std::min(x1, GAME_WIDTH - 1); ++x) PutPixel(pixels, x, y, red);
+        }
+    };
+    auto line = [&](int x0, int y0, int x1, int y1) { DrawAqueductLine({x0, y0, x1, y1}, red, kAqueductViewClip); };
+    auto portal = [&](int lx, int rx, int top, int bot) {
+        rect(lx - w, lx, top, bot);
+        rect(rx, rx + w, top, bot);
+        rect(lx + 1, rx - 1, top, top + w);
+    };
+    // The girder top stands 3 * 400/d above the road: y - 4 * (y - y1900).
+    const int aTop = A.yRaw - 4 * (A.yRaw - A.yTop);
+    const int bTop = B.yRaw - 4 * (B.yRaw - B.yTop);
+
+    if ((track.flags[A.seg] & 0x0080) != 0) {
+        portal(A.leftX, A.rightX, aTop, A.yRaw);
+        const bool odd = ((viewPlayer.segPos + 14 - r) & 1) != 0;
+        for (int k = w + 1; k != 0; --k) {
+            if (odd && r < 7) {
+                line(A.leftX - k, aTop, B.leftX - k, B.yRaw);
+                line(A.rightX + k, aTop, B.rightX + k, B.yRaw);
+            } else {
+                line(A.leftX - k, A.yRaw, B.leftX - k, bTop);
+                line(A.rightX + k, A.yRaw, B.rightX + k, bTop);
+            }
+            line(A.leftX - k, aTop, B.leftX - k, bTop);
+            line(A.rightX + k, aTop, B.rightX + k, bTop);
+            line(A.leftX - k, A.yRaw, B.leftX - k, B.yRaw);
+            line(A.rightX + k, A.yRaw, B.rightX + k, B.yRaw);
+        }
+    }
+    const int nextSeg = r + 1 < kForwardRows ? rows[r + 1].seg : ClampInt(B.seg + 1, 0, kTrackSegments - 1);
+    if ((track.flags[nextSeg] & 0x0080) == 0) {
+        portal(B.leftX, B.rightX, bTop, B.yRaw);
+    }
+}
+
+// jdraw.c FUN_0023f604 0x240b56: where the ground drops away on the right (object bit 0x8000, not a bridge),
+// a guard rail at the verge in pen 4: a post on every other segment and a rail band between the rows.
+void Racing::DrawMulhollandRail(int r) {
+    const RowProjection& A = rows[r - 1];
+    const RowProjection& B = rows[r];
+    if ((track.right[B.seg] & 0x8000) == 0 || (track.flags[B.seg] & 0x0080) != 0) return;
+    const SDL_Color c = Sr2Pen(4, {136, 85, 0, 255});
+    if (((railPhaseSeg - B.seg) & 1) != 0) {
+        const int w = 30 / (r + 1);
+        const int xs[4] = {A.vergeRX - w, A.vergeRX - w, A.vergeRX, A.vergeRX};
+        const int ys[4] = {A.yMid - 1, A.yRaw, A.yRaw, A.yMid - 1};
+        FillPolygon(xs, ys, 4, c);
+    }
+    const int xs[4] = {B.vergeRX, B.vergeRX, A.vergeRX, A.vergeRX};
+    const int ys[4] = {B.yTop, B.yMid, A.yMid, A.yTop};
+    FillPolygon(xs, ys, 4, c);
+    DrawAqueductLine({B.vergeRX, B.yTop, A.vergeRX, A.yTop}, c, kAqueductViewClip);
+    DrawAqueductLine({B.vergeRX, B.yMid, A.vergeRX, A.yMid}, c, kAqueductViewClip);
+}
+
+bool Racing::IsMulholland() const {
+    return sim.Kind() == srrace::RaceKind::Mulholland && !aqueductPreview;
+}
+
+SDL_Color Racing::Sr2Pen(int pen, SDL_Color fallback) const {
+    const std::vector<uint16_t> pal = state.GetAssets().GetAssetPalette(
+        {LibAssetRegular, SrLibFileAmigaLibP, SR2_DRIVING_PALETTE_ASSET, SrGame::SR2});
+    if (pen < 0 || pen >= static_cast<int>(pal.size())) return fallback;
+    const uint16_t v = pal[pen];
+    return SDL_Color{static_cast<Uint8>(((v >> 8) & 0xf) * 17), static_cast<Uint8>(((v >> 4) & 0xf) * 17),
+                     static_cast<Uint8>((v & 0xf) * 17), 255};
+}
+
+// Even-odd scanline fill, clipped to the forward view, as the original's AreaDraw polygons are.
+void Racing::FillPolygon(const int* xs, const int* ys, int n, SDL_Color c) {
+    int minY = ys[0], maxY = ys[0];
+    for (int i = 1; i < n; ++i) {
+        minY = std::min(minY, ys[i]);
+        maxY = std::max(maxY, ys[i]);
+    }
+    minY = std::max(minY, kClipTop);
+    maxY = std::min(maxY, kClipBottom);
+    for (int y = minY; y <= maxY; ++y) {
+        int cross[8];
+        int nc = 0;
+        for (int i = 0; i < n; ++i) {
+            const int j = (i + 1) % n;
+            const int y0 = ys[i], y1 = ys[j];
+            if ((y0 <= y) == (y1 <= y)) continue;
+            cross[nc++] = xs[i] + static_cast<int>(static_cast<int64_t>(xs[j] - xs[i]) * (y - y0) / (y1 - y0));
+        }
+        std::sort(cross, cross + nc);
+        for (int i = 0; i + 1 < nc; i += 2) {
+            for (int x = std::max(0, cross[i]); x <= std::min(GAME_WIDTH - 1, cross[i + 1]); ++x) {
+                PutPixel(pixels, x, y, c);
+            }
+        }
+    }
+}
+
 void Racing::UpdateRenderView() {
     viewPlayer = sim.Player();
     viewNpc = sim.Npc();
+    if (fallStep > 0) {
+        // FUN_00240d9a: fall frame k lowers cam elevation and cam_y by k and moves cam_x 100 toward the drop.
+        viewPlayer.lateral = static_cast<int16_t>(viewPlayer.lateral + sim.FallDirection() * 100 * fallStep);
+        viewPlayer.elevAtCar = static_cast<int16_t>(viewPlayer.elevAtCar - FallDrop());
+        return;
+    }
     if (flybyMode || !havePrevStep || !state.GetAssets().GetSmoothRacingRef()) return;
     const float t = std::clamp(fixedAccumulator / StepSeconds(), 0.0f, 1.0f);
     srrace::BlendCarView(prevPlayer, viewPlayer, t);
@@ -106,6 +357,10 @@ int Racing::BuildRowTableAndGetLastVisible() {
     const srrace::CarState& p = viewPlayer;
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
     const int elevAtCar = p.elevAtCar;
+    // Mulholland is a canyon road: the verge is half the width.
+    const bool mulholland = sim.Kind() == srrace::RaceKind::Mulholland;
+    const bool grudge = sim.Kind() == srrace::RaceKind::Grudge;
+    const int verge = mulholland ? 200 : 400;
 
     for (int k = 0; k < kForwardRows; ++k) {
         int d = 4;
@@ -115,11 +370,20 @@ int Racing::BuildRowTableAndGetLastVisible() {
         }
         // The horizontal projection reads curve[], the vertical elev[]. Do not swap them.
         const int seg = ClampInt(segBase + k + 1, 0, kTrackSegments - 1);
-        const int roadDelta = p.heading - track.curve[seg];
-        const int rowElevDelta = elevAtCar - track.elev[seg];
+        // Mulholland clamps the bend of the nearest row only; FUN_00245536's row loop recomputes it unclamped.
+        int roadDelta = p.heading - track.curve[seg];
+        if (mulholland && k == 0) {
+            roadDelta = ClampInt(roadDelta, -0x30, 0x30);
+        }
+        // A grudge race forces the elevation term to zero.
+        const int rowElevDelta = grudge ? 0 : (elevAtCar - track.elev[seg]);
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
-        srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
+        if (mulholland) {
+            srrace::RoadEdgesSr2(track.flags[seg], true, edgeLeft, edgeRight);
+        } else {
+            srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
+        }
 
         RowProjection row;
         row.distance = d;
@@ -128,9 +392,19 @@ int Racing::BuildRowTableAndGetLastVisible() {
         row.leftX = ProjectX(p, d, roadDelta, edgeLeft);
         row.rightX = ProjectX(p, d, roadDelta, edgeRight);
         row.centerX = ProjectX(p, d, roadDelta, kRoadCenterLat);
-        row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - 400);
-        row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + 400);
-        row.y = ClampInt(kHorizonY + 400 / d + 4 * rowElevDelta, kClipTop, kClipBottom + 30);
+        row.shoulderLX = ProjectX(p, d, roadDelta, edgeLeft - verge);
+        row.shoulderRX = ProjectX(p, d, roadDelta, edgeRight + verge);
+        row.yRaw = ProjectY(d, rowElevDelta);
+        row.y = ClampInt(row.yRaw, kClipTop, kClipBottom + 30);
+        if (mulholland) {
+            row.yTop = ProjectY(d, rowElevDelta, 0);
+            row.yMid = ProjectY(d, rowElevDelta, 50);
+            row.wallLY = ProjectY(d, rowElevDelta, 100 - track.wallLeft[seg]);
+            row.wallRY = ProjectY(d, rowElevDelta, 100 - track.wallRight[seg]);
+            // The verge is measured from the full-width edges whatever the road's own width.
+            row.vergeLX = ProjectX(p, d, roadDelta, 1500 - verge);
+            row.vergeRX = ProjectX(p, d, roadDelta, 3300 + verge);
+        }
         //   y - 4*(y - elevated_y), and elevated_y = y - 400/d, so y - 1600/d.
         row.archY = row.y - 1600 / d;
         rows[k] = row;
@@ -267,9 +541,162 @@ void Racing::RenderMountains(int horizonY) {
     }
 }
 
+// Street Rod 2's light art (jlights.c). The hanging light is two 48x82 pieces; the drag tree is three sizes across
+// one 184x87 sheet, with lit bulbs in a reserve column at x 128.
+namespace {
+constexpr int kSr2LightW = 48;
+constexpr int kSr2LightH = 82;
+constexpr int kSr2LightTravel = 88;
+
+constexpr int kTreeLods = 3;
+constexpr int kTreeX[kTreeLods] = {0, 32, 72};
+constexpr int kTreeW[kTreeLods] = {32, 40, 56};
+constexpr int kTreeH[kTreeLods] = {58, 69, 87};
+constexpr int kBulbSrcX = 128;
+constexpr int kBulbColW[2][kTreeLods] = {{16, 24, 24}, {16, 18, 24}};
+constexpr int kBulbH[3][kTreeLods] = {{7, 8, 11}, {4, 5, 7}, {7, 8, 11}};
+constexpr int kBulbSrcY[3][kTreeLods] = {{0, 9, 18}, {66, 72, 78}, {33, 42, 51}};
+constexpr int kBulbDstY[3][kTreeLods] = {{6, 7, 9}, {22, 25, 31}, {34, 41, 51}};
+constexpr int kTreeLodForDistance[5] = {2, 2, 1, 1, 0};
+}  // namespace
+
+int Racing::StopLightLamp(int column) const {
+    const bool green = sim.Phase() != srrace::RacePhase::Countdown;
+    const bool amber = !green && sim.CountdownTicks() <= 40;
+    if (column == 0) {
+        return (green || amber) ? -1 : 0;
+    }
+    if (green) {
+        return 2;
+    }
+    return amber ? 1 : -1;
+}
+
+// jlights.c DrawStopLights (0x244d58): mid-road at the fourth segment past the start, only on the nearest five rows.
+void Racing::DrawStopLights(int k) {
+    if (k < 0 || k >= kForwardRows || k > 4) {
+        return;
+    }
+    Bitmap* sheet = Sr2Asset(SR2_DRAG_TREE);
+    if (!sheet) {
+        return;
+    }
+    const int lod = kTreeLodForDistance[k];
+    const RowProjection& row = rows[k];
+    const int w = kTreeW[lod];
+    const int h = kTreeH[lod];
+    const int x = (row.leftX + row.rightX) / 2 - w / 2;
+    DrawSprite(sheet, x, row.y, false, true, kTreeX[lod], 0, w, h);
+
+    const int top = row.y - h;
+    for (int col = 0; col < 2; ++col) {
+        const int lamp = StopLightLamp(col);
+        if (lamp < 0) {
+            continue;
+        }
+        const int cw = kBulbColW[col][lod];
+        const int dx = col ? kBulbColW[0][lod] : 0;
+        const int bh = kBulbH[lamp][lod];
+        DrawSprite(sheet, x + dx, top + kBulbDstY[lamp][lod], false, false,
+                   kBulbSrcX + dx, kBulbSrcY[lamp][lod], cw, bh);
+    }
+}
+
+// jlights.c 0x244a48: a light and a clean plate, 48x82 each, sliding left together after launch.
+void Racing::DrawSr2StartLight() {
+    if (cruiseMode) {
+        return;
+    }
+    Bitmap* light = Sr2Asset(SR2_FLAG_GIRL_HAND);
+    Bitmap* plate = Sr2Asset(SR2_FLAG_GIRL_TORSO);
+    if (!light || !plate) {
+        return;
+    }
+    // While the light is still up, where the starter stands: the line, or just past the player if the opponent got
+    // away first (A4+0x22bc). The mirrors show her from there once the light has gone.
+    if (sr2LightSlide <= kSr2LightTravel) {
+        const int pl = static_cast<int>(sim.Player().segPos);
+        const int np = static_cast<int>(sim.Npc().segPos);
+        sr2StarterSeg = np > pl ? pl + 1 : np;
+    }
+    const srrace::RacePhase phase = sim.Phase();
+    if (phase == srrace::RacePhase::Ended || sr2LightSlide > kSr2LightTravel) {
+        return;
+    }
+    if (phase != srrace::RacePhase::Countdown && sim.Player().speed > 0) {
+        sr2LightSlide += 8;
+        if (sr2LightSlide > kSr2LightTravel) {
+            return;
+        }
+    }
+    const int slide = sr2LightSlide;
+    const int dstY = 18 - kViewOffsetY;
+    const int plateW = kSr2LightW - slide;
+    int lightX = 8;
+    int lightW = kSr2LightW;
+    int lightSrcX = 0;
+    if (plateW > 0) {
+        DrawSprite(plate, 8, dstY, false, false, slide, 0, plateW, kSr2LightH);
+        lightX = 8 + plateW;
+    } else {
+        lightW = 2 * kSr2LightW - slide;
+        lightSrcX = slide - kSr2LightW;
+    }
+    if (lightW <= 0) {
+        return;
+    }
+    // Frame 0 red, 1 amber, 2 green.
+    const int lamp = phase == srrace::RacePhase::Countdown
+                         ? (sim.CountdownTicks() <= 40 ? 1 : 0)
+                         : 2;
+    DrawSprite(light, lightX, dstY, false, false, lightSrcX + lamp * kSr2LightW, 0, lightW, kSr2LightH);
+}
+
+// jlights.c FUN_00244b42 (road mirror) / FUN_00244c12 (Aqueduct mirror): the starter, left behind at the line,
+// shrinking in the mirror once the hanging light has slid away. `r` is the mirror row, 0 nearest; row 6 is skipped
+// in the original.
+void Racing::DrawStarterInMirror(int r, int x, int y, bool aqueduct, const SDL_Rect& clip) {
+    // A cruise has no start, so nobody is left at the line.
+    if (cruiseMode || sr2LightSlide <= kSr2LightTravel || r == 6 || r < 0) {
+        return;
+    }
+    const int idx = std::min(r < 3 ? r >> 1 : r - 1, 3);
+    Bitmap* frame = Sr2Asset(SR2_FLAG_GIRL_BEHIND_1 + idx);
+    SDL_Surface* s = frame ? frame->GetSurface() : nullptr;
+    if (!s) {
+        return;
+    }
+    // ponytail: half the width; FUN_002233f4 also trims padding the chunky conversion already dropped.
+    const int left = x - s->w / 2;
+    int top = y - s->h;
+    if (!aqueduct) {
+        // Feet three above the row, which with any row below the top of the screen pins them at Amiga y 40.
+        top = (y + kViewOffsetY > 0) ? 0x2b - 3 - s->h - kViewOffsetY : y - s->h - 3;
+    }
+    const int x0 = std::max(left, clip.x);
+    const int y0 = std::max(top, clip.y);
+    const int x1 = std::min(left + s->w - 1, clip.x + clip.w - 1);
+    const int y1 = std::min(top + s->h - 1, clip.y + clip.h - 1);
+    if (x0 > x1 || y0 > y1) {
+        return;
+    }
+    DrawSprite(frame, x0, y0, false, false, x0 - left, y0 - top, x1 - x0 + 1, y1 - y0 + 1);
+}
+
 // lib.p asset 97, two 24x32 frames: red during staging, green at launch, then retracts 4 a step as the car rolls.
 void Racing::DrawStartLight() {
-    if (flybyMode || !startLightSprite || !startLightSprite->GetSurface()) {
+    if (flybyMode) {
+        return;
+    }
+    // A grudge race starts from the drag tree.
+    if (sim.Kind() == srrace::RaceKind::Grudge) {
+        return;
+    }
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        DrawSr2StartLight();
+        return;
+    }
+    if (!startLightSprite || !startLightSprite->GetSurface()) {
         return;
     }
     const srrace::RacePhase phase = sim.Phase();
@@ -312,12 +739,267 @@ void Racing::DrawStartLight() {
     }
 }
 
-void Racing::RenderRoad(int lastVisible) {
+// The Aqueduct concrete.
+void Racing::RenderAqueduct() {
+    static const SDL_Color kSkyFill = {0, 0, 0, 255};
+
+    const srrace::CarState& p = sim.Player();
+    const int roadPos = ClampInt(static_cast<int>(p.segPos), 0,
+                                 srrace::AQUEDUCT_SEGMENTS - 1);
+    // The sim has no sub-segment counter of the Aqueduct's own, so the scroll
+    // accumulator stands in: 0..7 spread over the channel's 0..0x3f.
+    const int subPos = ClampInt(p.scrollAcc * 8, 0, 0x3f);
+    const int camX = p.lateral;
+
+    // Riding a wall banks the view. The ride is read from the same camera the
+    // rows are projected from, so the tilt matches what the car is doing.
+    const srrace::AqueductWallRide ride = srrace::AqueductRideWall(camX);
+    // A rollover spins the channel: the roll accumulates into the bank every frame.
+    const int bankAngle = srrace::AqueductBankAngle(ride.bank, sim.AqueductRoll());
+
+    // The channel has no curve array; what bends it is the car's heading, the
+    // same term the road projection subtracts its curve from.
+    srrace::AqueductBuildFrame(aqueductFrame, camX, aqueductCameraHeight,
+                               roadPos, subPos, p.heading, sim.AqueductVjerk());
+
+    // The projections return Amiga SCREEN y.
+    for (srrace::AqueductRow& r : aqueductFrame.viewRows) {
+        r.y -= kViewOffsetY;
+        r.y2 -= kViewOffsetY;
+    }
+    for (srrace::AqueductRow& r : aqueductFrame.mirrorRows) {
+        r.y -= kViewOffsetY;
+        r.y2 -= kViewOffsetY;
+    }
+
+    for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
+        for (int x = 0; x < GAME_WIDTH; ++x) {
+            PutPixel(pixels, x, y, kSkyFill);
+        }
+    }
+
+    // Only the view.
+    {
+        const srrace::AqueductBank skyBank = srrace::AqueductBankForRows(
+            aqueductFrame.viewRows, srrace::AQU_VIEW_ROWS, bankAngle);
+        srrace::AqueductStar stars[srrace::AQU_STARS_TOTAL];
+        // The backdrop pans with the heading and wraps at the screen edge; the
+        // stars take half that offset, the horizon sprites all of it.
+        const int skyBase = srrace::AqueductSkyBase(p.heading);
+        const int n = srrace::AqueductBuildSky(skyBase / 2, skyBank, bankAngle, stars,
+                                               static_cast<int>(std::size(stars)));
+        for (int i = 0; i < n; ++i) {
+            const int y = stars[i].y - kViewOffsetY;
+            if (y < kClipTop || y > kClipBottom) continue;
+            if (stars[i].x < 0 || stars[i].x >= GAME_WIDTH) continue;
+            PutPixel(pixels, stars[i].x, y, AqueductPen(stars[i].color, {170, 170, 170, 255}));
+        }
+
+        // The three fixed sprites sit on the horizon with the stars.
+        srrace::AqueductObstacle horizon[srrace::AQU_HORIZON_SPRITES];
+        const int hn = srrace::AqueductBuildHorizon(skyBase, skyBank, bankAngle,
+                                                    horizon,
+                                                    srrace::AQU_HORIZON_SPRITES);
+        for (int i = 0; i < hn; ++i) {
+            srrace::AqueductObstacle h = horizon[i];
+            h.y -= kViewOffsetY;
+            DrawAqueductShape(h, kAqueductViewClip);
+        }
+    }
+
+    aqueductBankAngle = bankAngle;
+    aqueductConcrete = AqueductPen(srrace::AQU_PEN_CONCRETE, {153, 153, 153, 255});
+    // Everything drawn after the channel - the opponent above all - turns with it.
+    aqueductBank = DrawAqueductPass(aqueductFrame.viewRows, srrace::AQU_VIEW_OBJECT_ROWS, aqueductTrack.flags,
+                                    aqueductFrame.viewFlagIndex, kAqueductViewClip, true);
+}
+
+// A Street Rod 2 driving-palette pen.
+SDL_Color Racing::AqueductPen(int idx, SDL_Color fallback) const {
+    const std::vector<uint16_t> pal = state.GetAssets().GetAssetPalette(
+        {LibAssetRegular, SrLibFileAmigaLibP, SR2_DRIVING_PALETTE_ASSET, SrGame::SR2});
+    if (idx < 0 || idx >= static_cast<int>(pal.size())) return fallback;
+    const uint16_t v = pal[idx];
+    return SDL_Color{static_cast<Uint8>(((v >> 8) & 0xf) * 17), static_cast<Uint8>(((v >> 4) & 0xf) * 17),
+                     static_cast<Uint8>((v & 0xf) * 17), 255};
+}
+
+// jdraw_a.c FUN_00242bea, which both the view (14 object rows) and the mirror (8) run: the concrete, its line
+// work, the floor band, the slope patches, the obstacle sprites, the midline, then the blocks. Returns the bank the
+// rows were turned with.
+srrace::AqueductBank Racing::DrawAqueductPass(const srrace::AqueductRow* rows, int objectRows,
+                                              const uint16_t* flags, int flagBase, const SDL_Rect& clip,
+                                              bool hitTest) {
+    const int bankAngle = aqueductBankAngle;
+    const srrace::AqueductBank bank = srrace::AqueductBankForRows(rows, objectRows + 1, bankAngle);
+    const int clipRight = clip.x + clip.w - 1;
+    const int clipBottom = clip.y + clip.h - 1;
+    auto fill = [&](const srrace::AqueductQuad& q, SDL_Color c) {
+        srrace::AqueductSpan spans[GAME_RACING_HEIGHT];
+        const int m = srrace::AqueductScanQuad(q, clip.y, clipBottom, GAME_WIDTH, spans,
+                                               static_cast<int>(std::size(spans)));
+        for (int k = 0; k < m; ++k) {
+            for (int x = std::max(spans[k].x0, clip.x); x <= std::min(spans[k].x1, clipRight); ++x) {
+                PutPixel(pixels, x, spans[k].y, c);
+            }
+        }
+    };
+
+    // All three surfaces are the one grey.
+    {
+        const SDL_Color concrete = AqueductPen(srrace::AQU_PEN_CONCRETE, {153, 153, 153, 255});
+        srrace::AqueductQuad quads[(srrace::AQU_VIEW_ROWS - 1) * srrace::AqueductSurfaceCount];
+        const int n = srrace::AqueductBuildQuads(rows, objectRows + 1, bank, quads, static_cast<int>(std::size(quads)));
+        for (int i = n - 1; i >= 0; --i) fill(quads[i], concrete);
+    }
+
+    // The floor/slope junctions and the concrete joints in black, the slope tops in pen 4.
+    {
+        const SDL_Color black = AqueductPen(srrace::AQU_PEN_EDGE, {0, 0, 0, 255});
+        const SDL_Color slopeTop = AqueductPen(srrace::AQU_PEN_SLOPE_TOP, {136, 85, 0, 255});
+        srrace::AqueductLine lines[4 + srrace::AQU_VIEW_ROWS * 3];
+        const int nl = srrace::AqueductBuildLines(rows, objectRows, flags, flagBase, bank, bankAngle, lines,
+                                                  static_cast<int>(std::size(lines)));
+        for (int i = 0; i < nl; ++i) {
+            DrawAqueductLine(lines[i], lines[i].pen == srrace::AQU_PEN_EDGE ? black : slopeTop, clip);
+        }
+    }
+
+    // The finish marker across the floor.
+    {
+        srrace::AqueductQuad bands[4];
+        const int nb = srrace::AqueductBuildFloorBands(rows, objectRows, flags, flagBase, bank, bankAngle, bands,
+                                                       static_cast<int>(std::size(bands)));
+        const SDL_Color bandColor = AqueductPen(srrace::AQU_PEN_BAND, {136, 85, 0, 255});
+        for (int i = 0; i < nb; ++i) fill(bands[i], bandColor);
+    }
+
+    // The patches on the slopes - solid concrete you crash into.
+    {
+        srrace::AqueductQuad patches[srrace::AQU_VIEW_OBJECT_ROWS];
+        const int np = srrace::AqueductBuildSlopeObstacles(rows, objectRows, flags, flagBase, bank, bankAngle,
+                                                           patches, static_cast<int>(std::size(patches)));
+        const SDL_Color patchColor = AqueductPen(srrace::AQU_PEN_SLOPE_OBSTACLE, {136, 85, 0, 255});
+        for (int i = 0; i < np; ++i) fill(patches[i], patchColor);
+    }
+
+    // The obstacle sprites against the walls.
+    {
+        srrace::AqueductObstacle obstacles[srrace::AQU_VIEW_OBJECT_ROWS * 2];
+        const int no = srrace::AqueductBuildObstacles(rows, objectRows, flags, flagBase, bank, bankAngle, obstacles,
+                                                      static_cast<int>(std::size(obstacles)));
+        for (int i = 0; i < no; ++i) DrawAqueductShape(obstacles[i], clip);
+    }
+
+    // The long dashes down the middle.
+    {
+        srrace::AqueductQuad mid[2];
+        const int nm = srrace::AqueductBuildMidline(rows, objectRows, flags, flagBase, bank, mid);
+        const SDL_Color midColor = AqueductPen(srrace::AQU_PEN_MIDLINE, {136, 85, 0, 255});
+        for (int i = 0; i < nm; ++i) fill(mid[i], midColor);
+    }
+
+    // The blocks in the channel.
+    {
+        const SDL_Color side = AqueductPen(srrace::AQU_PEN_BLOCK_SIDE, {119, 119, 119, 255});
+        const SDL_Color top = AqueductPen(srrace::AQU_PEN_BLOCK_TOP, {170, 170, 170, 255});
+        srrace::AqueductBlock blocks[srrace::AQU_VIEW_OBJECT_ROWS * 2];
+        const int nb = srrace::AqueductBuildBlocks(rows, objectRows, flags, flagBase, blocks,
+                                                   static_cast<int>(std::size(blocks)));
+        bool hit = false;
+        for (int i = 0; i < nb; ++i) {
+            srrace::AqueductFace faces[4];
+            const int nf = srrace::AqueductBlockFaces(blocks[i], bank, faces);
+            for (int fi = 0; fi < nf; ++fi) fill(faces[fi].quad, faces[fi].pen == srrace::AQU_PEN_BLOCK_TOP ? top : side);
+            srrace::AqueductQuad hq;
+            if (hitTest && srrace::AqueductBlockHitQuad(blocks[i], bank, hq) &&
+                srrace::AqueductQuadHitsCar(hq, clip.y, clipBottom, GAME_WIDTH)) {
+                hit = true;
+            }
+        }
+        // Only the view's pass feeds the hit flag; jroad.c FUN_00247154 crashes on it next frame.
+        if (hitTest) sim.SetAqueductBlockHit(hit);
+    }
+    return bank;
+}
+
+// One line of the channel's edge work: Bresenham, clipped to the viewport.
+void Racing::DrawAqueductLine(const srrace::AqueductLine& line, SDL_Color c, const SDL_Rect& clip) {
+    int x0 = line.x0, y0 = line.y0, x1 = line.x1, y1 = line.y1;
+    const int dx = std::abs(x1 - x0);
+    const int dy = -std::abs(y1 - y0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    // The extrapolated ends run well off screen, so bound the walk rather
+    // than trusting the endpoints to be reachable.
+    const int guard = GAME_WIDTH + GAME_RACING_HEIGHT * 4;
+    for (int step = 0; step < guard; ++step) {
+        if (x0 >= clip.x && x0 < clip.x + clip.w && y0 >= clip.y && y0 < clip.y + clip.h) {
+            PutPixel(pixels, x0, y0, c);
+        }
+        if (x0 == x1 && y0 == y1) break;
+        const int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+// One aqushape record, centred on its point. aqushape.c centres both ways -
+// the roadside sprites are bottom aligned - so this cannot share their blit.
+void Racing::DrawAqueductShape(const srrace::AqueductObstacle& o, const SDL_Rect& clip) {
+    const srrace::AqueductShapeRect& rect =
+        srrace::AqueductShapeRectFor(o.shape, o.phase);
+    if (rect.w == 0 || rect.h == 0) {
+        return;
+    }
+    Bitmap* sheet = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP,
+         srrace::AqueductShapeAsset(o.shape), SrGame::SR2});
+    SDL_Surface* surf = sheet ? sheet->GetSurface() : nullptr;
+    if (!surf) {
+        return;
+    }
+    const int dstLeft = o.x - rect.w / 2;
+    const int dstTop = o.y - rect.h / 2;
+    for (int yy = 0; yy < rect.h; ++yy) {
+        const int py = dstTop + yy;
+        if (py < clip.y || py >= clip.y + clip.h) continue;
+        if (rect.srcY + yy >= surf->h) break;
+        for (int xx = 0; xx < rect.w; ++xx) {
+            const int px = dstLeft + xx;
+            if (px < clip.x || px >= clip.x + clip.w) continue;
+            if (rect.srcX + xx >= surf->w) break;
+            Uint32 sp = 0;
+            const Uint8* ptr = static_cast<const Uint8*>(surf->pixels) +
+                               (rect.srcY + yy) * surf->pitch +
+                               (rect.srcX + xx) * surf->format->BytesPerPixel;
+            std::memcpy(&sp, ptr, surf->format->BytesPerPixel);
+            Uint8 r = 0, g = 0, b = 0, a = 255;
+            SDL_GetRGBA(sp, surf->format, &r, &g, &b, &a);
+            if (a > 0) PutPixel(pixels, px, py, {r, g, b, a});
+        }
+    }
+}
+
+// Bit 4 picks the other colour, and which is which depends on the game.
+SDL_Color Racing::DashColorFor(uint16_t flags) const {
+    const bool marked = (flags & 0x0010) != 0;
+    // A grudge race is Street Rod 2 content whichever game booted it, so it
+    // takes Street Rod 2's colours even when started from Street Rod.
+    if (state.GetAssets().GetGame() == SrGame::SR2 ||
+        sim.Kind() == srrace::RaceKind::Grudge) {
+        return marked ? kDashYellow : kDashWhite;
+    }
+    return marked ? kDashWhite : kDashYellow;
+}
+
+void Racing::RenderRoad(int lastVisible, int onlyBand) {
     auto drawDash = [&](int y, int cx, int drawL, int drawR, uint16_t flags) {
         if ((flags & 0x0008) == 0) {
             return;
         }
-        const SDL_Color dashColor = (flags & 0x0010) ? kDashWhite : kDashYellow;
+        const SDL_Color dashColor = DashColorFor(flags);
         for (int i = 0; i < 4; ++i) {
             const int px = cx - 1 + i;
             if (px >= drawL && px <= drawR) {
@@ -326,14 +1008,56 @@ void Racing::RenderRoad(int lastVisible) {
         }
     };
 
-    // The whole surface: the bottom rows show through the side-mirror gap.
-    for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
-        for (int x = 0; x < GAME_WIDTH; ++x) {
-            PutPixel(pixels, x, y, kGrassA);
+    // Mulholland's backdrop picture is the whole view, ground included. Its road is drawn a band at a time from
+    // the row loop (onlyBand), between each row's walls and its sprites, as FUN_0023f604 does.
+    const bool mulholland = IsMulholland();
+    if (onlyBand < 0) {
+        if (mulholland) {
+            mulhollandFarBridgeEnd = false;
+            for (int r = kForwardRows - 1; r >= 10; --r) {
+                if ((track.flags[rows[r].seg] & 0x0080) == 0 && (track.flags[rows[r - 1].seg] & 0x0080) != 0) {
+                    mulhollandFarBridgeEnd = true;
+                }
+            }
+            RenderMulhollandBackdrop();
+            return;
+        }
+        // The whole surface: the bottom rows show through the side-mirror gap.
+        for (int y = kClipTop; y < GAME_RACING_HEIGHT; ++y) {
+            for (int x = 0; x < GAME_WIDTH; ++x) {
+                PutPixel(pixels, x, y, kGrassA);
+            }
         }
     }
+    const SDL_Color vergeColor = Sr2Pen(4, {136, 85, 0, 255});
+    const SDL_Color grassColor = Sr2Pen(0xe, kGrassA);
+    // jdraw.c FUN_0023b97c for band r = k + 1: the verge in pen 4 except on a bridge, then grass in pen 0xe out to
+    // the screen edge on a side whose row r-1 has no wall. A bridge ending in rows 10..14 trims the grass.
+    auto drawVerge = [&](int y, int vl, int lx, int rx, int vr, uint16_t flags, int k) {
+        if (!mulholland) return;
+        if ((flags & 0x0080) == 0) {
+            for (int x = std::max(0, vl); x <= std::min(GAME_WIDTH - 1, lx); ++x) PutPixel(pixels, x, y, vergeColor);
+            for (int x = std::max(0, rx); x <= std::min(GAME_WIDTH - 1, vr); ++x) PutPixel(pixels, x, y, vergeColor);
+        }
+        const RowProjection& a = rows[k];
+        const int r = k + 1;
+        const int trim = (mulhollandFarBridgeEnd && r >= 10) ? kBridgeEndTable[2 + 2 * (16 - r)] : -1;
+        if (a.wallLY == a.yRaw) {
+            for (int x = std::max(0, trim < 0 ? 0 : lx - trim); x <= std::min(GAME_WIDTH - 1, lx); ++x) {
+                PutPixel(pixels, x, y, grassColor);
+            }
+        }
+        if (a.wallRY == a.yRaw) {
+            for (int x = std::max(0, rx); x <= std::min(GAME_WIDTH - 1, trim < 0 ? GAME_WIDTH - 1 : rx + trim); ++x) {
+                PutPixel(pixels, x, y, grassColor);
+            }
+        }
+    };
 
     for (int k = 0; k < lastVisible; ++k) {
+        if (onlyBand >= 0 && k != onlyBand) {
+            continue;
+        }
         const RowProjection& nearRow = rows[k];
         const RowProjection& farRow = rows[k + 1];
         if (nearRow.y <= farRow.y) {
@@ -351,12 +1075,17 @@ void Racing::RenderRoad(int lastVisible) {
             const int cx = nearRow.centerX + ((farRow.centerX - nearRow.centerX) * fromNear) / dy;
             const int left = ClampInt(std::min(lx, rx), -200, 520);
             const int right = ClampInt(std::max(lx, rx), -200, 520);
+            // fromNear counts down from the near row.
+            const int seg = (fromNear * 2 < dy) ? nearRow.seg : farRow.seg;
+            const uint16_t flags = track.flags[seg];
+            if (mulholland) {
+                const int vl = nearRow.vergeLX + ((farRow.vergeLX - nearRow.vergeLX) * fromNear) / dy;
+                const int vr = nearRow.vergeRX + ((farRow.vergeRX - nearRow.vergeRX) * fromNear) / dy;
+                drawVerge(y, vl, left, right, vr, flags, k);
+            }
             if (right < 0 || left >= GAME_WIDTH) {
                 continue;
             }
-
-            const int seg = (fromNear * 2 >= dy) ? nearRow.seg : farRow.seg;
-            const uint16_t flags = track.flags[seg];
             const bool city = (flags & 0x0001) != 0;
             // The road is black everywhere, town included (playtested).
             const SDL_Color roadColor = kRoadA;
@@ -379,11 +1108,19 @@ void Racing::RenderRoad(int lastVisible) {
                 }
             }
 
-            drawDash(y, cx, drawL, drawR, flags);
+            // The finish line.
+            if ((flags & 0x0010) != 0) {
+                const SDL_Color lineColor = DashColorFor(flags);
+                for (int x = drawL; x <= drawR; ++x) {
+                    PutPixel(pixels, x, y, lineColor);
+                }
+            } else {
+                drawDash(y, cx, drawL, drawR, flags);
+            }
         }
     }
 
-    if (lastVisible >= 1) {
+    if (lastVisible >= 1 && onlyBand <= 0) {
         const RowProjection& row0 = rows[0];
         const RowProjection& row1 = rows[1];
         const int yStart = ClampInt(row0.y, kClipTop, GAME_RACING_HEIGHT - 1);
@@ -397,13 +1134,28 @@ void Racing::RenderRoad(int lastVisible) {
             const int cx = row0.centerX + ((row0.centerX - row1.centerX) * extra) / dy;
             const int left = std::max(0, std::min(lx, rx));
             const int right = std::min(GAME_WIDTH - 1, std::max(lx, rx));
+            if (mulholland) {
+                const int vl = row0.vergeLX + ((row0.vergeLX - row1.vergeLX) * extra) / dy;
+                const int vr = row0.vergeRX + ((row0.vergeRX - row1.vergeRX) * extra) / dy;
+                drawVerge(y, vl, std::min(lx, rx), std::max(lx, rx), vr, nearFlags, 0);
+            }
             for (int x = left; x <= right; ++x) {
                 PutPixel(pixels, x, y, nearRoadColor);
             }
-            drawDash(y, cx, left, right, nearFlags);
+            if ((nearFlags & 0x0010) != 0) {
+                const SDL_Color lineColor = DashColorFor(nearFlags);
+                for (int x = left; x <= right; ++x) {
+                    PutPixel(pixels, x, y, lineColor);
+                }
+            } else {
+                drawDash(y, cx, left, right, nearFlags);
+            }
         }
     }
 
+    if (mulholland) {
+        return;   // the backdrop already holds the sky
+    }
     // Everything above the road's vanishing row is sky: the range stands on it.
     const int skyEnd = ClampInt(rows[lastVisible].y, kClipTop, kClipBottom);
     for (int y = kClipTop; y < skyEnd; ++y) {
@@ -557,7 +1309,7 @@ void Racing::DrawTownWalls(int lastVisible) {
 
 void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     auto drawSlot = [&](int slot, int k, int side, bool centerInRoad) {
-        if (slot < 0 || slot >= 20 || !roadsideSprites[slot]) {
+        if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) {
             return;
         }
         const RowProjection& row = rows[k];
@@ -569,6 +1321,14 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         if (anim && anim->frames && anim->frameCount > 0) {
             // The distance's frame at native size.
             const SpriteRect& fr = anim->frames[SelectFrameIndexForDistance(anim, sr)];
+            w = fr.w;
+            h = fr.h;
+            srcX0 = fr.x;
+            srcY0 = fr.y;
+            srcW = fr.w;
+            srcH = fr.h;
+        } else {
+            const SpriteRect& fr = roadsideFrames[slot][ClampInt(sr, 0, kSpriteScaleFrameCount - 1)];
             w = fr.w;
             h = fr.h;
             srcX0 = fr.x;
@@ -591,6 +1351,49 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         }
     };
 
+    // A rock or oil patch in the road itself, in lane 1..16 across it, where CheckOnRoadHazards collides.
+    auto drawHazard = [&](int k, int kind) {
+        const RowProjection& row = rows[k];
+        const int lane = track.lane[row.seg];
+        if (lane <= 0) {
+            return;
+        }
+        Bitmap* sprite = hazardSprites[kind].get();
+        if (!sprite) {
+            return;
+        }
+        const srrace::HazardRect& rect =
+            srrace::HazardRectFor(kind, ClampInt(k - 2, 0, srrace::HAZARD_PHASES - 1));
+        if (rect.w == 0 || rect.h == 0) {
+            return;
+        }
+        const int x = row.leftX + ((row.rightX - row.leftX) * lane) / 16;
+        DrawSprite(sprite, x - rect.w / 2, row.y, false, true, rect.srcX, rect.srcY, rect.w, rect.h);
+    };
+
+    // jdraw.c FUN_0023ca96: the rock pile an object's 0x10 bit stands for on Mulholland, five tshape sprites
+    // heaped inward from the road edge (s = +1 on the left, -1 on the right).
+    static constexpr int kPileT[13][2] = {{15, 17}, {13, 15}, {10, 12}, {9, 10}, {7, 10}, {5, 10}, {5, 10},
+                                          {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}};
+    static constexpr int kPileU[15][2] = {{13, 13}, {11, 8}, {9, 6}, {7, 5}, {4, 5}, {3, 3}, {2, 3}, {2, 3},
+                                          {2, 3}, {2, 3}, {2, 3}, {2, 3}, {2, 3}, {15, 17}, {13, 15}};
+    auto drawShape = [&](int kind, int x, int y, int r) {
+        Bitmap* sprite = hazardSprites[kind].get();
+        const srrace::HazardRect& rect = srrace::HazardRectFor(kind, ClampInt(r - 2, 0, srrace::HAZARD_PHASES - 1));
+        if (!sprite || rect.w == 0 || rect.h == 0) return;
+        DrawSprite(sprite, x - rect.w / 2, y, false, true, rect.srcX, rect.srcY, rect.w, rect.h);
+    };
+    auto drawPile = [&](int r, int edgeX, int s) {
+        const int y = rows[r].y;
+        const int x = edgeX + s * (r == 1 ? 40 : r == 2 ? 10 : 0);
+        const int a = kPileT[r][0], b = kPileT[r][1];
+        drawShape(srrace::HazardPile, x, y, r);
+        drawShape(srrace::HazardRock, x + s * b, y, r);
+        drawShape(srrace::HazardPile, x + s * (b + kPileU[r][0]), y, r);
+        drawShape(srrace::HazardRock, x + s * (b >> 1), y - a, r + 2);
+        drawShape(srrace::HazardPile, x + s * ((b >> 1) + kPileU[r + 2][1]), y - a, r + 2);
+    };
+
     // At the roadside, on its flag's side, not over the middle of the road.
     auto drawCruiseSign = [&](int k, int side) {
         const RowProjection& row = rows[k];
@@ -603,8 +1406,40 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         DrawSprite(cruiseSignSprite.get(), x, row.y, side < 0, true, fr.x, fr.y, fr.w, fr.h);
     };
 
-    for (int k = std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
+    const int grudgeTreeSeg = srrace::RaceWindowFor(srrace::RaceKind::Grudge).start + 4;
+    // jdraw.c FUN_0023e3fa draws bits 0x40 and 0x80 through its `race_type & 0x0f` branch.
+    const bool grudgeRace = sim.Kind() == srrace::RaceKind::Grudge;
+    // Mulholland: per row far to near, walls, then the road band, then sprites, then the bridge. Walls and bridge
+    // on every row, road and sprites only up to the crest.
+    const bool mulholland = IsMulholland();
+    for (int r = kForwardRows - 1; mulholland && r >= 1; --r) {
+        if ((track.right[rows[r].seg] & 0x8000) != 0 && (track.right[rows[r - 1].seg] & 0x8000) == 0) {
+            railPhaseSeg = rows[r].seg;
+            break;
+        }
+    }
+    for (int k = mulholland ? kForwardRows - 1 : std::min(lastVisible, kForwardRows - 1); k >= 1; --k) {
+        if (mulholland) {
+            DrawMulhollandWalls(k, mulhollandFarBridgeEnd);
+            if (k <= lastVisible) {
+                RenderRoad(lastVisible, k - 1);
+            }
+            if (k > lastVisible) {
+                DrawMulhollandBridge(k);
+                DrawMulhollandRail(k);
+                continue;
+            }
+        }
         const int seg = rows[k].seg;
+        if (seg >= 0 && seg < kTrackSegments) {
+            // Nearest last, so a closer hazard covers one behind it.
+            if ((track.flags[seg] & srrace::HAZARD_OIL_FLAG) != 0) {
+                drawHazard(k, srrace::HazardOil);
+            }
+            if ((track.flags[seg] & srrace::HAZARD_ROCK_FLAG) != 0) {
+                drawHazard(k, srrace::HazardRock);
+            }
+        }
         if (seg < 0 || seg >= kTrackSegments) {
             continue;
         }
@@ -613,7 +1448,10 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
         const uint16_t F = track.flags[seg];
         const bool city = (F & 0x0001) != 0;
 
-        if ((F & 0x0004) == 0) {
+        // The original skips a row only for a side street, flags 0x0004 in town; on Mulholland 0x0004 is a rock.
+        if ((F & 0x0004) == 0 || !city) {
+            if (mulholland && k < 12 && (L & 0x0010)) drawPile(k, rows[k].leftX, 1);
+            if (mulholland && k < 12 && (R & 0x0010)) drawPile(k, rows[k].rightX, -1);
             if (L & 0x0020) drawSlot(0, k, -1, false);
             if (L & 0x0100) drawSlot(4, k, -1, false);
             if (L & 0x0800) drawSlot(3, k, -1, false);
@@ -630,12 +1468,12 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             if (!city && (L & 0x0004)) drawSlot(7, k, -1, false);
             if (!city && (L & 0x0008)) drawSlot(8, k, -1, false);
             if (L & 0x0040) drawSlot(city ? 2 : 10, k, -1, false);
-            if (!city && (L & 0x0080)) drawSlot(11, k, -1, false);
+            if ((!city || grudgeRace) && (L & 0x0080)) drawSlot(11, k, -1, false);
 
             if (!city && (R & 0x0004)) drawSlot(7, k, +1, false);
             if (!city && (R & 0x0008)) drawSlot(8, k, +1, false);
             if (R & 0x0040) drawSlot(city ? 2 : 10, k, +1, false);
-            if (!city && (R & 0x0080)) drawSlot(11, k, +1, false);
+            if ((!city || grudgeRace) && (R & 0x0080)) drawSlot(11, k, +1, false);
             if (R & 0x0020) drawSlot(0, k, +1, false);
             if (R & 0x0100) drawSlot(4, k, +1, false);
             if (R & 0x0800) drawSlot(3, k, +1, false);
@@ -657,9 +1495,25 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
             if (F & 0x0400) drawSlot(17, k, +1, false);
         }
 
-        if (F & 0xf000) {
+        // jdraw.c gates the arches on `(race_type & 0x2c) == 0`: none on Mulholland or a grudge strip.
+        if ((F & 0xf000) && !mulholland && !grudgeRace) {
             DrawOverheadArch(rows[k], F, ClampInt(k - 2, 0, 10));
         }
+
+        // jdraw.c 0x240a44: `race_type & 0x0c` and the row sitting on
+        // start_seg + 4 are the whole gate on the drag tree.
+        if (sim.Kind() == srrace::RaceKind::Grudge && seg == grudgeTreeSeg) {
+            DrawStopLights(k);
+        }
+        if (mulholland) {
+            DrawMulhollandBridge(k);
+            DrawMulhollandRail(k);
+        }
+    }
+
+    // Row 0 is the extra near row this port adds ahead of the original's.
+    if (sim.Kind() == srrace::RaceKind::Grudge && rows[0].seg == grudgeTreeSeg) {
+        DrawStopLights(0);
     }
 }
 
@@ -668,6 +1522,9 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
 Bitmap* Racing::OpponentSpriteForState(int state) const {
     if (state < 0 || state > 12) {
         return nullptr;
+    }
+    if (::state.GetAssets().GetGame() == SrGame::SR2 && !sr1BodyInSr2) {
+        return opponentCarType == 2 ? sr2Cop[state].get() : sr2Opp[state][srrace::AQU_OPP_LEVEL_TILT].get();
     }
     const std::unique_ptr<Bitmap>* frontSide = &opponentChevyFrontSide;
     const std::unique_ptr<Bitmap>* rearSide = &opponentChevyRearSide;
@@ -720,6 +1577,10 @@ void Racing::DrawNpcCar(int lastVisible) {
     if (state >= 9) {
         return;   // behind us: DrawRearviewMirror has it
     }
+    if (aqueductPreview) {
+        DrawAqueductOpponent(state);
+        return;
+    }
     Bitmap* sprite = OpponentSpriteForState(state);
     if (!sprite || !sprite->GetSurface()) {
         return;
@@ -734,7 +1595,7 @@ void Racing::DrawNpcCar(int lastVisible) {
     const int roadDelta = p.heading - track.curve[npcSeg];
     const int elevDelta = p.elevAtCar - track.elev[npcSeg];
     const int x = ProjectX(p, d, roadDelta, np.lateral);
-    int y = kHorizonY + 400 / d + 4 * elevDelta;
+    int y = ProjectY(d, elevDelta);
 
     if (state == 0) {
         // Right alongside, off to our left: right edge 64 px left of x, never right of the screen edge, hanging down
@@ -766,7 +1627,145 @@ void Racing::DrawNpcCar(int lastVisible) {
     DrawSprite(sprite, x - src->w / 2, y, false, true);
 }
 
+// jdraw.c FUN_0023d7b8's Aqueduct branch. Nothing is rotated pixel by pixel: a pre-tilted frame is picked, the
+// projected point is swung with the bank, and the frame's anchor is put on it. States 9..12 go in the mirror.
+void Racing::DrawAqueductOpponent(int viewState) {
+    const srrace::CarState& p = viewPlayer;
+    const srrace::CarState& np = viewNpc;
+    const bool mirror = viewState >= 9;
+    const srrace::AqueductOpponentTilt tilt =
+        srrace::AqueductOpponentTiltFor(np.lateral, aqueductFrame.drawn, aqueductBankAngle);
+    if (tilt.tilt != srrace::AQU_OPP_LEVEL_TILT) {
+        // ponytail: the original still draws a tilted state 0 while the opponent is pinned alongside (A4+0x2342).
+        if (viewState == 0) return;
+        if (viewState == 1) viewState = 2;
+    }
+    // The cop has only the level frame. It is drawn as the original draws a car past its last tilt frame: level,
+    // with the anchor turned by the real angle. Street Rod's bodies have turned frames made at load.
+    const bool levelOnly = opponentCarType == 2;
+    const int t = (tilt.tilt < 0 || levelOnly) ? srrace::AQU_OPP_LEVEL_TILT : tilt.tilt;
+    Bitmap* sprite = levelOnly ? OpponentSpriteForState(viewState) : sr2Opp[viewState][t].get();
+    SDL_Surface* src = sprite ? sprite->GetSurface() : nullptr;
+    if (!src || src->w <= 0 || src->h <= 0) {
+        return;
+    }
+    const int levelXOff = levelOnly ? (viewState >= 2 ? src->w / 2 : 0)
+                                    : sr2OppXOff[viewState][srrace::AQU_OPP_LEVEL_TILT];
+    int xOff = levelOnly ? levelXOff : sr2OppXOff[viewState][t];
+    int yOff = levelOnly ? 0 : sr2OppYOff[viewState][t];
+    if (tilt.tilt < 0 || (levelOnly && tilt.tilt != srrace::AQU_OPP_LEVEL_TILT)) {
+        srrace::AqueductTiltAnchor(src->w, src->h, tilt.angle, levelXOff, xOff, yOff);
+    }
+
+    int gap = (static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8 + (np.scrollAcc - p.scrollAcc);
+    if (viewState == 0) gap += 0x10;
+    if (gap < -2 && viewState == 2) gap += 8;
+    const int ground = srrace::AqueductOpponentGroundY(np.lateral, aqueductFrame.drawn);
+    int x = 0, y = 0;
+    if (!mirror) {
+        const int depth = std::abs(gap) + 4;
+        x = srrace::AqueductProjectViewX(p.lateral, depth, np.lateral, p.heading);
+        y = srrace::AqueductProjectY(aqueductCameraHeight, depth, ground, sim.AqueductVjerk());
+        if (viewState == 2 || viewState == 3) y = std::min(y, 0x62);
+    } else {
+        x = srrace::AqueductProjectMirrorX(p.lateral, -gap, np.lateral, 10 - p.heading);
+        y = srrace::AqueductProjectMirrorY(aqueductCameraHeight, -gap, ground);
+    }
+    y -= kViewOffsetY;
+    // ponytail: the mirror car turns about the mirror's own pivot, as its rows do; which pivot the original
+    // leaves set for it is not traced.
+    const srrace::AqueductBank bank = mirror
+        ? srrace::AqueductBankForRows(aqueductFrame.mirrorRows, srrace::AQU_MIRROR_ROWS, aqueductBankAngle)
+        : aqueductBank;
+    srrace::AqueductBankPoint(bank, x, y, x, y);
+    x -= xOff;
+    y += yOff;
+
+    // The two side views keep the road race's placement: alongside hangs off the left screen edge, cut by how far
+    // ahead x is; just ahead sits right-edge on x, 17 px low.
+    int left = x + 3;
+    int top = y - src->h;
+    if (viewState == 0) {
+        left = std::min(0, x - 0x40 - src->w);
+        top = y;
+    } else if (viewState == 1) {
+        left = x - src->w;
+        top = y - src->h + 0x11;
+    } else if ((viewState == 2 || viewState == 3) && top + src->h >= 0x63 - kViewOffsetY) {
+        top = 0x63 - kViewOffsetY - src->h;
+    }
+    const SDL_Rect& clip = mirror ? kAqueductMirrorClip : kAqueductViewClip;
+    const int clipL = clip.x;
+    const int clipR = clip.x + clip.w - 1;
+    const int clipT = clip.y;
+    const int clipB = clip.y + clip.h - 1;
+    const int x0 = std::max(left, clipL);
+    const int y0 = std::max(top, clipT);
+    const int x1 = std::min(left + src->w - 1, clipR);
+    const int y1 = std::min(top + src->h - 1, clipB);
+    if (x0 > x1 || y0 > y1) {
+        return;
+    }
+    DrawSprite(sprite, x0, y0, false, false, x0 - left, y0 - top, x1 - x0 + 1, y1 - y0 + 1);
+}
+
+// The Aqueduct's mirror.
+void Racing::DrawAqueductMirror() {
+    // FUN_00243b92: the glass cleared black (x 0xf2..0x13d, y 0x16..0x2b), then the same row drawing as the view
+    // on the nine mirror rows, banked about their own far end. Its flags start one segment further back.
+    for (int y = kAqueductMirrorClip.y; y < kAqueductMirrorClip.y + kAqueductMirrorClip.h; ++y) {
+        for (int x = kAqueductMirrorClip.x; x < kAqueductMirrorClip.x + kAqueductMirrorClip.w; ++x) {
+            PutPixel(pixels, x, y, {0, 0, 0, 255});
+        }
+    }
+    // Its own night sky, before the channel (FUN_00241f88), turned about the mirror's pivot.
+    {
+        const srrace::AqueductBank skyBank = srrace::AqueductBankForRows(
+            aqueductFrame.mirrorRows, srrace::AQU_MIRROR_OBJECT_ROWS + 1, aqueductBankAngle);
+        srrace::AqueductStar stars[srrace::AQU_MIRROR_STARS_BRIGHT + srrace::AQU_MIRROR_STARS_DIM];
+        const int n = srrace::AqueductBuildMirrorSky(srrace::AqueductSkyBase(sim.Player().heading), skyBank, 0,
+                                                     stars, static_cast<int>(std::size(stars)));
+        const SDL_Rect& c = kAqueductMirrorClip;
+        for (int i = 0; i < n; ++i) {
+            int x = stars[i].x;
+            int y = stars[i].y - kViewOffsetY;
+            if (aqueductBankAngle != 0) srrace::AqueductBankPoint(skyBank, x, y, x, y);
+            if (x < c.x || x >= c.x + c.w || y < c.y || y >= c.y + c.h) continue;
+            PutPixel(pixels, x, y, AqueductPen(stars[i].color, {170, 170, 170, 255}));
+        }
+    }
+
+    const srrace::AqueductBank bank = DrawAqueductPass(aqueductFrame.mirrorRows, srrace::AQU_MIRROR_OBJECT_ROWS,
+                                                       aqueductTrack.mirror, aqueductFrame.mirrorFlagIndex + 1,
+                                                       kAqueductMirrorClip, false);
+
+    // The starter at her row, on the left edge of the midline (FUN_00244c12).
+    const int r = static_cast<int>(sim.Player().segPos) - sr2StarterSeg - 1;
+    if (sr2StarterSeg >= 0 && r >= 0 && r < srrace::AQU_MIRROR_OBJECT_ROWS) {
+        const srrace::AqueductRow* rows = aqueductFrame.mirrorRows;
+        const srrace::AqueductRow& far = rows[srrace::AQU_MIRROR_OBJECT_ROWS];
+        const srrace::AqueductRow& near = rows[0];
+        const int y = rows[r].y;
+        int x = far.y == near.y ? near.stripeLeftX
+                                : far.stripeLeftX + (y - far.y) * (near.stripeLeftX - far.stripeLeftX) / (near.y - far.y);
+        x += 1;
+        int by = y;
+        if (aqueductBankAngle != 0) srrace::AqueductBankPoint(bank, x, y, x, by);
+        DrawStarterInMirror(r, x, by, true, kAqueductMirrorClip);
+    }
+
+    const srrace::NpcState& ai = sim.NpcAi();
+    if (opponentActive && !ai.viewHidden && ai.viewState >= 9) {
+        DrawAqueductOpponent(ai.viewState);
+    }
+}
+
 void Racing::DrawRearviewMirror() {
+    if (aqueductPreview) {
+        // The channel has its own mirror.
+        DrawAqueductMirror();
+        return;
+    }
     const int mirrorX = 242;
     const int mirrorY = 9;
     const int mirrorW = 76;
@@ -851,7 +1850,10 @@ void Racing::DrawRearviewMirror() {
         MirrorRow& row = mrows[k];
         row.seg = seg;
         // 36 + 100/d + row_c at quarter scale.
-        row.y = horizonY + 100 / d + (p.elevAtCar - track.elev[seg]);
+        row.y = horizonY + 100 / d +
+                (sim.Kind() == srrace::RaceKind::Grudge
+                     ? 0
+                     : (p.elevAtCar - track.elev[seg]));
         row.left = projectMirrorX(d, roadDelta, edgeLeft);
         row.right = projectMirrorX(d, roadDelta, edgeRight);
         row.shoulderL = projectMirrorX(d, roadDelta, edgeLeft - 400);
@@ -868,7 +1870,7 @@ void Racing::DrawRearviewMirror() {
         }
         // Alternate rows so the centre line reads as dashes.
         if ((track.flags[seg] & 0x0008) && ((y & 1) == 0) && center >= rl && center <= rr) {
-            PutPixel(pixels, center, y, (track.flags[seg] & 0x0010) ? kDashWhite : kDashYellow);
+            PutPixel(pixels, center, y, DashColorFor(track.flags[seg]));
         }
     };
     for (int k = kMirrorRows - 1; k >= 0; --k) {
@@ -906,12 +1908,26 @@ void Racing::DrawRearviewMirror() {
         for (int side = 0; side < 2; ++side) {
             const uint16_t f = side ? track.right[row.seg] : track.left[row.seg];
             const int slot = slotForFlags(f);
-            if (slot < 0 || !roadsideSprites[slot]) continue;
+            if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) continue;
             const SpriteAnimationInfo* anim = roadsideAnim[slot];
-            if (!anim || !anim->frames || anim->frameCount <= 0) continue;
-            const SpriteRect& fr = anim->frames[anim->frameCount - 1];   // farthest/smallest
+            const SpriteRect& fr = (anim && anim->frames && anim->frameCount > 0)
+                                       ? anim->frames[anim->frameCount - 1]
+                                       : roadsideFrames[slot][kSpriteScaleFrameCount - 1];
+            if (fr.w <= 0 || fr.h <= 0) continue;
             const int dstLeft = side ? row.shoulderR : (row.shoulderL - fr.w);
             blitClipped(roadsideSprites[slot].get(), fr, dstLeft, row.y);
+        }
+    }
+
+    // Street Rod 2's starter, left at the line, centred on the road at her row (jdraw.c 0x23f1b8, drag and
+    // Mulholland only).
+    if (state.GetAssets().GetGame() == SrGame::SR2 && sr2StarterSeg >= 0 &&
+        (sim.Kind() == srrace::RaceKind::Drag || sim.Kind() == srrace::RaceKind::Mulholland)) {
+        const int k = segBase - sr2StarterSeg - 1;
+        if (k >= 0 && k < kMirrorRows) {
+            const MirrorRow& row = mrows[k];
+            DrawStarterInMirror(k, (row.left + row.right) / 2, row.y, false,
+                                SDL_Rect{gLeft, gTop, gRight - gLeft + 1, gBottom - gTop + 1});
         }
     }
 
@@ -951,6 +1967,9 @@ void Racing::DrawRearviewMirror() {
         if (delta < 0 && delta >= -8) {
             const int idx = ClampInt((-delta) / 2, 0, 3);
             Bitmap* behind = nullptr;
+            if (state.GetAssets().GetGame() == SrGame::SR2) {
+                behind = OpponentSpriteForState(9 + idx);
+            } else
             switch (opponentCarType) {
                 case 1: behind = opponentChryslerBehind[idx].get(); break;
                 case 2: behind = opponentCopBehind[idx].get(); break;
@@ -1020,13 +2039,31 @@ void Racing::DrawHud() {
     hud->Draw();
 }
 
+// The dial table is relative to the dashboard, which starts at y=100 (scanline 144 in the copperlist).
+void Racing::DrawSr2Needle(SDL_Renderer* renderer, int type, int gaugeValue) {
+    if (!renderer || !sr2Gauges.Ready()) {
+        return;
+    }
+    const srrace::Sr2Needle n = sr2Gauges.Tip(type + 2 * sr2DashboardVariant, gaugeValue);
+    SDL_SetRenderDrawColor(renderer, 96, 64, 0, 255);
+    SDL_RenderDrawLine(renderer, n.x0, 100 + n.y0, n.x1, 100 + n.y1);
+}
+
 void Racing::DrawTachometerNeedleToRenderer(SDL_Renderer* renderer) {
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        DrawSr2Needle(renderer, 1, sim.Player().rpm / 43);
+        return;
+    }
     // The dial takes rpm / 43 and clamps at 130, so full scale is 5590: the needle pegs just before the 5700 redline,
     // the over-rev warning.
     DrawGaugeNeedle(renderer, 145, 129, sim.Player().rpm / 43);
 }
 
 void Racing::DrawSpeedometerNeedleToRenderer(SDL_Renderer* renderer) {
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        DrawSr2Needle(renderer, 0, sim.Player().speed);
+        return;
+    }
     // The dial clamps at 130, so full scale is 130 mph.
     DrawGaugeNeedle(renderer, 196, 129, sim.Player().speed);
 }

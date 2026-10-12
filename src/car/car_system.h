@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <random>
 #include <string>
 #include "parsers/libp.h"
 
@@ -32,7 +33,12 @@ enum ManifoldType {
     MANIFOLD_4BARREL,
     MANIFOLD_DUAL_QUAD,
     MANIFOLD_TRIPLE_2BARREL,
-    MANIFOLD_RACING
+    MANIFOLD_RACING,
+    // Street Rod 2 only (classes 5..8).
+    MANIFOLD_TUNNEL_RAM,
+    MANIFOLD_DUAL_TUNNEL_RAM,
+    MANIFOLD_FUEL_INJECTION,
+    MANIFOLD_SUPERCHARGER
 };
 
 enum CarburetorType {
@@ -57,6 +63,10 @@ constexpr int kMaxCarburetors = 3;
 // every engine bay part change.
 constexpr int kTuneLevelCount = 13;
 constexpr int kPerfectTuneLevel = 8;
+
+// Street Rod 2's tune after a race (lmech.c 0x259418): two times in three the signed byte wanders, the way the
+// original's random calls do. rand(n) is uniform in 0..n-1.
+int Sr2DriftTune(int tune, std::mt19937& gen);
 
 enum CarWheelType { STOCK, BRAND, RACING };
 

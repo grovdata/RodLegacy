@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 #include "audio/engine_sound.h"
+#include "audio/adlib_engine.h"
 #include "parsers/libp.h"
 #include <cmath>
 
@@ -166,4 +167,35 @@ TEST_CASE("engine pitch rises with rpm and stays near the garage idle") {
 
     // And the warning state sits above everything the ramp can reach.
     CHECK(rate(EngineSound::kOverRevRpm) > rate(EngineSound::kOverRevRpm - 1));
+}
+
+TEST_CASE("PeriodToRPM inverts RPMToPeriod where the ladder reaches") {
+    // The scene animations only have a period, but the AdLib back end only speaks rpm.
+    for (int rpm = 0; rpm <= 7000; rpm += 32) {
+        const int period = EngineSound::RPMToPeriod(static_cast<int16_t>(rpm));
+        CHECK(EngineSound::PeriodToRPM(period) == rpm);
+    }
+
+    // The two periods the scenes use. 605 is on the ladder; 800 is below its
+    // floor - 640 is already rpm 0 - so it comes back as 0 rather than negative.
+    CHECK(EngineSound::PeriodToRPM(605) == 1120);
+    CHECK(EngineSound::RPMToPeriod(1120) == 605);
+    CHECK(EngineSound::PeriodToRPM(800) == 0);
+    CHECK(EngineSound::PeriodToRPM(0) == 0);
+    CHECK(EngineSound::PeriodToRPM(-5) == 0);
+}
+
+TEST_CASE("the Amiga car animations change note at the phase switch") {
+    CHECK(EngineSound::AnimationNote(605, true, false).period == 611);
+    CHECK(EngineSound::AnimationNote(605, true, true).period == 800);     // slowing to the stop: lower
+    CHECK(EngineSound::AnimationNote(605, false, false).period == 602);
+    CHECK(EngineSound::AnimationNote(605, false, true).period == 595);    // speeding away: higher
+    CHECK(EngineSound::AnimationNote(605, false, true).paulaVolume > EngineSound::AnimationNote(605, false, false).paulaVolume);
+}
+
+TEST_CASE("a parked animation car plays the race idle note, and it climbs as the car drives off") {
+    CHECK(AdlibEngine::HzForSceneTone(0) == AdlibEngine::kHzAtIdle);
+    // The top tone bends 10000, the bend of (10000 + 4500) / 3 = 4833 rpm.
+    CHECK(AdlibEngine::HzForSceneTone(20000) == AdlibEngine::HzForRpm(4833));
+    CHECK(AdlibEngine::HzForSceneTone(5000) < AdlibEngine::HzForSceneTone(20000));
 }

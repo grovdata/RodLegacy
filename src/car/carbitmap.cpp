@@ -37,14 +37,15 @@ void LoadWheelForModel(const CarModel& model, CarWheelType type, CarWheel& wheel
         return;
     }
 
-    AmigaLibAsset assetNo = CAR_TIRES_STOCK;
+    const SrGame game = GetCarSetDefs()[model.carSet].game;
+    const bool sr2 = game == SrGame::SR2;
+    AmigaLibAsset assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_STOCK : CAR_TIRES_STOCK;
     switch (type) {
-        case BRAND:  assetNo = CAR_TIRES_BRAND;  break;
-        case RACING: assetNo = CAR_TIRES_RACING; break;
-        case STOCK:
-        default:     assetNo = CAR_TIRES_STOCK;  break;
+        case BRAND:  assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_BRAND : CAR_TIRES_BRAND;   break;
+        case RACING: assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_RACING : CAR_TIRES_RACING; break;
+        default: break;
     }
-    auto* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo});
+    auto* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo, game});
     if (sheet) {
         wheel.SetSpritesheet(*static_cast<AnimatedBitmap*>(sheet), wheelSize, wheelSize);
     }
@@ -55,9 +56,11 @@ Bitmap* LoadWheelhouse(const CarModel& model, const std::vector<uint16_t>& carPa
         return state.GetAssets().GetCarSetSpriteWithPalette(
             model.carSet, SRSE_LIB2_WHEELHOUSE, carPalette);
     }
-    byte_vector& libFile = state.GetAssets().GetLibPData();
+    const SrGame game = GetCarSetDefs()[model.carSet].game;
+    byte_vector& libFile = state.GetAssets().GetLibPData(game);
+    const int id = game == SrGame::SR2 ? SR2_CAR_WHEELHOUSE : CAR_WHEELHOUSE;
     return state.GetAssets().GetBitmapAssetWithPalette(
-        libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_WHEELHOUSE}, carPalette);
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, id, game}, carPalette);
 }
 
 }
@@ -68,9 +71,18 @@ Bitmap* LoadCarModelSprite(const CarModel& model, int spriteIndex,
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
         return state.GetAssets().GetCarSetSpriteWithPalette(model.carSet, spriteIndex, carPalette);
     }
-    byte_vector& libFile = state.GetAssets().GetLibPData();
+    const SrGame from = GetCarSetDefs()[model.carSet].game;
+    byte_vector& libFile = state.GetAssets().GetLibPData(from);
     return state.GetAssets().GetBitmapAssetWithPalette(
-        libFile, {LibAssetRegular, SrLibFileAmigaLibP, (AmigaLibAsset)spriteIndex}, carPalette);
+        libFile, {LibAssetRegular, SrLibFileAmigaLibP, spriteIndex, from}, carPalette);
+}
+
+Bitmap* LoadDriverPortrait(const Driver& driver) {
+    const std::vector<CarSetDef>& defs = GetCarSetDefs();
+    const int set = (driver.driverSet >= 0 && driver.driverSet < (int)defs.size())
+                        ? driver.driverSet : kAmigaCarSet;
+    return state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP, driver.spriteIndex, defs[set].game});
 }
 
 Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
@@ -88,14 +100,15 @@ Bitmap* GetCarWheelFrame(const CarModel& model, CarWheelType type, int frame,
         return cell;
     }
 
-    AmigaLibAsset assetNo = CAR_TIRES_STOCK;
+    const SrGame game = GetCarSetDefs()[model.carSet].game;
+    const bool sr2 = game == SrGame::SR2;
+    AmigaLibAsset assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_STOCK : CAR_TIRES_STOCK;
     switch (type) {
-        case BRAND:  assetNo = CAR_TIRES_BRAND;  break;
-        case RACING: assetNo = CAR_TIRES_RACING; break;
-        case STOCK:
-        default:     assetNo = CAR_TIRES_STOCK;  break;
+        case BRAND:  assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_BRAND : CAR_TIRES_BRAND;   break;
+        case RACING: assetNo = sr2 ? (AmigaLibAsset)SR2_CAR_TIRES_RACING : CAR_TIRES_RACING; break;
+        default: break;
     }
-    Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo});
+    Bitmap* sheet = state.GetAssets().GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, assetNo, game});
     if (!sheet) return nullptr;
 
     auto* anim = dynamic_cast<AnimatedBitmap*>(sheet);
@@ -296,8 +309,7 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
             driver.LoadBitmap(driverInfo->customDriverPath);
             driver.SetVisible(true);
         } else {
-            AmigaLibAsset driverAssetNo = (AmigaLibAsset)driverInfo->spriteIndex;
-            auto* driverAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, driverAssetNo});
+            auto* driverAsset = LoadDriverPortrait(*driverInfo);
             if (driverAsset) {
                 driver = *driverAsset;
                 driver.SetVisible(true);
@@ -321,7 +333,10 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
     }
     hoodScoop.SetVisible(scoopAsset != nullptr);
 
-    auto* gasCapAsset = state.GetAssets().GetBitmapAssetWithPalette(libFile, {LibAssetRegular, SrLibFileAmigaLibP, CAR_GAS_CAP}, carPalette);
+    const SrGame capGame = GetCarSetDefs()[model.carSet].game;
+    const int capId = capGame == SrGame::SR2 ? SR2_CAR_GAS_CAP : CAR_GAS_CAP;
+    auto* gasCapAsset = state.GetAssets().GetBitmapAssetWithPalette(
+        state.GetAssets().GetLibPData(capGame), {LibAssetRegular, SrLibFileAmigaLibP, capId, capGame}, carPalette);
     if (gasCapAsset) {
         gasCap = *gasCapAsset;
         gasCap.SetVisible(false);

@@ -123,9 +123,9 @@ TEST_CASE("V8 engines: 2-brl/4-brl/dual-quad/racing manifolds fit, triple-2brl d
     }
 }
 
-TEST_CASE("V8 engines: returns exactly 4 compatible manifolds") {
+TEST_CASE("V8 engines: SR's four manifolds plus SR2's four") {
     auto m = PartsCompatibilityManager::GetCompatibleManifolds(CarEngineGM_V8_327);
-    CHECK(m.size() == 4);
+    CHECK(m.size() == 8);
     CHECK(Contains(m, MANIFOLD_2BARREL));
     CHECK(Contains(m, MANIFOLD_4BARREL));
     CHECK(Contains(m, MANIFOLD_DUAL_QUAD));
@@ -227,4 +227,32 @@ TEST_CASE("4-brl carb does not fit 2-brl or triple-2brl manifolds") {
     CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_TRIPLE_2BARREL));
 }
 
+}
+
+TEST_CASE("Sr2DriftTune: the far ends stick, the middle gets re-rolled") {
+    std::mt19937 gen(12345);
+    // A byte at either extreme can never be re-rolled: the roll that decides it cannot beat it.
+    for (int i = 0; i < 200; ++i) {
+        CHECK(Sr2DriftTune(127, gen) == 127);
+        CHECK(Sr2DriftTune(-128, gen) == -128);
+    }
+    // From zero it lands anywhere in -127..126, and one race in three leaves it at zero.
+    int stayed = 0;
+    for (int i = 0; i < 600; ++i) {
+        const int next = Sr2DriftTune(0, gen);
+        CHECK(next >= -127);
+        CHECK(next <= 126);
+        if (next == 0) ++stayed;
+    }
+    CHECK(stayed > 150);
+    CHECK(stayed < 260);
+    // Never leaves the signed range, and a small value does move.
+    int moved = 0;
+    for (int i = 0; i < 400; ++i) {
+        const int next = Sr2DriftTune(3, gen);
+        CHECK(next >= -128);
+        CHECK(next <= 127);
+        if (next != 3) ++moved;
+    }
+    CHECK(moved > 100);
 }

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include "car/engine_bay_layout.h"
 #include "gfx/animated_bitmap.h"
+#include "car/sr2_engine_bay_layout.h"
 
 const int buttonWidth = 39;
 const int buttonHeight = 9;
@@ -35,7 +36,11 @@ AmigaLibAsset ManifoldBodyAsset(ManifoldType type, CarEngine_t engine) {
         case MANIFOLD_4BARREL: return ENGINE_MANIFOLD3;
         case MANIFOLD_DUAL_QUAD: return ENGINE_MANIFOLD2;
         case MANIFOLD_TRIPLE_2BARREL: return ENGINE_MANIFOLD6;
-        case MANIFOLD_RACING: return ENGINE_MANIFOLD1;
+        case MANIFOLD_RACING:
+        case MANIFOLD_TUNNEL_RAM:
+        case MANIFOLD_DUAL_TUNNEL_RAM:
+        case MANIFOLD_FUEL_INJECTION:
+        case MANIFOLD_SUPERCHARGER: return ENGINE_MANIFOLD1;   // SR2's extra manifolds: placeholder art
     }
     return ENGINE_MANIFOLD4;
 }
@@ -767,6 +772,60 @@ void EngineBay::InitPartsDialog() {
 
 EngineBayView::EngineBayView(Car& car, State& state, std::function<void()> onClose) {
     auto& assets = state.GetAssets();
+    if (assets.GetGame() == SrGame::SR2) {
+        const std::vector<uint16_t> ramp = GetStandardCarColor(car.GetColor());
+        auto sr2 = [&assets, &ramp](int id) {
+            return assets.GetBitmapAssetWithPalette(assets.GetLibPData(SrGame::SR2),
+                                                    {LibAssetRegular, SrLibFileAmigaLibP, id, SrGame::SR2}, ramp);
+        };
+        const SDL_Rect mask = {kSr2BayOrigin.x, kSr2BayOrigin.y, kSr2BayWidth, kSr2BayClipBottom - kSr2BayOrigin.y};
+        const int carbs = car.GetCarburetorSlots();
+        const ManifoldType manifoldType = car.GetManifoldType();
+        const Sr2BayLayout lay = ComputeSr2BayLayout(static_cast<int>(car.GetEngineType()) % 3, ManifoldClass(manifoldType),
+                                                    static_cast<int>(car.GetCarburator().partType.carburetorType), carbs);
+
+        DialogConfig cfg;
+        cfg.bounds = {kSr2BayOrigin.x, kSr2BayOrigin.y, kSr2BayWidth, 171};
+        cfg.backgroundColor = {0, 0, 0, 255};
+        cfg.borderColor = {0, 0, 0, 0};
+        cfg.font = assets.GetMainFont();
+        cfg.zones = {Zone("close", "", {0, 0, GAME_WIDTH, GAME_HEIGHT})};
+        cfg.onZoneClick = [onClose](Zone&) { if (onClose) onClose(); };
+        cfg.onDismiss = onClose;
+
+        auto add = [&](const std::string& id, int asset, SDL_Point at, int z) {
+            Bitmap* bmp = sr2(asset);
+            if (!bmp) return;
+            const SDL_Rect nat = bmp->GetNaturalSize();
+            DialogBitmap db = {bmp, {at.x, at.y, nat.w, nat.h}, z};
+            ClipDialogBitmapToRect(db, mask, {at.x, at.y, nat.w, nat.h});
+            cfg.bitmaps[id] = db;
+        };
+        cfg.bitmaps["bay"] = {sr2(SR2_ENGINE_BAY), {kSr2BayOrigin.x, kSr2BayOrigin.y, kSr2BayWidth, kSr2BayHeight}, 0};
+        auto screw = [&](const std::string& id, SDL_Point anchor, int z) {
+            add(id, 6, {anchor.x, anchor.y - 1}, z);
+            if (DialogBitmap* db = &cfg.bitmaps[id]) { db->rect = {anchor.x, anchor.y - 1, 4, 2}; db->sourceRect = {0, 0, 4, 2}; }
+        };
+        if (car.HasEngine()) {
+            add("engine", lay.engine.asset, lay.engine.at, 2);
+            add("plug", 11, lay.wire, 3);
+            add("loose_wire", 7, lay.looseWire, 6);
+        }
+        if (car.HasManifold()) {
+            add("manifold", lay.manifold.asset, lay.manifold.at, 4);
+            for (size_t i = 0; i < lay.bodyScrews.size(); ++i) screw("screw_" + std::to_string(i), lay.bodyScrews[i].at, 7);
+        }
+        for (int k = 0; k < carbs && k < 3; ++k) {
+            if (!car.HasCarburetor(k) || !lay.carbs[k].present) continue;
+            add("carb_" + std::to_string(k), lay.carbs[k].asset, lay.carbs[k].at, 5 + k);
+            if (lay.airFilters[k].present) add("filter_" + std::to_string(k), lay.airFilters[k].asset, lay.airFilters[k].at, 8);
+            for (size_t j = 0; j < lay.carbScrews[k].size(); ++j) {
+                screw("screw_c" + std::to_string(k) + "_" + std::to_string(j), lay.carbScrews[k][j].at, 9);
+            }
+        }
+        dialog = std::make_unique<Dialog>(cfg);
+        return;
+    }
     auto lib = [&assets](AmigaLibAsset a) {
         return assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, a});
     };

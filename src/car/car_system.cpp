@@ -15,6 +15,10 @@ int ManifoldClass(ManifoldType type) {
         case MANIFOLD_DUAL_QUAD: return 3;
         case MANIFOLD_TRIPLE_2BARREL: return 2;
         case MANIFOLD_RACING: return 4;
+        case MANIFOLD_TUNNEL_RAM: return 5;
+        case MANIFOLD_DUAL_TUNNEL_RAM: return 6;
+        case MANIFOLD_FUEL_INJECTION: return 7;
+        case MANIFOLD_SUPERCHARGER: return 8;
     }
     return 0;
 }
@@ -25,12 +29,17 @@ ManifoldType ManifoldTypeForClass(int manifoldClass) {
         case 2: return MANIFOLD_TRIPLE_2BARREL;
         case 3: return MANIFOLD_DUAL_QUAD;
         case 4: return MANIFOLD_RACING;
+        case 5: return MANIFOLD_TUNNEL_RAM;
+        case 6: return MANIFOLD_DUAL_TUNNEL_RAM;
+        case 7: return MANIFOLD_FUEL_INJECTION;
+        case 8: return MANIFOLD_SUPERCHARGER;
         default: return MANIFOLD_2BARREL;
     }
 }
 
 int CarburetorsPerManifold(ManifoldType type) {
-    static const int kPerClass[5] = {1, 1, 3, 2, 2};
+    // SR2's table at 0x263860: injection and supercharger need no carburettor.
+    static const int kPerClass[9] = {1, 1, 3, 2, 2, 1, 2, 0, 0};
     return kPerClass[ManifoldClass(type)];
 }
 
@@ -75,9 +84,10 @@ std::vector<TransmissionType> PartsCompatibilityManager::GetCompatibleTransmissi
 
 // The original's fitment table, [engine tier][manifold class]:
 //
-//   V6      1 0 1 0 0
-//   V8      1 1 0 1 1
-//   V8 big  1 1 0 1 1     (cols: 2brl, 4brl, triple, dual quad, racing)
+//   V6      1 0 1 0 0 0 0 0 0
+//   V8      1 1 0 1 1 1 1 1 1
+//   V8 big  1 1 0 1 1 1 1 1 1     (cols: 2brl, 4brl, triple, dual quad, racing, then SR2's tunnel ram, dual tunnel
+//                                  ram, fuel injection, supercharger; SR2 data 0x3ee74)
 std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarEngine_t engine) {
     switch (engine) {
         case CarEngineGM_V6:
@@ -85,7 +95,8 @@ std::vector<ManifoldType> PartsCompatibilityManager::GetCompatibleManifolds(CarE
         case CarEngineChrysler_V6:
             return {MANIFOLD_2BARREL, MANIFOLD_TRIPLE_2BARREL};
         default: // V8s, small block and big
-            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD, MANIFOLD_RACING};
+            return {MANIFOLD_2BARREL, MANIFOLD_4BARREL, MANIFOLD_DUAL_QUAD, MANIFOLD_RACING, MANIFOLD_TUNNEL_RAM,
+                    MANIFOLD_DUAL_TUNNEL_RAM, MANIFOLD_FUEL_INJECTION, MANIFOLD_SUPERCHARGER};
     }
 }
 
@@ -107,6 +118,7 @@ std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(
 //   triple      1 0 0
 //   dual quad   0 1 1
 //   racing      0 1 1     (cols: 2brl, 4brl, racing 4brl)
+//   tunnel ram, dual tunnel ram   0 1 1;  fuel injection, supercharger   0 0 0   (SR2 data 0x3ee8f)
 std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(ManifoldType manifold) {
     switch (manifold) {
         case MANIFOLD_2BARREL:
@@ -115,8 +127,18 @@ std::vector<CarburetorType> PartsCompatibilityManager::GetCompatibleCarburetors(
         case MANIFOLD_4BARREL:
         case MANIFOLD_DUAL_QUAD:
         case MANIFOLD_RACING:
+        case MANIFOLD_TUNNEL_RAM:
+        case MANIFOLD_DUAL_TUNNEL_RAM:
             return {CARB_4BARREL, CARB_4BARREL_RACING};
-        default:
+        default: // fuel injection and supercharger take none
             return {};
     }
+}
+
+int Sr2DriftTune(int tune, std::mt19937& gen) {
+    auto rnd = [&gen](int n) { return std::uniform_int_distribution<int>(0, n - 1)(gen); };
+    if (rnd(3) <= 0) return tune;
+    if (tune > 0) return rnd(127) > tune ? rnd(127) : tune;
+    if (tune < 0) return -rnd(128) > tune ? tune : -rnd(128);
+    return rnd(254) - 127;
 }

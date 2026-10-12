@@ -41,6 +41,31 @@ enum SrLibArchive {
     SrLibArchiveSR2AmigaDisk2 = 3,
 };
 
+// Which game the assets come from.
+enum class SrGame {
+    SR1 = 0,
+    SR2 = 1,
+};
+
+struct SrGameFiles {
+    SrLibArchive disk1;
+    SrLibArchive disk2;
+    const char*  zipName;      // used when the loose ADFs are absent
+    const char*  dataFile;     // on disk 2; the only differing filename
+    const char*  displayName;
+};
+
+const SrGameFiles& SrGameGetFiles(SrGame game);
+
+// How a game is written into a save file.
+inline const char* SrGameSaveKey(SrGame game) {
+    return game == SrGame::SR2 ? "sr2" : "sr1";
+}
+inline bool SrGameSaveKeyMatches(const std::string& saved, SrGame running) {
+    // An absent key is Street Rod, which is what every save predating it is.
+    return (saved.empty() ? std::string("sr1") : saved) == SrGameSaveKey(running);
+}
+
 struct SrLibColor {
     uint8_t r;
     uint8_t g;
@@ -76,8 +101,6 @@ static const SrLibColor DOS_PALETTE[16] = {
     {0xFF, 0xFF, 0x55, 0xFF},  // 15: Yellow
 };
 
-extern const char *SrLibFileNames[];
-extern const uint32_t SrLibFileChecksums[];
 extern const char *SrLibArchiveNames[];
 extern const uint32_t SrLibArchiveChecksums[];
 
@@ -103,6 +126,10 @@ enum SrLibGameScene {
     SCENE_GAME_OVER_MENU = 10,
     SCENE_ENDING = 11,
     SCENE_INTRO = 12,
+    // Street Rod 2's Grudge Night, the Wednesday bracket meeting. Same caveat
+    // as SCENE_NAME_ENTRY - never passed to the per-scene car tables.
+    SCENE_GRUDGE_NIGHT = 13,
+    SCENE_SFX_DEBUG = 14,
 };
 
 enum SrLibCarDecal {
@@ -537,27 +564,27 @@ enum AmigaLibAsset {
     GUS_GAS_PUMP3_MASK = 339,
     GUS_GAS_SCREEN = 340,
     GUS_GAS_MASK = 341,
-    DRIVER_01 = 342,
-    DRIVER_02 = 343,
-    DRIVER_03 = 344,
-    DRIVER_04 = 345,
-    DRIVER_05 = 346,
-    DRIVER_06 = 347,
-    DRIVER_07 = 348,
-    DRIVER_08 = 349,
-    DRIVER_09 = 350,
-    DRIVER_10 = 351,
-    DRIVER_11 = 352,
-    DRIVER_12 = 353,
-    DRIVER_13 = 354,
-    DRIVER_14 = 355,
-    DRIVER_15 = 356,
-    DRIVER_16 = 357,
-    DRIVER_17 = 358,
-    DRIVER_18 = 359,
-    DRIVER_19 = 360,
-    DRIVER_20 = 361,
-    DRIVER_21 = 362,
+    DRIVER_RALPH = 342,
+    DRIVER_EDDIE = 343,
+    DRIVER_MIKE = 344,
+    DRIVER_BIFF = 345,
+    DRIVER_BUTCH = 346,
+    DRIVER_CHARLIE = 347,
+    DRIVER_JIM = 348,
+    DRIVER_STEVE = 349,
+    DRIVER_ERICA = 350,
+    DRIVER_GEORGE = 351,
+    DRIVER_TOM = 352,
+    DRIVER_CLYDE = 353,
+    DRIVER_ERNIE = 354,
+    DRIVER_KIRK = 355,
+    DRIVER_WALLY = 356,
+    DRIVER_DICK = 357,
+    DRIVER_SPIKE = 358,
+    DRIVER_CHIP = 359,
+    DRIVER_BILL = 360,
+    DRIVER_VINNIE = 361,
+    DRIVER_JOHN = 362,
     DRIVER_KINGS_GIRLFRIEND = 363,
     DRIVER_THE_KING = 364,
     GARAGE_SCREEN = 365,
@@ -572,6 +599,439 @@ enum AmigaLibAsset {
     NOTHING_3 = 373,
     PHONEBOOK_GUY = 374  // frames 10-19; PHONEBOOK_GUY_1 holds 0-9
 };
+
+// Street Rod 2's own lib.p
+enum Sr2LibAsset {
+    SR2_SPEECH_BUBBLE_ARROW_RIGHT = 0,
+    SR2_SPEECH_BUBBLE_ARROW_LEFT = 1,
+    SR2_SPEECH_BUBBLE_ARROW_LEFT_TWO_ROWS = 2,
+    SR2_CRASH_WINDOW_SMASHED = 3,
+    SR2_RACING_CRASHED_BLOOD = 4,
+    SR2_ENGINE_TRANSMISSION_BOLT = 5,
+    SR2_ENGINE_SCREW_VERTICAL = 6,
+    SR2_ENGINE_WIRE_LOOSE = 7,
+    SR2_ENGINE_V6_BLOCK = 8,
+    SR2_ENGINE_V8_BLOCK = 9,
+    SR2_ENGINE_WIRE_UNPLUGGED = 10,
+    SR2_ENGINE_WIRE_PLUGGED = 11,
+    SR2_MANIFOLD_2BARREL = 12,
+    SR2_CARB_VARIANT_13 = 13,
+    SR2_CARB_2BARREL = 14,
+    SR2_ENGINE_AIR_FILTER = 15,
+    SR2_MANIFOLD_4BARREL = 16,
+    SR2_CARB_VARIANT_17 = 17,
+    SR2_CARB_4BARREL = 18,
+    SR2_MANIFOLD_V8_2X4 = 19,
+    SR2_MANIFOLD_V6_3X2 = 20,
+    SR2_ENGINE_V8_BIG_BLOCK = 21,
+    SR2_MANIFOLD_RACING = 22,
+    SR2_CARB_VARIANT_23 = 23,
+    SR2_CARB_VARIANT_25 = 25,
+    SR2_CARB_VARIANT_26 = 26,
+    SR2_CARB_RACING_4BARREL = 27,
+    SR2_CARB_VARIANT_28 = 28,
+    SR2_MANIFOLD_DUAL_TUNNEL_RAM = 29,
+    SR2_MANIFOLD_FUEL_INJECTION = 30,
+    SR2_MANIFOLD_SUPERCHARGER = 31,
+    SR2_NEWSPAPER_FRONT = 32,
+    SR2_HEADLINE_JUDY_GARLAND_DEAD = 33,
+    SR2_HEADLINE_NASA_MONKEY_IN_SPACE = 34,
+    SR2_HEADLINE_SPACE_MONKEY_DIES = 35,
+    SR2_HEADLINE_NIXON_VIETNAM = 36,
+    SR2_HEADLINE_DDT = 37,
+    SR2_RACING_CLOUDS = 39,
+    SR2_RACING_MOUNTAINS = 40,
+    SR2_RACING_SIGN_COUNTY_LINE = 41,
+    SR2_RACING_SIGN_GARAGE = 42,
+    SR2_RACING_SIGN_GUS_GAS = 43,
+    SR2_RACING_DRIVE_IN = 44,
+    SR2_RACING_PILLAR_LOW_HOOD = 45,  // 72x82, left pillar of the cars with the low hood
+    SR2_RACING_PILLAR_TALL_HOOD = 46,  // 72x82, left pillar of the cars with body style 3
+    SR2_RACING_CEILING = 47,
+    SR2_RACING_PALM_TREE = 48,
+    SR2_RACING_ROAD_POST = 49,
+    SR2_RACING_UNKNOWN_THING2 = 50,
+    SR2_RACING_SIGN_ROAD_WORK_AHEAD = 51,
+    SR2_RACING_BUSH = 52,
+    SR2_RACING_SIGN_SPEED_LIMIT_35 = 53,
+    SR2_RACING_OBSTRUCTION = 54,
+    SR2_RACING_TELEPHONE_POLES = 55,
+    SR2_RACING_TREE1 = 56,
+    SR2_RACING_TREE2 = 57,
+    SR2_RACING_SIGN_ROUTE_69 = 58,
+    SR2_RACING_SIGN_CITY_LIMITS = 59,
+    SR2_RACING_SIGN_EXIT_48 = 60,
+    SR2_RACING_SIGN_MERGE = 61,
+    SR2_RACING_SIGN_TURN_LEFT = 62,
+    SR2_RACING_SIGN_TURN_RIGHT = 63,
+    SR2_RACING_SIGN_MULTITURN_LEFT = 64,
+    SR2_RACING_SIGN_MULTITURN_RIGHT = 65,
+    SR2_RACING_UNKNOWN_THING3 = 66,
+    SR2_RACING_REARVIEWMIRROR_FRAME = 67,
+    SR2_RACING_SIGN_TRY_VEGAS_GAMBLER = 68,
+    SR2_RACING_SIGN_PLAY_BLOCKOUT = 69,
+    SR2_INTERIOR_0 = 70,
+    SR2_RACING_GEARBOX_KNOB_3SPEED = 74,
+    SR2_RACING_GEARBOX_KNOB_4SPEED = 75,
+    SR2_RACING_GEARBOX_KNOB_AUTOMATIC = 76,
+    SR2_INTERIOR_1 = 77,
+    SR2_INTERIOR_2 = 78,
+    SR2_HAND_GRIP_LEFT = 79,
+    SR2_HAND_GRIP_RIGHT = 80,
+    SR2_ARM_LEFT = 81,
+    SR2_ARM_RIGHT = 82,
+    SR2_INTERIOR_0_WHEEL_NEUTRAL = 83,
+    SR2_INTERIOR_0_WHEEL_LEFT = 84,
+    SR2_INTERIOR_0_WHEEL_RIGHT = 85,
+    SR2_INTERIOR_0_CLOCK = 86,
+    SR2_INTERIOR_1_WHEEL_NEUTRAL = 87,
+    SR2_INTERIOR_1_WHEEL_RIGHT = 88,
+    SR2_INTERIOR_1_WHEEL_LEFT = 89,
+    SR2_INTERIOR_1_CLOCK = 90,
+    SR2_INTERIOR_2_WHEEL_NEUTRAL = 91,
+    SR2_INTERIOR_2_WHEEL_LEFT = 92,
+    SR2_INTERIOR_2_WHEEL_RIGHT = 93,
+    SR2_INTERIOR_2_CLOCK = 94,
+    SR2_HOOD_TALL = 95,  // 248x10, the cars with body style 3
+    SR2_RACING_RIGHT_HAND_SHIFTING = 96,
+    SR2_HOOD_LOW = 97,  // 248x7, every other car
+    SR2_RACING_HORIZON_1 = 98,
+    SR2_RACING_HORIZON_REARVIEWMIRROR = 99,
+    SR2_RACING_RACING_SPEEDING_TICKET = 100,
+    SR2_RACING_RACING_SPEEDING_TICKET_COP_HAND = 101,
+    SR2_NEWSPAPER_EXIT = 102,
+    SR2_RACING_UNKNOWN_THING5 = 103,
+    SR2_CALENDAR_CURRENT_DATE_RECTANGLE = 104,
+    SR2_DECALS = 105,
+    SR2_ENGINE_TRANSMISSION_WINDOW = 106,
+    SR2_ENGINE_TRANSMISSION1 = 107,
+    SR2_ENGINE_TRANSMISSION2 = 108,
+    SR2_ENGINE_TRANSMISSION3 = 109,
+    SR2_ENGINE_TRANSMISSION4 = 110,
+    SR2_CAR_WHEELHOUSE = 111,  // same 32x25 size as SR1's
+    SR2_ENGINE_BAY = 112,
+    SR2_ENGINE_BAY_CONTROLS = 113,
+    SR2_KING_STREET_RODDERS = 114,
+    SR2_ROSTER_SCREEN_CALIFORNIA_HIGHWAY_PATROL = 115,
+    SR2_ROSTER_SCREEN_BUTTON_TEMPLATE = 116,
+    SR2_ROSTER_SCREEN_BUTTON_LOAD = 117,
+    SR2_ROSTER_SCREEN_BUTTON_SAVE = 118,
+    SR2_ROSTER_SCREEN_BUTTON_FORGET_IT = 119,
+    SR2_DRIVE_IN_SCREEN = 120,
+    SR2_GUS_GAS_PUMP1 = 121,
+    SR2_GUS_GAS_PUMP_FILLING = 122,
+    SR2_CAR_GAS_CAP = 123,  // same 8x7 size as SR1's
+    SR2_GAS_STATION_CURB = 124,
+    SR2_CAR_SCOOP1 = 125,
+    SR2_CAR_SCOOP2 = 126,
+    SR2_CAR_SCOOP3 = 127,
+    SR2_CAR_SCOOP4 = 128,
+    SR2_MANIFOLD_1X4 = 129,
+    SR2_CAR_SHADOW = 130,
+    SR2_ENGINE_TUNING_MACHINE = 131,
+    SR2_DMV_SCREEN = 132,
+    SR2_CALENDAR_AUGUST_SEPTEMBER_SCREEN = 133,
+    SR2_CALENDAR_JUNE_JULY_SCREEN = 134,
+    SR2_CAR_TIRES_BRAND = 135,  // 128x31 sheets, order assumed to match SR1's brand/racing/stock
+    SR2_CAR_TIRES_RACING = 136,
+    SR2_CAR_TIRES_STOCK = 137,
+    SR2_DRIVE_IN_WAITRESS_MASK = 138,
+    SR2_DINER_WAITRESS_ANIM_LEFT = 139,
+    SR2_DINER_WAITRESS_ANIM_RIGHT = 140,
+    SR2_GAS_STATION_ATTENDANT_ANIMATION = 141,
+    SR2_GAS_STATION_SCREEN = 142,
+    SR2_GAS_STATION_PUMP_MASK = 143,   // 240x87, 1 bit: the two pumps and the bush, drawn over the car
+    SR2_GARAGE_SCREEN = 144,
+    SR2_CAR_JACK = 145,
+    SR2_JAIL_MASK = 146,
+    SR2_JAIL = 147,
+    SR2_GAS_STATION_PUMP_HOSES = 151,   // 32x60: two 16x60 halves, the hoses and nozzle holders patched onto the background
+    SR2_HEADLINE_SOVIETS_FIRST_STRIKE = 152,
+    SR2_HEADLINE_GREEN_BERET_SAIGON = 153,
+    SR2_HEADLINE_NIXON_VISITS = 154,
+    SR2_HEADLINE_KENNEDY_CAR_ACCIDENT = 155,
+    SR2_HEADLINE_WOODSTOCK = 156,
+    SR2_HEADLINE_PLANE_HIJACKED = 157,
+    SR2_HEADLINE_KHADAFY = 158,
+    SR2_DRIVER_PHIL = 159,
+    SR2_DRIVER_JOHN = 160,
+    SR2_DRIVER_CHRIS = 161,
+    SR2_DRIVER_PATTY = 162,
+    SR2_DRIVER_EDGAR = 163,
+    SR2_DRIVER_FRANK = 164,
+    SR2_DRIVER_JILL = 165,
+    SR2_DRIVER_TOM = 166,
+    SR2_DRIVER_LAWRENCE = 167,
+    SR2_DRIVER_WILLIAM = 168,
+    SR2_DRIVER_RON = 169,
+    SR2_DRIVER_RICHARD = 170,
+    SR2_DRIVER_ROBERT = 171,
+    SR2_DRIVER_JUAN = 172,
+    SR2_DRIVER_WENDELL = 173,
+    SR2_DRIVER_MITCH = 174,
+    SR2_DRIVER_SAM = 175,
+    SR2_DRIVER_PHYLLIS = 176,
+    SR2_DRIVER_BETTY = 177,
+    SR2_DRIVER_BARBARA = 178,
+    SR2_DRIVER_ANDY = 179,
+    SR2_DRIVER_KING = 180,
+    SR2_CAMARO = 225,
+    SR2_CAMARO_ROOF = 226,
+    SR2_KING_SHELBY_500 = 263,
+    SR2_UNDER_CAR_CREEPER = 264,
+    SR2_UNDER_CAR_WINDOW = 265,
+    // One sprite per class, in class order; the catalogue's part type id is
+    // the one based lib.p id of its sprite.
+    SR2_UNDER_CAR_DIFFERENTIAL = 266,
+    SR2_UNDER_CAR_EXHAUST = 269,
+    SR2_UNDER_CAR_MUFFLER = 271,
+    SR2_UNDER_CAR_NO_MUFFLER = 273,
+    // The Aqueduct's backdrop and channel objects (aqushape.c).
+    SR2_AQUEDUCT_CLOUD_WIDE = 274,  // the 85x12 one, record 0
+    SR2_AQUEDUCT_CLOUD_SMALL = 275,  // record 1, drawn twice
+    // The obstacle ladder, one rung every two rows: 40 px nearest down to 6 px
+    // at the horizon. Records 2..8.
+    SR2_AQUEDUCT_ROCK_NEAREST = 276,
+    SR2_AQUEDUCT_ROCK_FARTHEST = 282,
+    // jlights.c.
+    SR2_FLAG_GIRL_TORSO = 289,  // 48x82, the clean torso strip
+    SR2_FLAG_GIRL_HAND = 290,  // 144x82: three 48x82 arm frames, red / amber / green
+    SR2_DRAG_TREE = 291,  // 184x87, the drag race tree at three distances
+    SR2_FLAG_GIRL_BEHIND_1 = 292,
+    SR2_FLAG_GIRL_BEHIND_2 = 293,
+    SR2_FLAG_GIRL_BEHIND_3 = 294,
+    SR2_FLAG_GIRL_BEHIND_4 = 295,
+    SR2_OIL_SPILL = 296,
+    // lgrudge.c loads this one as asset 298 and draws it at.
+    SR2_GRUDGE_BANNER = 297,
+    SR2_RACING_OPPONENT_CAR_COP_FRONT_SIDE = 298,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_SIDE = 299,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_1 = 300,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_2 = 301,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_3 = 302,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_4 = 303,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_5 = 304,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_6 = 305,
+    SR2_RACING_OPPONENT_CAR_COP_REAR_7 = 306,
+    SR2_RACING_OPPONENT_CAR_COP_BEHIND_1 = 307,
+    SR2_RACING_OPPONENT_CAR_COP_BEHIND_2 = 308,
+    SR2_RACING_OPPONENT_CAR_COP_BEHIND_3 = 309,
+    SR2_RACING_OPPONENT_CAR_COP_BEHIND_4 = 310,
+    // Opponent car blocks by body style (SR2_data +660 byte 0; the King is style 0), 16 assets each: front-side,
+    // rear-side, seven close rear frames turning left to right (REAR_4 is straight, the one the race uses), seven
+    // small ones (FAR_4 is the one the race uses).
+    SR2_RACING_OPPONENT_STYLE1_FRONT_SIDE = 311,
+    SR2_RACING_OPPONENT_STYLE1_REAR_SIDE = 312,
+    SR2_RACING_OPPONENT_STYLE1_REAR_1 = 313,
+    SR2_RACING_OPPONENT_STYLE1_REAR_2 = 314,
+    SR2_RACING_OPPONENT_STYLE1_REAR_3 = 315,
+    SR2_RACING_OPPONENT_STYLE1_REAR_4 = 316,
+    SR2_RACING_OPPONENT_STYLE1_REAR_5 = 317,
+    SR2_RACING_OPPONENT_STYLE1_REAR_6 = 318,
+    SR2_RACING_OPPONENT_STYLE1_REAR_7 = 319,
+    SR2_RACING_OPPONENT_STYLE1_FAR_1 = 320,
+    SR2_RACING_OPPONENT_STYLE1_FAR_2 = 321,
+    SR2_RACING_OPPONENT_STYLE1_FAR_3 = 322,
+    SR2_RACING_OPPONENT_STYLE1_FAR_4 = 323,
+    SR2_RACING_OPPONENT_STYLE1_FAR_5 = 324,
+    SR2_RACING_OPPONENT_STYLE1_FAR_6 = 325,
+    SR2_RACING_OPPONENT_STYLE1_FAR_7 = 326,
+    SR2_RACING_OPPONENT_STYLE2_FRONT_SIDE = 327,
+    SR2_RACING_OPPONENT_STYLE2_REAR_SIDE = 328,
+    SR2_RACING_OPPONENT_STYLE2_REAR_1 = 329,
+    SR2_RACING_OPPONENT_STYLE2_REAR_2 = 330,
+    SR2_RACING_OPPONENT_STYLE2_REAR_3 = 331,
+    SR2_RACING_OPPONENT_STYLE2_REAR_4 = 332,
+    SR2_RACING_OPPONENT_STYLE2_REAR_5 = 333,
+    SR2_RACING_OPPONENT_STYLE2_REAR_6 = 334,
+    SR2_RACING_OPPONENT_STYLE2_REAR_7 = 335,
+    SR2_RACING_OPPONENT_STYLE2_FAR_1 = 336,
+    SR2_RACING_OPPONENT_STYLE2_FAR_2 = 337,
+    SR2_RACING_OPPONENT_STYLE2_FAR_3 = 338,
+    SR2_RACING_OPPONENT_STYLE2_FAR_4 = 339,
+    SR2_RACING_OPPONENT_STYLE2_FAR_5 = 340,
+    SR2_RACING_OPPONENT_STYLE2_FAR_6 = 341,
+    SR2_RACING_OPPONENT_STYLE2_FAR_7 = 342,
+    SR2_RACING_OPPONENT_STYLE3_FRONT_SIDE = 343,
+    SR2_RACING_OPPONENT_STYLE3_REAR_SIDE = 344,
+    SR2_RACING_OPPONENT_STYLE3_REAR_1 = 345,
+    SR2_RACING_OPPONENT_STYLE3_REAR_2 = 346,
+    SR2_RACING_OPPONENT_STYLE3_REAR_3 = 347,
+    SR2_RACING_OPPONENT_STYLE3_REAR_4 = 348,
+    SR2_RACING_OPPONENT_STYLE3_REAR_5 = 349,
+    SR2_RACING_OPPONENT_STYLE3_REAR_6 = 350,
+    SR2_RACING_OPPONENT_STYLE3_REAR_7 = 351,
+    SR2_RACING_OPPONENT_STYLE3_FAR_1 = 352,
+    SR2_RACING_OPPONENT_STYLE3_FAR_2 = 353,
+    SR2_RACING_OPPONENT_STYLE3_FAR_3 = 354,
+    SR2_RACING_OPPONENT_STYLE3_FAR_4 = 355,
+    SR2_RACING_OPPONENT_STYLE3_FAR_5 = 356,
+    SR2_RACING_OPPONENT_STYLE3_FAR_6 = 357,
+    SR2_RACING_OPPONENT_STYLE3_FAR_7 = 358,
+    SR2_RACING_OPPONENT_STYLE4_FRONT_SIDE = 359,
+    SR2_RACING_OPPONENT_STYLE4_REAR_SIDE = 360,
+    SR2_RACING_OPPONENT_STYLE4_REAR_1 = 361,
+    SR2_RACING_OPPONENT_STYLE4_REAR_2 = 362,
+    SR2_RACING_OPPONENT_STYLE4_REAR_3 = 363,
+    SR2_RACING_OPPONENT_STYLE4_REAR_4 = 364,
+    SR2_RACING_OPPONENT_STYLE4_REAR_5 = 365,
+    SR2_RACING_OPPONENT_STYLE4_REAR_6 = 366,
+    SR2_RACING_OPPONENT_STYLE4_REAR_7 = 367,
+    SR2_RACING_OPPONENT_STYLE4_FAR_1 = 368,
+    SR2_RACING_OPPONENT_STYLE4_FAR_2 = 369,
+    SR2_RACING_OPPONENT_STYLE4_FAR_3 = 370,
+    SR2_RACING_OPPONENT_STYLE4_FAR_4 = 371,
+    SR2_RACING_OPPONENT_STYLE4_FAR_5 = 372,
+    SR2_RACING_OPPONENT_STYLE4_FAR_6 = 373,
+    SR2_RACING_OPPONENT_STYLE4_FAR_7 = 374,
+    SR2_RACING_OPPONENT_KING_FRONT_SIDE = 375,
+    SR2_RACING_OPPONENT_KING_REAR_SIDE = 376,
+    SR2_RACING_OPPONENT_KING_REAR_1 = 377,
+    SR2_RACING_OPPONENT_KING_REAR_2 = 378,
+    SR2_RACING_OPPONENT_KING_REAR_3 = 379,
+    SR2_RACING_OPPONENT_KING_REAR_4 = 380,
+    SR2_RACING_OPPONENT_KING_REAR_5 = 381,
+    SR2_RACING_OPPONENT_KING_REAR_6 = 382,
+    SR2_RACING_OPPONENT_KING_REAR_7 = 383,
+    SR2_RACING_OPPONENT_KING_FAR_1 = 384,
+    SR2_RACING_OPPONENT_KING_FAR_2 = 385,
+    SR2_RACING_OPPONENT_KING_FAR_3 = 386,
+    SR2_RACING_OPPONENT_KING_FAR_4 = 387,
+    SR2_RACING_OPPONENT_KING_FAR_5 = 388,
+    SR2_RACING_OPPONENT_KING_FAR_6 = 389,
+    SR2_RACING_OPPONENT_KING_FAR_7 = 390,
+    // The 22 cars' body art, in SR2_data order: body, chopped roof, rear and front bumper with the stock one
+    // painted in the body (a car without a variant has none). Scoops are shared, 125-128. The Camaro and the King
+    // are named above.
+    SR2_CAR_FORD_VICTORIA_1951 = 181,
+    SR2_CAR_FORD_VICTORIA_1951_ROOF = 182,
+    SR2_CAR_FORD_VICTORIA_1951_REAR_BUMPER = 183,
+    SR2_CAR_FORD_VICTORIA_1951_FRONT_BUMPER = 184,
+    SR2_CAR_FORD_FALCON_1963 = 185,
+    SR2_CAR_FORD_FALCON_1963_ROOF = 186,
+    SR2_CAR_FORD_FALCON_1963_REAR_BUMPER = 187,
+    SR2_CAR_FORD_FALCON_1963_FRONT_BUMPER = 188,
+    SR2_CAR_FORD_GALAXIE_1966 = 189,
+    SR2_CAR_FORD_GALAXIE_1966_ROOF = 190,
+    SR2_CAR_FORD_GALAXIE_1966_REAR_BUMPER = 191,
+    SR2_CAR_FORD_GALAXIE_1966_FRONT_BUMPER = 192,
+    SR2_CAR_FORD_MUSTANG_1965 = 193,
+    SR2_CAR_FORD_MUSTANG_1965_ROOF = 194,
+    SR2_CAR_FORD_MUSTANG_1965_REAR_BUMPER = 195,
+    SR2_CAR_FORD_MUSTANG_1965_FRONT_BUMPER = 196,
+    SR2_CAR_FORD_FAIRLANE_1964 = 197,
+    SR2_CAR_FORD_FAIRLANE_1964_ROOF = 198,
+    SR2_CAR_FORD_FAIRLANE_1964_REAR_BUMPER = 199,
+    SR2_CAR_FORD_FAIRLANE_1964_FRONT_BUMPER = 200,
+    SR2_CAR_FORD_TORINO_1968 = 201,
+    SR2_CAR_FORD_TORINO_1968_ROOF = 202,
+    SR2_CAR_FORD_TORINO_1968_REAR_BUMPER = 203,
+    SR2_CAR_FORD_TORINO_1968_FRONT_BUMPER = 204,
+    SR2_CAR_SHELBY_GT500_1969 = 205,
+    SR2_CAR_SHELBY_GT500_1969_ROOF = 206,
+    SR2_CAR_SHELBY_GT500_1969_REAR_BUMPER = 207,
+    SR2_CAR_SHELBY_GT500_1969_FRONT_BUMPER = 208,
+    SR2_CAR_MERCURY_MONTEREY_1960 = 209,
+    SR2_CAR_MERCURY_MONTEREY_1960_ROOF = 210,
+    SR2_CAR_MERCURY_MONTEREY_1960_REAR_BUMPER = 211,
+    SR2_CAR_MERCURY_MONTEREY_1960_FRONT_BUMPER = 212,
+    SR2_CAR_MERCURY_COUGAR_1967 = 213,
+    SR2_CAR_MERCURY_COUGAR_1967_ROOF = 214,
+    SR2_CAR_MERCURY_COUGAR_1967_REAR_BUMPER = 215,
+    SR2_CAR_MERCURY_COUGAR_1967_FRONT_BUMPER = 216,
+    SR2_CAR_FORD_THUNDERBIRD_1961 = 217,
+    SR2_CAR_FORD_THUNDERBIRD_1961_ROOF = 218,
+    SR2_CAR_FORD_THUNDERBIRD_1961_REAR_BUMPER = 219,
+    SR2_CAR_FORD_THUNDERBIRD_1961_FRONT_BUMPER = 220,
+    SR2_CAR_CORVETTE_1963 = 221,
+    SR2_CAR_CORVETTE_1963_ROOF_UNUSED = 222,  // 96x14, its sprite ref names no roof; could back a roof chop
+    SR2_CAR_CORVETTE_1963_REAR_BUMPER = 223,
+    SR2_CAR_CORVETTE_1963_FRONT_BUMPER = 224,
+    SR2_CAR_CORVETTE_1968 = 229,
+    SR2_CAR_CORVETTE_1968_ROOF = 230,
+    SR2_CAR_CORVETTE_1968_REAR_BUMPER = 231,
+    SR2_CAR_CHEVELLE_SS_1968 = 232,
+    SR2_CAR_CHEVELLE_SS_1968_ROOF = 233,
+    SR2_CAR_CHEVELLE_SS_1968_REAR_BUMPER = 234,
+    SR2_CAR_CHEVELLE_SS_1968_FRONT_BUMPER = 235,
+    SR2_CAR_PONTIAC_FIREBIRD_1969 = 236,
+    SR2_CAR_PONTIAC_FIREBIRD_1969_ROOF = 237,
+    SR2_CAR_PONTIAC_FIREBIRD_1969_REAR_BUMPER = 238,
+    SR2_CAR_PONTIAC_GTO_1966 = 239,
+    SR2_CAR_PONTIAC_GTO_1966_ROOF = 240,
+    SR2_CAR_PONTIAC_GTO_1966_REAR_BUMPER = 241,
+    SR2_CAR_PONTIAC_GTO_1966_FRONT_BUMPER = 242,
+    SR2_CAR_OLDSMOBILE_442_1966 = 243,
+    SR2_CAR_OLDSMOBILE_442_1966_ROOF = 244,
+    SR2_CAR_OLDSMOBILE_442_1966_REAR_BUMPER = 245,
+    SR2_CAR_OLDSMOBILE_442_1966_FRONT_BUMPER = 246,
+    SR2_CAR_PLYMOUTH_BELVEDERE_1958 = 247,
+    SR2_CAR_PLYMOUTH_BELVEDERE_1958_ROOF = 248,
+    SR2_CAR_PLYMOUTH_BELVEDERE_1958_REAR_BUMPER = 249,
+    SR2_CAR_PLYMOUTH_BELVEDERE_1958_FRONT_BUMPER = 250,
+    SR2_CAR_PLYMOUTH_FURY_1962 = 251,
+    SR2_CAR_PLYMOUTH_FURY_1962_ROOF = 252,
+    SR2_CAR_PLYMOUTH_FURY_1962_REAR_BUMPER = 253,
+    SR2_CAR_PLYMOUTH_FURY_1962_FRONT_BUMPER = 254,
+    SR2_CAR_CHRYSLER_IMPERIAL_1961 = 255,
+    SR2_CAR_CHRYSLER_IMPERIAL_1961_ROOF = 256,
+    SR2_CAR_CHRYSLER_IMPERIAL_1961_REAR_BUMPER = 257,
+    SR2_CAR_CHRYSLER_IMPERIAL_1961_FRONT_BUMPER = 258,
+    SR2_CAR_DODGE_CHARGER_1966 = 259,
+    SR2_CAR_DODGE_CHARGER_1966_ROOF = 260,
+    SR2_CAR_DODGE_CHARGER_1966_REAR_BUMPER = 261,
+    SR2_CAR_DODGE_CHARGER_1966_FRONT_BUMPER = 262,
+    SR2_CAMARO_REAR_BUMPER = 227,
+    SR2_CAMARO_FRONT_BUMPER = 228,
+    // Smaller gaps.
+    SR2_ENGINE_BAY_PART_24 = 24,  // 48x38 round air cleaner, not placed by the bay layout
+    SR2_HOOD_STYLE0 = 38,  // 248x7, the hood table's first entry (style 0, the King); nothing reaches it, the game ends when he is beaten
+    SR2_RACING_SHIFTER_PLATE_AUTOMATIC = 71,  // 48x39, dash plates under the knob
+    SR2_RACING_SHIFTER_PLATE_3SPEED = 72,
+    SR2_RACING_SHIFTER_PLATE_4SPEED = 73,
+    SR2_BLANK_8X2_1 = 148,  // black 8x2, nothing draws them
+    SR2_BLANK_8X2_2 = 149,
+    SR2_BLANK_8X2_3 = 150,
+    SR2_UNDER_CAR_DIFFERENTIAL_2 = 267,
+    SR2_UNDER_CAR_DIFFERENTIAL_3 = 268,
+    SR2_UNDER_CAR_EXHAUST_2 = 270,
+    SR2_UNDER_CAR_MUFFLER_2 = 272,
+    SR2_AQUEDUCT_ROCK_2 = 277,  // the rungs between NEAREST and FARTHEST
+    SR2_AQUEDUCT_ROCK_3 = 278,
+    SR2_AQUEDUCT_ROCK_4 = 279,
+    SR2_AQUEDUCT_ROCK_5 = 280,
+    SR2_AQUEDUCT_ROCK_6 = 281,
+    // tshape.c shapes (one based 284, 285, 287, 288 in its table).
+    SR2_ROAD_HAZARD_ROCKS = 283,  // 24x21, tshape entry 7: ends the race above 30 mph
+    SR2_ROAD_ROCK_PILE = 284,     // 32x23
+    SR2_MULHOLLAND_BACKGROUND = 285,  // 320x118, the Mulholland race background
+    SR2_ROAD_BUSH = 286,          // 56x39
+    SR2_ROAD_TREE = 287,          // 40x65
+    SR2_MULHOLLAND_REARVIEW = 288,    // 80x21, probably the Mulholland rearview mirror picture (unverified)
+};
+
+// SR2's three dashboards: the art, the steering wheel overlays, the clock that replaces the tachometer in an
+// automatic, and where they sit in the dashboard bitmap. The row order is the game's own table at 0x26271e.
+struct Sr2Interior {
+    int dashboard;
+    int wheelLeft, wheelNeutral, wheelRight;
+    int clock;
+    int clockX, clockY;
+};
+constexpr int SR2_WHEEL_X = 72;   // the wheel overlay sits at the same place on all three
+constexpr int SR2_WHEEL_Y = 60;
+constexpr Sr2Interior kSr2Interiors[3] = {
+    {SR2_INTERIOR_0, SR2_INTERIOR_0_WHEEL_LEFT, SR2_INTERIOR_0_WHEEL_NEUTRAL, SR2_INTERIOR_0_WHEEL_RIGHT,
+     SR2_INTERIOR_0_CLOCK, 104, 36},
+    {SR2_INTERIOR_1, SR2_INTERIOR_1_WHEEL_LEFT, SR2_INTERIOR_1_WHEEL_NEUTRAL, SR2_INTERIOR_1_WHEEL_RIGHT,
+     SR2_INTERIOR_1_CLOCK, 200, 29},
+    {SR2_INTERIOR_2, SR2_INTERIOR_2_WHEEL_LEFT, SR2_INTERIOR_2_WHEEL_NEUTRAL, SR2_INTERIOR_2_WHEEL_RIGHT,
+     SR2_INTERIOR_2_CLOCK, 184, 15},
+};
+
+// Everything in SR2's driving range shares one palette, so code that plots raw colour indices.
+constexpr int SR2_DRIVING_PALETTE_ASSET = SR2_AQUEDUCT_CLOUD_WIDE;
+
 
 enum DosLib1Asset {
     DOS_LIB1_TITLE_SCREEN = 0,
@@ -989,6 +1449,10 @@ static const SpriteRect RACING_LIGHT_FRAMES[] = {
     {24, 0, 24, 32}, {0, 0, 24, 32}
 };
 
+static const SpriteRect SR2_FLAG_GIRL_ANIMATION[] = {
+    {0, 0, 47, 82}, {48, 0, 41, 82}, {96, 0, 43, 82}
+};
+
 // Frames are packed at their own size with no gutter; slack sits at the sheet's right edge. The original picks
 //
 //     srcX = (counter & 3) * w        srcY = row ? h : 0
@@ -1109,9 +1573,13 @@ constexpr uint16_t SRL0_ENGINE_START_PERIOD = 325;    // Amiga period (3579545 /
 constexpr uint32_t SRL0_ENGINE_START_LENGTH = 7827;  // Length in bytes
 constexpr uint32_t SRL0_ENGINE_START_RATE = 11025;  // Sample rate in Hz
 
-constexpr uint32_t SRL0_TIRE_SCREECH_OFFSET = 0x1E93;  // Offset in bytes
-constexpr uint32_t SRL0_TIRE_SCREECH_LENGTH = 4910;  // Length in bytes
-constexpr uint32_t SRL0_TIRE_SCREECH_RATE = 11025;  // Sample rate in Hz
+// Read off the binary (SR1 0x228932, SR2 0x22c2c2): period 220 + rand() % 30 on every trigger, vol 0x30.
+constexpr uint32_t SRL0_TIRE_SCREECH_OFFSET = 0x1D08;
+constexpr uint32_t SRL0_TIRE_SCREECH_LENGTH = 0x1000;
+constexpr uint16_t SRL0_TIRE_SCREECH_PERIOD_BASE = 220;
+constexpr uint16_t SRL0_TIRE_SCREECH_PERIOD_SPREAD = 30;
+constexpr int SRL0_TIRE_SCREECH_VOLUME = 0x30;
+constexpr uint32_t SRL0_TIRE_SCREECH_RATE = 3579545u / SRL0_TIRE_SCREECH_PERIOD_BASE;
 
 constexpr uint32_t SRL0_HONK_OFFSET = 0x31C1;  // Offset in bytes
 constexpr uint32_t SRL0_HONK_LENGTH = 1718;  // Length in bytes
@@ -1193,6 +1661,23 @@ constexpr uint16_t SRL0_PART_MOUNT_PERIOD_HIGH = 820; // 600 + 0xdc, the second 
 constexpr uint16_t SRL0_PART_MOUNT_PERIOD_SPREAD = 50;
 constexpr int SRL0_PART_MOUNT_VOLUME_LOW = 60;        // the 620..669 roll
 constexpr int SRL0_PART_MOUNT_VOLUME_HIGH = 40;       // the 820..869 roll
+
+// Street Rod 2 bay sounds (srl0.wave 0x60f4, 0xc80 bytes): the screw click, the ratchet and the part-slide hiss,
+// each with a fresh random period. Periods are the original's `param + const` after the roll.
+constexpr uint32_t SRL0_HISS_OFFSET = 0x60F4;
+constexpr uint32_t SRL0_HISS_LENGTH = 0x0C80;
+constexpr uint32_t SRL0_HISS_RATE = 11186;
+
+// Street Rod 2 tire change (read live in Copperline): the racing loop at periods 3550 and 3650, volume 0x1c, runs
+// while a wheel rolls. The jack's cranks are the 0x60f4 sample at volume 0x34, periods 390 down to 366 in steps of 4
+// going up and 362 up to 386 going down.
+constexpr uint16_t SRL0_TIRE_ROLL_PERIOD_LEFT = 3550;
+constexpr uint16_t SRL0_TIRE_ROLL_PERIOD_RIGHT = 3650;
+constexpr int SRL0_TIRE_ROLL_VOLUME = 0x1c;
+constexpr int SR2_JACK_CRANK_VOLUME = 0x34;
+constexpr int SR2_JACK_UP_PERIOD = 390;
+constexpr int SR2_JACK_DOWN_PERIOD = 362;
+constexpr int SR2_JACK_PERIOD_STEP = 4;
 
 constexpr uint32_t SRL0_CAR_JACK_OFFSET = 0x5DCA;  // Offset in bytes
 constexpr uint32_t SRL0_CAR_JACK_LENGTH = 3972;  // Length in bytes
@@ -1438,6 +1923,7 @@ static const int kCarIndex[] = {
 #define CAR_INDEX_COUNT CAR_PLAYER_MODEL_COUNT
 #define CAR_PLAYER_MODEL_COUNT 25
 #define DRIVER_COUNT 22
+static constexpr int DRIVER_FIRST = DRIVER_RALPH;
 
 class VectorReader {
 private:
@@ -1522,7 +2008,7 @@ class BitmapParser {
 
     std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::vector<uint8_t>& data);
 	std::pair<int, std::vector<BitmapEntry_t>>                ReadEntries(const std::string& filename);
-    std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1);
+    std::vector<SrLibColor>                                   PlanarToChunky(const std::vector<uint8_t>& data, BitmapEntry_t entry, const Palette& palette, const Palette& carPalette = {}, int assetIndex = -1, SrGame game = SrGame::SR1);
     // Raw palette indices, for images whose colours change after decode.
     std::vector<uint8_t>                                 PlanarToIndices(const std::vector<uint8_t>& data, BitmapEntry_t entry);
     std::vector<uint8_t>                                 ChunkyToPlanar(const std::vector<SrLibColor>& pixels, BitmapEntry_t entry, const Palette& palette, std::string* error = nullptr);
@@ -1538,13 +2024,15 @@ class BitmapParser {
     Palette                                         PreparePalette(const std::vector<uint16_t>& palette, bool ehb);
     Palette                                         PrepareCarPalette(const std::vector<uint16_t>& palette);
     static SrLibColor                                    GetRGBFromRGB4(uint16_t rgb4);
-    std::vector<uint16_t>                                GetPalette(SrLibFile location, int index);
+    // Both games ship a file called lib.p.
+    std::vector<uint16_t>                                GetPalette(SrLibFile location, int index, SrGame game = SrGame::SR1,
+                                                                    const std::vector<std::vector<uint16_t>>& gamePalettes = {});
     static std::vector<uint16_t>                         GetStockPalette(StockPalette palette);
-    LibAssetType                                    GetAssetType(SrLibFile location, int index);
+    LibAssetType                                    GetAssetType(SrLibFile location, int index, SrGame game = SrGame::SR1);
     // True when colour 0 (black) is drawn rather than keyed out - see .cpp.
-    bool                                            LoadsOpaque(SrLibFile location, int index);
+    bool                                            LoadsOpaque(SrLibFile location, int index, SrGame game = SrGame::SR1);
 
-    std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index);
+    std::pair<int, int>                                  GetSpritesheetInfo(SrLibFile location, int index, SrGame game = SrGame::SR1);
     void                                            SavePaletteToPNG(const Palette& palette, const std::string& filename);
 
     std::pair<int, std::vector<DOSBitmapEntry_t>>   ReadEntriesDOS(const std::vector<uint8_t>& data);
@@ -1613,12 +2101,124 @@ enum SrTransmissionType {
 // 22 entries x 10 bytes, identical layout in DOS HOT_DATA and Amiga SR_data.
 static constexpr int SR_DATA_DRIVER_ENTRY_COUNT  = 22;
 static constexpr int SR_DATA_CARSPEC_ENTRY_COUNT = 26; // 25 regular + King at index 25
+static constexpr int SR_DATA_CARSPEC_RECORD_SIZE = 14;
+
+// Street Rod 2's three extra slots, as its config word encodes them.
+enum SrExhaustManifold { SR_EXHAUST_STOCK = 0, SR_EXHAUST_HEADERS = 1 };
+enum SrMuffler         { SR_MUFFLER_STOCK = 0, SR_MUFFLER_GLASSPACK = 1 };
+enum SrDifferential    { SR_DIFF_2_78 = 0, SR_DIFF_3_73 = 1, SR_DIFF_4_11 = 2 };
 static constexpr int SR_DATA_KING_DRIVER_INDEX   = 21; // entry 21 = The King
 // The records store absolute addresses, so the load base is recovered from the first car spec's pointer.
 static constexpr int SR_DATA_TEXT_BLOB_OFFSET    = 0x854;
+
+// SR2_data holds the same blocks in the same order, but with 22 cars instead of 26 and a 20-byte car spec
+// record instead of 14.
+static constexpr int SR2_DATA_DRIVER_ENTRY_COUNT  = 22;
+static constexpr int SR2_DATA_CARSPEC_ENTRY_COUNT = 22;  // 21 buyable + King at 21
+static constexpr int SR2_DATA_CARSPEC_RECORD_SIZE = 20;
+static constexpr int SR2_DATA_TEXT_BLOB_OFFSET    = 2268;
+static constexpr int SR2_DATA_CAR_SPRITES_START   = 660;
+static constexpr int SR2_DATA_OFFSETS_START       = 880;
+static constexpr int SR2_DATA_CLICKBOX_START      = 1144;
+static constexpr int SR2_DATA_STRING_TABLE_START  = 1644;
+
+// Street Rod 2 keeps tables the port needs in its executable rather than in a data file.
+static constexpr uint32_t SR2_EXE_RUNTIME_TO_FILE = 0x222DE4;
+inline size_t Sr2ExeOffset(uint32_t runtimeAddr) {
+    return static_cast<size_t>(runtimeAddr - SR2_EXE_RUNTIME_TO_FILE);
+}
+
+// Nine 32-word Amiga 12-bit palettes laid end to end, followed by 14 car colour ramps of 9 words.
+static constexpr uint32_t SR2_PALETTE_ADDR     = 0x0025F6E8;
+static constexpr size_t SR2_EXE_PALETTE_OFFSET = SR2_PALETTE_ADDR - SR2_EXE_RUNTIME_TO_FILE;
+static constexpr int    SR2_PALETTE_COUNT      = 9;
+static constexpr int    SR2_PALETTE_SIZE       = 32;
+
+// The parts catalogue: 64 records of 16 bytes then a zero terminator.
+static constexpr uint32_t SR2_PARTS_CATALOG_ADDR  = 0x0026182C;
+static constexpr int      SR2_PARTS_CATALOG_COUNT = 64;
+// The ad strings live in a different hunk, so they need their own base: the
+// stored pointer is an offset within it, relocated by the Amiga loader.
+static constexpr size_t   SR2_EXE_PART_TEXT_BASE  = 0xE194;
+
+// Which slot a catalogue record fills. Records are grouped in this order.
+enum Sr2PartGroup {
+    Sr2PartGroupEngine           = 0,
+    Sr2PartGroupTransmission     = 1,
+    Sr2PartGroupCarburettor      = 2,
+    Sr2PartGroupIntakeManifold   = 3,
+    Sr2PartGroupTires            = 4,
+    Sr2PartGroupExhaustManifold  = 5,   // new in Street Rod 2
+    Sr2PartGroupMuffler          = 6,   // new in Street Rod 2
+    Sr2PartGroupDifferential     = 7,   // new in Street Rod 2
+    Sr2PartGroupCount            = 8,
+};
+
+struct Sr2PartEntry {
+    int price      = 0;   // dollars; also the figure in the ad text
+    int configBits = 0;   // pre-shifted, so a car's config word is the OR of its parts
+    int typeId     = 0;   // 0x10b..0x111 are the three new slots
+    int fitMask    = 0;   // 1 = GM, 2 = Ford, 4 = Chrysler, 7 = fits all
+    int group      = 0;   // Sr2PartGroup
+    int adLayout   = 0;   // 1 or 2
+    std::string ad;       // classified-ad text
+};
+
+// The catalogue, in file order, or empty when the executable does not hold it
+// where expected.
+std::vector<Sr2PartEntry> SrLibReadSr2Parts(const std::vector<uint8_t>& sr2ExeData);
+
+// The tables lmech.c scores a car and builds its physics from.
+struct Sr2MechTables {
+    bool valid = false;
+    int rpmGain[3][5]       = {};  // per engine class, per gear
+    int gearRatio[4][5]     = {};  // per transmission class, per gear, percent
+    int powerBand[3][2]     = {};  // lower/upper rpm per engine class
+    int redline[3]          = {};
+    int gearCount[4]        = {};
+    int tireGrip[3]         = {};
+    int tierScore[9]        = {};  // by the car's class byte 0..8
+    int engineScore[3]      = {};
+    int transScore[4]       = {};
+    int manifoldScore[3][9] = {};  // per carburettor class, per manifold class
+};
+Sr2MechTables SrLibReadSr2MechTables(const std::vector<uint8_t>& sr2ExeData);
+
+// Reads them out of a loaded Street Rod 2 executable.
+std::vector<std::vector<uint16_t>> SrLibReadSr2Palettes(const std::vector<uint8_t>& sr2ExeData);
+
+// Street Rod 2's message table: 122 records of 10 bytes at runtime 0x25e2de, a u16 box style then two char*.
+static constexpr uint32_t SR2_DATA67_BASE          = 0x0025D188;
+static constexpr size_t SR2_MESSAGE_TABLE_OFFSET   = 0x25E2DE - SR2_EXE_RUNTIME_TO_FILE;
+static constexpr size_t SR2_DATA67_FILE_OFFSET     = SR2_DATA67_BASE - SR2_EXE_RUNTIME_TO_FILE;
+static constexpr int    SR2_MESSAGE_COUNT          = 122;
+static constexpr int    SR2_MESSAGE_RECORD_SIZE    = 10;
+static constexpr int    SR2_MESSAGE_MAX_LINES      = 2;
+static constexpr int    SR2_MESSAGE_TWO_LINE_STYLE = 2;
+
+// One entry per message, each its lines in order. Empty when the table could
+// not be read; a message with no lines comes back as an empty vector.
+std::vector<std::vector<std::string>> SrLibReadSr2Messages(const std::vector<uint8_t>& sr2ExeData);
+
+// The Grudge Night ones.
+enum Sr2Message {
+    SR2_MSG_GRUDGE_BREAKOUT_SET   = 101,
+    SR2_MSG_GRUDGE_ROUND_WON      = 103,  // blanks for the round and the time
+    SR2_MSG_GRUDGE_LOST           = 105,  // blanks for the margin
+    SR2_MSG_GRUDGE_STANDINGS      = 107,  // line 2 has blanks for the place and the purse
+    SR2_MSG_GRUDGE_CROSSED_LINE   = 109,
+    SR2_MSG_GRUDGE_BROKE_OUT      = 111,
+    SR2_MSG_GRUDGE_WEAK_BREAKOUT  = 113,
+    SR2_MSG_GRUDGE_OPP_BROKE_OUT  = 121,
+};
 static constexpr int SR_DATA_KING_CARSPEC_INDEX  = 25; // spec 25 = The King's car
 
-// Big-endian on disk, so multi-byte fields are raw byte pairs read through accessors.
+// The King's car is the last spec in either game's table.
+inline int SrKingCarSpecIndex(SrGame game) {
+    return (game == SrGame::SR2 ? SR2_DATA_CARSPEC_ENTRY_COUNT
+                                : SR_DATA_CARSPEC_ENTRY_COUNT) - 1;
+}
+
 #pragma pack(push, 1)
 struct SrDriverData {
     uint8_t tier;         // [0] difficulty tier: 0=easy, 1=medium, 2=hard
@@ -1668,6 +2268,14 @@ struct SrCarSpecEntry {
     int ManifoldClass() const { return (ConfigWord() >> 3)  & 0x7; }  // 0..4 in practice
     int EngineClass()   const { return  ConfigWord()        & 0x7; }  // 0..2: V6, 283, 327
 
+    // --- the 14 bytes above are Street Rod's record, copied straight out of
+    // SR_data. Everything below is decoded rather than stored. ---
+
+    // Street Rod 2's three extra fitted parts.
+    uint8_t exhaust = SR_EXHAUST_STOCK;
+    uint8_t muffler = SR_MUFFLER_STOCK;
+    uint8_t differential = SR_DIFF_3_73;
+
     int BodyAsset() const { return ((body[0] << 8) | body[1]) - 1; }
     uint32_t AdTextPtr() const {
         return (static_cast<uint32_t>(ad_text_ptr[0]) << 24) |
@@ -1676,7 +2284,10 @@ struct SrCarSpecEntry {
                 static_cast<uint32_t>(ad_text_ptr[3]);
     }
 };
-static_assert(sizeof(SrCarSpecEntry) == 14, "SrCarSpecEntry must be 14 bytes");
+// The stored prefix has to stay exactly Street Rod's record, since that is
+// memcpy'd in whole from SR_data; the decoded fields sit after it.
+static_assert(offsetof(SrCarSpecEntry, exhaust) == SR_DATA_CARSPEC_RECORD_SIZE,
+              "SrCarSpecEntry's stored prefix must be Street Rod's 14-byte record");
 #pragma pack(pop)
 
 // 12 bytes per car in the DOS field order, one more than the game sells: the last is The King's.
@@ -1695,8 +2306,10 @@ static constexpr int    HOT_DATA_CAR_COUNT        = 26;
 // Sprite numbers in HOT_DATA are stored with this added on.
 static constexpr int    HOT_DATA_SPRITE_BASE      = 1000;
 
-// DOS only: in the DOS libs a car's variant patches are scattered and sometimes shared. -1 = no such variant.
-struct DosCarSprites {
+// Per-car sprite numbers: the body and its chopped-roof, stripped-bumper and hood-scoop variants.
+struct CarSpriteRefs {
+    int dashboard;   // SR2: which of its three dashboards the car has
+    int bodyStyle;   // SR2: 1..4; style 3 has the tall hood
     int body;
     int choppedRoof;
     int airScoop;
@@ -1722,7 +2335,10 @@ class DataParser {
     public:
         CarMetadata_t*         SrLibDataReadDataFromFile(const char* filename, int* outCount);
         CarMetadata_t*         SrLibDataReadDataFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
-        PartMetadata_t*        SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount);
+        // Same for Street Rod 2's SR2_data: the same blocks in the same order, 22 cars instead of 25.
+        CarMetadata_t*         SrLibDataReadDataFromBufferSR2(const uint8_t* data, size_t dataSize, int* outCount);
+        PartMetadata_t*        SrLibDataReadPartsFromBuffer(const uint8_t* data, size_t dataSize, int* outCount,
+                                                     SrGame game = SrGame::SR1);
         std::vector<uint8_t>   SrLibDataWriteCarMetadataToBuffer(const std::vector<uint8_t>& data, const std::vector<CarMetadata_t>& metadata, std::string* error = nullptr);
         int                    GetCarIndex(AmigaLibAsset asset);
 
@@ -1737,8 +2353,15 @@ class DataParser {
 
         // Converts the DOS records into the same SrCarSpecEntry the Amiga path produces. Empty on a short file.
         std::vector<SrCarSpecEntry> ParseCarSpecTableDOS(const std::vector<uint8_t>& hot_data);
-        std::vector<DosCarSprites>  ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data);
-        // DOS counterpart of SrLibDataReadDataFromBuffer.
+
+        // SR2's 20-byte records, converted into the same SrCarSpecEntry the other two produce.
+        std::vector<SrCarSpecEntry> ParseCarSpecTableSR2(const std::vector<uint8_t>& sr2_data);
+
+        // Same as ParseDriverNames, for SR2's block sizes.
+        std::vector<std::string> ParseDriverNamesSR2(const std::vector<uint8_t>& sr2_data);
+        std::vector<CarSpriteRefs>  ParseCarSpritesDOS(const std::vector<uint8_t>& hot_data);
+        // Same block on the Amiga: 22 or 26 records of five one-based u16.
+        std::vector<CarSpriteRefs>  ParseCarSpritesAmiga(const std::vector<uint8_t>& sr_data, SrGame game);
         CarMetadata_t* SrLibDataReadDataFromBufferDOS(const uint8_t* data, size_t dataSize, int* outCount);
 };
 
@@ -1800,7 +2423,7 @@ public:
     TrackAnalysis AnalyzeTrack(const std::vector<SrTrackCoordSegment>& segments);
 };
 
-int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight);
+int SrLibQueryGetCarRoofYOffset(SrLibGameScene scene, int spriteHeight, SrGame game = SrGame::SR1);
 int SrLibQueryGetCarIdleX(SrLibGameScene scene);
 CarVendor_t SrLibQueryGetCarVendor(int carIndex);
 

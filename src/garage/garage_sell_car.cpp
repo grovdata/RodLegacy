@@ -52,7 +52,10 @@ void Garage::StartSellCar(const CarPtr& car) {
         }
         // An empty field is not an offer; the original keeps asking.
         const int price = priceEntryDialog->Value();
-        if (price == 0) return;
+        if (price == 0) {
+            if (audioManager) audioManager->PlaySound(AudioSampleType::REJECT_BEEP);   // SR2 1a21:5fb8
+            return;
+        }
 
         std::uniform_int_distribution<int> roll5(0, 4);
         HandleHaggleStep(haggle->SubmitPrice(price, roll5(RandomEngine())));
@@ -100,7 +103,7 @@ void Garage::SellSparePart(int row) {
     cfg.onButtonPressed = [this, spare, price](int index) {
         if (index == 0) {
             state.SetBankroll(state.GetBankroll() + price);
-            state.AdvanceGameHours(2);
+            state.AdvanceTicks(600);   // SR1 0x242a6c, SR2 lmain.c 0x2573f0
             state.RemoveSpareAt(spare.category, static_cast<size_t>(spare.index));
             LOG_INFO("Sold spare '%s' for $%d, bankroll now $%d",
                      spare.label.c_str(), price, state.GetBankroll());
@@ -207,7 +210,7 @@ void Garage::FinishCarSale(int price) {
 
     state.SetBankroll(state.GetBankroll() + price);
     // Four hours, the original's 0x4b0 ticks at 300 per game hour.
-    state.AdvanceGameHours(4);
+    state.AdvanceTicks(1200);   // SR1 0x242f7a, SR2 lmain.c 0x257a86
     state.RemoveOwnedCar(haggleCar);
     // Selling the car you drive leaves you carless even with others parked, as in the original.
     if (wasCurrent) {

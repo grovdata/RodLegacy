@@ -28,10 +28,17 @@ struct Setting {
 const Setting kSettings[] = {
     {"Hill occlusion",      &AssetManager::GetHillOcclusionRef,    true, nullptr},
     {"Extra animations",    &AssetManager::GetExtraAnimationsRef,  true, nullptr},
+    {"Better clickboxes",   &AssetManager::GetBetterClickboxesRef, false, nullptr},
     {"Analog steering",     &AssetManager::GetAnalogSteeringRef,   false, nullptr},
     {"Skip intro",          &AssetManager::GetSkipIntroRef,        false, nullptr},
     {"Uncap top speed to 130mph (Amiga original 122mph)", &AssetManager::GetUncapTopSpeedRef, false,
      [](bool on) { srrace::SetUncapTopSpeed(on); }},
+    {"Fix Street Rod 2 Amiga bugs (inert parts, tuning)", &AssetManager::GetSr2FixBugsRef, false,
+     [](bool on) {
+         srrace::SetSr2BugFixes(on);
+         // Cars cache their top speed.
+         for (const CarPtr& car : state.GetOwnedCars()) car->SetWeightClass(car->GetWeightClass());
+     }},
     {"Interpolate (smoother framerate during races)",       &AssetManager::GetSmoothRacingRef, true, nullptr},
 };
 constexpr int kSettingCount = sizeof(kSettings) / sizeof(kSettings[0]);
@@ -108,8 +115,10 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
 
     const int buttonW = 66, buttonH = 16;
     const int buttonY = GAME_HEIGHT - 18;
-    SDL_Rect defaultsRect = {GAME_WIDTH / 2 - buttonW - 8, buttonY, buttonW, buttonH};
-    SDL_Rect backRect     = {GAME_WIDTH / 2 + 8, buttonY, buttonW, buttonH};
+    const int buttonsX = (GAME_WIDTH - 3 * buttonW - 2 * 8) / 2;
+    SDL_Rect defaultsRect = {buttonsX, buttonY, buttonW, buttonH};
+    SDL_Rect backRect     = {buttonsX + buttonW + 8, buttonY, buttonW, buttonH};
+    SDL_Rect forgetRect   = {buttonsX + 2 * (buttonW + 8), buttonY, buttonW, buttonH};
 
     DialogConfig cfg;
     cfg.bounds = bounds;
@@ -137,10 +146,15 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
 
     ButtonConfig defaultsButton = {defaultsRect, "Defaults", nullptr, false, 0};
     ButtonConfig backButton = {backRect, "Save", nullptr, true, 1};
-    backButton.cancelChoice = true;
-    cfg.buttons = {defaultsButton, backButton};
+    ButtonConfig forgetButton = {forgetRect, "Forget it", nullptr, false, 2};
+    forgetButton.cancelChoice = true;
+    cfg.buttons = {defaultsButton, backButton, forgetButton};
 
-    cfg.onButtonPressed = [self, onBack](int index) {
+    // Toggles apply at once, so Forget it puts back what was there on opening.
+    std::vector<bool> opened;
+    for (int i = 0; i < kSettingCount; ++i) opened.push_back(ValueOf(i));
+
+    cfg.onButtonPressed = [self, onBack, opened](int index) {
         switch (index) {
             case 0:
                 for (int i = 0; i < kSettingCount; ++i) {
@@ -151,6 +165,13 @@ std::unique_ptr<ListDialog> MakeSettingsDialog(SFont_Font* font,
                 LOG_INFO("Settings: restored defaults");
                 break;
             case 1:
+                if (onBack) onBack();
+                break;
+            case 2:
+                for (int i = 0; i < kSettingCount; ++i) {
+                    if (ValueOf(i) != opened[static_cast<size_t>(i)]) ApplyValue(i, opened[static_cast<size_t>(i)]);
+                }
+                state.GetAssets().SaveSettings();
                 if (onBack) onBack();
                 break;
         }

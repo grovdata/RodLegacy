@@ -211,7 +211,11 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
         setup.transClass = 0;
     }
 
-    // Spec classes while the spec parts are in; once replaced, the fitted part's class.
+    setup.exhaust = car.GetExhaust();
+    setup.muffler = car.GetMuffler();
+    setup.mufflerRemoved = car.IsMufflerRemoved();
+    setup.differential = car.GetDifferential();
+
     setup.engineClass = car.GetEngineClass();
 
     if (car.GetSpecManifoldClass() >= 0) {
@@ -231,6 +235,7 @@ srrace::CarSetup CarSetupFromCar(const Car& car, bool automaticOverride) {
     // |distance from perfect|, which over the original's -8..+4 knob is just
     // |knob| - see car_system.h's kPerfectTuneLevel.
     setup.tuneOffset = std::clamp(std::abs(car.GetTuneLevel() - kPerfectTuneLevel), 0, 8);
+    setup.sr2Tune = car.GetSr2Tune();
     setup.carbWear = std::clamp(car.GetCarburator().wear, 0, WEAR_MAX);
     setup.engineWear = std::clamp(car.GetEngine().wear, 0, WEAR_MAX);
     setup.transWear = std::clamp(car.GetGearbox().wear, 0, WEAR_MAX);

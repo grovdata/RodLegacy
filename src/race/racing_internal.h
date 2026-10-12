@@ -24,6 +24,9 @@ inline constexpr int kViewOffsetY = 14;
 inline constexpr int kHorizonY = 60 - kViewOffsetY;    // ProjectForwardY base, screen 60
 inline constexpr int kClipTop = 18 - kViewOffsetY;     // forward viewport clip, screen 18..99
 inline constexpr int kClipBottom = 99 - kViewOffsetY;
+// The Aqueduct's two clip windows: the view, and the mirror glass FUN_0023b44a sets (x 0xf2..0x13d, y 0x16..0x2b).
+inline constexpr SDL_Rect kAqueductViewClip = {0, kClipTop, 320, kClipBottom - kClipTop + 1};
+inline constexpr SDL_Rect kAqueductMirrorClip = {0xf2, 0x16 - kViewOffsetY, 0x13d - 0xf2 + 1, 0x2b - 0x16 + 1};
 inline constexpr int kRoadCenterLat = 2400;
 
 inline constexpr SDL_Color kSkyColor = {0, 0, 0, 255};

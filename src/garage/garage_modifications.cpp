@@ -35,8 +35,9 @@ void Garage::ShowBumperDialog(bool isFront) {
     }
 
     bool isStripped = isFront ? carBitmap->IsFrontBumperStripped() : carBitmap->IsRearBumperStripped();
-    const char* titleText = isFront ? (isStripped ? "Restore bumper - $20" : "Strip bumper - $20")
-                                    : (isStripped ? "Restore bumper - $20" : "Strip bumper - $20");
+    const int price = state.GetAssets().GetGame() == SrGame::SR2 ? 15 : 20;
+    const std::string titleText =
+        (isStripped ? "Restore bumper - $" : "Strip bumper - $") + std::to_string(price);
 
     std::unique_ptr<Dialog>& dialogPtr = isFront ? frontBumperDialog : rearBumperDialog;
 
@@ -49,28 +50,29 @@ void Garage::ShowBumperDialog(bool isFront) {
             if (isStripped) {
                 if (isFront) {
                     carBitmap->RestoreFrontBumper();
-                    LOG_INFO("Front bumper restored for $20");
+                    LOG_INFO("Front bumper restored");
                 } else {
                     carBitmap->RestoreRearBumper();
-                    LOG_INFO("Rear bumper restored for $20");
+                    LOG_INFO("Rear bumper restored");
                 }
             } else {
                 if (isFront) {
                     carBitmap->StripFrontBumper();
-                    LOG_INFO("Front bumper stripped for $20");
+                    LOG_INFO("Front bumper stripped");
                 } else {
                     carBitmap->StripRearBumper();
-                    LOG_INFO("Rear bumper stripped for $20");
+                    LOG_INFO("Rear bumper stripped");
                 }
             }
         }
 
-        state.AdvanceGameHours(4);
+        // SR1 0x240386, SR2 lgarage.c 0x2530b2: 1200 ticks for a bumper, 4800 for the roof.
+        state.AdvanceTicks(1200);
         dialogPtr->Hide();
         SetActiveDialog(nullptr);
     };
 
-    ShowModificationDialog(titleText, 20, onConfirm, dialogPtr);
+    ShowModificationDialog(titleText.c_str(), price, onConfirm, dialogPtr);
 }
 
 void Garage::ShowRoofDialog() {
@@ -108,7 +110,7 @@ void Garage::ShowRoofDialog() {
             }
         }
 
-        state.AdvanceGameHours(16);
+        state.AdvanceTicks(4800);
         roofDialog->Hide();
         SetActiveDialog(nullptr);
     };
@@ -145,7 +147,7 @@ void Garage::UpdatePaintCanPreview() {
     if (!paintCanPreview) return;
 
     // Car ramp index per pixel of the can in the garage background, '.' is transparent.
-    static const char* const kCan[] = {
+    static const char* const kCanSr1[] = {
         "..000.00..",
         "...0...0..",
         ".22222222.",
@@ -159,8 +161,22 @@ void Garage::UpdatePaintCanPreview() {
         "22.2220002",
         ".22200002."
     };
-    constexpr int w = 10;
-    constexpr int h = 12;
+    static const char* const kCanSr2[] = {
+        ".......00.",
+        "000..00020",
+        "00..000020",
+        "00..000020",
+        "0..00002.0",
+        "00......20",
+        "00.0002220",
+        ".00022200.",
+        "...0000..."
+    };
+
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    const char* const* rows = sr2 ? kCanSr2 : kCanSr1;
+    const int h = sr2 ? 9 : 12;
+    const int w = 10;
 
     std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
 
@@ -174,7 +190,7 @@ void Garage::UpdatePaintCanPreview() {
     uint32_t* pixels = static_cast<uint32_t*>(rgbaSurface->pixels);
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            char c = kCan[y][x];
+            char c = rows[y][x];
             uint32_t px = SDL_MapRGBA(rgbaSurface->format, 0, 0, 0, 0);
             if (c != '.') {
                 uint16_t amigaColor = colorPalette[c - '0'];
@@ -187,6 +203,7 @@ void Garage::UpdatePaintCanPreview() {
     SDL_UnlockSurface(rgbaSurface);
 
     paintCanPreview->ReplaceSurface(rgbaSurface);
+    if (sr2) paintCanPreview->SetPosition(208, 174);
 }
 
 void Garage::ShowPaintDialog() {
@@ -243,7 +260,8 @@ void Garage::ShowPaintDialog() {
                         if (car) {
                             GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                         }
-                        state.AdvanceGameHours(4);
+                        state.AdvanceTicks(1200);   // SR1 0x2402d2, SR2 lgarage.c 0x25301c
+                        if (audioManager) audioManager->PlaySound(AudioSampleType::PAINT_SPRAY);
                         LOG_INFO("Car painted for $20");
                         if (bubbles.size() > 3) {
                             bubbles[3]->SetVisible(false);  // Hide paintBubble
@@ -293,7 +311,7 @@ void Garage::ShowCarInfoDialog() {
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addIndented = [&](const char* s) {
-        texts.push_back(DialogTextConfig{SDL_Rect{xLeft + 10, y, dialogRect.w - 26, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
+        texts.push_back(DialogTextConfig{SDL_Rect{xLeft + (state.GetAssets().GetGame() == SrGame::SR2 ? 8 : 10), y, dialogRect.w - 26, 10}, s, {0xFF, 0xFF, 0xFF, 0xFF}, false});
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
     };
     auto addRightNote = [&](const char* left, const char* note) {
@@ -359,6 +377,10 @@ void Garage::ShowCarInfoDialog() {
                 case MANIFOLD_DUAL_QUAD: return std::string(v) + " dual-quad manifold.";
                 case MANIFOLD_TRIPLE_2BARREL: return std::string(v) + " triple 2-brl manifold.";
                 case MANIFOLD_RACING: return std::string(v) + " racing manifold.";
+                case MANIFOLD_TUNNEL_RAM: return std::string(v) + " tunnel ram.";
+                case MANIFOLD_DUAL_TUNNEL_RAM: return std::string(v) + " dual tunnel ram.";
+                case MANIFOLD_FUEL_INJECTION: return std::string(v) + " fuel injection.";
+                case MANIFOLD_SUPERCHARGER: return std::string(v) + " supercharger.";
             }
             return std::string(v) + " manifold.";
         };
@@ -387,6 +409,42 @@ void Garage::ShowCarInfoDialog() {
             vendor = SrLibQueryGetCarVendor(model.index);
         }
         const char* vendorStr = vendorToStr(vendor);
+
+        if (state.GetAssets().GetGame() == SrGame::SR2) {
+            // SR2 (lgarage.c 0x25364c) prints the catalogue's name of every fitted part in slot order, each with
+            // its condition at the right. Rows start at y 41, a blank line, then fuel and max speed on consecutive lines.
+            y = dialogRect.y + 14;
+            lines[0].y -= 2;
+            // Only the engine, transmission and tires carry a condition note.
+            auto row = [&](PartCategory cat, CarVendor_t v, int type, int wear = -1) {
+                const std::string name = CatalogPartName(cat, v, type);
+                if (name.empty()) return;
+                if (wear < 0) addLeft(name.c_str());
+                else addRightNote(name.c_str(), wearNote(wear).c_str());
+            };
+            // The manifold and carburettors sit under the engine, indented.
+            auto indentedRow = [&](PartCategory cat, CarVendor_t v, int type) {
+                const std::string name = CatalogPartName(cat, v, type);
+                if (!name.empty()) addIndented(name.c_str());
+            };
+            if (car->HasEngine()) row(PartCategory::Engine, vendor, static_cast<int>(car->GetEngineType()), car->GetEngine().wear);
+            if (car->HasManifold()) {
+                indentedRow(PartCategory::Manifold, vendor, static_cast<int>(car->GetManifoldType()));
+            }
+            for (int i = 0; i < kMaxCarburetors; ++i) {
+                if (!car->HasCarburetor(i)) continue;
+                const Part carb = car->GetCarburetor(i);
+                indentedRow(PartCategory::Carburetor, CarVendorUnknown, static_cast<int>(carb.partType.carburetorType));
+            }
+            if (car->HasGearbox()) {
+                const Part trans = car->GetGearbox();
+                row(PartCategory::Transmission, vendor, static_cast<int>(trans.partType.transmissionType), trans.wear);
+            }
+            row(PartCategory::Tire, CarVendorUnknown, static_cast<int>(car->GetWheelType()), car->GetTires().wear);
+            row(PartCategory::ExhaustManifold, vendor, car->GetExhaust());
+            row(PartCategory::Muffler, CarVendorUnknown, car->GetMuffler());
+            row(PartCategory::Differential, CarVendorUnknown, car->GetDifferential());
+        } else {
 
         // GetEngineType(), not the stored EnginePart, which is a placeholder V6 on a spec car. Each line only while
         // the part is fitted: the Part structs survive a removal.
@@ -422,16 +480,18 @@ void Garage::ShowCarInfoDialog() {
             addRightNote(transText.c_str(), wearNote(trans.wear).c_str());
         }
         addRightNote(tireName(car->GetWheelType()), wearNote(car->GetTires().wear).c_str());
+        }
 
         y += SFont_TextHeight(state.GetAssets().GetMainFont());
         char fuelBuf[64];
         snprintf(fuelBuf, sizeof(fuelBuf), "Fuel     %d gallons.", car->GetFuelTenths() / 10);
         addLeft(fuelBuf);
-        y += SFont_TextHeight(state.GetAssets().GetMainFont());
+        if (state.GetAssets().GetGame() != SrGame::SR2) y += SFont_TextHeight(state.GetAssets().GetMainFont());
         // Same number the original prints here.
         char speedBuf[64];
         snprintf(speedBuf, sizeof(speedBuf), "Max speed %d mph.", car->GetTopSpeed());
         addLeft(speedBuf);
+        if (state.GetAssets().GetGame() == SrGame::SR2) dialogRect.h = std::max(dialogRect.h, y - dialogRect.y + 6);
     }
 
     DialogConfig infoCfg;
@@ -737,10 +797,11 @@ void Garage::ShowStickerDialog() {
                 int money = state.GetBankroll();
                 if (money >= 5) {
                     state.SetBankroll(money - 5);
-                    state.AdvanceGameHours(1);
+                    state.AdvanceTicks(300);   // SR1 0x2407b4
                     applyFn(car.get());
                     GetOrCreateCarBitmap(car)->LoadCarParts(car, nullptr, car->GetColor());
                     GetOrCreateCarBitmap(car)->StartStickerWipe();
+                    if (audioManager) audioManager->PlaySound(AudioSampleType::STICKER);
                 }
             }
             stickerScrollRow = 0;
@@ -908,6 +969,10 @@ static std::string ManifoldTypeName(ManifoldType type, CarVendor_t vendor) {
         case MANIFOLD_DUAL_QUAD:     return "Dual-quad manifold";
         case MANIFOLD_TRIPLE_2BARREL: return "Triple 2-barrel manifold";
         case MANIFOLD_RACING:        return "Racing manifold";
+        case MANIFOLD_TUNNEL_RAM:    return "Tunnel ram";
+        case MANIFOLD_DUAL_TUNNEL_RAM: return "Dual tunnel ram";
+        case MANIFOLD_FUEL_INJECTION: return "Fuel injection";
+        case MANIFOLD_SUPERCHARGER:  return "Supercharger";
         default: return "Unknown manifold";
     }
 }
@@ -1357,6 +1422,13 @@ std::vector<Garage::SpareRef> Garage::CollectSpares() const {
     for (const Part& p : state.GetSpareTires()) {
         std::string name = p.name.empty() ? WheelTypeName(p.partType.tireType) : p.name;
         spares.push_back({PartCategory::Tire, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
+    }
+    for (PartCategory c : {PartCategory::ExhaustManifold, PartCategory::Muffler, PartCategory::Differential}) {
+        i = 0;
+        for (const Part& p : state.GetSpareSr2(c)) {
+            std::string name = p.name.empty() ? Sr2PartName(c, p) : p.name;
+            spares.push_back({c, i++, name + " " + WearNote(p.wear), p.cost, p.wear});
+        }
     }
     return spares;
 }

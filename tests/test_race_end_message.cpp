@@ -284,3 +284,31 @@ TEST_CASE("no flags, not won, not lost -> no message") {
 }
 
 }
+
+TEST_SUITE("BuildRaceEndReason - Street Rod 2") {
+
+TEST_CASE("the King is only beaten for good on the Aqueduct") {
+    RaceEndContext ctx;
+    ctx.playerWon = true;
+    ctx.vsKing = true;
+    ctx.isSr2 = true;
+    CHECK(BuildRaceEndReason(ctx).id == GameText::BEAT_KING_DRAG);
+    ctx.isAqueduct = true;
+    CHECK(BuildRaceEndReason(ctx).id == GameText::BEAT_KING_ROAD);
+}
+
+TEST_CASE("a $150 win has its own line") {
+    RaceEndContext ctx;
+    ctx.playerWon = true;
+    ctx.betAmount = 150;
+    CHECK(BuildRaceEndReason(ctx).id == GameText::WON_150);
+}
+
+TEST_CASE("a grudge round has no bubble") {
+    RaceEndContext ctx;
+    ctx.playerWon = true;
+    ctx.isGrudge = true;
+    CHECK(BuildRaceEndReason(ctx).id == 0);
+}
+
+}

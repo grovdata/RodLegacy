@@ -77,3 +77,28 @@ TEST_CASE("the indicator's resting slot is the perfect position") {
 }
 
 }
+
+TEST_CASE("Street Rod 2's extra manifold classes round-trip and take their carburettor counts") {
+    const ManifoldType extra[4] = {MANIFOLD_TUNNEL_RAM, MANIFOLD_DUAL_TUNNEL_RAM, MANIFOLD_FUEL_INJECTION,
+                                   MANIFOLD_SUPERCHARGER};
+    const int carbs[4] = {1, 2, 0, 0};
+    for (int i = 0; i < 4; ++i) {
+        CHECK(ManifoldClass(extra[i]) == 5 + i);
+        CHECK(ManifoldTypeForClass(5 + i) == extra[i]);
+        CHECK(CarburetorsPerManifold(extra[i]) == carbs[i]);
+    }
+}
+
+TEST_CASE("Street Rod 2's extra manifolds fit V8s only and take 4-barrel carbs, or none") {
+    for (ManifoldType m : {MANIFOLD_TUNNEL_RAM, MANIFOLD_DUAL_TUNNEL_RAM, MANIFOLD_FUEL_INJECTION,
+                           MANIFOLD_SUPERCHARGER}) {
+        CHECK_FALSE(PartsCompatibilityManager::IsManifoldCompatible(m, CarEngineGM_V6));
+        CHECK(PartsCompatibilityManager::IsManifoldCompatible(m, CarEngineFord_V8_292));
+        CHECK(PartsCompatibilityManager::IsManifoldCompatible(m, CarEngineChrysler_V8_340));
+    }
+    CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL, MANIFOLD_TUNNEL_RAM));
+    CHECK(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL_RACING, MANIFOLD_DUAL_TUNNEL_RAM));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_2BARREL, MANIFOLD_TUNNEL_RAM));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL, MANIFOLD_FUEL_INJECTION));
+    CHECK_FALSE(PartsCompatibilityManager::IsCarburetorCompatible(CARB_4BARREL, MANIFOLD_SUPERCHARGER));
+}

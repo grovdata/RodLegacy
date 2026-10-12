@@ -83,8 +83,16 @@ void Roster::Initialize(CarData& carData) {
     std::uniform_int_distribution<> distrCar(0, (int)poolCarIndices.size() - 1);
 
     opponents.clear();
+    knownOpponents.clear();
+    activeOpponent = nullptr;
+    forcedNextOpponent = nullptr;
+    kingOpponentBuilt = false;
 
-    while (!stockDriverNames.empty()) {
+    // One opponent per driver the data holds.
+    const int fromData = SrDriverPoolSize();
+    const int opponentCount = fromData > 0 ? fromData : (int)stockDriverNames.size();
+
+    for (int i = 0; i < opponentCount; i++) {
         int preferredCarIndex = poolCarIndices[distrCar(gen)];
 
         Driver driver = GenerateRandomDriver(preferredCarIndex);
@@ -110,7 +118,7 @@ void Roster::Initialize(CarData& carData) {
         }
         driver.name = stem;
         driver.preferredCar = preferredCarIndex;
-        driver.spriteIndex = DRIVER_01;
+        driver.spriteIndex = DRIVER_FIRST;
 
         opponents.emplace_back();
         opponents.back().driver = std::move(driver);
@@ -160,8 +168,10 @@ CarPtr Roster::GenerateRandomCar(const CarModel& model) {
     
     car->SetBumpersStripped(areBumpersStripped);
     // Only lib.p art is recoloured; DOS cars carry their own paint.
-    if (GetCarSetDefs()[model.carSet].art == CarSetArt::AmigaLibP) {
-        state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(), model.index, randomColor);
+    const CarSetDef& setDef = GetCarSetDefs()[model.carSet];
+    if (setDef.art == CarSetArt::AmigaLibP) {
+        state.GetAssets().UpdateAssetWithCarPalette(state.GetAssets().GetLibPData(setDef.game),
+                                                    model.sprites.body, randomColor, setDef.game);
     }
 
     std::uniform_int_distribution<> stickerDist(0, (int)SrLibCarDecalNone - 1);
@@ -213,30 +223,42 @@ void Roster::ApplyCarSpecFor(Car* car, const CarModel& model) {  // NOLINT
     }
 }
 
+int Roster::SrDriverPoolSize() const {
+    const int n = std::min(static_cast<int>(srDrivers.size()),
+                           static_cast<int>(srDriverNames.size()));
+    // The King is in the table but never races as a pool opponent.
+    return n > SR_DATA_KING_DRIVER_INDEX ? n - 1 : n;
+}
+
 void Roster::SetDriverTable(const std::vector<SrDriverData>& drivers,
-                           const std::vector<std::string>& names) {
+                           const std::vector<std::string>& names,
+                           const std::vector<int>& sets) {
     srDrivers = drivers;
     srDriverNames = names;
+    srDriverSets = sets;
+    srDriverSets.resize(srDrivers.size(), kAmigaCarSet);
     nextSrDriver = 0;
 }
 
 Driver Roster::GenerateRandomDriver(int preferredCarIndex) {
     auto& gen = RandomEngine();
-    std::uniform_int_distribution<> spriteIndexDist(DRIVER_01, DRIVER_01 + DRIVER_COUNT - 1);
+    std::uniform_int_distribution<> spriteIndexDist(DRIVER_FIRST, DRIVER_FIRST + DRIVER_COUNT - 1);
     Driver driver;
-    // Name and portrait are a stored pair in SR_data; the portrait cannot be derived or picked at random.
+    // The King races on his own terms, never as a pool opponent, and his row
+    // is the played game's index 21 - the only King in the merged table.
+    if (nextSrDriver == SR_DATA_KING_DRIVER_INDEX) ++nextSrDriver;
     const bool haveSrDrivers =
         nextSrDriver < static_cast<int>(srDrivers.size()) &&
-        nextSrDriver < static_cast<int>(srDriverNames.size()) &&
-        nextSrDriver < SR_DATA_KING_DRIVER_INDEX;
+        nextSrDriver < static_cast<int>(srDriverNames.size());
     if (haveSrDrivers) {
         driver.srDriverIndex = nextSrDriver;
         driver.name = srDriverNames[nextSrDriver];
         driver.spriteIndex = srDrivers[nextSrDriver].PortraitAsset();
+        driver.driverSet = srDriverSets[nextSrDriver];
         ++nextSrDriver;
-        if (!stockDriverNames.empty()) {
-            stockDriverNames.pop_back();
-        }
+    } else if (stockDriverNames.empty()) {
+        driver.name = "Driver";
+        driver.spriteIndex = DRIVER_FIRST;
     } else {
         driver.name = stockDriverNames.back();
         if (driver.name == "Erica") {
@@ -323,12 +345,19 @@ Opponent* Roster::GetCurrentOpponent() {
     return activeOpponent;
 }
 
+const SrDriverData* Roster::GetSrDriver(int srDriverIndex) const {
+    if (srDriverIndex < 0 || srDriverIndex >= static_cast<int>(srDrivers.size())) {
+        return nullptr;
+    }
+    return &srDrivers[static_cast<size_t>(srDriverIndex)];
+}
+
 Opponent* Roster::GetOpponentByIndex(int index) {
     if (index < 0 || index >= static_cast<int>(opponents.size())) return nullptr;
     return &opponents[index];
 }
 
-Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec) {
+Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSpec, SrGame game) {
     // Rebuild if his car was taken in a pink-slip race.
     if (kingOpponentBuilt && kingOpponent.car) return &kingOpponent;
 
@@ -337,18 +366,24 @@ Opponent* Roster::GetKingOpponent(CarData& carData, const SrCarSpecEntry& kingSp
         kingOpponent.driver.srDriverIndex = SR_DATA_KING_DRIVER_INDEX;
         kingOpponent.driver.name = srDriverNames[SR_DATA_KING_DRIVER_INDEX];
         kingOpponent.driver.spriteIndex = srDrivers[SR_DATA_KING_DRIVER_INDEX].PortraitAsset();
+        kingOpponent.driver.driverSet = srDriverSets[SR_DATA_KING_DRIVER_INDEX];
     } else {
         kingOpponent.driver.name = "The King";
-        kingOpponent.driver.spriteIndex = DRIVER_01;
+        kingOpponent.driver.spriteIndex = DRIVER_FIRST;
     }
-    kingOpponent.driver.preferredCar = CHEVROLET_CORVETTE_1963;
+    const bool sr2 = game == SrGame::SR2;
+    const int baseCar = sr2 ? CarSetForGame(SrGame::SR2) * HOT_DATA_SPRITE_BASE + SR2_CAR_SHELBY_GT500_1969
+                            : CHEVROLET_CORVETTE_1963;
+    kingOpponent.driver.preferredCar = baseCar;
 
-    // ponytail: the King's body id has no CarData metadata, so build a '63 Corvette and swap in his paint.
-    // Its spec bytes match his, so this is his real car. Upgrade if he ever needs his own metadata row.
-    CarModel model = carData.GetModelFromIndex(CHEVROLET_CORVETTE_1963);
-    model.sprites.body = THE_KING_CHEVROLET_CORVETTE_1963_BODY;
+    // ponytail: the King's body id has no CarData metadata, so build the stock car of the same model and swap in
+    // his body. Its spec bytes match his, so this is his real car. Upgrade if he ever needs his own metadata row.
+    CarModel model = carData.GetModelFromIndex(baseCar);
+    model.sprites.body = sr2 ? SR2_KING_SHELBY_500 : THE_KING_CHEVROLET_CORVETTE_1963_BODY;
     // His body art already has the scoop.
     model.sprites.airScoop = -1;
+    // His sprite ref record is all zeros, so style 0: the opponent sprite block that is his alone.
+    if (sr2) model.sprites.bodyStyle = 0;
     CarPtr car = CarBuilder::BuildCar(model);
     car->SetRoofChopped(false);
     car->SetBumpersStripped(false);

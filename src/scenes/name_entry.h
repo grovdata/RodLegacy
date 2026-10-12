@@ -13,6 +13,7 @@
 #include "ui/checkbox.h"
 #include <memory>
 #include <string>
+#include <vector>
 
 class NameEntry : public Scene {
 private:
@@ -22,10 +23,14 @@ private:
     Label nameLabel;
     std::unique_ptr<Button> oldGameButton;
     std::unique_ptr<Button> okButton;
-    // Only with SE data installed. Chosen here because it decides the car spec table the game is generated against.
-    std::unique_ptr<Checkbox> seCarsCheckbox;
-    bool seCarsEnabled = false;
-    Label seCarsLabel;
+    // One row per optional car set whose data is actually installed.
+    struct SetRow {
+        int carSet = -1;
+        bool enabled = false;
+        Label label;
+        std::unique_ptr<Checkbox> checkbox;
+    };
+    std::vector<std::unique_ptr<SetRow>> setRows;
 
     void RefreshNameLabel();
     void HandleOk();

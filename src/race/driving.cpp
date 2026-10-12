@@ -2,6 +2,7 @@
 #include "core/log.h"
 #include "race/driving.h"
 #include "core/state.h"
+#include "scenes/grudge_night.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
 #include "race/reputation.h"
@@ -64,6 +65,15 @@ void Driving::Init(bool debugMode) {
     ApplyCarLivery();
 
     Bitmap* dashboard = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
+
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        LoadSr2Cockpit();
+        LoadShifter();
+        SetState(DRIVING_STATE_NORMAL);
+        LoadTrackData();
+        if (racing) racing->SetDebugFeaturesEnabled(debugMode);
+        return;
+    }
 
     auto pillar = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_WINDSHIELD_BEAM});
     pillar->AlignAbove(dashboard);
@@ -175,11 +185,14 @@ void Driving::Init(bool debugMode) {
     SetState(DRIVING_STATE_NORMAL);
     
     // Not car-coloured, so the plain driving palette.
-    auto* crashBloodAsset = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_BLOOD});
+    const bool sr2Blood = state.GetAssets().GetGame() == SrGame::SR2;
+    auto* crashBloodAsset = state.GetAssets().GetBitmapAsset(
+        sr2Blood ? Asset{LibAssetRegular, SrLibFileAmigaLibP, SR2_RACING_CRASHED_BLOOD, SrGame::SR2}
+                 : Asset{LibAssetRegular, SrLibFileAmigaLibP, RACING_CRASHED_BLOOD});
     if (crashBloodAsset) {
         crashBloodBitmap = std::make_unique<Bitmap>(*crashBloodAsset);
         crashBloodBitmap->SetVisible(false);
-        crashBloodBitmap->SetPosition(104, 27);
+        crashBloodBitmap->SetPosition(sr2Blood ? 128 : 104, 27);
     }
     
     LoadTrackData();
@@ -285,13 +298,42 @@ void Driving::ApplyCarLivery() {
 
     byte_vector& libFile = state.GetAssets().GetLibPData();
 
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    
     // The dashboard includes the hood's left edge.
-    Bitmap* dashboard = state.GetAssets().GetBitmapAssetWithPalette(
-        libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
-    PunchSideMirrorGlass(dashboard);
+    Bitmap* dashboard = sr2
+        ? state.GetAssets().GetBitmapAssetWithPalette(
+              state.GetAssets().GetLibPData(SrGame::SR2),
+              {LibAssetRegular, SrLibFileAmigaLibP,
+               kSr2Interiors[std::clamp(car->GetModel().sprites.dashboard, 0, 2)].dashboard, SrGame::SR2},
+              hoodPalette)
+        : state.GetAssets().GetBitmapAssetWithPalette(
+              libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_INTERIOR_1}, hoodPalette);
+    if (!sr2) PunchSideMirrorGlass(dashboard);
     dashboard->Align(BitmapAlignBottom, true);
     dashboard->SetVisible(true);
     SetDrawable("dashboard", dashboard);
+
+    if (sr2) {
+        // The tall hood belongs to body style 3, the low one to every other car; both end where the dashboard starts.
+        const int hoodId = car->GetModel().sprites.bodyStyle == 3 ? SR2_HOOD_TALL : SR2_HOOD_LOW;
+        Bitmap* sr2Hood = state.GetAssets().GetBitmapAssetWithPalette(
+            state.GetAssets().GetLibPData(SrGame::SR2),
+            {LibAssetRegular, SrLibFileAmigaLibP, hoodId, SrGame::SR2}, hoodPalette);
+        sr2Hood->SetPosition(72, dashboard->GetPosition().y - sr2Hood->GetNaturalSize().h);
+        sr2Hood->SetVisible(true);
+        SetDrawable("hood", sr2Hood);
+        // The wrecked interior shows the smashed window, in the car's hood shades like SR's.
+        Bitmap* crashOverlayAsset = state.GetAssets().GetBitmapAssetWithPalette(
+            state.GetAssets().GetLibPData(SrGame::SR2),
+            {LibAssetRegular, SrLibFileAmigaLibP, SR2_CRASH_WINDOW_SMASHED, SrGame::SR2}, hoodPalette);
+        if (crashOverlayAsset) {
+            crashOverlayBitmap = std::make_unique<Bitmap>(*crashOverlayAsset);
+            crashOverlayBitmap->SetVisible(false);
+            crashOverlayBitmap->SetPosition(48, 18);   // 272 wide: it fills the windshield from the left pillar to the edge
+        }
+        return;
+    }
 
     Bitmap* hood = state.GetAssets().GetBitmapAssetWithPalette(
         libFile, {LibAssetRegular, SrLibFileAmigaLibP, RACING_HOOD}, hoodPalette);
@@ -309,6 +351,88 @@ void Driving::ApplyCarLivery() {
     }
 }
 
+// Where each piece sits in the 320x90 dashboard bitmap; the grips are the neutral hand positions.
+static constexpr SDL_Point kSr2GripLeft = {67, 51};
+static constexpr SDL_Point kSr2GripRight = {241, 51};
+// Turning brings one arm in over the wheel (cells cut at 0x239e02 and 0x239e7a).
+static constexpr SDL_Point kSr2ArmLeft = {29, 31};
+static constexpr SDL_Point kSr2ArmRight = {229, 30};
+
+void Driving::LoadSr2Cockpit() {
+    auto* dash = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
+    const SDL_Rect dashRect = dash ? dash->GetPosition() : SDL_Rect{0, 0, 0, 0};
+    Car* car = state.GetCurrentCar();
+    const Sr2Interior& in = kSr2Interiors[std::clamp(car ? car->GetModel().sprites.dashboard : 0, 0, 2)];
+
+    auto get = [](int id) {
+        return state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, id, SrGame::SR2});
+    };
+
+    auto roof = get(SR2_RACING_CEILING);
+    roof->SetPosition(0, 0);
+    roof->SetVisible(true);
+    SetDrawable("roof", roof);
+
+    auto pillarLeft = get(car && car->GetModel().sprites.bodyStyle == 3 ? SR2_RACING_PILLAR_TALL_HOOD : SR2_RACING_PILLAR_LOW_HOOD);
+    pillarLeft->SetPosition(0, 18);
+    pillarLeft->SetVisible(true);
+    SetDrawable("pillar_left", pillarLeft);
+
+    auto mirror = get(SR2_RACING_REARVIEWMIRROR_FRAME);
+    mirror->SetPosition(240, 19);
+    mirror->SetVisible(true);
+    SetDrawable("mirror", mirror);
+
+    auto clock = get(in.clock);
+    clock->SetPosition(in.clockX, dashRect.y + in.clockY);
+    clock->SetVisible(false);
+    SetDrawable("clock", clock);
+
+    const int wheels[3] = {in.wheelLeft, in.wheelNeutral, in.wheelRight};
+    const char* names[3] = {"wheel_left", "wheel_neutral", "wheel_right"};
+    for (int i = 0; i < 3; ++i) {
+        sr2Wheel[i] = get(wheels[i]);
+        sr2Wheel[i]->SetPosition(SR2_WHEEL_X, dashRect.y + SR2_WHEEL_Y);
+        sr2Wheel[i]->SetVisible(i == 1);
+        SetDrawable(names[i], sr2Wheel[i]);
+    }
+
+    sr2Arm[0] = get(SR2_ARM_LEFT);
+    sr2Arm[0]->SetPosition(kSr2ArmLeft.x, dashRect.y + kSr2ArmLeft.y);
+    sr2Arm[0]->SetVisible(false);
+    SetDrawable("arm_left", sr2Arm[0]);
+
+    sr2Arm[1] = get(SR2_ARM_RIGHT);
+    sr2Arm[1]->SetPosition(kSr2ArmRight.x, dashRect.y + kSr2ArmRight.y);
+    sr2Arm[1]->SetVisible(false);
+    SetDrawable("arm_right", sr2Arm[1]);
+
+    sr2Grip[0] = get(SR2_HAND_GRIP_LEFT);
+    sr2Grip[0]->SetPosition(kSr2GripLeft.x, dashRect.y + kSr2GripLeft.y);
+    sr2Grip[0]->SetVisible(true);
+    SetDrawable("grip_left", sr2Grip[0]);
+
+    sr2Grip[1] = get(SR2_HAND_GRIP_RIGHT);
+    sr2Grip[1]->SetPosition(kSr2GripRight.x, dashRect.y + kSr2GripRight.y);
+    sr2Grip[1]->SetVisible(true);
+    SetDrawable("grip_right", sr2Grip[1]);
+}
+
+// Turning brings one arm in over the wheel and hides both hands.
+void Driving::SetSr2State(DrivingState newState) {
+    currentState = newState;
+    sr2Wheel[0]->SetVisible(newState == DRIVING_STATE_TURNING_LEFT);
+    sr2Wheel[1]->SetVisible(newState != DRIVING_STATE_TURNING_LEFT && newState != DRIVING_STATE_TURNING_RIGHT);
+    sr2Wheel[2]->SetVisible(newState == DRIVING_STATE_TURNING_RIGHT);
+    const bool shifting = shiftPhase != ShiftPhase::Idle;
+    const bool left = newState == DRIVING_STATE_TURNING_LEFT;
+    const bool right = newState == DRIVING_STATE_TURNING_RIGHT;
+    sr2Arm[0]->SetVisible(right);
+    sr2Arm[1]->SetVisible(left);
+    sr2Grip[0]->SetVisible(!left && !right);
+    sr2Grip[1]->SetVisible(!shifting && !left && !right);
+}
+
 void Driving::AddWheelDrawable(const std::string& id, Bitmap* bitmap) {
     AddDrawable(id, bitmap);
 }
@@ -317,6 +441,10 @@ void Driving::Start() {
 }
 
 void Driving::SetState(DrivingState state) {
+    if (sr2Wheel[1]) {
+        SetSr2State(state);
+        return;
+    }
     wheelLeftHand1->SetVisible(false);
     wheelLeftHand2->SetVisible(false);
     wheelLeftHand3->SetVisible(false);
@@ -374,10 +502,13 @@ void Driving::OnSceneEnter() {
 
     // Before the track loads, which builds the race sim off the current car.
     ApplyCarLivery();
+    if (sr2Wheel[1]) LoadSr2Cockpit();   // the car may have a different dashboard
 
     RaceType pendingType = state.GetPendingRaceType();
     SrTrackType trackType = (pendingType == RaceType::Drag)
                             ? SR_TRACK_DRAG_RACE : SR_TRACK_ROAD_RACE;
+    // The Aqueduct is not one of the executable's two tracks.
+    racing->SetAqueductRace(pendingType == RaceType::Aqueduct);
 
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     if (!srExeData.empty()) {
@@ -417,7 +548,9 @@ void Driving::OnSceneEnter() {
     }
 
     LOG_INFO("Driving::OnSceneEnter - race starting: type=%s bet=%d pinkSlip=%d",
-             pendingType == RaceType::Drag ? "Drag" : "Road",
+             pendingType == RaceType::Drag ? "Drag"
+                 : pendingType == RaceType::Aqueduct ? "Aqueduct"
+                 : pendingType == RaceType::Grudge ? "Grudge" : "Road",
              state.GetPendingBetAmount(),
              state.GetPendingIsPinkSlip() ? 1 : 0);
 }
@@ -433,26 +566,31 @@ static constexpr SDL_Point kGateAuto[3] = {{28, 21}, {28, 27}, {28, 34}};
 static constexpr int kGearStop[5] = {0, 1, 3, 6, 8};
 
 void Driving::LoadShifter() {
-    const AmigaLibAsset plates[3] = {RACING_GEARBOX_AUTO, RACING_GEARBOX_MANUAL_3SPEED,
-                                     RACING_GEARBOX_MANUAL_4SPEED};
-    const AmigaLibAsset knobs[3] = {RACING_GEARBOX_KNOB_AUTOMATIC, RACING_GEARBOX_KNOB_3SPEED,
-                                    RACING_GEARBOX_KNOB_4SPEED};
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    const SrGame game = sr2 ? SrGame::SR2 : SrGame::SR1;
+    // SR2's plates 71-73 follow SR1's order: automatic, 3-speed, 4-speed.
+    const int plates[3] = {sr2 ? 71 : RACING_GEARBOX_AUTO, sr2 ? 72 : RACING_GEARBOX_MANUAL_3SPEED,
+                           sr2 ? 73 : RACING_GEARBOX_MANUAL_4SPEED};
+    const int knobs[3] = {sr2 ? SR2_RACING_GEARBOX_KNOB_AUTOMATIC : RACING_GEARBOX_KNOB_AUTOMATIC,
+                          sr2 ? SR2_RACING_GEARBOX_KNOB_3SPEED : RACING_GEARBOX_KNOB_3SPEED,
+                          sr2 ? SR2_RACING_GEARBOX_KNOB_4SPEED : RACING_GEARBOX_KNOB_4SPEED};
     for (int i = 0; i < 3; ++i) {
-        shifterPlate[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, plates[i]});
+        shifterPlate[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, plates[i], game});
         shifterPlate[i]->SetVisible(false);
         AddDrawable("shifter_plate_" + std::to_string(i), shifterPlate[i]);
-        shifterKnob[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, knobs[i]});
+        shifterKnob[i] = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, knobs[i], game});
         shifterKnob[i]->SetVisible(false);
         AddDrawable("shifter_knob_" + std::to_string(i), shifterKnob[i]);
     }
-    shifterHand = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RIGHT_HAND_SHIFTING});
+    shifterHand = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP,
+                                                    sr2 ? SR2_RACING_RIGHT_HAND_SHIFTING : RACING_RIGHT_HAND_SHIFTING, game});
     shifterHand->SetVisible(false);
     AddDrawable("shifter_hand", shifterHand);
 
-    // The plate sits at (0x110, 0x2c) in the bottom-aligned dashboard bitmap.
+    // The plate sits at (0x110, 0x2c) in SR's bottom-aligned dashboard bitmap, (0x112, 0x33) in SR2's.
     auto* dash = dynamic_cast<Bitmap*>(GetDrawable("dashboard"));
     SDL_Rect dashRect = dash ? dash->GetPosition() : SDL_Rect{0, 0, 0, 0};
-    shifterOrigin = {dashRect.x + 0x110, dashRect.y + 0x2c};
+    shifterOrigin = {dashRect.x + (sr2 ? 0x112 : 0x110), dashRect.y + (sr2 ? 0x33 : 0x2c)};
     for (Bitmap* plate : shifterPlate) plate->SetPosition(shifterOrigin.x, shifterOrigin.y);
 }
 
@@ -871,8 +1009,11 @@ int Driving::ApplyBlownTires() {
 // is over. Then starts the race-end screen.
 void Driving::SettleRace(RaceOutcome outcome) {
     const bool won = (outcome == RaceOutcome::PlayerWon);
-    const RaceType raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE)
-                              ? RaceType::Drag : RaceType::Road;
+    // The track type only tells Drag from Road; Grudge and Aqueduct come from the pending type.
+    RaceType raceType = state.GetPendingRaceType();
+    if (raceType != RaceType::Grudge && raceType != RaceType::Aqueduct) {
+        raceType = (racing->GetTrackType() == SR_TRACK_DRAG_RACE) ? RaceType::Drag : RaceType::Road;
+    }
     const bool wasKingRace = (state.GetLastChallengerPoolIndex() == RACER_KING_SLOT);
     srrace::RaceEndContext endCtx = racing->BuildRaceEndContext();
     endCtx.vsKing = wasKingRace;
@@ -884,14 +1025,30 @@ void Driving::SettleRace(RaceOutcome outcome) {
 
     // A ticket or a jumped light still counts the race, but leaves the stake alone.
     raceEndPendingKing = state.OnRaceFinished(raceType, won, srrace::SettlesBet(endCtx));
+    // A grudge round reports back to the night, whose verdict replaces the race-end line.
+    if (raceType == RaceType::Grudge && state.GetGrudgeNight() != nullptr) {
+        const bool failed = (endCtx.endFlags & srrace::END_FAILURE_MASK) != 0;
+        const bool crossedLine = (endCtx.endFlags & srrace::END_CROSSED_LINE) != 0;
+        state.GetGrudgeNight()->OnRaceFinished(won, failed, racing->RaceTimeTenths(),
+                                               racing->LossMarginTenths(), crossedLine);
+        grudgeResultLine = state.GetGrudgeNight()->ResultMessage();
+    }
     racing->ResetRaceOutcome();
     // On top of the drive legs State::MoveToScene charges.
-    state.BurnFuel(raceType == RaceType::Drag
-                       ? State::FUEL_PER_DRAG_RACE_TENTHS
-                       : State::FUEL_PER_ROAD_RACE_TENTHS);
-    // King races advance the clock 4h/7h instead of 2h.
-    if (wasKingRace) {
-        state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : 7);
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        if (Car* car = state.GetCurrentCar()) car->SetSr2Tune(Sr2DriftTune(car->GetSr2Tune(), RandomEngine()));
+    }
+    state.BurnFuel(
+        raceType == RaceType::Drag     ? State::FUEL_PER_DRAG_RACE_TENTHS
+      : raceType == RaceType::Aqueduct ? State::FUEL_PER_AQUEDUCT_RACE_TENTHS
+                                       : State::FUEL_PER_ROAD_RACE_TENTHS);
+    // King races advance the clock 4h (drag), 5h (Aqueduct) or 7h instead of 2h. Street Rod 2 charges that for
+    // every race it starts from the drive-in (ldrivein.c 0x25092a: 600 / 750 / 1050 ticks).
+    const bool sr2Race = state.GetAssets().GetGame() == SrGame::SR2 && raceType != RaceType::Grudge;
+    if (state.GetAssets().GetGame() == SrGame::SR2 && raceType == RaceType::Grudge) {
+        // lgrudge.c never touches the clock; the trip there and back is charged by the garage.
+    } else if (wasKingRace || sr2Race) {
+        state.AdvanceGameHours(raceType == RaceType::Drag ? 4 : raceType == RaceType::Aqueduct ? 5 : 7);
     } else {
         state.AdvanceGameHours(2);
     }
@@ -936,16 +1093,21 @@ void Driving::SettleRace(RaceOutcome outcome) {
                  endCtx.crashSpeed, scrap);
     }
 
-    LOG_INFO("Driving: race ended (%s); press any key for garage",
-             reason.text.c_str());
+    LOG_INFO("Driving: race ended (%s) endFlags=0x%04x seg=%d avgSpeed=%d crashSpeed=%d; press any key for garage",
+             reason.text.c_str(), (unsigned)endCtx.endFlags, (int)racing->PlayerSegment(),
+             racing->AverageSpeedMph(), endCtx.crashSpeed);
     raceEnded = true;
     // ShowRaceEndMessage puts the message up after the dip.
     raceEndReason = reason;
+    if (!grudgeResultLine.empty()) {
+        raceEndReason = {grudgeResultLine, srrace::MessageBox::TwoRow};
+        grudgeResultLine.clear();
+    }
     raceEndWon = won;
     raceEndWreck = (crash == srrace::CrashOutcome::RepairOrJunk);
     raceEndCtx = endCtx;
-    // Only for a race decided at the line.
-    raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0;
+    // Only for a race decided at the line, and not on Grudge Night, which reports a margin instead.
+    raceEndShowStats = (endCtx.endFlags & srrace::END_FAILURE_MASK) == 0 && !endCtx.isGrudge;
     raceEndTimeTenths = racing->RaceTimeTenths();
     raceEndAvgSpeed = racing->AverageSpeedMph();
     raceEndPercent = racing->DistancePercent();
@@ -956,6 +1118,9 @@ void Driving::SettleRace(RaceOutcome outcome) {
 void Driving::ApplyDrivetrainDamage(uint16_t endFlags) {
     Car* car = state.GetCurrentCar();
     if (!car) return;
+    if (endFlags & (srrace::END_ENGINE_BLOWN | srrace::END_TRANS_DROPPED)) {
+        if (AudioManager* am = state.GetAssets().GetAudioManager()) am->PlaySound(AudioSampleType::DRIVETRAIN_BLOWN);
+    }
     if (endFlags & srrace::END_ENGINE_BLOWN) {
         car->StripEngineAssembly();
         LOG_INFO("Driving: engine blown - engine, manifold and carburetors stripped");
@@ -1013,6 +1178,10 @@ void Driving::LeaveAfterRace() {
     raceEndPendingKing = false;
     if (endGame) {
         state.MoveToScene(SCENE_KING_OF_COUNTY);
+    } else if (state.GetPendingRaceType() == RaceType::Grudge) {
+        // The night runs its own rounds, so a grudge round goes back to it
+        // rather than out to the diner or the garage.
+        state.MoveToScene(SCENE_GRUDGE_NIGHT);
     } else if (state.IsJailed()) {
         // Not the garage: you are in a cell, watching the diner.
         state.MoveToScene(SCENE_DINER);
@@ -1134,7 +1303,23 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
         DebugPanel racingPanel{"Racing", {}};
         racingPanel.toggles.push_back(
             {"Invulnerable (no crash, no over-rev)", racing->DebugInvulnerableFlag()});
+        // Also reachable from the race menu in Street Rod 2; this forces it
+        // on for any race, including from a Street Rod 1 session.
+        racingPanel.toggles.push_back(
+            {"Aqueduct channel (preview)", &racing->AqueductPreviewRef()});
         racingPanel.rows = racing->GetRacingDebugRows(racing->GetLastVisibleRow());
+        if (racing->AqueductPreviewRef()) {
+            // The camera height the channel is projected from is not traced
+            // yet, so it is dialled in here rather than guessed in code.
+            racingPanel.rows.push_back(
+                {"aqueduct cam height", std::to_string(racing->AqueductCameraHeightRef())});
+            racingPanel.buttons.push_back(
+                {"cam -10", [this]() { racing->AqueductCameraHeightRef() -= 10; }});
+            racingPanel.buttons.push_back(
+                {"cam +10", [this]() { racing->AqueductCameraHeightRef() += 10; }});
+            racingPanel.buttons.push_back(
+                {"cam reset", [this]() { racing->AqueductCameraHeightRef() = 1900; }});
+        }
         if (racing->IsFlybyMode()) {
             racingPanel.lines = {
                 "[ ] step   shift+[ ] seg   ctrl+[ ] +/-10seg",
@@ -1153,9 +1338,7 @@ std::vector<DebugPanel> Driving::GetDebugPanels() {
             opponent.rows.push_back({"driver", ""});
             opponent.rows.push_back({"name", opp->driver.name});
 
-            Bitmap* portrait = state.GetAssets().GetBitmapAsset(
-                {LibAssetRegular, SrLibFileAmigaLibP,
-                 static_cast<AmigaLibAsset>(opp->driver.spriteIndex)});
+            Bitmap* portrait = LoadDriverPortrait(opp->driver);
             if (portrait != nullptr) {
                 opponent.image = portrait->GetTexture();
             }
@@ -1201,26 +1384,21 @@ void Driving::DrawSteeringDot() {
         return;
     }
 
-    // The dot rides the wheel rim, rotating with the eased steering. In 320x200 dashboard space.
-    constexpr float kWheelCx = 171.0f;     // wheel center X (between the gauges)
-    constexpr float kWheelCy = 182.0f;     // wheel center Y
-    constexpr float kWheelR = 82.0f;       // rim radius the dot travels on
-    constexpr float kRadPerUnit = 0.045f;  // steer units -> radians (max ~ +-0.8)
-    constexpr float kDotR = 1.5f;               // dot radius in pixels
-
-    const float steer = static_cast<float>(racing->GetSteerDisplay());
-    const float theta = steer * kRadPerUnit;  // +steer (right) swings the dot right
-    const int dx = static_cast<int>(std::lround(kWheelCx + kWheelR * std::sin(theta)));
-    const int dy = static_cast<int>(std::lround(kWheelCy - kWheelR * std::cos(theta)));
+    // SR1 0x231ca0 / SR2 amigagr.c 0x234fec: two pixels across per steering unit, dropping down the rim by a table,
+    // in the dashboard's own rastport (screen y 100). SR2's sits 4 lower. Drawn in pen 15 as four short lines:
+    //   x .. x+1 / x-1 .. x+2 / x-1 .. x+2 / x .. x+1,  x = 2 * steer + 170
+    static constexpr int kRimDrop[25] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 5, 6, 6, 7, 8, 8, 10, 11, 11, 13};
+    constexpr int kDashTop = 100;
+    const int steer = racing->GetSteerDisplay();
+    const int x = 2 * steer + 170;
+    const int y = kDashTop + kRimDrop[std::min(std::abs(steer), 24)] +
+                  (state.GetAssets().GetGame() == SrGame::SR2 ? 4 : 0);
 
     SDL_SetRenderDrawColor(renderer, 220, 30, 30, 255);
-    for (int y = -kDotR; y <= kDotR; ++y) {
-        for (int x = -kDotR; x <= kDotR; ++x) {
-            if (x * x + y * y <= kDotR * kDotR) {
-                SDL_RenderDrawPoint(renderer, dx + x, dy + y);
-            }
-        }
-    }
+    SDL_RenderDrawLine(renderer, x, y, x + 1, y);
+    SDL_RenderDrawLine(renderer, x - 1, y + 1, x + 2, y + 1);
+    SDL_RenderDrawLine(renderer, x - 1, y + 2, x + 2, y + 2);
+    SDL_RenderDrawLine(renderer, x, y + 3, x + 1, y + 3);
 }
 
 void Driving::OnSceneExit() {

@@ -84,7 +84,7 @@ void AssetManager::InitFonts() {
 }
 
 void AssetManager::LoadAmigaFontFromExe() {
-    SFont_Font* amigaFont = LoadMainFontFromExe(srExeData_vec);
+    SFont_Font* amigaFont = LoadMainFontFromExe(Files(game).exe, game == SrGame::SR2);
     if (!amigaFont) {
         return;
     }
@@ -98,13 +98,19 @@ void AssetManager::LoadAmigaFontFromExe() {
 }
 
 void AssetManager::InitMousePointers() {
-    uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(srExeData_vec.data());
+    // SR2 has pointers at different offset
+    const bool sr2 = game == SrGame::SR2;
+    constexpr size_t kSr2PointerShift = 0x2B04;
+    uint16_t* srExeData_uint16 = reinterpret_cast<uint16_t*>(Files(game).exe.data() + (sr2 ? kSr2PointerShift : 0));
 
     for (int i = 0; i < SrLibAmigaSpriteAssetCount; i++) {
-        SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[i];
+        // SR2's pump slot points at the hand sprite.
+        const int infoIndex = (sr2 && i == SrLibAmigaSpriteAssetMousePointerPump)
+                                  ? SrLibAmigaSpriteAssetMousePointerHand : i;
+        SrLibAmigaSpriteInfo info = SPRITE_INFO_LOOKUP[infoIndex];
         std::vector<SrLibColor> buffer(info.width * info.height);
         SrLibAmigaSpriteAsset pointer = (SrLibAmigaSpriteAsset)i;
-        SrLibAmigaSpriteReadMousePointer(srExeData_uint16, pointer, buffer.data());
+        SrLibAmigaSpriteReadMousePointer(srExeData_uint16, (SrLibAmigaSpriteAsset)infoIndex, buffer.data());
         std::unique_ptr<Bitmap> mousePointer = std::make_unique<Bitmap>();
         mousePointer->LoadBitmapFromChunky(buffer, info.width, info.height);
         mousePointer->SetDimensions(info.width, info.height);
@@ -112,17 +118,10 @@ void AssetManager::InitMousePointers() {
     }
 }
 
-// Helper: extract a named file from an ADF, which may be on disk or in a memory buffer.
-// Returns a byte vector; throws AssetLoadError on failure.
-static byte_vector ExtractFromAdf(const fs::path* adfPath,
-                                   const byte_vector* adfBuf,
-                                   const char* fileName) {
-    AdfFileData* data = nullptr;
-    if (adfPath) {
-        data = extract_adf_file_to_memory(adfPath->string().c_str(), fileName);
-    } else if (adfBuf) {
-        data = extract_adf_file_from_buffer(adfBuf->data(), adfBuf->size(), fileName);
-    }
+// Pulls a named file out of an ADF image already in memory. Throws
+// AssetLoadError when the image does not hold it.
+static byte_vector ExtractFromAdf(const byte_vector& adf, const char* fileName) {
+    AdfFileData* data = extract_adf_file_from_buffer(adf.data(), adf.size(), fileName);
     if (!data) {
         throw AssetLoadError(std::string("Failed to extract ") + fileName + " from ADF");
     }
@@ -132,75 +131,117 @@ static byte_vector ExtractFromAdf(const fs::path* adfPath,
     return result;
 }
 
-void AssetManager::InitGameFiles() {
-    const char* disk1Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk1];
-    const char* disk2Name = SrLibArchiveNames[SrLibArchiveSR1AmigaDisk2];
+static byte_vector ReadWholeFile(const fs::path& path) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return {};
+    const auto size = f.tellg();
+    f.seekg(0);
+    byte_vector out(static_cast<size_t>(size));
+    f.read(reinterpret_cast<char*>(out.data()), size);
+    return out;
+}
 
-    fs::path disk1Direct = gameBasePath / disk1Name;
-    fs::path disk2Direct = gameBasePath / disk2Name;
-    fs::path zipPath     = gameBasePath / "sr1amiga.zip";
+AssetManager::GameAssets& AssetManager::Files(SrGame which) {
+    return games[which];
+}
 
-    bool useDirectAdfs = fs::exists(disk1Direct) && fs::exists(disk2Direct);
-    bool useZip        = !useDirectAdfs && fs::exists(zipPath);
+const AssetManager::GameAssets& AssetManager::Files(SrGame which) const {
+    static const GameAssets none;
+    auto it = games.find(which);
+    return it != games.end() ? it->second : none;
+}
 
-    if (!useDirectAdfs && !useZip) {
-        throw AssetLoadError("No ADF files or sr1amiga.zip found in game directory");
-    }
+bool AssetManager::IsGameLoaded(SrGame which) const {
+    return !Files(which).libP.empty();
+}
 
-    if (useDirectAdfs) {
-        SrLibStatus s1 = SrLibVerifyChecksum(disk1Direct.string().c_str(),
-                                              SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk1]);
-        if (s1 != SrLibStatusSuccess) {
-            throw AssetLoadError("SR1AMIGA_DISK1.adf is corrupted (checksum mismatch)");
+bool AssetManager::LoadGame(SrGame which, std::string* error) {
+    if (IsGameLoaded(which)) return true;
+
+    // Both games lay their disks out the same way.
+    const SrGameFiles& gf = SrGameGetFiles(which);
+    const char* disk1Name = SrLibArchiveNames[gf.disk1];
+    const char* disk2Name = SrLibArchiveNames[gf.disk2];
+    const fs::path disk1Path = gameBasePath / disk1Name;
+    const fs::path disk2Path = gameBasePath / disk2Name;
+    const fs::path zipPath   = gameBasePath / gf.zipName;
+
+    auto fail = [&](const std::string& why) {
+        LOG_INFO("%s: %s", gf.displayName, why.c_str());
+        if (error) *error = std::string(gf.displayName) + ": " + why;
+        return false;
+    };
+
+    GameAssets ga;
+    const bool loose = fs::exists(disk1Path) && fs::exists(disk2Path);
+    if (loose) {
+        // A bad disk surfaces as unreadable art much later, so check now.
+        if (SrLibVerifyChecksum(disk1Path.string().c_str(),
+                                SrLibArchiveChecksums[gf.disk1]) != SrLibStatusSuccess) {
+            return fail(std::string(disk1Name) + " is corrupted (checksum mismatch)");
         }
-        SrLibStatus s2 = SrLibVerifyChecksum(disk2Direct.string().c_str(),
-                                              SrLibArchiveChecksums[SrLibArchiveSR1AmigaDisk2]);
-        if (s2 != SrLibStatusSuccess) {
-            throw AssetLoadError("SR1AMIGA_DISK2.adf is corrupted (checksum mismatch)");
+        if (SrLibVerifyChecksum(disk2Path.string().c_str(),
+                                SrLibArchiveChecksums[gf.disk2]) != SrLibStatusSuccess) {
+            return fail(std::string(disk2Name) + " is corrupted (checksum mismatch)");
         }
-    }
-
-    const fs::path* path1 = nullptr;
-    const fs::path* path2 = nullptr;
-    byte_vector disk1Buf, disk2Buf;
-
-    if (useDirectAdfs) {
-        LOG_INFO("Loading game files from ADF files in %s", gameBasePath.string().c_str());
-        std::ifstream f(disk1Direct, std::ios::binary | std::ios::ate);
-        if (f) {
-            auto sz = f.tellg();
-            f.seekg(0);
-            disk1Adf_vec.resize(static_cast<size_t>(sz));
-            f.read(reinterpret_cast<char*>(disk1Adf_vec.data()), sz);
-        }
-        // Disk2 ships sample .sav files in its root.
-        std::ifstream f2(disk2Direct, std::ios::binary | std::ios::ate);
-        if (f2) {
-            auto sz = f2.tellg();
-            f2.seekg(0);
-            disk2Adf_vec.resize(static_cast<size_t>(sz));
-            f2.read(reinterpret_cast<char*>(disk2Adf_vec.data()), sz);
-        }
-        path1 = &disk1Direct;
-        path2 = &disk2Direct;
+        LOG_INFO("Loading %s from ADF files in %s", gf.displayName,
+                 gameBasePath.string().c_str());
+        ga.disk1Adf = ReadWholeFile(disk1Path);
+        ga.disk2Adf = ReadWholeFile(disk2Path);
+    } else if (fs::exists(zipPath)) {
+        LOG_INFO("Loading %s from %s in %s", gf.displayName, gf.zipName,
+                 gameBasePath.string().c_str());
+        ga.disk1Adf = ZipExtractToMemory(zipPath, disk1Name);
+        ga.disk2Adf = ZipExtractToMemory(zipPath, disk2Name);
     } else {
-        LOG_INFO("Loading game files from sr1amiga.zip in %s", gameBasePath.string().c_str());
-        disk1Buf = ZipExtractToMemory(zipPath, disk1Name);
-        disk2Buf = ZipExtractToMemory(zipPath, disk2Name);
-        if (disk1Buf.empty() || disk2Buf.empty()) {
-            throw AssetLoadError("Failed to extract ADF files from sr1amiga.zip");
-        }
-        disk1Adf_vec = disk1Buf;
-        disk2Adf_vec = disk2Buf;
+        return fail(std::string("no ") + disk1Name + " / " + disk2Name + " and no " +
+                    gf.zipName + " in " + gameBasePath.string());
+    }
+    if (ga.disk1Adf.empty() || ga.disk2Adf.empty()) {
+        return fail("could not read both disk images");
     }
 
-    srExeData_vec    = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "Street_Rod");
-    GameText::Load(srExeData_vec);
-    libStartData_vec = ExtractFromAdf(path1, useDirectAdfs ? nullptr : &disk1Buf, "libstart.p");
-    libPData_vec     = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "lib.p");
-    srData_vec       = ExtractFromAdf(path2, useDirectAdfs ? nullptr : &disk2Buf, "SR_Data");
+    // The whole images stay resident anyway.
+    try {
+        ga.exe      = ExtractFromAdf(ga.disk1Adf, "Street_Rod");
+        ga.libStart = ExtractFromAdf(ga.disk1Adf, "libstart.p");
+        ga.libP     = ExtractFromAdf(ga.disk2Adf, "lib.p");
+        ga.data     = ExtractFromAdf(ga.disk2Adf, gf.dataFile);
+    } catch (const AssetLoadError& e) {
+        return fail(e.what());
+    }
 
-    LOG_INFO("Found all required Amiga game files.");
+    if (which == SrGame::SR2) {
+        try {
+            ga.srEnd = ExtractFromAdf(ga.disk1Adf, "SR2_end");
+        } catch (const AssetLoadError& e) {
+            LOG_WARN("%s: %s, no ending", gf.displayName, e.what());
+        }
+    }
+
+    ga.imageEntries = bp.ReadEntries(ga.libP);
+    if (which == SrGame::SR2) {
+        ga.palettes = SrLibReadSr2Palettes(ga.exe);
+        if (ga.palettes.empty()) {
+            LOG_WARN("%s: no palette table in the executable, using Street Rod's",
+                     gf.displayName);
+        }
+    }
+
+    LOG_INFO("Loaded %s: %d lib.p assets", gf.displayName, ga.imageEntries.first);
+    games[which] = std::move(ga);
+    return true;
+}
+
+byte_vector& AssetManager::GetLibPData(SrGame which) { return Files(which).libP; }
+byte_vector& AssetManager::GetSrData(SrGame which)  { return Files(which).data; }
+byte_vector& AssetManager::GetLibStartData()        { return Files(game).libStart; }
+byte_vector& AssetManager::GetSrExeData()           { return Files(game).exe; }
+byte_vector& AssetManager::GetSrExeData(SrGame which) { return Files(which).exe; }
+const byte_vector& AssetManager::GetDisk2Adf() const { return Files(game).disk2Adf; }
+
+const std::pair<int, std::vector<BitmapEntry_t>>& AssetManager::GetImageEntries(SrGame which) {
+    return Files(which).imageEntries;
 }
 
 void AssetManager::InitStockPalettes() {
@@ -218,16 +259,18 @@ void AssetManager::InitAudio(bool muteAudio) {
     LOG_INFO("Initializing audio system");
 
     audioManager = new AudioManager();
+    audioManager->SetSr2Game(game == SrGame::SR2);
 
-    if (!audioManager->Initialize(disk1Adf_vec.data(), disk1Adf_vec.size())) {
+    const byte_vector& disk1 = Files(game).disk1Adf;
+    if (!audioManager->Initialize(disk1.data(), disk1.size())) {
         LOG_INFO("Warning: Audio initialization failed, continuing without audio");
         delete audioManager;
         audioManager = nullptr;
     } else {
         LOG_INFO("Audio system initialized successfully");
 
-        if (!disk1Adf_vec.empty()) {
-            audioManager->InitAmigaMusic(disk1Adf_vec.data(), disk1Adf_vec.size());
+        if (!disk1.empty()) {
+            audioManager->InitAmigaMusic(disk1.data(), disk1.size(), game == SrGame::SR2);
         }
 
         byte_vector srExePacked;
@@ -264,15 +307,76 @@ void AssetManager::InitAudio(bool muteAudio) {
         } else if (!fs::exists(srExePath) && !fs::exists(sr1pcZipPath)) {
             LOG_INFO("No SR.EXE or sr1pc.zip found, no PC speaker music");
         }
+
+        // Street Rod 2's own speaker loops, from its SR.EXE: in sr2pc.zip, or loose if that SR.EXE is SR2's.
+        if (game == SrGame::SR2) {
+            const fs::path sr2Zip = gameBasePath / "sr2pc.zip";
+            std::vector<byte_vector> candidates;
+            if (fs::exists(sr2Zip)) candidates.push_back(ZipExtractToMemory(sr2Zip, "SR.EXE"));
+            if (!srExePacked.empty()) candidates.push_back(srExePacked);
+            for (const byte_vector& packed : candidates) {
+                if (packed.empty()) continue;
+                exepack::UnpackExeResult unpacked = exepack::unpack_exepack_to_exe_bytes(packed.data(), packed.size());
+                const byte_vector& exe = unpacked.ok() ? unpacked.exe_bytes : packed;
+                std::vector<pcspk::LoopSong> loops = pcspk::ReadLoopsSr2(exe.data(), exe.size());
+                if (loops[static_cast<size_t>(pcspk::Loop::IdlePutt)].events.empty()) continue;
+                audioManager->SetPcSpeakerLoops(std::move(loops));
+                LOG_INFO("PC speaker loops: Street Rod 2's own");
+                std::vector<std::vector<SrNote>> songs;
+                if (sr2_exe_build_songs(exe.data(), exe.size(), songs)) {
+                    std::vector<std::string> names;
+                    for (size_t i = 0; i < songs.size(); ++i) names.push_back("Song " + std::to_string(i + 1));
+                    audioManager->SetPcSpeakerSongs(std::move(songs), std::move(names));
+                }
+                break;
+            }
+        }
+
+        // Street Rod 2's AdLib soundtrack: the MSR.SND instrument bank plus the
+        // .MUS songs, loose in the game folder or inside sr2pc.zip.
+        fs::path sndPath   = gameBasePath / "MSR.SND";
+        fs::path sr2ZipPath = gameBasePath / "sr2pc.zip";
+        if (fs::exists(sndPath) || fs::exists(sr2ZipPath)) {
+            byte_vector snd = LoadDosDataFile(sndPath, sr2ZipPath, "MSR.SND",
+                                              "SR2 AdLib instruments");
+            if (!snd.empty() && audioManager->InitAdlibMusic(snd.data(), snd.size())) {
+                // The three in-game songs, in the game's own order.
+                struct AdlibSong { const char* file; const char* label; };
+                static const AdlibSong kSongs[] = {
+                    {"MSRBEG.MUS", "Intro"},
+                    {"MSR24.MUS",  "Song 1"},
+                    {"MSR2.MUS",   "Song 2"},
+                };
+                auto load = [&](const char* file) {
+                    return LoadDosDataFile(gameBasePath / file, sr2ZipPath, file, "SR2 AdLib song");
+                };
+                int loaded = 0;
+                for (const AdlibSong& song : kSongs) {
+                    byte_vector mus = load(song.file);
+                    if (!mus.empty() &&
+                        audioManager->AddAdlibSong(song.label, mus.data(), mus.size())) {
+                        loaded++;
+                    }
+                }
+                byte_vector win = load("MSR21.MUS");
+                if (!win.empty()) {
+                    audioManager->SetAdlibVictorySong("Victory", win.data(), win.size());
+                }
+                LOG_INFO("AdLib music: %d songs loaded", loaded);
+            }
+        }
     }
 }
 
-void AssetManager::Init(const fs::path& validatedPath, bool muteAudio) {
+void AssetManager::Init(const fs::path& validatedPath, bool muteAudio, SrGame whichGame) {
     try {
+        game = whichGame;
         gameBasePath = validatedPath;
         dataPath = gameBasePath;
         InitFonts();
-        InitGameFiles();
+        std::string error;
+        if (!LoadGame(game, &error)) throw AssetLoadError(error);
+        GameText::Load(Files(game).exe, game == SrGame::SR2);
         LoadAmigaFontFromExe();
         InitStockPalettes();
         InitAudio(muteAudio);
@@ -307,13 +411,15 @@ Palette AssetManager::GetStockPalette(StockPalette palette) {
 
 void AssetManager::ReadAssets() {
     try {
-        imageEntries = bp.ReadEntries(libPData_vec);
-
-        for (int i = 0; i < imageEntries.first; i++) {
-            UpdateAsset(libPData_vec, i);
+        // The played game's art is decoded up front; another game's waits
+        // until something asks for one of its sprites - see GetBitmapAsset.
+        GameAssets& played = Files(game);
+        for (int i = 0; i < played.imageEntries.first; i++) {
+            UpdateAsset(played.libP, i, game);
         }
 
-        if (carDecals == nullptr) {
+        // SR2 has no stickers.
+        if (carDecals == nullptr && game == SrGame::SR1) {
             auto *decals = (AnimatedBitmap*)GetBitmapAsset({LibAssetSpritesheet, SrLibFileAmigaLibP, DECALS});
             if (!decals) {
                 throw AssetLoadError("Failed to load car decals");
@@ -333,34 +439,37 @@ void AssetManager::ReadAssets() {
     }
 }
 
-void AssetManager::UpdateAsset(byte_vector& libfile, int index) {
+void AssetManager::UpdateAsset(byte_vector& libfile, int index, SrGame fromGame) {
     Palette empty;
-    UpdateAsset(libfile, index, empty);
+    UpdateAsset(libfile, index, empty, fromGame);
 }
 
 
-void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette) {
-    // A pool key can be outside lib.p (SE cars carry a shifted index).
-    if (index < 0 || index >= (int)imageEntries.second.size()) {
-        LOG_ERROR("UpdateAsset: index %d outside lib.p (%zu entries)", index, imageEntries.second.size());
+void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPalette,
+                               SrGame fromGame) {
+    const auto& entries = GetImageEntries(fromGame);
+    if (index < 0 || index >= (int)entries.second.size()) {
+        LOG_ERROR("UpdateAsset: index %d outside lib.p (%zu entries)", index, entries.second.size());
         return;
     }
-    BitmapEntry_t b = imageEntries.second[index];
-    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
+    BitmapEntry_t b = entries.second[index];
+    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, entries.first);
+    std::vector<uint16_t> palData =
+        bp.GetPalette(SrLibFileAmigaLibP, index, fromGame, Files(fromGame).palettes);
     Palette pal = bp.PreparePalette(palData, true);
-    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette, index);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, pal, carPalette, index, fromGame);
 
     Asset a;
     a.id = index;
     a.location = SrLibFileAmigaLibP;
-    a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
+    a.game = fromGame;
+    a.type = bp.GetAssetType(SrLibFileAmigaLibP, index, fromGame);
 
     bool isMask = a.type == LibAssetMask;
-    const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index);
+    const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index, fromGame);
 
     if (a.type == LibAssetSpritesheet) {
-        std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index);
+        std::pair<int, int> info = bp.GetSpritesheetInfo(SrLibFileAmigaLibP, index, fromGame);
         std::unique_ptr<AnimatedBitmap> spriteSheet = std::make_unique<AnimatedBitmap>();
         spriteSheet->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
         spriteSheet->SetDimensions(b.width, b.height);
@@ -377,16 +486,30 @@ void AssetManager::UpdateAsset(byte_vector& libfile, int index, Palette& carPale
 }
 
 
-void AssetManager::UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette) {
+void AssetManager::UpdateAssetWithCarPalette(byte_vector& libfile, int index, StandardCarColor palette,
+                                           SrGame fromGame) {
     std::vector<uint16_t> carPalette = GetStandardCarColor(palette);
     Palette newPalette = bp.PrepareCarPalette(carPalette);
-    UpdateAsset(libfile, index, newPalette);
+    UpdateAsset(libfile, index, newPalette, fromGame);
+}
+
+std::vector<uint16_t> AssetManager::GetAssetPalette(const Asset& asset) {
+    return bp.GetPalette(asset.location, asset.id, asset.game,
+                         Files(asset.game).palettes);
 }
 
 Bitmap* AssetManager::GetBitmapAsset(const Asset& asset) {
     for (auto& i : imageAssets) {
         if (i.first == asset) {
             return i.second.get();
+        }
+    }
+
+    // Only the played game's lib.p is decoded up front.
+    if (asset.location == SrLibFileAmigaLibP && IsGameLoaded(asset.game)) {
+        UpdateAsset(GetLibPData(asset.game), asset.id, asset.game);
+        for (auto& i : imageAssets) {
+            if (i.first == asset) return i.second.get();
         }
     }
 
@@ -400,39 +523,38 @@ AnimatedBitmap* AssetManager::GetCarDecals() {
 
 Bitmap* AssetManager::GetBitmapAssetWithPalette(byte_vector& libfile, Asset asset, const std::vector<uint16_t>& carPalette) {
     size_t paletteHash = hashPalette(carPalette);
-    AssetPaletteKey cacheKey{asset.id, paletteHash};
+    AssetPaletteKey cacheKey{asset.id, paletteHash, asset.game};
 
     auto it = paletteVariantCache.find(cacheKey);
     if (it != paletteVariantCache.end()) {
         return it->second.get();
     }
 
-    CreateAndCachePaletteVariant(libfile, asset.id, carPalette, cacheKey);
+    CreateAndCachePaletteVariant(libfile, asset, carPalette, cacheKey);
     return paletteVariantCache[cacheKey].get();
 }
 
-void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, int index, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey) {
-    if (index < 0 || index >= (int)imageEntries.second.size()) {
+void AssetManager::CreateAndCachePaletteVariant(byte_vector& libfile, const Asset& asset, const std::vector<uint16_t>& carPalette, const AssetPaletteKey& cacheKey) {
+    const int index = asset.id;
+    const auto& entries = GetImageEntries(asset.game);
+    if (index < 0 || index >= (int)entries.second.size()) {
         LOG_ERROR("CreateAndCachePaletteVariant: index %d outside lib.p (%zu entries)",
-                  index, imageEntries.second.size());
+                  index, entries.second.size());
         return;
     }
-    BitmapEntry_t b = imageEntries.second[index];
-    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, imageEntries.first);
-    std::vector<uint16_t> palData = bp.GetPalette(SrLibFileAmigaLibP, index);
+    BitmapEntry_t b = entries.second[index];
+    std::vector<uint8_t> data = bp.ReadImage(libfile, b, index, entries.first);
+    std::vector<uint16_t> palData =
+        bp.GetPalette(asset.location, index, asset.game, Files(asset.game).palettes);
 
     Palette processedCarPalette = bp.PrepareCarPalette(carPalette);
     Palette basePal = bp.PreparePalette(palData, true);
 
-    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette, index);
+    std::vector<SrLibColor> chunkyData = bp.PlanarToChunky(data, b, basePal, processedCarPalette, index, asset.game);
 
-    Asset a;
-    a.id = index;
-    a.location = SrLibFileAmigaLibP;
-    a.type = bp.GetAssetType(SrLibFileAmigaLibP, index);
-
-    bool isMask = a.type == LibAssetMask;
-    const bool loadOpaque = bp.LoadsOpaque(SrLibFileAmigaLibP, index);
+    const LibAssetType type = bp.GetAssetType(asset.location, index, asset.game);
+    const bool isMask = type == LibAssetMask;
+    const bool loadOpaque = bp.LoadsOpaque(asset.location, index, asset.game);
 
     std::unique_ptr<Bitmap> bitmap = std::make_unique<Bitmap>();
     bitmap->LoadBitmapFromChunky(chunkyData, b.width, b.height, isMask, loadOpaque);
@@ -553,8 +675,11 @@ void AssetManager::InitCarSets() {
     const std::vector<CarSetDef>& defs = GetCarSetDefs();
     for (size_t i = 0; i < defs.size(); i++) {
         const CarSetDef& def = defs[i];
-        if (def.art == CarSetArt::AmigaLibP) {
-            carSets[i].enabled = true;
+        if (!CarSetFitsGame(def, game)) continue;   // never mixes backwards
+        if (def.zipName.empty()) {
+            // Reads a game's own lib.p and data file.
+            if (CarSetIsOwnGame(def, game)) carSets[i].enabled = true;
+            else LoadGame(def.game);
             continue;
         }
 
@@ -583,7 +708,11 @@ void AssetManager::InitCarSets() {
 
 bool AssetManager::HasCarSetData(int carSet) const {
     if (carSet < 0 || carSet >= (int)carSets.size()) return false;
-    if (GetCarSetDefs()[carSet].art == CarSetArt::AmigaLibP) return true;
+    const CarSetDef& def = GetCarSetDefs()[carSet];
+    // Street Rod 2's cars cannot race in Street Rod, so its set is not offered there.
+    if (!CarSetFitsGame(def, game)) return false;
+    // A set with no files of its own is there exactly when its game is.
+    if (def.zipName.empty()) return IsGameLoaded(def.game);
     return !carSets[carSet].libData.empty() && !carSets[carSet].carData.empty();
 }
 
@@ -601,13 +730,13 @@ const std::pair<int, std::vector<DOSBitmapEntry_t>>& AssetManager::GetCarSetImag
 
 bool AssetManager::IsCarSetEnabled(int carSet) const {
     if (carSet < 0 || carSet >= (int)carSets.size()) return false;
-    if (GetCarSetDefs()[carSet].mandatory) return true;
+    if (CarSetIsOwnGame(GetCarSetDefs()[carSet], game)) return true;
     return carSets[carSet].enabled && HasCarSetData(carSet);
 }
 
 void AssetManager::SetCarSetEnabled(int carSet, bool enabled) {
     if (carSet < 0 || carSet >= (int)carSets.size()) return;
-    if (GetCarSetDefs()[carSet].mandatory) return;
+    if (CarSetIsOwnGame(GetCarSetDefs()[carSet], game)) return;
     carSets[carSet].enabled = enabled;
 }
 
@@ -718,15 +847,22 @@ fs::path AssetManager::FindGameDirectory() {
     throw AssetLoadError("Could not find game data directory. Please set STREETROD_DATA environment variable.");
 }
 
-bool AssetManager::ValidateGamePath(const fs::path& path) {
-    if (fs::exists(path / "SR1AMIGA_DISK1.adf") && fs::exists(path / "SR1AMIGA_DISK2.adf")) {
+bool AssetManager::GameAvailable(const fs::path& path, SrGame which) {
+    const SrGameFiles& gf = SrGameGetFiles(which);
+    const char* disk1 = SrLibArchiveNames[gf.disk1];
+    const char* disk2 = SrLibArchiveNames[gf.disk2];
+    if (fs::exists(path / disk1) && fs::exists(path / disk2)) {
         return true;
     }
-    fs::path zip = path / "sr1amiga.zip";
-    if (fs::exists(zip) &&
-        ZipContainsFile(zip, "SR1AMIGA_DISK1.adf") &&
-        ZipContainsFile(zip, "SR1AMIGA_DISK2.adf")) {
-        return true;
+    // Accept the game's zip containing both disks
+    const fs::path zip = path / gf.zipName;
+    return fs::exists(zip) && ZipContainsFile(zip, disk1) && ZipContainsFile(zip, disk2);
+}
+
+bool AssetManager::ValidateGamePath(const fs::path& path) {
+    // Either game is playable on its own, so one of them is enough.
+    for (SrGame g : {SrGame::SR1, SrGame::SR2}) {
+        if (GameAvailable(path, g)) return true;
     }
     LOG_WARN("ValidateGamePath: no valid game files in %s", path.string().c_str());
     return false;
@@ -744,7 +880,8 @@ void AssetManager::SetCustomPath(const std::string& customPath) {
     LOG_INFO("Using game directory: %s", gameBasePath.string().c_str());
 
     InitFonts();
-    InitGameFiles();
+    std::string error;
+    if (!LoadGame(game, &error)) throw AssetLoadError(error);
     LoadAmigaFontFromExe();
     InitStockPalettes();
 }
@@ -809,6 +946,18 @@ fs::path AssetManager::GetSavesDir() {
     return dir / "saves";
 }
 
+std::string AssetManager::ReadSetting(const std::string& key) {
+    auto kv = ReadConfigFile();
+    auto it = kv.find(key);
+    return it == kv.end() ? std::string() : it->second;
+}
+
+void AssetManager::WriteSetting(const std::string& key, const std::string& value) {
+    auto kv = ReadConfigFile();
+    kv[key] = value;
+    WriteConfigFile(kv);
+}
+
 void AssetManager::SaveGamePath(const fs::path& path) {
     auto kv = ReadConfigFile();
     kv["game_path"] = path.string();
@@ -818,20 +967,38 @@ void AssetManager::SaveGamePath(const fs::path& path) {
 static AudioManager::MusicSource DefaultMusicSource(AudioManager* am) {
     if (am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
+    if (am->HasAdlibMusic()) return AudioManager::MusicSource::ADLIB;
     return AudioManager::MusicSource::NONE;
 }
 
 static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioManager* am) {
     if (s == "amiga" && am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (s == "dos"   && am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
-    // "none" may have been saved while no source was available.
+    if (s == "adlib" && am->HasAdlibMusic()) return AudioManager::MusicSource::ADLIB;
     return DefaultMusicSource(am);
+}
+
+// config.txt's `engine_source`: "amiga" for Street Rod's looped sample, "adlib"
+// for Street Rod 2's DOS OPL engine, "pcspeaker" for Street Rod's DOS speaker note. Anything else keeps the Amiga one.
+static AudioManager::EngineSource ParseEngineSource(const std::string& s) {
+    if (s == "adlib") return AudioManager::EngineSource::ADLIB;
+    if (s == "pcspeaker") return AudioManager::EngineSource::PCSPEAKER;
+    return AudioManager::EngineSource::AMIGA;
+}
+
+static std::string EngineSourceName(AudioManager::EngineSource src) {
+    switch (src) {
+        case AudioManager::EngineSource::ADLIB:     return "adlib";
+        case AudioManager::EngineSource::PCSPEAKER: return "pcspeaker";
+        default:                                    return "amiga";
+    }
 }
 
 static std::string MusicSourceName(AudioManager::MusicSource src) {
     switch (src) {
         case AudioManager::MusicSource::AMIGA: return "amiga";
         case AudioManager::MusicSource::DOS:   return "dos";
+        case AudioManager::MusicSource::ADLIB: return "adlib";
         default:                               return "none";
     }
 }
@@ -856,6 +1023,9 @@ void AssetManager::LoadSettings() {
         auto extraAnimationsIt = kv.find("extra_animations");
         if (extraAnimationsIt != kv.end()) extraAnimations = std::stoi(extraAnimationsIt->second) != 0;
 
+        auto betterClickboxesIt = kv.find("better_clickboxes");
+        if (betterClickboxesIt != kv.end()) betterClickboxes = std::stoi(betterClickboxesIt->second) != 0;
+
         auto analogSteeringIt = kv.find("analog_steering");
         if (analogSteeringIt != kv.end()) analogSteering = std::stoi(analogSteeringIt->second) != 0;
 
@@ -864,16 +1034,24 @@ void AssetManager::LoadSettings() {
         // race_sim holds its own copy.
         srrace::SetUncapTopSpeed(uncapTopSpeed);
 
+        auto sr2FixIt = kv.find("sr2_fix_bugs");
+        if (sr2FixIt != kv.end()) sr2FixBugs = std::stoi(sr2FixIt->second) != 0;
+        srrace::SetSr2BugFixes(sr2FixBugs);
+
         auto smoothIt = kv.find("smooth_racing");
         if (smoothIt != kv.end()) smoothRacing = std::stoi(smoothIt->second) != 0;
+
+        auto recordScaleIt = kv.find("record_scale");
+        if (recordScaleIt != kv.end()) recordScale = std::clamp(std::stoi(recordScaleIt->second), 1, 4);
 
         auto speedIt = kv.find("race_speed");
         if (speedIt != kv.end()) srrace::SetSimHz(std::stoi(speedIt->second));
 
         // Stored by id, so reordering the registry cannot flip what is enabled.
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
+        // The played game's own set is not optional, so it has no key.
         for (size_t i = 0; i < defs.size() && i < carSets.size(); i++) {
-            if (defs[i].mandatory) continue;
+            if (CarSetIsOwnGame(defs[i], game)) continue;
             auto it = kv.find("car_set_" + defs[i].id);
             if (it != kv.end()) carSets[i].enabled = std::stoi(it->second) != 0;
         }
@@ -890,6 +1068,16 @@ void AssetManager::LoadSettings() {
                 ? ParseMusicSource(it->second, audioManager)
                 : DefaultMusicSource(audioManager);
             audioManager->SetMusicSource(src, skipIntro);
+            it = kv.find("engine_source");
+            if (it != kv.end()) {
+                audioManager->SetEngineSource(ParseEngineSource(it->second));
+            }
+            it = kv.find("sfx_source");
+            if (it != kv.end() && it->second == "pcspeaker") {
+                audioManager->SetSfxSource(AudioManager::SfxSource::PCSPEAKER);
+            } else if (it != kv.end() && it->second == "adlib") {
+                audioManager->SetSfxSource(AudioManager::SfxSource::ADLIB);
+            }
         }
     } catch (...) {}
 }
@@ -906,7 +1094,7 @@ void AssetManager::SaveSettings() {
     auto kv = ReadConfigFile();
     const std::vector<CarSetDef>& carSetDefs = GetCarSetDefs();
     for (size_t i = 0; i < carSetDefs.size() && i < carSets.size(); i++) {
-        if (carSetDefs[i].mandatory) continue;
+        if (CarSetIsOwnGame(carSetDefs[i], game)) continue;
         kv["car_set_" + carSetDefs[i].id] = carSets[i].enabled ? "1" : "0";
     }
     if (audioManager) {
@@ -914,13 +1102,19 @@ void AssetManager::SaveSettings() {
         kv["music_volume"]  = std::to_string(audioManager->GetMusicVolume());
         kv["music_muted"]   = audioManager->IsMusicMuted() ? "1" : "0";
         kv["music_source"]  = MusicSourceName(audioManager->GetMusicSource());
+        kv["engine_source"] = EngineSourceName(audioManager->GetEngineSource());
+        kv["sfx_source"]    = audioManager->GetSfxSource() == AudioManager::SfxSource::PCSPEAKER ? "pcspeaker"
+                            : audioManager->GetSfxSource() == AudioManager::SfxSource::ADLIB   ? "adlib"
+                                                                                                : "amiga";
     }
     kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";
     kv["hill_occlusion"] = hillOcclusion ? "1" : "0";
     kv["extra_animations"] = extraAnimations ? "1" : "0";
+    kv["better_clickboxes"] = betterClickboxes ? "1" : "0";
     kv["skip_intro"] = skipIntro ? "1" : "0";
     kv["analog_steering"] = analogSteering ? "1" : "0";
     kv["uncap_top_speed"] = uncapTopSpeed ? "1" : "0";
+    kv["sr2_fix_bugs"] = sr2FixBugs ? "1" : "0";
     kv["smooth_racing"] = smoothRacing ? "1" : "0";
     kv["race_speed"] = std::to_string(srrace::SimHz());
     WriteConfigFile(kv);

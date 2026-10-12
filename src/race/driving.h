@@ -30,6 +30,10 @@ class Driving: public Scene {
    private:
 
     std::unique_ptr<Racing> racing;
+public:
+    // The live race renderer - State has a `racing` member of its own that is never constructed.
+    Racing* GetRacing() const { return racing.get(); }
+private:
     std::unique_ptr<TrackReader> trackReader;
 
     SDL_Event *lastEvent;
@@ -60,6 +64,9 @@ class Driving: public Scene {
     bool raceEndWon = false;
     bool raceEndWreck = false;
     srrace::RaceEndMessage raceEndReason;
+    // Grudge Night's verdict on the round just run, carried the few lines from
+    // where the night is told to where the race-end bubble is built.
+    std::string grudgeResultLine;
     srrace::RaceEndContext raceEndCtx;
     void ShowRaceEndMessage();
     // Only when the race was decided at the line; snapshotted before the dip.
@@ -87,6 +94,12 @@ private:
     // What is still owed for the new set; 0 unless the $50 could not be covered.
     int ApplyBlownTires();
 
+    // SR2: wheel overlays (left, neutral, right) and the two grips.
+    Bitmap* sr2Wheel[3] = {nullptr, nullptr, nullptr};
+    Bitmap* sr2Grip[2] = {nullptr, nullptr};
+    Bitmap* sr2Arm[2] = {nullptr, nullptr};
+    void LoadSr2Cockpit();
+    void SetSr2State(DrivingState state);
     Bitmap* wheelLeftHand1;
     Bitmap* wheelLeftHand2;
     Bitmap* wheelLeftHand3;

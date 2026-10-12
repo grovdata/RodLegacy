@@ -1,23 +1,24 @@
 # RodLegacy
 
-RodLegacy is a reimplementation of the classic Street Rod game for modern systems.
-It aims to stay true to the original, with some enhancements:
+RodLegacy is a reimplementation of the classic Street Rod and Street Rod 2 games for modern systems.
+It aims to stay true to the originals, with some enhancements:
 
-- Play the Amiga version but with glorious framerate and instant loading times!
-- Add cars from Street Rod SE to get twice the car selection
-- Enjoy both Amiga and beepy DOS soundtrack
+- Play the Amiga versions but with glorious framerate and instant loading times!
+- Mix the car sets: play Street Rod 2 with the Street Rod and Street Rod SE cars too, or Street Rod with the SE cars
+- Pick a soundtrack: Amiga, AdLib or PC speaker
 - Load original save files
 - Gamepad controls
 - Hill occlusion in races
 - Extra animations and UI improvements
 - Pause button
+- Video capture to mp4 (needs ffmpeg installed)
 - Windows, Linux and macOS (26+) builds
 
 # Status
 
 RodLegacy is in development, so some bugs are expected but feel free to report them.
 The game should be playable up to the end, including races against The King.
-Support for Street Rod 2 is planned.
+Street Rod 2 is playable, including Mulholland, the Aqueduct, Grudge Night and The King.
 
 # Playing the game
 
@@ -25,8 +26,20 @@ Download the latest RodLegacy binaries from the [releases](../../releases) page.
 
 The Amiga disk images are *required* to run the game. They can be found for free on [streetrodonline.com](https://www.streetrodonline.com/downloads/).
 
-Start RodLegacy and point it to the folder where `sr1amiga.zip` sits.
-Add `srsepc.zip` in the same folder, if you want the DOS SE cars, music, and stickers.
+Start RodLegacy and point it to the folder holding the zips. You need at least one of the games:
+
+| File | What it gives you |
+| --- | --- |
+| `sr1amiga.zip` | Street Rod |
+| `sr2amiga.zip` | Street Rod 2 |
+| `sr1pc.zip` | Optional: Street Rod's DOS PC speaker music |
+| `sr2pc.zip` | Optional: Street Rod 2's AdLib music and sounds, and its PC speaker sounds |
+| `srsepc.zip` | Optional: the DOS SE cars and stickers |
+
+If both games are present, RodLegacy asks which to play at startup.
+
+Extra car sets are picked on the name screen when starting a new game. Street Rod 2 can use
+the Street Rod and SE cars alongside its own, Street Rod can add the SE cars.
 
 # Controls
 
@@ -55,6 +68,15 @@ Anywhere, driving included:
 | Start (Menu) | P | Pause |
 
 Pausing freezes the scene and the audio.
+
+| Keyboard | Action |
+| --- | --- |
+| Esc | Quit (asks first) |
+| F11 or Ctrl+F | Toggle fullscreen |
+| F5 | Screenshot |
+| F6 | Start / stop video capture (needs ffmpeg on the PATH) |
+
+Window scale and fullscreen are also under Options -> Video.
 
 Driving:
 
@@ -97,6 +119,19 @@ ninja -C build
 ./build/rodlegacy --debug
 ```
 
+## Command line
+
+| Flag | Effect |
+| --- | --- |
+| `--sr1` / `--sr2` | Start that game without asking |
+| `--scale N` | Window scale, 320x200 times N (default 4, or the largest that fits) |
+| `--original-size` | Same as `--scale 1` |
+| `--fullscreen` / `--windowed` | Start fullscreen or in a window |
+| `--mute` | Mute all audio |
+| `-config` | Show the setup screen |
+| `--debug` | Debug UI (debug builds) |
+| `--version` | Print the version and exit |
+
 # Tests
 
 ```
@@ -127,4 +162,4 @@ RodLegacy is licensed under GPLv3 (see LICENSE). The license covers only the cod
 
 # Legal
 
- RodLegacy is a fan-made reimplementation of Street Rod. It contains no original code or assets. Street Rod remains the property of its copyright holder, the owner of  [streetrodonline.com](https://www.streetrodonline.com/about/).
+ RodLegacy is a fan-made reimplementation of Street Rod and Street Rod 2. It contains no original code or assets. Street Rod remains the property of its copyright holder, the owner of  [streetrodonline.com](https://www.streetrodonline.com/about/).

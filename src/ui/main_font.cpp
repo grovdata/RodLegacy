@@ -2,10 +2,12 @@
 
 #include "core/log.h"
 
-SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData) {
-    constexpr size_t   BITMAP_OFFSET    = 0x0295A0;
-    constexpr size_t   CHARLOC_OFFSET   = 0x029740;
-    constexpr size_t   CHARSPACE_OFFSET = 0x0298B0;
+SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData, bool sr2) {
+    // SR2's font tables are the same bytes, shifted.
+    const size_t       SHIFT            = sr2 ? 0x12D9C : 0;
+    const size_t       BITMAP_OFFSET    = 0x0295A0 + SHIFT;
+    const size_t       CHARLOC_OFFSET   = 0x029740 + SHIFT;
+    const size_t       CHARSPACE_OFFSET = 0x0298B0 + SHIFT;
     constexpr int      YSIZE            = 8;
     constexpr int      MODULO           = 52;
     constexpr int      LO_CHAR          = 0x20;

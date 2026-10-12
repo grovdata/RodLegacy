@@ -19,11 +19,22 @@ void Intro::Init(bool debugMode) {
     BitmapParser bp;
     std::vector<uint8_t>& lib = state.GetAssets().GetLibStartData();
     const auto entries = bp.ReadEntries(lib);
-    for (int i = 0; i < static_cast<int>(images.size()) && i < entries.first; i++) {
+    auto decode = [&](int i, IntroImage& img) {
         const BitmapEntry_t& e = entries.second[i];
-        images[i].w = e.width;
-        images[i].h = e.height;
-        images[i].px = bp.PlanarToIndices(bp.ReadImage(lib, e, i, entries.first), e);
+        img.w = e.width;
+        img.h = e.height;
+        img.px = bp.PlanarToIndices(bp.ReadImage(lib, e, i, entries.first), e);
+    };
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        sr2Images.resize(entries.first);
+        for (int i = 0; i < entries.first; i++) decode(i, sr2Images[i]);
+        for (const auto& pal : state.GetAssets().GetGamePalettes()) {
+            std::array<uint16_t, 32> p = {};
+            std::copy_n(pal.begin(), std::min<size_t>(pal.size(), p.size()), p.begin());
+            sr2Palettes.push_back(p);
+        }
+    } else {
+        for (int i = 0; i < static_cast<int>(images.size()) && i < entries.first; i++) decode(i, images[i]);
     }
 
     frame = sdl2::TexturePtr(SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
@@ -32,7 +43,11 @@ void Intro::Init(bool debugMode) {
 }
 
 void Intro::OnSceneEnter() {
-    player.Start(images);
+    if (!sr2Images.empty()) {
+        player.StartSr2(sr2Images, sr2Palettes);
+    } else {
+        player.Start(images);
+    }
     tickAccumMs = 0;
     plateTicks = 0;
     leaving = false;
@@ -85,7 +100,13 @@ void Intro::PlaySound(IntroSound sound) {
         case IntroSound::Hit100: hit(100); break;
         case IntroSound::Hit200: hit(200); break;
         case IntroSound::Hit150: hit(150); break;
-        case IntroSound::Screech: am->PlaySound(AudioSampleType::TIRE_SCREECH, 0x30 / 64.0f); break;
+        case IntroSound::Screech: {
+            std::uniform_int_distribution<int> spread(0, SRL0_TIRE_SCREECH_PERIOD_SPREAD - 1);
+            const int period = SRL0_TIRE_SCREECH_PERIOD_BASE + spread(RandomEngine());
+            am->PlaySound(AudioSampleType::TIRE_SCREECH, SRL0_TIRE_SCREECH_VOLUME / 64.0f,
+                          static_cast<int>(3579545u / period));
+            break;
+        }
         case IntroSound::StartMusic:
             musicStarted = true;
             am->RestartMusic();

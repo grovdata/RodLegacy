@@ -120,7 +120,7 @@ TEST_CASE("sprite refs drop the +1000 base and report missing variants as -1") {
     CHECK(sprites[0].rearBumperStripped == 100);
     CHECK(sprites[0].frontBumperStripped == 150);
 
-    const DosCarSprites& king = sprites[HOT_DATA_CAR_COUNT - 1];
+    const CarSpriteRefs& king = sprites[HOT_DATA_CAR_COUNT - 1];
     CHECK(king.body == 40 + HOT_DATA_CAR_COUNT - 1);
     CHECK(king.choppedRoof == -1);
     CHECK(king.rearBumperStripped == -1);

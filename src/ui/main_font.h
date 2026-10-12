@@ -19,4 +19,4 @@ constexpr char MAIN_FONT_SCROLL_DOWN   = '\x5D'; // ']' single down arrow: scrol
 constexpr char MAIN_FONT_SCROLL_BOTTOM = '\x5E'; // '^' double down arrow: jump to bottom
 
 // nullptr if the font data is missing or bad; keep the existing font then.
-SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData);
+SFont_Font* LoadMainFontFromExe(const std::vector<uint8_t>& srExeData, bool sr2 = false);

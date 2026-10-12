@@ -110,7 +110,7 @@ int RacerPool::ComputeEntryScore(int pool_index) const {
     return ComputeCarPerformanceScore(car_specs_[spec_idx]);
 }
 
-std::vector<int> RacerPool::BuildSelectionPool(int player_score, int last_chosen_index) const {
+std::vector<int> RacerPool::BuildSelectionPool(int player_score, int player_class, int last_chosen_index) const {
     std::vector<std::pair<int, int>> candidates; // (delta, pool_index)
     for (int i = 0; i < static_cast<int>(pool.size()); ++i) {
         if (pool[i].status == -1) continue;
@@ -125,16 +125,27 @@ std::vector<int> RacerPool::BuildSelectionPool(int player_score, int last_chosen
         result.push_back(candidates[i].second);
     }
 
-    if (result.size() > 1 && last_chosen_index >= 0) {
-        auto it = std::find(result.begin(), result.end(), last_chosen_index);
-        if (it != result.end()) result.erase(it);
+    // opp_sort's tail swap: entries past the sixth give way to the closest ones when the car class is more
+    // than one off. The original tests the class of racer k-1, not of result[k-1]; kept as shipped.
+    auto classOf = [this](int i) {
+        const int spec = pool[i].car_spec_index;
+        return (spec >= 0 && spec < static_cast<int>(car_specs_.size())) ? car_specs_[spec].car_class : 0;
+    };
+    int j = 0;
+    for (int k = static_cast<int>(result.size()); k > 6; --k) {
+        if (std::abs(classOf(k - 1) - player_class) > 1) result[k - 1] = result[j++];
+    }
+
+    if (last_chosen_index >= 0 &&
+        std::any_of(result.begin(), result.end(), [&](int i) { return i != last_chosen_index; })) {
+        result.erase(std::remove(result.begin(), result.end(), last_chosen_index), result.end());
     }
 
     return result;
 }
 
-int RacerPool::SelectNextChallenger(int player_score, int last_chosen_index) {
-    auto sel = BuildSelectionPool(player_score, last_chosen_index);
+int RacerPool::SelectNextChallenger(int player_score, int player_class, int last_chosen_index) {
+    auto sel = BuildSelectionPool(player_score, player_class, last_chosen_index);
     if (sel.empty()) return -1;
     std::uniform_int_distribution<int> dist(0, static_cast<int>(sel.size()) - 1);
     int idx = sel[dist(rng_)];

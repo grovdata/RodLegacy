@@ -1,4 +1,6 @@
 #include "dialogs/number_entry_dialog.h"
+#include "audio/audio_manager.h"
+#include "core/state.h"
 
 #include "gfx/bitmap.h"
 
@@ -36,6 +38,8 @@ bool NumberEntryDialog::HandleEvent(SDL_Event* event) {
         for (const char* c = event->text.text; *c != '\0'; c++) {
             if (*c >= '0' && *c <= '9' && (int)digits.size() < maxDigits) {
                 digits.push_back(*c);
+            } else if (AudioManager* am = state.GetAssets().GetAudioManager()) {
+                am->PlaySound(AudioSampleType::REJECT_BEEP);   // SR2 1a21:5d5e
             }
         }
         return true;

@@ -49,9 +49,9 @@ GameTime GetTime(uint32_t elapsedTicks) {
     return time;
 }
 
-std::string FormatDate(uint32_t elapsedTicks) {
+std::string FormatDate(uint32_t elapsedTicks, int year) {
     GameDate date = GetDate(elapsedTicks);
-    return std::string(date.month) + " " + std::to_string(date.dayOfMonth) + ", " + std::to_string(date.year);
+    return std::string(date.month) + " " + std::to_string(date.dayOfMonth) + ", " + std::to_string(year);
 }
 
 std::string FormatClock(uint32_t elapsedTicks) {

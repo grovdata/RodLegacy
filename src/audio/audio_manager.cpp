@@ -1,8 +1,14 @@
 #include "core/log.h"
 #include "audio/audio_manager.h"
+#include "audio/record_tap.h"
+
+#include "audio/adlib_engine.h"
+#include "audio/adlib_music.h"
 #include "audio/amiga_music.h"
 #include "audio/engine_sound.h"
 #include "audio/pc_speaker.h"
+#include "audio/pc_speaker_sfx.h"
+#include "audio/adlib_sfx.h"
 #include "parsers/adf.h"
 #include "parsers/libp.h"
 #include <SDL2/SDL.h>
@@ -93,6 +99,12 @@ void AudioManager::Shutdown() {
         amigaMusic_.reset();
     }
 
+    if (adlibMusic_) {
+        adlibMusic_->Stop();
+        adlibMusic_->Shutdown();
+        adlibMusic_.reset();
+    }
+
     if (engineSound) {
         engineSound->Shutdown();
         engineSound.reset();
@@ -108,10 +120,59 @@ void AudioManager::Shutdown() {
 
 bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
 
+bool AudioManager::HasAdlibMusic() const {
+    return adlibMusic_ && adlibMusic_->SongCount() > 0;
+}
+
+bool AudioManager::InitAdlibMusic(const uint8_t* sndData, size_t sndSize) {
+    if (!sndData || sndSize == 0) return false;
+    auto music = std::make_unique<AdlibMusic>();
+    if (!music->LoadBank(sndData, sndSize)) {
+        LOG_INFO("AdlibMusic: MSR.SND not recognized, no AdLib music");
+        return false;
+    }
+    if (!music->Init()) {
+        LOG_INFO("AdlibMusic: audio init failed");
+        return false;
+    }
+    music->SetVolume(0.0f);   // volume applied when SetMusicSource selects ADLIB
+    adlibMusic_ = std::move(music);
+    sr2mus::LoadPatches(sndData, sndSize, adlibBank_);
+    return true;
+}
+
+bool AudioManager::AddAdlibSong(const std::string& name, const uint8_t* musData, size_t musSize) {
+    if (!adlibMusic_ || !musData || musSize == 0) return false;
+    if (!adlibMusic_->AddSong(name, musData, musSize)) {
+        LOG_INFO("AdlibMusic: %s did not parse, skipped", name.c_str());
+        return false;
+    }
+    LOG_INFO("AdlibMusic: loaded %s", name.c_str());
+    return true;
+}
+
+bool AudioManager::SetAdlibVictorySong(const std::string& name, const uint8_t* musData,
+                                      size_t musSize) {
+    if (!adlibMusic_ || !musData || musSize == 0) return false;
+    if (!adlibMusic_->SetVictorySong(name, musData, musSize)) {
+        LOG_INFO("AdlibMusic: victory song %s did not parse, skipped", name.c_str());
+        return false;
+    }
+    LOG_INFO("AdlibMusic: loaded %s as the win piece", name.c_str());
+    return true;
+}
+
 void AudioManager::PlayVictoryMusic() {
+    // On the AdLib source the win piece is MSR21, so the source does not change.
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_ && adlibMusic_->HasVictorySong()) {
+        adlibMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
+        adlibMusic_->PlayVictorySong();
+        return;
+    }
     if (!amigaMusic_) return;
     musicSource_ = MusicSource::AMIGA;
     if (pcSpeaker_) pcSpeaker_->Stop();
+    if (adlibMusic_) adlibMusic_->Stop();
     amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
     // Instrument and note-volume presets for the victory piece.
     static const int kVictoryInstruments[4] = {0, 5, 1, 2};
@@ -119,7 +180,7 @@ void AudioManager::PlayVictoryMusic() {
     amigaMusic_->PlayArrangement(3, 42000, kVictoryInstruments, kVictoryVolumes);
 }
 
-void AudioManager::InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize) {
+void AudioManager::InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize, bool sr2) {
     LOG_INFO("AmigaMusic: init from %zu byte ADF buffer", disk1AdfSize);
 
     static const char* NOTE_NAMES[]  = { "msr.note", nullptr };
@@ -164,7 +225,7 @@ void AudioManager::InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSi
         wave1File->data, wave1File->size,
         wave0File->data, wave0File->size,
         insFile->data, insFile->size,
-        envFile->data, envFile->size);
+        envFile->data, envFile->size, sr2);
 
     free_adf_file_data(noteFile);
     free_adf_file_data(wave1File);
@@ -188,6 +249,7 @@ AudioManager::MusicSource AudioManager::GetMusicSource() const {
 void AudioManager::SetMusicSource(MusicSource src, bool start) {
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
+    if (adlibMusic_) adlibMusic_->Stop();
 
     musicSource_ = src;
     if (!start) return;
@@ -204,6 +266,12 @@ void AudioManager::SetMusicSource(MusicSource src, bool start) {
             if (amigaMusic_) {
                 amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
                 amigaMusic_->Play();
+            }
+            break;
+        case MusicSource::ADLIB:
+            if (HasAdlibMusic()) {
+                adlibMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
+                adlibMusic_->Play();
             }
             break;
         case MusicSource::NONE:
@@ -326,6 +394,13 @@ void AudioManager::ExtractSRL0Samples(const uint8_t* data, size_t size) {
         LoadRawAudio(data + SRL0_CUTSCENE_HIT_OFFSET, SRL0_CUTSCENE_HIT_LENGTH, hitSample,
                      3579545u / SRL0_CUTSCENE_HIT_PERIOD_BIAS);
         samples[AudioSampleType::CUTSCENE_HIT] = hitSample;
+    }
+
+    if (size >= size_t{SRL0_HISS_OFFSET} + SRL0_HISS_LENGTH) {
+        AudioSample hiss;
+        LoadRawAudio(data + SRL0_HISS_OFFSET, SRL0_HISS_LENGTH, hiss, SRL0_HISS_RATE);
+        hiss.isLooped = false;
+        samples[AudioSampleType::HISS] = hiss;
     }
 
     if (size >= SRL0_CAR_JACK_OFFSET + SRL0_CAR_JACK_LENGTH) {
@@ -491,12 +566,175 @@ AudioSample* AudioManager::GetSample(AudioSampleType type) {
     return nullptr;
 }
 
+namespace {
+// The DOS tyre change loops each run through one animation step; RodLegacy plays them for this long.
+constexpr double kTireLoopSeconds = 0.8;
+}
+
+PcSpeakerSfx* AudioManager::Speaker() {
+    if (!pcSpeakerSfx_) {
+        auto speaker = std::make_unique<PcSpeakerSfx>();
+        if (!speaker->Initialize()) return nullptr;
+        speaker->SetVolume(sfxVolume_ / 10.0f);
+        speaker->SetLoops(pcLoops_);
+        speaker->SetSr2(sr2Game_);
+        speaker->SetMufflerRemoved(mufflerRemoved_);
+        pcSpeakerSfx_ = std::move(speaker);
+    }
+    return pcSpeakerSfx_.get();
+}
+
+// The DOS game's counterpart of each Amiga one-shot (docs/pc_speaker.md). False leaves it to the samples.
+bool AudioManager::PlayOnSpeaker(AudioSampleType type, double seconds) {
+    PcSpeakerSfx* speaker = Speaker();
+    if (!speaker) return false;
+    switch (type) {
+        case AudioSampleType::CRASH:        speaker->Play(pcspk::Effect::Crash); return true;
+        // The race's bump is the DOS collision hit; the garage's bash is the body shop clank.
+        case AudioSampleType::CAR_BASH:
+            speaker->Play(engineLoopWanted_ && lastEnginePeriod_ == 0 ? pcspk::Effect::Hit : pcspk::Effect::Clank);
+            return true;
+        case AudioSampleType::CUTSCENE_HIT: speaker->Play(pcspk::Effect::Hit); return true;
+        // The looping sounds play for a fixed while rather than being hooked to start and stop.
+        case AudioSampleType::PART_MOUNT:   speaker->PlayLoop(pcspk::Loop::Wrench, 1.0); return true;
+        case AudioSampleType::ENGINE_START: speaker->PlayLoop(pcspk::Loop::Crank, 1.0); return true;
+        // SR2's paint_job only keeps the buzz on while it redraws the screen: a few ticks.
+        // ponytail: 3 ticks by ear against DOSBox, the redraw time is not measured.
+        case AudioSampleType::PAINT_SPRAY:
+            speaker->PlayLoop(pcspk::Loop::Spray, sr2Game_ ? 3 / pcspk::kTickHz : 2.0);
+            return true;
+        // SR2's tire_change_anim: the 8 kHz / 100 Hz pulse for the wheels off, the low clicks for the lug nuts.
+        case AudioSampleType::TIRE_AIR_WRENCH:
+            speaker->PlayLoop(sr2Game_ ? pcspk::Loop::Pulse : pcspk::Loop::Wrench, kTireLoopSeconds);
+            return true;
+        case AudioSampleType::TIRE_PUTT:    speaker->PlayLoop(pcspk::Loop::IdlePutt, kTireLoopSeconds); return true;
+        case AudioSampleType::TIRE_LUG_NUT:
+            speaker->PlayLoop(sr2Game_ ? pcspk::Loop::Crank : pcspk::Loop::Tick, kTireLoopSeconds);
+            return true;
+        case AudioSampleType::REJECT_BEEP:  speaker->Play(pcspk::Effect::Click); return true;
+        case AudioSampleType::DRIVETRAIN_BLOWN: speaker->Play(pcspk::Effect::Clank); return true;
+        case AudioSampleType::STICKER:      return true;
+        case AudioSampleType::HISS:         speaker->Play(pcspk::Effect::ChirpLow); return true;
+        case AudioSampleType::CAR_JACK:     speaker->Play(pcspk::Effect::Thud); return true;
+        case AudioSampleType::COP_SIREN:    speaker->SirenFor(seconds); return true;
+        case AudioSampleType::TIRE_SCREECH: speaker->SquealFor(seconds); return true;
+        // No speaker sound in the DOS game.
+        case AudioSampleType::IGNITION:
+        case AudioSampleType::BAY_IGNITION:
+        case AudioSampleType::HONK:
+            return true;
+        default:
+            return false;
+    }
+}
+
+AdlibSfx* AudioManager::AdlibEffects() {
+    if (!adlibSfx_ && !adlibBank_.empty()) {
+        auto fx = std::make_unique<AdlibSfx>();
+        if (!fx->Init(adlibBank_)) return nullptr;
+        fx->SetVolume(sfxVolume_ / 10.0f);
+        adlibSfx_ = std::move(fx);
+    }
+    return adlibSfx_.get();
+}
+
+// Street Rod 2's DOS AdLib counterpart of each one-shot (adlib_sfx.h). The held ones play for a fixed while.
+bool AudioManager::PlayOnAdlib(AudioSampleType type, double seconds) {
+    AdlibSfx* fx = AdlibEffects();
+    if (!fx) return false;
+    switch (type) {
+        case AudioSampleType::CRASH:        fx->Play(adlibfx::Sound::Crash); return true;
+        // The race's bump is the collision hit; the garage's bash is the customize clank.
+        case AudioSampleType::CAR_BASH:
+            fx->Play(engineLoopWanted_ && lastEnginePeriod_ == 0 ? adlibfx::Sound::Hit : adlibfx::Sound::Clank);
+            return true;
+        case AudioSampleType::CUTSCENE_HIT: fx->Play(adlibfx::Sound::Hit); return true;
+        case AudioSampleType::PART_MOUNT:   fx->Play(adlibfx::Sound::Slide, 1.0); return true;
+        case AudioSampleType::HISS:         fx->Play(adlibfx::Sound::ChirpLow); return true;
+        case AudioSampleType::CAR_JACK:     fx->Play(adlibfx::Sound::Thud); return true;
+        case AudioSampleType::PAINT_SPRAY:  fx->Play(adlibfx::Sound::Spray, 2.0); return true;
+        case AudioSampleType::TIRE_AIR_WRENCH: fx->Play(adlibfx::Sound::AirWrench, kTireLoopSeconds); return true;
+        case AudioSampleType::TIRE_PUTT:    fx->Play(adlibfx::Sound::Putt, kTireLoopSeconds); return true;
+        case AudioSampleType::TIRE_LUG_NUT: fx->Play(adlibfx::Sound::LugNut, kTireLoopSeconds); return true;
+        case AudioSampleType::REJECT_BEEP:  fx->Play(adlibfx::Sound::Click); return true;
+        case AudioSampleType::DRIVETRAIN_BLOWN: fx->Play(adlibfx::Sound::Blown); return true;
+        case AudioSampleType::STICKER:      return true;
+        case AudioSampleType::COP_SIREN:    fx->Play(adlibfx::Sound::Siren, seconds); return true;
+        case AudioSampleType::TIRE_SCREECH: fx->Play(adlibfx::Sound::Squeal, seconds); return true;
+        case AudioSampleType::ENGINE_START:
+        case AudioSampleType::IGNITION:
+        case AudioSampleType::BAY_IGNITION:
+        case AudioSampleType::HONK:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void AudioManager::PlaySoundVia(SfxSource src, AudioSampleType type) {
+    if (src == SfxSource::ADLIB && !AdlibEffects()) return;
+    const SfxSource saved = sfxSource_;
+    sfxSource_ = src;
+    PlaySound(type);
+    sfxSource_ = saved;
+}
+
+void AudioManager::SetSfxSource(SfxSource src) {
+    if (src == SfxSource::ADLIB && !AdlibEffects()) {
+        LOG_WARN("AdLib effects unavailable (no MSR.SND), keeping the current ones");
+        return;
+    }
+    sfxSource_ = src;
+    LOG_INFO("AudioManager: effects source is %s",
+             src == SfxSource::PCSPEAKER ? "pc speaker" : src == SfxSource::ADLIB ? "adlib" : "amiga");
+}
+
 void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateOverride) {
     // Standing conditions with frequent retriggers, so report each once.
     static std::set<int> reportedMissing;
     static bool reportedNoDevice = false;
 
+    if (sfxSource_ == SfxSource::AMIGA) {
+        switch (type) {
+            // The paint job: the bash sample at period 530, volume 0x1a (SR1 0x2286cc, SR2 0x22c04c).
+            case AudioSampleType::PAINT_SPRAY:
+                PlaySound(AudioSampleType::CAR_BASH, 0x1a / 64.0f, 3579545 / 530);
+                return;
+            // Drivetrain torn off: the same sample at period 130, volume 0x40 (SR1 0x2285c8).
+            case AudioSampleType::DRIVETRAIN_BLOWN:
+                PlaySound(AudioSampleType::CAR_BASH, 0x40 / 64.0f, 3579545 / 130);
+                return;
+            // The sticker wipe: the same sample at period 330, volume 0x14 (SR1 0x22873a, called from 0x240734).
+            case AudioSampleType::STICKER:
+                PlaySound(AudioSampleType::CAR_BASH, 0x14 / 64.0f, 3579545 / 330);
+                return;
+            // The Amiga games have no sound for these.
+            case AudioSampleType::TIRE_AIR_WRENCH:
+            case AudioSampleType::TIRE_PUTT:
+            case AudioSampleType::TIRE_LUG_NUT:
+            case AudioSampleType::REJECT_BEEP:
+                return;
+            default:
+                break;
+        }
+    }
     auto it = samples.find(type);
+    if (sfxSource_ == SfxSource::PCSPEAKER) {
+        double seconds = 0.5;
+        if (it != samples.end() && !it->second.data.empty()) {
+            const int rate = sampleRateOverride > 0 ? sampleRateOverride : static_cast<int>(it->second.sampleRate);
+            seconds = static_cast<double>(it->second.data.size()) / std::max(rate, 1);
+        }
+        if (PlayOnSpeaker(type, seconds)) return;
+    }
+    if (sfxSource_ == SfxSource::ADLIB) {
+        double seconds = 0.5;
+        if (it != samples.end() && !it->second.data.empty()) {
+            const int rate = sampleRateOverride > 0 ? sampleRateOverride : static_cast<int>(it->second.sampleRate);
+            seconds = static_cast<double>(it->second.data.size()) / std::max(rate, 1);
+        }
+        if (PlayOnAdlib(type, seconds)) return;
+    }
     if (it == samples.end() || it->second.data.empty()) {
         if (reportedMissing.insert(static_cast<int>(type)).second) {
             LOG_INFO("AudioManager::PlaySound - sample %d not loaded", static_cast<int>(type));
@@ -543,6 +781,7 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
             }
 
             SDL_QueueAudio(audioDevice, convertedData.data(), got);
+            record_tap::Write("samples", 22050, 2, convertedData.data(), got);
         }
     }
 
@@ -550,11 +789,35 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
 }
 
 int AudioManager::StartLoop(AudioSampleType type, float volume) {
+    if (type == AudioSampleType::ENGINE_LOOP && engineSource_ == EngineSource::PCSPEAKER) {
+        engineLoopWanted_ = true;
+        if (PcSpeakerSfx* speaker = Speaker()) {
+            if (lastEnginePeriod_ > 0) UpdateEngineDistance(sceneDistance_);
+            else speaker->SetRpm(currentRPM);
+            speaker->StartEngine();
+        }
+        return 0;
+    }
+    if (type == AudioSampleType::ENGINE_LOOP && engineSource_ == EngineSource::ADLIB) {
+        engineLoopWanted_ = true;
+        if (adlibEngine) {
+            adlibEngine->Start();
+            // Start() re-sends from lastRpm; a scene that already set its tone
+            // must not be dragged back onto the rpm ladder.
+            if (lastEnginePeriod_ > 0) {
+                UpdateEngineDistance(sceneDistance_);
+            } else {
+                adlibEngine->SetRpm(currentRPM);
+            }
+        }
+        return 0;
+    }
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
-        // The bay swaps in its own slice, so put the racing loop back.
+        engineLoopWanted_ = true;
         if (AudioSample* loop = GetSample(AudioSampleType::ENGINE_LOOP)) {
             engineSound->SetSample(loop->data);
         }
+        if (lastEnginePeriod_ > 0) engineSound->UpdatePeriod(lastEnginePeriod_, lastEngineVolume_);
         engineSound->SetVolume(volume * (sfxVolume_ / 10.0f));
         engineSound->Start();
         LOG_INFO("AudioManager::StartLoop - Engine sound started at volume %.2f", volume);
@@ -566,22 +829,104 @@ int AudioManager::StartLoop(AudioSampleType type, float volume) {
 }
 
 void AudioManager::StopLoop(int channelId) {
-    if (channelId == 0 && engineSound) {  // Channel 0 is engine sound
-        engineSound->Stop();
-        LOG_INFO("AudioManager::StopLoop - Engine sound stopped");
+    if (channelId != 0) {   // Channel 0 is engine sound
+        return;
     }
+    engineLoopWanted_ = false;
+    if (adlibEngine) {
+        adlibEngine->Stop();
+    }
+    if (engineSound) {
+        engineSound->Stop();
+    }
+    if (pcSpeakerSfx_) {
+        pcSpeakerSfx_->StopEngine();
+    }
+    LOG_INFO("AudioManager::StopLoop - Engine sound stopped");
 }
 
 void AudioManager::UpdateEnginePitch(int16_t rpm) {
     currentRPM = rpm;
-    if (engineSound) {
+    lastEnginePeriod_ = 0;   // the race owns the voice again
+    // Only the selected one is driven, so the other cannot be left humming.
+    if (engineSource_ == EngineSource::ADLIB) {
+        if (adlibEngine) {
+            adlibEngine->SetRpm(rpm);
+        }
+    } else if (engineSource_ == EngineSource::PCSPEAKER) {
+        if (pcSpeakerSfx_) {
+            pcSpeakerSfx_->SetRpm(rpm);
+        }
+    } else if (engineSound) {
         engineSound->UpdateRPM(rpm);
     }
 }
 
-void AudioManager::UpdateEnginePeriod(int16_t period) {
+void AudioManager::SetMufflerRemoved(bool removed) {
+    mufflerRemoved_ = removed;
+    if (pcSpeakerSfx_) pcSpeakerSfx_->SetMufflerRemoved(removed);
+    if (adlibEngine) {
+        adlibEngine->SetMufflerRemoved(removed);
+    }
+}
+
+void AudioManager::SetEngineSource(EngineSource src) {
+    if (src == engineSource_) {
+        return;
+    }
+    if (src == EngineSource::ADLIB && !adlibEngine) {
+        adlibEngine = std::make_unique<AdlibEngine>();
+        adlibEngine->SetMufflerRemoved(mufflerRemoved_);
+        adlibEngine->SetVolume(sfxVolume_ / 10.0f);
+        if (!adlibEngine->Initialize()) {
+            LOG_WARN("AdLib engine sound unavailable, keeping the current one");
+            adlibEngine.reset();
+            return;
+        }
+    }
+    if (src == EngineSource::PCSPEAKER && !Speaker()) {
+        LOG_WARN("PC speaker engine sound unavailable, keeping the current one");
+        return;
+    }
+    // Only one may run, and a running loop is handed over.
+    const bool running = engineLoopWanted_;
+    if (adlibEngine) adlibEngine->Stop();
+    if (engineSound) engineSound->Stop();
+    if (pcSpeakerSfx_) pcSpeakerSfx_->StopEngine();
+    engineSource_ = src;
+    if (running) {
+        if (src == EngineSource::ADLIB) adlibEngine->Start();
+        else if (src == EngineSource::PCSPEAKER) pcSpeakerSfx_->StartEngine();
+        else if (engineSound) engineSound->Start();
+        if (lastEnginePeriod_ > 0) UpdateEnginePeriod(lastEnginePeriod_, lastEngineVolume_);
+        else UpdateEnginePitch(currentRPM);
+    }
+    LOG_INFO("AudioManager: engine sound source is %s",
+             src == EngineSource::ADLIB ? "adlib" : src == EngineSource::PCSPEAKER ? "pc speaker" : "amiga");
+}
+
+void AudioManager::UpdateEnginePeriod(int16_t period, int paulaVolume) {
+    // The scene car animations drive the engine by Amiga period; the AdLib engine only speaks rpm.
+    currentRPM = static_cast<int16_t>(EngineSound::PeriodToRPM(period));
+    lastEnginePeriod_ = period;
+    lastEngineVolume_ = paulaVolume;
+    if (engineSource_ != EngineSource::AMIGA) {
+        UpdateEngineDistance(sceneDistance_);
+        return;
+    }
     if (engineSound) {
-        engineSound->UpdatePeriod(period);
+        engineSound->UpdatePeriod(period, paulaVolume);
+    }
+}
+
+// The DOS games pitch the animation engine on the car's distance from its parking spot, not on a period.
+void AudioManager::UpdateEngineDistance(int px) {
+    sceneDistance_ = px;
+    const int tone = pcspk::AnimationTone(px);
+    if (engineSource_ == EngineSource::PCSPEAKER && pcSpeakerSfx_) {
+        pcSpeakerSfx_->SetSceneDivisor(static_cast<uint16_t>(60000 - tone));
+    } else if (engineSource_ == EngineSource::ADLIB && adlibEngine) {
+        adlibEngine->SetSceneTone(tone);
     }
 }
 
@@ -590,6 +935,10 @@ void AudioManager::PlayBayIgnition() {
 }
 
 void AudioManager::StartEngineBayDrone(int tuneOffset) {
+    if (engineSource_ == EngineSource::PCSPEAKER) {
+        SetEngineBayTune(tuneOffset);
+        return;
+    }
     if (!engineSound) {
         return;
     }
@@ -598,6 +947,13 @@ void AudioManager::StartEngineBayDrone(int tuneOffset) {
 }
 
 void AudioManager::SetEngineBayTune(int tuneOffset) {
+    // The DOS tune-up screen's tone, its setting runs -8..4.
+    if (engineSource_ == EngineSource::PCSPEAKER) {
+        if (PcSpeakerSfx* speaker = Speaker()) {
+            speaker->SetTuneTone(pcspk::TuneDivisor(std::max(-8, std::min(8, tuneOffset))));
+        }
+        return;
+    }
     if (!engineSound) {
         return;
     }
@@ -610,20 +966,51 @@ void AudioManager::SetEngineBayTune(int tuneOffset) {
 }
 
 void AudioManager::StopEngineBayDrone() {
+    if (pcSpeakerSfx_) {
+        pcSpeakerSfx_->SetTuneTone(0);
+    }
+    StopLoop(0);
+}
+
+// SR2's rolling wheel: the racing loop at 3550 and 3650.
+void AudioManager::StartSampleLoop(int16_t left, int16_t right, float volume) {
+    if (!engineSound) {
+        return;
+    }
+    engineLoopWanted_ = true;
+    if (AudioSample* loop = GetSample(AudioSampleType::ENGINE_LOOP)) {
+        engineSound->SetSample(loop->data);
+    }
+    engineSound->UpdatePeriodPair(left, right);
+    engineSound->SetVolume(volume * (sfxVolume_ / 10.0f));
+    engineSound->Start();
+    engineSound->UpdatePeriodPair(left, right);
+}
+
+void AudioManager::StartTireRollLoop() {
+    StartSampleLoop(SRL0_TIRE_ROLL_PERIOD_LEFT, SRL0_TIRE_ROLL_PERIOD_RIGHT, SRL0_TIRE_ROLL_VOLUME / 64.0f);
+}
+
+void AudioManager::StopTireRollLoop() {
     StopLoop(0);
 }
 
 // The racing loop at 2850 and 1850, a slow mechanical chug. Shares the bay drone's EngineSound.
 void AudioManager::StartGasPumpLoop() {
-    if (!engineSound) {
+    if (sfxSource_ == SfxSource::ADLIB) {
+        if (AdlibSfx* fx = AdlibEffects()) fx->Play(adlibfx::Sound::Tick);
         return;
     }
-    engineSound->UpdatePeriodPair(SRL0_GAS_PUMP_PERIOD_LEFT, SRL0_GAS_PUMP_PERIOD_RIGHT);
-    StartLoop(AudioSampleType::ENGINE_LOOP, SRL0_GAS_PUMP_VOLUME / 64.0f);
-    engineSound->UpdatePeriodPair(SRL0_GAS_PUMP_PERIOD_LEFT, SRL0_GAS_PUMP_PERIOD_RIGHT);
+    if (sfxSource_ == SfxSource::PCSPEAKER) {
+        if (PcSpeakerSfx* speaker = Speaker()) speaker->PlayLoop(pcspk::Loop::Tick, 0);
+        return;
+    }
+    StartSampleLoop(SRL0_GAS_PUMP_PERIOD_LEFT, SRL0_GAS_PUMP_PERIOD_RIGHT, SRL0_GAS_PUMP_VOLUME / 64.0f);
 }
 
 void AudioManager::StopGasPumpLoop() {
+    if (pcSpeakerSfx_) pcSpeakerSfx_->StopLoop();
+    if (adlibSfx_) adlibSfx_->Stop(adlibfx::Sound::Tick);
     StopLoop(0);
 }
 
@@ -642,6 +1029,7 @@ void AudioManager::PlayChime(int chA, int period, int chB) {
 void AudioManager::StopMusicPlayback() {
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
+    if (adlibMusic_) adlibMusic_->Stop();
 }
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
@@ -703,12 +1091,19 @@ void AudioManager::InitPCSpeaker(const std::string& dosExePath) {
     AudioManager::InitPCSpeakerFromExeBytes(buf.data(), buf.size());
 }
 
+void AudioManager::SetPcSpeakerLoops(std::vector<pcspk::LoopSong> loops) {
+    pcLoops_ = std::move(loops);
+    if (pcSpeakerSfx_) pcSpeakerSfx_->SetLoops(pcLoops_);
+}
+
 void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
     std::vector<std::vector<SrNote>> segs;
     if (!sr_exe_parse_music_bytes(data, len, segs)) {
         LOG_INFO("AudioManager: DOS EXE buffer not recognized as SR.EXE, no PC speaker music");
         return;
     }
+    // Only now: ReadLoops reads fixed SR1 offsets, which would be noise in another exe.
+    SetPcSpeakerLoops(pcspk::ReadLoops(data, len));
 
     if (sr_exe_build_known_songs(segs, pcSongs_)) {
         pcSongNames_ = {"Song 1", "Song 2", "Song 3", "Song 4", "Song 5"};
@@ -719,35 +1114,56 @@ void AudioManager::InitPCSpeakerFromExeBytes(const uint8_t* data, size_t len) {
         pcSongs_.push_back(BuildShuffledPlaylist(segs));
         pcSongNames_ = {"Music"};
     }
+    StartPcSpeakerMusic();
+}
+
+void AudioManager::SetPcSpeakerSongs(std::vector<std::vector<SrNote>> songs, std::vector<std::string> names) {
+    pcSongs_ = std::move(songs);
+    pcSongNames_ = std::move(names);
+    StartPcSpeakerMusic();
+}
+
+void AudioManager::StartPcSpeakerMusic() {
     currentPCSong_ = 0;
-
-    pcSpeaker_ = std::make_unique<PCSpeaker>();
-    if (!pcSpeaker_->Init()) {
-        LOG_INFO("AudioManager: PCSpeaker audio init failed");
-        pcSpeaker_.reset();
-        pcSongs_.clear();
-        pcSongNames_.clear();
-        return;
+    if (pcSongs_.empty()) return;
+    if (!pcSpeaker_) {
+        pcSpeaker_ = std::make_unique<PCSpeaker>();
+        if (!pcSpeaker_->Init()) {
+            LOG_INFO("AudioManager: PCSpeaker audio init failed");
+            pcSpeaker_.reset();
+            pcSongs_.clear();
+            pcSongNames_.clear();
+            return;
+        }
+        pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
     }
-
-    pcSpeaker_->SetAmplitude(0);  // volume applied when SetMusicSource selects DOS
     pcSpeaker_->SetNotes(pcSongs_[0]);
     LOG_INFO("AudioManager: PC speaker music loaded (%zu songs)", pcSongs_.size());
 }
 
-void AudioManager::UpdateMusic() {
-    if (musicSource_ != MusicSource::DOS || !pcSpeaker_) return;
-    if (pcSongs_.size() < 2) return;
-    if (!pcSpeaker_->ConsumeLoopFlag()) return;
-
+// A different song than the one playing, picked at random.
+static int PickOtherSong(int count, int current) {
     static std::mt19937 rng(std::random_device{}());
     int next;
     do {
-        next = std::uniform_int_distribution<int>(0, (int)pcSongs_.size() - 1)(rng);
-    } while (next == currentPCSong_);
+        next = std::uniform_int_distribution<int>(0, count - 1)(rng);
+    } while (next == current);
+    return next;
+}
 
-    currentPCSong_ = next;
-    pcSpeaker_->SetNotes(pcSongs_[(size_t)currentPCSong_]);
+void AudioManager::UpdateMusic() {
+    if (musicSource_ == MusicSource::DOS && pcSpeaker_) {
+        if (pcSongs_.size() < 2) return;
+        if (!pcSpeaker_->ConsumeLoopFlag()) return;
+        currentPCSong_ = PickOtherSong((int)pcSongs_.size(), currentPCSong_);
+        pcSpeaker_->SetNotes(pcSongs_[(size_t)currentPCSong_]);
+        return;
+    }
+    if (musicSource_ == MusicSource::ADLIB && HasAdlibMusic()) {
+        if (adlibMusic_->SongCount() < 2) return;
+        if (!adlibMusic_->ConsumeLoopFlag()) return;
+        adlibMusic_->SetSong(PickOtherSong(adlibMusic_->SongCount(), adlibMusic_->CurrentSong()));
+    }
 }
 
 void AudioManager::NextPCSong() {
@@ -792,63 +1208,92 @@ std::string AudioManager::GetCurrentPCSongName() const {
 bool AudioManager::HasActiveMusic() const {
     if (musicSource_ == MusicSource::DOS)   return HasPCSpeaker();
     if (musicSource_ == MusicSource::AMIGA) return HasAmigaMusic();
+    if (musicSource_ == MusicSource::ADLIB) return HasAdlibMusic();
     return false;
 }
 
 void AudioManager::NextSong() {
     if (musicSource_ == MusicSource::DOS) NextPCSong();
+    if (musicSource_ == MusicSource::ADLIB && HasAdlibMusic()) {
+        adlibMusic_->SetSong(adlibMusic_->CurrentSong() + 1);
+        adlibMusic_->Play();
+    }
 }
 
 void AudioManager::PrevSong() {
     if (musicSource_ == MusicSource::DOS) PrevPCSong();
+    if (musicSource_ == MusicSource::ADLIB && HasAdlibMusic()) {
+        adlibMusic_->SetSong(adlibMusic_->CurrentSong() - 1);
+        adlibMusic_->Play();
+    }
 }
 
 void AudioManager::PauseMusic() {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Pause();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Pause();
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) adlibMusic_->Pause();
 }
 
 void AudioManager::ResumeMusic() {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Resume();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Resume();
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) adlibMusic_->Resume();
 }
 
 void AudioManager::PauseAll() {
     if (allPaused_) return;
     allPaused_ = true;
     musicWasPlaying_ = HasActiveMusic() && !IsMusicPaused();
-    engineWasPlaying_ = engineSound && engineSound->IsPlaying();
     if (musicWasPlaying_) PauseMusic();
-    if (engineWasPlaying_) engineSound->Stop();
+    // Every sample, engine and effect output is frozen where it is; only those that were running resume.
+    const SDL_AudioDeviceID devices[] = {
+        audioDevice,
+        engineSound ? engineSound->Device() : 0,
+        adlibEngine ? adlibEngine->Device() : 0,
+        pcSpeakerSfx_ ? pcSpeakerSfx_->Device() : 0,
+        adlibSfx_ ? adlibSfx_->Device() : 0,
+    };
+    pausedDevices_.clear();
+    for (SDL_AudioDeviceID id : devices) {
+        if (id != 0 && SDL_GetAudioDeviceStatus(id) == SDL_AUDIO_PLAYING) {
+            SDL_PauseAudioDevice(id, 1);
+            pausedDevices_.push_back(id);
+        }
+    }
 }
 
 void AudioManager::ResumeAll() {
     if (!allPaused_) return;
     allPaused_ = false;
     if (musicWasPlaying_) ResumeMusic();
-    if (engineWasPlaying_ && engineSound) engineSound->Start();
+    for (SDL_AudioDeviceID id : pausedDevices_) SDL_PauseAudioDevice(id, 0);
+    pausedDevices_.clear();
 }
 
 bool AudioManager::IsMusicPaused() const {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  return pcSpeaker_->IsPaused();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return amigaMusic_->IsPaused();
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->IsPaused();
     return false;
 }
 
 std::string AudioManager::GetCurrentSongName() const {
     if (musicSource_ == MusicSource::DOS)   return GetCurrentPCSongName();
     if (musicSource_ == MusicSource::AMIGA) return "Amiga Music";
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->CurrentSongName();
     return "";
 }
 
 int AudioManager::GetCurrentSongIndex() const {
     if (musicSource_ == MusicSource::DOS) return GetCurrentPCSongIndex();
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->CurrentSong();
     return 0;
 }
 
 int AudioManager::GetSongCount() const {
     if (musicSource_ == MusicSource::DOS) return GetPCSongCount();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return 1;
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->SongCount();
     return 0;
 }
 
@@ -856,6 +1301,12 @@ void AudioManager::SetSfxVolume(int v) {
     sfxVolume_ = std::max(0, std::min(10, v));
     if (engineSound)
         engineSound->SetVolume(sfxVolume_ / 10.0f);
+    if (adlibEngine)
+        adlibEngine->SetVolume(sfxVolume_ / 10.0f);
+    if (pcSpeakerSfx_)
+        pcSpeakerSfx_->SetVolume(sfxVolume_ / 10.0f);
+    if (adlibSfx_)
+        adlibSfx_->SetVolume(sfxVolume_ / 10.0f);
 }
 
 void AudioManager::SetMusicVolume(int v) {
@@ -865,6 +1316,8 @@ void AudioManager::SetMusicVolume(int v) {
         pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_)
         amigaMusic_->SetVolume(musicVolume_ / 10.0f);
+    if (musicSource_ == MusicSource::ADLIB && adlibMusic_)
+        adlibMusic_->SetVolume(musicVolume_ / 10.0f);
 }
 
 void AudioManager::SetMusicMuted(bool muted) {
@@ -872,11 +1325,14 @@ void AudioManager::SetMusicMuted(bool muted) {
     if (muted) {
         if (pcSpeaker_)  pcSpeaker_->SetAmplitude(0);
         if (amigaMusic_) amigaMusic_->SetVolume(0.0f);
+        if (adlibMusic_) adlibMusic_->SetVolume(0.0f);
     } else {
         if (musicSource_ == MusicSource::DOS && pcSpeaker_)
             pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
         if (musicSource_ == MusicSource::AMIGA && amigaMusic_)
             amigaMusic_->SetVolume(musicVolume_ / 10.0f);
+        if (musicSource_ == MusicSource::ADLIB && adlibMusic_)
+            adlibMusic_->SetVolume(musicVolume_ / 10.0f);
     }
 }
 

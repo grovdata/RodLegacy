@@ -14,7 +14,6 @@
 class CarData {
     private:
         std::set<CarModel>         allCarModels;
-        std::vector<CarMetadata_t> carMetadata;
         // Metadata by CarModel::index, so lookups work for both the Amiga
         // stock cars and the Street Rod SE ones.
         std::map<int, CarMetadata_t> metadataByIndex;
@@ -27,7 +26,10 @@ class CarData {
 
         CarMetadata_t GetCarMetadata(int carIndex);
         
-        void ReadEntries(std::vector<uint8_t> datafilebuf, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
+        // Adds an Amiga game's cars: lib.p art, stats and offsets from its SR_data / SR2_data.
+        // Returns the number of models added.
+        int ReadCarSetAmiga(int carSet, const std::vector<uint8_t>& srData,
+                            const std::pair<int, std::vector<BitmapEntry_t>>& bitmaps);
 
         // Adds an optional DOS car set's cars. Returns the number of models added.
         int ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
@@ -35,9 +37,6 @@ class CarData {
 
         CarModel GetModelFromIndex(int index);
 
-        CarModel CreateModel(int index, BitmapEntry_t bitmap, CarMetadata_t metadata);
-
-        void ReadCarsBuiltin(std::vector<unsigned char>, std::pair<int, std::vector<BitmapEntry_t>> bitmaps);
         CarModel GetRandomModel();
 
         const std::set<CarModel>& GetAllModels() const { return allCarModels; }

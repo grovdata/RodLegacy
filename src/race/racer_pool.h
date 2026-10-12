@@ -51,10 +51,10 @@ public:
               const std::vector<uint8_t>& spec_mods = {});
 
     // Up to SELECTION_POOL_SIZE indices sorted by |player_score - entry_score|, excluding eliminated entries
-    // and, when others remain, last_chosen_index.
-    std::vector<int> BuildSelectionPool(int player_score, int last_chosen_index) const;
+    // and, when others remain, last_chosen_index. player_class is the class byte of the player's car.
+    std::vector<int> BuildSelectionPool(int player_score, int player_class, int last_chosen_index) const;
 
-    int SelectNextChallenger(int player_score, int last_chosen_index);
+    int SelectNextChallenger(int player_score, int player_class, int last_chosen_index);
 
     // pink_slip: move the opponent to a lower-class car not already in the pool, or eliminate them.
     void OnRaceWon(int winner_pool_index, bool pink_slip);

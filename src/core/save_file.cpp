@@ -39,7 +39,15 @@ void CheckVersion(const SaveValue& root) {
     }
 }
 
-// Part's union means the type value is named by the caller, hence per-category functions.
+void CheckGame(const SaveValue& root, SrGame running) {
+    const std::string saved = toml::find_or(root, "game", std::string());
+    if (!SrGameSaveKeyMatches(saved, running)) {
+        throw SaveLoadError("this is a " + (saved.empty() ? std::string("sr1") : saved) +
+                            " save and " + SrGameSaveKey(running) +
+                            " is running; start that game to load it");
+    }
+}
+
 
 SaveValue PartToToml(const Part& p, int typeValue) {
     SaveValue v;
@@ -113,6 +121,14 @@ Part TireFromToml(const SaveValue& v) {
     return p;
 }
 
+Part Sr2PartFromToml(const SaveValue& v) {
+    const RawPart r = ReadRawPart(v);
+    Part p;
+    p.vendor = r.vendor;
+    p.partType.sr2Class = r.type;
+    return ApplyRaw(p, r);
+}
+
 EnginePart EngineFromToml(const SaveValue& v) {
     const RawPart r = ReadRawPart(v);
     const CarEngine_t type = static_cast<CarEngine_t>(r.type);
@@ -130,6 +146,7 @@ SaveValue CarToToml(Car& c) {
     v["color"]               = static_cast<int>(c.GetColor());
     v["decal"]               = static_cast<int>(c.GetDecal());
     v["tune_level"]          = c.GetTuneLevel();
+    v["sr2_tune"]            = c.GetSr2Tune();
     v["fuel_tenths"]         = c.GetFuelTenths();
     v["weight_class"]        = c.GetWeightClass();
     v["spec_engine_class"]   = c.GetSpecEngineClass();
@@ -158,6 +175,10 @@ SaveValue CarToToml(Car& c) {
     v["engine_fitted"]     = c.HasEngine();
     v["gearbox_fitted"]    = c.HasGearbox();
     v["manifold_fitted"]   = c.HasManifold();
+    v["exhaust"]           = c.GetExhaust();
+    v["muffler"]           = c.GetMuffler();
+    v["muffler_removed"]   = c.IsMufflerRemoved();
+    v["differential"]      = c.GetDifferential();
     return v;
 }
 
@@ -173,6 +194,7 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     car->SetBumpersStripped(toml::find_or(v, "bumpers_stripped", false));
     car->SetFuelTenths(toml::find_or(v, "fuel_tenths", 160));
     car->SetTuneLevel(toml::find_or(v, "tune_level", kPerfectTuneLevel));
+    car->SetSr2Tune(toml::find_or(v, "sr2_tune", 0));
 
     if (v.contains("gearbox"))    car->SetGearbox(TransmissionFromToml(toml::find(v, "gearbox")));
     if (v.contains("manifold"))   car->SetManifold(ManifoldFromToml(toml::find(v, "manifold")));
@@ -198,7 +220,10 @@ CarPtr CarFromToml(const SaveValue& v, CarData& carData) {
     if (!toml::find_or(v, "engine_fitted", true)) car->RemoveEngine();
     if (!toml::find_or(v, "manifold_fitted", true)) car->RemoveManifold();
     if (!toml::find_or(v, "gearbox_fitted", true)) car->RemoveGearbox();
-    // Older saves without a value fall back to the list price.
+    car->SetSr2Parts(toml::find_or(v, "exhaust", car->GetExhaust()),
+                     toml::find_or(v, "muffler", car->GetMuffler()),
+                     toml::find_or(v, "differential", car->GetDifferential()));
+    car->SetMufflerRemoved(toml::find_or(v, "muffler_removed", false));
     car->SetValue(toml::find_or(v, "value", model.price));
     return car;
 }
@@ -249,6 +274,7 @@ std::vector<fs::path> ListSaveFiles(const fs::path& dir) {
 bool State::SaveGameToml(const fs::path& path) {
     SaveValue root;
     root["version"]  = kSaveVersion;
+    root["game"]     = std::string(SrGameSaveKey(assets.GetGame()));
     root["name"]     = playerName;
     root["bankroll"] = bankroll;
     root["elapsed_ticks"] = static_cast<std::int64_t>(elapsedTicks);
@@ -270,6 +296,9 @@ bool State::SaveGameToml(const fs::path& path) {
     rep["races_completed"] = reputation.races_completed;
     rep["drag_wins"]       = reputation.drag_wins;
     rep["road_wins"]       = reputation.road_wins;
+    rep["aqueduct_rep"]    = reputation.aqueduct_rep;
+    rep["grudge_won"]      = reputation.grudge_won;
+    rep["king_stage"]      = reputation.king_stage;
     root["reputation"] = rep;
 
     SaveArray cars;
@@ -294,6 +323,10 @@ bool State::SaveGameToml(const fs::path& path) {
     SaveArray engines;
     for (const EnginePart& e : spareEngines) engines.push_back(EngineToToml(e));
     spares["engines"] = SaveValue(engines);
+    auto sr2Class = [](const Part& p) { return p.partType.sr2Class; };
+    spares["exhausts"]      = SparesToToml(spareExhausts, sr2Class);
+    spares["mufflers"]      = SparesToToml(spareMufflers, sr2Class);
+    spares["differentials"] = SparesToToml(spareDifferentials, sr2Class);
     root["spares"] = spares;
 
     // [driver_index, car_spec_index, status, color_index, body_byte, downgraded, races, opp_wins].
@@ -337,6 +370,7 @@ bool State::LoadGameToml(const fs::path& path) {
         buf << f.rdbuf();
         root = ParseDocument(buf.str());
         CheckVersion(root);
+        CheckGame(root, assets.GetGame());
     } catch (const std::exception& e) {
         LOG_INFO("LoadGameToml failed: %s", e.what());
         return false;
@@ -348,7 +382,7 @@ bool State::LoadGameToml(const fs::path& path) {
             toml::find_or(root, "car_sets", std::vector<std::string>{});
         const std::vector<CarSetDef>& defs = GetCarSetDefs();
         for (size_t i = 0; i < defs.size(); ++i) {
-            if (defs[i].mandatory) continue;
+            if (CarSetIsOwnGame(defs[i], assets.GetGame())) continue;
             const bool wanted = std::find(ids.begin(), ids.end(), defs[i].id) != ids.end();
             if (wanted && !assets.HasCarSetData(static_cast<int>(i))) {
                 LOG_WARN("Save wants car set '%s' but its data is not installed; "
@@ -387,6 +421,9 @@ bool State::LoadGameToml(const fs::path& path) {
         reputation.races_completed = toml::find_or(rep, "races_completed", 0);
         reputation.drag_wins       = toml::find_or(rep, "drag_wins", 0);
         reputation.road_wins       = toml::find_or(rep, "road_wins", 0);
+        reputation.aqueduct_rep    = toml::find_or(rep, "aqueduct_rep", 0);
+        reputation.grudge_won      = toml::find_or(rep, "grudge_won", 0);
+        reputation.king_stage      = toml::find_or(rep, "king_stage", 0);
     }
 
     ownedCars = std::move(rebuilt);
@@ -402,6 +439,9 @@ bool State::LoadGameToml(const fs::path& path) {
     spareManifolds.clear();
     spareCarburetors.clear();
     spareEngines.clear();
+    spareExhausts.clear();
+    spareMufflers.clear();
+    spareDifferentials.clear();
     if (root.contains("spares")) {
         const SaveValue& sp = toml::find(root, "spares");
         ReadSpares(sp, "tires",         spareTires,         TireFromToml);
@@ -409,6 +449,9 @@ bool State::LoadGameToml(const fs::path& path) {
         ReadSpares(sp, "manifolds",     spareManifolds,     ManifoldFromToml);
         ReadSpares(sp, "carburetors",   spareCarburetors,   CarburetorFromToml);
         ReadSpares(sp, "engines",       spareEngines,       EngineFromToml);
+        ReadSpares(sp, "exhausts",      spareExhausts,      Sr2PartFromToml);
+        ReadSpares(sp, "mufflers",      spareMufflers,      Sr2PartFromToml);
+        ReadSpares(sp, "differentials", spareDifferentials, Sr2PartFromToml);
     }
 
     if (root.contains("racer_pool")) {
@@ -430,6 +473,8 @@ bool State::LoadGameToml(const fs::path& path) {
             }
         }
     }
+
+    GiveOpponentsPoolCars();
 
     // The ads are not saved.
     GenerateClassifieds();

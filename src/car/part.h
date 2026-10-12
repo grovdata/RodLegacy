@@ -16,7 +16,12 @@ constexpr int WEAR_MAX = 10000;
 constexpr int WEAR_PER_PERCENT = 100;
 inline int WearPercent(int wear) { return std::clamp(wear, 0, WEAR_MAX) / WEAR_PER_PERCENT; }
 
-enum class PartCategory { Engine, Transmission, Carburetor, Manifold, Tire };
+// The last three are Street Rod 2's; see
+// RodLegacyResearch/docs/sr2_amiga/parts.md.
+enum class PartCategory {
+    Engine, Transmission, Carburetor, Manifold, Tire,
+    ExhaustManifold, Muffler, Differential,
+};
 
 // One take-it-or-leave-it price. Engine pairs with transmission, carburettor with manifold; tires are worthless.
 inline int PartSalePrice(PartCategory category, int value, int wear, int roll20) {
@@ -33,6 +38,12 @@ inline int PartSalePrice(PartCategory category, int value, int wear, int roll20)
             break;
         case PartCategory::Tire:
             price = 0;
+            break;
+        // A flat 70% of catalogue price.
+        case PartCategory::ExhaustManifold:
+        case PartCategory::Muffler:
+        case PartCategory::Differential:
+            price = value * 7 / 10;
             break;
     }
     return price / 5 * 5;
@@ -116,6 +127,7 @@ struct Part {
         ManifoldType manifoldType;
         CarburetorType carburetorType;
         CarWheelType tireType;
+        int sr2Class;  // SrExhaustManifold / SrMuffler / SrDifferential
     } partType;
 
     Part() : wear(0), cost(0), vendor(CarVendorUnknown), assetId(ENGINE_V8) {
@@ -142,3 +154,44 @@ struct Part {
         partType.tireType = wheelType;
     }
 };
+
+// Street Rod 2's three under-car parts carry only a class on the car.
+inline int Sr2PartPrice(PartCategory category, int cls, CarVendor_t vendor) {
+    switch (category) {
+        case PartCategory::ExhaustManifold: {
+            const int stock = vendor == CarVendorFord ? 10 : vendor == CarVendorChrysler ? 20 : 15;
+            return cls == SR_EXHAUST_HEADERS ? stock + 45 : stock;
+        }
+        case PartCategory::Muffler:
+            return cls == SR_MUFFLER_GLASSPACK ? 15 : 5;
+        case PartCategory::Differential:
+            return cls == SR_DIFF_4_11 ? 150 : cls == SR_DIFF_3_73 ? 80 : 50;
+        default:
+            return 0;
+    }
+}
+
+inline Part MakeSr2Part(PartCategory category, int cls, CarVendor_t vendor) {
+    Part p;
+    p.vendor = category == PartCategory::ExhaustManifold ? vendor : CarVendorUnknown;
+    p.cost = Sr2PartPrice(category, cls, p.vendor);
+    p.partType.sr2Class = cls;
+    return p;
+}
+
+inline std::string Sr2PartName(PartCategory category, const Part& p) {
+    const int cls = p.partType.sr2Class;
+    switch (category) {
+        case PartCategory::ExhaustManifold: {
+            const char* make = p.vendor == CarVendorFord ? "Ford" : p.vendor == CarVendorChrysler ? "Chrysler" : "GM";
+            return std::string(make) + (cls == SR_EXHAUST_HEADERS ? " tube headers" : " stock exhaust manifold");
+        }
+        case PartCategory::Muffler:
+            return cls == SR_MUFFLER_GLASSPACK ? "Glass Pack Muffler" : "Stock Muffler";
+        case PartCategory::Differential:
+            return cls == SR_DIFF_4_11 ? "Differential 4.11:1"
+                 : cls == SR_DIFF_3_73 ? "Differential 3.73:1" : "Differential 2.78:1";
+        default:
+            return "";
+    }
+}

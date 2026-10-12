@@ -20,13 +20,22 @@
 double carAnimationTimeDiner = 0;
 double carExitAnimationTime = 0;
 
-Diner::Diner() : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN}) {
+namespace {
+Asset DinerBackground() {
+    if (state.GetAssets().GetGame() == SrGame::SR2)
+        return (Asset){LibAssetRegular, SrLibFileAmigaLibP, SR2_DRIVE_IN_SCREEN, SrGame::SR2};
+    return (Asset){LibAssetRegular, SrLibFileAmigaLibP, DINER_SCREEN};
+}
+}
+
+Diner::Diner() : CarScene(DinerBackground()) {
     lastFrameTime = GameTicks() / 1000.0;
     carBitmap = nullptr;
     isPaused = false;
     challenge = std::make_unique<Challenge>();
 
-    zones = SceneLayout::Load(embedded_diner_toml);
+    zones = SceneLayout::Load(state.GetAssets().GetGame() == SrGame::SR2 ? embedded_diner_sr2_toml
+                                                                          : embedded_diner_toml);
 
     GetZone("goto_garage").onClick = [this] {
         if (sceneTransition != SCENE_SOLID) return;
@@ -69,7 +78,12 @@ void Diner::Init(bool debugMode) {
 
     SetAudioManager(state.GetAssets().GetAudioManager());
 
-    roadMaskSurface.reset(SDL_CreateRGBSurface(0, 320, 10, 32, 0, 0, 0, 0));
+    // The strip is the road edge the car sits behind. SR2's is the rail, from y=162 to the bottom of the art.
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        roadMaskSrcRect = {0, 162, 320, 28};
+        roadMaskDestRect = {0, 0, 320, 28};
+    }
+    roadMaskSurface.reset(SDL_CreateRGBSurface(0, roadMaskSrcRect.w, roadMaskSrcRect.h, 32, 0, 0, 0, 0));
     SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
     roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
     SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
@@ -78,13 +92,18 @@ void Diner::Init(bool debugMode) {
     guyBubble->SetVisible(false);
     bubbles.push_back(std::move(guyBubble));
 
-    LoadActors();
+    // Street Rod 2's drive-in has no waitress, phone guy, screen mask or jail overlay on the Amiga.
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    if (!sr2) {
+        LoadActors();
 
-    jailBars = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, JAIL});
-    jailBars->SetPosition(0, 0);
-    jailBars->SetVisible(true);
+        jailBars = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, JAIL});
+        jailBars->SetPosition(0, 0);
+        jailBars->SetVisible(true);
+    }
 
-    Bitmap* screenMaskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
+    Bitmap* screenMaskBitmap =
+        sr2 ? nullptr : state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, DINER_SCREEN_MASK});
     if (screenMaskBitmap) {
         maskedScreenBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, 256, 41, 32, SDL_PIXELFORMAT_RGBA8888));
         background->CreateMask(screenMaskBitmap->GetSurface(), maskedScreenBackground.get(), {0, 68, 256, 41});
@@ -105,7 +124,8 @@ Diner::~Diner() {
 SDL_Point Diner::GetCarIdlePosition() {
     if (!currentOpponent) return {80, 95};
     int x = SrLibQueryGetCarIdleX(SCENE_DINER);
-    int y = SrLibQueryGetCarRoofYOffset(SCENE_DINER, currentOpponent->car->GetModel().height);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_DINER, currentOpponent->car->GetModel().height,
+                                       state.GetAssets().GetGame());
     return {x, y};
 }
 
@@ -282,7 +302,12 @@ void Diner::DrawScene() {
 
     UpdateCarAnimation(deltaTime);
 
+    // With no car there is nothing to challenge or look under, so these zones stay off.
+    SetZoneEnabled("pop_hood", OpponentPresent());
+    SetZoneEnabled("challenge_opponent", OpponentPresent());
+
     UpdateActors(deltaTime);
+    if (carBitmap && state.GetAssets().GetGame() == SrGame::SR2) carBitmap->SetShadowVisible(false);
 
     // He shuts the hood himself after a while - no studying it at leisure.
     if (IsHoodViewOpen()) {
@@ -317,7 +342,7 @@ void Diner::DrawScene() {
             SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
         }
 
-        for (auto& g : guyAnim) g->Draw();
+        for (auto& g : guyAnim) if (g) g->Draw();
 
         for (auto& b : bubbles) {
             b->Draw();
@@ -340,7 +365,7 @@ void Diner::DrawScene() {
         SDL_RenderCopy(renderer, maskedScreenBackgroundTexture.get(), NULL, &screenMaskRect);
     }
 
-    for (auto& g : guyAnim) g->Draw();
+    for (auto& g : guyAnim) if (g) g->Draw();
 
     if (carBitmap != nullptr) {
         carBitmap->Move({carx, cary});
@@ -388,7 +413,7 @@ void Diner::DrawMaskAfterCar() {
     if (IsHoodViewOpen()) hoodView->GetDialog()->Draw();
 
     // Last, from DrawExtra, so nothing draws over the bars.
-    if (state.IsJailed()) jailBars->Draw();
+    if (state.IsJailed() && jailBars) jailBars->Draw();
 }
 
 bool Diner::IsHoodViewOpen() const {
@@ -422,6 +447,7 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     }
 
     state.AddKnownOpponent(currentOpponent);
+    kingDriveBy = state.IsKingOpponent(currentOpponent) && state.KingOnlyDrivesBy();
 
     std::string oppoText = GetOpponentText(currentOpponent);
 
@@ -440,7 +466,8 @@ void Diner::StartAnimateCar(CarPtr, Driver*, CarAnimationType) {
     }
 
     int carYOffset = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(),
-                                                  currentOpponent->car->GetModel().height);
+                                                  currentOpponent->car->GetModel().height,
+                                                  state.GetAssets().GetGame());
     this->cary = carYOffset;
 
     // Sprite sizes differ per model, so anchor on the air-scoop offset at the idle position.
@@ -631,8 +658,9 @@ void Diner::UpdateCarAnimation(double deltaTime) {
     if (exitingCar && !engineSoundStarted) {
      
         if (audioManager) {
-            audioManager->UpdateEnginePeriod(605);  // Period 605 = ~5916 Hz
-            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+            lastAnimationEnginePeriod = -1;
+            ApplyAnimationEngine(false, false);
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
             engineSoundStarted = true;
         }
     }
@@ -656,6 +684,18 @@ void Diner::StartOpponentExit() {
 void Diner::OnCarAnimationComplete() {
     LOG_INFO("Diner::OnCarAnimationComplete - Opponent car reached idle position, stopping drive-in engine sound");
 
+    // Animation mode 3: the drive-out follows at once, engine still running.
+    if (kingDriveBy) {
+        if (audioManager) {
+            lastAnimationEnginePeriod = -1;
+            ApplyAnimationEngine(false, false);
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
+        }
+        engineSoundStarted = true;
+        TriggerCarExit();
+        return;
+    }
+
     if (audioManager) {
         audioManager->StopLoop(0);
         LOG_INFO("Diner::OnCarAnimationComplete - Drive-in engine sound stopped");
@@ -664,6 +704,9 @@ void Diner::OnCarAnimationComplete() {
 
 void Diner::OnCarExitComplete() {
     LOG_INFO("Diner::OnCarExitComplete - Opponent car exit animation completed");
+    // The driver and car are gone; nothing to describe until the next one pulls in.
+    hud->SetText("");
+    SetZoneText("background", "");
 }
 
 void Diner::OnSceneExit() {
@@ -697,6 +740,7 @@ void Diner::OnSceneExit() {
 
 void Diner::ShowCallListDialog() {
     state.OnPhoneListOpened();
+    state.AdvanceTicks(150);   // ldrivein.c 0x25108a
     const auto& known = state.GetKnownOpponents();
 
     std::vector<std::string> labels;

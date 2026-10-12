@@ -372,6 +372,15 @@ TEST_CASE("gas station assets return gas palette") {
     CHECK(gas != pal1);
 }
 
+TEST_CASE("Street Rod 2's drive-in uses its pink-neon palette, other screens the main one") {
+    BitmapParser p;
+    std::vector<std::vector<uint16_t>> pals(9);
+    for (size_t i = 0; i < pals.size(); ++i) pals[i] = std::vector<uint16_t>(32, uint16_t(i));
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SR2_DRIVE_IN_SCREEN, SrGame::SR2, pals) == pals[3]);
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SR2_DINER_WAITRESS_ANIM_LEFT, SrGame::SR2, pals) == pals[3]);
+    CHECK(p.GetPalette(SrLibFileAmigaLibP, SR2_GARAGE_SCREEN, SrGame::SR2, pals) == pals[0]);
+}
+
 TEST_CASE("high index (>176) returns PAL1") {
     BitmapParser p;
     auto hi  = p.GetPalette(SrLibFileAmigaLibP, GARAGE_SCREEN); // 365, high index

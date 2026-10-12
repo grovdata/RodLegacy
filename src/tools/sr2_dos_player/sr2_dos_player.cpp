@@ -9,6 +9,8 @@ extern "C" {
 #include "opl3/opl3.h"
 }
 
+#include "audio/sr2_mus.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -17,19 +19,11 @@ extern "C" {
 #include <string>
 #include <vector>
 
+using sr2mus::RegWrite;
+
 namespace {
 
-constexpr int kSampleRate = 49716;   // the OPL2's own rate, so no resampling
-constexpr int kMusHeader = 70;
-constexpr int kPatchLen = 56;
-constexpr int kNameLen = 9;
-constexpr int kTicksPerSecond = 480;
-
-struct RegWrite {
-    uint32_t sample;   // when to apply, in output samples
-    uint16_t reg;
-    uint8_t value;
-};
+constexpr int kSampleRate = sr2mus::kOplRate;
 
 std::vector<uint8_t> ReadFile(const std::string& path) {
     FILE* f = std::fopen(path.c_str(), "rb");
@@ -45,295 +39,7 @@ std::vector<uint8_t> ReadFile(const std::string& path) {
     return out;
 }
 
-// ---------------------------------------------------------------- MSR.SND
-
-// A patch is 28 little-endian int16 fields: 13 per operator, then two
-// waveforms. Every field position below was recovered by matching the game's
-// own OPL register writes, captured from DOSBox-X, back to this file.
-//
-//   +0  KSL          +7  RR
-//   +1  MULT         +8  TL
-//   +2  feedback     +9  AM or vibrato, the two cannot be told apart yet
-//   +3  AR           +10 the other of those two
-//   +4  SL           +11 KSR
-//   +5  EG sustain   +12 connection, INVERTED: cnt = 1 - field
-//   +6  DR
-//
-// field 26 is operator 1's waveform, field 27 operator 2's.
-struct Operator {
-    int ksl = 0, mult = 0, ar = 0, sl = 0, eg = 0, dr = 0, rr = 0, tl = 0;
-    int ksr = 0, ws = 0;
-};
-
-struct Patch {
-    std::string name;
-    Operator op[2];
-    int feedback = 0;
-    int connection = 0;
-};
-
-int16_t Field(const std::vector<uint8_t>& d, size_t at, int i) {
-    size_t o = at + static_cast<size_t>(i) * 2;
-    return static_cast<int16_t>(d[o] | (d[o + 1] << 8));
-}
-
-bool LoadPatches(const std::vector<uint8_t>& d, std::vector<Patch>& out) {
-    if (d.size() < 6) return false;
-    const int count = d[2] | (d[3] << 8);
-    const int patch_at = d[4] | (d[5] << 8);
-    if (patch_at != 6 + count * kNameLen) return false;
-    if (static_cast<int>(d.size()) < patch_at + count * kPatchLen) return false;
-
-    out.clear();
-    for (int i = 0; i < count; i++) {
-        Patch p;
-        const uint8_t* nm = d.data() + 6 + i * kNameLen;
-        p.name.assign(reinterpret_cast<const char*>(nm),
-                      strnlen(reinterpret_cast<const char*>(nm), kNameLen));
-        const size_t at = static_cast<size_t>(patch_at) + static_cast<size_t>(i) * kPatchLen;
-        for (int half = 0; half < 2; half++) {
-            const int b = half * 13;
-            Operator& op = p.op[half];
-            op.ksl  = Field(d, at, b + 0) & 0x03;
-            op.mult = Field(d, at, b + 1) & 0x0F;
-            op.ar   = Field(d, at, b + 3) & 0x0F;
-            op.sl   = Field(d, at, b + 4) & 0x0F;
-            op.eg   = Field(d, at, b + 5) & 0x01;
-            op.dr   = Field(d, at, b + 6) & 0x0F;
-            op.rr   = Field(d, at, b + 7) & 0x0F;
-            op.tl   = Field(d, at, b + 8) & 0x3F;
-            op.ksr  = Field(d, at, b + 11) & 0x01;
-            op.ws   = Field(d, at, 26 + half) & 0x03;
-        }
-        p.feedback = Field(d, at, 2) & 0x07;
-        p.connection = 1 - (Field(d, at, 12) & 0x01);
-        out.push_back(p);
-    }
-    return true;
-}
-
-// ---------------------------------------------------------------- .MUS
-
-struct MusEvent {
-    uint32_t tick;
-    uint8_t status;              // 0x80..0xEF, or 0xF8 realtime
-    uint8_t a = 0, b = 0;
-};
-
-int EventArgs(uint8_t status) {
-    switch (status & 0xF0) {
-        case 0xC0: return 1;
-        case 0xA0: return 1;     // one byte here, not MIDI's two
-        case 0xD0: return 1;
-        case 0x80: case 0x90: case 0xB0: case 0xE0: return 2;
-        default: return 0;
-    }
-}
-
-bool ParseMus(const std::vector<uint8_t>& d, std::vector<MusEvent>& out, uint32_t& length_ticks) {
-    if (d.size() <= kMusHeader) return false;
-    length_ticks = static_cast<uint32_t>(d[0x26] | (d[0x27] << 8) | (d[0x28] << 16) | (d[0x29] << 24));
-    const uint8_t* b = d.data() + kMusHeader;
-    const size_t n = d.size() - kMusHeader;
-
-    size_t i = 0;
-    uint32_t t = 0;
-    uint8_t status = 0;
-    out.clear();
-    while (i < n) {
-        // Delta time is one byte, not a MIDI variable-length quantity. 0xF8 is a bare clock tick.
-        uint32_t dt = 0;
-        while (i < n && b[i] == 0xF8) { dt++; i++; }
-        if (i < n) { dt += b[i]; i++; }
-        t += dt;
-        if (i >= n) break;
-
-        if (b[i] & 0x80) status = b[i++];
-        if (status == 0xF0) {                       // sysex, skip to F7
-            while (i < n && b[i] != 0xF7) i++;
-            if (i < n) i++;
-            continue;
-        }
-        if (status >= 0xF0) continue;
-        const int args = EventArgs(status);
-        MusEvent e{t, status};
-        if (args >= 1 && i < n) e.a = b[i++];
-        if (args >= 2 && i < n) e.b = b[i++];
-        out.push_back(e);
-    }
-    return !out.empty();
-}
-
-// ---------------------------------------------------------------- OPL2
-
-// Operator slot offsets for melodic channels 0..8.
-const int kSlot[9][2] = {{0, 3}, {1, 4}, {2, 5}, {8, 11}, {9, 12},
-                         {10, 13}, {16, 19}, {17, 20}, {18, 21}};
-
-// Rhythm mode takes OPL channels 6, 7 and 8 and turns five of their operators
-// into one percussion voice each. The song addresses them by MIDI channel:
-// the 0xBD bit is 10 minus the channel, confirmed by matching every trigger
-// in a capture against the song's own note times.
-//
-//   ch6  bass drum   bit 4   slots 16 and 19, the only two-operator voice
-//   ch7  snare       bit 3   slot 20
-//   ch8  tom         bit 2   slot 18
-//   ch9  top cymbal  bit 1   slot 21
-//   ch10 hi-hat      bit 0   slot 17
-const int kFirstPercussionChannel = 6;
-const int kLastPercussionChannel = 10;
-const int kPercussionSlot[5][2] = {{16, 19}, {20, -1}, {18, -1}, {21, -1}, {17, -1}};
-
-// Which OPL channel each percussion voice takes its pitch from. Channel 7
-// carries both the snare and the hi-hat, and channel 8 both the tom and the
-// top cymbal, so those pairs share one frequency.
-const int kPercussionOplChannel[5] = {6, 7, 8, 8, 7};
-
-int RhythmBit(int ch) { return kLastPercussionChannel - ch; }
-bool IsPercussion(int ch) {
-    return ch >= kFirstPercussionChannel && ch <= kLastPercussionChannel;
-}
-
-// F-numbers for one octave. Read off the game's own register writes in a
-// capture rather than computed: it runs a little sharp of equal temperament,
-// by up to three units at the top of the octave. Classes 8 and 10 never
-// occurred in the captures and are interpolated, which puts them within one
-// unit either way.
-const uint16_t kFNum[12] = {343, 364, 385, 408, 433, 459, 486, 515, 546, 579, 613, 650};
-
-class Scheduler {
-public:
-    // At least one sample apart, so a key-off is seen before the next key-on and the envelope retriggers.
-    void Write(uint32_t sample, uint16_t reg, uint8_t value) {
-        if (!writes_.empty() && sample <= writes_.back().sample) {
-            sample = writes_.back().sample + 1;
-        }
-        writes_.push_back({sample, reg, value});
-    }
-    std::vector<RegWrite>& Writes() { return writes_; }
-
-private:
-    std::vector<RegWrite> writes_;
-};
-
-void ProgramOperator(Scheduler& s, uint32_t at, int slot, const Operator& op, int tl) {
-    s.Write(at, 0x20 + slot, static_cast<uint8_t>(((op.eg & 1) << 5) | ((op.ksr & 1) << 4) |
-                                                  (op.mult & 0x0F)));
-    s.Write(at, 0x40 + slot, static_cast<uint8_t>(((op.ksl & 3) << 6) | (tl & 0x3F)));
-    s.Write(at, 0x60 + slot, static_cast<uint8_t>(((op.ar & 0xF) << 4) | (op.dr & 0xF)));
-    s.Write(at, 0x80 + slot, static_cast<uint8_t>(((op.sl & 0xF) << 4) | (op.rr & 0xF)));
-    s.Write(at, 0xE0 + slot, static_cast<uint8_t>(op.ws & 0x03));
-}
-
-void BuildFromMus(const std::vector<MusEvent>& events, const std::vector<Patch>& patches,
-                  int tick_rate, Scheduler& s) {
-    const double samples_per_tick = static_cast<double>(kSampleRate) / tick_rate;
-    int program[16] = {0};
-
-    s.Write(0, 0x01, 0x20);        // enable waveform select
-    s.Write(0, 0xBD, 0x20);        // rhythm mode on, as the game does
-
-    uint8_t rhythm = 0x20;
-    // Only rewritten when it changes, as the game does.
-    int perc_fnum[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
-    int perc_block[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
-    for (const MusEvent& e : events) {
-        const uint32_t at = static_cast<uint32_t>(e.tick * samples_per_tick);
-        const int ch = e.status & 0x0F;
-        switch (e.status & 0xF0) {
-            case 0xC0: {
-                program[ch] = e.a;
-                if (e.a >= static_cast<int>(patches.size())) break;
-                const Patch& p = patches[e.a];
-                if (IsPercussion(ch)) {
-                    // One operator, except the bass drum which keeps both.
-                    const int* slots = kPercussionSlot[ch - kFirstPercussionChannel];
-                    ProgramOperator(s, at, slots[0], p.op[0], p.op[0].tl);
-                    if (slots[1] >= 0) {
-                        ProgramOperator(s, at, slots[1], p.op[1], p.op[1].tl);
-                        s.Write(at, 0xC0 + 6,
-                                static_cast<uint8_t>(((p.feedback & 7) << 1) | (p.connection & 1)));
-                    }
-                } else if (ch < kFirstPercussionChannel) {
-                    ProgramOperator(s, at, kSlot[ch][0], p.op[0], p.op[0].tl);
-                    ProgramOperator(s, at, kSlot[ch][1], p.op[1], p.op[1].tl);
-                    s.Write(at, 0xC0 + ch,
-                            static_cast<uint8_t>(((p.feedback & 7) << 1) | (p.connection & 1)));
-                }
-                break;
-            }
-            case 0x90: {
-                const int note = e.a, vel = e.b;
-                if (IsPercussion(ch)) {
-                    const uint8_t bit = static_cast<uint8_t>(1 << RhythmBit(ch));
-                    if (vel > 0) {
-                        // Velocity sets the carrier's total level.
-                        const int* slots = kPercussionSlot[ch - kFirstPercussionChannel];
-                        const int slot = slots[1] >= 0 ? slots[1] : slots[0];
-                        const int prog = program[ch];
-                        const int ksl = prog < static_cast<int>(patches.size())
-                                            ? patches[prog].op[slots[1] >= 0 ? 1 : 0].ksl
-                                            : 0;
-                        s.Write(at, 0x40 + slot,
-                                static_cast<uint8_t>(((ksl & 3) << 6) |
-                                                     (std::clamp(0x3F - (vel >> 1), 0, 0x3F))));
-                        // Pitch comes from the host channel's F-number, key-on bit clear. Written only when it changes.
-                        const int opl = kPercussionOplChannel[ch - kFirstPercussionChannel];
-                        const int oct = std::clamp(note / 12 - 1, 0, 7);
-                        const uint16_t f = kFNum[note % 12];
-                        const uint8_t hi =
-                            static_cast<uint8_t>(((oct & 7) << 2) | ((f >> 8) & 3));
-                        if (perc_fnum[opl] != f || perc_block[opl] != hi) {
-                            perc_fnum[opl] = f;
-                            perc_block[opl] = hi;
-                            s.Write(at, 0xA0 + opl, static_cast<uint8_t>(f & 0xFF));
-                            s.Write(at, 0xB0 + opl, hi);
-                        }
-                        // Retrigger: the bit has to drop before it rises again.
-                        rhythm &= ~bit;
-                        s.Write(at, 0xBD, rhythm);
-                        rhythm |= bit;
-                    } else {
-                        rhythm &= ~bit;
-                    }
-                    s.Write(at, 0xBD, rhythm);
-                    break;
-                }
-                if (ch >= kFirstPercussionChannel) break;
-                if (vel == 0) {                      // note on with velocity 0 is a note off
-                    s.Write(at, 0xB0 + ch, 0);
-                    break;
-                }
-                const int prog = program[ch];
-                if (prog < static_cast<int>(patches.size())) {
-                    // The carrier's total level is the note volume.
-                    const Patch& p = patches[prog];
-                    const int tl = std::clamp(0x3F - (vel >> 1), 0, 0x3F);
-                    s.Write(at, 0x40 + kSlot[ch][1],
-                            static_cast<uint8_t>(((p.op[1].ksl & 3) << 6) | tl));
-                }
-                const int oct = std::clamp(note / 12 - 1, 0, 7);
-                const uint16_t f = kFNum[note % 12];
-                s.Write(at, 0xA0 + ch, static_cast<uint8_t>(f & 0xFF));
-                s.Write(at, 0xB0 + ch,
-                        static_cast<uint8_t>(0x20 | ((oct & 7) << 2) | ((f >> 8) & 3)));
-                break;
-            }
-            case 0x80:
-                if (IsPercussion(ch)) {
-                    rhythm &= ~static_cast<uint8_t>(1 << RhythmBit(ch));
-                    s.Write(at, 0xBD, rhythm);
-                } else if (ch < kFirstPercussionChannel) {
-                    s.Write(at, 0xB0 + ch, 0);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-bool BuildFromDro(const std::vector<uint8_t>& d, Scheduler& s, std::string& err) {
+bool BuildFromDro(const std::vector<uint8_t>& d, std::vector<RegWrite>& out, std::string& err) {
     if (d.size() < 26 || std::memcmp(d.data(), "DBRAWOPL", 8) != 0) {
         err = "not a DRO file";
         return false;
@@ -352,18 +58,27 @@ bool BuildFromDro(const std::vector<uint8_t>& d, Scheduler& s, std::string& err)
         if (code == short_code) { ms += val + 1; continue; }
         if (code == long_code) { ms += (val + 1) << 8; continue; }
         const uint16_t reg = codemap[code & 0x7F] | ((code & 0x80) ? 0x100 : 0);
-        s.Write(static_cast<uint32_t>(static_cast<uint64_t>(ms) * kSampleRate / 1000), reg, val);
+        uint32_t at = static_cast<uint32_t>(static_cast<uint64_t>(ms) * kSampleRate / 1000);
+        if (!out.empty() && at <= out.back().sample) at = out.back().sample + 1;
+        out.push_back({at, reg, val});
     }
     return true;
 }
 
 // ---------------------------------------------------------------- playback
 
+// A label and the sample it starts at, so playback can say what is sounding.
+struct Cue {
+    uint32_t sample;
+    std::string label;
+};
+
 struct Player {
     opl3_chip chip{};
     std::vector<RegWrite> writes;
     size_t next = 0;
     uint32_t sample = 0;
+    std::atomic<uint32_t> played{0};   // read by the main thread for the cue line
     std::atomic<bool> done{false};
 };
 
@@ -384,6 +99,7 @@ void SDLCALL AudioCallback(void* userdata, SDL_AudioStream* stream, int addition
         buf[i * 2 + 1] = s2[1];
         p.sample++;
     }
+    p.played.store(p.sample, std::memory_order_relaxed);
     if (p.next >= p.writes.size()) p.done = true;
     SDL_PutAudioStreamData(stream, buf.data(), static_cast<int>(buf.size() * sizeof(int16_t)));
 }
@@ -424,12 +140,104 @@ bool WriteWav(const std::string& path, std::vector<RegWrite>& writes) {
     return true;
 }
 
+// ------------------------------------------------------------------ effects
+//
+// The DOS effect table, from RodLegacyResearch/docs/sr2_dos/adlib.md. Each is a
+// timbre looked up in MSR.SND by name, put on a fixed OPL channel at a fixed
+// level, and keyed at a fixed note - so they can be replayed here exactly.
+
+struct Layer { const char* timbre; int ch; int volume; int note; };
+struct Effect { const char* label; Layer layer[2]; };
+
+const Effect kEffects[] = {
+    {"engine, the note it holds",        {{"motor",  3, 0x7f, 0x18}, {nullptr,0,0,0}}},
+    {"tyre screech (random 0x61..0x68)", {{"turn",   3, 0x75, 0x61}, {nullptr,0,0,0}}},
+    {"tyre screech, another roll",       {{"turn",   3, 0x75, 0x66}, {nullptr,0,0,0}}},
+    {"tyre screech, fixed low note",     {{"turn",   3, 0x75, 0x3d}, {nullptr,0,0,0}}},
+    {"turn1",                            {{"turn1",  3, 0x7f, 0x0e}, {nullptr,0,0,0}}},
+    {"CRASH: hitcar + crash",            {{"hitcar", 4, 0x7f, 0x14}, {"crash", 5, 0x7f, 0x19}}},
+    {"hit and slide: hitcar + turn",     {{"hitcar", 4, 0x7f, 0x14}, {"turn",  3, 0x7f, 0x3d}}},
+    {"hitcar alone, note 0x28",          {{"hitcar", 4, 0x7f, 0x28}, {nullptr,0,0,0}}},
+    {"paint (respray)",                  {{"paint",  4, 0x6a, 0x30}, {nullptr,0,0,0}}},
+    {"paint + part",                     {{"paint",  4, 0x6a, 0x30}, {"part",  5, 0x70, 0x30}}},
+    {"part alone",                       {{"part",   5, 0x70, 0x30}, {nullptr,0,0,0}}},
+    {"piano1",                           {{"piano1", 3, 0x65, 0x3c}, {nullptr,0,0,0}}},
+};
+
+const sr2mus::Patch* FindPatch(const std::vector<sr2mus::Patch>& ps, const char* name) {
+    for (const sr2mus::Patch& p : ps) {
+        if (p.name == name) return &p;
+    }
+    return nullptr;
+}
+
+// The siren is the one effect the table does not fully describe.
+void BuildSiren(const std::vector<sr2mus::Patch>& ps, std::vector<RegWrite>& w, uint32_t at) {
+    const sr2mus::Patch* p = FindPatch(ps, "police");
+    if (p == nullptr) return;
+    const uint32_t total = kSampleRate * 3;
+    sr2mus::EffectVoice(w, *p, 2, 0x7f, 0x50, at, total);
+    // 15 frames at 70 Hz is the counter's period; it sits at the top for the
+    // first eight and the bottom for the rest.
+    const uint32_t frame = kSampleRate / 70;
+    for (uint32_t f = 0; f * frame < total; f++) {
+        sr2mus::EffectPitch(w, 2, (f % 15) < 8 ? 0x55 : 0x50, at + f * frame);
+    }
+}
+
+std::vector<RegWrite> BuildEffects(const std::vector<sr2mus::Patch>& ps,
+                                   std::vector<Cue>& cues) {
+    std::vector<RegWrite> w;
+    uint32_t at = kSampleRate / 4;
+    const uint32_t hold = kSampleRate * 3 / 4;
+    const uint32_t gap = kSampleRate / 2;
+    for (const Effect& e : kEffects) {
+        bool any = false;
+        for (const Layer& l : e.layer) {
+            if (l.timbre == nullptr) continue;
+            const sr2mus::Patch* p = FindPatch(ps, l.timbre);
+            if (p == nullptr) {
+                std::printf("  %-34s MISSING timbre '%s'\n", e.label, l.timbre);
+                continue;
+            }
+            sr2mus::EffectVoice(w, *p, l.ch, l.volume, l.note, at, hold);
+            any = true;
+        }
+        if (any) {
+            cues.push_back({at, e.label});
+            at += hold + gap;
+        }
+    }
+    cues.push_back({at, "siren: police, bent 0..5 semitones"});
+    BuildSiren(ps, w, at);
+    return w;
+}
+
+// Every timbre in the bank, in order, so nothing is missed because its effect
+// routine has not been traced yet.
+std::vector<RegWrite> BuildTimbres(const std::vector<sr2mus::Patch>& ps,
+                                   std::vector<Cue>& cues) {
+    std::vector<RegWrite> w;
+    uint32_t at = kSampleRate / 4;
+    const uint32_t hold = kSampleRate * 3 / 4;
+    const uint32_t gap = kSampleRate / 3;
+    for (const sr2mus::Patch& p : ps) {
+        cues.push_back({at, p.name});
+        sr2mus::EffectVoice(w, p, 3, 0x7f, 0x30, at, hold);
+        at += hold + gap;
+    }
+    return w;
+}
+
 void Usage() {
     std::puts("Usage:");
     std::puts("  sr2_dos_player --mus <MSRBEG.MUS> [--snd <MSR.SND>] [--tickrate N]");
     std::puts("  sr2_dos_player --dro <capture.dro>");
+    std::puts("  sr2_dos_player --sfx [--snd <MSR.SND>]      the traced effects");
+    std::puts("  sr2_dos_player --timbres [--snd <MSR.SND>]  every timbre in the bank");
     std::puts("Options:");
     std::puts("  --dump         print the register stream instead of playing");
+    std::puts("  --wav <file>   render to a WAV instead of playing");
     std::puts("  --tickrate N   .MUS ticks per second (default 480)");
 }
 
@@ -437,42 +245,56 @@ void Usage() {
 
 int main(int argc, char* argv[]) {
     std::string mus, dro, snd, wav;
-    int tick_rate = kTicksPerSecond;
-    bool dump = false;
+    int tick_rate = sr2mus::kTicksPerSecond;
+    bool dump = false, sfx = false, timbres = false;
 
     for (int i = 1; i < argc; i++) {
         if (!std::strcmp(argv[i], "--mus") && i + 1 < argc) mus = argv[++i];
         else if (!std::strcmp(argv[i], "--dro") && i + 1 < argc) dro = argv[++i];
         else if (!std::strcmp(argv[i], "--snd") && i + 1 < argc) snd = argv[++i];
         else if (!std::strcmp(argv[i], "--tickrate") && i + 1 < argc) tick_rate = std::atoi(argv[++i]);
+        else if (!std::strcmp(argv[i], "--sfx")) sfx = true;
+        else if (!std::strcmp(argv[i], "--timbres")) timbres = true;
         else if (!std::strcmp(argv[i], "--dump")) dump = true;
         else if (!std::strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
         else { Usage(); return 0; }
     }
-    if (mus.empty() == dro.empty()) { Usage(); return 1; }
+    const int modes = (!mus.empty()) + (!dro.empty()) + sfx + timbres;
+    if (modes != 1) { Usage(); return 1; }
 
-    Scheduler sched;
-    if (!dro.empty()) {
+    std::vector<RegWrite> writes;
+    std::vector<Cue> cues;
+    if (sfx || timbres) {
+        if (snd.empty()) snd = "MSR.SND";
+        std::vector<uint8_t> sd = ReadFile(snd);
+        std::vector<sr2mus::Patch> patches;
+        if (sd.empty() || !sr2mus::LoadPatches(sd.data(), sd.size(), patches)) {
+            std::fprintf(stderr, "cannot read patches from %s\n", snd.c_str());
+            return 1;
+        }
+        std::printf("%s: %zu timbres\n", snd.c_str(), patches.size());
+        writes = sfx ? BuildEffects(patches, cues) : BuildTimbres(patches, cues);
+    } else if (!dro.empty()) {
         std::vector<uint8_t> d = ReadFile(dro);
         if (d.empty()) { std::fprintf(stderr, "cannot read %s\n", dro.c_str()); return 1; }
         std::string err;
-        if (!BuildFromDro(d, sched, err)) { std::fprintf(stderr, "%s\n", err.c_str()); return 1; }
-        std::printf("%s: %zu register writes\n", dro.c_str(), sched.Writes().size());
+        if (!BuildFromDro(d, writes, err)) { std::fprintf(stderr, "%s\n", err.c_str()); return 1; }
+        std::printf("%s: %zu register writes\n", dro.c_str(), writes.size());
     } else {
         if (snd.empty()) {
             const size_t slash = mus.find_last_of("/\\");
             snd = (slash == std::string::npos ? std::string() : mus.substr(0, slash + 1)) + "MSR.SND";
         }
         std::vector<uint8_t> sd = ReadFile(snd);
-        std::vector<Patch> patches;
-        if (sd.empty() || !LoadPatches(sd, patches)) {
+        std::vector<sr2mus::Patch> patches;
+        if (sd.empty() || !sr2mus::LoadPatches(sd.data(), sd.size(), patches)) {
             std::fprintf(stderr, "cannot read patches from %s\n", snd.c_str());
             return 1;
         }
         std::vector<uint8_t> md = ReadFile(mus);
-        std::vector<MusEvent> events;
+        std::vector<sr2mus::Event> events;
         uint32_t length_ticks = 0;
-        if (md.empty() || !ParseMus(md, events, length_ticks)) {
+        if (md.empty() || !sr2mus::ParseMus(md.data(), md.size(), events, length_ticks)) {
             std::fprintf(stderr, "cannot parse %s\n", mus.c_str());
             return 1;
         }
@@ -480,15 +302,17 @@ int main(int argc, char* argv[]) {
                     mus.c_str(), events.size(), length_ticks,
                     static_cast<double>(length_ticks) / tick_rate, tick_rate,
                     patches.size(), snd.c_str());
-        BuildFromMus(events, patches, tick_rate, sched);
-        std::printf("  -> %zu register writes\n", sched.Writes().size());
+        writes = sr2mus::Build(events, patches, tick_rate);
+        std::printf("  -> %zu register writes\n", writes.size());
     }
 
-    std::vector<RegWrite>& writes = sched.Writes();
-    std::stable_sort(writes.begin(), writes.end(),
-                     [](const RegWrite& a, const RegWrite& b) { return a.sample < b.sample; });
-
-    if (!wav.empty()) return WriteWav(wav, writes) ? 0 : 1;
+    if (!wav.empty()) {
+        for (const Cue& c : cues) {
+            std::printf("  %6.2f s  %s\n", static_cast<double>(c.sample) / kSampleRate,
+                        c.label.c_str());
+        }
+        return WriteWav(wav, writes) ? 0 : 1;
+    }
 
     if (dump) {
         for (const RegWrite& w : writes) {
@@ -501,6 +325,7 @@ int main(int argc, char* argv[]) {
     Player player;
     OPL3_Reset(&player.chip, kSampleRate);
     player.writes = writes;
+    const uint32_t last = writes.empty() ? 0 : writes.back().sample;
 
     if (!SDL_Init(SDL_INIT_AUDIO)) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -519,8 +344,22 @@ int main(int argc, char* argv[]) {
     }
     SDL_ResumeAudioStreamDevice(stream);
 
-    std::puts("Playing. Press Enter to stop.");
-    (void)std::getchar();
+    // Follow the playhead and name whatever is sounding.
+    std::puts("Playing. Ctrl-C to stop.");
+    size_t cue = 0;
+    std::string shown;
+    while (!player.done) {
+        const uint32_t at = player.played.load(std::memory_order_relaxed);
+        while (cue < cues.size() && cues[cue].sample <= at) {
+            shown = cues[cue].label;
+            cue++;
+        }
+        std::printf("\r  %6.2f s / %6.2f s  %-40s", static_cast<double>(at) / kSampleRate,
+                    static_cast<double>(last) / kSampleRate, shown.c_str());
+        std::fflush(stdout);
+        SDL_Delay(50);
+    }
+    std::printf("\r  %6.2f s  done%-44s\n", static_cast<double>(last) / kSampleRate, "");
 
     SDL_DestroyAudioStream(stream);
     SDL_Quit();

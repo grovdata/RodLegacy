@@ -19,6 +19,16 @@ static constexpr float kSlideUpDuration = 1.1f;
 static constexpr float kSlideRightDuration = 0.4f;
 
 // Two pitch bands, fresh every time: random % 50 + 400 at volume 60, random % 50 + 600 at volume 40.
+namespace {
+// SR1's bay clock costs (0x241f20, 0x242018, 0x2420a8 on fitting; 0x242422, 0x242458, 0x24249a on removal): a part that
+// does not fit costs a third more.
+uint32_t BaySlotTicks(EngineBaySlot slot) {
+    if (slot == EngineBaySlot::ENGINE) return 900;
+    if (slot == EngineBaySlot::MANIFOLD) return 450;
+    return 225;
+}
+}
+
 void Garage::PlayBayToolSound(bool seating) {
     if (!audioManager) return;
     const int period = (seating ? SRL0_PART_MOUNT_PERIOD_BASE : SRL0_PART_MOUNT_PERIOD_HIGH) +
@@ -228,6 +238,8 @@ void Garage::EmptyEngineBaySlot(EngineBaySlot slot) {
 void Garage::OnEngineBayScrewClicked(int screwIndex) {
     EngineBaySlot slot = ScrewSlot(screwIndex);
     int slotIdx = (int)slot;
+    // Every turn of a screw on a fitted part, either way (SR1 0x242336).
+    if (engineBaySlotPhase[slotIdx] != PartInstallPhase::EMPTY) state.AdvanceTicks(29);
 
     if (engineBaySlotPhase[slotIdx] == PartInstallPhase::MOUNTED) {
         engineBaySlotPhase[slotIdx] = PartInstallPhase::UNSCREWING;
@@ -241,7 +253,10 @@ void Garage::OnEngineBayScrewClicked(int screwIndex) {
             StartEngineBayScrewFall(screwIndex, /*fallingOut=*/true);
         }
 
-        if (IsEngineBaySlotFullyOut(slot)) EmptyEngineBaySlot(slot);
+        if (IsEngineBaySlotFullyOut(slot)) {
+            state.AdvanceTicks(BaySlotTicks(slot));
+            EmptyEngineBaySlot(slot);
+        }
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN) {
         if (engineBayScrewState[screwIndex] > 0) engineBayScrewState[screwIndex]--;
         UpdateEngineBayScrewVisual(screwIndex);
@@ -268,8 +283,11 @@ void Garage::OnEngineWireClicked() {
 
     engineWireAttached = !engineWireAttached;
     ApplyEngineWireVisual();
+    // Plugging or pulling the wire, either way (SR1 0x241d5c / 0x241d7c).
+    state.AdvanceTicks(59);
 
     if (engineBaySlotPhase[slotIdx] == PartInstallPhase::UNSCREWING && IsEngineBaySlotFullyOut(slot)) {
+        state.AdvanceTicks(BaySlotTicks(slot));
         EmptyEngineBaySlot(slot);
     } else if (engineBaySlotPhase[slotIdx] == PartInstallPhase::SCREWING_IN && IsEngineBaySlotFullySeated(slot)) {
         CommitEngineBaySwap(slot);
@@ -493,11 +511,13 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
                 SetSlotVisible(engineBay.get(), slot, false);
                 engineBaySlotPhase[idx] = PartInstallPhase::EMPTY;
                 bubbles[12]->SetVisible(true);  // partIncompatibleBubble
+                state.AdvanceTicks(BaySlotTicks(slot) * 4 / 3);
                 continue;
             }
 
             // The part is home: the low, loud roll of the tool sound.
             PlayBayToolSound(true);
+            state.AdvanceTicks(BaySlotTicks(slot));
             engineBaySlotPhase[idx] = PartInstallPhase::SCREWING_IN;
             int first = SlotFirstScrew(slot);
             int count = SlotScrewCount(slot);

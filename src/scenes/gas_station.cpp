@@ -1,24 +1,50 @@
-#include "core/game_text.h"
 #include "core/log.h"
 #include "scenes/gas_station.h"
 #include "scenes/gas_station_pump.h"
 #include "core/state.h"
+#include "core/game_text.h"
 #include "parsers/libp.h"
 #include "gfx/animated_bitmap.h"
 #include "scenes/scene_layout.h"
 #include "embedded_resources.h"
 #include "parsers/carcolor.h"
+#include "core/utils.h"
+
+#include <random>
 #include "ui/hud.h"
 #include <algorithm>
 #include <memory>
 double carAnimationTimeGasStation = 0;
 
-GasStation::GasStation()
-    : CarScene((Asset){LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_SCREEN},
-               StockPaletteAmigaGasStation) {
-    zones = SceneLayout::Load(embedded_gas_station_toml);
+namespace {
+Asset GasStationBackground() {
+    if (state.GetAssets().GetGame() == SrGame::SR2)
+        return (Asset){LibAssetRegular, SrLibFileAmigaLibP, SR2_GAS_STATION_SCREEN, SrGame::SR2};
+    return (Asset){LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_SCREEN};
+}
 
-    GetZone("pump").onClick = [this] {
+bool IsSr2() { return state.GetAssets().GetGame() == SrGame::SR2; }
+
+// Where asset 143 lies on the 320x190 background, found by matching the pump silhouettes to the art.
+constexpr SDL_Rect kSr2PumpMaskRect = {0, 94, 240, 87};
+
+// Rows from here down are the background again, which puts the tires behind the pump bases and the gravel. The
+// original crops at 175 minus a per-scene value (5 here, 12 at the drive-in); 180 is what looks right.
+constexpr int kSr2CarCropY = 180;
+
+// The game blits the two halves of asset 151 onto the background at these x positions (table at 0x263ffc), y 128.
+constexpr int kSr2HoseX[2] = {56, 176};
+constexpr int kSr2HoseY = 128;
+}
+
+GasStation::GasStation()
+    : CarScene(GasStationBackground(), StockPaletteAmigaGasStation) {
+    zones = SceneLayout::Load(IsSr2() ? embedded_gas_station_sr2_toml : embedded_gas_station_toml);
+
+    // Street Rod swaps the cursor while the handle is held; Street Rod 2 does not.
+    auto setPointer = [this](SrLibAmigaSpriteAsset p) { if (!IsSr2()) SetPointer(p); };
+
+    auto onPump = [this, setPointer] {
         if (!CanInteract()) return;
         if (carBitmap && sceneState == GAS_STATION_IDLE) {
             sceneState = GAS_STATION_HANDLEOFF;
@@ -28,19 +54,71 @@ GasStation::GasStation()
             if (pumpFilling) pumpFilling->SetVisible(false);
             if (pumpNoHandle) pumpNoHandle->SetVisible(true);
         }
-        SetPointer(SrLibAmigaSpriteAssetMousePointerPump);
+        setPointer(SrLibAmigaSpriteAssetMousePointerPump);
     };
+    if (IsSr2()) {
+        // With a nozzle out, any hose strip puts it back; broke or already filled, it leaves the station instead.
+        auto nozzleHeld = [this] {
+            if (sceneState != GAS_STATION_HANDLEOFF) return false;
+            if (state.GetBankroll() < 1 || hasPumpedAnyFuel) {
+                TriggerCarExit();
+                return true;
+            }
+            sceneState = GAS_STATION_IDLE;
+            carBitmap->SetGasCapRemoved(false);
+            SetNozzleOut(activePump, false);
+            activePump = -1;
+            return true;
+        };
+        auto sr2Pump = [this, onPump, nozzleHeld](int pump, int perTick) {
+            if (!CanInteract() || !carBitmap || nozzleHeld()) return;
+            if (sceneState == GAS_STATION_IDLE) {
+                sr2PerTick = perTick;
+                activePump = pump;
+                SetNozzleOut(pump, true);
+                onPump();
+            }
+        };
+        for (const char* id : {"dead_left", "dead_right"}) {
+            GetZone(id).onClick = [this, nozzleHeld] {
+                if (!CanInteract() || !carBitmap || nozzleHeld()) return;
+                ShowPumpMessage(GameText::Msg(GameText::USE_ANOTHER_PUMP));
+            };
+        }
+        for (const char* id : {"premium_sign", "regular_sign"}) {
+            GetZone(id).onClick = [this, nozzleHeld] {
+                if (!CanInteract() || !carBitmap || nozzleHeld()) return;
+                ShowPumpMessage(GameText::Msg(GameText::TAKE_A_PUMP));
+            };
+        }
+        GetZone("pump").onClick = [sr2Pump] { sr2Pump(0, SR2_PREMIUM_PER_TICK); };
+        GetZone("pump_regular").onClick = [sr2Pump] { sr2Pump(1, SR2_REGULAR_PER_TICK); };
+        GetZone("back_to_garage").onClick = [this] {
+            if (!CanInteract() || !carBitmap || animatingCar) return;
+            if (sceneState != GAS_STATION_IDLE) return;
+            // Event 8 only leaves with more than 4 units in the tank.
+            Car* car = state.GetCurrentCar();
+            if (!car) return;
+            if (car->GetFuelTenths() <= 4) {
+                ShowPumpMessage(GameText::Msg(GameText::GET_GAS_FIRST));
+                return;
+            }
+            TriggerCarExit();
+        };
+    } else {
+        GetZone("pump").onClick = onPump;
+    }
     // ponytail: the original uses three click flags; with two zones this click inserts and starts, and a second
     // click mid-fill pulls the handle back early.
-    GetZone("gas_cap").onClick = [this] {
+    GetZone("gas_cap").onClick = [this, setPointer] {
         if (!CanInteract() || !carBitmap) return;
         if (sceneState == GAS_STATION_HANDLEOFF) {
             // Refuses when the tank is full or the next tick is unaffordable.
             Car* car = state.GetCurrentCar();
-            bool tankFull = car && car->GetFuelTenths() >= TANK_CAP_TENTHS;
+            bool tankFull = car && TankFull(car);
             bool cantAfford = state.GetBankroll() < pricePerTick;
             if (tankFull || cantAfford) {
-                ShowPumpMessage(GameText::Msg(GameText::PUMP_PAY_ATTENTION));
+                ShowPumpMessage(GameText::Msg(cantAfford ? GameText::GAS_NOT_FREE : GameText::TANK_FULL));
             } else {
                 sceneState = GAS_STATION_PUMPING;
                 StartPumpDisplay();
@@ -50,7 +128,7 @@ GasStation::GasStation()
         } else if (sceneState == GAS_STATION_PUMPING) {
             // For putting the handle back early with room and money left.
             Car* car = state.GetCurrentCar();
-            if (car && car->GetFuelTenths() < TANK_CAP_TENTHS &&
+            if (car && !TankFull(car) &&
                 state.GetBankroll() >= pricePerTick) {
                 ShowPumpMessage(GameText::Msg(GameText::PUMP_NOT_FULL));
             }
@@ -58,30 +136,34 @@ GasStation::GasStation()
             StopPumpDisplay();
             SetPumpSound(false);
             carBitmap->SetGasCapRemoved(false);
+            SetNozzleOut(activePump, false);
             if (pumpFilling) pumpFilling->SetVisible(false);
             if (pumpNoHandle) pumpNoHandle->SetVisible(false);
         }
-        SetPointer(SrLibAmigaSpriteAssetMousePointerHand);
+        setPointer(SrLibAmigaSpriteAssetMousePointerHand);
     };
-    GetZone("rag").onClick = [this] {
+    GetZone("rag").onClick = [this, setPointer] {
         if (!CanInteract()) return;
-        SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
+        setPointer(SrLibAmigaSpriteAssetMousePointerRag);
     };
     for (const char* id : {"car_window_rear", "car_window_front"}) {
-        GetZone(id).onClick = [this, id] {
+        GetZone(id).onClick = [this, id, setPointer] {
             if (!CanInteract() || !ragHeld) return;
-            SetPointer(SrLibAmigaSpriteAssetMousePointerRag);
+            setPointer(SrLibAmigaSpriteAssetMousePointerRag);
             StartTwinkle(id);
         };
     }
     // The trigger is unconfirmed; best guess is clicking Gus.
-    GetZone("attendant").onClick = [this] {
-        if (!CanInteract()) return;
-        ShowPumpMessage(GameText::Msg(GameText::PUMP_GET_OUT));
-    };
+    if (!IsSr2() && ZoneById("attendant")) {
+        GetZone("attendant").onClick = [this] {
+            if (!CanInteract()) return;
+            ShowPumpMessage(GameText::Msg(GameText::PUMP_GET_OUT));
+        };
+    }
 
     carx = -GAME_WIDTH;
-    cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height);
+    cary = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height,
+                                        state.GetAssets().GetGame());
 
     auto attendantLine = std::make_unique<Bubble>(
         GameText::Msg(GameText::PUMP_FULL_SERVICE), BUBBLE_LEFT, true);
@@ -103,6 +185,48 @@ void GasStation::Init(bool initialDebugMode) {
     Scene::Init(initialDebugMode);
 
     SetAudioManager(state.GetAssets().GetAudioManager());
+
+    if (IsSr2()) {
+        // The jockey is seven 32x32 frames; frame 0 is already painted into the background at this spot.
+        Bitmap* sheet = state.GetAssets().GetBitmapAsset(
+            {LibAssetSpritesheet, SrLibFileAmigaLibP, SR2_GAS_STATION_ATTENDANT_ANIMATION, SrGame::SR2});
+        attendantAnim = std::make_unique<AnimatedBitmap>(sheet, SDL_Rect{160, 108, 32, 32});
+        attendantAnim->SetAnimationFrames(32, 32, 7, 1);
+        attendantAnim->SetSpeed(0.2f);   // seven frames, 10 ticks of 1/50 s each (FUN_0025bfb8)
+        attendantAnim->SetLoop(false);
+        attendantAnim->SetVisible(true);
+
+        // The pump hoses and nozzle holders are not in the background art; the game patches them on (the strip's
+        // black is empty space, so the surface is blended), and the mask below is cut from the result.
+        Bitmap* hoses = state.GetAssets().GetBitmapAsset(
+            {LibAssetRegular, SrLibFileAmigaLibP, SR2_GAS_STATION_PUMP_HOSES, SrGame::SR2});
+        SDL_Surface* hoseSurface = hoses->GetSurface();
+        SDL_Surface* bgSurface = background->GetSurface();
+        auto copyStrip = [&](int pump) {
+            SDL_Rect r = {kSr2HoseX[pump], kSr2HoseY, 16, 60};
+            SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, 16, 60, 32, bgSurface->format->format);
+            SDL_SetSurfaceBlendMode(bgSurface, SDL_BLENDMODE_NONE);
+            SDL_BlitSurface(bgSurface, &r, s, nullptr);
+            SDL_SetSurfaceBlendMode(bgSurface, SDL_BLENDMODE_BLEND);
+            return s;
+        };
+        for (int pump = 0; pump < 2; ++pump) nozzleStrip[pump][1].reset(copyStrip(pump));
+        for (int half = 0; half < 2; ++half) {
+            SDL_Rect src = {half * 16, 0, 16, 60};
+            SDL_Rect dst = {kSr2HoseX[half], kSr2HoseY, 16, 60};
+            SDL_BlitSurface(hoseSurface, &src, bgSurface, &dst);
+        }
+        for (int pump = 0; pump < 2; ++pump) nozzleStrip[pump][0].reset(copyStrip(pump));
+        background->UpdateFromSurface();
+
+        sr2PumpMask = state.GetAssets().GetBitmapAsset(
+            {LibAssetMask, SrLibFileAmigaLibP, SR2_GAS_STATION_PUMP_MASK, SrGame::SR2});
+        RebuildSr2Overlays();
+
+        hud->SetVisible(true);
+        initStartTime = GameTicks();
+        return;
+    }
 
     auto maskBitmap = state.GetAssets().GetBitmapAsset({LibAssetMask, SrLibFileAmigaLibP, GUS_GAS_MASK});
     maskBitmap->SetPosition(0, 107);
@@ -161,7 +285,8 @@ void GasStation::Init(bool initialDebugMode) {
 
 SDL_Point GasStation::GetCarIdlePosition() {
     int x = SrLibQueryGetCarIdleX(SCENE_GAS_STATION);
-    int y = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height);
+    int y = SrLibQueryGetCarRoofYOffset(SCENE_GAS_STATION, state.GetCurrentCar()->GetModel().height,
+                                        state.GetAssets().GetGame());
     return {x, y};
 }
 
@@ -216,6 +341,24 @@ void GasStation::DrawScene() {
 }
 
 void GasStation::DrawMaskAfterCar() {
+    // Street Rod 2 has only the pump mask; the handle, road edge and pump lights below are Street Rod's.
+    if (IsSr2()) {
+        SDL_Rect rect = kSr2PumpMaskRect;
+        SDL_RenderCopy(renderer, roadMaskTexture.get(), NULL, &roadMaskSrcRect);
+        SDL_RenderCopy(renderer, maskedBackgroundTexture.get(), NULL, &rect);
+        CarScene::DrawMaskAfterCar();
+        if (pumpFilling && pumpFilling->IsVisible()) pumpFilling->Draw();
+        if (sceneState == GAS_STATION_PUMPING && activePump >= 0) {
+            const int dx = activePump * 162;
+            for (auto [x, lit] : {std::pair{51, pumpDisplayFastLit}, std::pair{48, pumpDisplaySlowLit}}) {
+                const Uint8 v = lit ? 153 : 0;
+                SDL_Rect dot = {x + dx, 142, 2, 1};
+                SDL_SetRenderDrawColor(renderer, v, v, v, 255);
+                SDL_RenderFillRect(renderer, &dot);
+            }
+        }
+        return;
+    }
     const bool handleOff = pumpNoHandle && pumpNoHandle->IsVisible();
     SDL_Rect rect = {0, 107, 312, 69};
     SDL_RenderCopy(renderer,
@@ -250,6 +393,13 @@ void GasStation::DrawMaskAfterCar() {
 }
 
 void GasStation::UpdateCarAnimation(double deltaTime) {
+    if (IsSr2()) {
+        const bool wide = state.GetAssets().GetBetterClickboxesRef();
+        SetZoneRect("pump", wide ? SDL_Rect{21, 124, 44, 62} : SDL_Rect{52, 124, 12, 34});
+        SetZoneRect("pump_regular", wide ? SDL_Rect{177, 124, 45, 62} : SDL_Rect{177, 124, 9, 34});
+        SetZoneText("pump", wide ? "High octane gasoline" : "The pump");
+        SetZoneText("pump_regular", wide ? "Regular gasoline" : "The pump");
+    }
     CarScene::UpdateCarAnimation(deltaTime);
     if (carBitmap == nullptr || state.GetCurrentCar() == nullptr) {
         return;
@@ -283,8 +433,11 @@ void GasStation::UpdatePumping(double deltaTime) {
         if (leaveTimer < LEAVE_DELAY_SEC) return;
         leaveTimer = -1.0;
         if (audioManager) {
-            audioManager->UpdateEnginePeriod(605);
-            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+            audioManager->SetMufflerRemoved(car->IsMufflerRemoved());
+            engineBase = 600 + std::uniform_int_distribution<int>(0, 9)(RandomEngine());
+            lastAnimationEnginePeriod = -1;
+            ApplyAnimationEngine(false, false);
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
         }
         TriggerCarExit();
         return;
@@ -295,9 +448,9 @@ void GasStation::UpdatePumping(double deltaTime) {
         case GAS_STATION_HANDLEOFF: {
             if (hasPumpedAnyFuel) return;  // already got gas this visit; auto-exit takes it from here
             idleTimer += deltaTime;
-            if (idleTimer < IDLE_TIMEOUT_SEC) return;
+            if (idleTimer < (IsSr2() ? SR2_IDLE_TIMEOUT_SEC : IDLE_TIMEOUT_SEC)) return;
             idleTimer = 0;
-            pricePerTick *= 2;
+            if (!IsSr2()) pricePerTick *= 2;   // the SR2 pump charges a flat dollar a tick
             sceneState = GAS_STATION_PUMPING;
             StartPumpDisplay();
             carBitmap->SetGasCapRemoved(true);
@@ -329,8 +482,10 @@ void GasStation::UpdatePumping(double deltaTime) {
             if ((pumpDisplayCounter & 3) != 0) return;
             pumpDisplaySlowLit = (pumpDisplayCounter & 4) != 0;
 
-            GasPumpTick tick = ApplyGasPumpTick(car->GetFuelTenths(), state.GetBankroll(),
-                                                 pricePerTick, FUEL_PER_TICK_TENTHS, TANK_CAP_TENTHS);
+            GasPumpTick tick = IsSr2()
+                ? ApplySr2GasPumpTick(car->GetFuelTenths(), state.GetBankroll(), sr2PerTick, SR2_TANK_CAP)
+                : ApplyGasPumpTick(car->GetFuelTenths(), state.GetBankroll(),
+                                   pricePerTick, FUEL_PER_TICK_TENTHS, TANK_CAP_TENTHS);
             if (tick.dispensed) {
                 car->SetFuelTenths(tick.fuelTenths);
                 state.SetBankroll(tick.bankroll);
@@ -343,6 +498,7 @@ void GasStation::UpdatePumping(double deltaTime) {
                 StopPumpDisplay();
                 SetPumpSound(false);
                 carBitmap->SetGasCapRemoved(false);
+                SetNozzleOut(activePump, false);
                 if (pumpFilling) pumpFilling->SetVisible(false);
                 if (pumpNoHandle) pumpNoHandle->SetVisible(false);  // handle back on the pump
                 if (attendantBubble) attendantBubble->SetVisible(false);
@@ -351,6 +507,41 @@ void GasStation::UpdatePumping(double deltaTime) {
             break;
         }
     }
+}
+
+// Cuts the pump mask and the crop strip from the current background.
+void GasStation::RebuildSr2Overlays() {
+    const SDL_Rect rect = kSr2PumpMaskRect;
+    maskedBackground.reset(SDL_CreateRGBSurfaceWithFormat(0, rect.w, rect.h, 32, SDL_PIXELFORMAT_RGBA8888));
+    background->CreateMask(sr2PumpMask->GetSurface(), maskedBackground.get(), rect);
+    maskedBackgroundTexture.reset(SDL_CreateTextureFromSurface(renderer, maskedBackground.get()));
+    SDL_SetTextureBlendMode(maskedBackgroundTexture.get(), SDL_BLENDMODE_BLEND);
+
+    // Below the crop line the background is drawn over the car.
+    roadMaskSrcRect = {0, kSr2CarCropY, GAME_WIDTH, 190 - kSr2CarCropY};
+    roadMaskDestRect = {0, 0, GAME_WIDTH, 190 - kSr2CarCropY};
+    roadMaskSurface.reset(SDL_CreateRGBSurface(0, roadMaskSrcRect.w, roadMaskSrcRect.h, 32, 0, 0, 0, 0));
+    SDL_BlitSurface(background->GetSurface(), &roadMaskSrcRect, roadMaskSurface.get(), &roadMaskDestRect);
+    roadMaskTexture.reset(SDL_CreateTextureFromSurface(renderer, roadMaskSurface.get()));
+    SDL_SetTextureBlendMode(roadMaskTexture.get(), SDL_BLENDMODE_NONE);
+}
+
+void GasStation::SetNozzleOut(int pump, bool out) {
+    if (pump < 0 || pump > 1 || nozzleOut[pump] == out || !nozzleStrip[pump][0]) return;
+    nozzleOut[pump] = out;
+    SDL_Surface* strip = nozzleStrip[pump][out ? 1 : 0].get();
+    SDL_Surface* bgSurface = background->GetSurface();
+    SDL_Rect dst = {kSr2HoseX[pump], kSr2HoseY, 16, 60};
+    SDL_SetSurfaceBlendMode(strip, SDL_BLENDMODE_NONE);
+    SDL_BlitSurface(strip, nullptr, bgSurface, &dst);
+    SDL_SetSurfaceBlendMode(strip, SDL_BLENDMODE_BLEND);
+    background->UpdateFromSurface();
+    RebuildSr2Overlays();
+}
+
+bool GasStation::TankFull(const Car* car) const {
+    if (IsSr2()) return SR2_TANK_CAP - car->GetFuelTenths() < sr2PerTick;
+    return car->GetFuelTenths() >= TANK_CAP_TENTHS;
 }
 
 void GasStation::StartTwinkle(const char* windowZone) {
@@ -444,7 +635,7 @@ bool GasStation::PushEvent(SDL_Event* event) {
             carBitmap->SetGasCapRemoved(false);
             if (pumpNoHandle) pumpNoHandle->SetVisible(false);
         }
-        SetPointer(SrLibAmigaSpriteAssetMousePointerHand);
+        if (!IsSr2()) SetPointer(SrLibAmigaSpriteAssetMousePointerHand);
     }
     bool consumed = Scene::PushEvent(event);
     if (!debugMode) return consumed;
@@ -491,9 +682,18 @@ void GasStation::StartAnimateCar(CarPtr car, Driver*, CarAnimationType animType)
             carx = -GAME_WIDTH;
             carxFloat = carx;  // else UpdateCarAnimation resumes from wherever the previous visit's exit left it
             stepAccumulator = 0.0;
-            cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
+            cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height,
+                                        state.GetAssets().GetGame());
             animatingCar = true;
             currentAnimationType = animType;
+            // Animation mode 1, as at the garage (0x246332): the engine runs while the car pulls in.
+            if (audioManager) {
+                audioManager->SetMufflerRemoved(car->IsMufflerRemoved());
+                engineBase = 600 + std::uniform_int_distribution<int>(0, 9)(RandomEngine());
+                lastAnimationEnginePeriod = -1;
+                ApplyAnimationEngine(true, false);
+                audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
+            }
         }
     }
 }
@@ -503,6 +703,9 @@ void GasStation::OnCarAnimationComplete() {
 }
 
 void GasStation::OnCarExitComplete() {
+    if (IsSr2()) {
+        if (Car* car = state.GetCurrentCar()) car->SetFuelTenths(Sr2FuelOnLeaving(car->GetFuelTenths()));
+    }
     sceneTransitioningTo = SCENE_GARAGE;
     FadeOut();
     state.MoveToScene(SCENE_GARAGE);
@@ -521,10 +724,12 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
         if (carBitmap) carBitmap->SetShadowVisible(false);
 
         // Palette-matched to this car; refreshed per visit since Init() only runs once.
-        byte_vector& libFile = state.GetAssets().GetLibPData();
+        const SrGame game = IsSr2() ? SrGame::SR2 : SrGame::SR1;
+        byte_vector& libFile = state.GetAssets().GetLibPData(game);
         std::vector<uint16_t> carPalette = GetStandardCarColor(cur->GetColor());
         pumpFilling = state.GetAssets().GetBitmapAssetWithPalette(
-            libFile, {LibAssetRegular, SrLibFileAmigaLibP, GUS_GAS_PUMP_FILLING}, carPalette);
+            libFile, {LibAssetRegular, SrLibFileAmigaLibP, IsSr2() ? SR2_GUS_GAS_PUMP_FILLING : GUS_GAS_PUMP_FILLING,
+                      game}, carPalette);
         pumpFilling->SetDimensions(24, 12);
         pumpFilling->SetVisible(false);
     }
@@ -535,6 +740,8 @@ CarBitmap* GasStation::GetOrCreateCurrentCarBitmap() {
 
 void GasStation::OnSceneExit() {
     sceneState = GAS_STATION_IDLE;
+    SetNozzleOut(activePump, false);
+    activePump = -1;
     currentCarBitmap.reset();
     idleTimer = 0.0;
     leaveTimer = -1.0;

@@ -7,6 +7,7 @@
 #include "scenes/scene.h"
 #include "core/state.h"
 #include "race/driving.h"
+#include "scenes/grudge_night.h"
 
 extern Mouse mouse;
 
@@ -36,6 +37,13 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
     scenes.buttons.push_back({"Name Entry",     [] { state.MoveToScene(SCENE_NAME_ENTRY); }});
     scenes.buttons.push_back({"Game Over Menu", [] { state.MoveToScene(SCENE_GAME_OVER_MENU); }});
     scenes.buttons.push_back({"Car Debug",      [] { state.MoveToScene(SCENE_CAR_DEBUG); }});
+    scenes.buttons.push_back({"Sound Debug",    [] { state.MoveToScene(SCENE_SFX_DEBUG); }});
+    // Begin() charges the $30 and builds the field; the garage hotspot that
+    // would normally do it is not built yet.
+    scenes.buttons.push_back({"Grudge Night",   [] {
+        state.GetGrudgeNight()->Begin();
+        state.MoveToScene(SCENE_GRUDGE_NIGHT);
+    }});
     panels.push_back(std::move(scenes));
 
     DebugPanel session{"Session", {}, DebugDock::Left};

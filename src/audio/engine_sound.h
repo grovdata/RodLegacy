@@ -25,7 +25,8 @@ public:
 
     void UpdateRPM(int16_t rpm);
 
-    void UpdatePeriod(int16_t period);
+    // paulaVolume 0..64 on the race's scale (28 = full); 0 keeps full.
+    void UpdatePeriod(int16_t period, int paulaVolume = 0);
 
     // Two voices at different Paula periods, so they drift through phase. Accompanies part mounting, toggled
     // around one action; sustained it booms.
@@ -42,6 +43,7 @@ public:
     void SetVolume(float volume);
 
     bool IsPlaying() const { return playing; }
+    SDL_AudioDeviceID Device() const { return audioDevice; }
 
     // Racing drone: period = 640 - rpm/32, volume = (rpm+14)/256 + 6.
     // At 5500 rpm the base drops by 60 in one step, a ~2.4 semitone jump: the "about to let go" warning,
@@ -53,6 +55,18 @@ public:
         return (r >= kOverRevRpm ? 580 : 640) - r / 32;
     }
 
+    // The exact inverse, for callers that only have a period but need to drive a back end that speaks rpm.
+    static int PeriodToRPM(int period) {
+        if (period <= 0) {
+            return 0;
+        }
+        const int low = (640 - period) * 32;
+        if (low >= kOverRevRpm) {
+            return (580 - period) * 32;
+        }
+        return low < 0 ? 0 : low;
+    }
+
     static float RPMToFrequencyMultiplier(int16_t rpm) {
         return (3579545.0f / static_cast<float>(RPMToPeriod(rpm))) / 16000.0f;
     }
@@ -61,6 +75,16 @@ public:
     static int RPMToPaulaVolume(int16_t rpm) {
         const int r = rpm > 0 ? static_cast<int>(rpm) : 0;
         return (r + (r >= kOverRevRpm ? 19 : 14)) / 256 + 6;
+    }
+
+    // The car animations (docs/audio.md "Engine sound in the scene screens"): one note per phase, the second phase
+    // being the slow end of a drive-in or the speed-up of a drive-out. base = 600 + rand % 10 per animation.
+    struct Note { int16_t period; int paulaVolume; };
+    static Note AnimationNote(int base, bool drivingIn, bool secondPhase) {
+        if (drivingIn) {
+            return secondPhase ? Note{800, 18} : Note{static_cast<int16_t>(base + 6), 19};
+        }
+        return secondPhase ? Note{595, 26} : Note{static_cast<int16_t>(base - 3), 24};
     }
 
 private:

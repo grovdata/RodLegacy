@@ -1,9 +1,10 @@
+#include "race/race_types.h"
 #include "race/challenge.h"
 #include "race/bet_acceptance.h"
 #include "core/state.h"
-#include "core/game_text.h"
 #include "core/log.h"
 #include "core/utils.h"
+#include <algorithm>
 #include <cstdlib>
 #include <random>
 
@@ -18,16 +19,12 @@ int Roll(int n) {
 const std::vector<GameText::Message> Challenge::kInsults = {
     GameText::INSULT_1, GameText::INSULT_2, GameText::INSULT_3, GameText::INSULT_4, GameText::INSULT_5,
     GameText::CHICKEN};
-const std::vector<GameText::Message> Challenge::kAcceptances = {
-    GameText::ACCEPT_1, GameText::ACCEPT_2, GameText::ACCEPT_3,
-    GameText::DRAG_ACCEPT_1, GameText::DRAG_ACCEPT_2, GameText::DRAG_ACCEPT_3};
 
 static Dialog* MakeDialog(const std::vector<std::string>& labels,
                            SFont_Font* font,
-                           std::function<void(int)> onPressed)
+                           std::function<void(int)> onPressed,
+                           int dlgX = 37, int dlgW = 84)
 {
-    const int dlgX = 37;
-    const int dlgW = 84;
     const int btnX = dlgX;
     const int btnW = dlgW;
     const int btnH = 16;
@@ -67,6 +64,7 @@ void Challenge::Reset() {
     wantsRace        = false;
     wantsCarExit     = false;
     betAttempts      = 0;
+    lastRefusal      = -1;
     insultFromOpponent = false;
     tauntOnly          = false;
 }
@@ -99,10 +97,15 @@ void Challenge::Open(SFont_Font* f) {
 void Challenge::OpenKing(SFont_Font* f) {
     if (IsActive()) return;
     font = f;
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        OpenKingSr2();
+        return;
+    }
 
     // Before he is unlocked, one of four lines by reputation tier; tier 1 is silent.
     const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive());
     if (tier != 0) {
+        // Tier 1 is silent.
         static const GameText::Message kTierLines[] = {
             GameText::KING_AMATEUR, GameText::KING_WIN_MORE, GameText::KING_MORE_DRAG, GameText::KING_MORE_ROAD};
         if (tier >= 2 && tier <= 5) {
@@ -139,6 +142,54 @@ void Challenge::OpenKing(SFont_Font* f) {
     }
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::OpenKing - race pending, qualified=%d", qualified);
+}
+
+// Street Rod 2's King (ldrivein.c FUN_00250598, docs/sr2_amiga/king.md): refused by FUN_0024fc16's tier, else
+// three races in turn - a drag race, Mulholland, then the Aqueduct for pink slips.
+void Challenge::OpenKingSr2() {
+    auto say = [&](GameText::Message line, BubbleStyle style) {
+        step = Step::None;
+        dialog.reset();
+        ShowSpeech(GameText::Msg(line), style);
+        insultTimer = 0.0f;
+        insultFromOpponent = false;
+    };
+
+    const int tier = state.GetReputation().GetOpponentTier(state.GetRacerPool().CountActive(), true);
+    if (tier != 0) {
+        switch (tier) {
+            case 2: say(GameText::KING_AMATEUR, BUBBLE_LEFT); break;
+            case 3: say(GameText::KING_WIN_MORE, BUBBLE_RIGHT_TWO_LINES); break;
+            case 4: say(GameText::KING_NEED_GRUDGE, BUBBLE_RIGHT_TWO_LINES); break;
+            case 5: say(GameText::KING_MORE_MULHOLLAND, BUBBLE_RIGHT_TWO_LINES); break;
+            case 6: say(GameText::KING_MORE_AQUEDUCT, BUBBLE_RIGHT_TWO_LINES); break;
+            default: break;  // tier 1: silent
+        }
+        LOG_INFO("Challenge::OpenKingSr2 - not yet, tier=%d", tier);
+        return;
+    }
+
+    const int stage = std::clamp(state.GetReputation().king_stage, 0, 2);
+    static constexpr RaceType kTypes[3] = {RaceType::Drag, RaceType::Road, RaceType::Aqueduct};
+    static constexpr srrace::RaceKind kKinds[3] = {srrace::RaceKind::Drag, srrace::RaceKind::Mulholland,
+                                                   srrace::RaceKind::Aqueduct};
+    const Car* car = state.GetCurrentCar();
+    if (!car || car->GetFuelTenths() < srrace::RaceMinimumGas(kKinds[stage])) {
+        say(GameText::KING_NEED_GAS, BUBBLE_RIGHT_TWO_LINES);
+        LOG_INFO("Challenge::OpenKingSr2 - refused, not enough fuel for stage %d", stage);
+        return;
+    }
+
+    // Nothing at stake until the Aqueduct, which is for the cars.
+    state.SetPendingRace(kTypes[stage], 0, stage == 2);
+    switch (stage) {
+        case 0: say(GameText::KING_DRAG_ON, BUBBLE_LEFT); break;
+        case 1: say(GameText::KING_MULHOLLAND_ON, BUBBLE_LEFT); break;
+        default: say(GameText::KING_PINK_SLIP_ON, BUBBLE_RIGHT_TWO_LINES); break;
+    }
+    insultTimer = -1.0f;
+    acceptTimer = 0.0f;
+    LOG_INFO("Challenge::OpenKingSr2 - race pending, stage=%d", stage);
 }
 
 // Take ownership so callbacks can replace `dialog` while its buttons are iterated.
@@ -183,58 +234,127 @@ void Challenge::Draw(float deltaTime) {
     }
 }
 
+
+// ldrivein.c FUN_00250598 checks the tank before the wager dialog.
+bool Challenge::RefuseForGas(RaceType type) {
+    const Car* car = state.GetCurrentCar();
+    if (!car) {
+        return false;
+    }
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    srrace::RaceKind kind = srrace::RaceKind::Road;
+    if (type == RaceType::Drag) {
+        kind = srrace::RaceKind::Drag;
+    } else if (type == RaceType::Aqueduct) {
+        kind = srrace::RaceKind::Aqueduct;
+    } else if (sr2) {
+        kind = srrace::RaceKind::Mulholland;
+    }
+
+    const int need = srrace::RaceMinimumGas(kind);
+    if (need == 0 || car->GetFuelTenths() >= need) {
+        return false;
+    }
+
+    step = Step::None;
+    dialog.reset();
+    insultFromOpponent = false;
+    ShowSpeech(GameText::Msg(GameText::KING_NEED_GAS), BUBBLE_RIGHT_TWO_LINES);
+    insultTimer = 0.0f;
+    return true;
+}
+
 void Challenge::ShowRaceTypeDialog() {
     step = Step::RaceType;
+    // Street Rod 2 runs its road race on Mulholland and adds the Aqueduct;
+    // Street Rod has neither name and just the two races.
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
+    std::vector<std::string> options = sr2
+        ? std::vector<std::string>{"Drag race", "Mulholland drive", "Aqueduct race", "Forget it"}
+        : std::vector<std::string>{"Road Race", "Drag Race", "Forget it"};
+
     dialog.reset(MakeDialog(
-        {"Road Race", "Drag Race", "Forget it"},
+        options,
         font,
-        [this](int idx) {
-            switch (idx) {
-                case 0: ShowRoadBetDialog(); break;
-                case 1: ShowDragBetDialog(); break;
-                case 2: Reject();            break;
+        [this, sr2](int idx) {
+            if (!sr2) {
+                switch (idx) {
+                    case 0:
+                        if (!RefuseForGas(RaceType::Road)) ShowRoadBetDialog(RaceType::Road);
+                        break;
+                    case 1:
+                        if (!RefuseForGas(RaceType::Drag)) ShowDragBetDialog();
+                        break;
+                    default: Reject(); break;
+                }
+                return;
             }
-        }
+            // Dialog 15's order: drag, Mulholland, Aqueduct.
+            switch (idx) {
+                case 0:
+                    if (!RefuseForGas(RaceType::Drag)) ShowDragBetDialog();
+                    break;
+                case 1:
+                    if (!RefuseForGas(RaceType::Road)) ShowRoadBetDialog(RaceType::Road);
+                    break;
+                case 2:
+                    if (!RefuseForGas(RaceType::Aqueduct)) {
+                        ShowRoadBetDialog(RaceType::Aqueduct);
+                    }
+                    break;
+                default: Reject(); break;
+            }
+        },
+        // SR2's dialog 15 spans x 47..141 so "Mulholland drive" fits.
+        sr2 ? 47 : 37, sr2 ? 95 : 84
     ));
 }
 
 void Challenge::ShowDragBetDialog() {
     step = Step::DragBet;
+    // Street Rod 2's dialog 13 offers $10 where Street Rod offers $25.
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
     dialog.reset(MakeDialog(
-        {"Just for kicks", "$25", "$50", "Forget it"},
+        {"Just for kicks", sr2 ? "$10" : "$25", "$50", "Forget it"},
         font,
-        [this](int idx) {
+        [this, sr2](int idx) {
             if (idx == 3) { Reject(); return; }
 
             static const BetType betTypes[] = {
                 BetType::NoMoney, BetType::SmallMoney, BetType::LargeMoney
             };
-            static const int bets[] = {0, 25, 50};
+            const int bets[] = {0, sr2 ? 10 : 25, 50};
+            if (sr2 && bets[idx] > state.GetBankroll()) { NotEnoughDough(); return; }
 
             BetType bet = betTypes[idx];
             int roll    = Roll(100);
             bool accepted = OpponentAcceptsBet(state.GetBetContext(), bet, roll);
 
-            if (!accepted) { OpponentRejectsBet(); return; }
+            if (!accepted) { OpponentRejectsBet(true); return; }
 
             state.SetPendingRace(RaceType::Drag, bets[idx], false);
-            Accept();
-        }
+            Accept(true);
+        },
+        // SR2's dialog 13 spans x 47..127.
+        sr2 ? 47 : 37, sr2 ? 81 : 84
     ));
 }
 
-void Challenge::ShowRoadBetDialog() {
+void Challenge::ShowRoadBetDialog(RaceType type) {
     step = Step::RoadBet;
+    // Street Rod 2's dialog 14 offers $150 where Street Rod offers $100.
+    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
     dialog.reset(MakeDialog(
-        {"$25", "$100", "Pink slips", "Forget it"},
+        {"$25", sr2 ? "$150" : "$100", "Pink slips", "Forget it"},
         font,
-        [this](int idx) {
+        [this, type, sr2](int idx) {
             if (idx == 3) { Reject(); return; }
 
             static const BetType betTypes[] = {
                 BetType::SmallMoney, BetType::LargeMoney, BetType::PinkSlips
             };
-            static const int bets[] = {25, 100, 0};
+            const int bets[] = {25, sr2 ? 150 : 100, 0};
+            if (sr2 && bets[idx] > state.GetBankroll()) { NotEnoughDough(); return; }
 
             BetType bet = betTypes[idx];
             int roll    = Roll(100);
@@ -242,9 +362,11 @@ void Challenge::ShowRoadBetDialog() {
 
             if (!accepted) { OpponentRejectsBet(); return; }
 
-            state.SetPendingRace(RaceType::Road, bets[idx], idx == 2);
+            state.SetPendingRace(type, bets[idx], idx == 2);
             Accept();
-        }
+        },
+        // SR2's dialog 14 spans x 63..125.
+        sr2 ? 63 : 37, sr2 ? 63 : 84
     ));
 }
 
@@ -253,10 +375,14 @@ void Challenge::ShowSpeech(const std::string& text, BubbleStyle style) {
     bubble->SetVisible(true);
 }
 
-void Challenge::Accept() {
+void Challenge::Accept(bool drag) {
     step = Step::None;
     dialog.reset();
-    ShowSpeech(GameText::Msg(kAcceptances[Roll(static_cast<int>(kAcceptances.size()))]));
+    // Three lines a race, the drag race's own and the road race's (SR2 ldrivein.c 0x2508fa, table A4-0x1f6c; SR1 has
+    // the same table at file 0x2c5cc).
+    static const GameText::Message kDrag[3] = {GameText::DRAG_ACCEPT_1, GameText::DRAG_ACCEPT_2, GameText::DRAG_ACCEPT_3};
+    static const GameText::Message kRoad[3] = {GameText::ACCEPT_1, GameText::ACCEPT_2, GameText::ACCEPT_3};
+    ShowSpeech(GameText::Msg((drag ? kDrag : kRoad)[Roll(3)]));
     acceptTimer = 0.0f;
     LOG_INFO("Challenge::Accept - race pending");
 }
@@ -265,18 +391,38 @@ void Challenge::Reject() {
     step = Step::None;
     dialog.reset();
     insultFromOpponent = false;
-    ShowSpeech(GameText::Msg(kInsults[Roll(static_cast<int>(kInsults.size()))]));
+    // Street Rod 2 has one word for backing out (ldrivein.c 0x25082c).
+    ShowSpeech(GameText::Msg(state.GetAssets().GetGame() == SrGame::SR2
+                                  ? GameText::CHICKEN : kInsults[Roll(static_cast<int>(kInsults.size()))]));
     insultTimer = 0.0f;
     LOG_INFO("Challenge::Reject - player backed out");
 }
 
-// Up to kMaxBetAttempts tries before the encounter ends.
-void Challenge::OpponentRejectsBet() {
+// Street Rod 2 checks the stake against the bankroll before asking (ldrivein.c 0x2508aa); it uses up a try.
+void Challenge::NotEnoughDough() {
     step = Step::None;
     dialog.reset();
     ++betAttempts;
     insultFromOpponent = true;
-    ShowSpeech(GameText::Msg(kInsults[Roll(static_cast<int>(kInsults.size()))]));
+    ShowSpeech(GameText::Msg(GameText::BET_TOO_BIG));
+    insultTimer = 0.0f;
+}
+
+// Up to kMaxBetAttempts tries before the encounter ends.
+void Challenge::OpponentRejectsBet(bool drag) {
+    step = Step::None;
+    dialog.reset();
+    ++betAttempts;
+    insultFromOpponent = true;
+    // Five a race, never the same one twice running (SR2 ldrivein.c 0x25095a, table A4-0x1f80; SR1 file 0x2c5b8).
+    static const GameText::Message kDrag[5] = {GameText::DRAG_REFUSE_1, GameText::DRAG_REFUSE_2,
+                                               GameText::DRAG_REFUSE_3, GameText::DRAG_REFUSE_4, GameText::INSULT_1};
+    static const GameText::Message kRoad[5] = {GameText::INSULT_1, GameText::INSULT_2, GameText::INSULT_3,
+                                               GameText::INSULT_4, GameText::INSULT_5};
+    int pick = Roll(5);
+    while (pick == lastRefusal) pick = Roll(5);
+    lastRefusal = pick;
+    ShowSpeech(GameText::Msg((drag ? kDrag : kRoad)[pick]));
     insultTimer = 0.0f;
     LOG_INFO("Challenge::OpponentRejectsBet - attempt %d/%d", betAttempts, kMaxBetAttempts);
 }

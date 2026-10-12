@@ -94,3 +94,26 @@ TEST_CASE("music note on srl.env entry 0: up in one tick, then down 1 per tick")
     CHECK(e.volume == 0);
     CHECK(ticks == 39);
 }
+
+TEST_CASE("Street Rod 2 intro runs its full length and ends on the credits plate palette") {
+    std::vector<IntroImage> pics(66);
+    for (auto& p : pics) {
+        p.w = 320;
+        p.h = 200;
+        p.px.assign(p.w * p.h, 1);
+    }
+    std::vector<std::array<uint16_t, 32>> pals(9);
+    for (auto& p : pals) p.fill(0xFFF);
+    pals[2][1] = 0x810;
+
+    IntroPlayer p;
+    p.StartSr2(pics, pals);
+    std::vector<IntroSound> sounds;
+    // logo 96 + 150 + 28*3, fade out 15, title 22*5 + 4*11 + 16 + 26*11, fade out 15, plate 16
+    CHECK(RunToEnd(p, sounds) == 96 + 150 + 84 + 15 + 22 * 5 + 4 * 11 + 16 + 26 * 11 + 15 + 16);
+    const std::vector<IntroSound> expected = {
+        IntroSound::ChimeA, IntroSound::ChimeB, IntroSound::ChimeC};
+    CHECK(sounds == expected);
+    CHECK(p.Palette()[1] == 0x810);
+    CHECK(p.Front()[0] == 1);
+}

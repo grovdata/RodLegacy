@@ -90,6 +90,90 @@ const PartCatalogEntry kPartCatalog[40] = {
     Tire(RACING),
 };
 
+PartCatalogEntry Sr2Part(PartCategory c, CarVendor_t v, int cls) {
+    PartCatalogEntry e{}; e.category = c; e.vendor = v; e.sr2Class = cls; return e;
+}
+
+// The 64 SR2 AUTO PARTS slots in executable order. SR2's small V8s (327/302/318) stand in as SR's 282/292/285 and its
+// big V8s (427/429/426) as 327/351/340, the same two classes.
+const PartCatalogEntry kSr2PartCatalog[64] = {
+    Engine(CarVendorGM,       CarEngineGM_V6),
+    Engine(CarVendorFord,     CarEngineFord_V6),
+    Engine(CarVendorChrysler, CarEngineChrysler_V6),
+    Engine(CarVendorGM,       CarEngineGM_V8_282),
+    Engine(CarVendorFord,     CarEngineFord_V8_292),
+    Engine(CarVendorChrysler, CarEngineChrysler_V8_285),
+    Engine(CarVendorGM,       CarEngineGM_V8_327),
+    Engine(CarVendorFord,     CarEngineFord_V8_351),
+    Engine(CarVendorChrysler, CarEngineChrysler_V8_340),
+
+    Trans(CarVendorGM,       TRANS_AUTO_GM),
+    Trans(CarVendorFord,     TRANS_AUTO_FORD),
+    Trans(CarVendorChrysler, TRANS_AUTO_CHRYSLER),
+    Trans(CarVendorGM,       TRANS_3SPD_GM),
+    Trans(CarVendorFord,     TRANS_3SPD_FORD),
+    Trans(CarVendorChrysler, TRANS_3SPD_CHRYSLER),
+    Trans(CarVendorGM,       TRANS_4SPD_GM),
+    Trans(CarVendorFord,     TRANS_4SPD_FORD),
+    Trans(CarVendorChrysler, TRANS_4SPD_CHRYSLER),
+    Trans(CarVendorGM,       TRANS_RACING_GM),
+    Trans(CarVendorFord,     TRANS_RACING_FORD),
+    Trans(CarVendorChrysler, TRANS_RACING_CHRYSLER),
+
+    Carb(CARB_2BARREL),
+    Carb(CARB_4BARREL),
+    Carb(CARB_4BARREL_RACING),
+
+    Manifold(CarVendorGM,       MANIFOLD_2BARREL),
+    Manifold(CarVendorFord,     MANIFOLD_2BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_2BARREL),
+    Manifold(CarVendorGM,       MANIFOLD_4BARREL),
+    Manifold(CarVendorFord,     MANIFOLD_4BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_4BARREL),
+    // The ad texts are read in string order, where 2-4brl comes before 3-2brl; the records have them the other way.
+    Manifold(CarVendorGM,       MANIFOLD_DUAL_QUAD),        // "for 2-4brl carbs"
+    Manifold(CarVendorFord,     MANIFOLD_DUAL_QUAD),
+    Manifold(CarVendorChrysler, MANIFOLD_DUAL_QUAD),
+    Manifold(CarVendorGM,       MANIFOLD_TRIPLE_2BARREL),   // "for 3-2brl carbs"
+    Manifold(CarVendorFord,     MANIFOLD_TRIPLE_2BARREL),
+    Manifold(CarVendorChrysler, MANIFOLD_TRIPLE_2BARREL),
+    Manifold(CarVendorGM,       MANIFOLD_RACING),
+    Manifold(CarVendorFord,     MANIFOLD_RACING),
+    Manifold(CarVendorChrysler, MANIFOLD_RACING),
+    Manifold(CarVendorGM,       MANIFOLD_TUNNEL_RAM),   // tunnel ram
+    Manifold(CarVendorFord, MANIFOLD_TUNNEL_RAM),
+    Manifold(CarVendorChrysler, MANIFOLD_TUNNEL_RAM),
+    Manifold(CarVendorGM,       MANIFOLD_DUAL_TUNNEL_RAM),   // dual tunnel ram
+    Manifold(CarVendorFord, MANIFOLD_DUAL_TUNNEL_RAM),
+    Manifold(CarVendorChrysler, MANIFOLD_DUAL_TUNNEL_RAM),
+    Manifold(CarVendorGM,       MANIFOLD_FUEL_INJECTION),   // fuel injection
+    Manifold(CarVendorFord, MANIFOLD_FUEL_INJECTION),
+    Manifold(CarVendorChrysler, MANIFOLD_FUEL_INJECTION),
+    Manifold(CarVendorGM,       MANIFOLD_SUPERCHARGER),   // supercharger
+    Manifold(CarVendorChrysler, MANIFOLD_SUPERCHARGER),
+
+    Tire(STOCK),
+    Tire(BRAND),
+    Tire(RACING),
+
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorGM,       SR_EXHAUST_STOCK),
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorFord,     SR_EXHAUST_STOCK),
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorChrysler, SR_EXHAUST_STOCK),
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorGM,       SR_EXHAUST_HEADERS),
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorFord,     SR_EXHAUST_HEADERS),
+    Sr2Part(PartCategory::ExhaustManifold, CarVendorChrysler, SR_EXHAUST_HEADERS),
+
+    Sr2Part(PartCategory::Muffler, CarVendorUnknown, SR_MUFFLER_STOCK),
+    Sr2Part(PartCategory::Muffler, CarVendorUnknown, SR_MUFFLER_GLASSPACK),
+
+    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_2_78),
+    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_3_73),
+    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_4_11),
+};
+
+const PartCatalogEntry* PartCatalog() { return state.GetAssets().GetGame() == SrGame::SR2 ? kSr2PartCatalog : kPartCatalog; }
+int PartCatalogCount() { return state.GetAssets().GetGame() == SrGame::SR2 ? 64 : 40; }
+
 // The side-page art is a flat 240,240,240, so the ads column matches it.
 constexpr Uint8 kPaperR = 240;
 constexpr Uint8 kPaperG = 240;
@@ -105,9 +189,33 @@ constexpr AmigaLibAsset kHeadlineAssets[] = {
 };
 constexpr int kHeadlineCount = sizeof(kHeadlineAssets) / sizeof(kHeadlineAssets[0]);
 
+// Street Rod 2 runs one front page a week, in this order (FUN_0025232e: day / 7, capped at 11).
+constexpr int kSr2HeadlineAssets[] = {
+    SR2_HEADLINE_SOVIETS_FIRST_STRIKE, SR2_HEADLINE_JUDY_GARLAND_DEAD, SR2_HEADLINE_NASA_MONKEY_IN_SPACE,
+    SR2_HEADLINE_SPACE_MONKEY_DIES, SR2_HEADLINE_NIXON_VIETNAM, SR2_HEADLINE_DDT,
+    SR2_HEADLINE_GREEN_BERET_SAIGON, SR2_HEADLINE_NIXON_VISITS, SR2_HEADLINE_KENNEDY_CAR_ACCIDENT,
+    SR2_HEADLINE_WOODSTOCK, SR2_HEADLINE_PLANE_HIJACKED, SR2_HEADLINE_KHADAFY,
+};
+constexpr int kSr2HeadlineCount = sizeof(kSr2HeadlineAssets) / sizeof(kSr2HeadlineAssets[0]);
+
+bool IsSr2() { return state.GetAssets().GetGame() == SrGame::SR2; }
+
+int HeadlineCount() { return IsSr2() ? kSr2HeadlineCount : kHeadlineCount; }
+int HeadlineAsset(int i) { return IsSr2() ? kSr2HeadlineAssets[i] : kHeadlineAssets[i]; }
+
+Asset NewspaperBackground() {
+    if (IsSr2()) return (Asset){LibAssetRegular, SrLibFileAmigaLibP, SR2_NEWSPAPER_FRONT, SrGame::SR2};
+    return (Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU};
 }
 
-Newspaper::Newspaper() : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_MENU}) {
+Asset NewspaperExit() {
+    if (IsSr2()) return (Asset){LibAssetRegular, SrLibFileAmigaLibP, SR2_NEWSPAPER_EXIT, SrGame::SR2};
+    return (Asset){LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT};
+}
+
+}
+
+Newspaper::Newspaper() : Scene(NewspaperBackground()) {
     currentPage = 0;
 
     zones = SceneLayout::Load(embedded_newspaper_toml);
@@ -163,9 +271,13 @@ Newspaper::~Newspaper() {
 void Newspaper::ResetToFrontPage() {
     currentPage = 0;
     smoothScrollOffset = 0;
-    // The original's choice of front page is unconfirmed; this walks them in order.
-    headlineIndex = (headlineIndex + 1) % kHeadlineCount;
-    SetHeadline(kHeadlineAssets[headlineIndex]);
+    if (IsSr2()) {
+        headlineIndex = std::min(GameClock::DayNumber(state.GetElapsedTicks()) / 7, HeadlineCount() - 1);
+    } else {
+        // The original's choice of SR1 front page is unconfirmed; this walks them in order.
+        headlineIndex = (headlineIndex + 1) % HeadlineCount();
+    }
+    SetHeadline(HeadlineAsset(headlineIndex));
     Update();
 }
 
@@ -177,7 +289,7 @@ void Newspaper::Init(bool debugMode) {
 }
 
 void Newspaper::InitPageOne() {
-    previous = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    previous = state.GetAssets().GetBitmapAsset(NewspaperExit());
     previous.SetPosition(0, 0);
     SDL_Rect previousRect = {0, 0, 64, 190};
     previous.Crop(previousRect);
@@ -185,7 +297,7 @@ void Newspaper::InitPageOne() {
     previous.UpdateFromSurface();
     previous.SetVisible(false);
 
-    next = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, NEWSPAPER_EXIT});
+    next = state.GetAssets().GetBitmapAsset(NewspaperExit());
     next.SetPosition(GAME_WIDTH - 64, 0);
     SDL_Rect nextRect = {64, 0, 64, 190};
     next.Crop(nextRect);
@@ -193,7 +305,7 @@ void Newspaper::InitPageOne() {
     next.UpdateFromSurface();
     next.SetVisible(false);
 
-    SetHeadline(kHeadlineAssets[0]);
+    SetHeadline(HeadlineAsset(0));
 
     uint32_t dateColor = SDL_MapRGB(surface->format, 32, 32, 32);
     date.Init(state.GetAssets().GetMainFont(), 0, 120, dateColor);
@@ -202,8 +314,9 @@ void Newspaper::InitPageOne() {
 }
 
 // The headline assets are finished 320x54 newsprint slabs, both columns included.
-void Newspaper::SetHeadline(AmigaLibAsset asset) {
-    headline = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
+void Newspaper::SetHeadline(int asset) {
+    headline = state.GetAssets().GetBitmapAsset(
+        {LibAssetRegular, SrLibFileAmigaLibP, asset, IsSr2() ? SrGame::SR2 : SrGame::SR1});
     headline.SetPosition(0, 136);
     headline.SetVisible(true);
 }
@@ -246,11 +359,13 @@ void Newspaper::LoadClassifiedsData() {
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     int partCount = 0;
     DataParser dp;
-    PartMetadata_t* parts = dp.SrLibDataReadPartsFromBuffer(srExeData.data(), srExeData.size(), &partCount);
-    if (parts && partCount == 40) {
+    const int expectedParts = IsSr2() ? 64 : 40;
+    PartMetadata_t* parts = dp.SrLibDataReadPartsFromBuffer(srExeData.data(), srExeData.size(), &partCount,
+                                                            IsSr2() ? SrGame::SR2 : SrGame::SR1);
+    if (parts && partCount == expectedParts) {
         partMetadata.assign(parts, parts + partCount);
     } else {
-        LOG_INFO("WARNING: expected 40 AUTO PARTS classifieds, got %d", partCount);
+        LOG_INFO("WARNING: expected %d AUTO PARTS classifieds, got %d", expectedParts, partCount);
     }
 
     totalPartsPages = (partMetadata.size() + adsPerPage - 1) / adsPerPage;
@@ -811,6 +926,7 @@ void Newspaper::ShowCarPurchaseDialog(int carIndex) {
                     LOG_INFO("Car %d already sold", carIndex);
                 } else {
                     state.SetBankroll(state.GetBankroll() - price);
+                    state.AdvanceTicks(600);
                     CarPtr boughtCar = state.GetClassifiedCars()[carIndex];
                     state.AddOwnedCar(boughtCar);
                     state.SetCurrentCar(boughtCar);
@@ -883,13 +999,14 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                     bubbles[0]->SetText("  " + GameText::Msg(GameText::CANT_AFFORD_SHORT, short_));
                     bubbles[0]->SetVisible(true);
                 } else {
-                    // Costs no game time, and the parts catalog is standing, so stay on the paper.
+                    // Costs no game time in SR1, and the parts catalog is standing, so stay on the paper.
                     state.SetBankroll(state.GetBankroll() - price);
+                    state.AdvanceTicks(300);
 
                     const char* rawName = partMetadata[partIndex].classified.carName;
                     std::string adName = rawName ? rawName : "Unknown Part";
 
-                    const PartCatalogEntry& entry = kPartCatalog[partIndex];
+                    const PartCatalogEntry& entry = PartCatalog()[partIndex];
                     switch (entry.category) {
                         case PartCategory::Engine: {
                             EnginePart part(entry.engineType, 0, price, entry.vendor,
@@ -924,6 +1041,15 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                                       TireAssetForType(entry.tireType), entry.tireType);
                             part.name = adName;
                             state.AddSpareTire(part);
+                            break;
+                        }
+                        case PartCategory::ExhaustManifold:
+                        case PartCategory::Muffler:
+                        case PartCategory::Differential: {
+                            Part part = MakeSr2Part(entry.category, entry.sr2Class, entry.vendor);
+                            part.cost = price;
+                            part.name = adName;
+                            state.GetSpareSr2(entry.category).push_back(part);
                             break;
                         }
                     }
@@ -1025,9 +1151,45 @@ void Newspaper::ShowCarViewDialog(int carIndex) {
     SetActiveDialog(carViewDialog.get());
 }
 
+std::string CatalogPartName(PartCategory category, CarVendor_t vendor, int typeValue) {
+    static SrGame loadedFor = SrGame::SR1;
+    static std::vector<std::string> names;
+    const SrGame game = state.GetAssets().GetGame();
+    if (names.empty() || loadedFor != game) {
+        names.clear();
+        loadedFor = game;
+        byte_vector& exe = state.GetAssets().GetSrExeData();
+        int count = 0;
+        DataParser dp;
+        PartMetadata_t* parts = dp.SrLibDataReadPartsFromBuffer(exe.data(), exe.size(), &count, game);
+        for (int i = 0; parts && i < count; i++) {
+            names.push_back(parts[i].classified.carName ? parts[i].classified.carName : "");
+        }
+    }
+    for (int i = 0; i < PartCatalogCount() && i < static_cast<int>(names.size()); i++) {
+        const PartCatalogEntry& e = PartCatalog()[i];
+        if (e.category != category) continue;
+        int entryType;
+        switch (category) {
+            case PartCategory::Engine:          entryType = static_cast<int>(e.engineType); break;
+            case PartCategory::Transmission:    entryType = static_cast<int>(e.transType); break;
+            case PartCategory::Carburetor:      entryType = static_cast<int>(e.carbType); break;
+            case PartCategory::Manifold:        entryType = static_cast<int>(e.manifoldType); break;
+            case PartCategory::Tire:            entryType = static_cast<int>(e.tireType); break;
+            case PartCategory::ExhaustManifold:
+            case PartCategory::Muffler:
+            case PartCategory::Differential:    entryType = e.sr2Class; break;
+        }
+        if (entryType != typeValue) continue;
+        if (e.vendor != CarVendorUnknown && e.vendor != vendor) continue;
+        return names[i];
+    }
+    return "";
+}
+
 std::string Newspaper::FindCatalogName(PartCategory category, CarVendor_t vendor, int typeValue) const {
-    for (int i = 0; i < 40 && i < (int)partMetadata.size(); i++) {
-        const PartCatalogEntry& e = kPartCatalog[i];
+    for (int i = 0; i < PartCatalogCount() && i < (int)partMetadata.size(); i++) {
+        const PartCatalogEntry& e = PartCatalog()[i];
         if (e.category != category) continue;
         int entryType;
         switch (category) {

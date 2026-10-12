@@ -306,6 +306,20 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     std::snprintf(buf, sizeof(buf), "0x%04x", static_cast<unsigned>(track.right[seg]));
     out.push_back({"right object", buf});
 
+    if (sim.Kind() == srrace::RaceKind::Grudge) {
+        const int treeSeg = srrace::RaceWindowFor(srrace::RaceKind::Grudge).start + 4;
+        int treeRow = -1;
+        for (int r = 0; r < kForwardRows; ++r) {
+            if (rows[r].seg == treeSeg) {
+                treeRow = r;
+                break;
+            }
+        }
+        std::snprintf(buf, sizeof(buf), "seg %d row %d %s", treeSeg, treeRow,
+                      Sr2Asset(SR2_DRAG_TREE) ? "sheet ok" : "NO SHEET");
+        out.push_back({"drag tree", buf});
+    }
+
     out.push_back({"player car", ""});
     out.push_back({"speed", std::to_string(static_cast<int>(player.speed)) + " mph"});
     out.push_back({"rpm", std::to_string(static_cast<int>(player.rpm))});
@@ -349,8 +363,8 @@ std::vector<DebugRow> Racing::GetRacingDebugRows(int lastVisibleRow) const {
     const int copState = sim.CopState();
     out.push_back({"cop", ""});
     // Always three rows, so nothing below shifts when the state changes.
-    const bool copPossible = sim.RaceType() != 0 && copState != 0;
-    out.push_back({"can appear", sim.RaceType() == 0 ? "no (drag race)"
+    const bool copPossible = sim.IsRoadRace() && copState != 0;
+    out.push_back({"can appear", sim.Kind() == srrace::RaceKind::Drag ? "no (drag race)"
                                  : copState == 0     ? "no (roll failed)"
                                                      : "yes"});
     out.push_back({"trigger seg",

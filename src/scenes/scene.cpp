@@ -7,6 +7,10 @@
 #include "dialogs/dialog.h"
 #include "core/assets.h"
 #include "core/mouse.h"
+#include "core/utils.h"
+#include "audio/engine_sound.h"
+
+#include <random>
 
 extern Mouse mouse;
 
@@ -81,8 +85,15 @@ void Scene::Init(bool initialDebugMode) {
 
     // Status bar pens are nearest-colour matches of 0x0C71 (text) and 0x0333 (background) in the scene's palette,
     // EHB included: PAL1 gives 59 and 20, PAL_GAS 31 and 20.
-    const int fontColorIndex = (palette == StockPaletteAmigaGasStation) ? 31 : 59;
-    hud = std::make_unique<HUD>(palette, 20, fontColorIndex);
+    if (backgroundAsset.game == SrGame::SR2) {
+        // Street Rod 2's bar is pen 3 on pen 20 of the screen's own palette.
+        BitmapParser parser;
+        const Palette rgb = parser.PreparePalette(state.GetAssets().GetAssetPalette(backgroundAsset), true);
+        hud = std::make_unique<HUD>(rgb, 20, 3);
+    } else {
+        const int fontColorIndex = (palette == StockPaletteAmigaGasStation) ? 31 : 59;
+        hud = std::make_unique<HUD>(palette, 20, fontColorIndex);
+    }
     hud->SetVisible(true);
     hud->Clear();
 
@@ -146,11 +157,18 @@ void Scene::SetZoneEnabled(const std::string& id, bool enabled) {
     }
 }
 
-Zone& Scene::GetZone(const std::string& id) {
+Zone* Scene::ZoneById(const std::string& id) {
     for (auto& zone : zones) {
         if (zone.GetId() == id) {
-            return zone;
+            return &zone;
         }
+    }
+    return nullptr;
+}
+
+Zone& Scene::GetZone(const std::string& id) {
+    if (Zone* zone = ZoneById(id)) {
+        return *zone;
     }
     LOG_WARN("Scene::GetZone: Zone not found: %s", id.c_str());
     static Zone nullZone("", "", SDL_Rect{0, 0, 0, 0});
@@ -415,24 +433,24 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
     
     if (audioManager) {
         audioManager->StopLoop(0);
+        audioManager->SetMufflerRemoved(car != nullptr && car->IsMufflerRemoved());
         lastAnimationEnginePeriod = -1;
-        
+        engineBase = 600 + std::uniform_int_distribution<int>(0, 9)(RandomEngine());
+
         waitingForEngineStart = false;
         engineStartTimer = 0;
-        
+
         if (animType == CarAnimationType::SINGLE_CAR_REVERSE) {
             // Engine start: ~2.88s.
             audioManager->PlaySound(AudioSampleType::ENGINE_START, 0.6f);
-            
+
             waitingForEngineStart = true;
             engineStartTimer = 0;
-            
-            audioManager->UpdateEnginePeriod(605);
-            lastAnimationEnginePeriod = 605;
+
+            ApplyAnimationEngine(false, false);
         } else if (animType == CarAnimationType::SINGLE_CAR_DRIVE || animType == CarAnimationType::OPPONENT_CONTINUOUS) {
-            audioManager->UpdateEnginePeriod(605);
-            lastAnimationEnginePeriod = 605;
-            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+            ApplyAnimationEngine(true, false);
+            audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
         }
     }
     
@@ -458,7 +476,8 @@ void CarScene::StartAnimateCar(CarPtr car, Driver* driver, CarAnimationType anim
         carxFloat = carx;
         stepAccumulator = 0.0;
         
-        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height);
+        cary = SrLibQueryGetCarRoofYOffset(state.GetCurrentGameScene(), car->GetModel().height,
+                                          state.GetAssets().GetGame());
         carBitmap->Move({carx, cary});
         carAnimationTime = 0;
         animatingCar = true;
@@ -483,16 +502,11 @@ void CarScene::UpdateDebugInfo() {
     Scene::UpdateDebugInfo();
 }
 
-// Pitch drops as the car slows.
-int16_t CarScene::GetCarAnimationPeriod(double progress, bool isDrivingIn) {
-    if (!isDrivingIn) {
-        return 605;
-    }
-    
-    if (progress < 0.92) {
-        return 605;
-    }
-    return 800;
+void CarScene::ApplyAnimationEngine(bool drivingIn, bool secondPhase) {
+    const EngineSound::Note note = EngineSound::AnimationNote(engineBase, drivingIn, secondPhase);
+    if (!audioManager || note.period == lastAnimationEnginePeriod) return;
+    audioManager->UpdateEnginePeriod(note.period, note.paulaVolume);
+    lastAnimationEnginePeriod = note.period;
 }
 
 // Moves a whole number of pixels per tick of the original's clock; usually 0 this frame.
@@ -514,8 +528,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
         if (engineStartTimer >= ENGINE_START_DURATION) {
             waitingForEngineStart = false;
             if (audioManager) {
-                LOG_INFO("UpdateCarAnimation: Engine start finished, starting loop at period 605");
-                audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.5f);
+                audioManager->StartLoop(AudioSampleType::ENGINE_LOOP, 0.8f);
             }
         } else {
             return;
@@ -540,11 +553,13 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
             }
             carxFloat += StepCarX(deltaTime, exitSpeed);
             carx = static_cast<int>(carxFloat);
+            ApplyAnimationEngine(false, exitProgress >= 0.20);
 
             if (carBitmap) {
                 carBitmap->UpdateWheelRotation(carx);
                 carBitmap->Move({carx, cary});
             }
+            if (audioManager) audioManager->UpdateEngineDistance(carx - idlePos.x);
 
             if (carx >= GAME_WIDTH + 50) {
                 exitingCar = false;
@@ -582,6 +597,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
                 carxFloat += StepCarX(deltaTime, driveSpeed);
                 carx = static_cast<int>(carxFloat);
+                ApplyAnimationEngine(true, progress >= 0.80);
                 done = (carx >= idlePos.x);
                 if (done) carx = idlePos.x;
 
@@ -613,19 +629,7 @@ void CarScene::UpdateCarAnimation(double deltaTime) {
                 }
             }
 
-            if (audioManager) {
-                if (isDrivingIn) {
-                    double audioDist = idlePos.x + GAME_WIDTH;
-                    double audioProgress = (audioDist > 0)
-                        ? std::clamp((carx + GAME_WIDTH) / audioDist, 0.0, 1.0)
-                        : 0.0;
-                    const int16_t targetPeriod = GetCarAnimationPeriod(audioProgress, true);
-                    if (targetPeriod != lastAnimationEnginePeriod) {
-                        audioManager->UpdateEnginePeriod(targetPeriod);
-                        lastAnimationEnginePeriod = targetPeriod;
-                    }
-                }
-            }
+            if (audioManager) audioManager->UpdateEngineDistance(carx - idlePos.x);
 
             if (done) {
                 animatingCar = false;

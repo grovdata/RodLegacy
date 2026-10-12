@@ -4,12 +4,14 @@
 
 const int HUD_YPOS = GAME_HEIGHT - GAME_STATUSBAR_HEIGHT;
 
-HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex) {
+HUD::HUD(StockPalette palette, int backgroundColorIndex, int fontColorIndex)
+    : HUD(state.GetAssets().GetStockPalette(palette), backgroundColorIndex, fontColorIndex) {}
+
+HUD::HUD(const Palette& rgbPal, int backgroundColorIndex, int fontColorIndex) {
     backgroundBitmap = new Bitmap(GAME_WIDTH, GAME_STATUSBAR_HEIGHT, 32);
     backgroundBitmap->SetVisible(true);
     textBitmap = new Bitmap(GAME_WIDTH, GAME_STATUSBAR_HEIGHT, 32);
     textBitmap->SetVisible(true);
-    Palette rgbPal = state.GetAssets().GetStockPalette(palette);
     SrLibColor backgroundColor = rgbPal[backgroundColorIndex];
     SrLibColor fontColor = rgbPal[fontColorIndex];
     

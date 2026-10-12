@@ -1,8 +1,10 @@
 #include "audio/pc_speaker.h"
+#include "audio/record_tap.h"
 #include <fstream>
 #include <vector>
 #include <cstring>
 #include <random>
+#include <algorithm>
 #include <SDL2/SDL.h>
 
 // CODE_24 stores (duration_u16, pit_u16) pairs after a 4-byte null header; duration 0 ends a segment.
@@ -179,6 +181,40 @@ bool sr_exe_parse_songs(const uint8_t* data, size_t size,
     }
 
     return !out_songs.empty();
+}
+
+bool sr2_exe_build_songs(const uint8_t* data, size_t size, std::vector<std::vector<SrNote>>& out)
+{
+    out.clear();
+    if (size < 0x40) return false;
+    auto word = [&](size_t at) { return static_cast<uint16_t>(data[at] | data[at + 1] << 8); };
+    const size_t ds = static_cast<size_t>(word(8)) * 16 + 0x3e080;   // DGROUP 3E08
+    const size_t songEnd = ds + 0x6e48;                               // the jingle follows
+    if (songEnd > size) return false;
+
+    // Past the 0,0 header; a 0,m marker ends a section, 0,0 the song.
+    std::vector<std::vector<SrNote>> sections(1);
+    for (size_t at = ds + 0x5594 + 4; at + 4 <= songEnd; at += 4) {
+        const uint16_t dur = word(at), value = word(at + 2);
+        if (dur == 0) {
+            if (value == 0) break;
+            sections.emplace_back();
+            continue;
+        }
+        sections.back().push_back({dur, value});
+    }
+    // Total plays per section, -1 restarts the song (DS:540C). The intro (section 0) starts each song.
+    for (size_t i = 0; i < sections.size(); ++i) {
+        const int plays = static_cast<int16_t>(word(ds + 0x540c + 2 * i));
+        if (plays < 0) break;
+        const bool intro = std::equal(sections[i].begin(), sections[i].end(), sections[0].begin(), sections[0].end(),
+                                      [](const SrNote& a, const SrNote& b) {
+                                          return a.duration_ticks == b.duration_ticks && a.pit_divisor == b.pit_divisor;
+                                      });
+        if (out.empty() || intro) out.emplace_back();
+        for (int p = 0; p < plays; ++p) out.back().insert(out.back().end(), sections[i].begin(), sections[i].end());
+    }
+    return !out.empty();
 }
 
 bool sr_exe_build_known_songs(const std::vector<std::vector<SrNote>>& segs,
@@ -358,4 +394,5 @@ void PCSpeaker::AudioCallback(void* userdata, uint8_t* stream, int len)
     auto* self = static_cast<PCSpeaker*>(userdata);
     int frames = len / (int)sizeof(int16_t);
     self->FillBuffer(reinterpret_cast<int16_t*>(stream), frames);
+    record_tap::Write("pc_speaker", self->sample_rate_, 1, stream, len);
 }

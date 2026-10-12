@@ -1,6 +1,7 @@
 #include "race/track_gen.h"
 
 #include <algorithm>
+#include <cstring>
 
 namespace srrace {
 namespace {
@@ -9,7 +10,6 @@ namespace {
 // names here follow what is on screen. ShapeCurveLeft/Right set the turn-sign flags 0x0200/0x0400.
 
 constexpr int GEN_START = 390;
-constexpr int GEN_LIMIT = 0x442;
 
 // +-5 hill profiles copied into elev[] (rise to a crest, fall to a dip).
 constexpr int16_t SHALLOW[] = {
@@ -27,18 +27,70 @@ constexpr int16_t GENTLE[] = {
     1, 2, 3, 3, 3, 2, 1, 0, 0, 0, -1, -2, -3, -3, -3, -2, -1,
 };
 
-constexpr int SHAPE_SEQUENCES[10][12] = {
-    {2, 3, 1, 7, 4, 10, 5, 8, 6, 2, 9, 1},
-    {11, 4, 8, 1, 6, 9, 2, 5, 7, 2, 3, 1},
-    {1, 5, 1, 3, 8, 11, 6, 7, 2, 4, 9, 1},
-    {3, 1, 4, 9, 2, 6, 8, 1, 3, 8, 10, 2},
-    {10, 9, 5, 1, 6, 2, 3, 7, 4, 2, 8, 2},
-    {2, 3, 8, 10, 5, 11, 4, 7, 1, 6, 9, 2},
-    {1, 5, 9, 1, 4, 2, 3, 10, 8, 4, 1, 9},
-    {2, 4, 7, 11, 2, 5, 8, 4, 1, 7, 6, 2},
-    {2, 6, 8, 10, 6, 1, 3, 7, 5, 1, 4, 9},
-    {1, 3, 1, 6, 1, 4, 9, 10, 6, 8, 2, 3},
+constexpr int MAX_SHAPES_PER_RUN = 13;
+
+// Per-variant shape sequences, one row per profile.
+int SHAPE_SEQUENCES[2][10][MAX_SHAPES_PER_RUN] = {
+    {   // Street Rod
+        {2, 3, 1, 7, 4, 10, 5, 8, 6, 2, 9, 1, 0},
+        {11, 4, 8, 1, 6, 9, 2, 5, 7, 2, 3, 1, 0},
+        {1, 5, 1, 3, 8, 11, 6, 7, 2, 4, 9, 1, 0},
+        {3, 1, 4, 9, 2, 6, 8, 1, 3, 8, 10, 2, 0},
+        {10, 9, 5, 1, 6, 2, 3, 7, 4, 2, 8, 2, 0},
+        {2, 3, 8, 10, 5, 11, 4, 7, 1, 6, 9, 2, 0},
+        {1, 5, 9, 1, 4, 2, 3, 10, 8, 4, 1, 9, 0},
+        {2, 4, 7, 11, 2, 5, 8, 4, 1, 7, 6, 2, 0},
+        {2, 6, 8, 10, 6, 1, 3, 7, 5, 1, 4, 9, 0},
+        {1, 3, 1, 6, 1, 4, 9, 10, 6, 8, 2, 3, 0},
+    },
+    {   // Street Rod 2
+        {2, 3, 1, 4, 7, 10, 5, 8, 6, 2, 9, 1, 2},
+        {11, 4, 1, 6, 8, 9, 2, 5, 7, 2, 3, 1, 2},
+        {1, 5, 1, 3, 8, 11, 6, 7, 2, 4, 9, 1, 2},
+        {3, 1, 4, 9, 2, 8, 6, 1, 3, 8, 10, 2, 1},
+        {9, 10, 5, 1, 6, 2, 3, 7, 4, 2, 8, 2, 1},
+        {2, 3, 8, 10, 5, 11, 4, 7, 1, 6, 9, 2, 1},
+        {1, 5, 9, 1, 4, 2, 3, 10, 8, 4, 1, 9, 1},
+        {2, 4, 7, 11, 2, 5, 8, 4, 1, 7, 6, 2, 1},
+        {2, 6, 8, 10, 6, 1, 3, 7, 5, 1, 4, 9, 2},
+        {1, 3, 1, 6, 1, 4, 9, 10, 6, 8, 2, 3, 1},
+    },
 };
+
+constexpr TrackGenParams kStreetRodParams  = {1120, 0x442, 12, 3, 0x1801, false, false};
+constexpr TrackGenParams kStreetRod2Params = { 990, 0x3de, 13, 7, 0x9811, true,  true};
+
+// Where the rolling hills start, and one delta per block of this many.
+constexpr int HILL_START = 380;
+constexpr int HILL_BLOCK = 10;
+constexpr int HILL_COUNT = 61;
+// The run-in to the finish is held flat, as are the narrow crossings.
+constexpr int HILL_FLAT_FROM = 920;
+constexpr int HILL_FLAT_TO   = 960;
+constexpr uint16_t HILL_BLOCKED_FLAG = 0x0080;
+
+// Fallback for the table below, read from the executable by LoadTrackTables.
+int16_t HILL_PROFILE[HILL_COUNT] = {
+     1, -2,  2, -2,  2, -2,  2, -1,  0,  1,
+     0,  1,  0, -1,  0,  1,  0,  1, -1,  2,
+     1,  0,  1, -1,  2, -1,  0,  1, -1,  1,
+     1, -1,  0, -1,  1,  0,  1,  2, -1,  0,
+     0,  1, -1,  2, -1,  2, -1,  0,  1,  1,
+     0, -1,  0,  1,  1, -1,  0, -1,  1,  0,
+     1,
+};
+
+// Where each game keeps its variant table, as a big-endian word array.
+constexpr size_t kStreetRodVariantsAt  = 0x2C3B2;
+constexpr size_t kStreetRod2VariantsAt = 0x3FF02;
+constexpr size_t kStreetRod2HillsAt    = 0x40006;
+
+// The generator is one synchronous pass, so the shape functions read the knobs
+// from here rather than taking them through thirty call sites.
+const TrackGenParams* gShape = &kStreetRodParams;
+const int (*gVariantRows)[MAX_SHAPES_PER_RUN] = SHAPE_SEQUENCES[0];
+
+int GenLimit() { return gShape->genLimit; }
 
 struct GenState {
     int gen_pos = GEN_START;
@@ -46,7 +98,7 @@ struct GenState {
 };
 
 bool InLimit(int pos) {
-    return pos >= 0 && pos < GEN_LIMIT;
+    return pos >= 0 && pos < GenLimit();
 }
 
 void Advance(GenState& state, int amount) {
@@ -77,8 +129,8 @@ void ClearGeneratedSegment(TrackData& track, int i, int roadType) {
 
 void ClearObjects(TrackData& track, int pos) {
     if (InLimit(pos)) {
-        track.left[pos] &= 0x1801;
-        track.right[pos] &= 0x1801;
+        track.left[pos] &= gShape->objectMask;
+        track.right[pos] &= gShape->objectMask;
     }
 }
 
@@ -108,15 +160,16 @@ void ShapeCurveLeft(TrackData& track, GenState& state) {
     }
     Advance(state, 6);
 
-    int k = curCurve / 3;
+    const int step = gShape->curveStep;
+    int k = curCurve / step;
     const int end = k + 40;
-    while (k < end && state.gen_pos < GEN_LIMIT) {
+    while (k < end && state.gen_pos < GenLimit()) {
         track.flags[state.gen_pos] |= 0x0008;
-        track.curve[state.gen_pos] = static_cast<int16_t>(k * 3);
+        track.curve[state.gen_pos] = static_cast<int16_t>(k * step);
         ++state.gen_pos;
         ++k;
     }
-    state.cur_curve = k * 3;
+    state.cur_curve = k * step;
 }
 
 void ShapeCurveRight(TrackData& track, GenState& state) {
@@ -136,20 +189,21 @@ void ShapeCurveRight(TrackData& track, GenState& state) {
     }
     Advance(state, 3);
 
-    int k = curCurve / 3;
+    const int step = gShape->curveStep;
+    int k = curCurve / step;
     const int end = k - 45;
-    while (k > end && state.gen_pos < GEN_LIMIT) {
+    while (k > end && state.gen_pos < GenLimit()) {
         track.flags[state.gen_pos] |= 0x0008;
-        track.curve[state.gen_pos] = static_cast<int16_t>(k * 3);
+        track.curve[state.gen_pos] = static_cast<int16_t>(k * step);
         ++state.gen_pos;
         --k;
     }
-    state.cur_curve = k * 3;
+    state.cur_curve = k * step;
 }
 
 void CopyHillTable(TrackData& track, GenState& state, const int16_t* table, int count, bool negate) {
     int idx = 0;
-    while (idx < count && state.gen_pos < GEN_LIMIT) {
+    while (idx < count && state.gen_pos < GenLimit()) {
         const int pos = state.gen_pos;
         ++state.gen_pos;
         track.elev[pos] = negate ? static_cast<int16_t>(-table[idx]) : table[idx];
@@ -231,6 +285,36 @@ void ShapeNarrowLeft(TrackData& track, GenState& state) {
     BackfillCurve(track, start, state.gen_pos, state.cur_curve);
 }
 
+// jtown.c FUN_0024bd98 / FUN_0024c09a: Street Rod 2's narrows, laid only where the two walls differ. A road
+// work sign, then a 0x1000 marker, then five segments of wet cement (flags 0x40 right, 0x20 left) with the dash,
+// bit 2 and the arch nibble cleared and the objects beside them dropped.
+void ShapeNarrowSr2(TrackData& track, GenState& state, bool right) {
+    const int start = state.gen_pos;
+    if (!InLimit(start) || track.wallLeft[start] == track.wallRight[start]) return;
+    uint16_t* signSide = right ? track.right : track.left;
+    uint16_t* otherSide = right ? track.left : track.right;
+    Advance(state, right ? 3 : 4);
+    if (InLimit(state.gen_pos)) signSide[state.gen_pos] |= 0x0800;
+    if (InLimit(state.gen_pos + 4)) track.flags[state.gen_pos + 4] &= 0x0ff7;
+    Advance(state, 5);
+    if (InLimit(state.gen_pos)) {
+        otherSide[state.gen_pos] &= 0xefee;
+        signSide[state.gen_pos] |= 0x1000;
+    }
+    Advance(state, 1);
+    for (int i = 0; i < 5 && state.gen_pos < GenLimit(); ++i) {
+        const int p = state.gen_pos;
+        track.flags[p] |= right ? 0x0040 : 0x0020;
+        track.flags[p] &= 0x0ff5;
+        track.right[p] &= 0xefee;
+        track.left[p] &= 0xefee;
+        Advance(state, 1);
+    }
+    if (InLimit(state.gen_pos)) track.flags[state.gen_pos] &= 0x0ff5;
+    Advance(state, right ? 4 : 3);
+    BackfillCurve(track, start, state.gen_pos, state.cur_curve);
+}
+
 void ShapeNarrowBoth(TrackData& track, GenState& state) {
     const int start = state.gen_pos;
     if (InLimit(state.gen_pos)) {
@@ -258,7 +342,7 @@ void ShapeNarrowBoth(TrackData& track, GenState& state) {
 int SlopeSteps(TrackData& track, GenState& state, int count, int step) {
     int k = state.cur_curve / 3;
     for (int i = 0; i < count; ++i) {
-        if (state.gen_pos >= GEN_LIMIT) {
+        if (state.gen_pos >= GenLimit()) {
             break;
         }
         track.flags[state.gen_pos] |= 0x0008;
@@ -312,6 +396,14 @@ void ShapeCurveDip(TrackData& track, GenState& state) {
 }
 
 void RunShape(TrackData& track, GenState& state, int shapeId) {
+    // Street Rod 2 kept eleven codes in its variant table but only seven shapes behind them.
+    if (gShape->hillsAreCurves) {
+        switch (shapeId) {
+        case 4: case 6: shapeId = 1; break;
+        case 3: case 5: shapeId = 2; break;
+        default: break;
+        }
+    }
     switch (shapeId) {
     case 1: ShapeCurveLeft(track, state); break;
     case 2: ShapeCurveRight(track, state); break;
@@ -319,8 +411,8 @@ void RunShape(TrackData& track, GenState& state, int shapeId) {
     case 4: ShapeHillShallow(track, state, true); break;
     case 5: ShapeHillDeep(track, state, false); break;
     case 6: ShapeHillDeep(track, state, true); break;
-    case 7: ShapeNarrowRight(track, state); break;
-    case 8: ShapeNarrowLeft(track, state); break;
+    case 7: gShape->hillsAreCurves ? ShapeNarrowSr2(track, state, true) : ShapeNarrowRight(track, state); break;
+    case 8: gShape->hillsAreCurves ? ShapeNarrowSr2(track, state, false) : ShapeNarrowLeft(track, state); break;
     case 9: ShapeNarrowBoth(track, state); break;
     case 10: ShapeCurveHump(track, state); break;
     case 11: ShapeCurveDip(track, state); break;
@@ -338,7 +430,32 @@ bool SafeSetBit(uint16_t* values, int index, uint16_t bit) {
 
 }
 
-void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
+void BuildGrudgeStrip(TrackData& track) {
+    for (int s = 0; s < GRUDGE_SEGMENTS; ++s) {
+        const int from = GRUDGE_ROAD_FIRST + s;
+        if (from >= TRACK_SEGMENTS) break;
+        track.flags[s] = static_cast<uint16_t>(track.flags[from] | GRUDGE_DASH_BIT);
+        track.left[s] = track.left[from];
+        track.right[s] = track.right[from];
+        track.curve[s] = track.curve[from];
+        track.elev[s] = track.elev[from];
+        track.lane[s] = track.lane[from];
+        track.wallLeft[s] = track.wallLeft[from];
+        track.wallRight[s] = track.wallRight[from];
+    }
+    track.flags[GRUDGE_FINISH_MARKER] |= GRUDGE_DASH_COLOUR_BIT;
+
+    for (int s = GRUDGE_SEGMENTS; s < TRACK_SEGMENTS; ++s) {
+        ClearAll(track, s);
+        track.curve[s] = 0;
+        track.elev[s] = 0;
+        track.lane[s] = 0;
+        track.wallLeft[s] = 0;
+        track.wallRight[s] = 0;
+    }
+}
+
+void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType, TrackGenSource source) {
     for (int i = 0; i < TRACK_SEGMENTS; ++i) {
         ClearAll(track, i);
     }
@@ -438,15 +555,20 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
     track.flags[115 + rng.Next(55)] |= 0x4000;
     track.flags[115 + rng.Next(55)] |= 0x8000;
 
+    // The three buildings a cruise pulls up at are in both games.
     track.right[44] |= 0x0001;
-    track.left[29] |= 0x1000;
-    track.left[24] |= 0x0800;
     track.left[108] |= 0x0001;
-    track.left[87] |= 0x1000;
-    track.left[82] |= 0x0800;
     track.left[156] |= 0x0001;
-    track.left[135] |= 0x1000;
-    track.left[130] |= 0x0800;
+    // The six roadside objects flanking them are Street Rod's only: SR2's
+    // FUN_0024c7ec writes the three above and nothing else at fixed segments.
+    if (source != TrackGenSource::StreetRod2) {
+        track.left[29] |= 0x1000;
+        track.left[24] |= 0x0800;
+        track.left[87] |= 0x1000;
+        track.left[82] |= 0x0800;
+        track.left[135] |= 0x1000;
+        track.left[130] |= 0x0800;
+    }
 
     for (int i = 180; i < TRACK_SEGMENTS; ++i) {
         ClearAll(track, i);
@@ -556,37 +678,308 @@ void RoadLayoutInit(TrackData& track, RaceRng& rng, int roadType) {
     track.right[r] &= 0x1801;
     track.flags[r] |= 0x4000;
 
+    // The cursor advances THROUGH each block.
     for (int i = 220; i + 90 < 380;) {
         for (int k = 0; k < 17; ++k) {
-            track.elev[i + k] = GENTLE[k];
+            track.elev[i++] = GENTLE[k];
         }
         i += 20;
         for (int k = 0; k < 17; ++k) {
-            track.elev[i + k] = static_cast<int16_t>(-GENTLE[k]);
+            track.elev[i++] = static_cast<int16_t>(-GENTLE[k]);
         }
         i += 30;
     }
     track.flags[385] |= 0x0100;
 }
 
-void GenerateTrackShapes(TrackData& track, int variant) {
+// Both hazards are placed only past this segment, i.e.
+constexpr int HAZARD_FROM   = 400;
+constexpr int ROCK_ODDS     = 0x40;   // 1 in 64
+constexpr int OIL_ODDS      = 0x50;   // 1 in 80
+constexpr int ROCK_MIN_GAP  = 0x46;   // 70 segments
+constexpr int HAZARD_LANES  = 0x10;
+constexpr uint16_t FLAG_ROCK = 0x0004;
+constexpr uint16_t FLAG_OIL  = 0x1000;
+constexpr int PILE_FROM     = 0xf0;   // segment 240
+constexpr int PILE_ODDS     = 180;    // roadType * 100 + 80
+
+// Where the shoulder walls step, and by how much.
+struct WallBlock { int from; int to; int leftStep; int rightStep; };
+constexpr WallBlock WALL_BLOCKS[] = {
+    {380, 398,  200, -200},
+    {400, 418, -200,  200},
+    {500, 518, -200,  200},
+    {600, 618,  200, -200},
+    {700, 718,  200, -200},
+};
+constexpr int WALL_FROM = 200;
+constexpr int WALL_FLAT_BELOW = 380;      // the drag window has no walls
+constexpr uint16_t RIGHT_DROP_BIT = 0x8000;
+
+void BuildWalls(TrackData& track, int segments) {
+    for (int s = 0; s < TRACK_SEGMENTS; ++s) {
+        track.wallLeft[s] = 0;
+        track.wallRight[s] = 0;
+    }
+    for (int s = WALL_FROM; s < segments; ++s) {
+        if (s < WALL_FLAT_BELOW) continue;          // already zero
+        // The original steps whole blocks of ten, chosen by the block's first segment.
+        const int block = s - s % 10;
+        int leftStep = 0, rightStep = 0;
+        for (const WallBlock& b : WALL_BLOCKS) {
+            if (block >= b.from && block <= b.to) {
+                leftStep = b.leftStep;
+                rightStep = b.rightStep;
+                break;
+            }
+        }
+        track.wallLeft[s] = static_cast<int16_t>(track.wallLeft[s - 1] + leftStep);
+        track.wallRight[s] = static_cast<int16_t>(track.wallRight[s - 1] + rightStep);
+        // A drop on the right is published to the object bits, which is what arms the 39 mph drop-off crash.
+        if (track.wallRight[s] < 0) {
+            track.right[s] |= RIGHT_DROP_BIT;
+            track.right[s] &= static_cast<uint16_t>(~0x0001);
+        }
+    }
+}
+
+void ScatterHazards(TrackData& track, RaceRng& rng, TrackGenSource source) {
+    if (source != TrackGenSource::StreetRod2) return;   // Street Rod has none
+    const int segments = std::min(kStreetRod2Params.segments, TRACK_SEGMENTS);
+
+    for (int s = 0; s < TRACK_SEGMENTS; ++s) track.lane[s] = 0;
+    BuildWalls(track, segments);
+
+    // The gap counter ticks once per segment and once more each time the roll comes up.
+    int rockGap = 0;
+    int pileGap = 0;
+    for (int s = 0; s < segments; ++s) {
+        if (s > HAZARD_FROM) {
+            if (rng.Next(ROCK_ODDS) == 0 && rockGap++ > ROCK_MIN_GAP) {
+                track.flags[s] |= FLAG_ROCK;
+                track.lane[s] = static_cast<int16_t>(rng.Next(HAZARD_LANES) + 1);
+                rockGap = 0;
+            }
+            // Oil takes whatever the rock left: never both on one segment.
+            if (rng.Next(OIL_ODDS) == 0 && (track.flags[s] & FLAG_ROCK) == 0) {
+                track.flags[s] |= FLAG_OIL;
+                track.lane[s] = static_cast<int16_t>(rng.Next(HAZARD_LANES) + 1);
+            }
+        }
+        // Rock piles reaching onto the road (object bit 0x10, its neighbour 0x1000), 70 apart, only below a wall.
+        if (s > PILE_FROM && pileGap > ROCK_MIN_GAP && s + 1 < TRACK_SEGMENTS) {
+            if (rng.Next(PILE_ODDS) == 0 && track.wallLeft[s + 1] > 0) {
+                track.left[s] |= 0x0010;
+                track.left[s - 1] |= 0x1000;
+                pileGap = 0;
+            }
+            if (rng.Next(PILE_ODDS) == 0 && track.wallRight[s + 1] > 0) {
+                track.right[s] |= 0x0010;
+                track.right[s - 1] |= 0x1000;
+                pileGap = 0;
+            }
+        }
+        ++rockGap;
+        ++pileGap;
+    }
+}
+
+const TrackGenParams& TrackParams(TrackGenSource source) {
+    return source == TrackGenSource::StreetRod2 ? kStreetRod2Params : kStreetRodParams;
+}
+
+bool LoadTrackTables(const std::vector<uint8_t>& exeData, TrackGenSource source) {
+    const bool isSr2 = source == TrackGenSource::StreetRod2;
+    const size_t at = isSr2 ? kStreetRod2VariantsAt : kStreetRodVariantsAt;
+    const int width = isSr2 ? kStreetRod2Params.shapesPerRun : kStreetRodParams.shapesPerRun;
+    if (exeData.size() < at + size_t(10 * width) * 2) return false;
+
+    int rows[10][MAX_SHAPES_PER_RUN] = {};
+    for (int r = 0; r < 10; ++r) {
+        for (int c = 0; c < width; ++c) {
+            const size_t o = at + (size_t(r) * width + c) * 2;
+            const int code = (int(exeData[o]) << 8) | int(exeData[o + 1]);
+            // Every entry names one of the eleven shape codes.
+            if (code < 1 || code > 11) return false;
+            rows[r][c] = code;
+        }
+    }
+    if (isSr2) {
+        if (exeData.size() < kStreetRod2HillsAt + size_t(HILL_COUNT) * 2) return false;
+        int16_t hills[HILL_COUNT];
+        for (int i = 0; i < HILL_COUNT; ++i) {
+            const size_t o = kStreetRod2HillsAt + size_t(i) * 2;
+            hills[i] = static_cast<int16_t>((int(exeData[o]) << 8) | int(exeData[o + 1]));
+            // Each entry nudges a block of ten by one or two units.
+            if (hills[i] < -2 || hills[i] > 2) return false;
+        }
+        memcpy(HILL_PROFILE, hills, sizeof(HILL_PROFILE));
+    }
+
+    memcpy(SHAPE_SEQUENCES[isSr2 ? 1 : 0], rows, sizeof(rows));
+    return true;
+}
+
+// The second elevation pass. Cumulative, so each block of ten shifts the road
+// up or down and the terrain keeps rolling for the whole generated stretch.
+void ApplyHillProfile(TrackData& track, int segments) {
+    for (int block = 0; block < HILL_COUNT; ++block) {
+        const int start = HILL_START + block * HILL_BLOCK;
+        if (start + HILL_BLOCK > segments) break;
+        const int delta = HILL_PROFILE[block];
+        // The run-in to the finish stays flat whatever the table says.
+        const bool runIn = start >= HILL_FLAT_FROM && start <= HILL_FLAT_TO;
+        for (int i = 0; i < HILL_BLOCK; ++i) {
+            const int seg = start + i;
+            // A narrow crossing is flat too, so the road does not tilt under
+            // the one place it is hardest to steer.
+            const bool blocked = runIn || (track.flags[seg] & HILL_BLOCKED_FLAG) != 0;
+            const int prev = seg > 0 ? track.elev[seg - 1] : 0;
+            track.elev[seg] = static_cast<int16_t>(prev + (blocked ? 0 : delta));
+        }
+    }
+}
+
+void GenerateTrackShapes(TrackData& track, int variant, TrackGenSource source) {
+    gShape = &TrackParams(source);
+    gVariantRows = SHAPE_SEQUENCES[source == TrackGenSource::StreetRod2 ? 1 : 0];
+
     const int selectedVariant = ((variant % 10) + 10) % 10;
-    for (int i = 380; i < TRACK_SEGMENTS; ++i) {
+    const int segments = std::min(gShape->segments, TRACK_SEGMENTS);
+    for (int i = 380; i < segments; ++i) {
         ClearGeneratedSegment(track, i, 1);
     }
 
-    GenState state;
-    for (int i = 0; i < 12; ++i) {
-        RunShape(track, state, SHAPE_SEQUENCES[selectedVariant][i]);
+    // FUN_0024c1d6 builds the walls first; its narrows only go where the walls differ.
+    if (source == TrackGenSource::StreetRod2) {
+        BuildWalls(track, segments);
     }
 
-    while (state.gen_pos < TRACK_SEGMENTS) {
+    GenState state;
+    for (int i = 0; i < gShape->shapesPerRun; ++i) {
+        RunShape(track, state, gVariantRows[selectedVariant][i]);
+    }
+
+    while (state.gen_pos < segments) {
         if (InLimit(state.gen_pos)) {
             track.curve[state.gen_pos] = static_cast<int16_t>(state.cur_curve);
             track.elev[state.gen_pos] = 0;
         }
         ++state.gen_pos;
     }
+
+    if (gShape->rollingHills) {
+        ApplyHillProfile(track, segments);
+    }
+}
+
+
+// tshape.c's hazard records, as shipped; the documented fallback for
+// LoadHazardShapes.
+namespace {
+
+struct HazardShape {
+    uint16_t asset;                       // as stored, one based
+    HazardRect phase[HAZARD_PHASES];
+};
+
+const HazardShape kHazardShapes[HazardKindCount] = {
+    {284,
+    {{  0,  0, 19,  9},
+     {  0,  9, 12,  7},
+     {  0, 16,  8,  5},
+     {  8, 18,  7,  3},
+     { 12,  9,  6,  2},
+     { 13, 12,  4,  1},
+     { 13, 14,  3,  1},
+     { 16, 16,  3,  1},
+     { 17, 18,  2,  1},
+     { 18, 20,  1,  1},
+     { 18, 20,  1,  1}}},
+    {297,
+    {{  0,  0, 40, 10},
+     {  0, 10, 25,  6},
+     {  0, 16, 16,  4},
+     { 25, 10, 13,  3},
+     { 25, 13,  9,  2},
+     { 16, 16,  8,  2},
+     { 17, 19,  6,  1},
+     { 24, 19,  5,  1},
+     { 30, 19,  4,  1},
+     { 35, 19,  3,  1},
+     { 36, 19,  2,  1}}},
+    {285,
+    {{  0,  0, 28,  9},
+     {  0, 10, 17,  6},
+     {  0, 17, 12,  4},
+     { 18, 10,  9,  3},
+     { 18, 14,  8,  3},
+     { 20, 18,  7,  2},
+     { 13, 18,  6,  2},
+     { 13, 21,  5,  2},
+     {  0, 22,  3,  1},
+     {  5, 22,  3,  1},
+     {  9, 22,  2,  1}}},
+};
+
+HazardShape gHazards[HazardKindCount];
+bool gHazardsReady = false;
+
+void EnsureHazardShapes() {
+    if (gHazardsReady) return;
+    std::memcpy(gHazards, kHazardShapes, sizeof(gHazards));
+    gHazardsReady = true;
+}
+
+}  // namespace
+
+bool LoadHazardShapes(const std::vector<uint8_t>& exeData) {
+    const int records[HazardKindCount] = {HAZARD_ROCK_RECORD, HAZARD_OIL_RECORD, HAZARD_PILE_RECORD};
+    HazardShape got[HazardKindCount];
+
+    for (int k = 0; k < HazardKindCount; ++k) {
+        const size_t at = HAZARD_SHAPE_TABLE_OFFSET +
+                          size_t(records[k]) * HAZARD_RECORD_SIZE;
+        if (exeData.size() < at + HAZARD_RECORD_SIZE) {
+            EnsureHazardShapes();
+            return false;
+        }
+        const uint8_t* rec = exeData.data() + at;
+        got[k].asset = static_cast<uint16_t>((rec[0] << 8) | rec[1]);
+        // The record has to be the one we mean, or the sprite is wrong.
+        if (got[k].asset != kHazardShapes[k].asset) {
+            EnsureHazardShapes();
+            return false;
+        }
+        for (int j = 0; j < HAZARD_PHASES; ++j) {
+            const uint8_t* q = rec + 10 + j * 4;
+            got[k].phase[j] = HazardRect{q[0], q[1], q[2], q[3]};
+            // Phase 0 is the nearest and every later one is smaller; a phase
+            // with no area would blit nothing.
+            if (q[2] == 0 || q[3] == 0) {
+                EnsureHazardShapes();
+                return false;
+            }
+        }
+    }
+
+    std::memcpy(gHazards, got, sizeof(gHazards));
+    gHazardsReady = true;
+    return true;
+}
+
+int HazardAsset(int kind) {
+    EnsureHazardShapes();
+    if (kind < 0 || kind >= HazardKindCount) return 0;
+    return gHazards[kind].asset - 1;
+}
+
+const HazardRect& HazardRectFor(int kind, int phase) {
+    EnsureHazardShapes();
+    static const HazardRect kNone;
+    if (kind < 0 || kind >= HazardKindCount) return kNone;
+    if (phase < 0 || phase >= HAZARD_PHASES) return kNone;
+    return gHazards[kind].phase[phase];
 }
 
 }
