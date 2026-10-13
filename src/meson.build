@@ -198,6 +198,9 @@ cpp_sources = files(
     'audio/pc_speaker_sfx.cpp',
     'audio/adlib_music.cpp',
     'audio/sr2_mus.cpp',
+    'audio/c64_sid.cpp',
+    'audio/c64_music.cpp',
+    'audio/c64_engine.cpp',
     'audio/engine_sound.cpp',
     'audio/pc_speaker.cpp',
     'ui/button.cpp',
@@ -346,6 +349,30 @@ if debug_ui_enabled
 else
     game_extra_deps = []
 endif
+
+# reSID + mos6502 (vendored) for the C64 SID music. Optimised even in debug builds: they run every audio callback.
+c64_emu_lib = static_library(
+    'c64_emu',
+    files(
+        'include' / 'mos6502' / 'mos6502.cpp',
+        'include' / 'resid' / 'sid.cc',
+        'include' / 'resid' / 'voice.cc',
+        'include' / 'resid' / 'wave.cc',
+        'include' / 'resid' / 'envelope.cc',
+        'include' / 'resid' / 'filter.cc',
+        'include' / 'resid' / 'extfilt.cc',
+        'include' / 'resid' / 'pot.cc',
+        'include' / 'resid' / 'dac.cc',
+        'include' / 'resid' / 'version.cc',
+    ),
+    include_directories: include_directories('include', 'include' / 'resid'),
+    cpp_args: ['-O2', '-DVERSION="1.0"'],
+    override_options: ['warning_level=0', 'optimization=2'],
+)
+c64_emu_dep = declare_dependency(
+    link_with: c64_emu_lib,
+    include_directories: include_directories('include', 'include' / 'resid'),
+)
 
 exepack_inc = include_directories('include/exepack/include')
 exepack_cpp_lib = static_library(

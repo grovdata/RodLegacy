@@ -5,7 +5,7 @@ It aims to stay true to the originals, with some enhancements:
 
 - Play the Amiga versions but with glorious framerate and instant loading times!
 - Mix the car sets: play Street Rod 2 with the Street Rod and Street Rod SE cars too, or Street Rod with the SE cars
-- Pick a soundtrack: Amiga, AdLib or PC speaker
+- Pick a soundtrack: Amiga, AdLib, C64 or PC speaker
 - Load original save files
 - Gamepad controls
 - Hill occlusion in races
@@ -35,6 +35,7 @@ Start RodLegacy and point it to the folder holding the zips. You need at least o
 | `sr1pc.zip` | Optional: Street Rod's DOS PC speaker music |
 | `sr2pc.zip` | Optional: Street Rod 2's AdLib music and sounds, and its PC speaker sounds |
 | `srsepc.zip` | Optional: the DOS SE cars and stickers |
+| `sr1commodore.zip` | Optional: Commodore 64 SID music and sound effects |
 
 If both games are present, RodLegacy asks which to play at startup.
 
@@ -155,6 +156,8 @@ RodLegacy uses these fine libraries:
  - [miniz](https://github.com/richgel999/miniz)
  - [1-bit keyboard/gamepad button icons by ansdor](https://ansdor.itch.io/button-icons)
  - [Nuked-OPL3](https://github.com/nukeykt/Nuked-OPL3)
+ - [reSID](https://vice-emu.sourceforge.io/) (from VICE)
+ - [mos6502](https://github.com/gianlucag/mos6502)
 
 # License
 

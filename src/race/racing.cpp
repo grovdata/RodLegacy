@@ -1149,6 +1149,7 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
 
     if (audioManager) {
         audioManager->UpdateEnginePitch(sim.Player().rpm);
+        audioManager->SetOffRoad(engineSoundStarted && sim.Player().offRoad && sim.Player().speed >= 16);
     }
 
     if (SDL_LockSurface(pixels) != 0) {

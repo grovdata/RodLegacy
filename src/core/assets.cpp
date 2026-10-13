@@ -365,6 +365,14 @@ void AssetManager::InitAudio(bool muteAudio) {
                 LOG_INFO("AdLib music: %d songs loaded", loaded);
             }
         }
+
+        // The C64 soundtrack: the player PRGs on STREETR1.D64, loose or inside sr1commodore.zip.
+        const fs::path d64Path = gameBasePath / "STREETR1.D64";
+        const fs::path c64Zip  = gameBasePath / "sr1commodore.zip";
+        if (fs::exists(d64Path) || fs::exists(c64Zip)) {
+            byte_vector d64 = LoadDosDataFile(d64Path, c64Zip, "STREETR1.D64", "C64 music");
+            if (!d64.empty()) audioManager->InitC64Music(d64);
+        }
     }
 }
 
@@ -968,6 +976,7 @@ static AudioManager::MusicSource DefaultMusicSource(AudioManager* am) {
     if (am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
     if (am->HasAdlibMusic()) return AudioManager::MusicSource::ADLIB;
+    if (am->HasC64Music())   return AudioManager::MusicSource::C64;
     return AudioManager::MusicSource::NONE;
 }
 
@@ -975,6 +984,7 @@ static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioMan
     if (s == "amiga" && am->HasAmigaMusic()) return AudioManager::MusicSource::AMIGA;
     if (s == "dos"   && am->HasPCSpeaker())  return AudioManager::MusicSource::DOS;
     if (s == "adlib" && am->HasAdlibMusic()) return AudioManager::MusicSource::ADLIB;
+    if (s == "c64"   && am->HasC64Music())   return AudioManager::MusicSource::C64;
     return DefaultMusicSource(am);
 }
 
@@ -983,6 +993,7 @@ static AudioManager::MusicSource ParseMusicSource(const std::string& s, AudioMan
 static AudioManager::EngineSource ParseEngineSource(const std::string& s) {
     if (s == "adlib") return AudioManager::EngineSource::ADLIB;
     if (s == "pcspeaker") return AudioManager::EngineSource::PCSPEAKER;
+    if (s == "c64") return AudioManager::EngineSource::C64;
     return AudioManager::EngineSource::AMIGA;
 }
 
@@ -990,6 +1001,7 @@ static std::string EngineSourceName(AudioManager::EngineSource src) {
     switch (src) {
         case AudioManager::EngineSource::ADLIB:     return "adlib";
         case AudioManager::EngineSource::PCSPEAKER: return "pcspeaker";
+        case AudioManager::EngineSource::C64:       return "c64";
         default:                                    return "amiga";
     }
 }
@@ -999,6 +1011,7 @@ static std::string MusicSourceName(AudioManager::MusicSource src) {
         case AudioManager::MusicSource::AMIGA: return "amiga";
         case AudioManager::MusicSource::DOS:   return "dos";
         case AudioManager::MusicSource::ADLIB: return "adlib";
+        case AudioManager::MusicSource::C64:   return "c64";
         default:                               return "none";
     }
 }
@@ -1077,6 +1090,8 @@ void AssetManager::LoadSettings() {
                 audioManager->SetSfxSource(AudioManager::SfxSource::PCSPEAKER);
             } else if (it != kv.end() && it->second == "adlib") {
                 audioManager->SetSfxSource(AudioManager::SfxSource::ADLIB);
+            } else if (it != kv.end() && it->second == "c64") {
+                audioManager->SetSfxSource(AudioManager::SfxSource::C64);
             }
         }
     } catch (...) {}
@@ -1105,6 +1120,7 @@ void AssetManager::SaveSettings() {
         kv["engine_source"] = EngineSourceName(audioManager->GetEngineSource());
         kv["sfx_source"]    = audioManager->GetSfxSource() == AudioManager::SfxSource::PCSPEAKER ? "pcspeaker"
                             : audioManager->GetSfxSource() == AudioManager::SfxSource::ADLIB   ? "adlib"
+                            : audioManager->GetSfxSource() == AudioManager::SfxSource::C64     ? "c64"
                                                                                                 : "amiga";
     }
     kv["debug_show_zone_overlays"] = debugShowZoneOverlays ? "1" : "0";

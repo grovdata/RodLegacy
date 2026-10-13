@@ -178,6 +178,7 @@ static const char* MusicSourceLabel(AudioManager::MusicSource src) {
     switch (src) {
         case AudioManager::MusicSource::DOS:   return "PC spkr";
         case AudioManager::MusicSource::ADLIB: return "AdLib";
+        case AudioManager::MusicSource::C64:   return "C64";
         case AudioManager::MusicSource::AMIGA: return "Amiga";
         default:                               return "None";
     }
@@ -449,6 +450,7 @@ static const char* EngineSourceLabel(AudioManager::EngineSource src) {
     switch (src) {
         case AudioManager::EngineSource::ADLIB:     return "AdLib";
         case AudioManager::EngineSource::PCSPEAKER: return "PC spkr";
+        case AudioManager::EngineSource::C64:       return "C64";
         default:                                    return "Amiga";
     }
 }
@@ -468,6 +470,7 @@ void Garage::InitSoundDialog() {
     if (am->HasAmigaMusic()) musicSources.push_back(AudioManager::MusicSource::AMIGA);
     if (am->HasPCSpeaker())  musicSources.push_back(AudioManager::MusicSource::DOS);
     if (am->HasAdlibMusic()) musicSources.push_back(AudioManager::MusicSource::ADLIB);
+    if (am->HasC64Music())   musicSources.push_back(AudioManager::MusicSource::C64);
 
     SDL_Rect rect = {60, 24, 200, 0};
     const int pad = 5;
@@ -511,11 +514,12 @@ void Garage::InitSoundDialog() {
     if (!musicSources.empty()) {
         choiceRow("Soundtrack:", "music_source", "Switch music version", MusicSourceLabel(am->GetMusicSource()), 4);
     }
-    choiceRow("Engine:", "engine_source", "Amiga sample, Street Rod 2's AdLib or Street Rod's PC speaker",
+    choiceRow("Engine:", "engine_source", "Amiga sample, Street Rod 2's AdLib, Street Rod's PC speaker or the C64",
               EngineSourceLabel(am->GetEngineSource()), 5);
-    choiceRow("Effects:", "sfx_source", "Amiga samples, Street Rod's PC speaker or Street Rod 2's AdLib",
+    choiceRow("Effects:", "sfx_source", "Amiga samples, Street Rod's PC speaker, Street Rod 2's AdLib or the C64",
               am->GetSfxSource() == AudioManager::SfxSource::PCSPEAKER ? "PC spkr"
               : am->GetSfxSource() == AudioManager::SfxSource::ADLIB   ? "AdLib"
+              : am->GetSfxSource() == AudioManager::SfxSource::C64     ? "C64"
                                                                         : "Amiga", 7);
 
     SDL_Rect backRect = {innerRight - buttonWidth, rowY(buttonHeight), buttonWidth, buttonHeight};
@@ -559,6 +563,10 @@ void Garage::InitSoundDialog() {
                 switch (am->GetEngineSource()) {
                     case AudioManager::EngineSource::AMIGA: am->SetEngineSource(AudioManager::EngineSource::ADLIB); break;
                     case AudioManager::EngineSource::ADLIB: am->SetEngineSource(AudioManager::EngineSource::PCSPEAKER); break;
+                    case AudioManager::EngineSource::PCSPEAKER:
+                        am->SetEngineSource(am->HasC64Engine() ? AudioManager::EngineSource::C64
+                                                               : AudioManager::EngineSource::AMIGA);
+                        break;
                     default:                                am->SetEngineSource(AudioManager::EngineSource::AMIGA); break;
                 }
                 break;
@@ -567,7 +575,12 @@ void Garage::InitSoundDialog() {
                     case AudioManager::SfxSource::AMIGA: am->SetSfxSource(AudioManager::SfxSource::PCSPEAKER); break;
                     case AudioManager::SfxSource::PCSPEAKER:
                         am->SetSfxSource(am->HasAdlibSfx() ? AudioManager::SfxSource::ADLIB
+                                     : am->HasC64Sfx()     ? AudioManager::SfxSource::C64
                                                            : AudioManager::SfxSource::AMIGA);
+                        break;
+                    case AudioManager::SfxSource::ADLIB:
+                        am->SetSfxSource(am->HasC64Sfx() ? AudioManager::SfxSource::C64
+                                                         : AudioManager::SfxSource::AMIGA);
                         break;
                     default: am->SetSfxSource(AudioManager::SfxSource::AMIGA); break;
                 }

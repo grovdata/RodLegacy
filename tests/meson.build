@@ -52,7 +52,9 @@ test_sources = [
     'test_sr2_end_script.cpp',
     'test_config_packs.cpp',
     'test_sr2_mus.cpp',
+    'test_c64_sid.cpp',
     '../src/audio/sr2_mus.cpp',
+    '../src/audio/c64_sid.cpp',
     '../src/scenes/intro_player.cpp',
     '../src/scenes/sr2_end_script.cpp',
     '../src/car/engine_bay_layout.cpp',
@@ -84,7 +86,7 @@ test_exe = executable('test_libp',
     include_directories: test_inc,
     # SDL headers only (SDL_Rect/SDL_Point in engine_bay_layout.h); linking
     # SDL into a test binary would drag in its main() shim.
-    dependencies: [lodepng_test_dep,
+    dependencies: [lodepng_test_dep, c64_emu_dep,
                    sdl2_dep.partial_dependency(includes: true, compile_args: true)],
     cpp_args: ['-std=c++17', '-O0'],
 )

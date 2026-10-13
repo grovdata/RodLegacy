@@ -23,6 +23,9 @@ class AdlibEngine;
 class PcSpeakerSfx;
 class AdlibSfx;
 class AdlibMusic;
+class C64Music;
+class C64Sfx;
+class C64Engine;
 class EngineSound;
 class AmigaMusic;
 
@@ -96,15 +99,19 @@ public:
     void StopLoop(int channelId);
 
     void UpdateEnginePitch(int16_t rpm);
+    // The C64 off-road loop (me.o $8A12); other sources have no off-road sound.
+    void SetOffRoad(bool offRoad);
 
     // Which engine sound plays.
-    enum class EngineSource { AMIGA, ADLIB, PCSPEAKER };
+    enum class EngineSource { AMIGA, ADLIB, PCSPEAKER, C64 };
+    bool HasC64Engine() const { return !c64SfxPrg_.empty(); }
     void SetEngineSource(EngineSource src);
     EngineSource GetEngineSource() const { return engineSource_; }
     // Which one-shots, siren and squeal play: the Amiga samples or the DOS PC speaker's.
-    enum class SfxSource { AMIGA, PCSPEAKER, ADLIB };
+    enum class SfxSource { AMIGA, PCSPEAKER, ADLIB, C64 };
     // Street Rod 2's AdLib effects need its MSR.SND bank.
     bool HasAdlibSfx() const { return !adlibBank_.empty(); }
+    bool HasC64Sfx() const { return !c64SfxPrg_.empty(); }
     // The PC speaker's engine follows the game being played.
     void SetSr2Game(bool sr2) { sr2Game_ = sr2; }
     // One sound through the given source, whatever the setting (the sound debug scene).
@@ -142,7 +149,7 @@ public:
     void SetChannelVolume(int channelId, float volume);
 
     // Which music source is currently active.
-    enum class MusicSource { NONE, DOS, AMIGA, ADLIB };
+    enum class MusicSource { NONE, DOS, AMIGA, ADLIB, C64 };
 
     // Does not start playback; call SetMusicSource() afterwards.
     void InitAmigaMusic(const uint8_t* disk1AdfData, size_t disk1AdfSize, bool sr2 = false);
@@ -159,6 +166,10 @@ public:
     // MSR21, played when the King's road race is won rather than in rotation.
     bool SetAdlibVictorySong(const std::string& name, const uint8_t* musData, size_t musSize);
     bool HasAdlibMusic() const;
+
+    // The C64 soundtrack, its driver PRGs read out of STREETR1.D64.
+    bool InitC64Music(const std::vector<uint8_t>& d64);
+    bool HasC64Music() const;
 
     void PlayVictoryMusic();
 
@@ -218,6 +229,7 @@ private:
     std::unique_ptr<AmigaMusic> amigaMusic_;
     // SR2 AdLib music (optional -- requires MSR.SND and the .MUS files)
     std::unique_ptr<AdlibMusic> adlibMusic_;
+    std::unique_ptr<C64Music> c64Music_;
     MusicSource musicSource_ = MusicSource::NONE;
 
     std::unique_ptr<PCSpeaker> pcSpeaker_;
@@ -242,6 +254,14 @@ private:
     std::unique_ptr<AdlibSfx> adlibSfx_;
     AdlibSfx* AdlibEffects();
     bool PlayOnAdlib(AudioSampleType type, double seconds);
+    std::vector<uint8_t> c64SfxPrg_;   // seqgar1, whose bank holds the effects
+    std::unique_ptr<C64Sfx> c64Sfx_;
+    std::unique_ptr<C64Engine> c64Engine_;
+    bool c64ScenePending_ = false;   // a scene loop started; its first distance says driving in or out
+    bool c64Scene_ = false;          // the drive in / out effect runs to its own end
+    bool c64OffRoad_ = false;        // SFX 18 looping; it holds the effect voice over the siren
+    C64Sfx* C64Effects();
+    void PlayOnC64(AudioSampleType type, double seconds);
     std::vector<pcspk::LoopSong> pcLoops_;
     // The Amiga engine sample re-pitched as another machine (gas pump, tyre roll), whatever the engine source.
     void StartSampleLoop(int16_t left, int16_t right, float volume);

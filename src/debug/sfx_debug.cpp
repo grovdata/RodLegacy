@@ -40,9 +40,10 @@ void SfxDebug::Init(bool debugMode) {
     const Spec specs[] = {
         {{8, 150, 26, 16}, "<", [this] { Cycle(-1); }},
         {{38, 150, 26, 16}, ">", [this] { Cycle(1); }},
-        {{80, 150, 72, 16}, "Amiga", [this] { Play(AudioManager::SfxSource::AMIGA); }},
-        {{158, 150, 72, 16}, "PC spkr", [this] { Play(AudioManager::SfxSource::PCSPEAKER); }},
-        {{236, 150, 72, 16}, "AdLib", [this] { Play(AudioManager::SfxSource::ADLIB); }},
+        {{70, 150, 56, 16}, "Amiga", [this] { Play(AudioManager::SfxSource::AMIGA); }},
+        {{130, 150, 56, 16}, "PC spkr", [this] { Play(AudioManager::SfxSource::PCSPEAKER); }},
+        {{190, 150, 56, 16}, "AdLib", [this] { Play(AudioManager::SfxSource::ADLIB); }},
+        {{250, 150, 56, 16}, "C64", [this] { Play(AudioManager::SfxSource::C64); }},
     };
     buttons.clear();
     for (const Spec& s : specs) {
@@ -56,7 +57,7 @@ void SfxDebug::Init(bool debugMode) {
     SFont_Font* font = state.GetAssets().GetMainFont();
     nameLabel.Init(font, 8, 60, kWhite);
     hintLabel.Init(font, 8, 120, kWhite);
-    hintLabel.SetText("Left/Right: sound   A / P / D: play");
+    hintLabel.SetText("Left/Right: sound   A / P / D / C: play");
     RefreshLabels();
 }
 
@@ -88,6 +89,7 @@ bool SfxDebug::PushEvent(SDL_Event* event) {
             case SDLK_a:     Play(AudioManager::SfxSource::AMIGA); return true;
             case SDLK_p:     Play(AudioManager::SfxSource::PCSPEAKER); return true;
             case SDLK_d:     Play(AudioManager::SfxSource::ADLIB); return true;
+            case SDLK_c:     Play(AudioManager::SfxSource::C64); return true;
             default: break;
         }
     }

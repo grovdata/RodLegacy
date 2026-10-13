@@ -4,6 +4,8 @@
 
 #include "audio/adlib_engine.h"
 #include "audio/adlib_music.h"
+#include "audio/c64_engine.h"
+#include "audio/c64_music.h"
 #include "audio/amiga_music.h"
 #include "audio/engine_sound.h"
 #include "audio/pc_speaker.h"
@@ -105,6 +107,12 @@ void AudioManager::Shutdown() {
         adlibMusic_.reset();
     }
 
+    if (c64Music_) {
+        c64Music_->Stop();
+        c64Music_->Shutdown();
+        c64Music_.reset();
+    }
+
     if (engineSound) {
         engineSound->Shutdown();
         engineSound.reset();
@@ -122,6 +130,31 @@ bool AudioManager::HasAmigaMusic() const { return amigaMusic_ != nullptr; }
 
 bool AudioManager::HasAdlibMusic() const {
     return adlibMusic_ && adlibMusic_->SongCount() > 0;
+}
+
+bool AudioManager::HasC64Music() const {
+    return c64Music_ && c64Music_->SongCount() > 0;
+}
+
+bool AudioManager::InitC64Music(const std::vector<uint8_t>& d64) {
+    auto music = std::make_unique<C64Music>();
+    struct Prg { const char* file; const char* label; };
+    static const Prg kSongs[] = {{"seqbeg", "Intro"}, {"seqgar1", "Song 1"}, {"seqgar2", "Song 2"}};
+    for (const Prg& song : kSongs) {
+        if (!music->AddSong(song.label, c64::D64ExtractPrg(d64.data(), d64.size(), song.file)))
+            LOG_INFO("C64Music: %s missing or not recognized, skipped", song.file);
+    }
+    if (!music->SetVictorySong("Victory", c64::D64ExtractPrg(d64.data(), d64.size(), "wseq.o")))
+        LOG_INFO("C64Music: wseq.o missing or not recognized, no win piece");
+    if (music->SongCount() == 0 || !music->Init()) {
+        LOG_INFO("C64Music: no C64 music");
+        return false;
+    }
+    c64SfxPrg_ = c64::D64ExtractPrg(d64.data(), d64.size(), "seqgar1");
+    music->SetVolume(0.0f);   // volume applied when SetMusicSource selects C64
+    c64Music_ = std::move(music);
+    LOG_INFO("C64Music: %d songs loaded", c64Music_->SongCount());
+    return true;
 }
 
 bool AudioManager::InitAdlibMusic(const uint8_t* sndData, size_t sndSize) {
@@ -169,10 +202,16 @@ void AudioManager::PlayVictoryMusic() {
         adlibMusic_->PlayVictorySong();
         return;
     }
+    if (musicSource_ == MusicSource::C64 && c64Music_ && c64Music_->HasVictorySong()) {
+        c64Music_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
+        c64Music_->PlayVictorySong();
+        return;
+    }
     if (!amigaMusic_) return;
     musicSource_ = MusicSource::AMIGA;
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (adlibMusic_) adlibMusic_->Stop();
+    if (c64Music_) c64Music_->Stop();
     amigaMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
     // Instrument and note-volume presets for the victory piece.
     static const int kVictoryInstruments[4] = {0, 5, 1, 2};
@@ -250,6 +289,7 @@ void AudioManager::SetMusicSource(MusicSource src, bool start) {
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
     if (adlibMusic_) adlibMusic_->Stop();
+    if (c64Music_) c64Music_->Stop();
 
     musicSource_ = src;
     if (!start) return;
@@ -272,6 +312,12 @@ void AudioManager::SetMusicSource(MusicSource src, bool start) {
             if (HasAdlibMusic()) {
                 adlibMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
                 adlibMusic_->Play();
+            }
+            break;
+        case MusicSource::C64:
+            if (HasC64Music()) {
+                c64Music_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
+                c64Music_->Play();
             }
             break;
         case MusicSource::NONE:
@@ -671,6 +717,35 @@ bool AudioManager::PlayOnAdlib(AudioSampleType type, double seconds) {
     }
 }
 
+C64Sfx* AudioManager::C64Effects() {
+    if (!c64Sfx_ && !c64SfxPrg_.empty()) {
+        auto fx = std::make_unique<C64Sfx>();
+        if (!fx->Init(c64SfxPrg_)) return nullptr;
+        fx->SetVolume(sfxVolume_ / 10.0f);
+        c64Sfx_ = std::move(fx);
+    }
+    return c64Sfx_.get();
+}
+
+// The C64 effects identified so far (RodLegacyResearch/docs/c64/sfx.md). The rest are silent.
+void AudioManager::PlayOnC64(AudioSampleType type, double seconds) {
+    C64Sfx* fx = C64Effects();
+    if (!fx) return;
+    switch (type) {
+        case AudioSampleType::CRASH:       fx->Play(9); break;
+        case AudioSampleType::COP_SIREN:
+            if (!c64OffRoad_) fx->Play(8, seconds);
+            break;
+        case AudioSampleType::PAINT_SPRAY: fx->Play(4, 0xE0 / 50.0); break;   // garq $6AC6 holds it $E0 frames
+        case AudioSampleType::PART_MOUNT:  fx->Play(6); break;
+        // The garage's bash is the roof/bumper customize sound; in the race it is the bump into a car (17).
+        case AudioSampleType::CAR_BASH:
+            fx->Play(engineLoopWanted_ && lastEnginePeriod_ == 0 ? 17 : 3);
+            break;
+        default: break;
+    }
+}
+
 void AudioManager::PlaySoundVia(SfxSource src, AudioSampleType type) {
     if (src == SfxSource::ADLIB && !AdlibEffects()) return;
     const SfxSource saved = sfxSource_;
@@ -684,9 +759,14 @@ void AudioManager::SetSfxSource(SfxSource src) {
         LOG_WARN("AdLib effects unavailable (no MSR.SND), keeping the current ones");
         return;
     }
+    if (src == SfxSource::C64 && !C64Effects()) {
+        LOG_WARN("C64 effects unavailable (no STREETR1.D64), keeping the current ones");
+        return;
+    }
     sfxSource_ = src;
     LOG_INFO("AudioManager: effects source is %s",
-             src == SfxSource::PCSPEAKER ? "pc speaker" : src == SfxSource::ADLIB ? "adlib" : "amiga");
+             src == SfxSource::PCSPEAKER ? "pc speaker" : src == SfxSource::ADLIB ? "adlib"
+             : src == SfxSource::C64 ? "c64" : "amiga");
 }
 
 void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateOverride) {
@@ -734,6 +814,15 @@ void AudioManager::PlaySound(AudioSampleType type, float volume, int sampleRateO
             seconds = static_cast<double>(it->second.data.size()) / std::max(rate, 1);
         }
         if (PlayOnAdlib(type, seconds)) return;
+    }
+    if (sfxSource_ == SfxSource::C64) {
+        double seconds = 0.5;
+        if (it != samples.end() && !it->second.data.empty()) {
+            const int rate = sampleRateOverride > 0 ? sampleRateOverride : static_cast<int>(it->second.sampleRate);
+            seconds = static_cast<double>(it->second.data.size()) / std::max(rate, 1);
+        }
+        PlayOnC64(type, seconds);   // sounds the C64 has no effect for stay silent
+        return;
     }
     if (it == samples.end() || it->second.data.empty()) {
         if (reportedMissing.insert(static_cast<int>(type)).second) {
@@ -812,6 +901,18 @@ int AudioManager::StartLoop(AudioSampleType type, float volume) {
         }
         return 0;
     }
+    if (type == AudioSampleType::ENGINE_LOOP && engineSource_ == EngineSource::C64) {
+        engineLoopWanted_ = true;
+        if (c64Engine_) {
+            c64ScenePending_ = lastEnginePeriod_ > 0;
+            if (!c64ScenePending_) {
+                c64Scene_ = false;
+                c64Engine_->StartRace();
+                c64Engine_->SetRpm(currentRPM);
+            }
+        }
+        return 0;
+    }
     if (type == AudioSampleType::ENGINE_LOOP && engineSound) {
         engineLoopWanted_ = true;
         if (AudioSample* loop = GetSample(AudioSampleType::ENGINE_LOOP)) {
@@ -833,8 +934,13 @@ void AudioManager::StopLoop(int channelId) {
         return;
     }
     engineLoopWanted_ = false;
+    SetOffRoad(false);
     if (adlibEngine) {
         adlibEngine->Stop();
+    }
+    c64ScenePending_ = false;
+    if (c64Engine_ && !c64Scene_) {
+        c64Engine_->Stop();
     }
     if (engineSound) {
         engineSound->Stop();
@@ -857,8 +963,28 @@ void AudioManager::UpdateEnginePitch(int16_t rpm) {
         if (pcSpeakerSfx_) {
             pcSpeakerSfx_->SetRpm(rpm);
         }
+    } else if (engineSource_ == EngineSource::C64) {
+        if (c64Engine_) {
+            // StartLoop saw a stale scene period and waited for a scene; the race takes the voice here.
+            if (engineLoopWanted_ && (c64ScenePending_ || c64Scene_)) {
+                c64ScenePending_ = false;
+                c64Scene_ = false;
+                c64Engine_->StartRace();
+            }
+            c64Engine_->SetRpm(rpm);
+        }
     } else if (engineSound) {
         engineSound->UpdateRPM(rpm);
+    }
+}
+
+void AudioManager::SetOffRoad(bool offRoad) {
+    if (offRoad == c64OffRoad_) return;
+    c64OffRoad_ = offRoad;
+    if (sfxSource_ != SfxSource::C64) return;
+    if (C64Sfx* fx = C64Effects()) {
+        if (offRoad) fx->Play(18);
+        else fx->Stop();
     }
 }
 
@@ -888,21 +1014,33 @@ void AudioManager::SetEngineSource(EngineSource src) {
         LOG_WARN("PC speaker engine sound unavailable, keeping the current one");
         return;
     }
+    if (src == EngineSource::C64 && !c64Engine_) {
+        auto engine = std::make_unique<C64Engine>();
+        if (c64SfxPrg_.empty() || !engine->Init(c64SfxPrg_)) {
+            LOG_WARN("C64 engine sound unavailable (no STREETR1.D64), keeping the current one");
+            return;
+        }
+        engine->SetVolume(sfxVolume_ / 10.0f);
+        c64Engine_ = std::move(engine);
+    }
     // Only one may run, and a running loop is handed over.
     const bool running = engineLoopWanted_;
     if (adlibEngine) adlibEngine->Stop();
     if (engineSound) engineSound->Stop();
     if (pcSpeakerSfx_) pcSpeakerSfx_->StopEngine();
+    if (c64Engine_) c64Engine_->Stop();
     engineSource_ = src;
     if (running) {
         if (src == EngineSource::ADLIB) adlibEngine->Start();
         else if (src == EngineSource::PCSPEAKER) pcSpeakerSfx_->StartEngine();
+        else if (src == EngineSource::C64 && lastEnginePeriod_ == 0) c64Engine_->StartRace();
         else if (engineSound) engineSound->Start();
         if (lastEnginePeriod_ > 0) UpdateEnginePeriod(lastEnginePeriod_, lastEngineVolume_);
         else UpdateEnginePitch(currentRPM);
     }
     LOG_INFO("AudioManager: engine sound source is %s",
-             src == EngineSource::ADLIB ? "adlib" : src == EngineSource::PCSPEAKER ? "pc speaker" : "amiga");
+             src == EngineSource::ADLIB ? "adlib" : src == EngineSource::PCSPEAKER ? "pc speaker"
+             : src == EngineSource::C64 ? "c64" : "amiga");
 }
 
 void AudioManager::UpdateEnginePeriod(int16_t period, int paulaVolume) {
@@ -910,6 +1048,8 @@ void AudioManager::UpdateEnginePeriod(int16_t period, int paulaVolume) {
     currentRPM = static_cast<int16_t>(EngineSound::PeriodToRPM(period));
     lastEnginePeriod_ = period;
     lastEngineVolume_ = paulaVolume;
+    // The C64 plays a whole drive in / out effect instead of following the car.
+    if (engineSource_ == EngineSource::C64) return;
     if (engineSource_ != EngineSource::AMIGA) {
         UpdateEngineDistance(sceneDistance_);
         return;
@@ -922,6 +1062,13 @@ void AudioManager::UpdateEnginePeriod(int16_t period, int paulaVolume) {
 // The DOS games pitch the animation engine on the car's distance from its parking spot, not on a period.
 void AudioManager::UpdateEngineDistance(int px) {
     sceneDistance_ = px;
+    // Leaving starts at the parked spot, arriving far from it.
+    if (engineSource_ == EngineSource::C64 && c64Engine_ && c64ScenePending_) {
+        c64ScenePending_ = false;
+        c64Scene_ = true;
+        c64Engine_->PlayScene(std::abs(px) >= 20);
+        return;
+    }
     const int tone = pcspk::AnimationTone(px);
     if (engineSource_ == EngineSource::PCSPEAKER && pcSpeakerSfx_) {
         pcSpeakerSfx_->SetSceneDivisor(static_cast<uint16_t>(60000 - tone));
@@ -935,6 +1082,12 @@ void AudioManager::PlayBayIgnition() {
 }
 
 void AudioManager::StartEngineBayDrone(int tuneOffset) {
+    if (engineSource_ == EngineSource::C64 && c64Engine_) {
+        engineLoopWanted_ = true;
+        c64Scene_ = false;
+        c64Engine_->StartBay(tuneOffset);
+        return;
+    }
     if (engineSource_ == EngineSource::PCSPEAKER) {
         SetEngineBayTune(tuneOffset);
         return;
@@ -947,6 +1100,10 @@ void AudioManager::StartEngineBayDrone(int tuneOffset) {
 }
 
 void AudioManager::SetEngineBayTune(int tuneOffset) {
+    if (engineSource_ == EngineSource::C64 && c64Engine_) {
+        c64Engine_->SetBayTune(tuneOffset);
+        return;
+    }
     // The DOS tune-up screen's tone, its setting runs -8..4.
     if (engineSource_ == EngineSource::PCSPEAKER) {
         if (PcSpeakerSfx* speaker = Speaker()) {
@@ -1030,6 +1187,7 @@ void AudioManager::StopMusicPlayback() {
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
     if (adlibMusic_) adlibMusic_->Stop();
+    if (c64Music_) c64Music_->Stop();
 }
 
 void AudioManager::SetChannelVolume(int /*channelId*/, float /*volume*/) {
@@ -1164,6 +1322,11 @@ void AudioManager::UpdateMusic() {
         if (!adlibMusic_->ConsumeLoopFlag()) return;
         adlibMusic_->SetSong(PickOtherSong(adlibMusic_->SongCount(), adlibMusic_->CurrentSong()));
     }
+    if (musicSource_ == MusicSource::C64 && HasC64Music()) {
+        if (c64Music_->SongCount() < 2) return;
+        if (!c64Music_->ConsumeLoopFlag()) return;
+        c64Music_->SetSong(PickOtherSong(c64Music_->SongCount(), c64Music_->CurrentSong()));
+    }
 }
 
 void AudioManager::NextPCSong() {
@@ -1209,6 +1372,7 @@ bool AudioManager::HasActiveMusic() const {
     if (musicSource_ == MusicSource::DOS)   return HasPCSpeaker();
     if (musicSource_ == MusicSource::AMIGA) return HasAmigaMusic();
     if (musicSource_ == MusicSource::ADLIB) return HasAdlibMusic();
+    if (musicSource_ == MusicSource::C64)   return HasC64Music();
     return false;
 }
 
@@ -1218,6 +1382,10 @@ void AudioManager::NextSong() {
         adlibMusic_->SetSong(adlibMusic_->CurrentSong() + 1);
         adlibMusic_->Play();
     }
+    if (musicSource_ == MusicSource::C64 && HasC64Music()) {
+        c64Music_->SetSong(c64Music_->CurrentSong() + 1);
+        c64Music_->Play();
+    }
 }
 
 void AudioManager::PrevSong() {
@@ -1226,18 +1394,24 @@ void AudioManager::PrevSong() {
         adlibMusic_->SetSong(adlibMusic_->CurrentSong() - 1);
         adlibMusic_->Play();
     }
+    if (musicSource_ == MusicSource::C64 && HasC64Music()) {
+        c64Music_->SetSong(c64Music_->CurrentSong() - 1);
+        c64Music_->Play();
+    }
 }
 
 void AudioManager::PauseMusic() {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Pause();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Pause();
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) adlibMusic_->Pause();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   c64Music_->Pause();
 }
 
 void AudioManager::ResumeMusic() {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  pcSpeaker_->Resume();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) amigaMusic_->Resume();
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) adlibMusic_->Resume();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   c64Music_->Resume();
 }
 
 void AudioManager::PauseAll() {
@@ -1250,8 +1424,10 @@ void AudioManager::PauseAll() {
         audioDevice,
         engineSound ? engineSound->Device() : 0,
         adlibEngine ? adlibEngine->Device() : 0,
+        c64Engine_ ? c64Engine_->Device() : 0,
         pcSpeakerSfx_ ? pcSpeakerSfx_->Device() : 0,
         adlibSfx_ ? adlibSfx_->Device() : 0,
+        c64Sfx_ ? c64Sfx_->Device() : 0,
     };
     pausedDevices_.clear();
     for (SDL_AudioDeviceID id : devices) {
@@ -1274,6 +1450,7 @@ bool AudioManager::IsMusicPaused() const {
     if (musicSource_ == MusicSource::DOS   && pcSpeaker_)  return pcSpeaker_->IsPaused();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return amigaMusic_->IsPaused();
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->IsPaused();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   return c64Music_->IsPaused();
     return false;
 }
 
@@ -1281,12 +1458,14 @@ std::string AudioManager::GetCurrentSongName() const {
     if (musicSource_ == MusicSource::DOS)   return GetCurrentPCSongName();
     if (musicSource_ == MusicSource::AMIGA) return "Amiga Music";
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->CurrentSongName();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   return c64Music_->CurrentSongName();
     return "";
 }
 
 int AudioManager::GetCurrentSongIndex() const {
     if (musicSource_ == MusicSource::DOS) return GetCurrentPCSongIndex();
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->CurrentSong();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   return c64Music_->CurrentSong();
     return 0;
 }
 
@@ -1294,6 +1473,7 @@ int AudioManager::GetSongCount() const {
     if (musicSource_ == MusicSource::DOS) return GetPCSongCount();
     if (musicSource_ == MusicSource::AMIGA && amigaMusic_) return 1;
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_) return adlibMusic_->SongCount();
+    if (musicSource_ == MusicSource::C64   && c64Music_)   return c64Music_->SongCount();
     return 0;
 }
 
@@ -1303,10 +1483,14 @@ void AudioManager::SetSfxVolume(int v) {
         engineSound->SetVolume(sfxVolume_ / 10.0f);
     if (adlibEngine)
         adlibEngine->SetVolume(sfxVolume_ / 10.0f);
+    if (c64Engine_)
+        c64Engine_->SetVolume(sfxVolume_ / 10.0f);
     if (pcSpeakerSfx_)
         pcSpeakerSfx_->SetVolume(sfxVolume_ / 10.0f);
     if (adlibSfx_)
         adlibSfx_->SetVolume(sfxVolume_ / 10.0f);
+    if (c64Sfx_)
+        c64Sfx_->SetVolume(sfxVolume_ / 10.0f);
 }
 
 void AudioManager::SetMusicVolume(int v) {
@@ -1318,6 +1502,8 @@ void AudioManager::SetMusicVolume(int v) {
         amigaMusic_->SetVolume(musicVolume_ / 10.0f);
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_)
         adlibMusic_->SetVolume(musicVolume_ / 10.0f);
+    if (musicSource_ == MusicSource::C64 && c64Music_)
+        c64Music_->SetVolume(musicVolume_ / 10.0f);
 }
 
 void AudioManager::SetMusicMuted(bool muted) {
@@ -1326,6 +1512,7 @@ void AudioManager::SetMusicMuted(bool muted) {
         if (pcSpeaker_)  pcSpeaker_->SetAmplitude(0);
         if (amigaMusic_) amigaMusic_->SetVolume(0.0f);
         if (adlibMusic_) adlibMusic_->SetVolume(0.0f);
+        if (c64Music_)   c64Music_->SetVolume(0.0f);
     } else {
         if (musicSource_ == MusicSource::DOS && pcSpeaker_)
             pcSpeaker_->SetAmplitude((int16_t)(musicVolume_ * 800));
@@ -1333,6 +1520,8 @@ void AudioManager::SetMusicMuted(bool muted) {
             amigaMusic_->SetVolume(musicVolume_ / 10.0f);
         if (musicSource_ == MusicSource::ADLIB && adlibMusic_)
             adlibMusic_->SetVolume(musicVolume_ / 10.0f);
+        if (musicSource_ == MusicSource::C64 && c64Music_)
+            c64Music_->SetVolume(musicVolume_ / 10.0f);
     }
 }
 
