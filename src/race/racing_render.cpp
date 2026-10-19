@@ -1962,32 +1962,30 @@ void Racing::DrawRearviewMirror() {
         }
     }
 
-    if (opponentActive) {
-        const int delta = static_cast<int>(viewNpc.segPos - viewPlayer.segPos);
-        if (delta < 0 && delta >= -8) {
-            const int idx = ClampInt((-delta) / 2, 0, 3);
-            Bitmap* behind = nullptr;
-            if (state.GetAssets().GetGame() == SrGame::SR2) {
-                behind = OpponentSpriteForState(9 + idx);
-            } else
-            switch (opponentCarType) {
-                case 1: behind = opponentChryslerBehind[idx].get(); break;
-                case 2: behind = opponentCopBehind[idx].get(); break;
-                case 3: behind = opponentOldsmobileBehind[idx].get(); break;
-                case 4: behind = opponentChevy2Behind[idx].get(); break;
-                case 5: behind = opponentCorvette63Behind[idx].get(); break;
-                case 6: behind = opponentFordBehind[idx].get(); break;
-                default: behind = opponentChevyBehind[idx].get(); break;
-            }
-            if (behind && behind->GetSurface()) {
-                SDL_Surface* bs = behind->GetSurface();
-                // Native LOD frame, cropped to fit the glass.
-                const int w = std::min(bs->w, mirrorW - 2);
-                const int h = std::min(bs->h, mirrorH - 2);
-                const int cx = mirrorX + mirrorW / 2 - w / 2;
-                const int cy = mirrorY + mirrorH - h - 1;
-                DrawSprite(behind, cx, cy, false, false, 0, 0, w, h);
-            }
+    const srrace::NpcState& ai = sim.NpcAi();
+    if (opponentActive && !ai.viewHidden && ai.viewState >= 9) {
+        const int idx = ClampInt(ai.viewState - 9, 0, 3);
+        Bitmap* behind = nullptr;
+        if (state.GetAssets().GetGame() == SrGame::SR2) {
+            behind = OpponentSpriteForState(ai.viewState);
+        } else
+        switch (opponentCarType) {
+            case 1: behind = opponentChryslerBehind[idx].get(); break;
+            case 2: behind = opponentCopBehind[idx].get(); break;
+            case 3: behind = opponentOldsmobileBehind[idx].get(); break;
+            case 4: behind = opponentChevy2Behind[idx].get(); break;
+            case 5: behind = opponentCorvette63Behind[idx].get(); break;
+            case 6: behind = opponentFordBehind[idx].get(); break;
+            default: behind = opponentChevyBehind[idx].get(); break;
+        }
+        if (behind && behind->GetSurface()) {
+            SDL_Surface* bs = behind->GetSurface();
+            // Native LOD frame, cropped to fit the glass.
+            const int w = std::min(bs->w, mirrorW - 2);
+            const int h = std::min(bs->h, mirrorH - 2);
+            const int cx = mirrorX + mirrorW / 2 - w / 2;
+            const int cy = mirrorY + mirrorH - h - 1;
+            DrawSprite(behind, cx, cy, false, false, 0, 0, w, h);
         }
     }
 }
