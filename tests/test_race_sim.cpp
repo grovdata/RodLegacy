@@ -2584,3 +2584,21 @@ TEST_CASE("the SR2 bug fix setting turns on the PC build's part effects and tune
     REQUIRE(srrace::LoadScoringTables(MakeScoringExe(false, std::vector<int>(15, 0), kSr1Weight),
                                       srrace::PhysicsTableSource::StreetRod));
 }
+
+TEST_CASE("The roof mirror projects as ProjectMirrorX/Y do, in 16-bit arithmetic") {
+    CHECK(srrace::ProjectMirrorX(2400, 8, 1500, 0) == 167);
+    CHECK(srrace::ProjectMirrorX(2400, 8, 3300, 0) == 392);
+    // divs truncates toward zero: -2/16 is 0, not -1.
+    CHECK(srrace::ProjectMirrorX(2400, 16, 2410, 0) == 280);
+    // A curve ahead of the heading moves the road right.
+    CHECK(srrace::ProjectMirrorX(2400, 8, 2400, 40) == 289);
+    // roadDelta * d wraps at 16 bits before the shift.
+    CHECK(srrace::ProjectMirrorX(2400, 8, 2400, 5000) == -518);
+    CHECK(srrace::ProjectMirrorX(2400, 0, 1500, 0) == -620);
+
+    CHECK(srrace::ProjectMirrorY(16, 2000, 0) == 42);
+    CHECK(srrace::ProjectMirrorY(8, 2000, 0) == 49);
+    CHECK(srrace::ProjectMirrorY(16, 2000, 1) == 43);
+    CHECK(srrace::ProjectMirrorY(16, 2000, -1) == 41);
+    CHECK(srrace::ProjectMirrorY(16, 1900, 0) == 36);
+}

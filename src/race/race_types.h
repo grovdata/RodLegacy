@@ -87,6 +87,20 @@ struct TrackData {
     int16_t wallRight[TRACK_SEGMENTS];
 };
 
+// jdraw.c ProjectMirrorX 0x23aa86 / ProjectMirrorY 0x23aada, in the Amiga's 16-bit arithmetic.
+inline int ProjectMirrorX(int playerLateral, int d, int lateral, int roadDelta) {
+    const auto adjusted = static_cast<int16_t>(lateral + (static_cast<int16_t>(roadDelta * d) >> 2));
+    if (d == 0) d = 1;
+    const auto num = static_cast<int16_t>(playerLateral - adjusted + d / 2);
+    return 280 - num / d;
+}
+
+inline int ProjectMirrorY(int d, int base, int rowC) {
+    const auto v = static_cast<int16_t>(base + static_cast<int16_t>(rowC * d) - 1900);
+    if (d == 0) d = 1;
+    return 36 + static_cast<int16_t>(v + d / 2) / d;
+}
+
 inline void RoadEdges(uint16_t flags, int16_t& left, int16_t& right) {
     if ((flags & 0xe0) == 0)      { left = 1500; right = 3300; }
     else if (flags & 0x80)        { left = 2000; right = 2800; }

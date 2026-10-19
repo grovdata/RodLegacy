@@ -1760,162 +1760,246 @@ void Racing::DrawAqueductMirror() {
     }
 }
 
+// jdraw.c RenderMirrorView (FUN_00238318) and BuildMirrorRowTables (0x23b016). Screen coordinates throughout.
 void Racing::DrawRearviewMirror() {
     if (aqueductPreview) {
         // The channel has its own mirror.
         DrawAqueductMirror();
         return;
     }
-    const int mirrorX = 242;
-    const int mirrorY = 9;
-    const int mirrorW = 76;
-    const int mirrorH = 21;
-
-    // Horizon backdrop, the road behind with centre dashes, roadside LODs, then the NPC, clipped to the glass.
-    const int gLeft = mirrorX + 1;
-    const int gRight = mirrorX + mirrorW - 2;
-    const int gTop = mirrorY + 1;
-    const int gBottom = mirrorY + mirrorH - 2;
-    const int centerX = mirrorX + mirrorW / 2;   // 280, matches ProjectMirrorX
-    constexpr int kMirrorRows = 8;               // BuildMirrorRowTables walks 8
+    constexpr int kClipL = 242;
+    constexpr int kClipR = 317;
+    constexpr int kClipT = 22;
+    constexpr int kClipB = 43;
+    constexpr int kRows = 8;
     const srrace::CarState& p = viewPlayer;
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
+    const bool grudge = sim.Kind() == srrace::RaceKind::Grudge;
 
-    // Bottom-left anchored at (dstLeft, dstBottom), never spilling outside the glass.
-    auto blitClipped = [&](Bitmap* bmp, const SpriteRect& fr, int dstLeft, int dstBottom) {
+    auto put = [&](int x, int y, SDL_Color c) {
+        if (x >= kClipL && x <= kClipR && y >= kClipT && y <= kClipB) {
+            PutPixel(pixels, x, y - kViewOffsetY, c);
+        }
+    };
+    auto span = [&](int x0, int x1, int y, SDL_Color c) {
+        if (x0 > x1) std::swap(x0, x1);
+        for (int x = std::max(x0, kClipL); x <= std::min(x1, kClipR); ++x) put(x, y, c);
+    };
+    auto rect = [&](int x0, int x1, int y0, int y1, SDL_Color c) {
+        if (y0 > y1) std::swap(y0, y1);
+        for (int y = std::max(y0, kClipT); y <= std::min(y1, kClipB); ++y) span(x0, x1, y, c);
+    };
+    auto blit = [&](Bitmap* bmp, const SpriteRect& fr, int dstX, int dstY) {
         SDL_Surface* s = bmp ? bmp->GetSurface() : nullptr;
         if (!s) return;
-        for (int yy = 0; yy < fr.h; ++yy) {
-            const int py = dstBottom - (fr.h - 1) + yy;
-            if (py < gTop || py > gBottom) continue;
-            for (int xx = 0; xx < fr.w; ++xx) {
-                const int px = dstLeft + xx;
-                if (px < gLeft || px > gRight) continue;
+        for (int yy = 0; yy < static_cast<int>(fr.h); ++yy) {
+            for (int xx = 0; xx < static_cast<int>(fr.w); ++xx) {
                 Uint32 sp = 0;
-                const Uint8* ptr = static_cast<const Uint8*>(s->pixels) + (fr.y + yy) * s->pitch + (fr.x + xx) * s->format->BytesPerPixel;
+                const Uint8* ptr = static_cast<const Uint8*>(s->pixels) + (fr.y + yy) * s->pitch +
+                                   (fr.x + xx) * s->format->BytesPerPixel;
                 std::memcpy(&sp, ptr, s->format->BytesPerPixel);
                 Uint8 r = 0, g = 0, b = 0, a = 255;
                 SDL_GetRGBA(sp, s->format, &r, &g, &b, &a);
-                if (a > 0) PutPixel(pixels, px, py, {r, g, b, a});
+                if (a > 0) put(dstX + xx, dstY + yy, {r, g, b, a});
             }
         }
     };
 
-    for (int y = gTop; y <= gBottom; ++y) {
-        for (int x = gLeft; x <= gRight; ++x) {
-            PutPixel(pixels, x, y, kGrassA);
-        }
-    }
+    auto mirrorX = [&](int d, int lat, int roadDelta) { return srrace::ProjectMirrorX(p.lateral, d, lat, roadDelta); };
+    auto mirrorY = [](int d, int base, int rowC) { return srrace::ProjectMirrorY(d, base, rowC); };
 
-    int horizonY = gTop + 6;
-    if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
-        SDL_Surface* h = rearviewMirrorSprite->GetSurface();
-        const int hh = std::min(h->h, gBottom - gTop);
-        for (int yy = 0; yy < hh; ++yy) {
-            for (int x = gLeft; x <= gRight; ++x) {
-                const int sx = 1 + (x - gLeft);           // skip the 1px border
-                if (sx >= h->w) continue;
-                Uint32 sp = 0;
-                const Uint8* ptr = static_cast<const Uint8*>(h->pixels) + yy * h->pitch + sx * h->format->BytesPerPixel;
-                std::memcpy(&sp, ptr, h->format->BytesPerPixel);
-                Uint8 r = 0, g = 0, b = 0, a = 255;
-                SDL_GetRGBA(sp, h->format, &r, &g, &b, &a);
-                if (a > 0) PutPixel(pixels, x, gTop + yy, {r, g, b, a});
-            }
-        }
-        horizonY = gTop + hh - 1;
-    }
-    // The mirror's horizon is fixed at screen y 36.
-    horizonY = ClampInt(36 - kViewOffsetY, gTop, gBottom);
-
-    // The forward projection at quarter scale centred on 280: 8 rows backwards, one segment apart, at depths
-    // scrollAcc + 8*(row+1), with the same edges and narrowing test.
-    auto projectMirrorX = [&](int d, int roadDelta, int lateral) {
-        const int adjustedLat = lateral + (roadDelta * d) / 4;
-        const int numerator = (d >> 1) + (p.lateral - adjustedLat);
-        return centerX - numerator / d;
-    };
-
+    // Height and curve deltas are negated relative to the forward view.
     struct MirrorRow {
-        int y, left, right, shoulderL, shoulderR, center, seg;
+        int y, left, right, shoulderL, shoulderR, archY;
     };
-    MirrorRow mrows[kMirrorRows];
-    for (int k = 0; k < kMirrorRows; ++k) {     // k 0 = nearest
-        const int d = std::max(1, p.scrollAcc + 8 * (k + 1));
-        const int seg = ClampInt(segBase - (k + 1), 0, kTrackSegments - 1);
-        const int roadDelta = p.heading - track.curve[seg];
+    MirrorRow mrows[kRows];
+    for (int j = 0; j < kRows; ++j) {
+        const int seg = ClampInt(segBase - j, 0, kTrackSegments - 1);
+        const int d = j == 0 ? 8 : p.scrollAcc + 8 * j;
+        const int rowC = grudge ? 0 : track.elev[seg] - p.elevAtCar;
+        const int roadDelta = track.curve[seg] - p.heading;
         int16_t edgeLeft = 1500;
         int16_t edgeRight = 3300;
         srrace::RoadEdges(track.flags[seg], edgeLeft, edgeRight);
-        MirrorRow& row = mrows[k];
-        row.seg = seg;
-        // 36 + 100/d + row_c at quarter scale.
-        row.y = horizonY + 100 / d +
-                (sim.Kind() == srrace::RaceKind::Grudge
-                     ? 0
-                     : (p.elevAtCar - track.elev[seg]));
-        row.left = projectMirrorX(d, roadDelta, edgeLeft);
-        row.right = projectMirrorX(d, roadDelta, edgeRight);
-        row.shoulderL = projectMirrorX(d, roadDelta, edgeLeft - 400);
-        row.shoulderR = projectMirrorX(d, roadDelta, edgeRight + 400);
-        row.center = projectMirrorX(d, roadDelta, kRoadCenterLat);
+        MirrorRow& row = mrows[j];
+        row.y = mirrorY(d, 2000, rowC);
+        row.left = mirrorX(d, edgeLeft, roadDelta);
+        row.right = mirrorX(d, edgeRight, roadDelta);
+        row.shoulderL = mirrorX(d, 1100, roadDelta);
+        row.shoulderR = mirrorX(d, 3700, roadDelta);
+        row.archY = mirrorY(d, 1900, rowC);
     }
 
-    auto paintRow = [&](int y, int left, int right, int center, int seg) {
-        if (y < gTop || y > gBottom) return;
-        const int rl = std::max(gLeft, left);
-        const int rr = std::min(gRight, right);
-        for (int x = rl; x <= rr; ++x) {
-            PutPixel(pixels, x, y, kRoadA);
-        }
-        // Alternate rows so the centre line reads as dashes.
-        if ((track.flags[seg] & 0x0008) && ((y & 1) == 0) && center >= rl && center <= rr) {
-            PutPixel(pixels, center, y, DashColorFor(track.flags[seg]));
-        }
-    };
-    for (int k = kMirrorRows - 1; k >= 0; --k) {
-        const MirrorRow& f = mrows[k];
-        const int yEnd = (k == 0) ? gBottom : mrows[k - 1].y - 1;
-        const int span = std::max(1, yEnd - f.y + 1);
-        for (int y = f.y; y <= yEnd; ++y) {
-            int l = f.left;
-            int r = f.right;
-            int c = f.center;
-            if (k > 0) {
-                const MirrorRow& n = mrows[k - 1];
-                const int t = ((y - f.y) * 256) / span;
-                l += ((n.left - f.left) * t) / 256;
-                r += ((n.right - f.right) * t) / 256;
-                c += ((n.center - f.center) * t) / 256;
-            }
-            paintRow(y, l, r, c, f.seg);
-        }
+    rect(kClipL, kClipR, kClipT, kClipB, kSkyColor);
+    if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
+        const SDL_Surface* h = rearviewMirrorSprite->GetSurface();
+        blit(rearviewMirrorSprite.get(), {0, 0, static_cast<uint16_t>(h->w), static_cast<uint16_t>(std::min(2, h->h))},
+             240, mrows[kRows - 1].y - 2);
     }
 
-    auto slotForFlags = [](uint16_t f) -> int {
-        if (f & 0x0001) return 1;   // building / main
-        if (f & 0x0020) return 0;   // palm
-        if (f & 0x0100) return 4;
-        if (f & 0x0800) return 3;
-        if (f & 0x0040) return 10;
-        if (f & 0x0004) return 7;
-        if (f & 0x0008) return 8;
-        return -1;
+    auto roadsideFrame = [&](int slot, int sr) -> const SpriteRect& {
+        const SpriteAnimationInfo* anim = roadsideAnim[slot];
+        if (anim && anim->frames && anim->frameCount > 0) {
+            return anim->frames[SelectFrameIndexForDistance(anim, sr)];
+        }
+        return roadsideFrames[slot][ClampInt(sr, 0, kSpriteScaleFrameCount - 1)];
     };
-    for (int k = 1; k < kMirrorRows; ++k) {
+    auto roadside = [&](int slot, int x, int y, int scale) {
+        const int sr = std::max(0, std::min(scale, 11) - 1);
+        y = std::min(y, 99);
+        if (slot == 1 && cruiseMode && cruiseSignSprite && cruiseSignAnim && cruiseSignAnim->frames &&
+            cruiseSignAnim->frameCount > 0) {
+            const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
+            blit(cruiseSignSprite.get(), fr, x - (fr.w >> 1), y - fr.h + 1);
+            return;
+        }
+        if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) return;
+        const SpriteRect& fr = roadsideFrame(slot, sr);
+        if (fr.w == 0 || fr.h == 0) return;
+        blit(roadsideSprites[slot].get(), fr, x - (fr.w >> 1), y - fr.h + 1);
+    };
+    auto banner = [&](Bitmap* bmp, int x, int y, int scale) {
+        const SpriteRect& fr = RACING_SIGN_COUNTY_LINE_FRAMES[10 - ClampInt(scale, 0, 10)];
+        blit(bmp, fr, x - (fr.w >> 1), y - (fr.h >> 1));
+    };
+    auto libSprite = [&](int id) -> Bitmap* {
+        if (state.GetAssets().GetGame() == SrGame::SR2) return nullptr;
+        return state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(id)});
+    };
+
+    const SDL_Color grass = kGrassA;
+    const SDL_Color sidewalk = kCurbGray;
+    const srrace::NpcState& ai = sim.NpcAi();
+    const int npcRow = static_cast<int>(viewPlayer.segPos) - static_cast<int>(viewNpc.segPos);
+
+    for (int k = kRows - 1; k >= 1; --k) {
         const MirrorRow& row = mrows[k];
-        if (row.y < horizonY || row.y > gBottom) continue;
-        for (int side = 0; side < 2; ++side) {
-            const uint16_t f = side ? track.right[row.seg] : track.left[row.seg];
-            const int slot = slotForFlags(f);
-            if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) continue;
-            const SpriteAnimationInfo* anim = roadsideAnim[slot];
-            const SpriteRect& fr = (anim && anim->frames && anim->frameCount > 0)
-                                       ? anim->frames[anim->frameCount - 1]
-                                       : roadsideFrames[slot][kSpriteScaleFrameCount - 1];
-            if (fr.w <= 0 || fr.h <= 0) continue;
-            const int dstLeft = side ? row.shoulderR : (row.shoulderL - fr.w);
-            blitClipped(roadsideSprites[slot].get(), fr, dstLeft, row.y);
+        const MirrorRow& nearRow = mrows[k - 1];
+        // The original reads flags one segment behind the row's geometry.
+        const int seg = ClampInt(segBase - k - 1, 0, kTrackSegments - 1);
+        const uint16_t F = track.flags[seg];
+        const uint16_t Lf = track.left[seg];
+        const uint16_t Rf = track.right[seg];
+        const bool city = (F & 0x0001) != 0;
+
+        auto slope = [](int xNear, int yNear, int xFar, int yFar) {
+            return yFar == yNear ? 0 : static_cast<int16_t>((xFar - xNear) << 4) / (yFar - yNear);
+        };
+        const int dl = slope(nearRow.left, nearRow.y, row.left, row.y);
+        const int dr = slope(nearRow.right, nearRow.y, row.right, row.y);
+        const int dsl = slope(nearRow.shoulderL, nearRow.y, row.shoulderL, row.y);
+        const int dsr = slope(nearRow.shoulderR, nearRow.y, row.shoulderR, row.y);
+        int l16 = row.left << 4, r16 = row.right << 4, sl16 = row.shoulderL << 4, sr16 = row.shoulderR << 4;
+        int l = row.left, r = row.right, sl = row.shoulderL, sr = row.shoulderR;
+        for (int y = row.y, n = nearRow.y - row.y; n > 0 && y <= kClipB && !(city && (F & 0x0004)); --n, ++y) {
+            if (city) {
+                if (Lf & 0x0080) {
+                    const int mid = sl + ((l - sl) >> 1);
+                    span(sl, mid, y, sidewalk);
+                    span(mid, l, y, grass);
+                } else {
+                    span(sl, l, y, sidewalk);
+                }
+                if (Rf & 0x0080) {
+                    const int mid = sr - ((sr - r) >> 1);
+                    span(mid, sr, y, sidewalk);
+                    span(r, mid, y, grass);
+                } else {
+                    span(r, sr, y, sidewalk);
+                }
+            } else {
+                span(kClipL, l, y, grass);
+                span(r, kClipR, y, grass);
+                span(l, r, y, kRoadA);
+            }
+            // The mirror's centre line width table is all zeros.
+            if (F & 0x0008) {
+                const int cx = (l + r) >> 1;
+                span(cx, cx, y, DashColorFor(F));
+            }
+            l16 += dl;
+            r16 += dr;
+            l = l16 >> 4;
+            r = r16 >> 4;
+            if (city) {
+                sl16 += dsl;
+                sr16 += dsr;
+                sl = sl16 >> 4;
+                sr = sr16 >> 4;
+            }
+        }
+
+        if ((F & 0x0004) == 0) {
+            if (F & 0xf000) {
+                const int top = static_cast<int16_t>(row.y - 4 * (row.y - row.archY));
+                rect(row.left, row.left, top, row.y, kArchColor);
+                rect(row.right, row.right, top, row.y, kArchColor);
+                rect(row.left + 1, row.right - 1, top, top, kArchColor);
+                const int cx = (row.left + row.right) >> 1;
+                const int scale = k + 5;
+                if (F & 0x1000) {
+                    roadside(13, cx, top, scale);
+                } else if (F & 0x2000) {
+                    banner(cruiseMode && cruiseSignSprite ? cruiseSignSprite.get() : signCountyLineSprite.get(),
+                           cx, top, scale);
+                } else if (city) {
+                    banner(libSprite((F & 0x4000) ? RACING_SIGN_TRY_VEGAS_GAMBLER : RACING_SIGN_PLAY_BLOCKOUT), cx,
+                           top, scale);
+                } else {
+                    roadside((F & 0x4000) ? 12 : 14, cx, top, scale);
+                }
+            }
+
+            if (k < kRows - 1) {
+                const int x1 = row.left, x2 = row.right, s1 = row.shoulderL, s2 = row.shoulderR, y = row.y;
+                const int scale = k + 5;
+                if (Lf & 0x0020) roadside(0, city ? x1 : s1, y, scale);
+                if (Lf & 0x0100) roadside(4, city ? x1 : (Lf & 0x0200) ? 2 * s1 - x1 : s1, y, scale);
+                if (Lf & 0x0800) roadside(3, x1, y, scale);
+                if (Lf & 0x1000) roadside(6, x1, y, scale);
+                if (city) {
+                    if (Lf & 0x0040) roadside(2, x1, y, scale);
+                    if (Rf & 0x0040) roadside(2, x2, y, scale);
+                } else {
+                    if (Lf & 0x0001) roadside(1, x1, y, scale);
+                    if (Lf & 0x0004) roadside(7, x1, y, scale);
+                    if (Lf & 0x0008) roadside(8, x1, y, scale);
+                    if (Lf & 0x0040) roadside(10, s1 - ((x1 - s1) >> 1), y, scale);
+                    if (Lf & 0x0080) roadside(11, s1, y, scale);
+                    if (Rf & 0x0001) roadside(1, x2, y, scale);
+                    if (Rf & 0x0004) roadside(7, x2, y, scale);
+                    if (Rf & 0x0008) roadside(8, x2, y, scale);
+                    if (Rf & 0x0040) roadside(10, s2, y, scale);
+                    if (Rf & 0x0080) roadside(11, s2 + ((s2 - x2) >> 1), y, scale);
+                    if (F & 0x0002) roadside(9, x2, y, scale);
+                }
+                if (Rf & 0x0020) roadside(0, city ? x2 : s2, y, scale);
+                if (Rf & 0x0100) roadside(4, city ? x2 : (Rf & 0x0200) ? 2 * s2 - x2 : s2, y, scale);
+                if (Rf & 0x2000) roadside(18, x2, y, scale);
+                if (Rf & 0x4000) roadside(19, x2, y, scale);
+                if (Rf & 0x0800) roadside(3, x2, y, scale);
+                if (Rf & 0x1000) roadside(6, x2, y, scale);
+                if (F & 0x0100) roadside(5, x2, y, scale);
+                if (F & 0x0200) roadside(16, x2, y, scale);
+                if (F & 0x0400) roadside(17, x2, y, scale);
+                if (F & 0x0800) roadside(15, x2, y, scale);
+            }
+        }
+
+        // In row order, so nearer roadside objects cover it.
+        if (opponentActive && !ai.viewHidden && ai.viewState >= 9 && npcRow == k) {
+            Bitmap* behind = OpponentSpriteForState(ai.viewState);
+            SDL_Surface* bs = behind ? behind->GetSurface() : nullptr;
+            if (bs) {
+                const srrace::CarState& np = viewNpc;
+                const int npcSeg = ClampInt(static_cast<int>(np.segPos), 0, kTrackSegments - 1);
+                const int d = -((static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8 +
+                                (np.scrollAcc - p.scrollAcc));
+                const int x = mirrorX(d, np.lateral, track.curve[npcSeg] - p.heading);
+                const int y = mirrorY(d, 2000, grudge ? 0 : track.elev[npcSeg] - p.elevAtCar);
+                blit(behind, {0, 0, static_cast<uint16_t>(bs->w), static_cast<uint16_t>(bs->h)}, x - (bs->w >> 1),
+                     y - bs->h);
+            }
         }
     }
 
@@ -1924,68 +2008,10 @@ void Racing::DrawRearviewMirror() {
     if (state.GetAssets().GetGame() == SrGame::SR2 && sr2StarterSeg >= 0 &&
         (sim.Kind() == srrace::RaceKind::Drag || sim.Kind() == srrace::RaceKind::Mulholland)) {
         const int k = segBase - sr2StarterSeg - 1;
-        if (k >= 0 && k < kMirrorRows) {
-            const MirrorRow& row = mrows[k];
-            DrawStarterInMirror(k, (row.left + row.right) / 2, row.y, false,
-                                SDL_Rect{gLeft, gTop, gRight - gLeft + 1, gBottom - gTop + 1});
-        }
-    }
-
-    // Quarter scale: elevated y is row.y - 400/d, crossbar four times that above the road. No banner art at 74 px.
-    auto putGlass = [&](int x, int y) {
-        if (x >= gLeft && x <= gRight && y >= gTop && y <= gBottom) {
-            PutPixel(pixels, x, y, kArchColor);
-        }
-    };
-    for (int k = 0; k < kMirrorRows; ++k) {
-        const MirrorRow& row = mrows[k];
-        if ((track.flags[row.seg] & 0xf000) == 0 || row.right - row.left < 4) {
-            continue;
-        }
-        const int d = std::max(1, p.scrollAcc + 8 * (k + 1));
-        const int yBottom = std::min(row.y, gBottom);
-        const int yTop = std::max(gTop, row.y - 400 / d);
-        if (yBottom <= yTop) {
-            continue;
-        }
-        for (int y = yTop; y <= yBottom; ++y) {
-            putGlass(row.left, y);
-            putGlass(row.left + 1, y);
-            putGlass(row.right, y);
-            putGlass(row.right - 1, y);
-        }
-        const int barHeight = ClampInt((yBottom - yTop) / 6, 1, 3);
-        for (int y = yTop; y < yTop + barHeight; ++y) {
-            for (int x = row.left; x <= row.right; ++x) {
-                putGlass(x, y);
-            }
-        }
-    }
-
-    const srrace::NpcState& ai = sim.NpcAi();
-    if (opponentActive && !ai.viewHidden && ai.viewState >= 9) {
-        const int idx = ClampInt(ai.viewState - 9, 0, 3);
-        Bitmap* behind = nullptr;
-        if (state.GetAssets().GetGame() == SrGame::SR2) {
-            behind = OpponentSpriteForState(ai.viewState);
-        } else
-        switch (opponentCarType) {
-            case 1: behind = opponentChryslerBehind[idx].get(); break;
-            case 2: behind = opponentCopBehind[idx].get(); break;
-            case 3: behind = opponentOldsmobileBehind[idx].get(); break;
-            case 4: behind = opponentChevy2Behind[idx].get(); break;
-            case 5: behind = opponentCorvette63Behind[idx].get(); break;
-            case 6: behind = opponentFordBehind[idx].get(); break;
-            default: behind = opponentChevyBehind[idx].get(); break;
-        }
-        if (behind && behind->GetSurface()) {
-            SDL_Surface* bs = behind->GetSurface();
-            // Native LOD frame, cropped to fit the glass.
-            const int w = std::min(bs->w, mirrorW - 2);
-            const int h = std::min(bs->h, mirrorH - 2);
-            const int cx = mirrorX + mirrorW / 2 - w / 2;
-            const int cy = mirrorY + mirrorH - h - 1;
-            DrawSprite(behind, cx, cy, false, false, 0, 0, w, h);
+        if (k >= 0 && k < kRows - 1) {
+            const MirrorRow& row = mrows[k + 1];
+            DrawStarterInMirror(k, (row.left + row.right) / 2, row.y - kViewOffsetY, false,
+                                SDL_Rect{kClipL, kClipT - kViewOffsetY, kClipR - kClipL + 1, kClipB - kClipT + 1});
         }
     }
 }

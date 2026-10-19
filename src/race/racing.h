@@ -31,10 +31,10 @@
 class Car;
 
 // Door mirror glass per row, screen coordinates. The glass in RACING_INTERIOR_1 is a trapezoid, wider on its
-// upper rows. The source starts at 243: DrawRearviewMirror never paints column 242.
+// upper rows.
 struct SideMirrorRow { int16_t left, right; };
 inline constexpr int kSideMirrorTop  = 101;   // screen y of the first row
-inline constexpr int kSideMirrorSrcX = 243;   // roof mirror glass, screen coords
+inline constexpr int kSideMirrorSrcX = 242;   // roof mirror glass, screen coords
 inline constexpr int kSideMirrorSrcY = 27;
 inline constexpr SideMirrorRow kSideMirrorGlass[] = {
     {7, 34},

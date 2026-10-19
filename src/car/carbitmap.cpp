@@ -21,7 +21,7 @@ int DosWheelFirstSprite(CarWheelType type) {
 }
 constexpr int kDosWheelFrames = 4;
 
-// The topmost opaque row of column x, or s->h when it is empty. The surface must be locked.
+// s->h when the column is empty. The surface must be locked.
 int OpaqueTopRow(SDL_Surface* s, int x) {
     const Uint32* px = static_cast<const Uint32*>(s->pixels);
     const int stride = s->pitch / 4;
@@ -613,8 +613,7 @@ void CarBitmap::MoveDriverOffset(int dx, int dy) {
     UpdateTextures();
 }
 
-// y_driver is the portrait's bottom edge relative to the body top. A chopped or sloping roof can sit below a
-// tall head, so the portrait is pushed down until no column of it rises above the roof over it.
+// Pushed down so no column of a tall portrait rises above a chopped or sloping roof.
 int CarBitmap::DriverTop() {
     const int stockTop = offsets.offsetYDriver - driver.GetNaturalSize().h;
     SDL_Surface* bodySurface = bodyOriginal.GetSurface();
