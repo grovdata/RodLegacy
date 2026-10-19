@@ -1007,7 +1007,7 @@ enum Sr2LibAsset {
     SR2_MULHOLLAND_BACKGROUND = 285,  // 320x118, the Mulholland race background
     SR2_ROAD_BUSH = 286,          // 56x39
     SR2_ROAD_TREE = 287,          // 40x65
-    SR2_MULHOLLAND_REARVIEW = 288,    // 80x21, probably the Mulholland rearview mirror picture (unverified)
+    SR2_MULHOLLAND_REARVIEW = 288,    // 80x21, the roof mirror's horizon on Mulholland (FUN_00240ec0)
 };
 
 // SR2's three dashboards: the art, the steering wheel overlays, the clock that replaces the tachometer in an

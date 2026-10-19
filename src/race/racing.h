@@ -216,6 +216,13 @@ private:
     void LoadSpriteBitmaps();
     void DrawTownWalls(int lastVisible);
     void DrawRearviewMirror();
+    void DrawRearviewMirrorSr2();
+    // Roof mirror primitives: screen coordinates, cut to the glass.
+    void MirrorSpan(int x0, int x1, int y, SDL_Color c);
+    void MirrorRect(int x0, int x1, int y0, int y1, SDL_Color c);
+    void MirrorBlit(Bitmap* bmp, const SpriteRect& fr, int dstX, int dstY);
+    void MirrorRoadside(int slot, int x, int y, int scale);
+    void MirrorBanner(Bitmap* bmp, int x, int y, int scale);
     void DrawSideMirror();
     std::unique_ptr<Bitmap> LoadOpponentSprite(uint16_t spriteId);
     void LoadOpponentCarSprites();
@@ -227,13 +234,14 @@ private:
     int ProjectY(int d, int elevDelta, int lift = 100) const;
     [[nodiscard]] bool IsMulholland() const;
     [[nodiscard]] SDL_Color Sr2Pen(int pen, SDL_Color fallback) const;
-    void FillPolygon(const int* xs, const int* ys, int n, SDL_Color c);
+    void FillPolygon(const int* xs, const int* ys, int n, SDL_Color c, const SDL_Rect* clip = nullptr);
     void RenderMulhollandBackdrop();
     void DrawMulhollandWalls(int r, bool farBridgeEnd);
     void DrawMulhollandBridge(int r);
     void DrawMulhollandRail(int r);
     // Segment of the farthest drop start in view; the rail's posts alternate from it. Kept across frames.
     int railPhaseSeg = 0;
+    int railPhaseRow = 0;   // the forward row railPhaseSeg was taken from, A4+0x2332
     int BuildRowTableAndGetLastVisible();
     void UpdateRenderView();
     void RenderSky();

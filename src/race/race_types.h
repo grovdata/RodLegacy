@@ -101,6 +101,19 @@ inline int ProjectMirrorY(int d, int base, int rowC) {
     return 36 + static_cast<int16_t>(v + d / 2) / d;
 }
 
+// Street Rod 2's FUN_0024533e / FUN_002453e2: no rounding, and the camera height drops in a fall.
+inline int ProjectMirrorXSr2(int playerLateral, int d, int lateral, int roadDelta) {
+    const auto adjusted = static_cast<int16_t>(lateral + (static_cast<int16_t>(roadDelta * d) >> 2));
+    if (d == 0) d = 1;
+    return 280 - static_cast<int16_t>(playerLateral - adjusted) / d;
+}
+
+inline int ProjectMirrorYSr2(int d, int base, int rowC, int cameraY) {
+    const auto v = static_cast<int16_t>(base + static_cast<int16_t>(rowC * d) - cameraY);
+    if (d == 0) d = 1;
+    return 36 + v / d;
+}
+
 inline void RoadEdges(uint16_t flags, int16_t& left, int16_t& right) {
     if ((flags & 0xe0) == 0)      { left = 1500; right = 3300; }
     else if (flags & 0x80)        { left = 2000; right = 2800; }

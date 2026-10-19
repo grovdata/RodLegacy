@@ -26,6 +26,11 @@ inline constexpr int kClipTop = 18 - kViewOffsetY;     // forward viewport clip,
 inline constexpr int kClipBottom = 99 - kViewOffsetY;
 // The Aqueduct's two clip windows: the view, and the mirror glass FUN_0023b44a sets (x 0xf2..0x13d, y 0x16..0x2b).
 inline constexpr SDL_Rect kAqueductViewClip = {0, kClipTop, 320, kClipBottom - kClipTop + 1};
+// The roof mirror's glass, screen coordinates (jdraw.c SetMirrorClip).
+inline constexpr int kMirrorLeft = 0xf2;
+inline constexpr int kMirrorRight = 0x13d;
+inline constexpr int kMirrorTop = 0x16;
+inline constexpr int kMirrorBottom = 0x2b;
 inline constexpr SDL_Rect kAqueductMirrorClip = {0xf2, 0x16 - kViewOffsetY, 0x13d - 0xf2 + 1, 0x2b - 0x16 + 1};
 inline constexpr int kRoadCenterLat = 2400;
 

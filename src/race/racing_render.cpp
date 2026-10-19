@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "core/log.h"
 #include "core/state.h"
@@ -312,14 +313,15 @@ SDL_Color Racing::Sr2Pen(int pen, SDL_Color fallback) const {
 }
 
 // Even-odd scanline fill, clipped to the forward view, as the original's AreaDraw polygons are.
-void Racing::FillPolygon(const int* xs, const int* ys, int n, SDL_Color c) {
+void Racing::FillPolygon(const int* xs, const int* ys, int n, SDL_Color c, const SDL_Rect* clip) {
+    const SDL_Rect& r = clip ? *clip : kAqueductViewClip;
     int minY = ys[0], maxY = ys[0];
     for (int i = 1; i < n; ++i) {
         minY = std::min(minY, ys[i]);
         maxY = std::max(maxY, ys[i]);
     }
-    minY = std::max(minY, kClipTop);
-    maxY = std::min(maxY, kClipBottom);
+    minY = std::max(minY, r.y);
+    maxY = std::min(maxY, r.y + r.h - 1);
     for (int y = minY; y <= maxY; ++y) {
         int cross[8];
         int nc = 0;
@@ -331,7 +333,7 @@ void Racing::FillPolygon(const int* xs, const int* ys, int n, SDL_Color c) {
         }
         std::sort(cross, cross + nc);
         for (int i = 0; i + 1 < nc; i += 2) {
-            for (int x = std::max(0, cross[i]); x <= std::min(GAME_WIDTH - 1, cross[i + 1]); ++x) {
+            for (int x = std::max(r.x, cross[i]); x <= std::min(r.x + r.w - 1, cross[i + 1]); ++x) {
                 PutPixel(pixels, x, y, c);
             }
         }
@@ -1307,6 +1309,12 @@ void Racing::DrawTownWalls(int lastVisible) {
     }
 }
 
+// The rock pile's offsets by row, A4-0x2822 and A4-0x2856.
+static constexpr int kPileT[13][2] = {{15, 17}, {13, 15}, {10, 12}, {9, 10}, {7, 10}, {5, 10}, {5, 10},
+                                      {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}};
+static constexpr int kPileU[15][2] = {{13, 13}, {11, 8}, {9, 6}, {7, 5}, {4, 5}, {3, 3}, {2, 3}, {2, 3},
+                                      {2, 3}, {2, 3}, {2, 3}, {2, 3}, {2, 3}, {15, 17}, {13, 15}};
+
 void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     auto drawSlot = [&](int slot, int k, int side, bool centerInRoad) {
         if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) {
@@ -1373,10 +1381,6 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
 
     // jdraw.c FUN_0023ca96: the rock pile an object's 0x10 bit stands for on Mulholland, five tshape sprites
     // heaped inward from the road edge (s = +1 on the left, -1 on the right).
-    static constexpr int kPileT[13][2] = {{15, 17}, {13, 15}, {10, 12}, {9, 10}, {7, 10}, {5, 10}, {5, 10},
-                                          {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}, {2, 10}};
-    static constexpr int kPileU[15][2] = {{13, 13}, {11, 8}, {9, 6}, {7, 5}, {4, 5}, {3, 3}, {2, 3}, {2, 3},
-                                          {2, 3}, {2, 3}, {2, 3}, {2, 3}, {2, 3}, {15, 17}, {13, 15}};
     auto drawShape = [&](int kind, int x, int y, int r) {
         Bitmap* sprite = hazardSprites[kind].get();
         const srrace::HazardRect& rect = srrace::HazardRectFor(kind, ClampInt(r - 2, 0, srrace::HAZARD_PHASES - 1));
@@ -1415,6 +1419,7 @@ void Racing::DrawRoadsideAndArchSprites(int lastVisible) {
     for (int r = kForwardRows - 1; mulholland && r >= 1; --r) {
         if ((track.right[rows[r].seg] & 0x8000) != 0 && (track.right[rows[r - 1].seg] & 0x8000) == 0) {
             railPhaseSeg = rows[r].seg;
+            railPhaseRow = r;
             break;
         }
     }
@@ -1767,43 +1772,14 @@ void Racing::DrawRearviewMirror() {
         DrawAqueductMirror();
         return;
     }
-    constexpr int kClipL = 242;
-    constexpr int kClipR = 317;
-    constexpr int kClipT = 22;
-    constexpr int kClipB = 43;
+    if (state.GetAssets().GetGame() == SrGame::SR2) {
+        DrawRearviewMirrorSr2();
+        return;
+    }
     constexpr int kRows = 8;
     const srrace::CarState& p = viewPlayer;
     const int segBase = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
     const bool grudge = sim.Kind() == srrace::RaceKind::Grudge;
-
-    auto put = [&](int x, int y, SDL_Color c) {
-        if (x >= kClipL && x <= kClipR && y >= kClipT && y <= kClipB) {
-            PutPixel(pixels, x, y - kViewOffsetY, c);
-        }
-    };
-    auto span = [&](int x0, int x1, int y, SDL_Color c) {
-        if (x0 > x1) std::swap(x0, x1);
-        for (int x = std::max(x0, kClipL); x <= std::min(x1, kClipR); ++x) put(x, y, c);
-    };
-    auto rect = [&](int x0, int x1, int y0, int y1, SDL_Color c) {
-        if (y0 > y1) std::swap(y0, y1);
-        for (int y = std::max(y0, kClipT); y <= std::min(y1, kClipB); ++y) span(x0, x1, y, c);
-    };
-    auto blit = [&](Bitmap* bmp, const SpriteRect& fr, int dstX, int dstY) {
-        SDL_Surface* s = bmp ? bmp->GetSurface() : nullptr;
-        if (!s) return;
-        for (int yy = 0; yy < static_cast<int>(fr.h); ++yy) {
-            for (int xx = 0; xx < static_cast<int>(fr.w); ++xx) {
-                Uint32 sp = 0;
-                const Uint8* ptr = static_cast<const Uint8*>(s->pixels) + (fr.y + yy) * s->pitch +
-                                   (fr.x + xx) * s->format->BytesPerPixel;
-                std::memcpy(&sp, ptr, s->format->BytesPerPixel);
-                Uint8 r = 0, g = 0, b = 0, a = 255;
-                SDL_GetRGBA(sp, s->format, &r, &g, &b, &a);
-                if (a > 0) put(dstX + xx, dstY + yy, {r, g, b, a});
-            }
-        }
-    };
 
     auto mirrorX = [&](int d, int lat, int roadDelta) { return srrace::ProjectMirrorX(p.lateral, d, lat, roadDelta); };
     auto mirrorY = [](int d, int base, int rowC) { return srrace::ProjectMirrorY(d, base, rowC); };
@@ -1830,40 +1806,15 @@ void Racing::DrawRearviewMirror() {
         row.archY = mirrorY(d, 1900, rowC);
     }
 
-    rect(kClipL, kClipR, kClipT, kClipB, kSkyColor);
+    MirrorRect(kMirrorLeft, kMirrorRight, kMirrorTop, kMirrorBottom, kSkyColor);
     if (rearviewMirrorSprite && rearviewMirrorSprite->GetSurface()) {
         const SDL_Surface* h = rearviewMirrorSprite->GetSurface();
-        blit(rearviewMirrorSprite.get(), {0, 0, static_cast<uint16_t>(h->w), static_cast<uint16_t>(std::min(2, h->h))},
-             240, mrows[kRows - 1].y - 2);
+        MirrorBlit(rearviewMirrorSprite.get(),
+                   {0, 0, static_cast<uint16_t>(h->w), static_cast<uint16_t>(std::min(2, h->h))}, 240,
+                   mrows[kRows - 1].y - 2);
     }
 
-    auto roadsideFrame = [&](int slot, int sr) -> const SpriteRect& {
-        const SpriteAnimationInfo* anim = roadsideAnim[slot];
-        if (anim && anim->frames && anim->frameCount > 0) {
-            return anim->frames[SelectFrameIndexForDistance(anim, sr)];
-        }
-        return roadsideFrames[slot][ClampInt(sr, 0, kSpriteScaleFrameCount - 1)];
-    };
-    auto roadside = [&](int slot, int x, int y, int scale) {
-        const int sr = std::max(0, std::min(scale, 11) - 1);
-        y = std::min(y, 99);
-        if (slot == 1 && cruiseMode && cruiseSignSprite && cruiseSignAnim && cruiseSignAnim->frames &&
-            cruiseSignAnim->frameCount > 0) {
-            const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
-            blit(cruiseSignSprite.get(), fr, x - (fr.w >> 1), y - fr.h + 1);
-            return;
-        }
-        if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) return;
-        const SpriteRect& fr = roadsideFrame(slot, sr);
-        if (fr.w == 0 || fr.h == 0) return;
-        blit(roadsideSprites[slot].get(), fr, x - (fr.w >> 1), y - fr.h + 1);
-    };
-    auto banner = [&](Bitmap* bmp, int x, int y, int scale) {
-        const SpriteRect& fr = RACING_SIGN_COUNTY_LINE_FRAMES[10 - ClampInt(scale, 0, 10)];
-        blit(bmp, fr, x - (fr.w >> 1), y - (fr.h >> 1));
-    };
-    auto libSprite = [&](int id) -> Bitmap* {
-        if (state.GetAssets().GetGame() == SrGame::SR2) return nullptr;
+    auto libSprite = [&](int id) {
         return state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, static_cast<AmigaLibAsset>(id)});
     };
 
@@ -1891,31 +1842,31 @@ void Racing::DrawRearviewMirror() {
         const int dsr = slope(nearRow.shoulderR, nearRow.y, row.shoulderR, row.y);
         int l16 = row.left << 4, r16 = row.right << 4, sl16 = row.shoulderL << 4, sr16 = row.shoulderR << 4;
         int l = row.left, r = row.right, sl = row.shoulderL, sr = row.shoulderR;
-        for (int y = row.y, n = nearRow.y - row.y; n > 0 && y <= kClipB && !(city && (F & 0x0004)); --n, ++y) {
+        for (int y = row.y, n = nearRow.y - row.y; n > 0 && y <= kMirrorBottom && !(city && (F & 0x0004)); --n, ++y) {
             if (city) {
                 if (Lf & 0x0080) {
                     const int mid = sl + ((l - sl) >> 1);
-                    span(sl, mid, y, sidewalk);
-                    span(mid, l, y, grass);
+                    MirrorSpan(sl, mid, y, sidewalk);
+                    MirrorSpan(mid, l, y, grass);
                 } else {
-                    span(sl, l, y, sidewalk);
+                    MirrorSpan(sl, l, y, sidewalk);
                 }
                 if (Rf & 0x0080) {
                     const int mid = sr - ((sr - r) >> 1);
-                    span(mid, sr, y, sidewalk);
-                    span(r, mid, y, grass);
+                    MirrorSpan(mid, sr, y, sidewalk);
+                    MirrorSpan(r, mid, y, grass);
                 } else {
-                    span(r, sr, y, sidewalk);
+                    MirrorSpan(r, sr, y, sidewalk);
                 }
             } else {
-                span(kClipL, l, y, grass);
-                span(r, kClipR, y, grass);
-                span(l, r, y, kRoadA);
+                MirrorSpan(kMirrorLeft, l, y, grass);
+                MirrorSpan(r, kMirrorRight, y, grass);
+                MirrorSpan(l, r, y, kRoadA);
             }
             // The mirror's centre line width table is all zeros.
             if (F & 0x0008) {
                 const int cx = (l + r) >> 1;
-                span(cx, cx, y, DashColorFor(F));
+                MirrorSpan(cx, cx, y, DashColorFor(F));
             }
             l16 += dl;
             r16 += dr;
@@ -1932,57 +1883,57 @@ void Racing::DrawRearviewMirror() {
         if ((F & 0x0004) == 0) {
             if (F & 0xf000) {
                 const int top = static_cast<int16_t>(row.y - 4 * (row.y - row.archY));
-                rect(row.left, row.left, top, row.y, kArchColor);
-                rect(row.right, row.right, top, row.y, kArchColor);
-                rect(row.left + 1, row.right - 1, top, top, kArchColor);
+                MirrorRect(row.left, row.left, top, row.y, kArchColor);
+                MirrorRect(row.right, row.right, top, row.y, kArchColor);
+                MirrorRect(row.left + 1, row.right - 1, top, top, kArchColor);
                 const int cx = (row.left + row.right) >> 1;
                 const int scale = k + 5;
                 if (F & 0x1000) {
-                    roadside(13, cx, top, scale);
+                    MirrorRoadside(13, cx, top, scale);
                 } else if (F & 0x2000) {
-                    banner(cruiseMode && cruiseSignSprite ? cruiseSignSprite.get() : signCountyLineSprite.get(),
+                    MirrorBanner(cruiseMode && cruiseSignSprite ? cruiseSignSprite.get() : signCountyLineSprite.get(),
                            cx, top, scale);
                 } else if (city) {
-                    banner(libSprite((F & 0x4000) ? RACING_SIGN_TRY_VEGAS_GAMBLER : RACING_SIGN_PLAY_BLOCKOUT), cx,
+                    MirrorBanner(libSprite((F & 0x4000) ? RACING_SIGN_TRY_VEGAS_GAMBLER : RACING_SIGN_PLAY_BLOCKOUT), cx,
                            top, scale);
                 } else {
-                    roadside((F & 0x4000) ? 12 : 14, cx, top, scale);
+                    MirrorRoadside((F & 0x4000) ? 12 : 14, cx, top, scale);
                 }
             }
 
             if (k < kRows - 1) {
                 const int x1 = row.left, x2 = row.right, s1 = row.shoulderL, s2 = row.shoulderR, y = row.y;
                 const int scale = k + 5;
-                if (Lf & 0x0020) roadside(0, city ? x1 : s1, y, scale);
-                if (Lf & 0x0100) roadside(4, city ? x1 : (Lf & 0x0200) ? 2 * s1 - x1 : s1, y, scale);
-                if (Lf & 0x0800) roadside(3, x1, y, scale);
-                if (Lf & 0x1000) roadside(6, x1, y, scale);
+                if (Lf & 0x0020) MirrorRoadside(0, city ? x1 : s1, y, scale);
+                if (Lf & 0x0100) MirrorRoadside(4, city ? x1 : (Lf & 0x0200) ? 2 * s1 - x1 : s1, y, scale);
+                if (Lf & 0x0800) MirrorRoadside(3, x1, y, scale);
+                if (Lf & 0x1000) MirrorRoadside(6, x1, y, scale);
                 if (city) {
-                    if (Lf & 0x0040) roadside(2, x1, y, scale);
-                    if (Rf & 0x0040) roadside(2, x2, y, scale);
+                    if (Lf & 0x0040) MirrorRoadside(2, x1, y, scale);
+                    if (Rf & 0x0040) MirrorRoadside(2, x2, y, scale);
                 } else {
-                    if (Lf & 0x0001) roadside(1, x1, y, scale);
-                    if (Lf & 0x0004) roadside(7, x1, y, scale);
-                    if (Lf & 0x0008) roadside(8, x1, y, scale);
-                    if (Lf & 0x0040) roadside(10, s1 - ((x1 - s1) >> 1), y, scale);
-                    if (Lf & 0x0080) roadside(11, s1, y, scale);
-                    if (Rf & 0x0001) roadside(1, x2, y, scale);
-                    if (Rf & 0x0004) roadside(7, x2, y, scale);
-                    if (Rf & 0x0008) roadside(8, x2, y, scale);
-                    if (Rf & 0x0040) roadside(10, s2, y, scale);
-                    if (Rf & 0x0080) roadside(11, s2 + ((s2 - x2) >> 1), y, scale);
-                    if (F & 0x0002) roadside(9, x2, y, scale);
+                    if (Lf & 0x0001) MirrorRoadside(1, x1, y, scale);
+                    if (Lf & 0x0004) MirrorRoadside(7, x1, y, scale);
+                    if (Lf & 0x0008) MirrorRoadside(8, x1, y, scale);
+                    if (Lf & 0x0040) MirrorRoadside(10, s1 - ((x1 - s1) >> 1), y, scale);
+                    if (Lf & 0x0080) MirrorRoadside(11, s1, y, scale);
+                    if (Rf & 0x0001) MirrorRoadside(1, x2, y, scale);
+                    if (Rf & 0x0004) MirrorRoadside(7, x2, y, scale);
+                    if (Rf & 0x0008) MirrorRoadside(8, x2, y, scale);
+                    if (Rf & 0x0040) MirrorRoadside(10, s2, y, scale);
+                    if (Rf & 0x0080) MirrorRoadside(11, s2 + ((s2 - x2) >> 1), y, scale);
+                    if (F & 0x0002) MirrorRoadside(9, x2, y, scale);
                 }
-                if (Rf & 0x0020) roadside(0, city ? x2 : s2, y, scale);
-                if (Rf & 0x0100) roadside(4, city ? x2 : (Rf & 0x0200) ? 2 * s2 - x2 : s2, y, scale);
-                if (Rf & 0x2000) roadside(18, x2, y, scale);
-                if (Rf & 0x4000) roadside(19, x2, y, scale);
-                if (Rf & 0x0800) roadside(3, x2, y, scale);
-                if (Rf & 0x1000) roadside(6, x2, y, scale);
-                if (F & 0x0100) roadside(5, x2, y, scale);
-                if (F & 0x0200) roadside(16, x2, y, scale);
-                if (F & 0x0400) roadside(17, x2, y, scale);
-                if (F & 0x0800) roadside(15, x2, y, scale);
+                if (Rf & 0x0020) MirrorRoadside(0, city ? x2 : s2, y, scale);
+                if (Rf & 0x0100) MirrorRoadside(4, city ? x2 : (Rf & 0x0200) ? 2 * s2 - x2 : s2, y, scale);
+                if (Rf & 0x2000) MirrorRoadside(18, x2, y, scale);
+                if (Rf & 0x4000) MirrorRoadside(19, x2, y, scale);
+                if (Rf & 0x0800) MirrorRoadside(3, x2, y, scale);
+                if (Rf & 0x1000) MirrorRoadside(6, x2, y, scale);
+                if (F & 0x0100) MirrorRoadside(5, x2, y, scale);
+                if (F & 0x0200) MirrorRoadside(16, x2, y, scale);
+                if (F & 0x0400) MirrorRoadside(17, x2, y, scale);
+                if (F & 0x0800) MirrorRoadside(15, x2, y, scale);
             }
         }
 
@@ -1997,21 +1948,402 @@ void Racing::DrawRearviewMirror() {
                                 (np.scrollAcc - p.scrollAcc));
                 const int x = mirrorX(d, np.lateral, track.curve[npcSeg] - p.heading);
                 const int y = mirrorY(d, 2000, grudge ? 0 : track.elev[npcSeg] - p.elevAtCar);
-                blit(behind, {0, 0, static_cast<uint16_t>(bs->w), static_cast<uint16_t>(bs->h)}, x - (bs->w >> 1),
-                     y - bs->h);
+                MirrorBlit(behind, {0, 0, static_cast<uint16_t>(bs->w), static_cast<uint16_t>(bs->h)},
+                           x - (bs->w >> 1), y - bs->h);
             }
         }
     }
+}
 
-    // Street Rod 2's starter, left at the line, centred on the road at her row (jdraw.c 0x23f1b8, drag and
-    // Mulholland only).
-    if (state.GetAssets().GetGame() == SrGame::SR2 && sr2StarterSeg >= 0 &&
-        (sim.Kind() == srrace::RaceKind::Drag || sim.Kind() == srrace::RaceKind::Mulholland)) {
-        const int k = segBase - sr2StarterSeg - 1;
-        if (k >= 0 && k < kRows - 1) {
-            const MirrorRow& row = mrows[k + 1];
-            DrawStarterInMirror(k, (row.left + row.right) / 2, row.y - kViewOffsetY, false,
-                                SDL_Rect{kClipL, kClipT - kViewOffsetY, kClipR - kClipL + 1, kClipB - kClipT + 1});
+void Racing::MirrorSpan(int x0, int x1, int y, SDL_Color c) {
+    if (y < kMirrorTop || y > kMirrorBottom) return;
+    if (x0 > x1) std::swap(x0, x1);
+    for (int x = std::max(x0, kMirrorLeft); x <= std::min(x1, kMirrorRight); ++x) {
+        PutPixel(pixels, x, y - kViewOffsetY, c);
+    }
+}
+
+void Racing::MirrorRect(int x0, int x1, int y0, int y1, SDL_Color c) {
+    if (y0 > y1) std::swap(y0, y1);
+    for (int y = std::max(y0, kMirrorTop); y <= std::min(y1, kMirrorBottom); ++y) MirrorSpan(x0, x1, y, c);
+}
+
+void Racing::MirrorBlit(Bitmap* bmp, const SpriteRect& fr, int dstX, int dstY) {
+    SDL_Surface* s = bmp ? bmp->GetSurface() : nullptr;
+    if (!s) return;
+    for (int yy = 0; yy < static_cast<int>(fr.h); ++yy) {
+        const int y = dstY + yy;
+        if (y < kMirrorTop || y > kMirrorBottom) continue;
+        for (int xx = 0; xx < static_cast<int>(fr.w); ++xx) {
+            const int x = dstX + xx;
+            if (x < kMirrorLeft || x > kMirrorRight) continue;
+            Uint32 sp = 0;
+            const Uint8* ptr = static_cast<const Uint8*>(s->pixels) + (fr.y + yy) * s->pitch +
+                               (fr.x + xx) * s->format->BytesPerPixel;
+            std::memcpy(&sp, ptr, s->format->BytesPerPixel);
+            Uint8 r = 0, g = 0, b = 0, a = 255;
+            SDL_GetRGBA(sp, s->format, &r, &g, &b, &a);
+            if (a > 0) PutPixel(pixels, x, y - kViewOffsetY, {r, g, b, a});
+        }
+    }
+}
+
+// RenderRoadsideSprite in mirror mode: frame min(scale, 11) - 1, centred on x, standing on y.
+void Racing::MirrorRoadside(int slot, int x, int y, int scale) {
+    const int sr = std::max(0, std::min(scale, 11) - 1);
+    y = std::min(y, 99);
+    if (slot == 1 && cruiseMode && cruiseSignSprite && cruiseSignAnim && cruiseSignAnim->frames &&
+        cruiseSignAnim->frameCount > 0) {
+        const SpriteRect& fr = cruiseSignAnim->frames[SelectFrameIndexForDistance(cruiseSignAnim, sr)];
+        MirrorBlit(cruiseSignSprite.get(), fr, x - (fr.w >> 1), y - fr.h + 1);
+        return;
+    }
+    if (slot < 0 || slot >= roadsideSlotCount || !roadsideSprites[slot]) return;
+    const SpriteAnimationInfo* anim = roadsideAnim[slot];
+    const SpriteRect& fr = (anim && anim->frames && anim->frameCount > 0)
+                               ? anim->frames[SelectFrameIndexForDistance(anim, sr)]
+                               : roadsideFrames[slot][ClampInt(sr, 0, kSpriteScaleFrameCount - 1)];
+    if (fr.w == 0 || fr.h == 0) return;
+    MirrorBlit(roadsideSprites[slot].get(), fr, x - (fr.w >> 1), y - fr.h + 1);
+}
+
+// RenderCenteredSprite in mirror mode: the banners' eleven-frame sheet, centred both ways.
+void Racing::MirrorBanner(Bitmap* bmp, int x, int y, int scale) {
+    const SpriteRect& fr = RACING_SIGN_COUNTY_LINE_FRAMES[10 - ClampInt(scale, 0, 10)];
+    MirrorBlit(bmp, fr, x - (fr.w >> 1), y - (fr.h >> 1));
+}
+
+// jdraw.c FUN_0023e3fa over jroad.c FUN_00245c76. Screen coordinates throughout.
+void Racing::DrawRearviewMirrorSr2() {
+    constexpr int kRows = 9;
+    const srrace::CarState& p = viewPlayer;
+    const int pos = ClampInt(static_cast<int>(p.segPos), 0, kTrackSegments - 1);
+    const srrace::RaceKind kind = sim.Kind();
+    const bool mulholland = kind == srrace::RaceKind::Mulholland;
+    const bool grudge = kind == srrace::RaceKind::Grudge;
+    const bool drag = kind == srrace::RaceKind::Drag;
+    const int verge = mulholland ? 200 : 400;
+    const int cameraY = 1900 - FallDrop();
+    auto segAt = [](int s) { return ClampInt(s, 0, kTrackSegments - 1); };
+    auto mirrorX = [&](int d, int lat, int roadDelta) {
+        return srrace::ProjectMirrorXSr2(p.lateral, d, lat, roadDelta);
+    };
+    auto mirrorY = [&](int d, int base, int rowC) { return srrace::ProjectMirrorYSr2(d, base, rowC, cameraY); };
+
+    // Height and curve deltas are negated relative to the forward view. Rows 6..8 drop the scroll term, and the
+    // wall heights are read from the segments ahead.
+    struct Row {
+        int y, left, right, vergeL, vergeR, outerR, yTop, yMid, wallL, wallR;
+    };
+    Row rows2[kRows];
+    for (int j = 0; j < kRows; ++j) {
+        const int seg = segAt(pos - j);
+        const int d = j == 0 ? 8 : j <= 5 ? p.scrollAcc + 8 * j : 8 * j;
+        const int rowC = grudge ? 0 : track.elev[seg] - p.elevAtCar;
+        int roadDelta = track.curve[seg] - p.heading;
+        if (j == 0 && mulholland) {
+            roadDelta = roadDelta > 60 ? 70 : roadDelta < -60 ? -70 : roadDelta;
+        }
+        int16_t edgeLeft = 1500;
+        int16_t edgeRight = 3300;
+        srrace::RoadEdgesSr2(track.flags[seg], true, edgeLeft, edgeRight);
+        const int wallSeg = segAt(pos + j);
+        Row& r = rows2[j];
+        r.y = mirrorY(d, 2000, rowC);
+        r.left = mirrorX(d, edgeLeft, roadDelta);
+        r.right = mirrorX(d, edgeRight, roadDelta);
+        r.vergeL = mirrorX(d, 1500 - verge, roadDelta);
+        r.vergeR = mirrorX(d, 3300 + verge, roadDelta);
+        r.outerR = mirrorX(d, 3300 + 4 * verge, roadDelta);
+        r.yTop = mirrorY(d, 1900, rowC);
+        r.yMid = mirrorY(d, 1950, rowC);
+        r.wallL = mirrorY(d, 2000 - track.wallLeft[wallSeg], rowC);
+        r.wallR = mirrorY(d, 2000 - track.wallRight[wallSeg], rowC);
+    }
+
+    const SDL_Color black = Sr2Pen(0, kSkyColor);
+    const SDL_Color pen3 = Sr2Pen(3, kCurbGray);
+    const SDL_Color pen4 = Sr2Pen(4, {136, 85, 0, 255});
+    const SDL_Color centre = Sr2Pen(10, {240, 240, 240, 255});
+    const SDL_Color finish = Sr2Pen(0xc, kCurbGray);
+    const SDL_Color grass = Sr2Pen(0xe, kGrassA);
+    const SDL_Color red = Sr2Pen(0xf, {204, 34, 34, 255});
+    const SDL_Color brown = Sr2Pen(0x11, {136, 85, 0, 255});
+
+    MirrorRect(kMirrorLeft, kMirrorRight, kMirrorTop, kMirrorBottom, black);
+    if (Bitmap* h = Sr2Asset(mulholland ? SR2_MULHOLLAND_REARVIEW : SR2_RACING_HORIZON_REARVIEWMIRROR)) {
+        if (const SDL_Surface* hs = h->GetSurface()) {
+            const int rows = std::min(mulholland ? 21 : 2, hs->h);
+            MirrorBlit(h, {0, 0, static_cast<uint16_t>(hs->w), static_cast<uint16_t>(rows)}, 240,
+                       rows2[7].y - (mulholland ? 10 : 2));
+        }
+    }
+
+    auto poly = [&](std::initializer_list<SDL_Point> pts, SDL_Color c) {
+        int xs[6], ys[6], n = 0;
+        for (const SDL_Point& q : pts) {
+            xs[n] = q.x;
+            ys[n] = q.y - kViewOffsetY;
+            ++n;
+        }
+        FillPolygon(xs, ys, n, c, &kAqueductMirrorClip);
+    };
+    auto line = [&](int x0, int y0, int x1, int y1, SDL_Color c) {
+        DrawAqueductLine({x0, y0 - kViewOffsetY, x1, y1 - kViewOffsetY}, c, kAqueductMirrorClip);
+    };
+    auto portal = [&](int l, int r, int top, int bottom) {
+        MirrorRect(l, l, top, bottom, red);
+        MirrorRect(r, r, top, bottom, red);
+        MirrorRect(l + 1, r - 1, top, top, red);
+    };
+    auto pile = [&](int edgeX, int y, int r, int s) {
+        const int a = kPileT[r][0], b = kPileT[r][1];
+        MirrorRoadside(8, edgeX, y, r);
+        MirrorRoadside(7, edgeX + s * b, y, r);
+        MirrorRoadside(8, edgeX + s * (b + kPileU[r][0]), y, r);
+        MirrorRoadside(7, edgeX + s * (b >> 1), y - a, r + 2);
+        MirrorRoadside(8, edgeX + s * ((b >> 1) + kPileU[r + 2][1]), y - a, r + 2);
+    };
+
+    const srrace::NpcState& ai = sim.NpcAi();
+    const int npcRow = static_cast<int>(viewPlayer.segPos) - static_cast<int>(viewNpc.segPos);
+    const int fall = sim.FallDirection();
+
+    for (int k = kRows - 1; k >= 1; --k) {
+        const Row& B = rows2[k];
+        const Row& A = rows2[k - 1];
+        const Row& C = rows2[std::max(k - 2, 0)];
+        // The original reads flags one segment behind the row's geometry.
+        const int seg = segAt(pos - k - 1);
+        const uint16_t F = track.flags[seg];
+        const uint16_t Lo = track.left[seg];
+        const uint16_t Ro = track.right[seg];
+        const uint16_t farF = track.flags[segAt(seg - 1)];
+        const bool city = (F & 0x0001) != 0;
+        const bool noWallL = A.wallL == A.y;
+        const bool noWallR = A.wallR == A.y;
+
+        if (mulholland && (F & 0x0080) == 0) {
+            auto walls = [&](bool right) {
+                const int edge = right ? kMirrorRight : kMirrorLeft;
+                const int aW = right ? A.wallR : A.wallL, bW = right ? B.wallR : B.wallL;
+                const int cW = right ? C.wallR : C.wallL;
+                const int aV = right ? A.vergeR : A.vergeL, bV = right ? B.vergeR : B.vergeL;
+                const int aE = right ? A.right : A.left, cE = right ? C.right : C.left;
+                auto inside = [&](int x) { return right ? x < kMirrorRight : x > kMirrorLeft; };
+                if (fall == (right ? -1 : 1) || aW == A.y) return;
+                if (k == 1 || (farF & 0x0080) == 0) {
+                    poly({{edge, aW}, {aV - fall, A.y}, {bV + fall, B.y}, {edge, bW}}, brown);
+                    if (k == 1 && inside(bV)) {
+                        poly({{edge, aW}, {bV, B.y}, {edge, B.y}}, brown);
+                    } else if (cW == C.y && inside(aV)) {
+                        poly({{edge, aW}, {aV, A.y}, {edge, A.y}}, brown);
+                    }
+                } else {
+                    poly({{edge, aW}, {aV, A.y}, {bV, B.y}, {edge, bW}}, brown);
+                    poly({{edge, aW}, {aV, A.y}, {aE, A.y}, {cE, C.y}, {cE, kMirrorBottom}, {edge, kMirrorBottom}},
+                         brown);
+                }
+            };
+            walls(false);
+            walls(true);
+        }
+
+        // FUN_0023bf84. Only a town row steps the verges down with the edges.
+        {
+            auto slope = [](int xNear, int yNear, int xFar, int yFar) {
+                return yFar == yNear ? 0 : static_cast<int16_t>((xFar - xNear) << 4) / (yFar - yNear);
+            };
+            const int dl = slope(A.left, A.y, B.left, B.y);
+            const int dr = slope(A.right, A.y, B.right, B.y);
+            const int dvl = slope(A.vergeL, A.y, B.vergeL, B.y);
+            const int dvr = slope(A.vergeR, A.y, B.vergeR, B.y);
+            const bool fin = (F & 0x0010) && pos >= (mulholland ? 0x3ad : 0x169);
+            const bool verges = mulholland && (F & 0x0080) == 0 && track.elev[pos] - 11 <= p.elevAtCar;
+            const SDL_Color centreLine = grudge && pos - k < sim.StartSegment() + 5 ? pen4 : centre;
+            int l16 = B.left << 4, r16 = B.right << 4, vl16 = B.vergeL << 4, vr16 = B.vergeR << 4;
+            int l = B.left, r = B.right, vl = B.vergeL, vr = B.vergeR;
+            for (int y = B.y, n = A.y - B.y; n > 0 && y <= kMirrorBottom && !(city && (F & 0x0004)); --n, ++y) {
+                if (city) {
+                    if (Lo & 0x0080) {
+                        const int mid = vl + ((l - vl) >> 1);
+                        MirrorSpan(vl, mid, y, pen3);
+                        MirrorSpan(mid, l, y, grass);
+                    } else {
+                        MirrorSpan(vl, l, y, pen3);
+                    }
+                    if (Ro & 0x0080) {
+                        const int mid = vr - ((vr - r) >> 1);
+                        MirrorSpan(mid, vr, y, pen3);
+                        MirrorSpan(r, mid, y, grass);
+                    } else {
+                        MirrorSpan(r, vr, y, pen3);
+                    }
+                } else {
+                    if (verges) {
+                        MirrorSpan(vl - 6, l, y, pen4);
+                        MirrorSpan(r, vr + 6, y, pen4);
+                    }
+                    if (!mulholland || noWallL) MirrorSpan(kMirrorLeft, l, y, grass);
+                    if (!mulholland || noWallR) MirrorSpan(r, kMirrorRight, y, grass);
+                    MirrorSpan(l, r, y, fin ? finish : black);
+                }
+                // The mirror's centre line width table is all zeros.
+                if (F & 0x0008) {
+                    const int cx = (l + r) >> 1;
+                    MirrorSpan(cx, cx, y, centreLine);
+                }
+                l16 += dl;
+                r16 += dr;
+                l = l16 >> 4;
+                r = r16 >> 4;
+                if (city) {
+                    vl16 += dvl;
+                    vr16 += dvr;
+                    vl = vl16 >> 4;
+                    vr = vr16 >> 4;
+                }
+            }
+        }
+
+        if ((F & 0x0004) == 0 || !city) {
+            if ((F & 0xf000) && !grudge && !mulholland) {
+                const int top = B.y - 4 * (B.y - B.yTop);
+                portal(B.left, B.right, top, B.y);
+                const int cx = (B.left + B.right) >> 1;
+                const int scale = k + 5;
+                if (F & 0x1000) {
+                    MirrorRoadside(13, cx, top, scale);
+                } else if (F & 0x2000) {
+                    MirrorBanner(cruiseMode && cruiseSignSprite ? cruiseSignSprite.get() : signCountyLineSprite.get(),
+                                 cx, top, scale);
+                } else if (city) {
+                    MirrorBanner(Sr2Asset((F & 0x4000) ? SR2_RACING_SIGN_TRY_VEGAS_GAMBLER
+                                                       : SR2_RACING_SIGN_PLAY_BLOCKOUT),
+                                 cx, top, scale);
+                } else {
+                    MirrorRoadside((F & 0x4000) ? 12 : 14, cx, top, scale);
+                }
+            }
+
+            if (k < 7) {
+                const int L = B.left, R = B.right, vL = B.vergeL, vR = B.vergeR, y = B.y;
+                const int s = (k >> 1) + 6;
+                if (!mulholland && (Lo & 0x0020)) MirrorRoadside(0, L, y, s);
+                if (Lo & 0x0100) {
+                    if (city) {
+                        MirrorRoadside(4, L, y, s);
+                    } else if (!mulholland || noWallL) {
+                        MirrorRoadside(mulholland ? 20 : 4, (Lo & 0x0200) ? 2 * vL - L : vL, y, s);
+                    }
+                }
+                if (!drag && !grudge && (Lo & 0x0800)) MirrorRoadside(3, L, y, s);
+                if (!drag && !grudge && (Lo & 0x1000)) MirrorRoadside(6, L, y, s);
+                if (!grudge && (Lo & 0x0001) && noWallL) MirrorRoadside(1, L, y, s);
+                if (!grudge && (Ro & 0x0001) && noWallR) MirrorRoadside(1, R, y, s);
+                if (!mulholland || noWallL) {
+                    if (Lo & 0x0040) MirrorRoadside(10, vL, y, s);
+                    if ((Lo & 0x0080) && !city) {
+                        MirrorRoadside(mulholland ? 21 : 11, (Lo & 0x0002) ? (vL + kMirrorLeft) >> 1 : vL, y, s);
+                    }
+                }
+                if (!mulholland || noWallR) {
+                    if (Ro & 0x0040) MirrorRoadside(10, vR, y, s);
+                    if ((Ro & 0x0080) && !city) {
+                        MirrorRoadside(mulholland ? 21 : 11, (Ro & 0x0002) ? (B.outerR + kMirrorRight) >> 1 : vR, y, s);
+                    }
+                }
+                if (mulholland && (Lo & 0x0010)) pile(L, y, s, 1);
+                if (mulholland && (Ro & 0x0010)) pile(R, y, s, -1);
+                if (city) {
+                    if (Lo & 0x0040) MirrorRoadside(2, L, y, s);
+                    if (Ro & 0x0040) MirrorRoadside(2, R, y, s);
+                } else {
+                    if (drag || noWallL) {
+                        if (Lo & 0x0004) MirrorRoadside(7, vL, y, s);
+                        if (Lo & 0x0008) MirrorRoadside(8, vL, y, s);
+                    }
+                    if (drag || noWallR) {
+                        if (Ro & 0x0004) MirrorRoadside(7, vR, y, s);
+                        if (Ro & 0x0008) MirrorRoadside(8, vR, y, s);
+                    }
+                }
+                if (!city && (F & 0x0002) && (!mulholland || noWallR) && !grudge) {
+                    MirrorRoadside(9, vR - ((R - L) >> 4), y, s);
+                }
+                if (!mulholland && (Ro & 0x0020)) MirrorRoadside(0, R, y, s);
+                if (Ro & 0x0100) {
+                    if (city) {
+                        MirrorRoadside(4, R, y, s);
+                    } else if (!mulholland || noWallR) {
+                        MirrorRoadside(mulholland ? 20 : 4, (Ro & 0x0200) ? 2 * vR - R : vR, y, s);
+                    }
+                }
+                if (Ro & 0x2000) MirrorRoadside(18, R, y, s);
+                if (Ro & 0x4000) MirrorRoadside(19, R, y, s);
+                if (Ro & 0x0800) MirrorRoadside(3, R, y, s);
+                if (Ro & 0x1000) MirrorRoadside(6, R, y, s);
+                const int laneX = L + (static_cast<int16_t>((R - L) * track.lane[seg]) >> 4);
+                if (!drag && !grudge && (F & 0x0004)) MirrorRoadside(7, laneX, y, s);
+                if (mulholland && (F & 0x1000)) MirrorRoadside(22, laneX, y, s);
+                if (F & 0x0100) MirrorRoadside(5, R, y, s);
+                if (F & 0x0200) MirrorRoadside(16, R, y, s);
+                if (F & 0x0400) MirrorRoadside(17, R, y, s);
+                if (F & 0x0800) MirrorRoadside(15, R, y, s);
+            }
+
+            // The starter, left at the line (jlights.c FUN_00244b42).
+            if ((drag || mulholland) && sr2StarterSeg >= 0 && pos - sr2StarterSeg == k) {
+                DrawStarterInMirror(k - 1, (B.left + B.right) >> 1, B.y - kViewOffsetY, false, kAqueductMirrorClip);
+            }
+
+            if (!city && mulholland) {
+                const int aTop = A.y - 4 * (A.y - A.yTop);
+                const int bTop = B.y - 4 * (B.y - B.yTop);
+                if ((F & 0x0080) && (track.flags[segAt(seg + 1)] & 0x0080) && (track.flags[segAt(seg + 2)] & 0x0080)) {
+                    portal(A.left, A.right, aTop, A.y);
+                    if (((pos - k) & 1) && k < 4) {
+                        line(A.left - 1, aTop, B.left - 1, B.y, red);
+                        line(A.right + 1, aTop, B.right + 1, B.y, red);
+                    } else {
+                        line(A.left - 1, A.y, B.left - 1, bTop, red);
+                        line(A.right + 1, A.y, B.right + 1, bTop, red);
+                    }
+                    line(A.left - 1, aTop, B.left - 1, bTop, red);
+                    line(A.right + 1, aTop, B.right + 1, bTop, red);
+                    line(A.left - 1, A.y, B.left - 1, B.y, red);
+                    line(A.right + 1, A.y, B.right + 1, B.y, red);
+                }
+                if ((F & 0x0080) && (farF & 0x0080) == 0) {
+                    portal(B.left, B.right, bTop, B.y);
+                }
+                if ((Ro & 0x8000) && (F & 0x0080) == 0) {
+                    if ((railPhaseRow - k - pos + 8) & 1) {
+                        const int w = 10 / (k + 1);
+                        poly({{A.vergeR - w, A.yMid - 1}, {A.vergeR - w, A.y}, {A.vergeR, A.y}, {A.vergeR, A.yMid - 1}},
+                             pen4);
+                    }
+                    poly({{B.vergeR, B.yTop - 1}, {B.vergeR, B.yMid}, {A.vergeR, A.yMid}, {A.vergeR, A.yTop - 1}}, pen3);
+                    line(B.vergeR, B.yTop - 1, A.vergeR, A.yTop - 1, pen4);
+                    line(B.vergeR, B.yMid, A.vergeR, A.yMid, pen4);
+                }
+            }
+        }
+
+        // In row order, so nearer roadside objects cover it.
+        if (opponentActive && !ai.viewHidden && ai.viewState >= 9 && npcRow == k) {
+            Bitmap* behind = OpponentSpriteForState(ai.viewState);
+            SDL_Surface* bs = behind ? behind->GetSurface() : nullptr;
+            if (bs) {
+                const srrace::CarState& np = viewNpc;
+                const int npcSeg = ClampInt(static_cast<int>(np.segPos), 0, kTrackSegments - 1);
+                const int d = -((static_cast<int>(np.segPos) - static_cast<int>(p.segPos)) * 8 +
+                                (np.scrollAcc - p.scrollAcc));
+                const int x = mirrorX(d, np.lateral, 10 + track.curve[npcSeg] - p.heading);
+                const int y = mirrorY(d, 2000, grudge ? 0 : track.elev[npcSeg] - p.elevAtCar);
+                MirrorBlit(behind, {0, 0, static_cast<uint16_t>(bs->w), static_cast<uint16_t>(bs->h)},
+                           x - (bs->w >> 1), y - bs->h);
+            }
         }
     }
 }

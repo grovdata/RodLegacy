@@ -2602,3 +2602,16 @@ TEST_CASE("The roof mirror projects as ProjectMirrorX/Y do, in 16-bit arithmetic
     CHECK(srrace::ProjectMirrorY(16, 2000, -1) == 41);
     CHECK(srrace::ProjectMirrorY(16, 1900, 0) == 36);
 }
+
+TEST_CASE("Street Rod 2's roof mirror projects without rounding and with a falling camera") {
+    CHECK(srrace::ProjectMirrorXSr2(2400, 8, 1500, 0) == 168);
+    CHECK(srrace::ProjectMirrorXSr2(2400, 8, 3300, 0) == 392);
+    CHECK(srrace::ProjectMirrorXSr2(2400, 16, 2410, 0) == 280);
+    CHECK(srrace::ProjectMirrorXSr2(2400, 8, 2400, 40) == 290);
+
+    CHECK(srrace::ProjectMirrorYSr2(16, 2000, 0, 1900) == 42);
+    CHECK(srrace::ProjectMirrorYSr2(8, 2000, 0, 1900) == 48);
+    CHECK(srrace::ProjectMirrorYSr2(8, 2000, 0, 1880) == 51);
+    CHECK(srrace::ProjectMirrorYSr2(16, 2000, 1, 1900) == 43);
+    CHECK(srrace::ProjectMirrorYSr2(16, 1900, -1, 1900) == 35);
+}
