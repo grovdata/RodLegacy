@@ -45,6 +45,9 @@ void HUD::SetVisible(bool visible) {
 
 void HUD::Draw() {
     if (visible) {
+        if (shownBankroll && *shownBankroll != state.GetBankroll()) {
+            Refresh();
+        }
         backgroundBitmap->Draw();
         textBitmap->Draw();
     }
@@ -59,8 +62,9 @@ void HUD::SetText(const char *text) {
         fontColor.g, 
         fontColor.b);
     
+    shownBankroll = state.GetBankroll();
     char bankroll[30];
-    snprintf(bankroll, 30, "Bankroll: $%d", state.GetBankroll());
+    snprintf(bankroll, 30, "Bankroll: $%d", *shownBankroll);
     SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), 2, 0, bankroll);
     SFont_Write(textBitmap->GetSurface(), state.GetAssets().GetMainFont(), 100, 0, text);
     
@@ -69,6 +73,7 @@ void HUD::SetText(const char *text) {
 
 void HUD::SetTextOnly(const char *text) {
     Clear();
+    shownBankroll.reset();
     
     SDL_SetSurfaceColorMod(textBitmap->GetSurface(), 
         fontColor.r, 

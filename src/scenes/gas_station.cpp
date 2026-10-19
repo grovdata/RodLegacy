@@ -489,7 +489,6 @@ void GasStation::UpdatePumping(double deltaTime) {
             if (tick.dispensed) {
                 car->SetFuelTenths(tick.fuelTenths);
                 state.SetBankroll(tick.bankroll);
-                hud->Refresh();
                 hasPumpedAnyFuel = true;
             }
 
@@ -780,5 +779,4 @@ void GasStation::OnFadeComplete() {
     if (initialDelay) {
         fadeCompleteTime = GameTicks();
     }
-    hud->Refresh();  // bankroll may have changed since the last visit
 }

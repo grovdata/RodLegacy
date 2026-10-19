@@ -12,6 +12,7 @@
 #include "parsers/libp.h"
 #include "gfx/bitmap.h"
 
+#include <optional>
 #include <string>
 
 class HUD: public IDrawable {
@@ -19,6 +20,7 @@ class HUD: public IDrawable {
     SrLibColor backgroundColor;
     SrLibColor fontColor;
     std::string lastText;
+    std::optional<int> shownBankroll;
     
     Bitmap *backgroundBitmap, *textBitmap;
     SDL_Rect statusBarRect, statusBarMiddleRect;
