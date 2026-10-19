@@ -152,6 +152,8 @@ void IntroPlayer::BuildSr2() {
 
     Emit(OpKind::DrawImage, kSr2TitleImage);
     Emit(OpKind::SetPalette, kPaletteTitle);
+    // The title animation (0x232f90) starts the music before its first step.
+    EmitSound(IntroSound::StartMusic);
 
     // Three runs of steps with their own delay. The second ends on the full title picture, after
     // which the palette settles.

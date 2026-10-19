@@ -52,7 +52,7 @@ void Intro::OnSceneEnter() {
     plateTicks = 0;
     leaving = false;
     musicStarted = false;
-    // Music starts at step 50 of the title animation, not before.
+    // The title animation starts the music: SR1 at its step 50, SR2 before its first step.
     if (AudioManager* am = state.GetAssets().GetAudioManager()) {
         am->StopMusicPlayback();
     }

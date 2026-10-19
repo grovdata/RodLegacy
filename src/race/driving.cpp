@@ -844,6 +844,14 @@ void Driving::OnFadeComplete() {
         return;
     }
     raceEndDipping = false;
+    // ProcessRaceOutcome: beating the King on the road starts the victory piece under the result, which runs on
+    // into the ending.
+    AudioManager* am = state.GetAssets().GetAudioManager();
+    if (am && raceEndPendingKing && state.GetAssets().GetGame() != SrGame::SR2) {
+        am->PlayVictoryMusic();
+    } else if (am && !musicWasPaused) {
+        am->ResumeMusic();
+    }
     ShowRaceEndMessage();
 }
 

@@ -112,7 +112,7 @@ TEST_CASE("Street Rod 2 intro runs its full length and ends on the credits plate
     // logo 96 + 150 + 28*3, fade out 15, title 22*5 + 4*11 + 16 + 26*11, fade out 15, plate 16
     CHECK(RunToEnd(p, sounds) == 96 + 150 + 84 + 15 + 22 * 5 + 4 * 11 + 16 + 26 * 11 + 15 + 16);
     const std::vector<IntroSound> expected = {
-        IntroSound::ChimeA, IntroSound::ChimeB, IntroSound::ChimeC};
+        IntroSound::ChimeA, IntroSound::ChimeB, IntroSound::ChimeC, IntroSound::StartMusic};
     CHECK(sounds == expected);
     CHECK(p.Palette()[1] == 0x810);
     CHECK(p.Front()[0] == 1);

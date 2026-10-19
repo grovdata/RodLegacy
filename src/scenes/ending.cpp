@@ -64,9 +64,6 @@ void Ending::OnSceneEnter() {
     phaseStart = GameTicks();
 
     SetAudioManager(state.GetAssets().GetAudioManager());
-    if (audioManager != nullptr) {
-        audioManager->PlayVictoryMusic();
-    }
 
     AssetManager& assets = state.GetAssets();
     girl = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GIRLFRIEND_ANIMATION});
