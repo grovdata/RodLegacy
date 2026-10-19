@@ -4,6 +4,7 @@
 #include "core/state.h"
 #include "parsers/libp.h"
 #include "parsers/carcolor.h"
+#include <algorithm>
 
 const int wheelSize = 31;
 
@@ -19,6 +20,16 @@ int DosWheelFirstSprite(CarWheelType type) {
     }
 }
 constexpr int kDosWheelFrames = 4;
+
+// The topmost opaque row of column x, or s->h when it is empty. The surface must be locked.
+int OpaqueTopRow(SDL_Surface* s, int x) {
+    const Uint32* px = static_cast<const Uint32*>(s->pixels);
+    const int stride = s->pitch / 4;
+    for (int y = 0; y < s->h; y++) {
+        if (px[y * stride + x] & s->format->Amask) return y;
+    }
+    return s->h;
+}
 
 void LoadWheelForModel(const CarModel& model, CarWheelType type, CarWheel& wheel) {
     if (GetCarSetDefs()[model.carSet].art == CarSetArt::DosLib) {
@@ -538,6 +549,7 @@ void CarBitmap::ChopRoof() {
     }
 
     bodyChopped.SetVisible(true);
+    UpdateTextures();
 
     LOG_INFO("Roof chopped - masked original roof and showing chopped overlay");
 }
@@ -571,6 +583,7 @@ void CarBitmap::RestoreRoof() {
     }
 
     bodyChopped.SetVisible(false);
+    UpdateTextures();
 
     LOG_INFO("Roof restored - reloaded original body and reapplied bumpers");
 }
@@ -600,9 +613,33 @@ void CarBitmap::MoveDriverOffset(int dx, int dy) {
     UpdateTextures();
 }
 
+// y_driver is the portrait's bottom edge relative to the body top. A chopped or sloping roof can sit below a
+// tall head, so the portrait is pushed down until no column of it rises above the roof over it.
+int CarBitmap::DriverTop() {
+    const int stockTop = offsets.offsetYDriver - driver.GetNaturalSize().h;
+    SDL_Surface* bodySurface = bodyOriginal.GetSurface();
+    SDL_Surface* driverSurface = driver.GetSurface();
+    if (!bodySurface || !driverSurface) return stockTop;
+
+    int top = stockTop;
+    SDL_LockSurface(bodySurface);
+    SDL_LockSurface(driverSurface);
+    for (int x = 0; x < driverSurface->w; x++) {
+        const int bodyX = offsets.offsetXDriver + x;
+        if (bodyX < 0 || bodyX >= bodySurface->w) continue;
+        const int roof = OpaqueTopRow(bodySurface, bodyX);
+        const int head = OpaqueTopRow(driverSurface, x);
+        if (head < driverSurface->h) {
+            top = std::max(top, roof - head);
+        }
+    }
+    SDL_UnlockSurface(driverSurface);
+    SDL_UnlockSurface(bodySurface);
+    return top;
+}
+
 SDL_Point CarBitmap::GetDriverOffsetFromBody() {
-    const int top = offsets.offsetYDriver - driver.GetNaturalSize().h;
-    return {offsets.offsetXDriver + driverOffset.x, top + driverOffset.y};
+    return {offsets.offsetXDriver + driverOffset.x, DriverTop() + driverOffset.y};
 }
 
 void CarBitmap::MoveWheelsYOffset(int offset) {
@@ -614,10 +651,8 @@ void CarBitmap::UpdateTextures() {
     CarModel model = car->GetModel();
     SDL_Rect bodyRect = bodyOriginal.GetPosition();
 
-    // y_driver is the portrait's bottom edge relative to the body top.
     driver.SetPosition(bodyRect.x + offsets.offsetXDriver + driverOffset.x,
-                       bodyRect.y + offsets.offsetYDriver - driver.GetNaturalSize().h +
-                           driverOffset.y);
+                       bodyRect.y + DriverTop() + driverOffset.y);
     decal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     customDecal.SetPosition(bodyRect.x + offsets.offsetXDecal, bodyRect.y + offsets.offsetYDecal);
     hoodScoop.SetPosition(bodyRect.x + offsets.offsetXAirScoop, bodyRect.y + offsets.offsetYAirScoop);

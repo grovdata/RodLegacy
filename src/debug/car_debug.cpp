@@ -64,9 +64,10 @@ void CarDebug::RefreshLabels() {
              currentIndex + 1, static_cast<int>(models.size()), model.name.c_str());
     titleLabel.SetText(line);
 
-    snprintf(line, sizeof(line), "set %s  index %d  body %d  %dx%d",
+    snprintf(line, sizeof(line), "set %s  index %d  body %d  %dx%d  C roof %s",
              GetCarSetDefs()[model.carSet].id.c_str(), model.index,
-             model.sprites.body, model.width, model.height);
+             model.sprites.body, model.width, model.height,
+             model.sprites.choppedRoof < 0 ? "-" : roofChopped ? "chopped" : "stock");
     spriteLabel.SetText(line);
 
     snprintf(line, sizeof(line), "wheels Y %d (stock %d %+d)   up/down  0 reset  D dump",
@@ -179,6 +180,7 @@ void CarDebug::ShowModel(int index) {
 
     car = std::make_shared<Car>(models[currentIndex]);
     car->SetTires(STOCK);
+    car->SetRoofChopped(roofChopped && models[currentIndex].sprites.choppedRoof >= 0);
     carBitmap = std::make_unique<CarBitmap>(car, &debugDriver, CarColorRed);
     carBitmap->Move({kCarX, kCarY});
     carBitmap->MoveWheelsYOffset(CurrentAdjust());
@@ -233,6 +235,12 @@ void CarDebug::CyclePortrait() {
     debugDriver.spriteIndex = DRIVER_FIRST + portraitIndex;
     ShowModel(currentIndex);
     LOG_INFO("CarDebug: driver portrait %d (asset %d)", portraitIndex, debugDriver.spriteIndex);
+}
+
+void CarDebug::ToggleRoof() {
+    roofChopped = !roofChopped;
+    ShowModel(currentIndex);
+    LOG_INFO("CarDebug: roof %s", roofChopped ? "chopped" : "stock");
 }
 
 void CarDebug::ResetModel() {
@@ -327,6 +335,7 @@ bool CarDebug::PushEvent(SDL_Event* event) {
             case SDLK_j:     AdjustDriver(-1, 0); return true;
             case SDLK_l:     AdjustDriver(1, 0);  return true;
             case SDLK_p:     CyclePortrait(); return true;
+            case SDLK_c:     ToggleRoof(); return true;
             case SDLK_0:     ResetModel(); return true;
             case SDLK_d:     DumpAdjustments(); return true;
             default: break;

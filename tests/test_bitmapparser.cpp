@@ -281,6 +281,7 @@ TEST_CASE("mask assets keep their black") {
     BitmapParser p;
     CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, GUS_GAS_MASK)      == true);
     CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, DINER_SCREEN_MASK) == true);
+    CHECK(p.LoadsOpaque(SrLibFileAmigaLibP, RACING_INTERIOR_1) == true);
 }
 
 // Each frame paints over the last, so its black is part of the picture.

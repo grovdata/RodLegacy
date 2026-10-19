@@ -129,6 +129,7 @@ public:
     SDL_Point GetDriverOffset() const { return driverOffset; }
     // The frame SpriteInfo's x_driver / y_driver are expressed in.
     SDL_Point GetDriverOffsetFromBody();
+    int DriverTop();
     StandardCarColor GetCurrentColor() const { return currentColor; }
     Car* GetCar() const { return car.get(); }
     const CarPtr& GetCarPtr() const { return car; }

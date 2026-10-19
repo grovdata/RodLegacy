@@ -24,6 +24,7 @@
 //   I / K                raise / lower the driver
 //   J / L                move the driver left / right
 //   P                    next driver portrait
+//   C                    chop / restore the roof
 //   0                    reset this model to its stock offsets
 //   D                    dump every adjusted model to the log
 class CarDebug : public Scene {
@@ -42,6 +43,7 @@ private:
 
     Driver debugDriver;
     int portraitIndex = 0;
+    bool roofChopped = false;
 
     Label titleLabel;
     Label spriteLabel;
@@ -57,6 +59,7 @@ private:
     void AdjustWheelY(int delta);
     void AdjustDriver(int dx, int dy);
     void CyclePortrait();
+    void ToggleRoof();
     void ResetModel();
     void DumpAdjustments() const;
     int CurrentAdjust() const;

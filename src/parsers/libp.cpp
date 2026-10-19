@@ -884,6 +884,8 @@ bool BitmapParser::LoadsOpaque(SrLibFile location, int index, SrGame game) {
             switch (asset) {
                 case GUS_GAS_MASK:
                 case DINER_SCREEN_MASK:
+                // The road surface runs under the dashboard's top rows.
+                case RACING_INTERIOR_1:
                 // Each tuning frame has to cover the one underneath.
                 case ENGINE_BELT_ANIMATION:
                 case ENGINE_PISTON_LEFT_ANIMATION:
