@@ -1,5 +1,5 @@
 project('streetrod_legacy', ['cpp', 'c'],
-  version : '0.6.2',
+  version : '0.6.3',
   license : 'GPL-3.0-or-later',
   license_files : 'LICENSE',
   default_options : [
