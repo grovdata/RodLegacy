@@ -425,6 +425,7 @@ Filter::Filter()
         class_init = true;
     }
 
+    fc = 0;
     enable_filter(true);
     set_chip_model(MOS6581);
     set_voice_mask(0x07);

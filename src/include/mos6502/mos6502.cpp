@@ -43,6 +43,7 @@ mos6502::mos6502(BusRead r, BusWrite w, ClockCycle c)
    Write = (BusWrite)w;
    Read = (BusRead)r;
    Cycle = (ClockCycle)c;
+   illegalOpcode = false;
 
    static bool initialized = false;
    if (initialized) return;

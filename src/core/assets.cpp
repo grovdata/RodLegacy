@@ -816,7 +816,7 @@ std::vector<AssetManager::GameSearchPath> AssetManager::GameSearchPaths() {
 
     // Launched from Finder the working directory differs; three levels up is the folder holding RodLegacy.app.
     if (char* base = SDL_GetBasePath()) {
-        const fs::path dir(base);
+        const fs::path dir = fs::u8path(base);
         SDL_free(base);
         out.push_back({ dir.lexically_normal(),                        "executable directory" });
         out.push_back({ (dir / "..").lexically_normal(),               "executable parent" });
@@ -905,7 +905,7 @@ fs::path AssetManager::ResolvePath(fs::path relativePath) {
 fs::path AssetManager::GetPrefDir() {
     char* p = SDL_GetPrefPath("grovdata","rodlegacy");
     if (!p) return {};
-    fs::path result = fs::path(p);
+    fs::path result = fs::u8path(p);
     SDL_free(p);
     return result;
 }
