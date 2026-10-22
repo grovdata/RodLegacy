@@ -1000,7 +1000,8 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
         engineSoundStarted = true;
     }
 
-    sim.SetInvulnerable(debugInvulnerable);
+    // A cruise has no outcome, so a failure would only freeze the car.
+    sim.SetInvulnerable(debugInvulnerable || cruiseMode);
 
     if (flybyMode) {
         UpdateFlybyMovement(fElapsedTime);
@@ -1056,7 +1057,9 @@ void Racing::Draw(float fElapsedTime, SDL_Event* event) {
             const srrace::CarState& pc = sim.Player();
             const bool topGear = pc.gear >= sim.PlayerTables().numGears;
             baseInput = (topGear && pc.rpm >= kCruiseRpm) ? 0 : srrace::INPUT_THROTTLE;
-            pendingShift = !topGear && pc.rpm > kCruiseRpm;
+            // An automatic's shift input toggles N/D, so it engages once and then shifts itself.
+            pendingShift = sim.PlayerTables().automatic ? !pc.autoDrive
+                                                        : (!topGear && pc.rpm > kCruiseRpm);
 
             // Turn towards the building only in the last segment; the original never slows on a cruise.
             const int side = CruiseArrivalSide();

@@ -957,7 +957,8 @@ void RaceSim::EngineTick(CarState& car, const CarTables& tables, bool throttle,
         const bool moneyShift = !tables.automatic && throttle && car.rpm > 5000 &&
                                 rng.Next(3277) < (totalTransWear / 100 + 100);
         if (totalTransWear > 0x26ab || moneyShift) {
-            car.endFlags |= END_TRANS_DROPPED;
+            if (&car == &player) AddPlayerEndFlags(END_TRANS_DROPPED);
+            else                 car.endFlags |= END_TRANS_DROPPED;
         }
 
         if (throttle) {
@@ -1171,7 +1172,7 @@ void RaceSim::LogCrash(const char* why) const {
 
 void RaceSim::AddPlayerEndFlags(uint16_t flags) {
     if (invulnerable) {
-        constexpr uint16_t kSuppressed = END_WALL_HIT | END_HIT_NPC | END_ENGINE_BLOWN;
+        constexpr uint16_t kSuppressed = END_WALL_HIT | END_HIT_NPC | END_ENGINE_BLOWN | END_TRANS_DROPPED;
         if ((flags & kSuppressed) != 0) {
             return;
         }

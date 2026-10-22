@@ -1494,6 +1494,33 @@ TEST_CASE("A worn manual transmission drops on a hard shift") {
     CHECK(dropped);
 }
 
+TEST_CASE("An invulnerable manual car never drops its transmission on a money-shift") {
+    srrace::TrackData track = MakeFlatTrack();
+    CarSetup setup{};
+    setup.carbClass = 1;
+    setup.engineClass = 1;
+    setup.tireClass = 1;
+    setup.transClass = 2;
+    setup.transWear = 3000;
+
+    int dropped = 0;
+    for (uint32_t seed = 1; seed <= 200; ++seed) {
+        srrace::RaceSim sim;
+        sim.Init(&track, srrace::RaceKind::Drag, setup, setup, seed);
+        sim.SetInvulnerable(true);
+        sim.BeginCruiseAt(10);
+        for (int i = 0; i < 1500; ++i) {
+            const CarState& pc = sim.Player();
+            const bool topGear = pc.gear >= sim.PlayerTables().numGears;
+            uint16_t input = (topGear && pc.rpm >= 4500) ? 0 : INPUT_THROTTLE;
+            if (!topGear && pc.rpm > 4500) input |= INPUT_SHIFT;
+            sim.Tick(input);
+        }
+        if ((sim.Player().endFlags & END_TRANS_DROPPED) != 0) ++dropped;
+    }
+    CHECK(dropped == 0);
+}
+
 namespace {
 
 CarSetup FastSetup() {
