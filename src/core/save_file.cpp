@@ -256,6 +256,7 @@ SaveSummary PeekSave(const fs::path& path) {
 
     SaveSummary s;
     s.playerName   = toml::find_or(root, "name", std::string());
+    s.game         = toml::find_or(root, "game", std::string());
     s.bankroll     = toml::find_or(root, "bankroll", 0);
     s.elapsedTicks = static_cast<uint32_t>(toml::find_or(root, "elapsed_ticks", std::int64_t{0}));
     return s;

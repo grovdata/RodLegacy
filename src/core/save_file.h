@@ -22,6 +22,7 @@ struct SaveSummary {
     std::string playerName;
     int bankroll = 0;
     uint32_t elapsedTicks = 0;
+    std::string game;
 };
 SaveSummary PeekSave(const fs::path& path);
 

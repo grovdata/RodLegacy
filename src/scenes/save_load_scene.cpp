@@ -128,13 +128,19 @@ void SaveLoadScene::ScanDisk2Samples() {
 void SaveLoadScene::RebuildList() {
     entries.clear();
 
-    for (const auto& path : ListSaveFiles(AssetManager::GetSavesDir())) {
+    const SrGame game = state.GetAssets().GetGame();
+    const fs::path savesDir = AssetManager::GetSavesDir();
+    // Saves from before the per-game folders sit in savesDir itself.
+    std::vector<fs::path> paths = ListSaveFiles(savesDir / SrGameSaveKey(game));
+    for (const auto& path : ListSaveFiles(savesDir)) paths.push_back(path);
+    for (const auto& path : paths) {
         Entry e;
         e.kind = Entry::Kind::Modern;
         e.path = path;
         e.label = path.stem().string();
         try {
             const SaveSummary s = PeekSave(path);
+            if (!SrGameSaveKeyMatches(s.game, game)) continue;
             e.label = s.playerName;
         } catch (const SaveLoadError& ex) {
             LOG_INFO("SaveLoadScene: couldn't read %s: %s", path.string().c_str(), ex.what());
@@ -314,7 +320,7 @@ void SaveLoadScene::SaveUnderName(const std::string& rawName) {
         return;
     }
 
-    const fs::path dir = AssetManager::GetSavesDir();
+    const fs::path dir = AssetManager::GetSavesDir() / SrGameSaveKey(state.GetAssets().GetGame());
     const std::string stem = SanitiseForFilename(name);
     fs::path target = dir / (stem + ".toml");
     // Two different names can sanitise to the same stem ("Al B" / "Al_B").
