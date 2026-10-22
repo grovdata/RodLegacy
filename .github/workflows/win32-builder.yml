@@ -1,0 +1,25 @@
+name: Windows builder image
+
+on:
+    push:
+        branches: [main]
+        paths: [Dockerfile.win32, .github/workflows/win32-builder.yml]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    image:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Log in to ghcr.io
+              run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            - name: Build and push
+              run: |
+                  docker build -f Dockerfile.win32 -t ghcr.io/grovdata/win32-builder:latest .
+                  docker push ghcr.io/grovdata/win32-builder:latest
