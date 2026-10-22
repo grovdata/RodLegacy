@@ -490,6 +490,21 @@ bool Newspaper::PushEvent(SDL_Event *event) {
 }
 
 
+std::vector<SDL_Rect> Newspaper::NavTargets() const {
+    std::vector<SDL_Rect> out;
+    for (const Zone& z : zones) {
+        if (z.IsEnabled() && z.GetId() != "ads_area") out.push_back(z.GetRect());
+    }
+    if (currentPage == 0) return out;
+
+    for (const AdPosition& ad : adPositions) {
+        const int top = std::max(ad.startY, adsViewport.y);
+        const int bottom = std::min(ad.endY, adsViewport.y + adsViewport.h);
+        if (bottom > top) out.push_back({64, top - adsViewport.y, 192, bottom - top});
+    }
+    return out;
+}
+
 void Newspaper::Update() {
     // Unrelated to the per-frame Update(Uint64); refreshes page content.
 

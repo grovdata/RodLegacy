@@ -32,6 +32,7 @@ public:
     void Draw(float deltaTime);
 
     bool IsActive() const;
+    Dialog* GetDialog() const { return dialog && dialog->IsVisible() ? dialog.get() : nullptr; }
 
     bool WantsRace()     const { return wantsRace; }
     bool WantsCarExit()  const { return wantsCarExit; }

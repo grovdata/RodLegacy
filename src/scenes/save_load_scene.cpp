@@ -34,9 +34,15 @@ std::string LegacyLabel(const std::string& filename, const std::string& rawSaveN
     return trimmed;
 }
 
+std::string TrimSpaces(std::string s) {
+    s = TrimTrailingSpaces(std::move(s));
+    s.erase(0, s.find_first_not_of(' '));
+    return s;
+}
+
 // Compared trimmed and case-insensitively.
 std::string NameKey(std::string s) {
-    s = TrimTrailingSpaces(std::move(s));
+    s = TrimSpaces(std::move(s));
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
@@ -307,7 +313,7 @@ bool SaveLoadScene::LoadEntry(const Entry& e) {
 
 // The list shows each save by its player name, so a name in use is an overwrite, never a second row.
 void SaveLoadScene::SaveUnderName(const std::string& rawName) {
-    const std::string name = TrimTrailingSpaces(rawName);
+    const std::string name = TrimSpaces(rawName);
     if (name.empty()) {
         if (hud) hud->SetText("Type a name first");
         SetActiveDialog(listDialog.get());
@@ -343,6 +349,7 @@ void SaveLoadScene::WriteSave(const fs::path& target, const std::string& name) {
 
 void SaveLoadScene::ConfirmOverwrite(const fs::path& target, const std::string& name) {
     if (listDialog) listDialog->Hide();
+    SDL_StopTextInput();
 
     const SDL_Rect box    = {34, 97, 252, 46};
     const SDL_Rect yesRect = {88, 123, 66, 16};
@@ -366,7 +373,7 @@ void SaveLoadScene::ConfirmOverwrite(const fs::path& target, const std::string& 
         if (confirmDialog) confirmDialog->Hide();
         SetActiveDialog(nullptr);
         if (index == 0) WriteSave(target, name);
-        else            SetActiveDialog(listDialog.get());
+        else            CancelConfirm();
     };
     cfg.onDismiss = [this] { CancelConfirm(); };
 
@@ -377,6 +384,7 @@ void SaveLoadScene::ConfirmOverwrite(const fs::path& target, const std::string& 
 // Hidden, not destroyed: this runs from the dialog's own callback.
 void SaveLoadScene::CancelConfirm() {
     if (confirmDialog) confirmDialog->Hide();
+    if (mode == Mode::Save) SDL_StartTextInput();
     SetActiveDialog(listDialog.get());
 }
 

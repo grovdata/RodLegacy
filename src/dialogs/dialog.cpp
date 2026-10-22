@@ -182,7 +182,9 @@ DialogBitmap* Dialog::GetBitmap(const std::string& id) {
 std::vector<SDL_Rect> Dialog::NavTargets() const {
     std::vector<SDL_Rect> out;
     for (const Button* b : buttons) {
-        if (b && b->IsVisible()) out.push_back(b->GetBounds());
+        if (!b || !b->IsVisible()) continue;
+        const SDL_Rect r = b->GetBounds();
+        if (r.w > 0 && r.h > 0) out.push_back(r);
     }
     for (const Zone& z : config.zones) {
         if (z.IsEnabled()) out.push_back(z.GetRect());

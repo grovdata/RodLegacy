@@ -10,6 +10,9 @@
 #include "embedded_resources.h"
 #include "ui/main_font.h"
 #include "core/utils.h"
+#include "core/mouse.h"
+
+extern Mouse mouse;
 #include "scenes/diner_actors.h"
 #include "car/engine_bay.h"
 #include "race/roster.h"
@@ -70,6 +73,7 @@ Diner::Diner() : CarScene(DinerBackground()) {
         } else {
             challenge->Open(state.GetAssets().GetMainFont());
         }
+        if (mouse.IsGamepadActive()) mouse.JumpToClosestZone(this);
     };
 }
 
@@ -540,6 +544,18 @@ std::vector<DebugPanel> Diner::GetDebugPanels() {
     return panels;
 }
 
+std::vector<SDL_Rect> Diner::NavTargets() const {
+    if (Dialog* d = challenge->GetDialog()) {
+        std::vector<SDL_Rect> targets = d->NavTargets();
+        if (!targets.empty()) return targets;
+    }
+    std::vector<SDL_Rect> out;
+    for (const Zone& z : zones) {
+        if (z.IsEnabled() && z.GetId() != "background") out.push_back(z.GetRect());
+    }
+    return out;
+}
+
 bool Diner::PushEvent(SDL_Event *event) {
     // In jail nothing is clickable; a key ends the run.
     if (state.IsJailed()) {
@@ -552,7 +568,12 @@ bool Diner::PushEvent(SDL_Event *event) {
         return true;
     }
 
-    if (challenge->HandleEvent(event)) return true;
+    if (challenge->HandleEvent(event)) {
+        if (event->type == SDL_MOUSEBUTTONUP && challenge->GetDialog() && mouse.IsGamepadActive()) {
+            mouse.JumpToClosestZone(this);
+        }
+        return true;
+    }
 
     // A stray click must not walk out to the garage on a race that is already happening.
     const bool dialogUp = activeDialog && activeDialog->IsVisible();

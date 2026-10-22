@@ -247,6 +247,14 @@ void Scene::SetActiveDialog(Dialog *dialog) {
     }
 }
 
+std::vector<SDL_Rect> Scene::NavTargets() const {
+    std::vector<SDL_Rect> out;
+    for (const Zone& z : zones) {
+        if (z.IsEnabled()) out.push_back(z.GetRect());
+    }
+    return out;
+}
+
 Dialog *Scene::GetActiveDialog() {
     return activeDialog;
 }

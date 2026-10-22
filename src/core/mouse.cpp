@@ -2,7 +2,9 @@
 #include "core/mouse.h"
 #include "core/zone_nav.h"
 #include "dialogs/dialog.h"
+#include "dialogs/list_dialog.h"
 #include "scenes/scene.h"
+#include "ui/virtual_keyboard.h"
 #include <algorithm>
 
 namespace {
@@ -38,8 +40,7 @@ void Mouse::Update(SDL_Event *event, Scene*) {
 }
 
 std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
-    std::vector<SDL_Rect> out;
-    if (!scene) return out;
+    if (!scene) return {};
 
     // A dialog is modal, but one with nothing to aim at falls through to the scene.
     if (Dialog* dialog = scene->GetActiveDialog()) {
@@ -49,10 +50,7 @@ std::vector<SDL_Rect> Mouse::NavTargets(Scene* scene) const {
         }
     }
 
-    for (const Zone& z : scene->GetZones()) {
-        if (z.IsEnabled()) out.push_back(z.GetRect());
-    }
-    return out;
+    return scene->NavTargets();
 }
 
 // The hotspot is the sprite's top-left pixel, as for a real mouse.
@@ -115,6 +113,28 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
         return;
     }
 
+    if (scene && SDL_IsTextInputActive() &&
+        (gamepad.Pressed(SDL_CONTROLLER_BUTTON_BACK) || gamepad.Pressed(SDL_CONTROLLER_BUTTON_LEFTSHOULDER))) {
+        virtualKeyboard.ToggleHidden();
+        return;
+    }
+    if (scene && virtualKeyboard.Visible()) {
+        // Up off the top row puts the keyboard away and hands the pad to the buttons.
+        if (virtualKeyboard.AtTop() && gamepad.Pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+            virtualKeyboard.ToggleHidden();
+            JumpToClosestZone(scene);
+            return;
+        }
+        virtualKeyboard.Update(scene);
+        return;
+    }
+
+    ListDialog* list = nullptr;
+    if (scene) {
+        Dialog* d = scene->GetActiveDialog();
+        if (d && d->IsVisible()) list = dynamic_cast<ListDialog*>(d);
+    }
+
     const Uint32 currentTime = SDL_GetTicks();
 
     DPadDirection currentDirection = DPadDirection::NONE;
@@ -135,7 +155,18 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
     if (currentDirection != DPadDirection::NONE) {
         if (currentDirection != lastDPadDirection ||
             (currentTime - lastDPadTime) > DPAD_REPEAT_DELAY) {
-            JumpToClosestZoneInDirection(scene, currentDirection);
+            if (list && (currentDirection == DPadDirection::UP || currentDirection == DPadDirection::DOWN)) {
+                SendKey(scene, SDL_KEYDOWN, currentDirection == DPadDirection::UP ? SDLK_UP : SDLK_DOWN);
+                // Rightmost on the row, so the pointer stays off the text.
+                const SDL_Rect row = list->GetRowRect(list->GetSelectedIndex());
+                if (row.w > 0) {
+                    rect.x = row.x + row.w - 2;
+                    rect.y = row.y;
+                    subPixelX = subPixelY = 0.0f;
+                }
+            } else {
+                JumpToClosestZoneInDirection(scene, currentDirection);
+            }
             lastDPadTime = currentTime;
         }
     }
@@ -183,8 +214,20 @@ void Mouse::UpdateGamepad(Scene* scene, Uint64 deltaMs) {
     gamepadDebug.buttonRB = gamepad.Down(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 
     if (gamepad.Pressed(SDL_CONTROLLER_BUTTON_A)) {
-        gamepadDebug.lastAction = "A (click)";
-        SendClick(scene, SDL_BUTTON_LEFT);
+        bool overTarget = false;
+        for (const SDL_Rect& r : NavTargets(scene)) {
+            SDL_Point p = {rect.x, rect.y};
+            if (SDL_PointInRect(&p, &r)) overTarget = true;
+        }
+        // On a list, A picks the highlighted row unless the pointer is on a button.
+        if (list && list->GetSelectedIndex() >= 0 && !overTarget) {
+            gamepadDebug.lastAction = "A (pick row)";
+            SendKey(scene, SDL_KEYDOWN, SDLK_RETURN);
+            SendKey(scene, SDL_KEYUP, SDLK_RETURN);
+        } else {
+            gamepadDebug.lastAction = "A (click)";
+            SendClick(scene, SDL_BUTTON_LEFT);
+        }
     }
 
     // Not a right click: scene zones fire onClick for any mouse button.

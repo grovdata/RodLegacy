@@ -47,8 +47,6 @@ inline int PickDirectional(const std::vector<Rect>& zones, int px, int py, Dir d
     long bestScore = 0;
     for (size_t i = 0; i < zones.size(); ++i) {
         const Rect& z = zones[i];
-        if (z.Contains(px, py)) continue;
-
         const long dx = z.CenterX() - px;
         const long dy = z.CenterY() - py;
 

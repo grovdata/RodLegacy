@@ -207,6 +207,7 @@ cpp_sources = files(
     'ui/checkbox.cpp',
     'ui/bubble.cpp',
     'ui/label.cpp',
+    'ui/virtual_keyboard.cpp',
     'ui/hud.cpp',
     'ui/main_font.cpp',
     'dialogs/dialog.cpp',

@@ -114,6 +114,7 @@ public:
     void Init(bool debugMode) override;
     void DrawScene() override;
     bool PushEvent(SDL_Event *event) override;
+    std::vector<SDL_Rect> NavTargets() const override;
 
     // Newspaper is constructed once, so this reopens it on the front page.
     void ResetToFrontPage();

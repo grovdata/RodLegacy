@@ -122,6 +122,8 @@ class Scene {
     virtual void DrawExtra() {}
     virtual bool PushEvent(SDL_Event *event);
 
+    // Rects the gamepad D-pad can snap to; zones by default.
+    virtual std::vector<SDL_Rect> NavTargets() const;
     virtual Dialog *GetActiveDialog();
     virtual void SetActiveDialog(Dialog *dialog);
 

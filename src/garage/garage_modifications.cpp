@@ -1606,16 +1606,15 @@ void Garage::ShowTireDialog() {
     };
     dialogConfig.texts = texts;
 
-    tireDialog = std::make_unique<ListDialog>(
-        dialogConfig,
-        ListDialogConfig{
-            labels,
-            {},
-            [](int) {},
-            listBoxRect,
-            selectedItemRect,
-            {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
-        }
-    );
+    ListDialogConfig listConfig{
+        labels,
+        {},
+        [](int) {},
+        listBoxRect,
+        selectedItemRect,
+        {scrollTopRect, scrollUpRect, scrollDownRect, scrollBottomRect}
+    };
+    tireDialog = std::make_unique<ListDialog>(dialogConfig, listConfig);
+    tireDialog->SetSelectedIndex(0);
     SetActiveDialog((Dialog*)tireDialog.get());
 }

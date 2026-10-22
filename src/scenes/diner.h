@@ -132,6 +132,7 @@ class Diner: public CarScene {
         void OnCarExitComplete() override;
 
         bool PushEvent(SDL_Event *event) override;
+        std::vector<SDL_Rect> NavTargets() const override;
         std::vector<DebugPanel> GetDebugPanels() override;
 
         void OnFadeComplete() override;

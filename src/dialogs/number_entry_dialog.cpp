@@ -1,6 +1,7 @@
 #include "dialogs/number_entry_dialog.h"
 #include "audio/audio_manager.h"
 #include "core/state.h"
+#include "ui/virtual_keyboard.h"
 
 #include "gfx/bitmap.h"
 
@@ -23,11 +24,13 @@ int NumberEntryDialog::Value() const {
 
 void NumberEntryDialog::Show() {
     Dialog::Show();
+    virtualKeyboard.SetNumeric(true);
     SDL_StartTextInput();
 }
 
 void NumberEntryDialog::Hide() {
     SDL_StopTextInput();
+    virtualKeyboard.SetNumeric(false);
     Dialog::Hide();
 }
 

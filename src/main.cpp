@@ -8,6 +8,7 @@
 #endif
 
 #include "core/mouse.h"
+#include "ui/virtual_keyboard.h"
 #include "core/gamepad.h"
 #include "gfx/bitmap.h"
 #include "ui/control_icons.h"
@@ -665,7 +666,8 @@ int main(int argc, char* argv[]) {
             QuitConfirmDialog(&quitConfirmOpen, &close_requested)->Draw();
         }
 
-        mouse.Draw();
+        if (mouse.IsGamepadActive() && virtualKeyboard.Visible()) virtualKeyboard.Draw();
+        else mouse.Draw();
 
         if (debugUi.Active()) {
             SDL_SetRenderTarget(renderer, nullptr);
