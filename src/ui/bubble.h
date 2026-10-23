@@ -20,7 +20,7 @@ typedef enum {
 
 class Bubble: public IDrawable {
     private:
-        uint64_t timerStart;
+        uint64_t timerStart = 0;
         BubbleStyle style;
         sdl2::SurfacePtr fontSurface;
         sdl2::TexturePtr fontTexture;

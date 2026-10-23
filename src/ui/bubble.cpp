@@ -12,6 +12,7 @@ constexpr int kRowHeight = 9;
 }
 
 Bubble::Bubble(std::string text, BubbleStyle style, bool autoDismiss) {
+    visible = autoDismiss;
     ApplyStyle(style);
     UpdateText(text);
 
