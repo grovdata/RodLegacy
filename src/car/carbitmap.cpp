@@ -238,7 +238,6 @@ void CarBitmap::LoadCarParts(CarPtr car, Driver* driverInfo, StandardCarColor co
     this->currentColor = color;
 
     CarModel model = car->GetModel();
-    byte_vector& libFile = state.GetAssets().GetLibPData();
 
     offsets = model.offsets;
 

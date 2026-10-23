@@ -1637,7 +1637,7 @@ PartMetadata_t* DataParser::SrLibDataReadPartsFromBuffer(const uint8_t* data, si
     const int CLASSIFIEDS_PARTS_START = sr2 ? 0xE194 : 0xA4CE;
     const int CLASSIFIEDS_PARTS_COUNT = sr2 ? 64 : 40;
 
-    if (!data || !outCount || dataSize < CLASSIFIEDS_PARTS_START) return NULL;
+    if (!data || !outCount || dataSize < static_cast<size_t>(CLASSIFIEDS_PARTS_START)) return NULL;
 
     *outCount = CLASSIFIEDS_PARTS_COUNT;
     PartMetadata_t* result = (PartMetadata_t*)calloc(CLASSIFIEDS_PARTS_COUNT, sizeof(PartMetadata_t));

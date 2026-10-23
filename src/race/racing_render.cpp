@@ -1834,7 +1834,7 @@ void Racing::DrawRearviewMirror() {
         const bool city = (F & 0x0001) != 0;
 
         auto slope = [](int xNear, int yNear, int xFar, int yFar) {
-            return yFar == yNear ? 0 : static_cast<int16_t>((xFar - xNear) << 4) / (yFar - yNear);
+            return yFar == yNear ? 0 : static_cast<int16_t>((xFar - xNear) * 16) / (yFar - yNear);
         };
         const int dl = slope(nearRow.left, nearRow.y, row.left, row.y);
         const int dr = slope(nearRow.right, nearRow.y, row.right, row.y);

@@ -35,7 +35,7 @@ class Car {
         bool isBackBumperStripped;
         bool isRoofChopped;
         CarModel model;
-        SrLibCarDecal decal;
+        SrLibCarDecal decal = SrLibCarDecalNone;
         std::string customDecalPath;
         // Initialised: a CarBuilder car has no colour until its caller sets one.
         StandardCarColor color = CarColorRed;
@@ -48,7 +48,8 @@ class Car {
         EnginePart engine;
         Part manifold;
         // Each carburetor mount is fitted and removed on its own.
-        Part carburetors[kMaxCarburetors];
+        static Part EmptyCarburetor() { Part p; p.partType.carburetorType = CARB_2BARREL; return p; }
+        Part carburetors[kMaxCarburetors] = {EmptyCarburetor(), EmptyCarburetor(), EmptyCarburetor()};
         bool carbFitted[kMaxCarburetors] = {false, false, false};
         // A pulled part really leaves the car. The gearbox only goes missing by dropping it in a race.
         bool engineFitted = true;
@@ -103,7 +104,7 @@ class Car {
 
         int GetCarburetorSlots() const { return CarburetorsPerManifold(GetManifoldType()); }
         bool HasCarburetor(int slot) const { return slot >= 0 && slot < kMaxCarburetors && carbFitted[slot]; }
-        Part GetCarburetor(int slot) const { return HasCarburetor(slot) ? carburetors[slot] : Part{}; }
+        Part GetCarburetor(int slot) const { return HasCarburetor(slot) ? carburetors[slot] : EmptyCarburetor(); }
         Part GetCarburator() const;
         int FittedCarburetorCount() const;
 

@@ -97,7 +97,7 @@ class Scene {
     Scene(Asset backgroundAsset, StockPalette palette = StockPaletteAmigaDiner);
     Scene(std::string backgroundName);
     Scene();
-    ~Scene();
+    virtual ~Scene();
     virtual void Init(bool debugMode);
 
     SDL_Texture *GetTexture();

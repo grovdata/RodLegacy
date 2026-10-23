@@ -45,9 +45,6 @@ constexpr int kSlideBannerTravel = ((GAME_WIDTH - 24) / 2) * kSlideStep;  // mod
 constexpr int kSlideCarTravel = ((56 + 200 - 60) / 2) * kSlideStep;        // mode 3
 constexpr int kSlidePortraitTravel = ((200 - 82 - 16) / 2) * kSlideStep;   // mode 0
 
-// The panel is dark, so the writing on it has to be light. This was black on
-// black, which drew every label into a texture nobody could see.
-constexpr SDL_Color kInk = {0xd0, 0xd0, 0xd0, 0xff};
 constexpr SDL_Color kPanelFill = {0x18, 0x18, 0x1c, 0xff};
 constexpr SDL_Color kPanelBorder = {0x90, 0x90, 0x98, 0xff};
 constexpr uint32_t kTextColor = 0x00e0e0e0;
