@@ -23,7 +23,7 @@ class Rectangle: public IDrawable {
         sdl2::SurfacePtr surface;
         sdl2::TexturePtr texture;
 
-        bool visible;
+        bool visible = true;
 
         void Fill();
 

@@ -49,7 +49,7 @@ class Scene {
 
     bool isSetup;
 
-    SceneTransition sceneTransition;
+    SceneTransition sceneTransition = SCENE_SOLID;
     SrLibGameScene sceneTransitioningTo;
 
     Asset backgroundAsset;
@@ -72,7 +72,7 @@ class Scene {
 
     DebugOverlay* debugOverlay;
     bool debugMode;
-    bool debugEnabled;
+    bool debugEnabled = false;
     // Rebuilt each time it is asked for.
     std::vector<std::string> debugLines;
     std::vector<DebugRow> debugRows;
@@ -235,9 +235,9 @@ protected:
     CarAnimationType currentAnimationType = CarAnimationType::SINGLE_CAR_DRIVE;
     bool initialDelay = true;
     Uint64 fadeCompleteTime = 0;
-    double initStartTime;
-    double lastFrameTime;
-    double currentTime;
+    double initStartTime = 0.0;
+    double lastFrameTime = 0.0;
+    double currentTime = 0.0;
 
     virtual void UpdateCarAnimation(double deltaTime);
     virtual void OnCarAnimationComplete() {};
@@ -275,5 +275,5 @@ public:
 
     CarBitmap *carBitmap = nullptr;
     bool animatingCar = false;
-    int carx, cary;
+    int carx = 0, cary = 0;
 };

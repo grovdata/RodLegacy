@@ -31,8 +31,8 @@ class Diner: public CarScene {
     int guySpriteY;
     SDL_Rect guyRect = {189, 65, 38, 60};
 
-    bool exitingCar;
-    double waitTimer;
+    bool exitingCar = false;
+    double waitTimer = 0.0;
 
     std::string GetOpponentText(Opponent *opponent);
 
@@ -44,14 +44,14 @@ class Diner: public CarScene {
     // The waitress has a sheet per direction: 0 walks right, 1 walks left.
     std::unique_ptr<AnimatedBitmap> waitressAnim[2];
 
-    Opponent *currentOpponent;
+    Opponent *currentOpponent = nullptr;
 
     bool isPaused;
 
     bool initialDelay = true;
     Uint64 fadeCompleteTime = 0;
     double lastFrameTime;
-    double currentTime;
+    double currentTime = 0.0;
 
     // Waitress: -1 when she is not walking, otherwise the step into the
     // 84-entry frame table. dir picks the sheet and the run-length X table.

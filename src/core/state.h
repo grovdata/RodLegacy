@@ -49,7 +49,7 @@ class SfxDebug;
 class State {
 private:
     int bankroll;
-    bool debugMode;
+    bool debugMode = false;
     std::string playerName = "Player";
     bool jailed = false;
 
@@ -99,9 +99,9 @@ private:
     Roster roster;
 
     SrLibGameScene currentGameScene;
-    Scene *currentScene;
+    Scene *currentScene = nullptr;
 
-    Uint64 elapsedTime;
+    Uint64 elapsedTime = 0;
 
     // 3600 ticks/day, 0 = June 16, 1963 (midnight).
     uint32_t elapsedTicks = 0;

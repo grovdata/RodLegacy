@@ -14,7 +14,7 @@
 
 class IDrawable {
     protected:
-        bool visible;
+        bool visible = false;
     public:
         virtual ~IDrawable() = default;
         virtual void Draw() = 0;

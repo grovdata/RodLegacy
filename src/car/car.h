@@ -71,7 +71,7 @@ class Car {
         bool mufflerRemoved = false;
         int differential = SR_DIFF_3_73;
 
-        int topSpeed;
+        int topSpeed = 0;
 
         // Worth with nothing bolted on.
         int bodyValue = 0;
