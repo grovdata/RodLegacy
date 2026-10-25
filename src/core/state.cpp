@@ -403,12 +403,24 @@ void State::StartNewGame() {
     GenerateClassifieds();
     ownedCars.clear();
     currentCar.reset();
+    ClearSpares();
     jailed = false;
     kingQualifierWon = false;
     kingListed = false;
     // One roll per profile, fixed for its life.
     SetTrackVariant(std::uniform_int_distribution<int>(0, 9)(RandomEngine()));
     scatterSeed = std::uniform_int_distribution<uint32_t>(1, 0xffffffffu)(RandomEngine());
+}
+
+void State::ClearSpares() {
+    spareTires.clear();
+    spareTransmissions.clear();
+    spareManifolds.clear();
+    spareCarburetors.clear();
+    spareEngines.clear();
+    spareExhausts.clear();
+    spareMufflers.clear();
+    spareDifferentials.clear();
 }
 
 Car* State::GetCurrentCar() {
@@ -567,6 +579,7 @@ bool State::LoadSaveGame(const fs::path& path) {
     // Anything still showing an old car keeps it alive.
     ownedCars.clear();
     currentCar.reset();
+    ClearSpares();
 
     if (loaded.hasActiveCar) {
         CarPtr active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);

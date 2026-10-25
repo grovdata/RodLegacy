@@ -175,6 +175,7 @@ public:
 
     // Leaves the player carless, as a fresh Amiga boot.
     void StartNewGame();
+    void ClearSpares();
     // Call after changing which sets are on.
     void RebuildCarSets();
     void GenerateClassifieds();

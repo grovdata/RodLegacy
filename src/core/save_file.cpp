@@ -435,14 +435,7 @@ bool State::LoadGameToml(const fs::path& path) {
         currentCar = ownedCars.at(0);
     }
 
-    spareTires.clear();
-    spareTransmissions.clear();
-    spareManifolds.clear();
-    spareCarburetors.clear();
-    spareEngines.clear();
-    spareExhausts.clear();
-    spareMufflers.clear();
-    spareDifferentials.clear();
+    ClearSpares();
     if (root.contains("spares")) {
         const SaveValue& sp = toml::find(root, "spares");
         ReadSpares(sp, "tires",         spareTires,         TireFromToml);
