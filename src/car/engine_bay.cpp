@@ -559,8 +559,19 @@ void EngineBay::SetPartAsset(int partSlot, AmigaLibAsset asset) {
 SDL_Point EngineBay::GetScrewAnchor(int screwIndex) {
     Car* car = state->GetCurrentCar();
     if (!car) return {0, 0};
-    return EngineBayScrewAnchor(screwIndex, car->GetEngineType(), car->GetManifoldType(),
-                                car->GetCarburator().partType.carburetorType);
+    return EngineBayScrewAnchor(screwIndex, hasPendingEngine ? pendingEngine : car->GetEngineType(),
+                                car->GetManifoldType(), car->GetCarburator().partType.carburetorType);
+}
+
+void EngineBay::SetPendingEngine(CarEngine_t type) {
+    pendingEngine = type;
+    hasPendingEngine = true;
+    if (!engineDialog) return;
+    if (DialogBitmap* db = engineDialog->GetBitmap("engine_wire"); db && db->bitmap) {
+        db->rect = EngineWireRect(db->bitmap->GetNaturalSize(), type);
+        if (Zone* z = engineDialog->GetZone("wire_0")) z->SetRect(db->rect);
+    }
+    if (Zone* z = engineDialog->GetZone("screw_0")) z->SetRect(EngineBayScrewZone(GetScrewAnchor(0)));
 }
 
 int EngineBay::GetFirstScrew(int partSlot) {

@@ -50,6 +50,10 @@ private:
     // Each mount needs its own Bitmap: SetVisible on a shared asset would hide them all.
     std::unique_ptr<Bitmap> carbBitmap[3];
 
+    // The engine being fitted, whose block sets the wire and screw spots before the car has it.
+    CarEngine_t pendingEngine{};
+    bool hasPendingEngine = false;
+
 public:
     EngineBay(int tuneLevel, State& state, ButtonCallback buttonCallback, ZoneHoverCallback zoneHoverCallback = nullptr,
               ZoneClickCallback zoneClickCallback = nullptr);
@@ -71,6 +75,8 @@ public:
     void SetPartAsset(int partSlot, AmigaLibAsset asset);
     void SetPartVisible(int partSlot, bool visible);
     SDL_Point GetScrewAnchor(int screwIndex);
+    void SetPendingEngine(CarEngine_t type);
+    void ClearPendingEngine() { hasPendingEngine = false; }
     static int GetScrewCount(int partSlot);
     static int GetFirstScrew(int partSlot);
     void SetKnobPosition(int level);

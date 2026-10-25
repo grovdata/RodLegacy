@@ -369,6 +369,7 @@ void Garage::StartEngineBaySlideIn(EngineBaySlot slot, AmigaLibAsset asset, cons
 
 void Garage::StartEngineSlideIn(const EnginePart& newEngine) {
     pendingEngine = newEngine;
+    if (engineBay) engineBay->SetPendingEngine(newEngine.engineType);
     AmigaLibAsset asset = EngineBodyAsset(newEngine.engineType);
     Bitmap* bmp = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, asset});
     StartEngineBaySlideIn(EngineBaySlot::ENGINE, asset,
@@ -406,6 +407,11 @@ void Garage::ApplyEngineWireVisual() {
     db->bitmap = state.GetAssets().GetBitmapAsset(
         {LibAssetRegular, SrLibFileAmigaLibP,
          engineWireAttached ? ENGINE_WIRE_ATTACHED : ENGINE_WIRE_DETACHED});
+    // The two arts differ in height and the dialog stretches a bitmap to its rect.
+    const SDL_Rect natural = db->bitmap->GetNaturalSize();
+    db->rect.w = natural.w;
+    db->rect.h = natural.h;
+    if (Zone* z = engineBay->GetDialog()->GetZone("wire_0")) z->SetRect(db->rect);
 }
 
 // Dialog::Show() turns every bitmap on, so whatever is apart is hidden again.
@@ -466,6 +472,7 @@ void Garage::CommitEngineBaySwap(EngineBaySlot slot) {
     if (slot == EngineBaySlot::ENGINE) {
         state.RemoveSpareEngine(pendingEngine.engineType);
         car->SetEngine(pendingEngine);
+        if (engineBay) engineBay->ClearPendingEngine();
     } else if (slot == EngineBaySlot::MANIFOLD) {
         state.RemoveSpareManifold(pendingManifold.partType.manifoldType);
         // SetManifold would fill every mount; this one arrives bare.
@@ -508,6 +515,7 @@ void Garage::UpdateEngineBayInstallAnimation(double deltaTime) {
             if (engineBaySlotRejected[idx]) {
                 // Doesn't fit: the original shows it sliding in before bouncing it out. The part stays a spare.
                 engineBaySlotRejected[idx] = false;
+                if (slot == EngineBaySlot::ENGINE && engineBay) engineBay->ClearPendingEngine();
                 SetSlotVisible(engineBay.get(), slot, false);
                 engineBaySlotPhase[idx] = PartInstallPhase::EMPTY;
                 bubbles[12]->SetVisible(true);  // partIncompatibleBubble
