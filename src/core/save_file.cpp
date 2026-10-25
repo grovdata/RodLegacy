@@ -346,6 +346,10 @@ bool State::SaveGameToml(const fs::path& path) {
     pool["last_challenger"] = lastChallengerPoolIndex;
     root["racer_pool"] = pool;
 
+    std::vector<std::string> known;
+    for (const Opponent* opp : GetKnownOpponents()) known.push_back(opp->driver.name);
+    root["known_opponents"] = known;
+
     std::error_code ec;
     fs::create_directories(path.parent_path(), ec);
     std::ofstream f(path, std::ios::out | std::ios::trunc);
@@ -470,6 +474,8 @@ bool State::LoadGameToml(const fs::path& path) {
 
     GiveOpponentsPoolCars();
 
+    SetKnownOpponentNames(toml::find_or(root, "known_opponents", std::vector<std::string>{}));
+
     // The ads are not saved.
     GenerateClassifieds();
 
@@ -538,6 +544,9 @@ Snapshot TakeSnapshot() {
         o << (int)e.engineType << "," << e.wear << "," << e.cost << "," << e.name << ";";
     }
 
+    o << "\n  known=";
+    for (const Opponent* opp : state.GetKnownOpponents()) o << opp->driver.name << ";";
+
     o << "\n  pool=";
     for (const RacerEntry& e : state.GetRacerPool().pool) {
         o << e.driver_index << "/" << e.car_spec_index << "/" << (int)e.status
@@ -571,6 +580,8 @@ void ScrambleState() {
     state.AddSpareTire(Part(407, 60, CarVendorGM, TireAssetForType(BRAND), BRAND));
     state.AddSpareEngine(EnginePart(CarEngineFord_V8_351, 1183, 800, CarVendorFord, ENGINE_V8_BIG));
     if (!state.GetRacerPool().pool.empty()) {
+        state.AddKnownOpponent(state.GiveOpponentPoolCar(state.GetRacerPool().pool[2]));
+        state.AddKnownOpponent(state.GiveOpponentPoolCar(state.GetRacerPool().pool[5]));
         state.GetRacerPool().pool[3].status = -1;
         state.GetRacerPool().pool[4].downgraded = true;
         state.GetRacerPool().pool[5].races = 12;
@@ -589,6 +600,7 @@ bool RunSaveRoundTripSelfTest() {
         LOG_ERROR("selftest: save FAILED");
         return false;
     }
+    state.SetKnownOpponentNames({});
     if (!state.LoadGameToml(path)) {
         LOG_ERROR("selftest: load FAILED");
         return false;

@@ -57,6 +57,8 @@ struct LoadedSave {
 
     // Index = driver slot (0-20 pool, 21 The King, inferred). Value is the car spec they drive.
     int opponentCarSpec[22] = {0};
+    // Record byte 3 == 1: met, so on the diner's "Looking for" list (BuildChallengerList). 0xFF is gone.
+    bool opponentMet[22] = {false};
 
     uint32_t elapsedTicks = 0;  // trailer chunk 7, raw
     int trackVariant = 0;       // trailer chunk 8: road-course template 0-9

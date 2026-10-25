@@ -197,6 +197,8 @@ public:
     Opponent* GetKingOpponent();
 
     void AddKnownOpponent(Opponent* opp);
+    // Unknown names are skipped.
+    void SetKnownOpponentNames(const std::vector<std::string>& names);
     const std::vector<Opponent*>& GetKnownOpponents() const;
     void SetNextOpponent(Opponent* opp);
 

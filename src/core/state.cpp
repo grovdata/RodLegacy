@@ -580,6 +580,7 @@ bool State::LoadSaveGame(const fs::path& path) {
     ownedCars.clear();
     currentCar.reset();
     ClearSpares();
+    SetKnownOpponentNames({});
 
     if (loaded.hasActiveCar) {
         CarPtr active = BuildCarFromRecord(loaded.activeCar, carData, srCarSpecData);
@@ -595,6 +596,9 @@ bool State::LoadSaveGame(const fs::path& path) {
     for (int i = 0; i < RACER_POOL_SIZE; ++i) {
         racerPool.SetCarSpecForSlot(i, loaded.opponentCarSpec[i]);
         if (i < static_cast<int>(racerPool.pool.size())) racerPool.pool[i].status = 0;
+    }
+    for (int i = 0; i < RACER_POOL_SIZE && i < static_cast<int>(racerPool.pool.size()); ++i) {
+        if (loaded.opponentMet[i]) AddKnownOpponent(GiveOpponentPoolCar(racerPool.pool[i]));
     }
 
     // The save stores standing, not wins, so drag_wins/road_wins stay 0.
@@ -641,6 +645,18 @@ Opponent* State::GetCurrentOpponent() {
 
 void State::AddKnownOpponent(Opponent* opp) {
     roster.AddKnownOpponent(opp);
+}
+
+void State::SetKnownOpponentNames(const std::vector<std::string>& names) {
+    roster.ClearKnownOpponents();
+    for (const std::string& name : names) {
+        Opponent* opp = roster.FindOpponentByName(name);
+        if (!opp) {
+            Opponent* king = GetKingOpponent();
+            if (king && king->driver.name == name) opp = king;
+        }
+        if (opp) roster.AddKnownOpponent(opp);
+    }
 }
 
 const std::vector<Opponent*>& State::GetKnownOpponents() const {

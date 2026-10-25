@@ -91,7 +91,9 @@ std::vector<uint8_t> BuildSyntheticSave() {
     for (int i = 0; i < 22; ++i) {
         d.push_back(0);                          // byte 0: always 0x00
         d.push_back(static_cast<uint8_t>(i));     // byte 1: car spec this driver drives
-        for (int b = 0; b < 6; ++b) d.push_back(0); // remaining 6 bytes, undecoded
+        d.push_back(0);                          // byte 2: paint
+        d.push_back(i % 3 == 0 ? 1 : 0);         // byte 3: met
+        for (int b = 0; b < 4; ++b) d.push_back(0); // remaining 4 bytes, undecoded
     }
     AppendU32BE(d, 12345); // elapsed ticks
     AppendU16BE(d, 4);     // chunk 8: road-course template index
@@ -159,6 +161,7 @@ TEST_CASE("SaveGameLoader: parses a synthetic save matching save_game.md exactly
     CHECK(save.dragRep == 6);
     CHECK(save.lastRaceWon == true);
     for (int i = 0; i < 22; ++i) CHECK(save.opponentCarSpec[i] == i);
+    for (int i = 0; i < 22; ++i) CHECK(save.opponentMet[i] == (i % 3 == 0));
 
     CHECK(save.elapsedTicks == 12345);
     // The template is rolled once per profile, so it has to survive the round trip.

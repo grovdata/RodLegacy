@@ -99,6 +99,7 @@ LoadedSave SaveGameLoader::Parse(const std::vector<uint8_t>& data) {
     save.lastRaceWon    = ReadU16BE(data, trailerStart + 6) != 0;
     for (size_t i = 0; i < 22; ++i) {
         save.opponentCarSpec[i] = data[trailerStart + 8 + i * 8 + 1];
+        save.opponentMet[i] = data[trailerStart + 8 + i * 8 + 3] == 1;
     }
     save.elapsedTicks = ReadU32BE(data, trailerStart + 184);
     // The road-course template index, fixed for the profile's life.

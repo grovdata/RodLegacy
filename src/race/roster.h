@@ -65,6 +65,7 @@ class Roster {
         size_t GetOpponentCount() const { return opponents.size(); }
 
         void AddKnownOpponent(Opponent* opp);
+        void ClearKnownOpponents() { knownOpponents.clear(); }
         const std::vector<Opponent*>& GetKnownOpponents() const;
         Opponent* FindOpponentByName(const std::string& name);
         void SetNextOpponent(Opponent* opp);
