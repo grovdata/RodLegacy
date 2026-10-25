@@ -200,3 +200,41 @@ jobs:
               uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
               with:
                   files: build-macos/RodLegacy-*.dmg
+
+    haiku:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                arch: [x86, x86_64]
+        # Cross toolchain images, see Dockerfile.haiku. x86 is the 32-bit gcc13 arch of x86_gcc2h.
+        container:
+            image: ghcr.io/grovdata/haiku-builder-${{ matrix.arch }}:latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  submodules: recursive
+
+            - run: meson setup builddir --cross-file /cross-haiku.txt --buildtype=release
+
+            - name: Derive version string
+              if: startsWith(github.ref, 'refs/tags/')
+              run: |
+                  VERSION=$(python3 -c "import json;print(json.load(open('builddir/meson-info/intro-projectinfo.json'))['version'])")
+                  echo "TAG=$VERSION" >> "$GITHUB_ENV"
+
+            - name: Compile
+              run: |
+                  ninja -C builddir rodlegacy
+                  "${TRIPLE}-strip" builddir/rodlegacy
+
+            - name: Build zip
+              if: startsWith(github.ref, 'refs/tags/')
+              run: |
+                  zip -j "rodlegacy-${TAG}-haiku-${{ matrix.arch }}.zip" builddir/rodlegacy
+
+            - name: Attach to release
+              if: startsWith(github.ref, 'refs/tags/')
+              uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+              with:
+                  files: |
+                      rodlegacy-${{ env.TAG }}-haiku-${{ matrix.arch }}.zip

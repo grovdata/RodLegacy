@@ -80,8 +80,8 @@ elif host_machine.system() == 'darwin'
         ]
     )
     sdl2_mixer_dep = sdl2_mixer_proj.get_variable('sdl2_mixer_dep')
-elif host_machine.system() == 'windows'
-    # Windows: Use subprojects for static linking (for cross-compilation)
+elif host_machine.system() in ['windows', 'haiku']
+    # Windows, Haiku: Use subprojects for static linking (for cross-compilation)
     sdl2_image_proj = subproject('sdl2_image',
         default_options: [
             'default_library=static',

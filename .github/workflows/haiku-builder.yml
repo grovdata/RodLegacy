@@ -1,0 +1,40 @@
+name: Haiku builder image
+
+on:
+    push:
+        branches: [main]
+        paths: [Dockerfile.haiku, .github/workflows/haiku-builder.yml]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    image:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                include:
+                    - arch: x86
+                      args: ""
+                    - arch: x86_64
+                      args: >-
+                          --build-arg IMAGE_TAG=x86_64-r1beta5
+                          --build-arg TOOLS=cross-tools-x86_64
+                          --build-arg TRIPLE=x86_64-unknown-haiku
+                          --build-arg CPU_FAMILY=x86_64
+                          --build-arg CPU=x86_64
+                          --build-arg INC=
+                          --build-arg INC_MESON=
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Log in to ghcr.io
+              run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            - name: Build and push
+              run: |
+                  img=ghcr.io/grovdata/haiku-builder-${{ matrix.arch }}:latest
+                  docker build -f Dockerfile.haiku ${{ matrix.args }} -t "$img" .
+                  docker push "$img"
