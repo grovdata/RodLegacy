@@ -17,7 +17,7 @@ class Ending : public CarScene {
 public:
     Ending();
 
-    bool WantsPointer() const override { return false; }
+    bool WantsPointer() const override { return phase == Phase::Win; }
     void OnSceneEnter() override;
     void DrawScene() override;
     void OnFadeComplete() override;
@@ -44,8 +44,10 @@ private:
 
     Bitmap* girl = nullptr;    // 297 GIRLFRIEND_ANIMATION
     Bitmap* kiss = nullptr;    // 298 KISS_ANIMATION
+    SrLibColor winFill = {0, 0, 0, 255};
     Bitmap* winPic = nullptr;  // 299 WIN_SCREEN, full screen with the text
 
+    std::unique_ptr<Bitmap> paintCan;   // the garage can, in the King's paint
     std::unique_ptr<CarBitmap> kingCarBitmap;
     // The King's car, but she is the one driving it in.
     Driver girlfriendDriver;

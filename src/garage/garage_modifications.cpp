@@ -143,8 +143,7 @@ void Garage::ApplyPreviewColor() {
     }
 }
 
-void Garage::UpdatePaintCanPreview() {
-    if (!paintCanPreview) return;
+void DrawPaintCan(Bitmap& can, StandardCarColor color, bool sr2) {
 
     // Car ramp index per pixel of the can in the garage background, '.' is transparent.
     static const char* const kCanSr1[] = {
@@ -173,12 +172,11 @@ void Garage::UpdatePaintCanPreview() {
         "...0000..."
     };
 
-    const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
     const char* const* rows = sr2 ? kCanSr2 : kCanSr1;
     const int h = sr2 ? 9 : 12;
     const int w = 10;
 
-    std::vector<uint16_t> colorPalette = GetStandardCarColor(previewColor);
+    std::vector<uint16_t> colorPalette = GetStandardCarColor(color);
 
     SDL_Surface* rgbaSurface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
     if (!rgbaSurface) {
@@ -202,8 +200,12 @@ void Garage::UpdatePaintCanPreview() {
     }
     SDL_UnlockSurface(rgbaSurface);
 
-    paintCanPreview->ReplaceSurface(rgbaSurface);
-    if (sr2) paintCanPreview->SetPosition(208, 174);
+    can.ReplaceSurface(rgbaSurface);
+    if (sr2) can.SetPosition(208, 174);
+}
+
+void Garage::UpdatePaintCanPreview() {
+    if (paintCanPreview) DrawPaintCan(*paintCanPreview, previewColor, state.GetAssets().GetGame() == SrGame::SR2);
 }
 
 void Garage::ShowPaintDialog() {

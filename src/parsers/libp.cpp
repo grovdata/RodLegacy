@@ -309,6 +309,10 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
            assetIndex == SR2_HOOD_TALL || assetIndex == SR2_HOOD_LOW)
         : (assetIndex == 3 || assetIndex == 11 || assetIndex == 19);
 
+    // The King's art draws real black (the scoop); only index 0 is see-through, and a black pixel is transparent downstream.
+    const bool isKingBody = game == SrGame::SR2 ? assetIndex == SR2_KING_SHELBY_500
+                                                 : assetIndex == THE_KING_CHEVROLET_CORVETTE_1963_BODY;
+
     for (int y = 0; y < entry.height; ++y) {
         for (int x = 0; x < entry.width; x += 8) {
             int offset = (y * entry.width + x) / 8;
@@ -344,7 +348,11 @@ std::vector<SrLibColor> BitmapParser::PlanarToChunky(const std::vector<uint8_t>&
                 }
 
                 int pixel_index = (y * entry.width) + (x + i);
-                chunkyData[pixel_index] = selectedPalette[value];
+                SrLibColor color = selectedPalette[value];
+                if (isKingBody && value != 0 && color.r == 0 && color.g == 0 && color.b == 0) {
+                    color = {1, 1, 1, color.a};
+                }
+                chunkyData[pixel_index] = color;
             }
         }
     }

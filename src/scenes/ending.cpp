@@ -1,6 +1,11 @@
 #include "scenes/ending.h"
 
 #include "core/game_text.h"
+#include "garage/garage.h"
+#include "ui/hud.h"
+#include "core/mouse.h"
+
+extern Mouse mouse;
 #include "core/state.h"
 #include "gfx/bitmap.h"
 #include "parsers/libp.h"
@@ -46,6 +51,9 @@ constexpr Frame kKiss[9] = {
     {  0, 99, 224, 101,  80,  51},
 };
 
+constexpr int kWinPicX = 8;      // LAB_0262(300, 8, 20, 44): picture at (8,20) over a fill of pen 44
+constexpr int kWinPicY = 20;
+constexpr int kWinFillPen = 44;   // EHB half of pen 12
 constexpr int kWinX = 103;
 constexpr int kWinY = 67;
 constexpr int kWinH = 44;
@@ -53,7 +61,8 @@ constexpr int kWinH = 44;
 constexpr Uint64 kFrameMs = 200;
 constexpr int kBeatFrame = 13;   // this one is held twice as long
 constexpr Uint64 kBeatExtraMs = 400;
-constexpr Uint64 kHeroDelayMs = 1000;   // Delay(50) before the line
+constexpr Uint64 kLipsHoldMs = 1600;    // Delay(80) on the full lips
+constexpr Uint64 kHeroDelayMs = 1000;   // Delay(50) after they are gone, before the line
 
 }
 
@@ -65,6 +74,9 @@ void Ending::OnSceneEnter() {
     frame = 1;
     phaseStart = GameTicks();
     heroBubble.reset();
+    SetPointer(SrLibAmigaSpriteAssetMousePointerThumbsUp);
+    mouse.SetVisible(true);
+    hud->SetText("");
 
     SetAudioManager(state.GetAssets().GetAudioManager());
 
@@ -72,6 +84,17 @@ void Ending::OnSceneEnter() {
     girl = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, GIRLFRIEND_ANIMATION});
     kiss = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, KISS_ANIMATION});
     winPic = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, WIN_SCREEN});
+    {
+        BitmapParser parser;
+        const Palette pal = parser.PreparePalette(
+            assets.GetAssetPalette({LibAssetRegular, SrLibFileAmigaLibP, WIN_SCREEN}), true);
+        winFill = pal[kWinFillPen];
+    }
+
+    paintCan = std::make_unique<Bitmap>(10, 12, 2);
+    paintCan->SetPosition(233, 166);
+    paintCan->SetVisible(true);
+    DrawPaintCan(*paintCan, CarColorKing, false);
 }
 
 SDL_Point Ending::GetCarIdlePosition() {
@@ -98,10 +121,14 @@ void Ending::DrawScene() {
     lastFrameTime = currentTime;
 
     if (phase == Phase::Win) {
+        SDL_SetRenderDrawColor(renderer, winFill.r, winFill.g, winFill.b, 255);
+        SDL_Rect screen = {0, 0, GAME_WIDTH, GAME_HEIGHT};
+        SDL_RenderFillRect(renderer, &screen);
         if (winPic != nullptr) {
-            winPic->SetPosition(0, 0);
+            winPic->SetPosition(kWinPicX, kWinPicY);
             winPic->Draw();
         }
+        hud->Draw();
         return;
     }
 
@@ -129,12 +156,13 @@ void Ending::DrawScene() {
             }
         }
     }
-    if (phase == Phase::Done && !heroBubble && now - phaseStart >= kHeroDelayMs) {
+    if (phase == Phase::Done && !heroBubble && now - phaseStart >= kLipsHoldMs + kHeroDelayMs) {
         heroBubble = std::make_unique<Bubble>(GameText::Msg(GameText::HERO), BUBBLE_LEFT, false);
         heroBubble->SetVisible(true);
     }
 
     CarScene::DrawScene();
+    paintCan->Draw();
 
     if (girl != nullptr && phase != Phase::DriveIn) {
         const Frame& f = kGirl[phase == Phase::Girl ? frame : girlFrame];
@@ -144,8 +172,9 @@ void Ending::DrawScene() {
     if (carBitmap != nullptr) {
         carBitmap->Draw();
     }
-    if ((phase == Phase::Kiss || phase == Phase::Done || phase == Phase::Leaving) &&
-        kiss != nullptr) {
+    const bool lipsShown = phase == Phase::Kiss ||
+                           (phase == Phase::Done && now - phaseStart < kLipsHoldMs);
+    if (lipsShown && kiss != nullptr) {
         const Frame& f = kKiss[frame];
         kiss->DrawWithRects({f.sx, f.sy, f.w, f.h}, {f.dx, f.dy, f.w, f.h});
     }
@@ -168,6 +197,7 @@ bool Ending::PushEvent(SDL_Event* event) {
     if (pressed && phase == Phase::Win) {
         phase = Phase::DriveIn;
         phaseStart = GameTicks();
+        SetPointer(SrLibAmigaSpriteAssetMousePointerHand);
         Opponent* king = state.GetKingOpponent();
         if (king != nullptr && king->car) {
             girlfriendDriver = king->driver;

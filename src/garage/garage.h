@@ -24,6 +24,9 @@
 #include <functional>
 #include <filesystem>
 
+// Paints the garage's paint can (10x12, 10x9 in SR2) in the given car colour.
+void DrawPaintCan(Bitmap& can, StandardCarColor color, bool sr2);
+
 class Garage : public CarScene {
    private:
     enum class TireChangePhase {

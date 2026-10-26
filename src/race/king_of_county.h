@@ -20,15 +20,23 @@ private:
     struct Row {
         Label name;
         Label score;
-        bool highlight;
+        Label hr;
     };
     std::vector<Row> rows;
+    std::vector<State::HallEntry> allEntries;
+    bool editing = false;
+    std::string editName;
+    std::string shownName;
+    Uint64 caretStart = 0;
+    void CommitName();
 
 public:
     explicit KingOfCounty(bool wonGame);
     ~KingOfCounty() = default;
 
     void Init(bool debugMode) override;
+    void OnSceneEnter() override;
+    void OnSceneExit() override;
     void DrawScene() override;
     bool PushEvent(SDL_Event* event) override;
 };

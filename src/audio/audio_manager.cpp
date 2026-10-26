@@ -196,6 +196,7 @@ bool AudioManager::SetAdlibVictorySong(const std::string& name, const uint8_t* m
 }
 
 void AudioManager::PlayVictoryMusic() {
+    victoryPlaying_ = true;
     // On the AdLib source the win piece is MSR21, so the source does not change.
     if (musicSource_ == MusicSource::ADLIB && adlibMusic_ && adlibMusic_->HasVictorySong()) {
         adlibMusic_->SetVolume(musicMuted_ ? 0.0f : musicVolume_ / 10.0f);
@@ -286,6 +287,7 @@ AudioManager::MusicSource AudioManager::GetMusicSource() const {
 }
 
 void AudioManager::SetMusicSource(MusicSource src, bool start) {
+    victoryPlaying_ = false;
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
     if (adlibMusic_) adlibMusic_->Stop();
@@ -1184,6 +1186,7 @@ void AudioManager::PlayChime(int chA, int period, int chB) {
 }
 
 void AudioManager::StopMusicPlayback() {
+    victoryPlaying_ = false;
     if (pcSpeaker_) pcSpeaker_->Stop();
     if (amigaMusic_) amigaMusic_->Stop();
     if (adlibMusic_) adlibMusic_->Stop();

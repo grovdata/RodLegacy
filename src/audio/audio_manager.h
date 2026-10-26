@@ -172,6 +172,7 @@ public:
     bool HasC64Music() const;
 
     void PlayVictoryMusic();
+    bool IsVictoryMusicPlaying() const { return victoryPlaying_; }
 
     void InitPCSpeaker(const std::string& dosExePath);
 
@@ -241,6 +242,7 @@ private:
     int  sfxVolume_   = 8;
     int  musicVolume_ = 8;
     bool musicMuted_  = false;
+    bool victoryPlaying_ = false;
 
     std::unique_ptr<EngineSound> engineSound;
     std::unique_ptr<AdlibEngine> adlibEngine;
