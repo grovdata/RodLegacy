@@ -14,6 +14,7 @@
 #include "core/types.h"
 #include "parsers/libp.h"
 #include "ui/bubble.h"
+#include "ui/label.h"
 #include "dialogs/dialog.h"
 
 #include <vector>
@@ -31,6 +32,7 @@ class Driving: public Scene {
 
     std::unique_ptr<Racing> racing;
 public:
+    void DebugShowTicket();
     // The live race renderer - State has a `racing` member of its own that is never constructed.
     Racing* GetRacing() const { return racing.get(); }
 private:
@@ -76,6 +78,13 @@ private:
     int raceEndAvgSpeed = 0;
     int raceEndPercent = 0;
     void ShowStatsDialog();
+    // The cop's ticket and his hand, with the player's name and car written on it.
+    std::unique_ptr<Bitmap> ticketBitmap;
+    std::unique_ptr<Bitmap> ticketHandBitmap;
+    std::unique_ptr<Label> ticketName;
+    std::unique_ptr<Label> ticketCar;
+    bool ticketShown = false;
+    void ShowTicket();
     void OnFadeComplete() override;
     void LeaveAfterRace();
 

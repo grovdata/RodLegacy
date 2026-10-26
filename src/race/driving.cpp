@@ -47,7 +47,7 @@ Driving::Driving() : Scene() {
     racing = std::make_unique<Racing>(state.GetAssets().GetAudioManager());
     roadTexture = nullptr;
     lastEvent = nullptr;
-    
+
     trackReader = std::make_unique<TrackReader>();
     LOG_INFO("Driving constructor completed - trackReader created\n");
 }
@@ -60,6 +60,7 @@ void Driving::Init(bool debugMode) {
     raceEndPendingKing = false;
     raceEndBubble.reset();
     statsDialog.reset();
+    ticketShown = false;
     raceEndDipping = false;
 
     ApplyCarLivery();
@@ -89,7 +90,7 @@ void Driving::Init(bool debugMode) {
     mirror->SetPosition(240, 19);
     mirror->SetVisible(true);
     AddDrawable("mirror", mirror);
-    
+
     auto clock = state.GetAssets().GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, RACING_RACING_CLOCK_11_50});
     clock->SetPosition(120, 115);
     clock->SetVisible(false);
@@ -183,7 +184,7 @@ void Driving::Init(bool debugMode) {
     LoadShifter();
 
     SetState(DRIVING_STATE_NORMAL);
-    
+
     // Not car-coloured, so the plain driving palette.
     const bool sr2Blood = state.GetAssets().GetGame() == SrGame::SR2;
     auto* crashBloodAsset = state.GetAssets().GetBitmapAsset(
@@ -194,7 +195,7 @@ void Driving::Init(bool debugMode) {
         crashBloodBitmap->SetVisible(false);
         crashBloodBitmap->SetPosition(sr2Blood ? 128 : 104, 27);
     }
-    
+
     LoadTrackData();
 
     if (racing) {
@@ -204,23 +205,23 @@ void Driving::Init(bool debugMode) {
 
 void Driving::LoadTrackData() {
     LOG_INFO("Driving::LoadTrackData() called\n");
-    
+
     if (!trackReader) {
         LOG_INFO("ERROR: trackReader is null!\n");
         return;
     }
-    
+
     byte_vector& srExeData = state.GetAssets().GetSrExeData();
     LOG_INFO("AssetManager SrExeData size: %zu bytes\n", srExeData.size());
-    
+
     if (srExeData.empty()) {
         LOG_INFO("ERROR: AssetManager SrExeData is empty!\n");
         return;
     }
-    
+
     if (trackReader->LoadTrackData(srExeData)) {
         LOG_INFO("=== Street Rod Track Data Loaded ===\n");
-        
+
         LOG_INFO("Extracting road race track coordinates...\n");
         auto roadRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_ROAD_RACE, 500);
         LOG_INFO("Found %zu road race segments\n", roadRaceSegments.size());
@@ -233,7 +234,7 @@ void Driving::LoadTrackData() {
             LOG_INFO("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
             LOG_INFO("  Unique sprites: %zu\n", analysis.uniqueSprites.size());
         }
-        
+
         LOG_INFO("Extracting drag race track coordinates...\n");
         auto dragRaceSegments = trackReader->ExtractTrackCoordinates(SR_TRACK_DRAG_RACE, 200);
         LOG_INFO("Found %zu drag race segments\n", dragRaceSegments.size());
@@ -245,13 +246,13 @@ void Driving::LoadTrackData() {
             LOG_INFO("  Length: %.1f units\n", analysis.totalLength);
             LOG_INFO("  Bounds: (%d,%d) to (%d,%d)\n", analysis.minX, analysis.minY, analysis.maxX, analysis.maxY);
         }
-        
+
         LOG_INFO("Extracting roadside sprites...\n");
         auto roadsideSprites = trackReader->ExtractRoadSideSprites(SR_ROADSIDE_SPRITES_OFFSET, 100);
         LOG_INFO("Found %zu roadside sprite records\n", roadsideSprites.size());
         if (!roadsideSprites.empty()) {
             LOG_INFO("Roadside Sprites: %zu records\n", roadsideSprites.size());
-            
+
             for (size_t i = 0; i < std::min<size_t>(5, roadsideSprites.size()); ++i) {
                 const auto& sprite = roadsideSprites[i];
                 LOG_INFO("  %s at pos %d, %s at pos %d\n",
@@ -259,7 +260,7 @@ void Driving::LoadTrackData() {
                     TrackReader::GetSpriteName(sprite.spriteId2), sprite.trackPosition2);
             }
         }
-        
+
         if (racing) {
             LOG_INFO("Loading track data into racing component...\n");
             // Builds the race sim off the current car, gearbox included.
@@ -268,7 +269,7 @@ void Driving::LoadTrackData() {
             LOG_INFO("Initializing race opponent...\n");
             racing->InitializeOpponent();
         }
-        
+
         LOG_INFO("================================\n");
     } else {
         LOG_INFO("Failed to load Street Rod track data from AssetManager executable data.\n");
@@ -299,7 +300,7 @@ void Driving::ApplyCarLivery() {
     byte_vector& libFile = state.GetAssets().GetLibPData();
 
     const bool sr2 = state.GetAssets().GetGame() == SrGame::SR2;
-    
+
     // The dashboard includes the hood's left edge.
     Bitmap* dashboard = sr2
         ? state.GetAssets().GetBitmapAssetWithPalette(
@@ -522,6 +523,7 @@ void Driving::OnSceneEnter() {
     raceEndPendingKing = false;
     raceEndBubble.reset();
     statsDialog.reset();
+    ticketShown = false;
     raceEndDipping = false;
     wreckDialog.reset();
     raceEndDismissAllowedMs = 0;
@@ -751,7 +753,7 @@ void Driving::DrawScene() {
             if (roadTexture) {
                 SDL_DestroyTexture(roadTexture);
             }
-            
+
             roadTexture = SDL_CreateTextureFromSurface(renderer, racingSurface);
             if (roadTexture) {
                 // The scale-quality hint is set after the renderer exists, so it isn't reliably applied.
@@ -762,12 +764,12 @@ void Driving::DrawScene() {
     }
 
     bool isAutomatic = racing && racing->IsAutomatic();
-    
+
     auto clockDrawable = GetDrawable("clock");
     if (clockDrawable) {
         clockDrawable->SetVisible(isAutomatic);
     }
-    
+
     // Follows the eased steering, so it re-centers over several frames.
     if (racing && !racing->IsFlybyMode() && !racing->ShouldShowCrashOverlay()) {
         const int steer = racing->GetSteerDisplay();
@@ -780,7 +782,7 @@ void Driving::DrawScene() {
     }
 
     DrawAll();
-    
+
     if (racing) {
         if (!isAutomatic) {
             racing->DrawTachometerNeedleToRenderer(renderer);
@@ -791,7 +793,7 @@ void Driving::DrawScene() {
     DrawSteeringDot();
 
     bool isCrashed = racing && !racing->IsFlybyMode() && racing->ShouldShowCrashOverlay();
-    
+
     if (isCrashed != lastCrashState) {
         if (isCrashed) {
             SetState(DRIVING_STATE_CRASHED);
@@ -800,7 +802,7 @@ void Driving::DrawScene() {
         }
         lastCrashState = isCrashed;
     }
-    
+
     if (isCrashed) {
         DrawCrashOverlay();
     } else if (crashOverlayBitmap && crashOverlayBitmap->IsVisible()) {
@@ -822,6 +824,12 @@ void Driving::DrawScene() {
         DrawLegacyDebugOverlay();
     }
 
+    if (ticketShown) {
+        ticketBitmap->Draw();
+        ticketHandBitmap->Draw();
+        ticketName->Draw();
+        ticketCar->Draw();
+    }
     if (statsDialog && statsDialog->IsVisible()) {
         statsDialog->Draw();
     }
@@ -852,6 +860,53 @@ void Driving::OnFadeComplete() {
     } else if (am && !musicWasPaused) {
         am->ResumeMusic();
     }
+    ShowRaceEndMessage();
+}
+
+// Speeding ticket
+void Driving::ShowTicket() {
+    AssetManager& assets = state.GetAssets();
+    const bool sr2 = assets.GetGame() == SrGame::SR2;
+    const int ticketId = sr2 ? SR2_RACING_RACING_SPEEDING_TICKET : RACING_RACING_SPEEDING_TICKET;
+    const int handId = sr2 ? SR2_RACING_RACING_SPEEDING_TICKET_COP_HAND : RACING_RACING_SPEEDING_TICKET_COP_HAND;
+    const SrGame game = assets.GetGame();
+    Bitmap* ticket = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, ticketId, game});
+    Bitmap* hand = assets.GetBitmapAsset({LibAssetRegular, SrLibFileAmigaLibP, handId, game});
+    if (!ticket || !hand) return;
+    ticketBitmap = std::make_unique<Bitmap>(*ticket);
+    ticketBitmap->SetPosition(88, 100 - ticketBitmap->GetNaturalSize().h);
+    ticketBitmap->SetVisible(true);
+    ticketHandBitmap = std::make_unique<Bitmap>(*hand);
+    ticketHandBitmap->SetPosition(0, 100);
+    ticketHandBitmap->SetVisible(true);
+
+    SFont_Font* font = assets.GetMainFont();
+    const int maxWidth = ticketBitmap->GetNaturalSize().w - 8;
+    auto fit = [&](std::string text) {
+        while (!text.empty() && SFont_TextWidth(font, text.c_str()) > maxWidth) text.pop_back();
+        return text;
+    };
+    auto makeLabel = [&](const std::string& text, int y) {
+        auto label = std::make_unique<Label>();
+        label->Init(font, 94, y, 0);
+        label->SetText(fit(text));
+        label->SetVisible(true);
+        return label;
+    };
+    ticketName = makeLabel(state.GetPlayerName(), 104);
+    ticketCar = makeLabel(state.GetCurrentCar() ? state.GetCurrentCar()->GetModel().name : "", 131);
+    ticketShown = true;
+}
+
+void Driving::DebugShowTicket() {
+    raceEnded = true;
+    raceEndWon = false;
+    raceEndShowStats = false;
+    raceEndWreck = false;
+    raceEndCtx = srrace::RaceEndContext{};
+    raceEndCtx.endFlags = srrace::END_COP_CAUGHT;
+    raceEndCtx.speedingFine = 50;
+    raceEndReason = {GameText::Format(GameText::FINED, 50), srrace::MessageBox::Wide, srrace::kFinedMessage};
     ShowRaceEndMessage();
 }
 
@@ -889,9 +944,17 @@ void Driving::ShowRaceEndMessage() {
     if (raceEndShowStats) {
         ShowStatsDialog();
     }
+    if ((raceEndCtx.endFlags & srrace::END_COP_CAUGHT)) {
+        ShowTicket();
+    }
+    // If player can afford the fine, it's shown in the HUD
+    const bool fineLine = raceEndReason.id == srrace::kFinedMessage;
+    if (raceEndCtx.endFlags & srrace::END_COP_CAUGHT) {
+        hud->SetTextOnly(GameText::Format(GameText::FINED, raceEndCtx.speedingFine).c_str());
+    }
     if (raceEndWreck) {
         ShowWreckDialog(raceEndCtx);
-    } else if (!raceEndReason.text.empty()) {
+    } else if (!raceEndReason.text.empty() && !fineLine) {
         BubbleStyle style = BUBBLE_LEFT;
         switch (raceEndReason.box) {
             case srrace::MessageBox::Narrow: style = BUBBLE_RIGHT; break;
@@ -1155,6 +1218,7 @@ void Driving::StartCruise(int startSeg, SrLibGameScene destination) {
     raceEnded = false;
     raceEndBubble.reset();
     statsDialog.reset();
+    ticketShown = false;
     raceEndDipping = false;
     mouse.SetVisible(false);
     // The original shows this on the cutscene's first tick.
@@ -1178,9 +1242,11 @@ void Driving::EndCruise() {
 
 // Called from the wreck dialog's own callback, so it is hidden, not destroyed.
 void Driving::LeaveAfterRace() {
+    hud->Clear();
     raceEnded = false;
     raceEndBubble.reset();
     statsDialog.reset();
+    ticketShown = false;
     if (wreckDialog) wreckDialog->Hide();
     const bool endGame = raceEndPendingKing;
     raceEndPendingKing = false;

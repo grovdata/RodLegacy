@@ -32,6 +32,10 @@ std::vector<DebugPanel> BuildDebugPanels(Uint64 frameDelta) {
         state.MoveToScene(SCENE_CRUISING);
         state.GetDrivingScene()->StartCruise(115, SCENE_GAS_STATION);
     }});
+    scenes.buttons.push_back({"Speeding ticket", [] {
+        state.MoveToScene(SCENE_DRIVING);
+        state.GetDrivingScene()->DebugShowTicket();
+    }});
     scenes.buttons.push_back({"Ending",         [] { state.MoveToScene(SCENE_ENDING); }});
     scenes.buttons.push_back({"King of County", [] { state.MoveToScene(SCENE_KING_OF_COUNTY); }});
     scenes.buttons.push_back({"Name Entry",     [] { state.MoveToScene(SCENE_NAME_ENTRY); }});
