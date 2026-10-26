@@ -1371,7 +1371,10 @@ void Garage::ShowCarburetorDialog(int carbIndex) {
                 const CarPtr& car = state.GetCurrentCarPtr();
                 engineBaySlotRejected[(int)EngineBaySlot::CARB0 + carbIndex] = car &&
                     (!PartsCompatibilityManager::IsVendorCompatible(newCarb.vendor, car->GetModelRef().vendor) ||
-                     !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType, car->GetManifoldType()));
+                     !PartsCompatibilityManager::IsCarburetorCompatible(newCarb.partType.carburetorType,
+                         (engineBaySlotPhase[(int)EngineBaySlot::MANIFOLD] == PartInstallPhase::SCREWING_IN ||
+                          engineBaySlotPhase[(int)EngineBaySlot::MANIFOLD] == PartInstallPhase::SLIDING_IN)
+                             ? pendingManifold.partType.manifoldType : car->GetManifoldType()));
                 carbSwapDialog->Hide();
                 StartCarbSlideIn(carbIndex, newCarb);
                 SetActiveDialog(engineBay->GetDialog());
