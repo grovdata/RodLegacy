@@ -256,6 +256,7 @@ SaveSummary PeekSave(const fs::path& path) {
 
     SaveSummary s;
     s.playerName   = toml::find_or(root, "name", std::string());
+    s.saveName     = toml::find_or(root, "save_name", s.playerName);
     s.game         = toml::find_or(root, "game", std::string());
     s.bankroll     = toml::find_or(root, "bankroll", 0);
     s.elapsedTicks = static_cast<uint32_t>(toml::find_or(root, "elapsed_ticks", std::int64_t{0}));
@@ -277,6 +278,7 @@ bool State::SaveGameToml(const fs::path& path) {
     root["version"]  = kSaveVersion;
     root["game"]     = std::string(SrGameSaveKey(assets.GetGame()));
     root["name"]     = playerName;
+    root["save_name"] = GetSaveName();
     root["bankroll"] = bankroll;
     root["elapsed_ticks"] = static_cast<std::int64_t>(elapsedTicks);
     root["track_variant"] = GetTrackVariant();
@@ -415,6 +417,7 @@ bool State::LoadGameToml(const fs::path& path) {
     }
 
     SetPlayerName(toml::find_or(root, "name", std::string()));
+    SetSaveName(toml::find_or(root, "save_name", std::string()));
     SetBankroll(toml::find_or(root, "bankroll", 0));
     SetElapsedTicks(static_cast<uint32_t>(toml::find_or(root, "elapsed_ticks", std::int64_t{0})));
     SetTrackVariant(toml::find_or(root, "track_variant", 0));

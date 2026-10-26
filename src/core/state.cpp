@@ -396,6 +396,7 @@ void State::GenerateClassifieds() {
 }
 
 void State::StartNewGame() {
+    saveName.clear();
     // The chosen car sets decide the spec table and the opponents' cars.
     RebuildCarSets();
     roster.Initialize(carData);
@@ -612,6 +613,7 @@ bool State::LoadSaveGame(const fs::path& path) {
     std::string savedName = loaded.name;
     while (!savedName.empty() && savedName.back() == ' ') savedName.pop_back();
     if (!savedName.empty()) SetPlayerName(savedName);
+    saveName.clear();
 
     LOG_INFO("LoadSaveGame: loaded '%s', bankroll=%d, %d owned car(s), %zu spare part(s) not sorted by category (see save_loader.h)",
               loaded.name.c_str(), loaded.bankroll, (int)ownedCars.size(), loaded.spareParts.size());

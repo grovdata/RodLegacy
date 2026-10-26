@@ -76,7 +76,7 @@ void SaveLoadScene::Configure(Mode newMode, SrLibGameScene newReturnTo) {
     returnTo = newReturnTo;
     // Hidden rather than destroyed: Configure can run from the confirm dialog's own callback.
     if (confirmDialog) confirmDialog->Hide();
-    newSaveName = state.GetPlayerName();
+    newSaveName = state.GetSaveName();
     if (newSaveName.size() > kMaxSaveNameLength) newSaveName.resize(kMaxSaveNameLength);
     if (mode == Mode::Save) SDL_StartTextInput();
     else                    SDL_StopTextInput();
@@ -147,7 +147,7 @@ void SaveLoadScene::RebuildList() {
         try {
             const SaveSummary s = PeekSave(path);
             if (!SrGameSaveKeyMatches(s.game, game)) continue;
-            e.label = s.playerName;
+            e.label = s.saveName;
         } catch (const SaveLoadError& ex) {
             LOG_INFO("SaveLoadScene: couldn't read %s: %s", path.string().c_str(), ex.what());
             e.label += "  (unreadable)";
@@ -337,7 +337,7 @@ void SaveLoadScene::SaveUnderName(const std::string& rawName) {
 }
 
 void SaveLoadScene::WriteSave(const fs::path& target, const std::string& name) {
-    state.SetPlayerName(name);
+    state.SetSaveName(name);
     if (!state.SaveGameToml(target)) {
         LOG_INFO("SaveLoadScene: save '%s' FAILED", target.string().c_str());
         Configure(mode, returnTo);

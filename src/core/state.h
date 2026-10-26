@@ -51,6 +51,7 @@ private:
     int bankroll;
     bool debugMode = false;
     std::string playerName = "Player";
+    std::string saveName;   // slot label; empty means the player name
     bool jailed = false;
 
     std::set<Driver *> allDrivers;
@@ -146,6 +147,8 @@ public:
     void SaveHallDat(const std::vector<HallEntry>& entries) const;
     std::string GetPlayerName() const { return playerName; }
     void SetPlayerName(const std::string& name) { playerName = name.empty() ? "Player" : name; }
+    std::string GetSaveName() const { return saveName.empty() ? playerName : saveName; }
+    void SetSaveName(const std::string& name) { saveName = name; }
 
     AssetManager& GetAssets() { return assets; }
     Newspaper* GetNewspaper() const { return newspaper.get(); }

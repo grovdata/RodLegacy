@@ -20,6 +20,7 @@ namespace fs = std::filesystem;
 // Throws SaveLoadError if the file is unreadable.
 struct SaveSummary {
     std::string playerName;
+    std::string saveName;
     int bankroll = 0;
     uint32_t elapsedTicks = 0;
     std::string game;

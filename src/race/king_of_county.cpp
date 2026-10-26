@@ -8,8 +8,9 @@ static constexpr int TABLE_START_Y    = 58;
 static constexpr int ROW_HEIGHT       = 11;
 static constexpr int NAME_X           = 46;
 static constexpr int SCORE_RIGHT_X    = 180;
+static constexpr int NAME_GAP         = 8;
 static constexpr uint32_t COLOR_NORMAL    = 0xFFFFFFFF;
-static constexpr uint32_t COLOR_HIGHLIGHT = 0xFF00FFFF;  // yellow
+static constexpr uint32_t COLOR_HIGHLIGHT = 0xFFFFFF00;  // yellow
 
 KingOfCounty::KingOfCounty(bool wonGame)
     : Scene((Asset){LibAssetRegular, SrLibFileAmigaLibP, KING_STREET_RODDERS}),
@@ -22,7 +23,7 @@ void KingOfCounty::Init(bool debugMode) {
 
     if (wonGame) {
         int playerScore = state.CalculateScore();
-        State::HallEntry playerEntry{ state.GetPlayerName(), playerScore };
+        State::HallEntry playerEntry{ state.GetPlayerName().substr(0, 15), playerScore };
 
         auto it = std::lower_bound(entries.begin(), entries.end(), playerEntry,
             [](const State::HallEntry& a, const State::HallEntry& b) {
@@ -57,10 +58,13 @@ void KingOfCounty::Init(bool debugMode) {
         row.highlight = highlight;
 
         row.name.Init(font, NAME_X, y, color);
-        row.name.SetText(entries[i].name);
-
         std::string scoreStr = std::to_string(entries[i].score) + " hr";
         int scoreWidth = SFont_TextWidth(font, scoreStr.c_str());
+        std::string name = entries[i].name;
+        while (name.size() > 1 && NAME_X + SFont_TextWidth(font, name.c_str()) > SCORE_RIGHT_X - scoreWidth - NAME_GAP) {
+            name.pop_back();
+        }
+        row.name.SetText(name);
         row.score.Init(font, SCORE_RIGHT_X - scoreWidth, y, color);
         row.score.SetText(scoreStr);
 
