@@ -90,7 +90,9 @@ test_exe = executable('test_libp',
     # SDL headers only (SDL_Rect/SDL_Point in engine_bay_layout.h); linking
     # SDL into a test binary would drag in its main() shim.
     dependencies: [lodepng_test_dep, c64_emu_dep,
-                   sdl2_dep.partial_dependency(includes: true, compile_args: true)],
+                   sdl2_dep.partial_dependency(includes: true, compile_args: true),
+                   sdl2_image_dep.partial_dependency(includes: true, compile_args: true),
+                   sdl2_mixer_dep.partial_dependency(includes: true, compile_args: true)],
     cpp_args: ['-std=c++17', '-O0'],
 )
 
