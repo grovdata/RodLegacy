@@ -607,6 +607,7 @@ bool State::LoadSaveGame(const fs::path& path) {
     reputation.drag_rep        = loaded.dragRep;
     reputation.road_rep        = loaded.roadRep;
     reputation.last_race_won   = loaded.lastRaceWon;
+    kingQualifierWon           = loaded.lastRaceWon;
 
     std::string savedName = loaded.name;
     while (!savedName.empty() && savedName.back() == ' ') savedName.pop_back();
@@ -665,6 +666,17 @@ const std::vector<Opponent*>& State::GetKnownOpponents() const {
 
 void State::SetNextOpponent(Opponent* opp) {
     roster.SetNextOpponent(opp);
+    if (!opp) return;
+    if (roster.IsKing(opp)) {
+        lastChallengerPoolIndex = RACER_KING_SLOT;
+        return;
+    }
+    for (size_t i = 0; i < racerPool.pool.size() && i < RACER_POOL_SIZE; i++) {
+        if (racerPool.pool[i].driver_index == opp->driver.srDriverIndex) {
+            lastChallengerPoolIndex = static_cast<int>(i);
+            return;
+        }
+    }
 }
 
 int State::GetPlayerScore() const {

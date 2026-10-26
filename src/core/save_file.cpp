@@ -300,6 +300,7 @@ bool State::SaveGameToml(const fs::path& path) {
     rep["aqueduct_rep"]    = reputation.aqueduct_rep;
     rep["grudge_won"]      = reputation.grudge_won;
     rep["king_stage"]      = reputation.king_stage;
+    rep["king_qualified"]  = kingQualifierWon;
     root["reputation"] = rep;
 
     SaveArray cars;
@@ -419,6 +420,7 @@ bool State::LoadGameToml(const fs::path& path) {
     SetTrackVariant(toml::find_or(root, "track_variant", 0));
 
     reputation = Reputation();
+    kingQualifierWon = false;
     if (root.contains("reputation")) {
         const SaveValue& rep = toml::find(root, "reputation");
         reputation.drag_rep        = toml::find_or(rep, "drag_rep", 0);
@@ -429,6 +431,7 @@ bool State::LoadGameToml(const fs::path& path) {
         reputation.aqueduct_rep    = toml::find_or(rep, "aqueduct_rep", 0);
         reputation.grudge_won      = toml::find_or(rep, "grudge_won", 0);
         reputation.king_stage      = toml::find_or(rep, "king_stage", 0);
+        kingQualifierWon           = toml::find_or(rep, "king_qualified", false);
     }
 
     ownedCars = std::move(rebuilt);

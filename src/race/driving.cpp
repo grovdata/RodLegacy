@@ -1185,7 +1185,7 @@ void Driving::LeaveAfterRace() {
     const bool endGame = raceEndPendingKing;
     raceEndPendingKing = false;
     if (endGame) {
-        state.MoveToScene(SCENE_KING_OF_COUNTY);
+        state.MoveToScene(SCENE_ENDING);
     } else if (state.GetPendingRaceType() == RaceType::Grudge) {
         // The night runs its own rounds, so a grudge round goes back to it
         // rather than out to the diner or the garage.
