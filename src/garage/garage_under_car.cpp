@@ -53,7 +53,7 @@ int SpriteFor(const Car& car, PartCategory c) {
 
 CarVendor_t CarMake(const Car& car) {
     const CarVendor_t v = car.GetModelRef().vendor;
-    return v == CarVendorUnknown ? SrLibQueryGetCarVendor(car.GetModelRef().index) : v;
+    return v == CarVendorGeneric ? SrLibQueryGetCarVendor(car.GetModelRef().index) : v;
 }
 
 DialogBitmap SpriteEntry(const Car& car, const UnderCarSlot& s) {

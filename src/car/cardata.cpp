@@ -90,7 +90,7 @@ int CarData::ReadCarSetAmiga(int carSet, const std::vector<uint8_t>& srData,
             case 0:  model.vendor = CarVendorGM; break;
             case 1:  model.vendor = CarVendorFord; break;
             case 2:  model.vendor = CarVendorChrysler; break;
-            default: model.vendor = CarVendorUnknown; break;
+            default: model.vendor = CarVendorGeneric; break;
         }
 
         metadataByIndex[model.index] = metadata[i];
@@ -167,7 +167,7 @@ int CarData::ReadCarSet(int carSet, const std::vector<uint8_t>& hotData,
             case 0:  model.vendor = CarVendorGM; break;
             case 1:  model.vendor = CarVendorFord; break;
             case 2:  model.vendor = CarVendorChrysler; break;
-            default: model.vendor = CarVendorUnknown; break;
+            default: model.vendor = CarVendorGeneric; break;
         }
 
         metadataByIndex[model.index] = metadata[i];

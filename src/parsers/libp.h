@@ -184,7 +184,7 @@ enum CarVendor_t {
     CarVendorFord = 1,
     CarVendorGM = 2,
     CarVendorCustom = 3,
-    CarVendorUnknown = 4
+    CarVendorGeneric = 4
 };
 
 enum CarEngine_t {

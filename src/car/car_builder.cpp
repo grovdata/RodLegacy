@@ -26,7 +26,7 @@ CarPtr CarBuilder::BuildRandomCar(CarModel model) {
     car->SetEngine(engine);
 
     TransmissionType transType = SelectCompatibleTransmission(engineType);
-    Part transmission = CreateTransmissionPart(transType, model.vendor);
+    Part transmission = CreateTransmissionPart(transType);
     car->SetGearbox(transmission);
 
     ManifoldType manifoldType = SelectCompatibleManifold(engineType);
@@ -35,7 +35,7 @@ CarPtr CarBuilder::BuildRandomCar(CarModel model) {
 
     // The carb must fit the manifold just chosen, not just the engine.
     CarburetorType carbType = SelectCompatibleCarburetor(manifoldType);
-    Part carburetor = CreateCarburetorPart(carbType, model.vendor);
+    Part carburetor = CreateCarburetorPart(carbType);
     car->SetCarburator(carburetor);
 
     std::uniform_int_distribution<> tireDist(0, (int)CarWheelType::RACING);
@@ -76,8 +76,8 @@ void CarBuilder::ApplySpec(Car* car, const SrCarSpecEntry& spec, CarVendor_t ven
     // Street Rod 2's three extra slots come off the spec too.
     car->SetSr2Parts(spec.exhaust, spec.muffler, spec.differential);
 
-    car->SetCarburator(CreateCarburetorPart(kCarbByClass[carbClass], vendor));
-    car->SetGearbox(CreateTransmissionPart(kTransByClass[vendorRow][transClass], vendor));
+    car->SetCarburator(CreateCarburetorPart(kCarbByClass[carbClass]));
+    car->SetGearbox(CreateTransmissionPart(kTransByClass[vendorRow][transClass]));
     car->SetTires(kTiresByClass[tireClass]);
     car->SetWeightClass(spec.car_class);
 
@@ -99,7 +99,7 @@ CarEngine_t CarBuilder::GetDefaultEngineForVendor(CarVendor_t vendor) {
             return CarEngineChrysler_V6;
         case CarVendorCustom:
             return CarEngineGM_V6; // Custom cars might use GM as base
-        case CarVendorUnknown:
+        case CarVendorGeneric:
             return CarEngineGM_V6; // Unknown vendor defaults to GM
         default:
             return CarEngineGM_V6;
@@ -145,7 +145,7 @@ CarburetorType CarBuilder::SelectCompatibleCarburetor(ManifoldType manifold) {
     return compatible[dist(RandomEngine())];
 }
 
-Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendor) {
+Part CarBuilder::CreateTransmissionPart(TransmissionType type) {
     AmigaLibAsset assetId;
     switch (type) {
         case TRANS_AUTO_GM: assetId = static_cast<AmigaLibAsset>(SR_TRANS_AUTO_GM); break;
@@ -162,6 +162,9 @@ Part CarBuilder::CreateTransmissionPart(TransmissionType type, CarVendor_t vendo
         case TRANS_RACING_CHRYSLER: assetId = static_cast<AmigaLibAsset>(SR_TRANS_RACING_CHRYSLER); break;
         case TRANS_4SPD_UNIVERSAL: assetId = static_cast<AmigaLibAsset>(SR_TRANS_4SPD_UNIVERSAL); break;
     }
+    // Catalog order is GM, Ford, Chrysler within each kind.
+    static const CarVendor_t kMakes[3] = {CarVendorGM, CarVendorFord, CarVendorChrysler};
+    const CarVendor_t vendor = type == TRANS_4SPD_UNIVERSAL ? CarVendorGeneric : kMakes[type % 3];
     return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
@@ -171,14 +174,14 @@ Part CarBuilder::CreateManifoldPart(ManifoldType type, CarVendor_t vendor) {
     return Part(0, PartCatalogPrice(type), vendor, assetId, type);
 }
 
-Part CarBuilder::CreateCarburetorPart(CarburetorType type, CarVendor_t vendor) {
+Part CarBuilder::CreateCarburetorPart(CarburetorType type) {
     AmigaLibAsset assetId;
     switch (type) {
         case CARB_2BARREL: assetId = ENGINE_CARB_2BARREL; break;
         case CARB_4BARREL: assetId = ENGINE_CARB_4BARREL; break;
         case CARB_4BARREL_RACING: assetId = ENGINE_CARB_4BARREL_RACING; break;
     }
-    return Part(0, PartCatalogPrice(type), vendor, assetId, type);
+    return Part(0, PartCatalogPrice(type), CarVendorGeneric, assetId, type);
 }
 
 // The save's variant byte indexes one flat master parts table. Transmissions are 9-21 in catalog order.

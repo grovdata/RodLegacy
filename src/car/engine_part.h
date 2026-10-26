@@ -132,7 +132,7 @@ struct EnginePart {
             case CarEngineFord_V8_351:
                 return CarVendorFord;
             default:
-                return CarVendorUnknown;
+                return CarVendorGeneric;
         }
     }
 };

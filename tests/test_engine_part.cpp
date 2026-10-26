@@ -174,7 +174,7 @@ TEST_CASE("Chrysler vendor maps to Chrysler V8 340 with correct HP") {
 }
 
 TEST_CASE("unknown vendor falls back to GM V8 327") {
-    Part p(0, 0, CarVendorUnknown, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
+    Part p(0, 0, CarVendorGeneric, ENGINE_V8, TRANS_4SPD_UNIVERSAL);
     EnginePart ep = EnginePart::FromPart(p);
     CHECK(ep.engineType == CarEngineGM_V8_327);
 }

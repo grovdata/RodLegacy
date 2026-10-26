@@ -27,13 +27,13 @@ PartCatalogEntry Trans(CarVendor_t v, TransmissionType t) {
     PartCatalogEntry e{}; e.category = PartCategory::Transmission; e.vendor = v; e.transType = t; return e;
 }
 PartCatalogEntry Carb(CarburetorType t) {
-    PartCatalogEntry e{}; e.category = PartCategory::Carburetor; e.vendor = CarVendorUnknown; e.carbType = t; return e;
+    PartCatalogEntry e{}; e.category = PartCategory::Carburetor; e.vendor = CarVendorGeneric; e.carbType = t; return e;
 }
 PartCatalogEntry Manifold(CarVendor_t v, ManifoldType t) {
     PartCatalogEntry e{}; e.category = PartCategory::Manifold; e.vendor = v; e.manifoldType = t; return e;
 }
 PartCatalogEntry Tire(CarWheelType t) {
-    PartCatalogEntry e{}; e.category = PartCategory::Tire; e.vendor = CarVendorUnknown; e.tireType = t; return e;
+    PartCatalogEntry e{}; e.category = PartCategory::Tire; e.vendor = CarVendorGeneric; e.tireType = t; return e;
 }
 
 // Identity of each of the 40 AUTO PARTS slots, in executable order. Name and price come from partMetadata.
@@ -56,7 +56,7 @@ const PartCatalogEntry kPartCatalog[40] = {
     Trans(CarVendorGM,       TRANS_4SPD_GM),
     Trans(CarVendorFord,     TRANS_4SPD_FORD),
     Trans(CarVendorChrysler, TRANS_4SPD_CHRYSLER),
-    Trans(CarVendorUnknown,  TRANS_4SPD_UNIVERSAL), // "Fits all"
+    Trans(CarVendorGeneric,  TRANS_4SPD_UNIVERSAL), // "Fits all"
     Trans(CarVendorGM,       TRANS_RACING_GM),
     Trans(CarVendorFord,     TRANS_RACING_FORD),
     Trans(CarVendorChrysler, TRANS_RACING_CHRYSLER),
@@ -163,12 +163,12 @@ const PartCatalogEntry kSr2PartCatalog[64] = {
     Sr2Part(PartCategory::ExhaustManifold, CarVendorFord,     SR_EXHAUST_HEADERS),
     Sr2Part(PartCategory::ExhaustManifold, CarVendorChrysler, SR_EXHAUST_HEADERS),
 
-    Sr2Part(PartCategory::Muffler, CarVendorUnknown, SR_MUFFLER_STOCK),
-    Sr2Part(PartCategory::Muffler, CarVendorUnknown, SR_MUFFLER_GLASSPACK),
+    Sr2Part(PartCategory::Muffler, CarVendorGeneric, SR_MUFFLER_STOCK),
+    Sr2Part(PartCategory::Muffler, CarVendorGeneric, SR_MUFFLER_GLASSPACK),
 
-    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_2_78),
-    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_3_73),
-    Sr2Part(PartCategory::Differential, CarVendorUnknown, SR_DIFF_4_11),
+    Sr2Part(PartCategory::Differential, CarVendorGeneric, SR_DIFF_2_78),
+    Sr2Part(PartCategory::Differential, CarVendorGeneric, SR_DIFF_3_73),
+    Sr2Part(PartCategory::Differential, CarVendorGeneric, SR_DIFF_4_11),
 };
 
 const PartCatalogEntry* PartCatalog() { return state.GetAssets().GetGame() == SrGame::SR2 ? kSr2PartCatalog : kPartCatalog; }
@@ -1031,14 +1031,14 @@ void Newspaper::ShowPartPurchaseDialog(int partIndex) {
                             break;
                         }
                         case PartCategory::Transmission: {
-                            Part part = CarBuilder::CreateTransmissionPart(entry.transType, entry.vendor);
+                            Part part = CarBuilder::CreateTransmissionPart(entry.transType);
                             part.cost = price;
                             part.name = adName;
                             state.AddSpareTransmission(part);
                             break;
                         }
                         case PartCategory::Carburetor: {
-                            Part part = CarBuilder::CreateCarburetorPart(entry.carbType, entry.vendor);
+                            Part part = CarBuilder::CreateCarburetorPart(entry.carbType);
                             part.cost = price;
                             part.name = adName;
                             state.AddSpareCarburetor(part);
@@ -1196,7 +1196,7 @@ std::string CatalogPartName(PartCategory category, CarVendor_t vendor, int typeV
             case PartCategory::Differential:    entryType = e.sr2Class; break;
         }
         if (entryType != typeValue) continue;
-        if (e.vendor != CarVendorUnknown && e.vendor != vendor) continue;
+        if (e.vendor != CarVendorGeneric && e.vendor != vendor) continue;
         return names[i];
     }
     return "";
@@ -1216,7 +1216,7 @@ std::string Newspaper::FindCatalogName(PartCategory category, CarVendor_t vendor
             default: continue;
         }
         if (entryType != typeValue) continue;
-        if (e.vendor != CarVendorUnknown && e.vendor != vendor) continue;
+        if (e.vendor != CarVendorGeneric && e.vendor != vendor) continue;
         const char* name = partMetadata[i].classified.carName;
         return name ? name : "";
     }
@@ -1230,11 +1230,11 @@ std::string Newspaper::FindTransmissionCatalogName(TransmissionType type, CarVen
     return FindCatalogName(PartCategory::Transmission, vendor, (int)type);
 }
 std::string Newspaper::FindCarburetorCatalogName(CarburetorType type) const {
-    return FindCatalogName(PartCategory::Carburetor, CarVendorUnknown, (int)type);
+    return FindCatalogName(PartCategory::Carburetor, CarVendorGeneric, (int)type);
 }
 std::string Newspaper::FindManifoldCatalogName(ManifoldType type, CarVendor_t vendor) const {
     return FindCatalogName(PartCategory::Manifold, vendor, (int)type);
 }
 std::string Newspaper::FindTireCatalogName(CarWheelType type) const {
-    return FindCatalogName(PartCategory::Tire, CarVendorUnknown, (int)type);
+    return FindCatalogName(PartCategory::Tire, CarVendorGeneric, (int)type);
 }

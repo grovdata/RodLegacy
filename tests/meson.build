@@ -42,6 +42,7 @@ test_sources = [
     'test_engine_bay_layout.cpp',
     'test_sr2_engine_bay_layout.cpp',
     'test_car_carburetors.cpp',
+    'test_carb_fitment.cpp',
     'test_car_haggle.cpp',
     'test_part_sale.cpp',
     'test_diner_actors.cpp',
@@ -68,6 +69,8 @@ test_sources = [
     '../src/parsers/libp.cpp',
     '../src/car/car_set.cpp',   # libp.cpp reads the measured wheel Y from here
     '../src/car/car_system.cpp',
+    '../src/car/car_builder.cpp',
+    '../src/car/car.cpp',
     '../src/race/racer_pool.cpp',
     '../src/race/bet_acceptance.cpp',
     '../src/car/car_haggle.cpp',

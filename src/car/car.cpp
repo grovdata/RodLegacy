@@ -28,7 +28,7 @@ CarEngine_t Car::GetEngineType() const {
     if (specEngineClass >= 0) {
         // Hardcoding GM here gave a Ford's spec engine GM displacement.
         CarVendor_t vendor = model.vendor;
-        if (vendor == CarVendorUnknown) vendor = SrLibQueryGetCarVendor(model.index);
+        if (vendor == CarVendorGeneric) vendor = SrLibQueryGetCarVendor(model.index);
         return SpecEngineType(vendor, specEngineClass);
     }
     return engine.engineType;
@@ -157,7 +157,7 @@ AmigaLibAsset TireAssetForType(CarWheelType type) {
 void Car::SetTires(CarWheelType type, int wear, int cost) {
     // The lookup only knows lib.p assets.
     CarVendor_t vendor = model.vendor;
-    if (vendor == CarVendorUnknown) {
+    if (vendor == CarVendorGeneric) {
         vendor = SrLibQueryGetCarVendor(model.index);
     }
     const AmigaLibAsset aid = TireAssetForType(type);

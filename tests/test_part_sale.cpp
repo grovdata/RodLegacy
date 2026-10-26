@@ -104,7 +104,7 @@ TEST_CASE("SR2 under-car parts rebuilt from class carry the catalogue price") {
     CHECK(MakeSr2Part(PartCategory::ExhaustManifold, SR_EXHAUST_HEADERS, CarVendorChrysler).cost == 65);
     CHECK(MakeSr2Part(PartCategory::ExhaustManifold, SR_EXHAUST_HEADERS, CarVendorFord).vendor == CarVendorFord);
     CHECK(MakeSr2Part(PartCategory::Muffler, SR_MUFFLER_GLASSPACK, CarVendorFord).cost == 15);
-    CHECK(MakeSr2Part(PartCategory::Muffler, SR_MUFFLER_STOCK, CarVendorFord).vendor == CarVendorUnknown);
+    CHECK(MakeSr2Part(PartCategory::Muffler, SR_MUFFLER_STOCK, CarVendorFord).vendor == CarVendorGeneric);
     CHECK(MakeSr2Part(PartCategory::Differential, SR_DIFF_2_78, CarVendorGM).cost == 50);
     CHECK(MakeSr2Part(PartCategory::Differential, SR_DIFF_4_11, CarVendorGM).cost == 150);
     const Part headers = MakeSr2Part(PartCategory::ExhaustManifold, SR_EXHAUST_HEADERS, CarVendorGM);

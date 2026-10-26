@@ -3,8 +3,8 @@
 
 // The original gates every engine bay part on make first. A car with no known make takes anything.
 bool PartsCompatibilityManager::IsVendorCompatible(CarVendor_t part, CarVendor_t car) {
-    if (car == CarVendorCustom || car == CarVendorUnknown) return true;
-    if (part == CarVendorCustom || part == CarVendorUnknown) return true;
+    if (car == CarVendorCustom || car == CarVendorGeneric) return true;
+    if (part == CarVendorCustom || part == CarVendorGeneric) return true;
     return part == car;
 }
 

@@ -509,7 +509,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
             case 0: { // Transmission - decode owned by CarBuilder::TransmissionTypeFromSaveVariant
                 TransmissionType type;
                 if (!CarBuilder::TransmissionTypeFromSaveVariant(p.variant, type)) type = TRANS_4SPD_UNIVERSAL;
-                Part part = CarBuilder::CreateTransmissionPart(type, model.vendor);
+                Part part = CarBuilder::CreateTransmissionPart(type);
                 part.wear = p.wearRaw;
                 part.cost = p.value;
                 car->SetGearbox(part);
@@ -541,7 +541,7 @@ CarPtr BuildCarFromRecord(const LoadedCarRecord& rec, CarData& carData,
             case 5: {  // that many separate carburetors.
                 CarburetorType type;
                 if (!CarBuilder::CarburetorTypeFromSaveVariant(p.variant, type)) type = CARB_4BARREL;
-                Part part = CarBuilder::CreateCarburetorPart(type, model.vendor);
+                Part part = CarBuilder::CreateCarburetorPart(type);
                 // Carbs don't track wear; wearRaw is the 0xFF80 sentinel.
                 part.cost = p.value;
                 car->SetCarburetor(slot - 3, part);

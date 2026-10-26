@@ -1827,7 +1827,7 @@ CarVendor_t SrLibQueryGetCarVendor(int carIndex) {
         }
     }
 
-    return CarVendorUnknown;
+    return CarVendorGeneric;
 }
 
 uint32_t SrLibCalculateChecksum(const char *filename) {

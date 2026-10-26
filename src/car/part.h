@@ -130,7 +130,7 @@ struct Part {
         int sr2Class;  // SrExhaustManifold / SrMuffler / SrDifferential
     } partType;
 
-    Part() : wear(0), cost(0), vendor(CarVendorUnknown), assetId(ENGINE_V8) {
+    Part() : wear(0), cost(0), vendor(CarVendorGeneric), assetId(ENGINE_V8) {
         partType.transmissionType = TRANS_4SPD_UNIVERSAL;
     }
 
@@ -173,7 +173,7 @@ inline int Sr2PartPrice(PartCategory category, int cls, CarVendor_t vendor) {
 
 inline Part MakeSr2Part(PartCategory category, int cls, CarVendor_t vendor) {
     Part p;
-    p.vendor = category == PartCategory::ExhaustManifold ? vendor : CarVendorUnknown;
+    p.vendor = category == PartCategory::ExhaustManifold ? vendor : CarVendorGeneric;
     p.cost = Sr2PartPrice(category, cls, p.vendor);
     p.partType.sr2Class = cls;
     return p;

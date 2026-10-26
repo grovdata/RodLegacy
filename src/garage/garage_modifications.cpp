@@ -407,7 +407,7 @@ void Garage::ShowCarInfoDialog() {
         };
 
         CarVendor_t vendor = model.vendor;
-        if (vendor == CarVendorUnknown) {
+        if (vendor == CarVendorGeneric) {
             vendor = SrLibQueryGetCarVendor(model.index);
         }
         const char* vendorStr = vendorToStr(vendor);
@@ -436,16 +436,16 @@ void Garage::ShowCarInfoDialog() {
             for (int i = 0; i < kMaxCarburetors; ++i) {
                 if (!car->HasCarburetor(i)) continue;
                 const Part carb = car->GetCarburetor(i);
-                indentedRow(PartCategory::Carburetor, CarVendorUnknown, static_cast<int>(carb.partType.carburetorType));
+                indentedRow(PartCategory::Carburetor, CarVendorGeneric, static_cast<int>(carb.partType.carburetorType));
             }
             if (car->HasGearbox()) {
                 const Part trans = car->GetGearbox();
                 row(PartCategory::Transmission, vendor, static_cast<int>(trans.partType.transmissionType), trans.wear);
             }
-            row(PartCategory::Tire, CarVendorUnknown, static_cast<int>(car->GetWheelType()), car->GetTires().wear);
+            row(PartCategory::Tire, CarVendorGeneric, static_cast<int>(car->GetWheelType()), car->GetTires().wear);
             row(PartCategory::ExhaustManifold, vendor, car->GetExhaust());
-            row(PartCategory::Muffler, CarVendorUnknown, car->GetMuffler());
-            row(PartCategory::Differential, CarVendorUnknown, car->GetDifferential());
+            row(PartCategory::Muffler, CarVendorGeneric, car->GetMuffler());
+            row(PartCategory::Differential, CarVendorGeneric, car->GetDifferential());
         } else {
 
         // GetEngineType(), not the stored EnginePart, which is a placeholder V6 on a spec car. Each line only while

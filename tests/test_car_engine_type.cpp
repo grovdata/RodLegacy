@@ -15,7 +15,7 @@ TEST_CASE("spec engine class resolves to the car's own brand and tier") {
     // Custom/unknown brands fall back to the GM row rather than running off
     // the end of the enum.
     CHECK(SpecEngineType(CarVendorCustom, 2) == CarEngineGM_V8_327);
-    CHECK(SpecEngineType(CarVendorUnknown, 0) == CarEngineGM_V6);
+    CHECK(SpecEngineType(CarVendorGeneric, 0) == CarEngineGM_V6);
 }
 
 TEST_CASE("out-of-range spec classes clamp into the brand's own row") {

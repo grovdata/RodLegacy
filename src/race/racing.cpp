@@ -849,7 +849,7 @@ void Racing::InitializeOpponent() {
             break;
         case CarVendorFord:
         case CarVendorCustom:
-        case CarVendorUnknown:
+        case CarVendorGeneric:
         default:
             opponentCarType = 0;
             break;

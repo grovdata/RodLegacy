@@ -145,8 +145,8 @@ TEST_CASE("Chrysler/Dodge/Plymouth/Valiant are Chrysler") {
     CHECK(SrLibQueryGetCarVendor(VALIANT_V200_1961)              == CarVendorChrysler);
 }
 
-TEST_CASE("unknown car index returns CarVendorUnknown") {
-    CHECK(SrLibQueryGetCarVendor(9999) == CarVendorUnknown);
+TEST_CASE("unknown car index returns CarVendorGeneric") {
+    CHECK(SrLibQueryGetCarVendor(9999) == CarVendorGeneric);
 }
 
 }

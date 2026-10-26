@@ -73,7 +73,7 @@ struct RawPart {
     int type = 0;
     int wear = 0;
     int cost = 0;
-    CarVendor_t vendor = CarVendorUnknown;
+    CarVendor_t vendor = CarVendorGeneric;
     std::string name;
 };
 
@@ -98,7 +98,7 @@ Part ApplyRaw(Part p, const RawPart& r) {
 Part TransmissionFromToml(const SaveValue& v) {
     const RawPart r = ReadRawPart(v);
     return ApplyRaw(CarBuilder::CreateTransmissionPart(
-                        static_cast<TransmissionType>(r.type), r.vendor), r);
+                        static_cast<TransmissionType>(r.type)), r);
 }
 
 Part ManifoldFromToml(const SaveValue& v) {
@@ -110,7 +110,7 @@ Part ManifoldFromToml(const SaveValue& v) {
 Part CarburetorFromToml(const SaveValue& v) {
     const RawPart r = ReadRawPart(v);
     return ApplyRaw(CarBuilder::CreateCarburetorPart(
-                        static_cast<CarburetorType>(r.type), r.vendor), r);
+                        static_cast<CarburetorType>(r.type)), r);
 }
 
 Part TireFromToml(const SaveValue& v) {
@@ -578,7 +578,7 @@ void ScrambleState() {
         c->SetColor(static_cast<StandardCarColor>(3));
         c->SetRoofChopped(true);
         c->SetTires(RACING, 3317, 210);
-        Part trans = CarBuilder::CreateTransmissionPart(TRANS_4SPD_UNIVERSAL, CarVendorFord);
+        Part trans = CarBuilder::CreateTransmissionPart(TRANS_4SPD_UNIVERSAL);
         trans.wear = 1737; trans.cost = 555; trans.name = "Trnsmsn 4-spd. Ford.";
         c->SetGearbox(trans);
         c->SetEngine(EnginePart(CarEngineFord_V8_351, 1183, 800, CarVendorFord, ENGINE_V8_BIG));

@@ -20,9 +20,9 @@ public:
 
     static CarPtr BuildRandomCar(CarModel model);
 
-    static Part CreateTransmissionPart(TransmissionType type, CarVendor_t vendor);
+    static Part CreateTransmissionPart(TransmissionType type);
     static Part CreateManifoldPart(ManifoldType type, CarVendor_t vendor);
-    static Part CreateCarburetorPart(CarburetorType type, CarVendor_t vendor);
+    static Part CreateCarburetorPart(CarburetorType type);
 
     // False when the save variant has no confirmed mapping, so callers can fall back explicitly.
     static bool TransmissionTypeFromSaveVariant(int variant, TransmissionType& out);
