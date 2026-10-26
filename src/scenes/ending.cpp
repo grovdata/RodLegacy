@@ -1,5 +1,6 @@
 #include "scenes/ending.h"
 
+#include "core/game_text.h"
 #include "core/state.h"
 #include "gfx/bitmap.h"
 #include "parsers/libp.h"
@@ -52,6 +53,7 @@ constexpr int kWinH = 44;
 constexpr Uint64 kFrameMs = 200;
 constexpr int kBeatFrame = 13;   // this one is held twice as long
 constexpr Uint64 kBeatExtraMs = 400;
+constexpr Uint64 kHeroDelayMs = 1000;   // Delay(50) before the line
 
 }
 
@@ -62,6 +64,7 @@ void Ending::OnSceneEnter() {
     phase = Phase::Win;
     frame = 1;
     phaseStart = GameTicks();
+    heroBubble.reset();
 
     SetAudioManager(state.GetAssets().GetAudioManager());
 
@@ -126,6 +129,10 @@ void Ending::DrawScene() {
             }
         }
     }
+    if (phase == Phase::Done && !heroBubble && now - phaseStart >= kHeroDelayMs) {
+        heroBubble = std::make_unique<Bubble>(GameText::Msg(GameText::HERO), BUBBLE_LEFT, false);
+        heroBubble->SetVisible(true);
+    }
 
     CarScene::DrawScene();
 
@@ -141,6 +148,9 @@ void Ending::DrawScene() {
         kiss != nullptr) {
         const Frame& f = kKiss[frame];
         kiss->DrawWithRects({f.sx, f.sy, f.w, f.h}, {f.dx, f.dy, f.w, f.h});
+    }
+    if (heroBubble) {
+        heroBubble->Draw();
     }
 }
 
@@ -178,6 +188,9 @@ bool Ending::PushEvent(SDL_Event* event) {
         return true;
     }
     if (pressed && phase == Phase::Done) {
+        if (!heroBubble) {
+            return true;
+        }
         phase = Phase::Leaving;
         FadeOut();
         return true;

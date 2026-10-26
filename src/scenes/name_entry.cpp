@@ -104,6 +104,7 @@ void NameEntry::HandleOk() {
     state.SetPlayerName(typedName);
     state.SetBankroll(750);
     state.StartNewGame();
+    if (AudioManager* am = state.GetAssets().GetAudioManager()) am->RestartMusic();
     state.MoveToScene(SCENE_NEWSPAPER);
 }
 

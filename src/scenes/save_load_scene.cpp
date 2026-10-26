@@ -411,6 +411,7 @@ void SaveLoadScene::Commit() {
         return;
     }
 
+    if (AudioManager* am = state.GetAssets().GetAudioManager()) am->RestartMusic();
     // A load resumes in the garage, not the screen it was opened from.
     GoTo(SCENE_GARAGE);
 }

@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "ui/bubble.h"
 #include "scenes/scene.h"
 #include "race/driver.h"
 
@@ -30,7 +31,7 @@ private:
         DriveIn,  // The King's car pulls into the garage
         Girl,     // 19 frames: she gets out
         Kiss,     // 9 frames: the kiss flies at the camera
-        Done,     // held, any key leaves
+        Done,     // held, then the girlfriend's line; any key leaves
         Leaving
     };
 
@@ -39,6 +40,7 @@ private:
     int girlFrame = 1;
 
     Uint64 phaseStart = 0;
+    std::unique_ptr<Bubble> heroBubble;   // shown a second after the kiss, any key leaves
 
     Bitmap* girl = nullptr;    // 297 GIRLFRIEND_ANIMATION
     Bitmap* kiss = nullptr;    // 298 KISS_ANIMATION
