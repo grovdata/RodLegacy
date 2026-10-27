@@ -59,8 +59,20 @@ Menus and scenes:
 | A | Click |
 | B | Back (closes a dialog, leaves a screen) |
 | X | Snap the cursor to the nearest button or hotspot |
-| LB / Y | Straight to the garage / the diner |
+| LB / Y / A | Skip the cruising cutscene |
 | RB | Enter |
+
+On-screen keyboard (while a text field is active):
+
+| Gamepad | Action |
+| --- | --- |
+| Back (Select) / LB | Show / hide the keyboard |
+| D-pad | Move over the keys (Up from the top row hides it) |
+| A | Type the key |
+| X | Delete |
+| Y / RS | Shift |
+| RB | OK |
+| B | Esc |
 
 Anywhere, driving included:
 
