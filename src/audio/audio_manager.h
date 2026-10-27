@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <map>
 #include <vector>
 #include <string>

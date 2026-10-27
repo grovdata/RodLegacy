@@ -9,7 +9,7 @@
 
 #include "audio/sr2_mus.h"
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <atomic>
 #include <vector>

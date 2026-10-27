@@ -1,6 +1,6 @@
 #include "audio/pc_speaker.h"
 #include <exepack/unpack.hpp>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>

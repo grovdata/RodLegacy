@@ -1,21 +1,41 @@
 #!/bin/bash
 # Build a distributable RodLegacy.app (+ .dmg) for macOS.
-# Bundles the Homebrew dylibs, so the result runs on a machine without brew.
+# Universal (arm64 11.0 + x86_64 10.15), everything linked statically from source, nothing to bundle.
+# 10.15 is the floor because the code uses std::filesystem.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 BUILD=build-macos
 APP=$BUILD/RodLegacy.app
 
-command -v dylibbundler >/dev/null || { echo "need: brew install dylibbundler"; exit 1; }
+# Homebrew's pkg-config is hidden so only the subprojects are used, whatever is installed.
+export PKG_CONFIG_LIBDIR=$(mktemp -d)
+FALLBACK=sdl2,ogg,vorbis,sdl2_image,sdl2_mixer
 
-[ -d "$BUILD" ] || meson setup "$BUILD" --buildtype=release
-ninja -C "$BUILD" rodlegacy
-VERSION=$(python3 -c "import json;print(json.load(open('$BUILD/meson-info/intro-projectinfo.json'))['version'])")
+build_arch() {
+    local arch=$1 min=$2 dir=$BUILD/$1
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$BUILD"
+        cat > "$BUILD/$arch.ini" <<INI
+[built-in options]
+c_args = ['-arch', '$arch', '-mmacosx-version-min=$min']
+cpp_args = ['-arch', '$arch', '-mmacosx-version-min=$min']
+objc_args = ['-arch', '$arch', '-mmacosx-version-min=$min']
+c_link_args = ['-arch', '$arch', '-mmacosx-version-min=$min']
+cpp_link_args = ['-arch', '$arch', '-mmacosx-version-min=$min']
+INI
+        meson setup "$dir" --native-file "$BUILD/$arch.ini" --buildtype=release --force-fallback-for=$FALLBACK
+    fi
+    ninja -C "$dir" rodlegacy
+}
+
+build_arch arm64 11.0
+build_arch x86_64 10.15
+VERSION=$(python3 -c "import json;print(json.load(open('$BUILD/arm64/meson-info/intro-projectinfo.json'))['version'])")
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-install -m755 "$BUILD/rodlegacy" "$APP/Contents/MacOS/rodlegacy"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+lipo -create "$BUILD/arm64/rodlegacy" "$BUILD/x86_64/rodlegacy" -output "$APP/Contents/MacOS/rodlegacy"
 strip -x "$APP/Contents/MacOS/rodlegacy"
 
 iconset=$(mktemp -d)/RodLegacy.iconset
@@ -40,47 +60,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key>           <string>$VERSION</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
-    <key>LSMinimumSystemVersion</key>    <string>11.0</string>
+    <key>LSMinimumSystemVersion</key>    <string>10.15</string>
     <key>NSHighResolutionCapable</key>   <true/>
 </dict>
 </plist>
 PLIST
-
-dylibbundler -of -b -x "$APP/Contents/MacOS/rodlegacy" \
-    -d "$APP/Contents/Frameworks" -p @executable_path/../Frameworks
-
-# Homebrew's sdl2 is sdl2-compat, a shim that dlopens SDL3 at run time. That
-# load is invisible to dylibbundler, and the shim aborts in its initializer
-# when it cannot find it. It looks beside itself first, so put it there.
-SDL2_LIB=$APP/Contents/Frameworks/libSDL2-2.0.0.dylib
-if [ -f "$SDL2_LIB" ] && strings -a "$SDL2_LIB" | grep -q '@loader_path/libSDL3.dylib'; then
-    SDL3_LIB=$(pkg-config --variable=libdir sdl3)/libSDL3.0.dylib
-    [ -f "$SDL3_LIB" ] || { echo "sdl2-compat needs SDL3: brew install sdl3"; exit 1; }
-    install -m644 "$SDL3_LIB" "$APP/Contents/Frameworks/libSDL3.dylib"
-    install_name_tool -id @loader_path/libSDL3.dylib "$APP/Contents/Frameworks/libSDL3.dylib"
-fi
-
-# dylibbundler runs install_name_tool -add_rpath once per library it rewrites,
-# so the same LC_RPATH lands in the binary several times over. dyld on macOS 15
-# refuses to launch that ("duplicate LC_RPATH '@executable_path/../Frameworks/'")
-# where older versions just ignored the repeats. Keep one of each. Must happen
-# before codesign, which this invalidates.
-dedupe_rpaths() {
-    local bin=$1
-    otool -l "$bin" | awk '/LC_RPATH/{r=1; next} r && $1=="path"{print $2; r=0}' |
-        sort | uniq -c | while read -r count path; do
-            while [ "$count" -gt 1 ]; do
-                install_name_tool -delete_rpath "$path" "$bin"
-                count=$((count - 1))
-            done
-        done
-}
-
-dedupe_rpaths "$APP/Contents/MacOS/rodlegacy"
-for lib in "$APP"/Contents/Frameworks/*.dylib; do
-    [ -e "$lib" ] || continue
-    dedupe_rpaths "$lib"
-done
 
 # Ad-hoc signature: unsigned arm64 binaries are killed on launch.
 codesign --force --deep --sign - "$APP"

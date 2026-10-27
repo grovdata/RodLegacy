@@ -185,9 +185,11 @@ jobs:
 
     mac:
         runs-on: macos-latest
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         steps:
-            - run: brew install meson ninja pkgconf sdl2 sdl3 libogg libvorbis dylibbundler
+            - run: brew install meson ninja pkgconf
+            - run: softwareupdate --install-rosetta --agree-to-license || true
+            - run: arch -x86_64 /usr/bin/true && echo "rosetta ok"
 
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -196,7 +198,21 @@ jobs:
             - name: Build .app and .dmg
               run: scripts/build_macos_app.sh
 
+            - name: Check slices
+              run: |
+                  B=build-macos/RodLegacy.app/Contents/MacOS/rodlegacy
+                  lipo -info "$B"
+                  for a in arm64 x86_64; do otool -l -arch $a "$B" | grep -A3 LC_BUILD_VERSION | grep minos; done
+
+            - name: Upload dmg
+              if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: macos-dmg
+                  path: build-macos/RodLegacy-*.dmg
+
             - name: Attach to release
+              if: startsWith(github.ref, 'refs/tags/')
               uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
               with:
                   files: build-macos/RodLegacy-*.dmg

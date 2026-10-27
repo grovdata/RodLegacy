@@ -5,7 +5,7 @@
 #include <cstring>
 #include <random>
 #include <algorithm>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 // CODE_24 stores (duration_u16, pit_u16) pairs after a 4-byte null header; duration 0 ends a segment.
 

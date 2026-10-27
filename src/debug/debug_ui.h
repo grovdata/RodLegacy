@@ -10,7 +10,7 @@
 // ImGui debug UI: the game renders into an offscreen texture shown inside a dockspace.
 // Only with -Ddebug_ui=true; otherwise the stub below makes every call an empty inline.
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <functional>
 #include <string>
