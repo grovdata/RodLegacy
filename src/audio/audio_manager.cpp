@@ -13,7 +13,7 @@
 #include "audio/adlib_sfx.h"
 #include "parsers/adf.h"
 #include "parsers/libp.h"
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <cstring>
 #include <algorithm>
 #include <fstream>

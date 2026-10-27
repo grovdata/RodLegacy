@@ -9,7 +9,7 @@
 
 #include "audio/pc_speaker_fx.h"
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <atomic>
 #include <vector>
